@@ -157,3 +157,4 @@ $RECYCLE.BIN/
 /_External_Dependencies
 /packages
 /NuGet.Packager
+/.vs/EntityFrameworkCore.Jet/v15/sqlite3/storage.ide

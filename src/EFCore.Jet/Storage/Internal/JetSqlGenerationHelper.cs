@@ -34,7 +34,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override string EscapeIdentifier(string identifier)
-            => Check.NotEmpty(identifier, nameof(identifier)).Replace("]", "]]");
+        {
+            Check.NotEmpty(identifier, nameof(identifier));
+
+            identifier = identifier.Replace(".", "#");
+            identifier = identifier.Replace("]", "]]");
+
+            return identifier;
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -44,9 +51,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             Check.NotEmpty(identifier, nameof(identifier));
 
-            var initialLength = builder.Length;
+            identifier = identifier.Replace(".", "#");
+            identifier = identifier.Replace("]", "]]");
             builder.Append(identifier);
-            builder.Replace("]", "]]", initialLength, identifier.Length);
         }
 
         /// <summary>
@@ -54,7 +61,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override string DelimitIdentifier(string identifier)
-            => $"[{EscapeIdentifier(Check.NotEmpty(identifier, nameof(identifier)))}]"; // Interpolation okay; strings
+        {
+            return $"[{EscapeIdentifier(Check.NotEmpty(identifier, nameof(identifier)))}]";
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -67,6 +76,18 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             builder.Append('[');
             EscapeIdentifier(builder, identifier);
             builder.Append(']');
+        }
+
+        public override void DelimitIdentifier(StringBuilder builder, string name, string schema)
+        {
+            // Schema is not supported in Jet
+            DelimitIdentifier(builder, name);
+        }
+
+        public override string DelimitIdentifier(string name, string schema)
+        {
+            // Schema is not supported in Jet
+            return DelimitIdentifier(Check.NotEmpty(name, nameof(name)));
         }
     }
 }

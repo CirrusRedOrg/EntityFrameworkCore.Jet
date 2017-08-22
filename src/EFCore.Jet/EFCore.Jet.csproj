@@ -223,8 +223,6 @@
     <Compile Include="Storage\Internal\JetDateTimeOffsetTypeMapping.cs" />
     <Compile Include="Storage\Internal\JetDateTimeTypeMapping.cs" />
     <Compile Include="Storage\Internal\JetDoubleTypeMapping.cs" />
-    <Compile Include="Storage\Internal\JetExecutionStrategy.cs" />
-    <Compile Include="Storage\Internal\JetExecutionStrategyFactory.cs" />
     <Compile Include="Storage\Internal\JetFloatTypeMapping.cs" />
     <Compile Include="Storage\Internal\JetSqlGenerationHelper.cs" />
     <Compile Include="Storage\Internal\JetStringTypeMapping.cs" />

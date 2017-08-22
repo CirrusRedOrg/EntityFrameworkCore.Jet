@@ -85,8 +85,8 @@ namespace EFCore.Jet.Integration.Test.Model39_DetachedEntities
 
 
             {
-                Debug.Assert(Context.Grades.Count() == 2);
-                Debug.Assert(Context.GradeWidths.Count() == 6);
+                Assert.AreEqual(2, Context.Grades.Count());
+                Assert.AreEqual(6, Context.GradeWidths.Count());
             }
 
         }

@@ -27,9 +27,9 @@ namespace EFCore.Jet.Integration.Test.Model46_InnerClasses
 
             {
                 ClassA a = Context.ClassAs.First();
-                Debug.Assert(a.B.b == 10);
-                Debug.Assert(a.C != null);
-                Debug.Assert(a.C.c == null);
+                Assert.AreEqual(10, a.B.b);
+                Assert.IsNotNull(a.C);
+                Assert.IsNull(a.C.c);
             }
         }
     }

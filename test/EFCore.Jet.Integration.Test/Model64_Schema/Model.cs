@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EFCore.Jet.Integration.Test.Model64_Schema
 {
-    [Table("Jet.TableWithSchema")]
+    [Table("TableWithSchema",Schema = "Jet")]
     public class Item
     {
         public int Id { get; set; }

@@ -84,7 +84,6 @@ namespace Extensions.DependencyInjection
                 .TryAdd<IRelationalDatabaseCreator, JetDatabaseCreator>()
                 .TryAdd<IHistoryRepository, JetHistoryRepository>()
                 .TryAdd<ICompiledQueryCacheKeyGenerator, JetCompiledQueryCacheKeyGenerator>()
-                .TryAdd<IExecutionStrategyFactory, JetExecutionStrategyFactory>()
                 .TryAdd<IQueryCompilationContextFactory, JetQueryCompilationContextFactory>()
                 .TryAdd<IMemberTranslator, JetCompositeMemberTranslator>()
                 .TryAdd<ICompositeMethodCallTranslator, JetCompositeMethodCallTranslator>()

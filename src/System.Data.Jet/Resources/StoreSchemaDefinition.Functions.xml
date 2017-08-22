@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<DataTable>
+  <xs:schema id="NewDataSet" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:MainDataTable="Functions" msdata:UseCurrentLocale="true">
+      <xs:complexType>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="Functions">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="Id" type="xs:string" minOccurs="0" />
+                <xs:element name="CatalogName" type="xs:string" minOccurs="0" />
+                <xs:element name="SchemaName" type="xs:string" minOccurs="0" />
+                <xs:element name="Name" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnTypeName" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnMaxLength" type="xs:int" minOccurs="0" />
+                <xs:element name="ReturnPrecision" type="xs:int" minOccurs="0" />
+                <xs:element name="ReturnDateTimePrecision" type="xs:int" minOccurs="0" />
+                <xs:element name="ReturnScale" type="xs:int" minOccurs="0" />
+                <xs:element name="ReturnCollationCatalog" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnCollationSchema" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnCollationName" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnCharacterSetCatalog" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnCharacterSetSchema" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnCharacterSetName" type="xs:string" minOccurs="0" />
+                <xs:element name="ReturnIsMultiSet" type="xs:boolean" minOccurs="0" />
+                <xs:element name="IsAggregate" type="xs:boolean" minOccurs="0" />
+                <xs:element name="IsBuiltIn" type="xs:boolean" minOccurs="0" />
+                <xs:element name="IsNiladic" type="xs:boolean" minOccurs="0" />
+                <xs:element name="IsTvf" type="xs:boolean" minOccurs="0" />
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+  <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1" />
+</DataTable>

@@ -1,0 +1,4 @@
+<#
+    Session["ResourceFile"] = "JetStrings.resx";
+#>
+<#@ include file="..\..\..\tools\Resources.tt" #>

@@ -1,0 +1,278 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\..\build\common.props" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{D6966B04-4C38-4925-BCDE-F8655F38D04C}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
+    <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <NoWarn>1701;1702;1705;xUnit1004;CS1591;SA1200</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.EntityFrameworkCore, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.EntityFrameworkCore.2.0.0\lib\netstandard2.0\Microsoft.EntityFrameworkCore.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore.Relational, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.EntityFrameworkCore.Relational.2.0.0\lib\netstandard2.0\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Caching.Abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Caching.Abstractions.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Caching.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Caching.Memory, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Caching.Memory.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Caching.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Configuration.Abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Configuration.Abstractions.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.DependencyInjection.2.0.0\lib\netstandard2.0\Microsoft.Extensions.DependencyInjection.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.2.0.0\lib\netstandard2.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Logging.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Logging.Abstractions.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Options, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Options.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Options.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Primitives, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Extensions.Primitives.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll</HintPath>
+    </Reference>
+    <Reference Include="Remotion.Linq, Version=2.1.0.0, Culture=neutral, PublicKeyToken=fee00910d6e5f53b, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Remotion.Linq.2.1.1\lib\net45\Remotion.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Collections.Immutable, Version=1.2.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Collections.Immutable.1.4.0\lib\netstandard2.0\System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.Annotations, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.ComponentModel.Annotations.4.4.0\lib\net461\System.ComponentModel.Annotations.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Core" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Diagnostics.DiagnosticSource, Version=4.0.2.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Diagnostics.DiagnosticSource.4.4.1\lib\net46\System.Diagnostics.DiagnosticSource.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Interactive.Async, Version=3.0.3000.0, Culture=neutral, PublicKeyToken=94bc3704cddfc263, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Interactive.Async.3.1.1\lib\net46\System.Interactive.Async.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe.4.4.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\Check.cs">
+      <Link>Check.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\CodeAnnotations.cs">
+      <Link>CodeAnnotations.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\MemberInfoExtensions.cs">
+      <Link>MemberInfoExtensions.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\PropertyInfoExtensions.cs">
+      <Link>PropertyInfoExtensions.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\SharedTypeExtensions.cs">
+      <Link>SharedTypeExtensions.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\StringBuilderExtensions.cs">
+      <Link>StringBuilderExtensions.cs</Link>
+    </Compile>
+    <Compile Include="Design\Internal\JetAnnotationCodeGenerator.cs" />
+    <Compile Include="Design\Internal\JetDesignTimeServices.cs" />
+    <Compile Include="Diagnostics\JetEventId.cs" />
+    <Compile Include="Extensions\JetDatabaseFacadeExtensions.cs" />
+    <Compile Include="Extensions\JetDbContextOptionsExtensions.cs" />
+    <Compile Include="Extensions\JetEntityTypeBuilderExtensions.cs" />
+    <Compile Include="Extensions\JetIndexBuilderExtensions.cs" />
+    <Compile Include="Extensions\JetKeyBuilderExtensions.cs" />
+    <Compile Include="Extensions\JetMetadataExtensions.cs" />
+    <Compile Include="Extensions\JetModelBuilderExtensions.cs" />
+    <Compile Include="Extensions\JetPropertyBuilderExtensions.cs" />
+    <Compile Include="Extensions\JetReferenceOwnershipBuilderExtensions.cs" />
+    <Compile Include="Extensions\JetServiceCollectionExtensions.cs" />
+    <Compile Include="Infrastructure\Internal\IJetOptions.cs" />
+    <Compile Include="Infrastructure\Internal\JetOptionsExtension.cs" />
+    <Compile Include="Infrastructure\JetDbContextOptionsBuilder.cs" />
+    <Compile Include="Internal\JetLoggerExtensions.cs" />
+    <Compile Include="Internal\JetModelValidator.cs" />
+    <Compile Include="Internal\JetOptions.cs" />
+    <Compile Include="Metadata\Conventions\Internal\JetDbFunctionConvention.cs" />
+    <Compile Include="Metadata\Conventions\Internal\JetIndexConvention.cs" />
+    <Compile Include="Metadata\Conventions\Internal\JetMemoryOptimizedTablesConvention.cs" />
+    <Compile Include="Metadata\Conventions\Internal\JetValueGenerationStrategyConvention.cs" />
+    <Compile Include="Metadata\Conventions\Internal\JetValueGeneratorConvention.cs" />
+    <Compile Include="Metadata\Conventions\JetConventionSetBuilder.cs" />
+    <Compile Include="Metadata\IJetEntityTypeAnnotations.cs" />
+    <Compile Include="Metadata\IJetIndexAnnotations.cs" />
+    <Compile Include="Metadata\IJetKeyAnnotations.cs" />
+    <Compile Include="Metadata\IJetModelAnnotations.cs" />
+    <Compile Include="Metadata\IJetPropertyAnnotations.cs" />
+    <Compile Include="Metadata\Internal\JetAnnotationNames.cs" />
+    <Compile Include="Metadata\Internal\JetEntityTypeBuilderAnnotations.cs" />
+    <Compile Include="Metadata\Internal\JetIndexBuilderAnnotations.cs" />
+    <Compile Include="Metadata\Internal\JetInternalMetadataBuilderExtensions.cs" />
+    <Compile Include="Metadata\Internal\JetKeyBuilderAnnotations.cs" />
+    <Compile Include="Metadata\Internal\JetModelBuilderAnnotations.cs" />
+    <Compile Include="Metadata\Internal\JetPropertyBuilderAnnotations.cs" />
+    <Compile Include="Metadata\JetEntityTypeAnnotations.cs" />
+    <Compile Include="Metadata\JetIndexAnnotations.cs" />
+    <Compile Include="Metadata\JetKeyAnnotations.cs" />
+    <Compile Include="Metadata\JetModelAnnotations.cs" />
+    <Compile Include="Metadata\JetPropertyAnnotations.cs" />
+    <Compile Include="Metadata\JetValueGenerationStrategy.cs" />
+    <Compile Include="Migrations\Internal\JetHistoryRepository.cs" />
+    <Compile Include="Migrations\Internal\JetMigrationsAnnotationProvider.cs" />
+    <Compile Include="Migrations\JetMigrationsSqlGenerator.cs" />
+    <Compile Include="Migrations\Operations\JetCreateDatabaseOperation.cs" />
+    <Compile Include="Migrations\Operations\JetDropDatabaseOperation.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\InternalsVisibleTo.cs" />
+    <Compile Include="Properties\JetStrings.Designer1.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>JetStrings.Designer.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Query\Expressions\Internal\RowNumberExpression.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetCompositeMemberTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetCompositeMethodCallTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetContainsOptimizedTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetConvertTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetDateAddTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetDateTimeDateComponentTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetDateTimeDatePartComponentTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetDateTimeNowTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetEndsWithOptimizedTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetMathTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetNewGuidTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetObjectToStringTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStartsWithOptimizedTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringIsNullOrWhiteSpaceTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringLengthTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringReplaceTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringSubstringTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringToLowerTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringToUpperTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringTrimEndTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringTrimStartTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStringTrimTranslator.cs" />
+    <Compile Include="Query\Internal\JetCompiledQueryCacheKeyGenerator.cs" />
+    <Compile Include="Query\Internal\JetQueryCompilationContext.cs" />
+    <Compile Include="Query\Internal\JetQueryCompilationContextFactory.cs" />
+    <Compile Include="Query\Sql\Internal\IJetExpressionVisitor.cs" />
+    <Compile Include="Query\Sql\Internal\JetQuerySqlGenerator.cs" />
+    <Compile Include="Query\Sql\Internal\JetQuerySqlGeneratorFactory.cs" />
+    <Compile Include="Scaffolding\Internal\JetDatabaseModelFactory.cs" />
+    <Compile Include="Scaffolding\Internal\JetDataReaderExtension.cs" />
+    <Compile Include="Scaffolding\Internal\JetScaffoldingCodeGenerator.cs" />
+    <Compile Include="Storage\Internal\IJetConnection.cs" />
+    <Compile Include="Storage\Internal\JetBoolTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetByteArrayTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetConnection.cs" />
+    <Compile Include="Storage\Internal\JetDatabaseCreator.cs" />
+    <Compile Include="Storage\Internal\JetDateTimeOffsetTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetDateTimeTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetDoubleTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetExecutionStrategy.cs" />
+    <Compile Include="Storage\Internal\JetExecutionStrategyFactory.cs" />
+    <Compile Include="Storage\Internal\JetFloatTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetSqlGenerationHelper.cs" />
+    <Compile Include="Storage\Internal\JetStringTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetTimeSpanTypeMapping.cs" />
+    <Compile Include="Storage\Internal\JetTransientExceptionDetector.cs" />
+    <Compile Include="Storage\Internal\JetTypeMapper.cs" />
+    <Compile Include="Update\Internal\IJetUpdateSqlGenerator.cs" />
+    <Compile Include="Update\Internal\JetModificationCommandBatch.cs" />
+    <Compile Include="Update\Internal\JetModificationCommandBatchFactory.cs" />
+    <Compile Include="Update\Internal\JetUpdateSqlGenerator.cs" />
+    <Compile Include="Utilities\EnumerableExtensions.cs" />
+    <Compile Include="ValueGeneration\Internal\IJetSequenceValueGeneratorFactory.cs" />
+    <Compile Include="ValueGeneration\Internal\IJetValueGeneratorCache.cs" />
+    <Compile Include="ValueGeneration\Internal\JetSequenceHiLoValueGenerator.cs" />
+    <Compile Include="ValueGeneration\Internal\JetSequenceValueGeneratorFactory.cs" />
+    <Compile Include="ValueGeneration\Internal\JetSequenceValueGeneratorState.cs" />
+    <Compile Include="ValueGeneration\Internal\JetValueGeneratorCache.cs" />
+    <Compile Include="ValueGeneration\Internal\JetValueGeneratorSelector.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Properties\JetStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Properties\EntityFrameworkCore.Jet.rd.xml" />
+    <Content Include="Properties\JetStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>JetStrings.Designer1.cs</LastGenOutput>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\JetStrings.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\System.Data.Jet\System.Data.Jet.csproj">
+      <Project>{88be8b4f-8da9-42b9-9a1f-839451ba5f8c}</Project>
+      <Name>System.Data.Jet</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

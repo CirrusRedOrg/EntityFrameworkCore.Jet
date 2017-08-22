@@ -1,0 +1,20 @@
+SELECT 
+	[#ViewColumns].[Ordinal] AS [C1], 
+	[#Views].[CatalogName] AS [CatalogName], 
+	[#Views].[SchemaName] AS [SchemaName], 
+	[#Views].[Name] AS [Name], 
+	[#ViewColumns].[Name] AS [C2], 
+	[#ViewColumns].[IsNullable] AS [C3], 
+	[#ViewColumns].[TypeName] AS [C4], 
+	[#ViewColumns].[MaxLength] AS [C5], 
+	[#ViewColumns].[Precision] AS [C6], 
+	[#ViewColumns].[DateTimePrecision] AS [C7], 
+	[#ViewColumns].[Scale] AS [C8], 
+	[#ViewColumns].[IsIdentity] AS [C9], 
+	[#ViewColumns].[IsStoreGenerated] AS [C10], 
+	[#ViewColumns].[IsKEY]AS [C11]
+FROM 
+	[#ViewColumns] 
+INNER JOIN 
+	[#Views] ON 
+		[#ViewColumns].ParentId = [#Views].Id

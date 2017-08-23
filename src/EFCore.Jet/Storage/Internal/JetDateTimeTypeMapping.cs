@@ -2,7 +2,6 @@
 
 using System.Data;
 using System.Data.Common;
-using System.Data.Jet;
 using System.Data.OleDb;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;

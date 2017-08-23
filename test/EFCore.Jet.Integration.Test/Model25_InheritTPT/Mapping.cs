@@ -22,8 +22,6 @@ namespace EFCore.Jet.Integration.Test.Model25_InheritTPT
     {
         public void Configure(EntityTypeBuilder<Supplier> builder)
         {
-            // Primary Key
-            builder.HasKey(s => s.Id);
 
             // Properties
 

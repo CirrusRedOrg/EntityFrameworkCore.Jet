@@ -11,7 +11,7 @@ namespace System.Data.Jet
 
         public JetTransaction(DbTransaction wrappedTransaction, DbConnection connection)
         {
-            LogHelper.ShowCommandHeader("vvv BeginTransaction");
+            LogHelper.ShowCommandHeader("\r\nvvv BeginTransaction (" + wrappedTransaction.IsolationLevel + ")");
             WrappedTransaction = wrappedTransaction;
             _connection = connection;
         }
@@ -34,7 +34,7 @@ namespace System.Data.Jet
 
         public override void Rollback()
         {
-            LogHelper.ShowCommandHeader("^^^ Commit");
+            LogHelper.ShowCommandHeader("^^^ Rollback");
             WrappedTransaction.Rollback();
         }
 

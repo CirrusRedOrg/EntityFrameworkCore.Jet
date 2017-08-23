@@ -6,8 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EFCore.Jet.Integration.Test
 {
-    [TestClass]
-    public class DmlTest : TestBase<Context>
+    public abstract class DmlBaseTest : TestBase<Context>
     {
         [TestMethod]
         public void Insert()
@@ -38,12 +37,25 @@ namespace EFCore.Jet.Integration.Test
             base.DisposeContext();
             base.CreateContext();
 
+
             // Retrieve the student
             student = Context.Students.Where(s => s.StudentId == studentId).First();
+
+            /*
+            base.Connection.Open();
+            string sql = "UPDATE [Students] SET [StudentName] = 'Student updated' WHERE [StudentId] = " + student.StudentId;
+            var command = base.Connection.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteReader();
+            */
+
+
             
             // Update the student
             student.StudentName = "Student updated";
             Context.SaveChanges();
+            
+
             base.DisposeContext();
 
             // Retrieve the student and check that is the right student
@@ -88,7 +100,6 @@ namespace EFCore.Jet.Integration.Test
 
         }
 
-        protected override DbConnection GetConnection()
-            => Helpers.GetJetConnection();
+
     }
 }

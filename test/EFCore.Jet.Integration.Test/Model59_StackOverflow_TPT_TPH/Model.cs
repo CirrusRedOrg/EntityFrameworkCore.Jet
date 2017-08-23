@@ -44,7 +44,7 @@ namespace EFCore.Jet.Integration.Test.Model59_StackOverflow_TPT_TPH
     {
         A,
         B,
-        C
+        Caa
     }
 
     public enum DataCaptureActivityType

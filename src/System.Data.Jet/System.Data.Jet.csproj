@@ -71,6 +71,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="JetDataReader.cs" />
+    <Compile Include="JetParameterHelper.cs" />
     <Compile Include="JetProviderFactory.cs" />
     <Compile Include="JetProviderManifest.cs" />
     <Compile Include="JetStoreSchemaDefinition\Column.cs" />

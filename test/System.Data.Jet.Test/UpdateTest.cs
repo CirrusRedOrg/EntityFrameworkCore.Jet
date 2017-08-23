@@ -10,16 +10,14 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void UpdateTestRun()
         {
-            JetConfiguration.ShowSqlStatements = true;
-
             var queries = Helpers.GetQueries(Properties.Resources.UpdateTestQueries);
-            Assert.AreEqual(5, queries.Length);
+            Assert.AreEqual(6, queries.Length);
 
             using (var connection = Helpers.GetJetConnection())
             {
                 connection.Open();
                 DbDataReader reader;
-                for (int index = 0; index < queries.Length - 1; index++)
+                for (int index = 0; index < queries.Length - 2; index++)
                 {
                     string query = queries[index];
                     reader = Helpers.Execute(connection, query);
@@ -31,7 +29,45 @@ namespace System.Data.Jet.Test
                 Assert.AreEqual(1, reader.GetInt32(0));
                 reader.Dispose();
 
+                Helpers.Execute(connection, queries[5]);
+                
+
             }
         }
+
+
+        [TestMethod]
+        public void UpdateTestWithTransactionsRun()
+        {
+            JetConfiguration.ShowSqlStatements = true;
+
+            var queries = Helpers.GetQueries(Properties.Resources.UpdateTestQueries);
+            Assert.AreEqual(6, queries.Length);
+
+            using (var connection = Helpers.GetJetConnection())
+            {
+                connection.Open();
+                DbDataReader reader;
+                for (int index = 0; index < queries.Length - 2; index++)
+                {
+                    DbTransaction transaction = connection.BeginTransaction();
+                    string query = queries[index];
+                    reader = Helpers.Execute(connection, transaction, query);
+                    if (reader != null)
+                        reader.Dispose();
+                    transaction.Commit();
+                }
+                reader = Helpers.Execute(connection, queries[4]);
+                reader.Read();
+                Assert.AreEqual(1, reader.GetInt32(0));
+                reader.Dispose();
+
+                Helpers.Execute(connection, queries[5]);
+
+
+            }
+        }
+
+
     }
 }

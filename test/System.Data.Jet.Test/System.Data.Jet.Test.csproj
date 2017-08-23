@@ -68,6 +68,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DdlTest.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="JetStoreSchemaDefinitionRetrieveTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -76,6 +77,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="AssemblyInitialization.cs" />
     <Compile Include="UpdateTest.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -100,6 +102,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\UpdateTestQueries.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\CheckIfTableExistsTestQueries.txt" />
   </ItemGroup>
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

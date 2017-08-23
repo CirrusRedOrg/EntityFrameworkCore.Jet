@@ -49,7 +49,7 @@ namespace EFCore.Jet.Integration.Test
 
         protected override DbConnection GetConnection()
         {
-            return SetUpCodeFirst.Connection;
+            return AssemblyInitialization.Connection;
         }
     }
 }

@@ -26,3 +26,7 @@ ExecuteDbDataReader==========
 SELECT COUNT(*)
 FROM [Students] AS [s]
 WHERE [s].[StudentName] = 'Student updated'
+
+ExecuteNonQuery==========
+DROP TABLE [Students]
+

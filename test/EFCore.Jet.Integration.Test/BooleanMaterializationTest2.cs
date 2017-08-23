@@ -10,7 +10,7 @@ namespace EFCore.Jet.Integration.Test
     public class BooleanMaterializationTest2 : TestBase<Context>
     {
         [TestMethod]
-        public void Run()
+        public void BooleanMaterializationTest2Run()
         {
             // ReSharper disable once RedundantCast
             Console.WriteLine(Context.TableWithSeveralFieldsTypes.Select(c => new {MyNewProperty = (bool) true}).ToList().Count);
@@ -18,7 +18,7 @@ namespace EFCore.Jet.Integration.Test
 
         protected override DbConnection GetConnection()
         {
-            return SetUpCodeFirst.Connection;
+            return AssemblyInitialization.Connection;
         }
 
         public override void CleanUp()

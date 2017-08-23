@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Data.Common;
 using System.Data.Jet;
-using EFCore.Jet.Integration.Test.Model01;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EFCore.Jet.Integration.Test
 {
     [TestClass]
-    public class SetUpCodeFirst
+    public class AssemblyInitialization
     {
 
         public static DbConnection Connection;
@@ -21,19 +20,6 @@ namespace EFCore.Jet.Integration.Test
 
             Connection = Helpers.GetJetConnection();
 
-            Context context = new Context(TestBase<Context>.GetContextOptions(Connection));
-            TestBase<Context>.CreateTables(context);
-
-            // Need to do more than just a connection
-            // We could also call             context.Database.Initialize(false);
-            Student student = new Student() { StudentName = "db creation" };
-            context.Students.Add(student);
-            context.SaveChanges();
-
-
-
-            context.Dispose();
-
             Helpers.DeleteSqlCeDatabase();
             Helpers.CreateSqlCeDatabase();
         }
@@ -42,7 +28,8 @@ namespace EFCore.Jet.Integration.Test
         [AssemblyCleanup]
         static public void AssemblyCleanup()
         {
-            Connection.Dispose();
+            if (Connection != null)
+                Connection.Dispose();
 
             Helpers.DeleteSqlCeDatabase();
         }

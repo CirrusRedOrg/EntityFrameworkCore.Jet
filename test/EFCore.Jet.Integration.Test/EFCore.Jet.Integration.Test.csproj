@@ -148,8 +148,9 @@
     <Compile Include="BooleanMaterializationTest2.cs" />
     <Compile Include="BooleanMaterializationTest1.cs" />
     <Compile Include="CanonicalFunctionsTest2.cs" />
-    <Compile Include="DdlTest.cs" />
-    <Compile Include="DmlTest.cs" />
+    <Compile Include="DmlBaseTest.cs" />
+    <Compile Include="DmlSqlTest.cs" />
+    <Compile Include="DmlJetTest.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
     <Compile Include="Model37_2Contexts\SqlServerTest.cs" />
     <Compile Include="Model37_2Contexts\SqlCeTest.cs" />
@@ -197,13 +198,9 @@
     <Compile Include="Model07\JetTest.cs" />
     <Compile Include="Model07\Test.cs" />
     <Compile Include="Model08\Context.cs" />
-    <Compile Include="Model08\File.cs" />
-    <Compile Include="Model08\FileMap.cs" />
-    <Compile Include="Model08\GalleryImage.cs" />
-    <Compile Include="Model08\GalleryImageMap.cs" />
+    <Compile Include="Model08\Model.cs" />
+    <Compile Include="Model08\Mappings.cs" />
     <Compile Include="Model08\JetTest.cs" />
-    <Compile Include="Model08\PageImage.cs" />
-    <Compile Include="Model08\PageImageMap.cs" />
     <Compile Include="Model08\Test.cs" />
     <Compile Include="Model09\JetTest.cs" />
     <Compile Include="Model09\Test.cs" />
@@ -381,10 +378,6 @@
     <Compile Include="Model68_sbyte\JetTest.cs" />
     <Compile Include="Model68_sbyte\Model.cs" />
     <Compile Include="Model68_sbyte\Test.cs" />
-    <Compile Include="Model67_DifferentProxies\Context.cs" />
-    <Compile Include="Model67_DifferentProxies\JetTest.cs" />
-    <Compile Include="Model67_DifferentProxies\Model.cs" />
-    <Compile Include="Model67_DifferentProxies\Test.cs" />
     <Compile Include="Model66_StackOverflow_TooManyColumns\Context.cs" />
     <Compile Include="Model66_StackOverflow_TooManyColumns\JetTest.cs" />
     <Compile Include="Model66_StackOverflow_TooManyColumns\Model.cs" />
@@ -415,7 +408,7 @@
     <Compile Include="Model55_Unicode\Test.cs" />
     <Compile Include="Model73_ValidationContext\README.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="SetUpCodeFirst.cs" />
+    <Compile Include="AssemblyInitialization.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="JetProviderFactory\JetStoreSchemaDefinitionRetrieveTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

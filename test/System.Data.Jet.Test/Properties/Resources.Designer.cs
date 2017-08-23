@@ -62,22 +62,43 @@ namespace System.Data.Jet.Test.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to ExecuteNonQuery==========
-        ///CREATE TABLE [Standards] (
-        ///    [StandardId] int NOT NULL IDENTITY,
-        ///    [Description] text NULL,
-        ///    [StandardName] varchar(255) NULL,
-        ///    CONSTRAINT [PK_Standards] PRIMARY KEY ([StandardId])
+        ///CREATE TABLE [CheckIfTableExistsTable] (
+        ///    [StudentId] int NOT NULL IDENTITY,
+        ///    [Notes] text NULL,
+        ///    [StudentName] varchar(50) NOT NULL,
+        ///    CONSTRAINT [PK_Students] PRIMARY KEY ([StudentId])
+        ///);
+        ///
+        ///
+        ///ExecuteNonQuery==========
+        ///DROP TABLE [CheckIfTableExistsTable]
+        ///
+        ///.
+        /// </summary>
+        internal static string CheckIfTableExistsTestQueries {
+            get {
+                return ResourceManager.GetString("CheckIfTableExistsTestQueries", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ExecuteNonQuery==========
+        ///CREATE TABLE [Students] (
+        ///    [StudentId] int NOT NULL IDENTITY,
+        ///    [Notes] text NULL,
+        ///    [StudentName] varchar(50) NOT NULL,
+        ///    CONSTRAINT [PK_Students] PRIMARY KEY ([StudentId])
         ///);
         ///
         ///ExecuteDbDataReader==========
-        ///INSERT INTO [Students] ([Notes], [StandardId], [StudentName])
-        ///VALUES (null, null, &apos;Student to update&apos;);
+        ///INSERT INTO [Students] ([Notes], [StudentName])
+        ///VALUES (null, &apos;Student to update&apos;);
         ///SELECT [StudentId]
         ///FROM [Students]
         ///WHERE 1 = 1 AND [StudentId] = @@identity;
         ///
         ///ExecuteDbDataReader==========
-        ///SELECT TOP 1 [s].[StudentId], [s] [rest of string was truncated]&quot;;.
+        ///SELECT TOP 1 [s].[StudentId], [s].[Notes], [s].[StudentName]        /// [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string UpdateTestQueries {
             get {

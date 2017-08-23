@@ -34,8 +34,14 @@ namespace EFCore.Jet.Integration.Test
             Context.Students.Add(student);
             Context.SaveChanges();
 
-            Assert.IsNotNull(Context.Students.Where(s => Context.Standards.Contains(s.Standard)).First());
-            Assert.IsNotNull(Context.Students.Where(s => (new[] {1,2,3,4}).Contains(s.StudentId)).First());
+            Assert.IsNotNull(Context.Students.Where(s => (new[] { 1, 2, 3, 4 }).Contains(s.StudentId)).First());
+
+            // SELECT WHERE IN SELECT NOT IMPLEMENTED
+            //Assert.IsNotNull(Context.Students.Where(s => Context.Standards.Contains(s.Standard)).First());
+
+            Assert.IsNotNull(Context.Students.First(stu => Context.Standards.Any(std => std.StandardId == stu.StudentId)));
+
+
             Context.Dispose();
         }
 

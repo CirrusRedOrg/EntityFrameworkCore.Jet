@@ -6,8 +6,6 @@ namespace System.Data.Jet
 {
     class JetDataReader : DbDataReader
     {
-
-
         public JetDataReader(DbDataReader dataReader)
         {
             _wrappedDataReader = dataReader;

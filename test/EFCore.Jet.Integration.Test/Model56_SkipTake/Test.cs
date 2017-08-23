@@ -98,7 +98,7 @@ namespace EFCore.Jet.Integration.Test.Model56_SkipTake
                 for (int i = 0; i < entities.Count - 1; i++)
                 {
                     Entity entity = entities[i];
-                    Assert.AreEqual(-1, String.CompareOrdinal(entity.Description , entities[i + 1].Description));
+                    Assert.AreEqual(-1, String.Compare(entity.Description , entities[i + 1].Description));
                 }
             }
 

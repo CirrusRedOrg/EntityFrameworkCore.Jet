@@ -1,0 +1,12 @@
+ExecuteNonQuery==========
+CREATE TABLE [CheckIfTableExistsTable] (
+    [StudentId] int NOT NULL IDENTITY,
+    [Notes] text NULL,
+    [StudentName] varchar(50) NOT NULL,
+    CONSTRAINT [PK_Students] PRIMARY KEY ([StudentId])
+);
+
+
+ExecuteNonQuery==========
+DROP TABLE [CheckIfTableExistsTable]
+

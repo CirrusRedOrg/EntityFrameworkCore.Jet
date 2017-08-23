@@ -94,6 +94,11 @@ namespace EFCore.Jet.Integration.Test
         }
 
 
+        private static string GetTestDirectory()
+        {
+            return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase.Replace("file:///", ""));
+        }
+
         public static DbConnection GetJetConnection()
         {
             // Take care because according to this article
@@ -119,7 +124,7 @@ namespace EFCore.Jet.Integration.Test
             //oleDbConnectionStringBuilder.Provider = "Microsoft.Jet.OLEDB.4.0";
             //oleDbConnectionStringBuilder.DataSource = @".\Empty.mdb";
             oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.12.0";
-            oleDbConnectionStringBuilder.DataSource = @".\Empty.accdb";
+            oleDbConnectionStringBuilder.DataSource = GetTestDirectory() + "\\Empty.accdb";
             return oleDbConnectionStringBuilder.ToString();
         }
 
@@ -127,7 +132,7 @@ namespace EFCore.Jet.Integration.Test
 
         private static string GetSqlCeDatabaseFileName()
         {
-            return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase.Replace("file:///", "")) + "\\Data.sdf";
+            return GetTestDirectory() + "\\Data.sdf";
         }
 
         public static void CreateSqlCeDatabase()

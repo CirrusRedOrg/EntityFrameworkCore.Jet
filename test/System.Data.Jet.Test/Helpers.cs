@@ -90,6 +90,10 @@ namespace System.Data.Jet.Test
 
         }
 
+        private static string GetTestDirectory()
+        {
+            return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase.Replace("file:///", ""));
+        }
 
         public static DbConnection GetJetConnection()
         {
@@ -116,7 +120,7 @@ namespace System.Data.Jet.Test
             //oleDbConnectionStringBuilder.Provider = "Microsoft.Jet.OLEDB.4.0";
             //oleDbConnectionStringBuilder.DataSource = @".\Empty.mdb";
             oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.12.0";
-            oleDbConnectionStringBuilder.DataSource = @".\Empty.accdb";
+            oleDbConnectionStringBuilder.DataSource = GetTestDirectory() + "\\Empty.accdb";
             return oleDbConnectionStringBuilder.ToString();
         }
 
@@ -152,6 +156,17 @@ namespace System.Data.Jet.Test
 
         public static DbDataReader Execute(DbConnection connection, string query)
         {
+            return InternatExecute(connection, null, query);
+        }
+
+        public static DbDataReader Execute(DbConnection connection, DbTransaction transaction, string query)
+        {
+            return InternatExecute(connection, transaction, query);
+        }
+
+
+        private static DbDataReader InternatExecute(DbConnection connection, DbTransaction transaction, string query)
+        {
             string[] sqlParts = query.Split('\n');
             string executionMethod = sqlParts[0];
             string sql = string.Empty;
@@ -159,6 +174,8 @@ namespace System.Data.Jet.Test
                 sql += sqlParts[i] + "\r\n";
 
             var command = connection.CreateCommand();
+            if (transaction != null)
+                command.Transaction = transaction;
             command.CommandText = sql;
 
 
@@ -174,6 +191,5 @@ namespace System.Data.Jet.Test
             else
                 throw new Exception("Unknown execution method " + executionMethod);
         }
-
     }
 }

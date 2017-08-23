@@ -28,10 +28,13 @@ namespace EFCore.Jet.Integration.Test.Model28
                 .IsRequired()
                 ;
 
+            // Is required must be inserted in foreign key field if there is one
+            /*
             modelBuilder.Entity<AdImage>()
                 .Property(x => x.Advertisement)
                 .IsRequired()
                 ;
+            */
 
             base.OnModelCreating(modelBuilder);
 

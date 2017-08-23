@@ -306,6 +306,7 @@ namespace System.Data.Jet
             int indexOfSkip;
             string newCommandText;
             ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
+            ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
 
             if (skipCount != 0)
             {
@@ -331,8 +332,6 @@ namespace System.Data.Jet
 
         }
 
-
-
         private int InternalExecuteNonQuery(string commandText)
         {
 
@@ -341,6 +340,7 @@ namespace System.Data.Jet
             int indexOfSkip;
             string newCommandText;
             ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
+            ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
 
             DbCommand command;
             command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
@@ -374,6 +374,7 @@ namespace System.Data.Jet
                 command.CommandText = "Select @@identity";
                 object identity = command.ExecuteScalar();
                 int iIdentity = Convert.ToInt32(identity);
+                Console.WriteLine("@@identity = {0}", iIdentity);
                 return Regex.Replace(commandText, "@@identity", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
             }
             return commandText;
@@ -388,6 +389,7 @@ namespace System.Data.Jet
                 command.CommandText = "Select @@guid";
                 object identity = command.ExecuteScalar();
                 int iIdentity = Convert.ToInt32(identity);
+                Console.WriteLine("@@guid = {0}", iIdentity);
                 return Regex.Replace(commandText, "@@guid", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
             }
             return commandText;
@@ -443,6 +445,16 @@ namespace System.Data.Jet
             }
 
             #endregion
+        }
+
+
+        private void ApplyParameters(string commandText, DbParameterCollection parameters, out string newCommandText)
+        {
+            newCommandText = commandText;
+            foreach (DbParameter parameter in parameters)
+            {
+                newCommandText = newCommandText.Replace(parameter.ParameterName, JetParameterHelper.GetParameterValue(parameter));
+            }
         }
 
 

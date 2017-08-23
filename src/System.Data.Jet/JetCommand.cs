@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
+using System.Text.RegularExpressions;
 
 namespace System.Data.Jet
 {
@@ -216,125 +218,33 @@ namespace System.Data.Jet
         /// <returns></returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            ShowCommandText("ExecuteDbDataReader");
+            LogHelper.ShowCommandText("ExecuteDbDataReader", _WrappedCommand);
 
             DbDataReader dataReader;
-
             if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(_WrappedCommand, out dataReader))
             {
                 // Retrieve of store schema definition
                 return dataReader;
             }
 
+            if (_WrappedCommand.CommandType != CommandType.Text)
+                return new JetDataReader(_WrappedCommand.ExecuteReader(behavior));
 
-            if (_WrappedCommand.CommandType == System.Data.CommandType.Text && !string.IsNullOrWhiteSpace(_WrappedCommand.CommandText))
+            string[] commandTextList = SplitCommands(_WrappedCommand.CommandText);
+
+            JetDataReader jetDataReader = null;
+            for (int i = 0; i < commandTextList.Length; i++)
             {
+                string commandText = commandTextList[i];
+                commandText = ParseIdentity(commandText);
+                commandText = ParseGuid(commandText);
 
-                #region Multiple commands (and @@guid)
-
-                string[] commandTextList = _WrappedCommand.CommandText.Split(new string[] { ";\r\n" }, StringSplitOptions.None);
-                if (commandTextList.Length > 1)
-                {
-                    dataReader = null;
-
-                    // Set of commands
-                    // The returned value will be the latest command result
-                    foreach (string commandText in commandTextList)
-                    {
-                        if (string.IsNullOrWhiteSpace(commandText))
-                            continue;
-
-                        DbCommand command;
-                        command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                        int indexOfIdentity = commandText.ToLower().IndexOf("@@identity");
-                        int indexOfGuid = commandText.ToLower().IndexOf("@@guid");
-                        if (indexOfIdentity >= 0)
-                        {
-                            // Need to split again
-                            command.CommandText = "Select @@identity";
-                            object identity = command.ExecuteScalar();
-                            int iIdentity = Convert.ToInt32(identity);
-                            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                            command.CommandText = commandText.Remove(indexOfIdentity, 10).Insert(indexOfIdentity, iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        }
-                        else if (indexOfGuid >= 0)
-                        {
-                            // Need to split again
-                            command.CommandText = "Select @@guid";
-                            object identity = command.ExecuteScalar();
-                            int iIdentity = Convert.ToInt32(identity);
-                            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                            command.CommandText = commandText.Remove(indexOfGuid, 6).Insert(indexOfGuid, iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        }
-                        else
-                            command.CommandText = commandText;
-
-                        dataReader = command.ExecuteReader(behavior);
-                    }
-                    return new JetDataReader(dataReader);
-                }
-                #endregion
-
-
-                #region TOP clause
-
-                var indexOfTop = _WrappedCommand.CommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
-                int topCount = 0;
-                if (indexOfTop != -1)
-                {
-                    int indexOfTopEnd = _WrappedCommand.CommandText.IndexOf(" ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
-                    string stringTopCount = _WrappedCommand.CommandText.Substring(indexOfTop + 5, indexOfTopEnd - indexOfTop - 5).Trim();
-                    string[] stringTopCountElements = stringTopCount.Split('+');
-                    int topCount0;
-                    int topCount1;
-
-                    if (stringTopCountElements[0].StartsWith("@"))
-                        topCount0 = Convert.ToInt32(_WrappedCommand.Parameters[stringTopCountElements[0]].Value);
-                    else if (!int.TryParse(stringTopCountElements[0], out topCount0))
-                        throw new Exception("Invalid TOP clause parameter");
-
-                    if (stringTopCountElements.Length == 1)
-                        topCount1 = 0;
-                    else if (stringTopCountElements[1].StartsWith("@"))
-                        topCount1 = Convert.ToInt32(_WrappedCommand.Parameters[stringTopCountElements[1]].Value);
-                    else if (!int.TryParse(stringTopCountElements[1], out topCount1))
-                        throw new Exception("Invalid TOP clause parameter");
-
-                    topCount = topCount0 + topCount1;
-                    _WrappedCommand.CommandText = _WrappedCommand.CommandText.Remove(indexOfTop + 5, stringTopCount.Length).Insert(indexOfTop + 5, topCount.ToString());
-                }
-
-                #endregion
-
-                #region SKIP clause
-
-                var indexOfSkip = _WrappedCommand.CommandText.IndexOf(" skip ", StringComparison.InvariantCultureIgnoreCase);
-                if (indexOfSkip != -1)
-                {
-                    string stringSkipCount = _WrappedCommand.CommandText.Substring(indexOfSkip + 5).Trim();
-                    int skipCount;
-                    if (stringSkipCount.StartsWith("@"))
-                        skipCount = Convert.ToInt32(_WrappedCommand.Parameters[stringSkipCount].Value);
-                    else if (!int.TryParse(stringSkipCount, out skipCount))
-                        throw new Exception("Invalid SKIP clause parameter");
-
-                    DbCommand command;
-                    command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                    command.CommandText = _WrappedCommand.CommandText.Remove(indexOfSkip);
-                    return new JetDataReader(command.ExecuteReader(behavior), topCount - skipCount, skipCount);
-                }
-
-                #endregion
-
-                if (topCount != 0)
-                    return new JetDataReader(_WrappedCommand.ExecuteReader(behavior), topCount, 0);
-
+                jetDataReader = InternalExecuteDbDataReader(commandText, behavior);
             }
 
-
-
-            return new JetDataReader(_WrappedCommand.ExecuteReader(behavior));
+            return jetDataReader;
         }
+
 
         /// <summary>
         /// Executes the non query.
@@ -342,44 +252,24 @@ namespace System.Data.Jet
         /// <returns></returns>
         public override int ExecuteNonQuery()
         {
-            ShowCommandText("ExecuteNonQuery");
+            LogHelper.ShowCommandText("ExecuteNonQuery", _WrappedCommand);
 
+            if (_WrappedCommand.CommandType != CommandType.Text)
+                return _WrappedCommand.ExecuteNonQuery();
 
-            if (_WrappedCommand.CommandType == System.Data.CommandType.Text && !string.IsNullOrWhiteSpace(_WrappedCommand.CommandText))
+            string[] commandTextList = SplitCommands(_WrappedCommand.CommandText);
+
+            int returnValue = -1;
+            for (int i = 0; i < commandTextList.Length; i++)
             {
-                string[] commandTextList = _WrappedCommand.CommandText.Split(new string[] { ";\r\n" }, StringSplitOptions.None);
-                if (commandTextList.Length > 1)
-                {
-                    int result = 0;
+                string commandText = commandTextList[i];
+                commandText = ParseIdentity(commandText);
+                commandText = ParseGuid(commandText);
 
-                    // Set of commands
-                    // The returned value will be the latest command result
-                    foreach (string commandText in commandTextList)
-                    {
-                        if (string.IsNullOrWhiteSpace(commandText))
-                            continue;
-
-                        DbCommand command;
-                        command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                        int identityPosition = commandText.ToLower().IndexOf("@@identity");
-                        if (identityPosition >= 0)
-                        {
-                            // Need to split again
-                            command.CommandText = "Select @@identity";
-                            int identity = Convert.ToInt32(command.ExecuteScalar());
-                            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                            command.CommandText = commandText.Remove(identityPosition, 10).Insert(identityPosition, identity.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        }
-                        else
-                            command.CommandText = commandText;
-
-                        result = command.ExecuteNonQuery();
-                    }
-                    return result;
-                }
+                returnValue = InternalExecuteNonQuery(commandText);
             }
 
-            return this._WrappedCommand.ExecuteNonQuery();
+            return returnValue;
         }
 
         /// <summary>
@@ -388,7 +278,7 @@ namespace System.Data.Jet
         /// <returns></returns>
         public override object ExecuteScalar()
         {
-            ShowCommandText("ExecuteScalar");
+            LogHelper.ShowCommandText("ExecuteScalar", _WrappedCommand);
 
             DbDataReader dataReader;
 
@@ -407,14 +297,152 @@ namespace System.Data.Jet
             return this._WrappedCommand.ExecuteScalar();
         }
 
-        private void ShowCommandText(string caller)
-        {
-            if (!JetConnection.ShowSqlStatements)
-                return;
 
-            Console.WriteLine("{0}==========\r\n{1}", caller, _WrappedCommand.CommandText);
-            foreach (OleDbParameter parameter in _WrappedCommand.Parameters)
-                Console.WriteLine("{0} = {1}", parameter.ParameterName, parameter.Value);
+
+        private JetDataReader InternalExecuteDbDataReader(string commandText, CommandBehavior behavior)
+        {
+            int topCount;
+            int skipCount;
+            int indexOfSkip;
+            string newCommandText;
+            ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
+
+            if (skipCount != 0)
+            {
+                DbCommand command;
+                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+                command.CommandText = newCommandText;
+                return new JetDataReader(command.ExecuteReader(behavior), topCount - skipCount, skipCount);
+            }
+            if (topCount >= 0)
+            {
+                DbCommand command;
+                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+                command.CommandText = newCommandText;
+                return new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
+            }
+            else
+            {
+                DbCommand command;
+                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+                command.CommandText = newCommandText;
+                return new JetDataReader(command.ExecuteReader(behavior));
+            }
+
+        }
+
+
+
+        private int InternalExecuteNonQuery(string commandText)
+        {
+
+            int topCount;
+            int skipCount;
+            int indexOfSkip;
+            string newCommandText;
+            ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
+
+            DbCommand command;
+            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+            command.CommandText = newCommandText;
+            return command.ExecuteNonQuery();
+
+        }
+
+
+        private string[] SplitCommands(string command)
+        {
+            string[] commandParts =
+                command.Replace("\r\n", "\n").Replace("\r", "\n")
+                    .Split(new[] { ";\n" }, StringSplitOptions.None);
+            List<string> commands = new List<string>(commandParts.Length);
+            foreach (string commandPart in commandParts)
+            {
+                if (!string.IsNullOrWhiteSpace(commandPart.Replace("\n", "").Replace(";", "")))
+                    commands.Add(commandPart);
+            }
+            return commands.ToArray();
+        }
+
+
+        private string ParseIdentity(string commandText)
+        {
+            if (commandText.ToLower().Contains("@@identity"))
+            {
+                DbCommand command;
+                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+                command.CommandText = "Select @@identity";
+                object identity = command.ExecuteScalar();
+                int iIdentity = Convert.ToInt32(identity);
+                return Regex.Replace(commandText, "@@identity", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
+            }
+            return commandText;
+        }
+
+        private string ParseGuid(string commandText)
+        {
+            if (commandText.ToLower().Contains("@@guid"))
+            {
+                DbCommand command;
+                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+                command.CommandText = "Select @@guid";
+                object identity = command.ExecuteScalar();
+                int iIdentity = Convert.ToInt32(identity);
+                return Regex.Replace(commandText, "@@guid", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
+            }
+            return commandText;
+        }
+
+        private void ParseSkipTop(string commandText, out int topCount, out int skipCount, out int indexOfSkip, out string newCommandText)
+        {
+            newCommandText = commandText;
+
+            #region TOP clause
+
+            var indexOfTop = newCommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
+            topCount = -1;
+            skipCount = 0;
+
+            if (indexOfTop != -1)
+            {
+                int indexOfTopEnd = newCommandText.IndexOf(" ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
+                string stringTopCount = newCommandText.Substring(indexOfTop + 5, indexOfTopEnd - indexOfTop - 5).Trim();
+                string[] stringTopCountElements = stringTopCount.Split('+');
+                int topCount0;
+                int topCount1;
+
+                if (stringTopCountElements[0].StartsWith("@"))
+                    topCount0 = Convert.ToInt32(_WrappedCommand.Parameters[stringTopCountElements[0]].Value);
+                else if (!int.TryParse(stringTopCountElements[0], out topCount0))
+                    throw new Exception("Invalid TOP clause parameter");
+
+                if (stringTopCountElements.Length == 1)
+                    topCount1 = 0;
+                else if (stringTopCountElements[1].StartsWith("@"))
+                    topCount1 = Convert.ToInt32(_WrappedCommand.Parameters[stringTopCountElements[1]].Value);
+                else if (!int.TryParse(stringTopCountElements[1], out topCount1))
+                    throw new Exception("Invalid TOP clause parameter");
+
+                topCount = topCount0 + topCount1;
+                newCommandText = newCommandText.Remove(indexOfTop + 5, stringTopCount.Length).Insert(indexOfTop + 5, topCount.ToString());
+            }
+
+            #endregion
+
+            #region SKIP clause
+
+            indexOfSkip = newCommandText.IndexOf(" skip ", StringComparison.InvariantCultureIgnoreCase);
+            if (indexOfSkip != -1)
+            {
+                string stringSkipCount = newCommandText.Substring(indexOfSkip + 5).Trim();
+                if (stringSkipCount.StartsWith("@"))
+                    skipCount = Convert.ToInt32(_WrappedCommand.Parameters[stringSkipCount].Value);
+                else if (!int.TryParse(stringSkipCount, out skipCount))
+                    throw new Exception("Invalid SKIP clause parameter");
+                newCommandText = newCommandText.Remove(indexOfSkip);
+            }
+
+            #endregion
         }
 
 

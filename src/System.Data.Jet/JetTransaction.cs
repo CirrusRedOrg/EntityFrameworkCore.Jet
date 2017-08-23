@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data.Common;
-using System.Linq;
-using System.Text;
 
 namespace System.Data.Jet
 {
@@ -14,12 +11,14 @@ namespace System.Data.Jet
 
         public JetTransaction(DbTransaction wrappedTransaction, DbConnection connection)
         {
+            LogHelper.ShowCommandHeader("vvv BeginTransaction");
             WrappedTransaction = wrappedTransaction;
             _connection = connection;
         }
 
         public override void Commit()
         {
+            LogHelper.ShowCommandHeader("--- Commit");
             WrappedTransaction.Commit();
         }
 
@@ -35,6 +34,7 @@ namespace System.Data.Jet
 
         public override void Rollback()
         {
+            LogHelper.ShowCommandHeader("^^^ Commit");
             WrappedTransaction.Rollback();
         }
 

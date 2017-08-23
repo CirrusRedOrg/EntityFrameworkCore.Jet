@@ -1,0 +1,28 @@
+ExecuteNonQuery==========
+CREATE TABLE [Students] (
+    [StudentId] int NOT NULL IDENTITY,
+    [Notes] text NULL,
+    [StudentName] varchar(50) NOT NULL,
+    CONSTRAINT [PK_Students] PRIMARY KEY ([StudentId])
+);
+
+ExecuteDbDataReader==========
+INSERT INTO [Students] ([Notes], [StudentName])
+VALUES (null, 'Student to update');
+SELECT [StudentId]
+FROM [Students]
+WHERE 1 = 1 AND [StudentId] = @@identity;
+
+ExecuteDbDataReader==========
+SELECT TOP 1 [s].[StudentId], [s].[Notes], [s].[StudentName]
+FROM [Students] AS [s]
+WHERE [s].[StudentId] = @@identity
+
+ExecuteDbDataReader==========
+UPDATE [Students] SET [StudentName] = 'Student updated'
+WHERE [StudentId] = @@identity;
+
+ExecuteDbDataReader==========
+SELECT COUNT(*)
+FROM [Students] AS [s]
+WHERE [s].[StudentName] = 'Student updated'

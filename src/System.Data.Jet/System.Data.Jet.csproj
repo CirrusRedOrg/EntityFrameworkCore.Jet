@@ -66,6 +66,7 @@
     <Compile Include="JetCommand.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="JetConfiguration.cs" />
     <Compile Include="JetConnection.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -79,6 +80,7 @@
     <Compile Include="JetStoreSchemaDefinition\SystemTableCollection.cs" />
     <Compile Include="JetSyntaxHelper.cs" />
     <Compile Include="JetTransaction.cs" />
+    <Compile Include="LogHelper.cs" />
     <Compile Include="OleDbColumnFlagEnum.cs" />
     <Compile Include="Properties\Resources.Designer.cs" />
     <Compile Include="XmlObjectSerializer.cs" />

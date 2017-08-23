@@ -13,7 +13,7 @@ namespace EFCore.Jet.Integration.Test
             //Console.SetWindowSize(210, 80);
 
             // This is the only reason why we need to include the provider
-            JetConnection.ShowSqlStatements = true;
+            JetConfiguration.ShowSqlStatements = true;
 
             DbConnection connection = Helpers.GetJetConnection();
             Context context = new Context(TestBase<Context>.GetContextOptions(connection));

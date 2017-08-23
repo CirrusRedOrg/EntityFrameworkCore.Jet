@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Data.Common;
 using System.Data.OleDb;
 using System.Transactions;
@@ -7,88 +8,6 @@ namespace System.Data.Jet
 {
     public class JetConnection : DbConnection, IDisposable, ICloneable
     {
-
-        // The SQL statement
-        //
-        // (SELECT COUNT(*) FROM MSysRelationships)
-        //
-        // is a DUAL table simulation in Access databases
-        // It must be a single line table.
-        // If user cannot gain access to MSysRelationships table he can create a table with 1 record
-        // and change DUAL static property.
-        // I.e. create table dual with one and only one record
-        //
-        // CREATE TABLE Dual (id COUNTER CONSTRAINT pkey PRIMARY KEY)
-        // INSERT INTO Dual (id) VALUES (1)
-        // ALTER TABLE Dual ADD CONSTRAINT DualTableConstraint CHECK ((SELECT Count(*) FROM Dual) = 1)
-        //
-        // then change the DUAL property
-        //
-        // JetConnection.DUAL = "Dual";
-        //
-        // For more information see also https://en.wikipedia.org/wiki/DUAL_table
-        /// <summary>
-        /// The DUAL table or query
-        /// </summary>
-        public static string DUAL = DUALForAccdb;
-
-        /// <summary>
-        /// The dual table for accdb
-        /// </summary>
-        public const string DUALForMdb = "(SELECT COUNT(*) FROM MSysRelationships)";
-
-        /// <summary>
-        /// The dual table for accdb
-        /// </summary>
-        public const string DUALForAccdb = "(SELECT COUNT(*) FROM MSysAccessStorage)";
-
-        /// <summary>
-        /// Gets or sets a value indicating whether append random number for foreign key names.
-        /// </summary>
-        /// <value>
-        /// <c>true</c> if append random number for foreign key names; otherwise, <c>false</c>.
-        /// </value>
-        public static bool AppendRandomNumberForForeignKeyNames = true;
-
-        public static DateTime TimeSpanOffset = new DateTime(1899, 12, 30);
-
-        /// <summary>
-        /// Gets or sets a value indicating whether show SQL statements.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> to show SQL statements; otherwise, <c>false</c>.
-        /// </value>
-        static public bool ShowSqlStatements = false;
-
-        /// <summary>
-        /// Gets or sets a value indicating whether SQL statements should be indented
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> to indent SQL statements; otherwise, <c>false</c>.
-        /// </value>
-        static public bool IndentSqlStatements = true;
-
-        private static object _integerNullValue = int.MinValue;
-
-        /// <summary>
-        /// Gets or sets the integer null value returned by queries. This should solve a Jet issue
-        /// that if I do a UNION ALL of null, int and null the Jet raises an error
-        /// </summary>
-        /// <value>
-        /// The integer null value.
-        /// </value>
-        public static object IntegerNullValue
-        {
-            get { return _integerNullValue; }
-            set
-            {
-                if (!(value is int) && value != null)
-                    throw new ArgumentOutOfRangeException("value", "IntegerNullValue should be an int or null");
-                _integerNullValue = value;
-            }
-        }
-
-
 
         internal DbConnection WrappedConnection { get; private set; }
 
@@ -312,7 +231,7 @@ namespace System.Data.Jet
         /// <summary>
         /// Gets or sets the <see cref="T:System.ComponentModel.ISite" /> of the <see cref="T:System.ComponentModel.Component" />.
         /// </summary>
-        public override System.ComponentModel.ISite Site
+        public override ISite Site
         {
             get
             {
@@ -348,7 +267,7 @@ namespace System.Data.Jet
             try
             {
                 string sqlFormat = "select count(*) from [{0}] where 1=2";
-                CreateCommand(string.Format(sqlFormat, tableName)).ExecuteNonQuery();
+                CreateCommand(String.Format(sqlFormat, tableName)).ExecuteNonQuery();
                 tableExists = true;
             }
             catch
@@ -364,7 +283,7 @@ namespace System.Data.Jet
 
         public DbCommand CreateCommand(string commandText, int? commandTimeout = null)
         {
-            if (string.IsNullOrEmpty(commandText))
+            if (String.IsNullOrEmpty(commandText))
                 // SqlCommand will complain if the command text is empty
                 commandText = Environment.NewLine;
 

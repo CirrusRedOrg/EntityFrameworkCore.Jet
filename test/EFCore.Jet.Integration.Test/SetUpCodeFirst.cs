@@ -17,7 +17,7 @@ namespace EFCore.Jet.Integration.Test
         {
 
             // This is the only reason why we include the Provider
-            JetConnection.ShowSqlStatements = true;
+            JetConfiguration.ShowSqlStatements = true;
 
             Connection = Helpers.GetJetConnection();
 

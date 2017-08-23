@@ -12,8 +12,8 @@ namespace EFCore.Jet.Integration.Test.Model54_MemoryLeakageTest
         //[TestMethod]
         public void Run()
         {
-            bool oldJetShowSqlStatements = JetConnection.ShowSqlStatements;
-            JetConnection.ShowSqlStatements = false;
+            bool oldJetShowSqlStatements = JetConfiguration.ShowSqlStatements;
+            JetConfiguration.ShowSqlStatements = false;
 
             DbConnection connection = GetConnection();
 
@@ -65,7 +65,7 @@ namespace EFCore.Jet.Integration.Test.Model54_MemoryLeakageTest
 
             Assert.IsFalse(GetUsedMemory()-usedMemory > 10000000, "Memory leakage");
 
-            JetConnection.ShowSqlStatements = oldJetShowSqlStatements;
+            JetConfiguration.ShowSqlStatements = oldJetShowSqlStatements;
 
         }
 

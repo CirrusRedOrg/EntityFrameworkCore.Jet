@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.OleDb;
 
@@ -125,5 +126,54 @@ namespace System.Data.Jet.Test
             DbConnection connection = new System.Data.SqlClient.SqlConnection("Data Source=(local);Initial Catalog=JetEfProviderComparativeTest;Integrated Security=true");
             return connection;
         }
+
+
+        public static string[] GetQueries(string s)
+        {
+            string query = string.Empty;
+            List<string> queries = new List<string>();
+
+            foreach (string line in s.Replace("\r\n", "\n").Split('\n'))
+            {
+                if (line.Contains("======="))
+                {
+                    if (!string.IsNullOrWhiteSpace(query))
+                        queries.Add(query);
+
+                    query = string.Empty;
+                }
+                query += line + "\n";
+            }
+            if (!string.IsNullOrWhiteSpace(query))
+                queries.Add(query);
+
+            return queries.ToArray();
+        }
+
+        public static DbDataReader Execute(DbConnection connection, string query)
+        {
+            string[] sqlParts = query.Split('\n');
+            string executionMethod = sqlParts[0];
+            string sql = string.Empty;
+            for (int i = 1; i < sqlParts.Length; i++)
+                sql += sqlParts[i] + "\r\n";
+
+            var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+
+            if (executionMethod.StartsWith("ExecuteNonQuery"))
+            {
+                command.ExecuteNonQuery();
+                return null;
+            }
+            else if (executionMethod.StartsWith("ExecuteDbDataReader"))
+            {
+                return command.ExecuteReader();
+            }
+            else
+                throw new Exception("Unknown execution method " + executionMethod);
+        }
+
     }
 }

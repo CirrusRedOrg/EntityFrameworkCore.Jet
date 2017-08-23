@@ -92,6 +92,8 @@ namespace EFCore.Jet.Integration.Test.Model56_SkipTake
 
             {
                 var entities = Context.Entities.OrderBy(_ => _.Description).Skip(10).Take(5).ToList();
+                foreach (Entity entity in entities)
+                    Console.WriteLine(entity.Description);
                 Assert.AreEqual(5, entities.Count);
                 for (int i = 0; i < entities.Count - 1; i++)
                 {

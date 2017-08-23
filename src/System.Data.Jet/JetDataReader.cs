@@ -88,7 +88,7 @@ namespace System.Data.Jet
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
         {
-            TimeSpan timeSpan = GetDateTime(ordinal) - JetConnection.TimeSpanOffset;
+            TimeSpan timeSpan = GetDateTime(ordinal) - JetConfiguration.TimeSpanOffset;
 
             return timeSpan;
         }
@@ -180,7 +180,7 @@ namespace System.Data.Jet
             // otherwise EF calls GetDateTime.
             // We can suppose that if the value is a DateTime then the EF type is a TimeSpan
             if (getValue is DateTime)
-                return (DateTime) getValue - JetConnection.TimeSpanOffset;
+                return (DateTime) getValue - JetConfiguration.TimeSpanOffset;
             return getValue;
         }
 
@@ -203,7 +203,7 @@ namespace System.Data.Jet
         {
             if (_wrappedDataReader.IsDBNull(ordinal))
                 return true;
-            if (JetConnection.IntegerNullValue != null && ((int)JetConnection.IntegerNullValue).Equals(_wrappedDataReader.GetValue(ordinal)))
+            if (JetConfiguration.IntegerNullValue != null && ((int)JetConfiguration.IntegerNullValue).Equals(_wrappedDataReader.GetValue(ordinal)))
                 return true;
             return false;
         }

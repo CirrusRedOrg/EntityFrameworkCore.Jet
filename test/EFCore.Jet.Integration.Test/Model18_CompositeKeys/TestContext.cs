@@ -19,6 +19,9 @@ namespace EFCore.Jet.Integration.Test.Model18_CompositeKeys
 
             modelBuilder.Entity<Product>()
                 .HasAlternateKey(_ => _.ArticleNumber);
+
+            modelBuilder.Entity<GoodsIssueProcess>()
+                .HasKey(_ => new {_.DeliveryNote, _.ProductId});
         }
     }
 }

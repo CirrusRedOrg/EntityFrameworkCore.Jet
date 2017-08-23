@@ -3,6 +3,7 @@
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Metadata.Conventions;
+using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations;
 using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
@@ -21,6 +22,7 @@ using Microsoft.EntityFrameworkCore.Query.Sql;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -71,6 +73,9 @@ namespace Extensions.DependencyInjection
                 .TryAdd<IDatabaseProvider, DatabaseProvider<JetOptionsExtension>>()
                 .TryAdd<IValueGeneratorCache>(p => p.GetService<IJetValueGeneratorCache>())
                 .TryAdd<IRelationalTypeMapper, JetTypeMapper>()
+                
+                .TryAdd<IEntityMaterializerSource, JetEntityMaterializerSource>()
+
                 .TryAdd<ISqlGenerationHelper, JetSqlGenerationHelper>()
                 .TryAdd<IMigrationsAnnotationProvider, JetMigrationsAnnotationProvider>()
                 .TryAdd<IRelationalValueBufferFactoryFactory, UntypedRelationalValueBufferFactoryFactory>()

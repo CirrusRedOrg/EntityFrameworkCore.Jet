@@ -152,6 +152,7 @@
     <Compile Include="DmlSqlTest.cs" />
     <Compile Include="DmlJetTest.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
+    <Compile Include="Model12_ComplexType\README.cs" />
     <Compile Include="Model37_2Contexts\SqlServerTest.cs" />
     <Compile Include="Model37_2Contexts\SqlCeTest.cs" />
     <Compile Include="Model44_CaseSensitivity\SqlCeTest.cs" />
@@ -304,11 +305,6 @@
     <Compile Include="Model35_OneToZeroOneDeleteCascade\Mappings.cs" />
     <Compile Include="Model35_OneToZeroOneDeleteCascade\Model.cs" />
     <Compile Include="Model35_OneToZeroOneDeleteCascade\Test.cs" />
-    <Compile Include="Model36_DetachedScenario\Context.cs" />
-    <Compile Include="Model36_DetachedScenario\JetTest.cs" />
-    <Compile Include="Model36_DetachedScenario\Model.cs" />
-    <Compile Include="Model36_DetachedScenario\Repository.cs" />
-    <Compile Include="Model36_DetachedScenario\Test.cs" />
     <Compile Include="Model37_2Contexts\Context1.cs" />
     <Compile Include="Model37_2Contexts\Context2.cs" />
     <Compile Include="Model37_2Contexts\JetTest.cs" />
@@ -342,16 +338,11 @@
     <Compile Include="Model47_200\Context.cs" />
     <Compile Include="Model47_200\JetTest.cs" />
     <Compile Include="Model47_200\Model.cs" />
-    <Compile Include="Model47_200\MyContext.cs" />
     <Compile Include="Model47_200\Test.cs" />
     <Compile Include="Model48_Cast\Context.cs" />
     <Compile Include="Model48_Cast\JetTest.cs" />
     <Compile Include="Model48_Cast\Model.cs" />
     <Compile Include="Model48_Cast\Test.cs" />
-    <Compile Include="Model49_Inheritance_EagerlyLoad\Context.cs" />
-    <Compile Include="Model49_Inheritance_EagerlyLoad\JetTest.cs" />
-    <Compile Include="Model49_Inheritance_EagerlyLoad\Model.cs" />
-    <Compile Include="Model49_Inheritance_EagerlyLoad\Test.cs" />
     <Compile Include="Model51_1_Many_RemoveChildren\Context.cs" />
     <Compile Include="Model51_1_Many_RemoveChildren\JetTest.cs" />
     <Compile Include="Model51_1_Many_RemoveChildren\Model.cs" />
@@ -361,10 +352,6 @@
     <Compile Include="Model53_TableSplitting\Model.cs" />
     <Compile Include="Model53_TableSplitting\Test.cs" />
     <Compile Include="Model54_MemoryLeakageTest\Test.cs" />
-    <Compile Include="Model71_MasterDetail\Context.cs" />
-    <Compile Include="Model71_MasterDetail\JetTest.cs" />
-    <Compile Include="Model71_MasterDetail\Model.cs" />
-    <Compile Include="Model71_MasterDetail\Test.cs" />
     <Compile Include="Model70_InMemoryObjectPartialUpdate\Context.cs" />
     <Compile Include="Model70_InMemoryObjectPartialUpdate\JetTest.cs" />
     <Compile Include="Model70_InMemoryObjectPartialUpdate\Model.cs" />
@@ -430,7 +417,6 @@
     <Content Include="Empty.accdb">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Model53_TableSplitting\readme.txt" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="obj\" />

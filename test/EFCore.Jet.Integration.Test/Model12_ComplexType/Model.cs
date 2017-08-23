@@ -29,17 +29,25 @@ namespace EFCore.Jet.Integration.Test.Model12_ComplexType
     }
 
 
-    [ComplexType]
     public class CityAddress
     {
         public string Cap { get; set; }
         public string City { get; set; }
     }
 
-    [ComplexType]
+    public class FullAddress
+    {
+        public string Cap { get; set; }
+        public string City { get; set; }
+        public string Street { get; set; }
+    }
+
+
+    /*
+    Actually complex types cannot inherit from other types
     public class FullAddress : CityAddress
     {
         public string Street { get; set; }
     }
-
+    */
 }

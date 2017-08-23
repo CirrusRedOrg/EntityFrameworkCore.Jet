@@ -21,13 +21,11 @@ namespace EFCore.Jet.Integration.Test.Model46_InnerClasses
         public virtual ClassB B { get; set; }
         public virtual ClassC C { get; set; }
 
-        [ComplexType]
         public class ClassB
         {
             public int? b { get; set; }
         }
 
-        [ComplexType]
         public class ClassC
         {
             public int? c { get; set; }

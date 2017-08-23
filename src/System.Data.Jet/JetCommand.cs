@@ -308,28 +308,17 @@ namespace System.Data.Jet
             ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
             ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
 
-            if (skipCount != 0)
-            {
-                DbCommand command;
-                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                command.CommandText = newCommandText;
-                return new JetDataReader(command.ExecuteReader(behavior), topCount - skipCount, skipCount);
-            }
-            if (topCount >= 0)
-            {
-                DbCommand command;
-                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                command.CommandText = newCommandText;
-                return new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
-            }
-            else
-            {
-                DbCommand command;
-                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                command.CommandText = newCommandText;
-                return new JetDataReader(command.ExecuteReader(behavior));
-            }
+            DbCommand command;
+            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
+            command.CommandText = newCommandText;
+            command.Parameters.Clear();
 
+            if (skipCount != 0)
+                return new JetDataReader(command.ExecuteReader(behavior), topCount - skipCount, skipCount);
+            else if (topCount >= 0)
+                return new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
+            else
+                return new JetDataReader(command.ExecuteReader(behavior));
         }
 
         private int InternalExecuteNonQuery(string commandText)
@@ -345,6 +334,8 @@ namespace System.Data.Jet
             DbCommand command;
             command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
             command.CommandText = newCommandText;
+            command.Parameters.Clear();
+
             return command.ExecuteNonQuery();
 
         }
@@ -402,6 +393,8 @@ namespace System.Data.Jet
             #region TOP clause
 
             var indexOfTop = newCommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
+            if (indexOfTop > 12)
+                indexOfTop = -1;
             topCount = -1;
             skipCount = 0;
 

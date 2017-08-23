@@ -18,12 +18,9 @@ namespace EFCore.Jet.Integration.Test.Model47_200
         {
             modelBuilder.Entity<Dept>()
                 .HasOne(_ => _.Manager)
-                .WithOne(_ => _.Department);
-
-            modelBuilder.Entity<Dept>()
-                .Property(_ => _.Manager).IsRequired();
-            modelBuilder.Entity<Emp>()
-                .Property(_ => _.Department).IsRequired();
+                .WithOne(_ => _.Department)
+                .HasForeignKey<Dept>()
+                .IsRequired();
 
         }
     }

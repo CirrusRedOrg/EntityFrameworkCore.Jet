@@ -92,12 +92,14 @@ namespace EFCore.Jet.Integration.Test
 
         public static DbContextOptions GetContextOptions(DbConnection dbConnection)
         {
+            var optionsBuilder = new DbContextOptionsBuilder<T>().EnableSensitiveDataLogging();
+
             if (dbConnection is SqlCeConnection)
-                return new DbContextOptionsBuilder<T>().UseSqlCe(dbConnection).Options;
+                return optionsBuilder.UseSqlCe(dbConnection).Options;
             else if (dbConnection is JetConnection)
-                return new DbContextOptionsBuilder<T>().UseJet(dbConnection).Options;
+                return optionsBuilder.UseJet(dbConnection).Options;
             else if (dbConnection is SqlConnection)
-                return new DbContextOptionsBuilder<T>().UseSqlServer(dbConnection).Options;
+                return optionsBuilder.UseSqlServer(dbConnection).Options;
             else
             {
                 throw new InvalidOperationException("Connection type " + dbConnection.GetType().Name + " not handled");

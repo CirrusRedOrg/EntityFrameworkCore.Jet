@@ -11,7 +11,7 @@ namespace EFCore.Jet.Integration.Test.Model53_TableSplitting
         public void Model53_TableSplittingRun()
         {
             Context.Persons.Add(
-                new Person() {Name = "Bubi", Address = new Address() {Province = "MO", City = new City() {Name = "Maranello"}}}
+                new Person() {PersonId = 1, Name = "Bubi", Address = new Address() {Province = "MO", City = new City() {Name = "Maranello"}}}
             );
             Context.SaveChanges();
 

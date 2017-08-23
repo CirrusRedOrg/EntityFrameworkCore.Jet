@@ -11,7 +11,6 @@ namespace EFCore.Jet.Integration.Test.Model39_DetachedEntities
     {
 
         [TestMethod]
-        [ExpectedException(typeof(DbUpdateConcurrencyException))]
         public void Model39_DetachedEntitiesRun1()
         {
             base.DisposeContext();
@@ -68,7 +67,8 @@ namespace EFCore.Jet.Integration.Test.Model39_DetachedEntities
             base.CreateContext();
 
             {
-                Grade grade = Context.Grades.Include(g => g.GradeWidths).AsNoTracking().First();
+                int gradeId = Context.Grades.First().Id;
+                Grade grade = Context.Grades.Include(g => g.GradeWidths).Where(_ => _.Id == gradeId).AsNoTracking().First();
 
                 // We need to reset all the ids
                 grade.Id = 0;

@@ -15,11 +15,12 @@ namespace EFCore.Jet.Integration.Test.Model43_PKasFK
 
     public class Child
     {
-        [Key]
+        // Multiple keys can be defined only via FluentApi
+        //[Key]
         [Column(Order = 1)]
         public string ParentName { get; set; }
 
-        [Key]
+        //[Key]
         [Column(Order = 2)]
         public string ChildName { get; set; }
 

@@ -1,16 +1,17 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EFCore.Jet.Integration.Test.Model53_TableSplitting
 {
     public class Person
     {
-        public int PersonID { get; set; }
+        public int PersonId { get; set; }
         public string Name { get; set; }
         public virtual Address Address { get; set; }
     }
     public class Address
     {
-        public Int32 PersonID { get; set; }
+        public Int32 PersonId { get; set; }
         public string Province { get; set; }
         public virtual Person Person { get; set; }
         public virtual City City { get; set; }

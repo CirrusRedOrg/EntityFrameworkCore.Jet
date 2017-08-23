@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EFCore.Jet.Integration.Test.Model06_Inherit
@@ -32,7 +33,11 @@ namespace EFCore.Jet.Integration.Test.Model06_Inherit
             base.CreateContext();
 
             {
-                User user = Context.Users.First(u => u.Id == userId);
+                User user = Context
+                    .Users
+                    .Include(_ => _.Address)
+                    .First(u => u.Id == userId);
+
                 Console.WriteLine("{0} {1}", user.Firstname, user.Address.City);
 
                 user.Address.City = "Bologna";
@@ -43,7 +48,11 @@ namespace EFCore.Jet.Integration.Test.Model06_Inherit
             base.CreateContext();
 
             {
-                User user = Context.Users.First(u => u.Id == userId);
+                User user = Context
+                    .Users
+                    .Include(_ => _.Address)
+                    .First(u => u.Id == userId);
+
                 Console.WriteLine("{0} {1}", user.Firstname, user.Address.City);
             }
 

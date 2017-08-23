@@ -16,6 +16,10 @@ namespace EFCore.Jet.Integration.Test.Model43_PKasFK
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
+            modelBuilder.Entity<Child>()
+                .HasKey(_ => new {_.ParentName, _.ChildName});
+
             modelBuilder.Entity<Parent>()
                 .HasMany(_ => _.Children)
                 .WithOne(_ => _.Parent)

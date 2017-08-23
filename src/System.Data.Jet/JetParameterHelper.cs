@@ -12,7 +12,13 @@ namespace System.Data.Jet
             else if (IsString(parameter))
                 return String.Format("'{0}'", parameter.Value);
             else if (IsDateTime(parameter))
-                return String.Format("#{0:yyyy-MM-ddTHH:mm:ssZ}#", parameter.Value);
+            {
+                if (parameter.Value is TimeSpan)
+                    return String.Format("#{0:c}#", parameter.Value);
+                else
+                    return String.Format("#{0:yyyy-MM-ddTHH:mm:ssZ}#", parameter.Value);
+                
+            }
             else if (IsTimeSpan(parameter))
                 return String.Format("#{0:c}#", parameter.Value);
             else if (IsGuid(parameter))
@@ -42,7 +48,7 @@ namespace System.Data.Jet
             else if (IsString(parameter))
                 return String.Format("'{0}'", ((string)parameter.Value).Replace("'", "''"));
             else if (IsDateTime(parameter))
-                return String.Format("#{0:MM/dd/yyyy HH:mm:ss}#", parameter.Value);
+                return String.Format("#{0:MM/dd/yyyy HH:mm:ss}#", parameter.Value is TimeSpan ? JetConfiguration.TimeSpanOffset + (TimeSpan)parameter.Value : parameter.Value);
             else if (IsTimeSpan(parameter))
                 return String.Format("#{0:MM/dd/yyyy HH:mm:ss}#", JetConfiguration.TimeSpanOffset + (TimeSpan)parameter.Value);
             else if (IsGuid(parameter))

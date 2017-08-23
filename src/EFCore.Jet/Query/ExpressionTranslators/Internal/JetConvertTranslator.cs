@@ -53,7 +53,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public virtual Expression Translate(MethodCallExpression methodCallExpression)
-            => _supportedMethods.Contains(methodCallExpression.Method)
+        {
+            return _supportedMethods.Contains(methodCallExpression.Method)
                 ? new SqlFunctionExpression(
                     "CONVERT",
                     methodCallExpression.Type,
@@ -64,5 +65,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         methodCallExpression.Arguments[0]
                     })
                 : null;
+        }
     }
 }

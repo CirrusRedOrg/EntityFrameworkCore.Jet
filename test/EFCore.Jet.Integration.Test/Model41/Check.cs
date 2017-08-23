@@ -71,8 +71,11 @@ namespace EFCore.Jet.Integration.Test.Model41
             modelBuilder.Entity<Applicant>().HasKey(k => k.Id);
             modelBuilder.Entity<Applicant_Address>().HasKey(k => k.Id);
 
-            modelBuilder.Entity<Applicant_Address>().Property(_ => _.Applicant).IsRequired();
-            modelBuilder.Entity<Applicant_Address>().HasOne(_ => _.Applicant).WithMany(_ => _.Addresses).HasForeignKey(a => a.Applicant_Id);
+            modelBuilder.Entity<Applicant_Address>()
+                .HasOne(_ => _.Applicant)
+                .WithMany(_ => _.Addresses)
+                .IsRequired()
+                .HasForeignKey(a => a.Applicant_Id);
 
         }
     }

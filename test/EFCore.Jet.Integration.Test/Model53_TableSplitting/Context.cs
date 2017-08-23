@@ -17,7 +17,7 @@ namespace EFCore.Jet.Integration.Test.Model53_TableSplitting
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Address>()
-                .HasKey(t => t.PersonID);
+                .HasKey(t => t.PersonId);
             modelBuilder.Entity<Address>()
                 .HasOne(t => t.City)
                 .WithMany()
@@ -25,13 +25,19 @@ namespace EFCore.Jet.Integration.Test.Model53_TableSplitting
 
             modelBuilder.Entity<Person>()
                 .HasOne(t => t.Address)
-                .WithOne(t => t.Person)
-                ;
+                .WithOne(t => t.Person);
+
             modelBuilder.Entity<Person>()
-                .Property(t => t.Address).IsRequired();
-            modelBuilder.Entity<Address>()
-                .Property(t => t.Person).IsRequired();
-                ;
+                .Property(_ => _.PersonId)
+                .ValueGeneratedOnAdd();
+            modelBuilder.Entity<Person>()
+                .HasKey(_ => _.PersonId);
+                
+
+            modelBuilder.Entity<Person>()
+                .Property<int>("AddressId").IsRequired();
+
+                
 
             modelBuilder.Entity<Person>().ToTable("TB_PERSON");
 

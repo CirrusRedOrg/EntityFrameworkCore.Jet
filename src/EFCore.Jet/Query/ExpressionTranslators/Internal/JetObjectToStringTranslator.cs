@@ -56,12 +56,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         .UnwrapEnumType(),
                     out storeType))
             {
+
                 return new SqlFunctionExpression(
-                    functionName: "CONVERT",
+                    functionName: "Str",
                     returnType: methodCallExpression.Type,
                     arguments: new[]
                     {
-                        new SqlFragmentExpression(storeType),
                         methodCallExpression.Object
                     });
             }

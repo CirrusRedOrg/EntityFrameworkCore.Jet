@@ -7,10 +7,15 @@ namespace EFCore.Jet.Integration.Test.Model18_CompositeKeys
     public class GoodsIssueProcess
     {
 
-        [Key, Column(Order = 1), MaxLength(128)]
+        // Composite keys on EF core must be configured using Fluent API
+        //[Key]
+        [Column(Order = 1)]
+        [MaxLength(128)]
         public string DeliveryNote { get; set; }
 
-        [Key, Column(Order = 2), ForeignKey("Product")]
+        //[Key]
+        [Column(Order = 2)]
+        [ForeignKey("Product")]
         public int ProductId { get; set; }
         public Product Product { get; set; }
     }

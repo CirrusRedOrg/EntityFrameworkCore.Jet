@@ -6,8 +6,8 @@ namespace EFCore.Jet.Integration.Test.Model16_OwnCollection
 {
     public class BloggingContext : DbContext
     {
-        public BloggingContext(DbConnection connection)
-            : base(new DbContextOptionsBuilder<BloggingContext>().UseJet(connection).Options)
+        public BloggingContext(DbContextOptions options)
+            : base(options)
         {}
 
                 // For migration test

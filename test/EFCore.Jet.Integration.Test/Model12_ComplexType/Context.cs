@@ -10,5 +10,15 @@ namespace EFCore.Jet.Integration.Test.Model12_ComplexType
 
         public DbSet<Friend> Friends { get; set; }
         public DbSet<LessThanFriend> LessThanFriends { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Friend>()
+                .OwnsOne(_ => _.Address);
+            modelBuilder.Entity<LessThanFriend>()
+                .OwnsOne(_ => _.Address);
+        }
     }
 }

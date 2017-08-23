@@ -159,6 +159,7 @@
     <Compile Include="Metadata\IJetModelAnnotations.cs" />
     <Compile Include="Metadata\IJetPropertyAnnotations.cs" />
     <Compile Include="Metadata\Internal\JetAnnotationNames.cs" />
+    <Compile Include="Metadata\Internal\JetEntityMaterializerSource.cs" />
     <Compile Include="Metadata\Internal\JetEntityTypeBuilderAnnotations.cs" />
     <Compile Include="Metadata\Internal\JetIndexBuilderAnnotations.cs" />
     <Compile Include="Metadata\Internal\JetInternalMetadataBuilderExtensions.cs" />

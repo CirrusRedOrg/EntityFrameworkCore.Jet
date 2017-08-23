@@ -16,6 +16,11 @@ namespace EFCore.Jet.Integration.Test.Model46_InnerClasses
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<ClassA>()
+                .OwnsOne(_ => _.B);
+            modelBuilder.Entity<ClassA>()
+                .OwnsOne(_ => _.C);
+
         }
     }
 }

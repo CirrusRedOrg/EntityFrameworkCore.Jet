@@ -34,10 +34,10 @@ namespace EFCore.Jet.Integration.Test
         public void Booleans()
         {
 
-            
+
             // ReSharper disable ReturnValueOfPureMethodIsNotUsed
-            Context.TableWithSeveralFieldsTypes.Where(c => c.MyBool).Select(c => c.MyBool).First();
             Context.TableWithSeveralFieldsTypes.Where(c => c.MyBool).Select(c => c.MyBool != false).First();
+            Context.TableWithSeveralFieldsTypes.Where(c => c.MyBool).Select(c => c.MyBool).First();
             // ReSharper restore ReturnValueOfPureMethodIsNotUsed
 
         }

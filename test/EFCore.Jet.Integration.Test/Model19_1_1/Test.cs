@@ -9,7 +9,7 @@ namespace EFCore.Jet.Integration.Test.Model19_1_1
 
 
         [TestMethod]
-        public void Run()
+        public void Model19_1_1Run()
         {
             {
                 ClassA classA;

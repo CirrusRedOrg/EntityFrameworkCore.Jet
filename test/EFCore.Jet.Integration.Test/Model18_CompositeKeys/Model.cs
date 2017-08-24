@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EFCore.Jet.Integration.Test.Model18_CompositeKeys
 {
+    [Table("GoodsIssueProcesses18")]
     public class GoodsIssueProcess
     {
 
@@ -20,6 +21,7 @@ namespace EFCore.Jet.Integration.Test.Model18_CompositeKeys
         public Product Product { get; set; }
     }
 
+    [Table("Products18")]
     public class Product
     {
         // the unique ID of the product

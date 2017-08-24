@@ -1,16 +1,16 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace EFCore.Jet.Integration.Test.Model12_ComplexType
+namespace EFCore.Jet.Integration.Test.Model74_ComplexTypeContained_Github9536
 {
 
-
-
-    [Table("Friend12")]
+    [Table("Friend74")]
     public class Friend
     {
         public Friend()
-        {Address = new FullAddress();}
+        {
+            Address = new FullAddress();
+        }
 
         public int Id { get; set; }
         public string Name { get; set; }
@@ -18,11 +18,13 @@ namespace EFCore.Jet.Integration.Test.Model12_ComplexType
         public FullAddress Address { get; set; }
     }
 
-    [Table("LessThanFriend12")]
+    [Table("LessThanFriend74")]
     public class LessThanFriend
     {
         public LessThanFriend()
-        {Address = new CityAddress();}
+        {
+            Address = new CityAddress();
+        }
 
         public int Id { get; set; }
         public string Name { get; set; }
@@ -37,19 +39,17 @@ namespace EFCore.Jet.Integration.Test.Model12_ComplexType
         public string City { get; set; }
     }
 
+
     public class FullAddress
     {
-        public string Cap { get; set; }
-        public string City { get; set; }
-        public string Street { get; set; }
-    }
+        public FullAddress()
+        {
+            CityAddress1 = new CityAddress();
+            CityAddress2 = new CityAddress();
+        }
 
-
-    /*
-    Actually complex types cannot inherit from other types
-    public class FullAddress : CityAddress
-    {
         public string Street { get; set; }
+        public CityAddress CityAddress1 { get; set; }
+        public CityAddress CityAddress2 { get; set; }
     }
-    */
 }

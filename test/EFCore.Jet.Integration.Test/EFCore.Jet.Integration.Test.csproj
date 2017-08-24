@@ -152,6 +152,14 @@
     <Compile Include="DmlSqlTest.cs" />
     <Compile Include="DmlJetTest.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
+    <Compile Include="Model75_Enums\Context.cs" />
+    <Compile Include="Model75_Enums\JetTest.cs" />
+    <Compile Include="Model75_Enums\Model.cs" />
+    <Compile Include="Model75_Enums\Test.cs" />
+    <Compile Include="Model74_ComplexTypeContained_Github9536\Context.cs" />
+    <Compile Include="Model74_ComplexTypeContained_Github9536\JetTest.cs" />
+    <Compile Include="Model74_ComplexTypeContained_Github9536\Model.cs" />
+    <Compile Include="Model74_ComplexTypeContained_Github9536\Test.cs" />
     <Compile Include="Model12_ComplexType\README.cs" />
     <Compile Include="Model37_2Contexts\SqlServerTest.cs" />
     <Compile Include="Model37_2Contexts\SqlCeTest.cs" />

@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EFCore.Jet.Integration.Test.Model43_PKasFK
 {
+    [Table("Parent43")]
     public class Parent
     {
         [Key]
@@ -13,6 +14,7 @@ namespace EFCore.Jet.Integration.Test.Model43_PKasFK
         public virtual List<Child> Children { get; set; }
     }
 
+    [Table("Child43")]
     public class Child
     {
         // Multiple keys can be defined only via FluentApi

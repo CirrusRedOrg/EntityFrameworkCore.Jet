@@ -233,9 +233,9 @@
     <Compile Include="TableSplittingJetTest.cs" />
     <Compile Include="TransactionJetFixture.cs" />
     <Compile Include="TransactionJettest.cs" />
-    <Compile Include="Utilities\DbContextOptionsBuilderExtensions.cs" />
-    <Compile Include="Utilities\SqlServerConditionAttribute.cs" />
-    <Compile Include="Utilities\TestEnvironment.cs" />
+    <Compile Include="TestUtilities\DbContextOptionsBuilderExtensions.cs" />
+    <Compile Include="TestUtilities\SqlServerConditionAttribute.cs" />
+    <Compile Include="TestUtilities\TestEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

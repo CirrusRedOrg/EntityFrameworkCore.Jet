@@ -144,10 +144,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // ReSharper disable once UnusedMember.Local
         private IReadOnlyList<MigrationCommand> CreateDropCommands()
         {
-            var databaseName = _connection.DbConnection.Database;
+            var databaseName = _connection.DbConnection.DataSource;
             if (string.IsNullOrEmpty(databaseName))
             {
-                throw new InvalidOperationException(JetStrings.NoInitialCatalog);
+                throw new InvalidOperationException(JetStrings.NoDataSource);
             }
 
             var operations = new MigrationOperation[]

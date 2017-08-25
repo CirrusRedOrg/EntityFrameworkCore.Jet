@@ -1,4 +1,4 @@
-﻿namespace EntityFramework.Jet.FunctionalTests.Utilities
+﻿namespace EntityFramework.Jet.FunctionalTests.TestUtilities
 {
     public static class TestEnvironment
     {

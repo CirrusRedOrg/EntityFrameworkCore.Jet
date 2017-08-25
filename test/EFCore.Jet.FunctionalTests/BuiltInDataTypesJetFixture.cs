@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using EntityFramework.Jet.FunctionalTests.Utilities;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;

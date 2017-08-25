@@ -13,13 +13,11 @@ namespace EntityFramework.Jet.FunctionalTests
             fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void Optional_navigation_with_collection_composite_key()
         {
             base.Optional_navigation_with_collection_composite_key();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void Select_subquery_distinct_firstordefault()
         {
             base.Select_subquery_distinct_firstordefault();
@@ -744,7 +742,6 @@ FROM [Gear] AS [g]
 WHERE [g].[Discriminator] IN (N'Officer', N'Gear') AND ((1 & [g].[Rank]) = [g].[Rank])");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void Where_enum_has_flag_subquery()
         {
             base.Where_enum_has_flag_subquery();
@@ -2123,7 +2120,6 @@ END
 WHERE [g].[Discriminator] IN (N'Officer', N'Gear')");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_Date_works()
         {
             base.DateTimeOffset_Date_works();
@@ -2136,7 +2132,6 @@ FROM [Mission] AS [m]
 WHERE CONVERT(date, [m].[Timeline]) > @__Date_0");
         }
 
-        [Fact(Skip ="SQLCE limitation")]
         public override void DateTimeOffset_Datepart_works()
         {
             base.DateTimeOffset_Datepart_works();
@@ -2147,43 +2142,36 @@ FROM [Mission] AS [m]
 WHERE DATEPART(month, [m].[Timeline]) = 5");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddDays()
         {
             base.DateTimeOffset_DateAdd_AddDays();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddHours()
         {
             base.DateTimeOffset_DateAdd_AddHours();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddMilliseconds()
         {
             base.DateTimeOffset_DateAdd_AddMilliseconds();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddMinutes()
         {
             base.DateTimeOffset_DateAdd_AddMinutes();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddMonths()
         {
             base.DateTimeOffset_DateAdd_AddMonths();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddSeconds()
         {
             base.DateTimeOffset_DateAdd_AddSeconds();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
         public override void DateTimeOffset_DateAdd_AddYears()
         {
             base.DateTimeOffset_DateAdd_AddYears();

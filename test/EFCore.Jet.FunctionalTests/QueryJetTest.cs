@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Linq;
-using EntityFramework.Jet.FunctionalTests.Utilities;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
@@ -24,13 +24,11 @@ namespace EntityFramework.Jet.FunctionalTests
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [Fact(Skip = "SQL CE limitation")]
         public override void SelectMany_primitive_select_subquery()
         {
             base.SelectMany_primitive_select_subquery();
         }
 
-        [Fact(Skip = "SQL CE limitation")]
         public override void Average_on_float_column_in_subquery_with_cast()
         {
             base.Average_on_float_column_in_subquery_with_cast();
@@ -582,7 +580,7 @@ FROM [Customers] AS [c2]
 WHERE @_outer_CustomerID1 = [c2].[CustomerID]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_Where_Subquery_Deep_First()
         {
             base.Select_Where_Subquery_Deep_First();
@@ -1334,7 +1332,7 @@ ORDER BY CASE
 END, [p].[ProductID]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void OrderBy_any()
         {
             base.OrderBy_any();
@@ -1417,7 +1415,7 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Sum_over_subquery_is_client_eval()
         {
             base.Sum_over_subquery_is_client_eval();
@@ -1441,7 +1439,7 @@ FROM [Order Details] AS [od]
 WHERE [od].[ProductID] = 1");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Sum_on_float_column_in_subquery()
         {
             base.Sum_on_float_column_in_subquery();
@@ -1520,7 +1518,7 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Average_over_subquery_is_client_eval()
         {
             base.Average_over_subquery_is_client_eval();
@@ -1544,7 +1542,7 @@ FROM [Order Details] AS [od]
 WHERE [od].[ProductID] = 1");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Average_on_float_column_in_subquery()
         {
             base.Average_on_float_column_in_subquery();
@@ -1587,7 +1585,7 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Min_over_subquery_is_client_eval()
         {
             base.Min_over_subquery_is_client_eval();
@@ -1629,7 +1627,7 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Max_over_subquery_is_client_eval()
         {
             base.Max_over_subquery_is_client_eval();
@@ -4182,7 +4180,7 @@ ORDER BY [c].[Country], [c].[CustomerID]");
 END");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void OrderBy_correlated_subquery1()
         {
             base.OrderBy_correlated_subquery1();
@@ -4202,7 +4200,7 @@ ORDER BY (
 )");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void OrderBy_correlated_subquery2()
         {
             base.OrderBy_correlated_subquery2();
@@ -5709,7 +5707,7 @@ FROM [Orders] AS [o]
 WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_multi_level2()
         {
             base.Select_nested_collection_multi_level2();
@@ -5717,7 +5715,7 @@ WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])");
             AssertSql(" ");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_multi_level3()
         {
             base.Select_nested_collection_multi_level3();
@@ -5732,7 +5730,7 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_multi_level4()
         {
             base.Select_nested_collection_multi_level4();
@@ -5751,7 +5749,7 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_multi_level5()
         {
             base.Select_nested_collection_multi_level5();
@@ -5774,7 +5772,7 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_multi_level6()
         {
             base.Select_nested_collection_multi_level6();
@@ -5793,7 +5791,7 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_with_groupby()
         {
             base.Select_nested_collection_with_groupby();
@@ -5840,7 +5838,7 @@ WHERE @_outer_CustomerID1 = [o2].[CustomerID]
 ORDER BY [o2].[OrderID]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_count_using_anonymous_type()
         {
             base.Select_nested_collection_count_using_anonymous_type();
@@ -5855,7 +5853,7 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Select_nested_collection_count_using_DTO()
         {
             base.Select_nested_collection_count_using_DTO();
@@ -6547,7 +6545,7 @@ FROM [Customers] AS [c]
 ORDER BY COALESCE([c].[Region], N'ZZ')");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Does_not_change_ordering_of_projection_with_complex_projections()
         {
             base.Does_not_change_ordering_of_projection_with_complex_projections();
@@ -7280,7 +7278,7 @@ FROM (
 ) AS [t]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         [SqlServerCondition(SqlServerCondition.SupportsOffset)]
         public override void OrderBy_coalesce_take_distinct()
         {
@@ -7297,7 +7295,7 @@ FROM (
 ) AS [t]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         [SqlServerCondition(SqlServerCondition.SupportsOffset)]
         public override void OrderBy_coalesce_skip_take_distinct()
         {
@@ -7317,7 +7315,7 @@ FROM (
 
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         [SqlServerCondition(SqlServerCondition.SupportsOffset)]
         public override void OrderBy_coalesce_skip_take_distinct_take()
         {
@@ -7623,7 +7621,7 @@ FROM [Customers] AS [c]
 ORDER BY [A]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Anonymous_subquery_orderby()
         {
             base.Anonymous_subquery_orderby();
@@ -7737,7 +7735,7 @@ FROM [Customers] AS [c]
 ORDER BY [Property]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void DTO_subquery_orderby()
         {
             base.DTO_subquery_orderby();
@@ -7814,7 +7812,7 @@ FROM [Orders] AS [o]
 WHERE [o].[OrderID] = 10300");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Subquery_is_null_translated_correctly()
         {
             base.Subquery_is_null_translated_correctly();
@@ -7830,7 +7828,7 @@ WHERE (
 ) IS NULL");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Subquery_is_not_null_translated_correctly()
         {
             base.Subquery_is_not_null_translated_correctly();

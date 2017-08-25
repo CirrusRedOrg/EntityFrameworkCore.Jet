@@ -1,5 +1,5 @@
 ﻿using System.Linq;
-using EntityFramework.Jet.FunctionalTests.Utilities;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
@@ -1276,7 +1276,6 @@ ORDER BY [t].[Id]");
             }
         }
 
-        [Fact(Skip = "SQL CE limitation")]
         public override void Where_navigation_property_to_collection()
         {
             base.Where_navigation_property_to_collection();
@@ -1291,8 +1290,7 @@ WHERE (
     WHERE [l1.OneToOne_Required_FK].[Id] = [l].[OneToMany_Optional_InverseId]
 ) > 0");
         }
-
-        [Fact(Skip = "SQL CE limitation")]
+        [Fact]
         public override void Where_navigation_property_to_collection2()
         {
             base.Where_navigation_property_to_collection2();
@@ -1308,7 +1306,7 @@ WHERE (
 ) > 0");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        
         public override void Where_navigation_property_to_collection_of_original_entity_type()
         {
             base.Where_navigation_property_to_collection_of_original_entity_type();
@@ -2465,7 +2463,7 @@ LEFT JOIN (
 ) AS [t] ON [l2].[Level1_Optional_Id] = [t].[Id]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        [Fact]
         public override void GroupJoin_in_subquery_with_client_result_operator()
         {
             base.GroupJoin_in_subquery_with_client_result_operator();
@@ -2523,7 +2521,7 @@ FROM [Level1] AS [l1_inner2]
 LEFT JOIN [Level2] AS [l2_inner2] ON [l1_inner2].[Id] = [l2_inner2].[Level1_Optional_Id]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        [Fact]
         public override void GroupJoin_in_subquery_with_client_projection_nested2()
         {
             base.GroupJoin_in_subquery_with_client_projection_nested2();
@@ -2678,7 +2676,6 @@ LEFT JOIN [Level2] AS [l2] ON [l1].[Id] = [l2].[Level1_Optional_Id]
 WHERE ([l2].[Name] <> N'Foo') OR [l2].[Name] IS NULL");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
         public override void Explicit_GroupJoin_in_subquery_with_scalar_result_operator()
         {
             base.Explicit_GroupJoin_in_subquery_with_scalar_result_operator();
@@ -2693,7 +2690,7 @@ WHERE (
 ) > 4");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        [Fact]
         public override void Explicit_GroupJoin_in_subquery_with_multiple_result_operator_distinct_count_materializes_main_clause()
         {
             base.Explicit_GroupJoin_in_subquery_with_multiple_result_operator_distinct_count_materializes_main_clause();
@@ -2937,7 +2934,7 @@ ORDER BY [l1].[Id]");
                 @"");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        [Fact]
         public override void Member_doesnt_get_pushed_down_into_subquery_with_result_operator()
         {
             base.Member_doesnt_get_pushed_down_into_subquery_with_result_operator();
@@ -3042,7 +3039,7 @@ INNER JOIN (
 ORDER BY [t].[Id]");
         }
 
-        [Fact(Skip = "SQL CE limitation")]
+        [Fact]
         public override void Project_collection_navigation_count()
         {
             base.Project_collection_navigation_count();

@@ -42,7 +42,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </returns>
         protected override string GenerateNonNullSqlLiteral(object value)
         {
-            return $"CAST({base.GenerateNonNullSqlLiteral(value)} AS {StoreType})";
+            return base.GenerateNonNullSqlLiteral(value);
+            //return $"CAST({base.GenerateNonNullSqlLiteral(value)} AS {StoreType})";
         }
     }
 }

@@ -383,8 +383,8 @@ namespace EntityFrameworkCore.Jet.Properties
 
         /// </summary>
 
-        public static string NoInitialCatalog
-            => GetString("NoInitialCatalog");
+        public static string NoDataSource
+            => GetString("NoDataSource");
 
 
         /// <summary>

@@ -113,7 +113,7 @@ namespace System.Data.Jet
 
         public override float GetFloat(int ordinal)
         {
-            return _wrappedDataReader.GetFloat(ordinal);
+            return Convert.ToSingle(_wrappedDataReader.GetValue(ordinal)); // _wrappedDataReader.GetFloat(ordinal);
         }
 
         public override Guid GetGuid(int ordinal)

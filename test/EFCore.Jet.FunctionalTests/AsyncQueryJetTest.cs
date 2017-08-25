@@ -16,41 +16,7 @@ namespace EntityFramework.Jet.FunctionalTests
             return base.Where_subquery_on_collection();
         }
 
-        [Fact(Skip = "SQL CE limitation")]
-        public override async Task Sum_over_subquery_is_client_eval()
-        {
-            //return base.Sum_over_subquery_is_client_eval();
-        }
 
-        [Fact(Skip = "SQL CE limitation")]
-        public override async Task Min_over_subquery_is_client_eval()
-        {
-            //return base.Min_over_subquery_is_client_eval();
-        }
-
-        [Fact(Skip = "SQL CE limitation")]
-        public override async Task Max_over_subquery_is_client_eval()
-        {
-            //return base.Max_over_subquery_is_client_eval();
-        }
-
-        [Fact(Skip = "SQL CE limitation")]
-        public override async Task Average_over_subquery_is_client_eval()
-        {
-            //return base.Average_over_subquery_is_client_eval();
-        }
-
-        [Fact(Skip = "SQL CE limitation")]
-        public override async Task OrderBy_correlated_subquery_lol()
-        {
-            //return base.OrderBy_correlated_subquery_lol();
-        }
-
-        [Fact(Skip = "SQL CE limitation")]
-        public override async Task SelectMany_primitive_select_subquery()
-        {
-            //return base.SelectMany_primitive_select_subquery();
-        }
 
         [Fact(Skip = "Investigate 2.1 - https://github.com/aspnet/EntityFramework/issues/9369")]
         public override async Task String_Contains_Literal()

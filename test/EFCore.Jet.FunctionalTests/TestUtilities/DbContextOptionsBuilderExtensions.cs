@@ -1,6 +1,6 @@
 ﻿using EntityFrameworkCore.Jet.Infrastructure;
 
-namespace EntityFramework.Jet.FunctionalTests.Utilities
+namespace EntityFramework.Jet.FunctionalTests.TestUtilities
 {
     public static class DbContextOptionsBuilderExtensions
     {

@@ -1,5 +1,5 @@
 ﻿using System;
-using EntityFramework.Jet.FunctionalTests.Utilities;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Extensions.DependencyInjection;

@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using EntityFramework.Jet.FunctionalTests.Utilities;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
 using Xunit.Abstractions;

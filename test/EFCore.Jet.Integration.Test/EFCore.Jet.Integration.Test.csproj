@@ -152,6 +152,10 @@
     <Compile Include="DmlSqlTest.cs" />
     <Compile Include="DmlJetTest.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
+    <Compile Include="Model76_FullCreate\Context.cs" />
+    <Compile Include="Model76_FullCreate\JetTest.cs" />
+    <Compile Include="Model76_FullCreate\Model.cs" />
+    <Compile Include="Model76_FullCreate\Test.cs" />
     <Compile Include="Model75_Enums\Context.cs" />
     <Compile Include="Model75_Enums\JetTest.cs" />
     <Compile Include="Model75_Enums\Model.cs" />
@@ -405,7 +409,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="AssemblyInitialization.cs" />
     <Compile Include="Helpers.cs" />
-    <Compile Include="JetProviderFactory\JetStoreSchemaDefinitionRetrieveTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SqlJoinTest.cs" />
     <Compile Include="DataTypesTest.cs" />

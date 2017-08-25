@@ -13,6 +13,17 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
 {
     public class JetEntityMaterializerSource : EntityMaterializerSource
     {
+        private static readonly MethodInfo _readValue;
+
+
+        static JetEntityMaterializerSource()
+        {
+            _readValue = typeof(ValueBuffer).GetTypeInfo().DeclaredProperties
+                .Single(p => p.GetIndexParameters().Any()).GetMethod;
+        }
+
+
+
         public override Expression CreateReadValueExpression(
             Expression valueBuffer,
             Type type,
@@ -90,15 +101,13 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             return Expression.Block(new[] { instanceVariable }, blockExpressions);
         }
 
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
         public override Expression CreateReadValueCallExpression(Expression valueBuffer, int index)
-        {
-            return base.CreateReadValueCallExpression(valueBuffer, index);
-        }
+            => Expression.Call(valueBuffer, _readValue, Expression.Constant(index));
 
-        public override Func<ValueBuffer, object> GetMaterializer(IEntityType entityType)
-        {
-            return base.GetMaterializer(entityType);
-        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -107,7 +116,6 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         public new static readonly MethodInfo TryReadValueMethod
             = typeof(JetEntityMaterializerSource).GetTypeInfo()
                 .GetDeclaredMethod(nameof(TryReadValue));
-
 
         private static TValue TryReadValue<TValue>(
             ValueBuffer valueBuffer,

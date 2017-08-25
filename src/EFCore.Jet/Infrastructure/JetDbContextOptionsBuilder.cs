@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
 {
     /// <summary>
     ///     <para>
-    ///         Allows SQL Server specific configuration to be performed on <see cref="DbContextOptions" />.
+    ///         Allows Jet specific configuration to be performed on <see cref="DbContextOptions" />.
     ///     </para>
     ///     <para>
     ///         Instances of this class are returned from a call to

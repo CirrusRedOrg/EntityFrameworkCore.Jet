@@ -14,16 +14,16 @@ using Microsoft.EntityFrameworkCore;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="DbContextOptionsBuilder" />.
+    ///     Jet specific extension methods for <see cref="DbContextOptionsBuilder" />.
     /// </summary>
     public static class JetDbContextOptionsExtensions
     {
         /// <summary>
-        ///     Configures the context to connect to a Microsoft SQL Server database.
+        ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
         /// <param name="connectionString"> The connection string of the database to connect to. </param>
-        /// <param name="jetOptionsAction">An optional action to allow additional SQL Server specific configuration.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
             [NotNull] this DbContextOptionsBuilder optionsBuilder,
@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Jet
 
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
         /// <summary>
-        ///     Configures the context to connect to a Microsoft SQL Server database.
+        ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
         /// <param name="connection">
@@ -53,7 +53,7 @@ namespace EntityFrameworkCore.Jet
         ///     in the open state then EF will not open or close the connection. If the connection is in the closed
         ///     state then EF will open and close the connection as needed.
         /// </param>
-        /// <param name="jetOptionsAction">An optional action to allow additional SQL Server specific configuration.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
             [NotNull] this DbContextOptionsBuilder optionsBuilder,
@@ -74,12 +74,12 @@ namespace EntityFrameworkCore.Jet
         }
 
         /// <summary>
-        ///     Configures the context to connect to a Microsoft SQL Server database.
+        ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <typeparam name="TContext"> The type of context to be configured. </typeparam>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
         /// <param name="connectionString"> The connection string of the database to connect to. </param>
-        /// <param name="jetOptionsAction">An optional action to allow additional SQL Server specific configuration.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
             [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
@@ -91,7 +91,7 @@ namespace EntityFrameworkCore.Jet
 
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
         /// <summary>
-        ///     Configures the context to connect to a Microsoft SQL Server database.
+        ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <typeparam name="TContext"> The type of context to be configured. </typeparam>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
@@ -100,7 +100,7 @@ namespace EntityFrameworkCore.Jet
         ///     in the open state then EF will not open or close the connection. If the connection is in the closed
         ///     state then EF will open and close the connection as needed.
         /// </param>
-        /// <param name="jetOptionsAction">An optional action to allow additional SQL Server specific configuration.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
             [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,

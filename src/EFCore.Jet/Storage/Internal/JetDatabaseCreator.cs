@@ -38,52 +38,27 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public virtual TimeSpan RetryDelay { get; set; } = TimeSpan.FromMilliseconds(500);
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public virtual TimeSpan RetryTimeout { get; set; } = TimeSpan.FromMinutes(1);
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public override void Create()
         {
-            // Here we should create the file
-            /*
-            using (var masterConnection = _connection.CreateMasterConnection())
+
+            using (var emptyConnection = _connection.CreateEmptyConnection())
             {
                 Dependencies.MigrationCommandExecutor
-                    .ExecuteNonQuery(CreateCreateOperations(), masterConnection);
+                    .ExecuteNonQuery(CreateCreateOperations(), emptyConnection);
 
                 ClearPool();
             }
-            */
 
-            Exists(retryOnNotExists: true);
         }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override async Task CreateAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public override Task CreateAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
-            // Here we should create the file
-            /*
-            using (var masterConnection = _connection.CreateMasterConnection())
-            {
-                await Dependencies.MigrationCommandExecutor
-                    .ExecuteNonQueryAsync(CreateCreateOperations(), masterConnection, cancellationToken);
-
-                ClearPool();
-            }
-            */
-
-            await ExistsAsync(retryOnNotExists: true, cancellationToken: cancellationToken);
+            Create();
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -116,7 +91,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
         {
             var builder = new OleDbConnectionStringBuilder(_connection.DbConnection.ConnectionString);
-            return Dependencies.MigrationsSqlGenerator.Generate(new[] { new JetCreateDatabaseOperation { FileName = builder.FileName} });
+            return Dependencies.MigrationsSqlGenerator.Generate(new[] { new JetCreateDatabaseOperation { Name = builder.DataSource} });
         }
 
         /// <summary>
@@ -124,118 +99,19 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override bool Exists()
-            => Exists(retryOnNotExists: false);
-
-        private bool Exists(bool retryOnNotExists)
-            => Dependencies.ExecutionStrategyFactory.Create().Execute(
-                DateTime.UtcNow + RetryTimeout, giveUp =>
-                    {
-                        while (true)
-                        {
-                            try
-                            {
-                                _connection.Open(errorsExpected: true);
-                                _connection.Close();
-                                return true;
-                            }
-                            catch (OleDbException e)
-                            {
-                                if (!retryOnNotExists
-                                    && IsDoesNotExist(e))
-                                {
-                                    return false;
-                                }
-
-                                if (DateTime.UtcNow > giveUp
-                                    || !RetryOnExistsFailure(e))
-                                {
-                                    throw;
-                                }
-
-                                Thread.Sleep(RetryDelay);
-                            }
-                        }
-                    });
+        {
+            return System.Data.Jet.JetConnection.DatabaseExists(_connection.DbConnection.ConnectionString);
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override Task<bool> ExistsAsync(CancellationToken cancellationToken = default(CancellationToken))
-            => ExistsAsync(retryOnNotExists: false, cancellationToken: cancellationToken);
-
-        private Task<bool> ExistsAsync(bool retryOnNotExists, CancellationToken cancellationToken)
-            => Dependencies.ExecutionStrategyFactory.Create().ExecuteAsync(
-                DateTime.UtcNow + RetryTimeout, async (giveUp, ct) =>
-                    {
-                        while (true)
-                        {
-                            try
-                            {
-                                await _connection.OpenAsync(ct, errorsExpected: true);
-
-                                _connection.Close();
-                                return true;
-                            }
-                            catch (OleDbException e)
-                            {
-                                if (!retryOnNotExists
-                                    && IsDoesNotExist(e))
-                                {
-                                    return false;
-                                }
-
-                                if (DateTime.UtcNow > giveUp
-                                    || !RetryOnExistsFailure(e))
-                                {
-                                    throw;
-                                }
-
-                                await Task.Delay(RetryDelay, ct);
-                            }
-                        }
-                    }, cancellationToken);
-
-        // Login failed is thrown when database does not exist (See Issue #776)
-        // Unable to attach database file is thrown when file does not exist (See Issue #2810)
-        // Unable to open the physical file is thrown when file does not exist (See Issue #2810)
-        private static bool IsDoesNotExist(OleDbException exception) =>
-            // TODO: Check proper Jet Errors
-            exception.ErrorCode == 4060 || exception.ErrorCode == 1832 || exception.ErrorCode == 5120;
-
-        // See Issue #985
-        private bool RetryOnExistsFailure(OleDbException exception)
         {
-            // This is to handle the case where Open throws (Number 233):
-            //   System.Data.Jet.SqlException: A connection was successfully established with the
-            //   server, but then an error occurred during the login process. (provider: Named Pipes
-            //   Provider, error: 0 - No process is on the other end of the pipe.)
-            // It appears that this happens when the database has just been created but has not yet finished
-            // opening or is auto-closing when using the AUTO_CLOSE option. The workaround is to flush the pool
-            // for the connection and then retry the Open call.
-            // Also handling (Number -2):
-            //   System.Data.Jet.SqlException: Connection Timeout Expired.  The timeout period elapsed while
-            //   attempting to consume the pre-login handshake acknowledgment.  This could be because the pre-login
-            //   handshake failed or the server was unable to respond back in time.
-            // And (Number 4060):
-            //   System.Data.Jet.SqlException: Cannot open database "X" requested by the login. The
-            //   login failed.
-            // And (Number 1832)
-            //   System.Data.Jet.SqlException: Unable to Attach database file as database xxxxxxx.
-            // And (Number 5120)
-            //   System.Data.Jet.SqlException: Unable to open the physical file xxxxxxx.
-            // TODO: Check proper Jet Errors
-            if (exception.ErrorCode == 233
-                || exception.ErrorCode == -2
-                || exception.ErrorCode == 4060
-                || exception.ErrorCode == 1832
-                || exception.ErrorCode == 5120)
-            {
-                ClearPool();
-                return true;
-            }
-            return false;
+            return new Task<bool>(Exists);
         }
+
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -245,14 +121,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             ClearAllPools();
 
-            // Here we should delete the file
-            /*
-            using (var masterConnection = _connection.CreateMasterConnection())
+            using (var emptyConnection = _connection.CreateEmptyConnection())
             {
                 Dependencies.MigrationCommandExecutor
-                    .ExecuteNonQuery(CreateDropCommands(), masterConnection);
+                    .ExecuteNonQuery(CreateDropCommands(), emptyConnection);
             }
-            */
         }
 
         /// <summary>
@@ -263,14 +136,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             ClearAllPools();
 
-            // Here we should delete the file
-            /*
-            using (var masterConnection = _connection.CreateMasterConnection())
-            {
-                await Dependencies.MigrationCommandExecutor
-                    .ExecuteNonQueryAsync(CreateDropCommands(), masterConnection, cancellationToken);
-            }
-            */
+            Delete();
+
             return Task.CompletedTask;
         }
 

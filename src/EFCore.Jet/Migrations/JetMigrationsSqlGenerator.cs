@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Jet;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -495,49 +496,15 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            // Here we should create an mdb file
-            /*
+
             builder
                 .Append("CREATE DATABASE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name));
+                .Append(JetConnection.GetConnectionString(ExpandFileName(operation.Name)));
 
-            if (!string.IsNullOrEmpty(operation.FileName))
-            {
-                var fileName = ExpandFileName(operation.FileName);
-                var name = Path.GetFileNameWithoutExtension(fileName);
-
-                var logFileName = Path.ChangeExtension(fileName, ".ldf");
-                var logName = name + "_log";
-
-                // Match default naming behavior of SQL Server
-                logFileName = logFileName.Insert(logFileName.Length - ".ldf".Length, "_log");
-
-                builder
-                    .AppendLine()
-                    .Append("ON (NAME = '")
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(name))
-                    .Append("', FILENAME = '")
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(fileName))
-                    .Append("')")
-                    .AppendLine()
-                    .Append("LOG ON (NAME = '")
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(logName))
-                    .Append("', FILENAME = '")
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(logFileName))
-                    .Append("')");
-            }
 
             builder
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand(suppressTransaction: true)
-                .Append("IF SERVERPROPERTY('EngineEdition') <> 5 EXEC(N'ALTER DATABASE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                .Append(" SET READ_COMMITTED_SNAPSHOT ON")
-                .Append(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .Append("')")
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
-            */
         }
 
         private static string ExpandFileName(string fileName)
@@ -566,21 +533,11 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            // Jet does not support drop
-            /*
             builder
-                .Append("IF SERVERPROPERTY('EngineEdition') <> 5 EXEC(N'ALTER DATABASE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                .Append(" SET SINGLE_USER WITH ROLLBACK IMMEDIATE")
-                .Append(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .Append("')")
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand(suppressTransaction: true)
                 .Append("DROP DATABASE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
+                .Append(ExpandFileName(operation.Name))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
-            */
         }
 
         protected override void Generate(

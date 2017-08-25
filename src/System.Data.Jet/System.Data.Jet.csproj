@@ -74,6 +74,7 @@
     <Compile Include="JetParameterHelper.cs" />
     <Compile Include="JetProviderFactory.cs" />
     <Compile Include="JetProviderManifest.cs" />
+    <Compile Include="JetStoreSchemaDefinition\JetStoreDatabaseHandling.cs" />
     <Compile Include="JetStoreSchemaDefinition\Column.cs" />
     <Compile Include="JetStoreSchemaDefinition\ColumnCollection.cs" />
     <Compile Include="JetStoreSchemaDefinition\JetStoreSchemaDefinitionRetrieve.cs" />

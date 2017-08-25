@@ -10,5 +10,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public interface IJetConnection : IRelationalConnection
     {
+        IJetConnection CreateEmptyConnection();
     }
 }

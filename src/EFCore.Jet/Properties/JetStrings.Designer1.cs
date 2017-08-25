@@ -60,7 +60,7 @@ namespace EntityFrameworkCore.Jet.Properties
 
         /// <summary>
 
-        ///     SQL Server sequences cannot be used to generate values for the property '{property}' on entity type '{entityType}' because the property type is '{propertyType}'. Sequences can only be used with integer properties.
+        ///     Jet sequences cannot be used to generate values for the property '{property}' on entity type '{entityType}' because the property type is '{propertyType}'. Sequences can only be used with integer properties.
 
         /// </summary>
 
@@ -72,7 +72,7 @@ namespace EntityFrameworkCore.Jet.Properties
 
         /// <summary>
 
-        ///     SQL Server requires the table name to be specified for rename index operations. Specify table name in the call to MigrationBuilder.RenameIndex.
+        ///     Jet requires the table name to be specified for rename index operations. Specify table name in the call to MigrationBuilder.RenameIndex.
 
         /// </summary>
 
@@ -128,7 +128,7 @@ namespace EntityFrameworkCore.Jet.Properties
 
         /// <summary>
 
-        ///     The property '{property}' on entity type '{entityType}' is of type 'byte', but is set up to use a SQL Server identity column. This requires that values starting at 255 and counting down will be used for temporary key values. A temporary key value is needed for every entity inserted in a single call to 'SaveChanges'. Care must be taken that these values do not collide with real key values.
+        ///     The property '{property}' on entity type '{entityType}' is of type 'byte', but is set up to use a Jet identity column. This requires that values starting at 255 and counting down will be used for temporary key values. A temporary key value is needed for every entity inserted in a single call to 'SaveChanges'. Care must be taken that these values do not collide with real key values.
 
         /// </summary>
 

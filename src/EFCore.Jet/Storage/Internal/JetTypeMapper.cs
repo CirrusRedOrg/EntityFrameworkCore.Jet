@@ -74,11 +74,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetDateTimeTypeMapping _datetime2 = new JetDateTimeTypeMapping("datetime", dbType: DbType.DateTime2);
 
-        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("float"); // Note: "float" is correct SQL Server type to map to CLR-type double
+        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("float"); 
 
         private readonly JetDateTimeOffsetTypeMapping _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime");
 
-        private readonly FloatTypeMapping _real = new JetFloatTypeMapping("real"); // Note: "real" is correct SQL Server type to map to CLR-type float
+        private readonly FloatTypeMapping _real = new JetFloatTypeMapping("real"); 
 
         private readonly GuidTypeMapping _uniqueidentifier = new GuidTypeMapping("guid", DbType.Guid);
 
@@ -141,7 +141,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     { "xml", _xml }
                 };
 
-            // Note: sbyte, ushort, uint, char and ulong type mappings are not supported by SQL Server.
+            // Note: sbyte, ushort, uint, char and ulong type mappings are not supported by Jet.
             // We would need the type conversions feature to allow this to work - see https://github.com/aspnet/EntityFramework/issues/242.
             _clrTypeMappings
                 = new Dictionary<Type, RelationalTypeMapping>
@@ -277,7 +277,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     : base.FindMapping(clrType));
         }
 
-        // Indexes in SQL Server have a max size of 900 bytes
+        // Indexes in Jet have a max size of 900 bytes
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.

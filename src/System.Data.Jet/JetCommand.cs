@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace System.Data.Jet
 {
-    class JetCommand : DbCommand, ICloneable
+    public class JetCommand : DbCommand, ICloneable
     {
         private DbCommand _WrappedCommand;
         private JetConnection _Connection;
@@ -254,6 +255,9 @@ namespace System.Data.Jet
         {
             LogHelper.ShowCommandText("ExecuteNonQuery", _WrappedCommand);
 
+            if (JetStoreDatabaseHandling.TryDatabaseOperation(_WrappedCommand.CommandText))
+                return 1;
+
             if (_WrappedCommand.CommandType != CommandType.Text)
                 return _WrappedCommand.ExecuteNonQuery();
 
@@ -306,12 +310,12 @@ namespace System.Data.Jet
             int indexOfSkip;
             string newCommandText;
             ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
-            ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
+            SortParameters(_WrappedCommand.Parameters);
+            FixParameters(_WrappedCommand.Parameters);
 
             DbCommand command;
             command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
             command.CommandText = newCommandText;
-            command.Parameters.Clear();
 
             if (skipCount != 0)
                 return new JetDataReader(command.ExecuteReader(behavior), topCount - skipCount, skipCount);
@@ -329,15 +333,67 @@ namespace System.Data.Jet
             int indexOfSkip;
             string newCommandText;
             ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
-            ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
+            //ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
+            SortParameters(_WrappedCommand.Parameters);
+            FixParameters(_WrappedCommand.Parameters);
 
             DbCommand command;
             command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
             command.CommandText = newCommandText;
-            command.Parameters.Clear();
 
             return command.ExecuteNonQuery();
 
+        }
+
+        private void FixParameters(DbParameterCollection parameters)
+        {
+            if (parameters.Count == 0)
+                return;
+            foreach (OleDbParameter parameter in parameters)
+            {
+                if (parameter.Value is TimeSpan)
+                    parameter.Value = JetConfiguration.TimeSpanOffset + (TimeSpan) parameter.Value;
+                if (parameter.Value is DateTime)
+                {
+                    // Hack: https://github.com/fsprojects/SQLProvider/issues/191
+                    DateTime dt = (DateTime) parameter.Value;
+                    parameter.Value = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, dt.Kind);
+                }
+            }
+        }
+
+        private void SortParameters(DbParameterCollection parameters)
+        {
+            if (parameters.Count == 0)
+                return;
+            var parameterArray = parameters.Cast<OleDbParameter>().ToArray();
+            Array.Sort(parameterArray, ParameterComparer.Instance);
+
+            parameters.Clear();
+            foreach (OleDbParameter parameter in parameterArray)
+                parameters.Add(new OleDbParameter(parameter.ParameterName, parameter.Value));
+        }
+
+        private class ParameterComparer : IComparer<DbParameter>
+        {
+            public static readonly ParameterComparer Instance = new ParameterComparer();
+
+            private ParameterComparer() { }
+
+            Regex _extractNumberRegex = new Regex(@"^@p(?<number>\d+)$", RegexOptions.IgnoreCase);
+            public int Compare(DbParameter x, DbParameter y)
+            {
+                Match xMatch = _extractNumberRegex.Match(x.ParameterName);
+                if (!xMatch.Success)
+                    return 1;
+                Match yMatch = _extractNumberRegex.Match(y.ParameterName);
+                if (!yMatch.Success)
+                    return -1;
+
+                var xNumber = int.Parse(xMatch.Groups["number"].Value);
+                var yNumber = int.Parse(yMatch.Groups["number"].Value);
+                return xNumber.CompareTo(yNumber);
+            }
         }
 
 
@@ -440,17 +496,6 @@ namespace System.Data.Jet
             #endregion
         }
 
-
-        private void ApplyParameters(string commandText, DbParameterCollection parameters, out string newCommandText)
-        {
-            newCommandText = commandText;
-            foreach (DbParameter parameter in parameters)
-            {
-                newCommandText = newCommandText.Replace(parameter.ParameterName, JetParameterHelper.GetParameterValue(parameter));
-            }
-        }
-
-
         /// <summary>
         /// Creates a prepared (or compiled) version of the command on the data source
         /// </summary>
@@ -498,4 +543,5 @@ namespace System.Data.Jet
         }
 
     }
+
 }

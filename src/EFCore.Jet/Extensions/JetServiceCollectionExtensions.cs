@@ -9,6 +9,7 @@ using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
 using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.Jet.Query.Sql.Internal;
+using EntityFrameworkCore.Jet.Storage;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.Jet.Update.Internal;
 using EntityFrameworkCore.Jet.ValueGeneration.Internal;
@@ -30,13 +31,13 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Extensions.DependencyInjection
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="IServiceCollection" />.
+    ///     Jet specific extension methods for <see cref="IServiceCollection" />.
     /// </summary>
     public static class JetServiceCollectionExtensions
     {
         /// <summary>
         ///     <para>
-        ///         Adds the services required by the Microsoft SQL Server database provider for Entity Framework
+        ///         Adds the services required by the Microsoft Jet database provider for Entity Framework
         ///         to an <see cref="IServiceCollection" />. You use this method when using dependency injection
         ///         in your application, such as with ASP.NET. For more information on setting up dependency
         ///         injection, see http://go.microsoft.com/fwlink/?LinkId=526890.
@@ -78,7 +79,6 @@ namespace Extensions.DependencyInjection
 
                 .TryAdd<ISqlGenerationHelper, JetSqlGenerationHelper>()
                 .TryAdd<IMigrationsAnnotationProvider, JetMigrationsAnnotationProvider>()
-                .TryAdd<IRelationalValueBufferFactoryFactory, UntypedRelationalValueBufferFactoryFactory>()
                 .TryAdd<IModelValidator, JetModelValidator>()
                 .TryAdd<IConventionSetBuilder, JetConventionSetBuilder>()
                 .TryAdd<IUpdateSqlGenerator>(p => p.GetService<IJetUpdateSqlGenerator>())

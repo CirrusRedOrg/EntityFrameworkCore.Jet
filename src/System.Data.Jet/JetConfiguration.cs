@@ -36,6 +36,8 @@ namespace System.Data.Jet
             }
         }
 
+        public static string OleDbDefaultProvider => "Microsoft.ACE.OLEDB.12.0";
+
 
         // The SQL statement
         //

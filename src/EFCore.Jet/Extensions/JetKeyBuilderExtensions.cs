@@ -8,12 +8,12 @@ using EntityFrameworkCore.Jet.Utilities;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="KeyBuilder" />.
+    ///     Jet specific extension methods for <see cref="KeyBuilder" />.
     /// </summary>
     public static class JetKeyBuilderExtensions
     {
         /// <summary>
-        ///     Configures whether the key is clustered when targeting SQL Server.
+        ///     Configures whether the key is clustered when targeting Jet.
         /// </summary>
         /// <param name="keyBuilder"> The builder for the key being configured. </param>
         /// <param name="clustered"> A value indicating whether the key is clustered. </param>

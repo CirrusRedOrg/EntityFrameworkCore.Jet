@@ -8,12 +8,12 @@ using EntityFrameworkCore.Jet.Utilities;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="IndexBuilder" />.
+    ///     Jet specific extension methods for <see cref="IndexBuilder" />.
     /// </summary>
     public static class JetIndexBuilderExtensions
     {
         /// <summary>
-        ///     Configures whether the index is clustered when targeting SQL Server.
+        ///     Configures whether the index is clustered when targeting Jet.
         /// </summary>
         /// <param name="indexBuilder"> The builder for the index being configured. </param>
         /// <param name="clustered"> A value indicating whether the index is clustered. </param>

@@ -1,11 +1,18 @@
 using System;
 using System.Data.Common;
+using System.Data.OleDb;
 
 namespace System.Data.Jet
 {
-    static internal class JetParameterHelper
+    public static class JetParameterHelper
     {
-        public static string GetParameterValueToDisplay(DbParameter parameter)
+        public static void AddWithValue(this DbParameterCollection parameters, string name, object value)
+        {
+            parameters.Add(new OleDbParameter(name, value));
+        }
+
+
+        internal static string GetParameterValueToDisplay(DbParameter parameter)
         {
             if (parameter.Value == DBNull.Value || parameter.Value == null)
                 return "null";
@@ -41,24 +48,6 @@ namespace System.Data.Jet
             }
         }
 
-        public static string GetParameterValue(DbParameter parameter)
-        {
-            if (parameter.Value == DBNull.Value || parameter.Value == null)
-                return "null";
-            else if (IsString(parameter))
-                return String.Format("'{0}'", ((string)parameter.Value).Replace("'", "''"));
-            else if (IsDateTime(parameter))
-                return String.Format("#{0:MM/dd/yyyy HH:mm:ss}#", parameter.Value is TimeSpan ? JetConfiguration.TimeSpanOffset + (TimeSpan)parameter.Value : parameter.Value);
-            else if (IsTimeSpan(parameter))
-                return String.Format("#{0:MM/dd/yyyy HH:mm:ss}#", JetConfiguration.TimeSpanOffset + (TimeSpan)parameter.Value);
-            else if (IsGuid(parameter))
-                return String.Format("'{0}'", parameter.Value);
-            else if (IsNumeric(parameter))
-                return String.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", Convert.ToInt64(parameter.Value));
-            else
-                return String.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", parameter.Value);
-        }
-
         private static bool IsNumeric(DbParameter parameter)
         {
             switch (parameter.DbType)
@@ -79,7 +68,7 @@ namespace System.Data.Jet
         }
 
 
-        public static bool IsTimeSpan(DbParameter parameter)
+        internal static bool IsTimeSpan(DbParameter parameter)
         {
             switch (parameter.DbType)
             {
@@ -90,7 +79,7 @@ namespace System.Data.Jet
             }
         }
 
-        public static bool IsDateTime(DbParameter parameter)
+        internal static bool IsDateTime(DbParameter parameter)
         {
             switch (parameter.DbType)
             {
@@ -104,7 +93,7 @@ namespace System.Data.Jet
             }
         }
 
-        public static bool IsString(DbParameter parameter)
+        internal static bool IsString(DbParameter parameter)
         {
             switch (parameter.DbType)
             {

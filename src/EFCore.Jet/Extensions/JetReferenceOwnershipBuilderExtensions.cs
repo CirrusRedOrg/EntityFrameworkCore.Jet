@@ -8,12 +8,12 @@ using EntityFrameworkCore.Jet.Utilities;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="ReferenceOwnershipBuilder" />.
+    ///     Jet specific extension methods for <see cref="ReferenceOwnershipBuilder" />.
     /// </summary>
     public static class JetReferenceOwnershipBuilderExtensions
     {
         /// <summary>
-        ///     Configures the table that the entity maps to when targeting SQL Server as memory-optimized.
+        ///     Configures the table that the entity maps to when targeting Jet as memory-optimized.
         /// </summary>
         /// <param name="referenceOwnershipBuilder"> The builder for the entity type being configured. </param>
         /// <param name="memoryOptimized"> A value indicating whether the table is memory-optimized. </param>
@@ -29,7 +29,7 @@ namespace EntityFrameworkCore.Jet
         }
 
         /// <summary>
-        ///     Configures the table that the entity maps to when targeting SQL Server as memory-optimized.
+        ///     Configures the table that the entity maps to when targeting Jet as memory-optimized.
         /// </summary>
         /// <typeparam name="TEntity"> The entity type being configured. </typeparam>
         /// <typeparam name="TRelatedEntity"> The entity type that this relationship targets. </typeparam>

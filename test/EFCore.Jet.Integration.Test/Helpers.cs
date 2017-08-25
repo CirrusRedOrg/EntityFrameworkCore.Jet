@@ -94,7 +94,7 @@ namespace EFCore.Jet.Integration.Test
         }
 
 
-        private static string GetTestDirectory()
+        public static string GetTestDirectory()
         {
             return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase.Replace("file:///", ""));
         }

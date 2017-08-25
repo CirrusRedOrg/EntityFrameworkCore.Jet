@@ -1,7 +1,9 @@
 using System;
 using System.ComponentModel;
 using System.Data.Common;
+using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
+using System.Reflection;
 using System.Transactions;
 
 namespace System.Data.Jet
@@ -38,6 +40,15 @@ namespace System.Data.Jet
         {
             this.ConnectionString = connectionString;
         }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is empty.
+        /// It is similar to connection to master and can be used only to create and drop databases
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance is empty; otherwise, <c>false</c>.
+        /// </value>
+        public bool IsEmpty { get; set; }
 
         /// <summary>
         /// Gets the <see cref="T:System.Data.Common.DbProviderFactory" /> for this <see cref="T:System.Data.Common.DbConnection" />.
@@ -217,6 +228,8 @@ namespace System.Data.Jet
         /// </summary>
         public override void Open()
         {
+            if (IsEmpty)
+                return;
             this.WrappedConnection.Open();
         }
 
@@ -351,5 +364,96 @@ namespace System.Data.Jet
         {
             // Actually Jet does not support pools
         }
+
+        public void CreateEmptyDatabase()
+        {
+            CreateEmptyDatabase(WrappedConnection.ConnectionString);
+        }
+
+        public static void CreateEmptyDatabase(string connectionString)
+        {
+            Type adoxCatalogType;
+            object catalog;
+
+            try
+            {
+                adoxCatalogType = Type.GetTypeFromProgID("ADOX.Catalog", true);
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Cannot create database. Cannot retrieve ADOX.Catalog type. Check ADOX installation.", e);
+            }
+
+            try
+            {
+                catalog = System.Activator.CreateInstance(adoxCatalogType);
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Cannot create database. Cannot create an instance of ADOX.Catalog type.", e);
+            }
+
+            try
+            {
+                adoxCatalogType.InvokeMember("Create", BindingFlags.InvokeMethod, null, catalog, new object[] { connectionString });
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Cannot create database using the specified connection string.", e);
+            }
+
+            try
+            {
+                object activeConnection = adoxCatalogType.InvokeMember("ActiveConnection", BindingFlags.GetProperty, null, catalog, null);
+                activeConnection.GetType().InvokeMember("Close", BindingFlags.InvokeMethod, null, activeConnection, null);
+            }
+            catch (Exception e)
+            {
+                System.Diagnostics.Debug.WriteLine("Cannot close active connection after create statement.\r\nThe exception is: {0}", e.Message);
+            }
+
+        }
+
+        public static string GetConnectionString(string fileName)
+        {
+            return $"Provider={JetConfiguration.OleDbDefaultProvider};Data Source={fileName}";
+        }
+
+        public void DropDatabase(bool throwOnError = true)
+        {
+            DropDatabase(WrappedConnection.ConnectionString, throwOnError);
+        }
+
+        public static void DropDatabase(string connectionString, bool throwOnError = true)
+        {
+            string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new Exception("Cannot retrieve file name from connection string");
+
+            try
+            {
+                System.IO.File.Delete(fileName.Trim());
+            }
+            catch
+            {
+                if (throwOnError)
+                    throw;
+            }
+        }
+
+        public bool DatabaseExists()
+        {
+            return DatabaseExists(WrappedConnection.ConnectionString);
+        }
+
+        public static bool DatabaseExists(string connectionString)
+        {
+            string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new Exception("Cannot retrieve file name from connection string");
+            return System.IO.File.Exists(fileName);
+        }
+
+
     }
 }

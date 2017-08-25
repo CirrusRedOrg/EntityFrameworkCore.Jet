@@ -13,13 +13,13 @@ using EntityFrameworkCore.Jet.Utilities;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="PropertyBuilder" />.
+    ///     Jet specific extension methods for <see cref="PropertyBuilder" />.
     /// </summary>
     public static class JetPropertyBuilderExtensions
     {
         /// <summary>
         ///     Configures the key property to use a sequence-based hi-lo pattern to generate values for new entities,
-        ///     when targeting SQL Server. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+        ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
         /// </summary>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
         /// <param name="name"> The name of the sequence. </param>
@@ -55,7 +55,7 @@ namespace EntityFrameworkCore.Jet
 
         /// <summary>
         ///     Configures the key property to use a sequence-based hi-lo pattern to generate values for new entities,
-        ///     when targeting SQL Server. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+        ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
         /// </summary>
         /// <typeparam name="TProperty"> The type of the property being configured. </typeparam>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
@@ -69,8 +69,8 @@ namespace EntityFrameworkCore.Jet
             => (PropertyBuilder<TProperty>)ForJetUseSequenceHiLo((PropertyBuilder)propertyBuilder, name, schema);
 
         /// <summary>
-        ///     Configures the key property to use the SQL Server IDENTITY feature to generate values for new entities,
-        ///     when targeting SQL Server. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+        ///     Configures the key property to use the Jet IDENTITY feature to generate values for new entities,
+        ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
         /// </summary>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
@@ -85,8 +85,8 @@ namespace EntityFrameworkCore.Jet
         }
 
         /// <summary>
-        ///     Configures the key property to use the SQL Server IDENTITY feature to generate values for new entities,
-        ///     when targeting SQL Server. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+        ///     Configures the key property to use the Jet IDENTITY feature to generate values for new entities,
+        ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
         /// </summary>
         /// <typeparam name="TProperty"> The type of the property being configured. </typeparam>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>

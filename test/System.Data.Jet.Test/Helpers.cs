@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.OleDb;
+using System.Text.RegularExpressions;
 
 namespace System.Data.Jet.Test
 {
@@ -164,9 +165,26 @@ namespace System.Data.Jet.Test
             return InternatExecute(connection, transaction, query);
         }
 
+        private static Regex _parseParameterRegex = new Regex(@"(?<name>.*)\((?<type>.*)\) = (?<value>.*)", RegexOptions.IgnoreCase);
 
-        private static DbDataReader InternatExecute(DbConnection connection, DbTransaction transaction, string query)
+
+        private static DbDataReader InternatExecute(DbConnection connection, DbTransaction transaction, string queryAndParameters)
         {
+            string query;
+            string parameterString;
+
+            if (queryAndParameters.Contains("\n-\n"))
+            {
+                int i = queryAndParameters.IndexOf("\n-\n", StringComparison.Ordinal);
+                query = queryAndParameters.Substring(0, i);
+                parameterString = queryAndParameters.Substring(i + 3);
+            }
+            else
+            {
+                query = queryAndParameters;
+                parameterString = null;
+            }
+
             string[] sqlParts = query.Split('\n');
             string executionMethod = sqlParts[0];
             string sql = string.Empty;
@@ -177,6 +195,28 @@ namespace System.Data.Jet.Test
             if (transaction != null)
                 command.Transaction = transaction;
             command.CommandText = sql;
+
+            if (parameterString != null)
+            {
+                string[] parameterStringList = parameterString.Split('\n');
+                foreach (string sParameter in parameterStringList)
+                {
+                    if (string.IsNullOrWhiteSpace(sParameter))
+                        continue;
+                    Match match = _parseParameterRegex.Match(sParameter);
+                    if (!match.Success)
+                        throw new Exception("Parameter not valid " + sParameter);
+                    string parameterName = match.Groups["name"].Value;
+                    string parameterType = match.Groups["type"].Value;
+                    string sparameterValue = match.Groups["value"].Value;
+                    object parameterValue;
+                    if (sparameterValue == "null")
+                        parameterValue = DBNull.Value;
+                    else
+                        parameterValue = Convert.ChangeType(sparameterValue, Type.GetType("System." + parameterType));
+                    command.Parameters.Add(new OleDbParameter(parameterName, parameterValue));
+                }
+            }
 
 
             if (executionMethod.StartsWith("ExecuteNonQuery"))

@@ -10,13 +10,13 @@ using Microsoft.EntityFrameworkCore;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for <see cref="ModelBuilder" />.
+    ///     Jet specific extension methods for <see cref="ModelBuilder" />.
     /// </summary>
     public static class JetModelBuilderExtensions
     {
         /// <summary>
         ///     Configures the model to use a sequence-based hi-lo pattern to generate values for key properties
-        ///     marked as <see cref="ValueGenerated.OnAdd" />, when targeting SQL Server.
+        ///     marked as <see cref="ValueGenerated.OnAdd" />, when targeting Jet.
         /// </summary>
         /// <param name="modelBuilder"> The model builder. </param>
         /// <param name="name"> The name of the sequence. </param>
@@ -48,9 +48,9 @@ namespace EntityFrameworkCore.Jet
         }
 
         /// <summary>
-        ///     Configures the model to use the SQL Server IDENTITY feature to generate values for key properties
-        ///     marked as <see cref="ValueGenerated.OnAdd" />, when targeting SQL Server. This is the default
-        ///     behavior when targeting SQL Server.
+        ///     Configures the model to use the Jet IDENTITY feature to generate values for key properties
+        ///     marked as <see cref="ValueGenerated.OnAdd" />, when targeting Jet. This is the default
+        ///     behavior when targeting Jet.
         /// </summary>
         /// <param name="modelBuilder"> The model builder. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>

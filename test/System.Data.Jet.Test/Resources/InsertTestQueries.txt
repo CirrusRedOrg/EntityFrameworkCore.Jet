@@ -1,0 +1,37 @@
+ExecuteNonQuery==========
+CREATE TABLE [Company] (
+    [Id] int NOT NULL IDENTITY,
+    [CreatedOn] datetime NOT NULL,
+    [DeactivatedOn] datetime NULL,
+    [Discriminator] text NOT NULL,
+    [IsActive] bit NOT NULL,
+    [Name] text NULL,
+    [UpdatedOn] datetime NULL,
+    [CompanyId] int NULL,
+    [ContactId] int NULL,
+    [DocumentId] int NULL,
+    CONSTRAINT [PK_Company] PRIMARY KEY ([Id]),
+    CONSTRAINT [FK_Company_Company_CompanyId] FOREIGN KEY ([CompanyId]) REFERENCES [Company] ([Id]) ON DELETE CASCADE
+);
+
+ExecuteNonQuery==========
+CREATE INDEX [IX_Company_CompanyId] ON [Company] ([CompanyId]);
+
+ExecuteDbDataReader==========
+INSERT INTO [Company] ([CreatedOn], [DeactivatedOn], [Discriminator], [IsActive], [Name], [UpdatedOn])
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5);
+SELECT [Id]
+FROM [Company]
+WHERE 1 = 1 AND [Id] = @@identity;
+
+-
+@p0(DateTime) = #2017-08-25T11:52:25Z#
+@p1(DateTime) = null
+@p2(String) = 'Company'
+@p3(Boolean) = True
+@p4(String) = 'X'
+@p5(DateTime) = #2017-08-25T11:52:25Z#
+
+ExecuteNonQuery==========
+DROP TABLE [Company]
+

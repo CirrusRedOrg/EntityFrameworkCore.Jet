@@ -83,6 +83,28 @@ namespace System.Data.Jet.Test.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to ExecuteNonQuery==========
+        ///CREATE TABLE [Company] (
+        ///    [Id] int NOT NULL IDENTITY,
+        ///    [CreatedOn] datetime NOT NULL,
+        ///    [DeactivatedOn] datetime NULL,
+        ///    [Discriminator] text NOT NULL,
+        ///    [IsActive] bit NOT NULL,
+        ///    [Name] text NULL,
+        ///    [UpdatedOn] datetime NULL,
+        ///    [CompanyId] int NULL,
+        ///    [ContactId] int NULL,
+        ///    [DocumentId] int NULL,
+        ///    CONSTRAINT [PK_Company] PRIMARY KEY ([Id]),
+        ///    CONSTRAINT [FK_Company_Company_CompanyId] FOREIGN KEY ([CompanyId]) REFERENCES [Company] ([Id]) ON [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string InsertTestQueries {
+            get {
+                return ResourceManager.GetString("InsertTestQueries", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ExecuteNonQuery==========
         ///CREATE TABLE [Students] (
         ///    [StudentId] int NOT NULL IDENTITY,
         ///    [Notes] text NULL,

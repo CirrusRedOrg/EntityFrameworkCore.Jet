@@ -1,0 +1,39 @@
+using System;
+using System.Collections.Generic;
+
+namespace E2ETest.Namespace
+{
+    public partial class AllDataTypes
+    {
+        public int AllDataTypesId { get; set; }
+        public long BigintColumn { get; set; }
+        public bool BitColumn { get; set; }
+        public decimal DecimalColumn { get; set; }
+        public int IntColumn { get; set; }
+        public decimal MoneyColumn { get; set; }
+        public decimal NumericColumn { get; set; }
+        public short SmallintColumn { get; set; }
+        public byte TinyintColumn { get; set; }
+        public double FloatColumn { get; set; }
+        public float? RealColumn { get; set; }
+        public DateTime? DatetimeColumn { get; set; }
+        public string NcharColumn { get; set; }
+        public string Nchar99Column { get; set; }
+        public string NtextColumn { get; set; }
+        public string NvarcharColumn { get; set; }
+        public string Nvarchar100Column { get; set; }
+        public byte[] BinaryColumn { get; set; }
+        public byte[] Binary111Column { get; set; }
+        public byte[] ImageColumn { get; set; }
+        public byte[] VarbinaryColumn { get; set; }
+        public byte[] Varbinary123Column { get; set; }
+        public byte[] TimestampColumn { get; set; }
+        public Guid? UniqueidentifierColumn { get; set; }
+        public string NationalCharacterColumn { get; set; }
+        public string NationalCharacter171Column { get; set; }
+        public string NationalCharVaryingColumn { get; set; }
+        public string NationalCharVarying177Column { get; set; }
+        public string NationalCharacterVaryingColumn { get; set; }
+        public string NationalCharacterVarying188Column { get; set; }
+    }
+}

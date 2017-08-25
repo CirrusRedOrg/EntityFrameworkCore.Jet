@@ -9,87 +9,87 @@ using EntityFrameworkCore.Jet.Utilities;
 namespace EntityFrameworkCore.Jet
 {
     /// <summary>
-    ///     SQL Server specific extension methods for metadata.
+    ///     Jet specific extension methods for metadata.
     /// </summary>
     public static class JetMetadataExtensions
     {
         /// <summary>
-        ///     Gets the SQL Server specific metadata for a property.
+        ///     Gets the Jet specific metadata for a property.
         /// </summary>
         /// <param name="property"> The property to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the property. </returns>
+        /// <returns> The Jet specific metadata for the property. </returns>
         public static JetPropertyAnnotations Jet([NotNull] this IMutableProperty property)
             => (JetPropertyAnnotations)Jet((IProperty)property);
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for a property.
+        ///     Gets the Jet specific metadata for a property.
         /// </summary>
         /// <param name="property"> The property to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the property. </returns>
+        /// <returns> The Jet specific metadata for the property. </returns>
         public static IJetPropertyAnnotations Jet([NotNull] this IProperty property)
             => new JetPropertyAnnotations(Check.NotNull(property, nameof(property)));
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for an entity.
+        ///     Gets the Jet specific metadata for an entity.
         /// </summary>
         /// <param name="entityType"> The entity to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the entity. </returns>
+        /// <returns> The Jet specific metadata for the entity. </returns>
         public static JetEntityTypeAnnotations Jet([NotNull] this IMutableEntityType entityType)
             => (JetEntityTypeAnnotations)Jet((IEntityType)entityType);
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for an entity.
+        ///     Gets the Jet specific metadata for an entity.
         /// </summary>
         /// <param name="entityType"> The entity to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the entity. </returns>
+        /// <returns> The Jet specific metadata for the entity. </returns>
         public static IJetEntityTypeAnnotations Jet([NotNull] this IEntityType entityType)
             => new JetEntityTypeAnnotations(Check.NotNull(entityType, nameof(entityType)));
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for a key.
+        ///     Gets the Jet specific metadata for a key.
         /// </summary>
         /// <param name="key"> The key to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the key. </returns>
+        /// <returns> The Jet specific metadata for the key. </returns>
         public static JetKeyAnnotations Jet([NotNull] this IMutableKey key)
             => (JetKeyAnnotations)Jet((IKey)key);
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for a key.
+        ///     Gets the Jet specific metadata for a key.
         /// </summary>
         /// <param name="key"> The key to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the key. </returns>
+        /// <returns> The Jet specific metadata for the key. </returns>
         public static IJetKeyAnnotations Jet([NotNull] this IKey key)
             => new JetKeyAnnotations(Check.NotNull(key, nameof(key)));
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for an index.
+        ///     Gets the Jet specific metadata for an index.
         /// </summary>
         /// <param name="index"> The index to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the index. </returns>
+        /// <returns> The Jet specific metadata for the index. </returns>
         public static JetIndexAnnotations Jet([NotNull] this IMutableIndex index)
             => (JetIndexAnnotations)Jet((IIndex)index);
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for an index.
+        ///     Gets the Jet specific metadata for an index.
         /// </summary>
         /// <param name="index"> The index to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the index. </returns>
+        /// <returns> The Jet specific metadata for the index. </returns>
         public static IJetIndexAnnotations Jet([NotNull] this IIndex index)
             => new JetIndexAnnotations(Check.NotNull(index, nameof(index)));
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for a model.
+        ///     Gets the Jet specific metadata for a model.
         /// </summary>
         /// <param name="model"> The model to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the model. </returns>
+        /// <returns> The Jet specific metadata for the model. </returns>
         public static JetModelAnnotations Jet([NotNull] this IMutableModel model)
             => (JetModelAnnotations)Jet((IModel)model);
 
         /// <summary>
-        ///     Gets the SQL Server specific metadata for a model.
+        ///     Gets the Jet specific metadata for a model.
         /// </summary>
         /// <param name="model"> The model to get metadata for. </param>
-        /// <returns> The SQL Server specific metadata for the model. </returns>
+        /// <returns> The Jet specific metadata for the model. </returns>
         public static IJetModelAnnotations Jet([NotNull] this IModel model)
             => new JetModelAnnotations(Check.NotNull(model, nameof(model)));
     }

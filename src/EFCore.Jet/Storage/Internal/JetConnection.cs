@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetConnection : RelationalConnection, IJetConnection
     {
-        // Compensate for slow SQL Server database creation
+        // Compensate for slow Jet database creation
         internal const int DefaultMasterConnectionCommandTimeout = 60;
 
         /// <summary>
@@ -33,20 +33,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         protected override DbConnection CreateDbConnection() => new System.Data.Jet.JetConnection(ConnectionString);
 
-        // TODO use clone connection method once implemented see #1406
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public virtual IJetConnection CreateMasterConnection()
+        public virtual IJetConnection CreateEmptyConnection()
         {
-            var connectionStringBuilder = new OleDbConnectionStringBuilder() { };
-            connectionStringBuilder.Remove("AttachDBFilename");
-
+            var connection = new System.Data.Jet.JetConnection();
+            connection.IsEmpty = true;
             var contextOptions = new DbContextOptionsBuilder()
-                .UseJet(
-                    connectionStringBuilder.ConnectionString,
-                    b => b.CommandTimeout(CommandTimeout ?? DefaultMasterConnectionCommandTimeout))
+                .UseJet(connection)
                 .Options;
 
             return new JetConnection(Dependencies.With(contextOptions));

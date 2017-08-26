@@ -56,7 +56,7 @@ namespace System.Data.Jet
 
         public override byte GetByte(int ordinal)
         {
-            return _wrappedDataReader.GetByte(ordinal);
+            return Convert.ToByte(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override long GetBytes(int ordinal, long dataOffset, byte[] buffer, int bufferOffset, int length)
@@ -93,12 +93,12 @@ namespace System.Data.Jet
 
         public override decimal GetDecimal(int ordinal)
         {
-            return _wrappedDataReader.GetDecimal(ordinal);
+            return Convert.ToDecimal(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override double GetDouble(int ordinal)
         {
-            return _wrappedDataReader.GetDouble(ordinal);
+            return Convert.ToDouble(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override System.Collections.IEnumerator GetEnumerator()
@@ -113,7 +113,7 @@ namespace System.Data.Jet
 
         public override float GetFloat(int ordinal)
         {
-            return Convert.ToSingle(_wrappedDataReader.GetValue(ordinal)); // _wrappedDataReader.GetFloat(ordinal);
+            return Convert.ToSingle(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override Guid GetGuid(int ordinal)
@@ -128,7 +128,7 @@ namespace System.Data.Jet
 
         public override short GetInt16(int ordinal)
         {
-            return _wrappedDataReader.GetInt16(ordinal);
+            return Convert.ToInt16(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override int GetInt32(int ordinal)
@@ -142,12 +142,12 @@ namespace System.Data.Jet
                 return intValue;
             }
             else
-                return _wrappedDataReader.GetInt32(ordinal);
+                return Convert.ToInt32(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override long GetInt64(int ordinal)
         {
-            return _wrappedDataReader.GetInt64(ordinal);
+            return Convert.ToInt64(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override string GetName(int ordinal)

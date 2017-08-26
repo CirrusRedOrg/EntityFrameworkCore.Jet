@@ -15,6 +15,9 @@ namespace System.Data.Jet
         private JetTransaction _Transaction;
         private bool _DesignTimeVisible;
 
+        private static readonly Regex _skipRegularExpression = new Regex(@"\bskip\s(?<stringSkipCount>@.*)\b", RegexOptions.IgnoreCase);
+
+
         /// <summary>
         /// Initializes a new instance of the <see cref="JetCommand"/> class.
         /// </summary>
@@ -307,9 +310,8 @@ namespace System.Data.Jet
         {
             int topCount;
             int skipCount;
-            int indexOfSkip;
             string newCommandText;
-            ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
+            ParseSkipTop(commandText, out topCount, out skipCount, out newCommandText);
             SortParameters(_WrappedCommand.Parameters);
             FixParameters(_WrappedCommand.Parameters);
 
@@ -330,9 +332,8 @@ namespace System.Data.Jet
 
             int topCount;
             int skipCount;
-            int indexOfSkip;
             string newCommandText;
-            ParseSkipTop(commandText, out topCount, out skipCount, out indexOfSkip, out newCommandText);
+            ParseSkipTop(commandText, out topCount, out skipCount, out newCommandText);
             //ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
             SortParameters(_WrappedCommand.Parameters);
             FixParameters(_WrappedCommand.Parameters);
@@ -442,19 +443,17 @@ namespace System.Data.Jet
             return commandText;
         }
 
-        private void ParseSkipTop(string commandText, out int topCount, out int skipCount, out int indexOfSkip, out string newCommandText)
+        private void ParseSkipTop(string commandText, out int topCount, out int skipCount, out string newCommandText)
         {
             newCommandText = commandText;
 
             #region TOP clause
 
-            var indexOfTop = newCommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
-            if (indexOfTop > 12)
-                indexOfTop = -1;
             topCount = -1;
             skipCount = 0;
 
-            if (indexOfTop != -1)
+            var indexOfTop = newCommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
+            while (indexOfTop != -1)
             {
                 int indexOfTopEnd = newCommandText.IndexOf(" ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
                 string stringTopCount = newCommandText.Substring(indexOfTop + 5, indexOfTopEnd - indexOfTop - 5).Trim();
@@ -474,23 +473,29 @@ namespace System.Data.Jet
                 else if (!int.TryParse(stringTopCountElements[1], out topCount1))
                     throw new Exception("Invalid TOP clause parameter");
 
-                topCount = topCount0 + topCount1;
-                newCommandText = newCommandText.Remove(indexOfTop + 5, stringTopCount.Length).Insert(indexOfTop + 5, topCount.ToString());
+                int localTopCount = topCount0 + topCount1;
+                newCommandText = newCommandText.Remove(indexOfTop + 5, stringTopCount.Length).Insert(indexOfTop + 5, localTopCount.ToString());
+                if (indexOfTop <= 12)
+                    topCount = localTopCount;
+                indexOfTop = newCommandText.IndexOf(" top ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
             }
+
 
             #endregion
 
             #region SKIP clause
 
-            indexOfSkip = newCommandText.IndexOf(" skip ", StringComparison.InvariantCultureIgnoreCase);
-            if (indexOfSkip != -1)
+            Match matchSkipRegularExpression = _skipRegularExpression.Match(newCommandText);
+            if (matchSkipRegularExpression.Success)
             {
-                string stringSkipCount = newCommandText.Substring(indexOfSkip + 5).Trim();
+                string stringSkipCount;
+                stringSkipCount = matchSkipRegularExpression.Groups["stringSkipCount"].Value;
+
                 if (stringSkipCount.StartsWith("@"))
                     skipCount = Convert.ToInt32(_WrappedCommand.Parameters[stringSkipCount].Value);
                 else if (!int.TryParse(stringSkipCount, out skipCount))
                     throw new Exception("Invalid SKIP clause parameter");
-                newCommandText = newCommandText.Remove(indexOfSkip);
+                newCommandText = newCommandText.Remove(matchSkipRegularExpression.Index, matchSkipRegularExpression.Length);
             }
 
             #endregion

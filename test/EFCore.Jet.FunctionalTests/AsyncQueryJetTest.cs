@@ -49,5 +49,73 @@ namespace EntityFramework.Jet.FunctionalTests
             : base(fixture)
         {
         }
+
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task All_top_level()
+        {
+            return base.All_top_level();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task All_top_level_subquery()
+        {
+            return base.All_top_level_subquery();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Default_if_empty_top_level()
+        {
+            return base.Default_if_empty_top_level();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Default_if_empty_top_level_positive()
+        {
+            return base.Default_if_empty_top_level_positive();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Default_if_empty_top_level_projection()
+        {
+            return base.Default_if_empty_top_level_projection();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Skip_CountAsync()
+        {
+            return base.Skip_CountAsync();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Skip_LongCountAsync()
+        {
+            return base.Skip_LongCountAsync();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task SelectMany_Joined_DefaultIfEmpty()
+        {
+            return base.SelectMany_Joined_DefaultIfEmpty();
+        }
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task SelectMany_Joined_DefaultIfEmpty2()
+        {
+            return base.SelectMany_Joined_DefaultIfEmpty();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Distinct_Skip()
+        {
+            return base.Distinct_Skip();
+        }
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override Task Multiple_joins_Where_Order_Any()
+        {
+            return base.Multiple_joins_Where_Order_Any();
+        }
+
+
     }
 }

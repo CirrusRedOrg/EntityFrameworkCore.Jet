@@ -152,10 +152,10 @@
     <Compile Include="DmlSqlTest.cs" />
     <Compile Include="DmlJetTest.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
-    <Compile Include="Model77_Cast_Coalesce\Context.cs" />
-    <Compile Include="Model77_Cast_Coalesce\JetTest.cs" />
-    <Compile Include="Model77_Cast_Coalesce\Model.cs" />
-    <Compile Include="Model77_Cast_Coalesce\Test.cs" />
+    <Compile Include="Model_MainTests\Context.cs" />
+    <Compile Include="Model_MainTests\JetTest.cs" />
+    <Compile Include="Model_MainTests\Model.cs" />
+    <Compile Include="Model_MainTests\Test.cs" />
     <Compile Include="Model76_FullCreate\Context.cs" />
     <Compile Include="Model76_FullCreate\JetTest.cs" />
     <Compile Include="Model76_FullCreate\Model.cs" />

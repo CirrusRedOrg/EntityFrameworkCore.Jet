@@ -271,7 +271,7 @@ LEFT JOIN (
                 @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
 FROM [Employees] AS [e1]
 WHERE [e1].[FirstName] IN (
-    SELECT TOP(1) [e].[FirstName]
+    SELECT TOP 1 [e].[FirstName]
     FROM [Employees] AS [e]
     ORDER BY [e].[EmployeeID]
 )");
@@ -375,7 +375,7 @@ WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
                 @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
 FROM [Employees] AS [e1]
 WHERE 0 IN (
-    SELECT TOP(1) [e2].[EmployeeID]
+    SELECT TOP 1 [e2].[EmployeeID]
     FROM [Employees] AS [e2]
     WHERE [e2].[EmployeeID] = [e1].[ReportsTo]
 )");
@@ -415,7 +415,7 @@ WHERE [e20].[EmployeeID] = 42");
                 @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
 FROM [Employees] AS [e1]
 WHERE 0 IN (
-    SELECT TOP(1) [e2].[EmployeeID]
+    SELECT TOP 1 [e2].[EmployeeID]
     FROM [Employees] AS [e2]
     WHERE [e2].[EmployeeID] = 42
 )");
@@ -429,7 +429,7 @@ WHERE 0 IN (
                 @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
 FROM [Employees] AS [e1]
 WHERE 0 IN (
-    SELECT TOP(1) [e2].[EmployeeID]
+    SELECT TOP 1 [e2].[EmployeeID]
     FROM [Employees] AS [e2]
     WHERE ([e2].[EmployeeID] <> [e1].[ReportsTo]) OR [e1].[ReportsTo] IS NULL
 )");
@@ -448,15 +448,15 @@ FROM (
     FROM [Employees] AS [e]
 ) AS [t]",
                 //
-                @"SELECT TOP(1) [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
 FROM [Employees] AS [e0]
 ORDER BY [e0].[EmployeeID]",
                 //
-                @"SELECT TOP(1) [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
 FROM [Employees] AS [e0]
 ORDER BY [e0].[EmployeeID]",
                 //
-                @"SELECT TOP(1) [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
 FROM [Employees] AS [e0]
 ORDER BY [e0].[EmployeeID]");
         }
@@ -474,7 +474,7 @@ FROM (
     FROM [Employees] AS [e]
 ) AS [t]
 WHERE [t].[FirstName] IN (
-    SELECT TOP(1) [e0].[FirstName]
+    SELECT TOP 1 [e0].[FirstName]
     FROM [Employees] AS [e0]
     ORDER BY [e0].[EmployeeID]
 )");
@@ -493,15 +493,15 @@ FROM (
     FROM [Employees] AS [e]
 ) AS [t]",
                 //
-                @"SELECT TOP(1) [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
 FROM [Employees] AS [e0]
 ORDER BY [e0].[EmployeeID]",
                 //
-                @"SELECT TOP(1) [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
 FROM [Employees] AS [e0]
 ORDER BY [e0].[EmployeeID]",
                 //
-                @"SELECT TOP(1) [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
 FROM [Employees] AS [e0]
 ORDER BY [e0].[EmployeeID]");
         }
@@ -514,7 +514,7 @@ ORDER BY [e0].[EmployeeID]");
                 @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
 FROM [Employees] AS [e]
 WHERE [e].[Title] IN (
-    SELECT TOP(1) [e2].[Title]
+    SELECT TOP 1 [e2].[Title]
     FROM [Employees] AS [e2]
     ORDER BY [e2].[Title]
 )");
@@ -533,14 +533,14 @@ ORDER BY [od].[ProductID], [od].[OrderID]",
                 //
                 @"@_outer_OrderID='10285'
 
-SELECT TOP(1) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+SELECT TOP 1 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]
 WHERE @_outer_OrderID = [o].[OrderID]
 ORDER BY [o].[OrderID]",
                 //
                 @"@_outer_OrderID='10294'
 
-SELECT TOP(1) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+SELECT TOP 1 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]
 WHERE @_outer_OrderID = [o].[OrderID]
 ORDER BY [o].[OrderID]");
@@ -591,8 +591,8 @@ WHERE @_outer_CustomerID1 = [c2].[CustomerID]");
 SELECT TOP(@__p_0) [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
 FROM [Order Details] AS [od]
 WHERE (
-    SELECT TOP(1) (
-        SELECT TOP(1) [c].[City]
+    SELECT TOP 1 (
+        SELECT TOP 1 [c].[City]
         FROM [Customers] AS [c]
         WHERE [o].[CustomerID] = [c].[CustomerID]
     )
@@ -624,14 +624,14 @@ FROM (
                 //
                 @"@_outer_CustomerID2='VINET' (Size = 256)
 
-SELECT TOP(1) [c3].[Country]
+SELECT TOP 1 [c3].[Country]
 FROM [Customers] AS [c3]
 WHERE [c3].[CustomerID] = @_outer_CustomerID2
 ORDER BY [c3].[CustomerID]",
                 //
                 @"@_outer_OrderID1='10248'
 
-SELECT TOP(1) [c4].[Country]
+SELECT TOP 1 [c4].[Country]
 FROM [Orders] AS [o20]
 INNER JOIN [Customers] AS [c4] ON [o20].[CustomerID] = [c4].[CustomerID]
 WHERE [o20].[OrderID] = @_outer_OrderID1
@@ -639,14 +639,14 @@ ORDER BY [o20].[OrderID], [c4].[CustomerID]",
                 //
                 @"@_outer_CustomerID2='VINET' (Size = 256)
 
-SELECT TOP(1) [c3].[Country]
+SELECT TOP 1 [c3].[Country]
 FROM [Customers] AS [c3]
 WHERE [c3].[CustomerID] = @_outer_CustomerID2
 ORDER BY [c3].[CustomerID]",
                 //
                 @"@_outer_OrderID1='10248'
 
-SELECT TOP(1) [c4].[Country]
+SELECT TOP 1 [c4].[Country]
 FROM [Orders] AS [o20]
 INNER JOIN [Customers] AS [c4] ON [o20].[CustomerID] = [c4].[CustomerID]
 WHERE [o20].[OrderID] = @_outer_OrderID1
@@ -2139,6 +2139,7 @@ WHERE ([c].[City] = N'London') AND EXISTS (
     WHERE ([o].[EmployeeID] = 1) AND ([c].[CustomerID] = [o].[CustomerID]))");
         }
 
+        [Fact(Skip = "Unsupported by JET")]
         public override void All_top_level()
         {
             base.All_top_level();
@@ -2153,6 +2154,7 @@ WHERE ([c].[City] = N'London') AND EXISTS (
 END");
         }
 
+        [Fact(Skip = "Unsupported by JET")]
         public override void All_top_level_column()
         {
             base.All_top_level_column();
@@ -2167,6 +2169,7 @@ END");
 END");
         }
 
+        [Fact(Skip = "Unsupported by JET")]
         public override void All_top_level_subquery()
         {
             base.All_top_level_subquery();
@@ -2192,6 +2195,7 @@ END");
 END");
         }
 
+        [Fact(Skip = "Unsupported by JET")]
         public override void All_top_level_subquery_ef_property()
         {
             base.All_top_level_subquery_ef_property();
@@ -2429,7 +2433,7 @@ ORDER BY [c].[CustomerID]");
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE ([c].[CustomerID] = N'ALFKI') AND (N'ALFKI' IN (
-    SELECT TOP(1) [o].[CustomerID]
+    SELECT TOP 1 [o].[CustomerID]
     FROM [Orders] AS [o]
     WHERE ([o].[CustomerID] = N'ALFKI') AND ([c].[CustomerID] = [o].[CustomerID])
 ))");
@@ -2446,7 +2450,7 @@ WHERE [c].[CustomerID] = N'ALFKI'",
                 //
                 @"@_outer_CustomerID='ALFKI' (Size = 256)
 
-SELECT TOP(1) [o0].[CustomerID]
+SELECT TOP 1 [o0].[CustomerID]
 FROM [Orders] AS [o0]
 WHERE ([o0].[CustomerID] = N'ALFKI') AND (@_outer_CustomerID = [o0].[CustomerID])");
         }
@@ -2456,7 +2460,7 @@ WHERE ([o0].[CustomerID] = N'ALFKI') AND (@_outer_CustomerID = [o0].[CustomerID]
             base.Last();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 ORDER BY [c].[ContactName] DESC");
         }
@@ -2476,7 +2480,7 @@ WHERE [c].[CustomerID] = N'ALFKI'");
             base.Last_Predicate();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE [c].[City] = N'London'
 ORDER BY [c].[ContactName] DESC");
@@ -2487,7 +2491,7 @@ ORDER BY [c].[ContactName] DESC");
             base.Where_Last();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE [c].[City] = N'London'
 ORDER BY [c].[ContactName] DESC");
@@ -2498,7 +2502,7 @@ ORDER BY [c].[ContactName] DESC");
             base.LastOrDefault();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 ORDER BY [c].[ContactName] DESC");
         }
@@ -2508,7 +2512,7 @@ ORDER BY [c].[ContactName] DESC");
             base.LastOrDefault_Predicate();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE [c].[City] = N'London'
 ORDER BY [c].[ContactName] DESC");
@@ -2519,7 +2523,7 @@ ORDER BY [c].[ContactName] DESC");
             base.Where_LastOrDefault();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE [c].[City] = N'London'
 ORDER BY [c].[ContactName] DESC");
@@ -4167,6 +4171,7 @@ FROM [Customers] AS [c]
 ORDER BY [c].[Country], [c].[CustomerID]");
         }
 
+        [Fact(Skip = "Unsupported by JET")]
         public override void OrderBy_ThenBy_Any()
         {
             base.OrderBy_ThenBy_Any();
@@ -4209,7 +4214,7 @@ ORDER BY (
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]
 WHERE ([o].[OrderID] <= 10250) AND ((
-    SELECT TOP(1) [c].[City]
+    SELECT TOP 1 [c].[City]
     FROM [Customers] AS [c]
     ORDER BY (
         SELECT CASE
@@ -5722,7 +5727,7 @@ WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])");
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) [o].[OrderDate]
+    SELECT TOP 1 [o].[OrderDate]
     FROM [Orders] AS [o]
     WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
 ) AS [OrderDates]
@@ -5737,7 +5742,7 @@ WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) =
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) (
+    SELECT TOP 1 (
         SELECT COUNT(*)
         FROM [Order Details] AS [od]
         WHERE ([od].[OrderID] > 10) AND ([o].[OrderID] = [od].[OrderID])
@@ -5756,8 +5761,8 @@ WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) =
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) (
-        SELECT TOP(1) [od].[ProductID]
+    SELECT TOP 1 (
+        SELECT TOP 1 [od].[ProductID]
         FROM [Order Details] AS [od]
         WHERE ([od].[OrderID] <> (
             SELECT COUNT(*)
@@ -5779,8 +5784,8 @@ WHERE [c].[CustomerID] LIKE N'A' + N'%' AND (LEFT([c].[CustomerID], LEN(N'A')) =
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) (
-        SELECT TOP(1) [od].[ProductID]
+    SELECT TOP 1 (
+        SELECT TOP 1 [od].[ProductID]
         FROM [Order Details] AS [od]
         WHERE ([od].[OrderID] <> CAST(LEN([c].[CustomerID]) AS int)) AND ([o].[OrderID] = [od].[OrderID])
     )
@@ -6054,7 +6059,7 @@ WHERE ([o].[CustomerID] = N'QUICK') AND ([o].[OrderDate] > '1998-01-01T00:00:00.
             base.OfType_Select();
 
             AssertSql(
-                @"SELECT TOP(1) [o.Customer].[City]
+                @"SELECT TOP 1 [o.Customer].[City]
 FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[CustomerID]
 ORDER BY [o].[OrderID]");
@@ -6065,7 +6070,7 @@ ORDER BY [o].[OrderID]");
             base.OfType_Select_OfType_Select();
 
             AssertSql(
-                @"SELECT TOP(1) [o.Customer].[City]
+                @"SELECT TOP 1 [o.Customer].[City]
 FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[CustomerID]
 ORDER BY [o].[OrderID]");
@@ -6354,7 +6359,7 @@ END");
             base.Substring_with_constant();
 
             AssertSql(
-                @"SELECT TOP(1) SUBSTRING([c].[ContactName], 2, 3)
+                @"SELECT TOP 1 SUBSTRING([c].[ContactName], 2, 3)
 FROM [Customers] AS [c]
 ORDER BY [c].[CustomerID]");
         }
@@ -6366,7 +6371,7 @@ ORDER BY [c].[CustomerID]");
             AssertSql(
                 @"@__start_0='2'
 
-SELECT TOP(1) SUBSTRING([c].[ContactName], @__start_0 + 1, 3)
+SELECT TOP 1 SUBSTRING([c].[ContactName], @__start_0 + 1, 3)
 FROM [Customers] AS [c]
 ORDER BY [c].[CustomerID]");
         }
@@ -6376,7 +6381,7 @@ ORDER BY [c].[CustomerID]");
             base.Substring_with_client_eval();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[ContactName]
+                @"SELECT TOP 1 [c].[ContactName]
 FROM [Customers] AS [c]
 ORDER BY [c].[CustomerID]");
         }
@@ -6873,7 +6878,7 @@ ORDER BY [c].[CustomerID]");
             base.Handle_materialization_properly_when_more_than_two_query_sources_are_involved();
 
             AssertSql(
-                @"SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 CROSS JOIN [Orders] AS [o]
 CROSS JOIN [Employees] AS [e]
@@ -7628,7 +7633,7 @@ ORDER BY [A]");
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) [o1].[OrderDate]
+    SELECT TOP 1 [o1].[OrderDate]
     FROM [Orders] AS [o1]
     WHERE [c].[CustomerID] = [o1].[CustomerID]
     ORDER BY [o1].[OrderID] DESC
@@ -7640,7 +7645,7 @@ WHERE (
     WHERE [c].[CustomerID] = [o].[CustomerID]
 ) > 1
 ORDER BY (
-    SELECT TOP(1) [o0].[OrderDate]
+    SELECT TOP 1 [o0].[OrderDate]
     FROM [Orders] AS [o0]
     WHERE [c].[CustomerID] = [o0].[CustomerID]
     ORDER BY [o0].[OrderID] DESC
@@ -7742,7 +7747,7 @@ ORDER BY [Property]");
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) [o1].[OrderDate]
+    SELECT TOP 1 [o1].[OrderDate]
     FROM [Orders] AS [o1]
     WHERE [c].[CustomerID] = [o1].[CustomerID]
     ORDER BY [o1].[OrderID] DESC
@@ -7754,7 +7759,7 @@ WHERE (
     WHERE [c].[CustomerID] = [o].[CustomerID]
 ) > 1
 ORDER BY (
-    SELECT TOP(1) [o0].[OrderDate]
+    SELECT TOP 1 [o0].[OrderDate]
     FROM [Orders] AS [o0]
     WHERE [c].[CustomerID] = [o0].[CustomerID]
     ORDER BY [o0].[OrderID] DESC
@@ -7821,7 +7826,7 @@ WHERE [o].[OrderID] = 10300");
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE (
-    SELECT TOP(1) [o].[CustomerID]
+    SELECT TOP 1 [o].[CustomerID]
     FROM [Orders] AS [o]
     WHERE [c].[CustomerID] = [o].[CustomerID]
     ORDER BY [o].[OrderID] DESC
@@ -7837,7 +7842,7 @@ WHERE (
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE (
-    SELECT TOP(1) [o].[CustomerID]
+    SELECT TOP 1 [o].[CustomerID]
     FROM [Orders] AS [o]
     WHERE [c].[CustomerID] = [o].[CustomerID]
     ORDER BY [o].[OrderID] DESC

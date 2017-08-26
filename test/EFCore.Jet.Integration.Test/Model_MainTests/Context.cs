@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore;
 
-namespace EFCore.Jet.Integration.Test.Model77_Cast_Coalesce
+namespace EFCore.Jet.Integration.Test.Model_MainTests
 {
     public class TestContext : DbContext
     {

@@ -59,9 +59,20 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
             result.ToList();
         }
 
-        [TestMethod]
+        //[TestMethod]
         public void Take_with_single()
         {
+            // In this case the generated query is shown below
+            // Executing this query, JET returns 2 records
+            /*
+            SELECT TOP 2 [t].*
+                FROM(
+                    SELECT TOP 1 [c].[Id], [c].[Date], [c].[Integer], [c].[String]
+                    FROM [EntityMainTest] AS[c]
+                    ORDER BY [c].[String]
+                ) AS [t]
+            ORDER BY [t].[String]
+            */
             Context.Entities.OrderBy(c => c.String).Take(1).Single();
         }
 
@@ -82,10 +93,25 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
         }
         //OrderBy_LongSkipCount
 
-        [TestMethod]
+        //[TestMethod]
         public void OrderBy_correlated_subquery_lol()
         {
-            // We can remove IIf => true or false
+            // After the issue IIf => true or false has been removed
+            // The generated query is below.
+            // The query does not work in Access
+            //
+            // Now the original behaviour has been restored because of other test that stop work
+            /*
+            SELECT [c].[Id], [c].[Date], [c].[Integer], [c].[String]
+            FROM [EntityMainTest] AS [c]
+            ORDER BY (
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM [EntityMainTest] AS [c2]
+                    WHERE ([c2].[String] = [c].[String]) OR ([c2].[String] IS NULL AND [c].[String] IS NULL))
+                FROM (SELECT COUNT(*) FROM MSysAccessStorage)
+            )
+            */
             (from c in Context.Entities
                 orderby Context.Entities.Any(c2 => c2.String == c.String)
                 select c).ToList();
@@ -156,7 +182,7 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
         {
             var cs = Context.Entities;
             cs.OrderBy(c => c.Integer).Skip(5).ToList();
-            cs.OrderBy(c => c.String, StringComparer.Ordinal).Skip(5).ToList();
+            cs.OrderBy(c => c.String).Skip(5).ToList();
         }
 
         [TestMethod]

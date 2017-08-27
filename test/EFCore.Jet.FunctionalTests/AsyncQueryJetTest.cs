@@ -116,6 +116,17 @@ namespace EntityFramework.Jet.FunctionalTests
             return base.Multiple_joins_Where_Order_Any();
         }
 
+        [Fact(Skip = "Unsupported by JET: SELECT TOP 2 (SELECT TOP 1) returns 2 records")]
+        public override Task Take_with_single()
+        {
+            return base.Take_with_single();
+        }
+
+        [Fact(Skip = "Unsupported by JET: SELECT ORDER BY (SELECT)")]
+        public override Task OrderBy_correlated_subquery_lol()
+        {
+            return base.OrderBy_correlated_subquery_lol();
+        }
 
     }
 }

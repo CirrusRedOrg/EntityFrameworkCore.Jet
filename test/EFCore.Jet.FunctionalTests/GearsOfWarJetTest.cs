@@ -2806,7 +2806,7 @@ WHERE ([f].[Discriminator] = N'LocustHorde') AND ([f].[Discriminator] = N'Locust
 ORDER BY [f].[Name]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_navigation_access_on_derived_entity_using_cast()
         {
             base.Collection_navigation_access_on_derived_entity_using_cast();

@@ -3,6 +3,7 @@
 using System;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
+using Microsoft.EntityFrameworkCore.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
@@ -18,17 +19,35 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public virtual Expression Translate(MemberExpression memberExpression)
-            => memberExpression.Expression != null
-               && (memberExpression.Expression.Type == typeof(DateTime) || memberExpression.Expression.Type == typeof(DateTimeOffset))
-               && memberExpression.Member.Name == nameof(DateTime.Date)
-                ? new SqlFunctionExpression(
-                    "CONVERT",
-                    memberExpression.Type,
-                    new[]
-                    {
-                        new SqlFragmentExpression("date"),
-                        memberExpression.Expression
-                    })
-                : null;
+        {
+            if (memberExpression.Expression != null
+                && (memberExpression.Expression.Type == typeof(DateTime) || memberExpression.Expression.Type == typeof(DateTimeOffset))
+                && memberExpression.Member.Name == nameof(DateTime.Date))
+
+            {
+
+                return 
+                    new SqlFunctionExpression(
+                        "IIf",
+                        memberExpression.Type,
+                        new Expression[]
+                        {
+                            new SqlFunctionExpression("IsNull", typeof(bool), new[] {memberExpression.Expression}),
+                            Expression.Constant(null),
+                            new SqlFunctionExpression(
+                                "DateValue",
+                                memberExpression.Type,
+                                new[]
+                                {
+                                    memberExpression.Expression
+                                })
+                        }
+
+                    );
+
+            }
+            else
+                return null;
+        }
     }
 }

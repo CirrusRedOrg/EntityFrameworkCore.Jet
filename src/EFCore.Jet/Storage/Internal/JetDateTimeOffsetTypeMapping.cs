@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetDateTimeOffsetTypeMapping : DateTimeOffsetTypeMapping
     {
-        private const string DateTimeOffsetFormatConst = "{0:yyyy-MM-ddTHH:mm:ss.fffzzz}";
+        private const string DateTimeOffsetFormatConst = "{0:MM/dd/yyyy HH:mm:ss}";
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="JetDateTimeOffsetTypeMapping" /> class.
@@ -38,6 +38,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// <summary>
         ///     Gets the string format to be used to generate SQL literals of this type.
         /// </summary>
-        protected override string SqlLiteralFormatString => "'" + DateTimeOffsetFormatConst + "'";
+        protected override string SqlLiteralFormatString => "#" + DateTimeOffsetFormatConst + "#";
     }
 }

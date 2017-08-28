@@ -25,11 +25,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 && (datePart = GetDatePart(memberExpression.Member.Name)) != null)
             {
                 return new SqlFunctionExpression(
-                    functionName: "DATEPART",
+                    functionName: "DatePart",
                     returnType: memberExpression.Type,
                     arguments: new[]
                     {
-                        new SqlFragmentExpression(datePart),
+                        new SqlFragmentExpression("'" + datePart + "'"),
                         memberExpression.Expression
                     });
             }
@@ -41,21 +41,28 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             switch (memberName)
             {
                 case nameof(DateTime.Year):
-                    return "year";
+                    return "yyyy";
+                //case nameof(DateTime.Quarter):
+                //    return "q";
                 case nameof(DateTime.Month):
-                    return "month";
+                    return "m";
                 case nameof(DateTime.DayOfYear):
-                    return "dayofyear";
+                    return "y";
                 case nameof(DateTime.Day):
-                    return "day";
+                    return "d";
+                //case nameof(DateTime.DayOfWeek):
+                //    return "w";
+                //case nameof(DateTime.Week):
+                //    return "ww";
                 case nameof(DateTime.Hour):
-                    return "hour";
+                    return "h";
                 case nameof(DateTime.Minute):
-                    return "minute";
+                    return "n";
                 case nameof(DateTime.Second):
-                    return "second";
+                    return "s";
                 case nameof(DateTime.Millisecond):
-                    return "millisecond";
+                //    return "millisecond";
+                    throw new NotSupportedException("JET does not support milliseconds in DateTime");
                 default:
                     return null;
             }

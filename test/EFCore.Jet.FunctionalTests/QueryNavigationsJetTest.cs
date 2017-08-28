@@ -15,19 +15,19 @@ namespace EntityFramework.Jet.FunctionalTests
             fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Navigation_with_collection_with_nullable_type_key()
         {
             base.Navigation_with_collection_with_nullable_type_key();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Navigation_in_subquery_referencing_outer_query_with_client_side_result_operator_and_count()
         {
             base.Navigation_in_subquery_referencing_outer_query_with_client_side_result_operator_and_count();
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override Task Collection_where_nav_prop_sum_async()
         {
             return Task.CompletedTask;
@@ -196,7 +196,7 @@ FROM [Orders] AS [o]
 WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Select_collection_FirstOrDefault_project_single_column1()
         {
             base.Select_collection_FirstOrDefault_project_single_column1();
@@ -213,7 +213,7 @@ FROM [Customers] AS [c]
 ORDER BY [c].[CustomerID]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Select_collection_FirstOrDefault_project_single_column2()
         {
             base.Select_collection_FirstOrDefault_project_single_column2();
@@ -394,7 +394,7 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE ([o.Customer].[City] = N'Seattle') AND (([o.Customer].[Phone] <> N'555 555 5555') OR [o.Customer].[Phone] IS NULL)");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Select_count_plus_sum()
         {
             base.Select_count_plus_sum();
@@ -533,7 +533,7 @@ INNER JOIN (
 ORDER BY [t].[CustomerID]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_any()
         {
             base.Collection_select_nav_prop_any();
@@ -551,7 +551,7 @@ ORDER BY [t].[CustomerID]");
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_predicate()
         {
             base.Collection_select_nav_prop_predicate();
@@ -594,7 +594,7 @@ WHERE EXISTS (
     WHERE ([o].[OrderID] > 0) AND ([c].[CustomerID] = [o].[CustomerID]))");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_all()
         {
             base.Collection_select_nav_prop_all();
@@ -669,7 +669,7 @@ FROM [Orders] AS [o]
 WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_count()
         {
             base.Collection_select_nav_prop_count();
@@ -683,7 +683,7 @@ WHERE @_outer_CustomerID = [o].[CustomerID]");
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_where_nav_prop_count()
         {
             base.Collection_where_nav_prop_count();
@@ -698,7 +698,7 @@ WHERE (
 ) > 5");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_where_nav_prop_count_reverse()
         {
             base.Collection_where_nav_prop_count_reverse();
@@ -713,7 +713,7 @@ WHERE 5 < (
 )");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_orderby_nav_prop_count()
         {
             base.Collection_orderby_nav_prop_count();
@@ -728,7 +728,7 @@ ORDER BY (
 )");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_long_count()
         {
             base.Collection_select_nav_prop_long_count();
@@ -742,7 +742,7 @@ ORDER BY (
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Select_multiple_complex_projections()
         {
             base.Select_multiple_complex_projections();
@@ -780,7 +780,7 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] LIKE N'A' + N'%' AND (LEFT([o].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_sum()
         {
             base.Collection_select_nav_prop_sum();
@@ -794,7 +794,7 @@ WHERE [o].[CustomerID] LIKE N'A' + N'%' AND (LEFT([o].[CustomerID], LEN(N'A')) =
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_where_nav_prop_sum()
         {
             base.Collection_where_nav_prop_sum();
@@ -870,7 +870,7 @@ LEFT JOIN [Customers] AS [e.Customer] ON [e0].[CustomerID] = [e.Customer].[Custo
 WHERE [e0].[OrderID] IN (10643, 10692, 10702, 10835, 10952, 11011) AND (@_outer_CustomerID = [e0].[CustomerID])");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_first_or_default_then_nav_prop_nested()
         {
             base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested();
@@ -916,7 +916,7 @@ LEFT JOIN [Customers] AS [o.Customer0] ON [o0].[CustomerID] = [o.Customer0].[Cus
 WHERE [o0].[OrderID] = 10643");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method()
         {
             base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method();
@@ -932,7 +932,7 @@ FROM [Customers] AS [e]
 WHERE [e].[CustomerID] LIKE N'A' + N'%' AND (LEFT([e].[CustomerID], LEN(N'A')) = N'A')");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby()
         {
             base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby();
@@ -1068,7 +1068,7 @@ WHERE @_outer_CustomerID = [o2].[CustomerID]",
 FROM [Orders] AS [o4]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Navigation_in_subquery_referencing_outer_query()
         {
             base.Navigation_in_subquery_referencing_outer_query();
@@ -1128,7 +1128,7 @@ ORDER BY [od.Order].[CustomerID]");
                 "");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Project_single_scalar_value_subquery_is_properly_inlined()
         {
             base.Project_single_scalar_value_subquery_is_properly_inlined();
@@ -1182,7 +1182,7 @@ WHERE @_outer_CustomerID = [o].[CustomerID]
 ORDER BY [o].[OrderID]");
         }
 
-        [Fact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Project_single_scalar_value_subquery_in_query_with_optional_navigation_works()
         {
             base.Project_single_scalar_value_subquery_in_query_with_optional_navigation_works();

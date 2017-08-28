@@ -35,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 var sqlArguments = new[] { methodCallExpression.Object };
 
-                return new SqlFunctionExpression("LTRIM", methodCallExpression.Type, sqlArguments);
+                return new SqlFunctionExpression("LTrim", methodCallExpression.Type, sqlArguments);
             }
 
             return null;

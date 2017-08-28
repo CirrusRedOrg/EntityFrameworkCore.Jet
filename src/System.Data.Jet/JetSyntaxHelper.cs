@@ -31,7 +31,7 @@ namespace System.Data.Jet
         }
 
         /// <summary>
-        /// Function to detect wildcard characters (ANSI %, _, [ and ^ and Jet * ? [ #) and escape them
+        /// Function to detect wildcard characters * ? [ #) and escape them
         /// This escaping is used when StartsWith, EndsWith and Contains canonical and CLR functions
         /// are translated to their equivalent LIKE expression
         /// </summary>
@@ -42,8 +42,7 @@ namespace System.Data.Jet
         {
             usedEscapeChar = false;
             if (
-                !(text.Contains("*") || text.Contains("?") || text.Contains("[") || text.Contains("#")) &&
-                !(text.Contains("%") || text.Contains("_") || text.Contains("[") || text.Contains("^"))
+                !(text.Contains("*") || text.Contains("?") || text.Contains("[") || text.Contains("#"))
             )
                 return text;
 
@@ -52,8 +51,7 @@ namespace System.Data.Jet
             foreach (char c in text)
             {
                 if (
-                    c == '*' || c == '?' || c == '[' || c == '#' ||
-                    c == '%' || c == '_' || c == '[' || c == '^'
+                    c == '*' || c == '?' || c == '[' || c == '#'
                 )
                 {
                     sb.AppendFormat("[{0}]", c);

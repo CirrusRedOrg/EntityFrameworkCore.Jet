@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F68095EE-6CD1-43A2-B498-6CA72CE2A0CB}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{6A8DE399-1804-4113-A408-F23B7F5C9CAC}"
+	ProjectSection(SolutionItems) = preProject
+		SkipMessages.txt = SkipMessages.txt
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.Data.Jet", "src\System.Data.Jet\System.Data.Jet.csproj", "{88BE8B4F-8DA9-42B9-9A1F-839451BA5F8C}"
 EndProject

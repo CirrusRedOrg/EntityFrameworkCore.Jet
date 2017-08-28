@@ -320,7 +320,7 @@ namespace System.Data.Jet
             command.CommandText = newCommandText;
 
             if (skipCount != 0)
-                return new JetDataReader(command.ExecuteReader(behavior), topCount - skipCount, skipCount);
+                return new JetDataReader(command.ExecuteReader(behavior), topCount == -1 ? 0 : topCount - skipCount, skipCount);
             else if (topCount >= 0)
                 return new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
             else
@@ -386,7 +386,7 @@ namespace System.Data.Jet
             {
                 Match xMatch = _extractNumberRegex.Match(x.ParameterName);
                 if (!xMatch.Success)
-                    return 1;
+                    return -1;
                 Match yMatch = _extractNumberRegex.Match(y.ParameterName);
                 if (!yMatch.Success)
                     return -1;
@@ -428,17 +428,21 @@ namespace System.Data.Jet
             return commandText;
         }
 
+
+        private Guid? _lastGuid = null;
+
         private string ParseGuid(string commandText)
         {
+            while (commandText.ToLower().Contains("newguid()"))
+            {
+                _lastGuid = Guid.NewGuid();
+                commandText = Regex.Replace(commandText, @"newguid\(\)", string.Format("{{{0}}}", _lastGuid), RegexOptions.IgnoreCase);
+            }
+
             if (commandText.ToLower().Contains("@@guid"))
             {
-                DbCommand command;
-                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                command.CommandText = "Select @@guid";
-                object identity = command.ExecuteScalar();
-                int iIdentity = Convert.ToInt32(identity);
-                Console.WriteLine("@@guid = {0}", iIdentity);
-                return Regex.Replace(commandText, "@@guid", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
+                Console.WriteLine("@@guid = {{{0}}}", _lastGuid);
+                commandText = Regex.Replace(commandText, "@@guid", string.Format("{{{0}}}", _lastGuid), RegexOptions.IgnoreCase);
             }
             return commandText;
         }

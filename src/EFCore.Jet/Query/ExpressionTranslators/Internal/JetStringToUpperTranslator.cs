@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetStringToUpperTranslator()
-            : base(typeof(string), nameof(string.ToUpper), "UPPER")
+            : base(typeof(string), nameof(string.ToUpper), "UCase")
         {
         }
     }

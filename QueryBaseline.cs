@@ -18636,3 +18636,6583 @@ WHERE [c2].[CustomerID] = @_outer_CustomerID1");
 
 
 
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_Compare_simple_zero() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> 'ALFKI'",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > 'ALFKI'",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'ALFKI'",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > 'ALFKI'",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many_or4() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c])
+, [Employees] AS [e]
+WHERE [c].[City] IN ('London', 'Berlin', 'Seattle', 'Lisboa')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_Where_Count_with_predicate_client_eval_mixed() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[CustomerID] <> 'ALFKI') OR [o].[CustomerID] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_closure_via_query_cache() : 
+            AssertSql(
+                @"@__GetCity_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0",
+                //
+                @"@__GetCity_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_count_using_anonymous_type() : 
+            AssertSql(
+                @"SELECT (
+    SELECT COUNT(*)
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID]
+) AS [Count]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_bitwise_or_multiple() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], (IIf(
+    [c].[CustomerID] = 'ALFKI',
+    True,
+    False
+) BOR IIf(
+    [c].[CustomerID] = 'ANATR',
+    True,
+    False
+)) BOR IIf(
+    [c].[CustomerID] = 'ANTON',
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Let_any_subquery_anonymous() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')
+ORDER BY [c].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='ANTON' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='AROUT' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_StartsWith_Column() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[ContactName] LIKE [c].[ContactName] + '%' AND (LEFT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName])) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_take_long_count() : 
+            AssertSql(
+                @"@__p_0='7'
+
+SELECT COUNT(*)
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_Customers_Orders_Orders_Skip_Take_Same_Properties() : 
+            AssertSql(
+                @"@__p_0='10'
+@__p_1='5'
+
+SELECT TOP @__p_1+@__p_0 [o].[OrderID], [ca].[CustomerID] AS [CustomerIDA], [cb].[CustomerID] AS [CustomerIDB], [ca].[ContactName] AS [ContactNameA], [cb].[ContactName] AS [ContactNameB]
+FROM (([Orders] AS [o])
+INNER JOIN [Customers] AS [ca] ON [o].[CustomerID] = [ca].[CustomerID])
+INNER JOIN [Customers] AS [cb] ON [o].[CustomerID] = [cb].[CustomerID]
+ORDER BY [o].[OrderID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_with_groupby() : 
+            AssertSql(
+                @"SELECT (
+    SELECT IIf(
+        EXISTS (
+            SELECT 1
+            FROM [Orders] AS [o0]
+            WHERE [c].[CustomerID] = [o0].[CustomerID]),
+        True,
+        False
+    )
+    FROM (SELECT COUNT(*) FROM MSysAccessStorage)
+), [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')",
+                //
+                @"@_outer_CustomerID1='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM [Orders] AS [o2]
+WHERE @_outer_CustomerID1 = [o2].[CustomerID]
+ORDER BY [o2].[OrderID]",
+                //
+                @"@_outer_CustomerID1='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM [Orders] AS [o2]
+WHERE @_outer_CustomerID1 = [o2].[CustomerID]
+ORDER BY [o2].[OrderID]",
+                //
+                @"@_outer_CustomerID1='ANTON' (Nullable = false) (Size = 5)
+
+SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM [Orders] AS [o2]
+WHERE @_outer_CustomerID1 = [o2].[CustomerID]
+ORDER BY [o2].[OrderID]",
+                //
+                @"@_outer_CustomerID1='AROUT' (Nullable = false) (Size = 5)
+
+SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM [Orders] AS [o2]
+WHERE @_outer_CustomerID1 = [o2].[CustomerID]
+ORDER BY [o2].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_client_and_server_top_level() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> 'AROUT'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_shadow() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[Title] = 'Sales Representative'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_project_filter() : 
+            AssertSql(
+                @"SELECT [c].[CompanyName]
+FROM [Customers] AS [c]
+WHERE [c].[City] = 'London'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+, [Orders] AS [o]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_StartsWith_MethodCall() : 
+            AssertSql(
+                @"@__LocalMethod1_0='M' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[ContactName] LIKE @__LocalMethod1_0 + '%' AND (LEFT([c].[ContactName], LEN(@__LocalMethod1_0)) = @__LocalMethod1_0)) OR (@__LocalMethod1_0 = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.First_inside_subquery_gets_client_evaluated() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 1 [o0].[CustomerID]
+FROM [Orders] AS [o0]
+WHERE ([o0].[CustomerID] = 'ALFKI') AND (@_outer_CustomerID = [o0].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_Count_with_predicate() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition4() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]",
+                //
+                @"SELECT 1
+FROM [Customers] AS [c0]
+ORDER BY [c0].[CustomerID]",
+                //
+                @"SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM [Customers] AS [c2]",
+                //
+                @"SELECT 1
+FROM [Customers] AS [c0]
+ORDER BY [c0].[CustomerID]",
+                //
+                @"SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM [Customers] AS [c2]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_method_string() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = 'London'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Filter_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE IIf(IsNull([c].[CompanyName]), [c].[ContactName], [c].[CompanyName]) = 'The Big Cheese'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_entities() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where_OrderBy() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+WHERE ([o].[CustomerID] = 'ALFKI') OR ([c].[CustomerID] = 'ANATR')
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_Subquery_Single() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT TOP @__p_0 [od].[OrderID]
+FROM [Order Details] AS [od]
+ORDER BY [od].[ProductID], [od].[OrderID]",
+                //
+                @"@_outer_OrderID='10285'
+
+SELECT TOP 1 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE @_outer_OrderID = [o].[OrderID]
+ORDER BY [o].[OrderID]",
+                //
+                @"@_outer_OrderID='10294'
+
+SELECT TOP 1 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE @_outer_OrderID = [o].[OrderID]
+ORDER BY [o].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many_or() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c])
+, [Employees] AS [e]
+WHERE ([c].[City] = 'London') OR ([e].[City] = 'London')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Take_Distinct_Count() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [t].*
+    FROM (
+        SELECT TOP @__p_0 [o].*
+        FROM [Orders] AS [o]
+    ) AS [t]
+) AS [t0]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bitwise_or() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (IIf(
+    [c].[CustomerID] = 'ALFKI',
+    True,
+    False
+) BOR IIf(
+    [c].[CustomerID] = 'ANATR',
+    True,
+    False
+)) = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_int_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_is_null() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure() : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bitwise_or_with_logical_and() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ((IIf(
+    [c].[CustomerID] = 'ALFKI',
+    True,
+    False
+) BOR IIf(
+    [c].[CustomerID] = 'ANATR',
+    True,
+    False
+)) = True) AND ([c].[Country] = 'Germany')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_project_filter2() : 
+            AssertSql(
+                @"SELECT [c].[City]
+FROM [Customers] AS [c]
+WHERE [c].[City] = 'London'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_conditional_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(
+    [c].[Region] IS NULL,
+    'ZZ',
+    [c].[Region]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Lifting_when_subquery_nested_order_by_simple() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [t0].[CustomerID]
+FROM (
+    SELECT DISTINCT [t].[CustomerID]
+    FROM ((
+        SELECT TOP @__p_0 [c].*
+        FROM [Customers] AS [c]
+        ORDER BY [c].[CustomerID]
+    ) AS [t])
+    , [Customers] AS [c2]
+) AS [t0]",
+                //
+                @"SELECT [c1_Orders].[OrderID], [c1_Orders].[CustomerID], [c1_Orders].[EmployeeID], [c1_Orders].[OrderDate]
+FROM [Orders] AS [c1_Orders]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_local_collection_complex_predicate_not_matching_ins2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI') AND [c].[CustomerID] NOT IN ('ALFKI', 'ABCDE')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_Contains_Column() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (Instr([c].[ContactName], [c].[ContactName]) > 0) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_member_distinct_where() : 
+            AssertSql(
+                @"SELECT [t].[CustomerID]
+FROM (
+    SELECT DISTINCT [c].[CustomerID]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_Contains_Identity() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (Instr([c].[ContactName], [c].[ContactName]) > 0) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_null_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(IsNull([c].[Region]), 'ZZ', [c].[Region])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_reversed() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE 'London' = [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_concat_with_navigation2() : 
+            AssertSql(
+                @"SELECT ([o#Customer].[City] + ' ') + [o#Customer].[City]
+FROM ([Orders] AS [o])
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [t].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN (
+    SELECT [o].*
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_Where_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_Literal() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE RIGHT([c].[ContactName], LEN('b')) = 'b'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_static_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__StaticFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0",
+                //
+                @"@__StaticFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_subquery_involving_join_binds_to_correct_table() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] > 11000) AND [o].[OrderID] IN (
+    SELECT [od].[OrderID]
+    FROM ([Order Details] AS [od])
+    INNER JOIN [Products] AS [od#Product] ON [od].[ProductID] = [od#Product].[ProductID]
+    WHERE [od#Product].[ProductName] = 'Chai'
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_not_in_optimization2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c])
+, [Employees] AS [e]
+WHERE [c].[City] NOT IN ('London', 'Berlin')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition2() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+FROM [Employees] AS [e0]
+ORDER BY [e0].[EmployeeID]",
+                //
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+FROM [Employees] AS [e0]
+ORDER BY [e0].[EmployeeID]",
+                //
+                @"SELECT TOP 1 [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+FROM [Employees] AS [e0]
+ORDER BY [e0].[EmployeeID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_correlated_subquery_ordered() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT TOP @__p_0 [c].[CustomerID]
+FROM [Customers] AS [c]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_select_many() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+, [Employees] AS [e]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_in_complex_predicate() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[ProductID] > 100) AND ([p].[Discontinued] = True)) OR ([p].[Discontinued] = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[Id], [t].[Count]
+FROM ([Customers] AS [c])
+, (
+    SELECT DISTINCT [o].[CustomerID] AS [Id], [o].[OrderID] AS [Count]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] < 10300
+) AS [t]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_take_max() : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT MAX([t].[OrderID])
+FROM (
+    SELECT TOP @__p_0 [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.SelectMany_LongCount() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ([Customers] AS [c])
+, [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_local_list_inline() : line() in C:\Develop\ForPlanning\EntityFrameworkCore.Jet\test\EFCore.Jet.FunctionalTests\QueryJetTest.cs:riga 6247
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_in_predicate() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[Region] IS NULL OR ([c].[Region] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure_constant() : 
+            AssertSql(
+                @"@__predicate_0='True'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE @__predicate_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_anonymous_property_method_with_take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM (
+    SELECT TOP @__p_0 [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+    FROM [Orders] AS [o2]
+    ORDER BY [o2].[OrderID]
+) AS [t]",
+                //
+                @"SELECT [c].[CustomerID]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Take_simple() : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_projection() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [o].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level5() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 (
+        SELECT TOP 1 [od].[ProductID]
+        FROM [Order Details] AS [od]
+        WHERE ([od].[OrderID] <> (
+            SELECT COUNT(*)
+            FROM [Orders] AS [o0]
+            WHERE [c].[CustomerID] = [o0].[CustomerID]
+        )) AND ([o].[OrderID] = [od].[OrderID])
+    )
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [Order]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Take_subquery_projection() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT TOP @__p_0 [c].[City]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_arg_expression() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID] + [o].[OrderID]),0,[o].[OrderID] + [o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_negated_twice() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_one_element_SingleOrDefault() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_math_round_int() : 
+            AssertSql(
+                @"SELECT ROUND(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])), 0) AS [A]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10250");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_count_using_DTO() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], (
+    SELECT COUNT(*)
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID]
+) AS [Count]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_complex_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [A]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[A] LIKE 'A' + '%' AND (LEFT([t].[A], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Take_OrderBy_Count() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT COUNT(*)
+FROM (
+    SELECT TOP @__p_0 [o].*
+    FROM [Orders] AS [o]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_Column() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_tracking_groups() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bitwise_and_with_logical_and() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ((IIf(
+    [c].[CustomerID] = 'ALFKI',
+    True,
+    False
+) BAND IIf(
+    [c].[CustomerID] = 'ANATR',
+    True,
+    False
+)) = True) AND ([c].[CustomerID] = 'ANTON')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_null_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[CompanyName], IIf(IsNull([c].[Region]), 'ZZ', [c].[Region]) AS [Region]
+FROM [Customers] AS [c]
+ORDER BY [Region]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.SelectMany_simple_subquery() : 
+            AssertSql(
+                @"@__p_0='9'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ((
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t])
+, [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Projection_null_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[CompanyName], IIf(IsNull([c].[Region]), 'ZZ', [c].[Region]) AS [Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_parameter() : 
+            AssertSql(
+                @"@__prm_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE @__prm_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Null_conditional_deep() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CInt(IIf(IsNull(LEN([c].[CustomerID])),0,LEN([c].[CustomerID]))) = 5");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_not_in_optimization4() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c])
+, [Employees] AS [e]
+WHERE [c].[City] NOT IN ('London', 'Berlin', 'Seattle', 'Lisboa')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_concat_with_navigation1() : 
+            AssertSql(
+                @"SELECT ([o].[CustomerID] + ' ') + [o#Customer].[City]
+FROM ([Orders] AS [o])
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_where() : 
+            AssertSql(
+                @"SELECT [t].[Property]
+FROM (
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[Property] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Queryable_simple_anonymous_subquery() : 
+            AssertSql(
+                @"@__p_0='91'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Sum_on_float_column_in_subquery() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], (
+    SELECT CSng(IIf(IsNull(SUM([od].[Discount])),0,SUM([od].[Discount])))
+    FROM [Order Details] AS [od]
+    WHERE [o].[OrderID] = [od].[OrderID]
+) AS [Sum]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10300");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_orderBy_take_count() : 
+            AssertSql(
+                @"@__p_0='7'
+
+SELECT COUNT(*)
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[Country]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level3() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 [o].[OrderDate]
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [OrderDates]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_simple() : 
+            AssertSql(
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c]),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.SelectMany_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ([Customers] AS [c])
+, [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_shadow_subquery_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[Title] = (
+    SELECT TOP 1 [e2].[Title]
+    FROM [Employees] AS [e2]
+    ORDER BY [e2].[Title]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_Where_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_take_min() : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT MIN([t].[OrderID])
+FROM (
+    SELECT TOP @__p_0 [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_false() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_join_default_if_empty_anonymous() : 
+            AssertSql(
+                @"SELECT [order0].[OrderID], [order0].[CustomerID], [order0].[EmployeeID], [order0].[OrderDate], [orderDetail0].[OrderID], [orderDetail0].[ProductID], [orderDetail0].[Discount], [orderDetail0].[Quantity], [orderDetail0].[UnitPrice]
+FROM ([Orders] AS [order0])
+LEFT JOIN [Order Details] AS [orderDetail0] ON [order0].[OrderID] = [orderDetail0].[OrderID]
+ORDER BY [order0].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Orderby_added_for_client_side_GroupJoin_principal_to_dependent_LOJ() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City] AS [City1], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title], [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM ([Employees] AS [e1])
+LEFT JOIN [Employees] AS [e2] ON [e1].[EmployeeID] = [e2].[ReportsTo]
+ORDER BY [e1].[EmployeeID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = 'London'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_same_collection_force_alias_uniquefication() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o])
+INNER JOIN [Orders] AS [o0] ON [o].[CustomerID] = [o0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_int_overload_on_mismatched_types() : 
+            AssertSql(
+                @"@__shortPrm_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] = @__shortPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_join_orderby_join_select() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+INNER JOIN [Order Details] AS [od] ON [o].[OrderID] = [od].[OrderID]
+WHERE [c].[CustomerID] <> 'ALFKI'
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_Identity() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_de_morgan_and_optimizated() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[Discontinued] = False) OR ([p].[ProductID] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Local_array() : 
+            AssertSql(
+                @"@__get_Item_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = @__get_Item_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_Customers_Orders_Skip_Take() : 
+            AssertSql(
+                @"@__p_0='10'
+@__p_1='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[ContactName], [o].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [o].[OrderID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_All() : 
+            AssertSql(
+                @"SELECT IIf(
+    NOT EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o]
+        WHERE ([o].[CustomerID] <> 'ALFKI') OR [o].[CustomerID] IS NULL),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_long_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_GroupJoin_DefaultIfEmpty_Where() : 
+            AssertSql(
+                @"SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+LEFT JOIN [Orders] AS [o2] ON [c].[CustomerID] = [o2].[CustomerID]
+WHERE [o2].[OrderID] IS NOT NULL AND ([o2].[CustomerID] = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_no_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM (
+    SELECT DISTINCT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+) AS [t]
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_local_collection_sql_injection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] IN ('ALFKI', 'ABC'')); GO; DROP TABLE Orders; GO; --', 'ALFKI', 'ABCDE')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.SelectMany_projection1() : 
+            AssertSql(
+                @"SELECT [e1].[City], [e2].[Country]
+FROM ([Employees] AS [e1])
+, [Employees] AS [e2]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_MethodCall() : 
+            AssertSql(
+                @"@__LocalMethod2_0='m' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (RIGHT([c].[ContactName], LEN(@__LocalMethod2_0)) = @__LocalMethod2_0) OR (@__LocalMethod2_0 = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Orders] AS [o])
+LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0",
+                //
+                @"@__city_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_expression_invoke() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition2_FirstOrDefault() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]
+WHERE [t].[FirstName] = (
+    SELECT TOP 1 [e0].[FirstName]
+    FROM [Employees] AS [e0]
+    ORDER BY [e0].[EmployeeID]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[CustomerID] LIKE 'A' + '%' AND (LEFT([t].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_Customers_Orders_Projection_With_String_Concat_Skip_Take() : 
+            AssertSql(
+                @"@__p_0='10'
+@__p_1='5'
+
+SELECT TOP @__p_1+@__p_0 ([c].[ContactName] + ' ') + [c].[ContactTitle] AS [Contact], [o].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [o].[OrderID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many_or3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c])
+, [Employees] AS [e]
+WHERE [c].[City] IN ('London', 'Berlin', 'Seattle')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_compared_to_binary_expression() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = IIf(
+    [p].[ProductID] > 50,
+    True,
+    False
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Null_conditional_simple() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_comparison_to_nullable_bool() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE RIGHT([c].[CustomerID], LEN('KI')) = 'KI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bitwise_or_with_logical_or() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ((IIf(
+    [c].[CustomerID] = 'ALFKI',
+    True,
+    False
+) BOR IIf(
+    [c].[CustomerID] = 'ANATR',
+    True,
+    False
+)) = True) OR ([c].[CustomerID] = 'ANTON')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_subquery_and_local_array_closure() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Customers] AS [c1]
+    WHERE [c1].[City] IN ('London', 'Buenos Aires') AND ([c1].[CustomerID] = [c].[CustomerID]))",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Customers] AS [c1]
+    WHERE [c1].[City] IN ('London') AND ([c1].[CustomerID] = [c].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Lifting_when_subquery_nested_order_by_anonymous() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [c1_Orders].[OrderID], [c1_Orders].[CustomerID], [c1_Orders].[EmployeeID], [c1_Orders].[OrderDate], [t0].[CustomerID]
+FROM ([Orders] AS [c1_Orders])
+INNER JOIN (
+    SELECT DISTINCT [t].[CustomerID]
+    FROM ((
+        SELECT TOP @__p_0 [c].*
+        FROM [Customers] AS [c]
+        ORDER BY [c].[CustomerID]
+    ) AS [t])
+    , [Customers] AS [c2]
+) AS [t0] ON [c1_Orders].[CustomerID] = [t0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Take_Count() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT TOP @__p_0 [o].*
+    FROM [Orders] AS [o]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_many_cross_join_same_collection() : 
+            AssertSql(
+                @"SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
+FROM ([Customers] AS [c])
+, [Customers] AS [c0]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_bitwise_or_with_logical_or() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], IIf(
+    ((IIf(
+        [c].[CustomerID] = 'ALFKI',
+        True,
+        False
+    ) BOR IIf(
+        [c].[CustomerID] = 'ANATR',
+        True,
+        False
+    )) = True) OR ([c].[CustomerID] = 'ANTON'),
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_LastOrDefault() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = 'London'
+ORDER BY [c].[ContactName] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_Contains_Literal() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Instr([c].[ContactName], 'M') > 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_mismatched_types_nullable_int_long() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True",
+                //
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple3() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_false() : 
+            AssertSql(
+                @"@__flag_0='False'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_division_on_decimal_no_significant_digits() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull([od].[Quantity] / 2.0),0,[od].[Quantity] / 2.0)))
+FROM [Order Details] AS [od]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Sum_with_coalesce() : 
+            AssertSql(
+                @"SELECT SUM(IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice]))
+FROM [Products] AS [p]
+WHERE [p].[ProductID] < 40");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_concat_string_int_comparison1() : 
+            AssertSql(
+                @"@__i_0='10'
+
+SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] + (@__i_0&"""")) = [c].[CompanyName]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Single_Predicate() : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Take_simple_parameterized() : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_local_collection_complex_predicate_or() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI', 'ALFKI', 'ABCDE')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many_and() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c])
+, [Employees] AS [e]
+WHERE (([c].[City] = 'London') AND ([c].[Country] = 'UK')) AND (([e].[City] = 'London') AND ([e].[Country] = 'UK'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_with_multiple_conditions_still_uses_exists() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[City] = 'London') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE ([o].[EmployeeID] = 1) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.No_orderby_added_for_fully_translated_manually_constructed_LOJ() : 
+            AssertSql(
+                @"SELECT [e1].[City] AS [City1], [e2].[City] AS [City2]
+FROM ([Employees] AS [e1])
+LEFT JOIN [Employees] AS [e2] ON [e1].[EmployeeID] = [e2].[ReportsTo]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_complex_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [A]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[A] LIKE 'A' + '%' AND (LEFT([t].[A], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[CustomerID] LIKE 'A' + '%' AND (LEFT([t].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_subquery_involving_join_binds_to_correct_table() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] > 11000) AND [o].[OrderID] IN (
+    SELECT [od].[OrderID]
+    FROM ([Order Details] AS [od])
+    INNER JOIN [Products] AS [od#Product] ON [od].[ProductID] = [od#Product].[ProductID]
+    WHERE [od#Product].[ProductName] = 'Chai'
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_arg_expression() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID] + [o].[OrderID]),0,[o].[OrderID] + [o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_simple() : 
+            AssertSql(
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c]),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_no_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_division_on_decimal_no_significant_digits() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull([od].[Quantity] / 2.0),0,[od].[Quantity] / 2.0)))
+FROM [Order Details] AS [od]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_on_float_column_in_subquery() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10300",
+                //
+                @"@_outer_OrderID='10248'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10249'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10250'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10251'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10252'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10253'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10254'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10255'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]");
+
+Output truncated.
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_on_float_column() : 
+            AssertSql(
+                @"SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od].[Discount]),0,[od].[Discount])))),0,AVG(CSng(IIf(IsNull([od].[Discount]),0,[od].[Discount])))))
+FROM [Order Details] AS [od]
+WHERE [od].[ProductID] = 1");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Complex_query_with_repeated_query_model_compiles_correctly() : 
+            AssertSql(
+                @"SELECT [outer].[CustomerID], [outer].[Address], [outer].[City], [outer].[CompanyName], [outer].[ContactName], [outer].[ContactTitle], [outer].[Country], [outer].[Fax], [outer].[Phone], [outer].[PostalCode], [outer].[Region]
+FROM [Customers] AS [outer]
+WHERE [outer].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c0]
+        WHERE EXISTS (
+            SELECT 1
+            FROM [Customers] AS [cc1])),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Complex_query_with_repeated_nested_query_model_compiles_correctly() : 
+            AssertSql(
+                @"SELECT [outer].[CustomerID], [outer].[Address], [outer].[City], [outer].[CompanyName], [outer].[ContactName], [outer].[ContactTitle], [outer].[Country], [outer].[Fax], [outer].[Phone], [outer].[PostalCode], [outer].[Region]
+FROM [Customers] AS [outer]
+WHERE [outer].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c0]
+        WHERE EXISTS (
+            SELECT 1
+            FROM [Customers] AS [cc1]
+            WHERE EXISTS (
+                SELECT DISTINCT 1
+                FROM (
+                    SELECT TOP 10 [inner1].*
+                    FROM [Customers] AS [inner1]
+                    ORDER BY [inner1].[CustomerID]
+                ) AS [t1]))),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_coalesce() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull(IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice])),0,IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice]))))
+FROM [Products] AS [p]
+WHERE [p].[ProductID] < 40");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_division_on_decimal() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull([od].[Quantity] / 2.09),0,[od].[Quantity] / 2.09)))
+FROM [Order Details] AS [od]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_predicate() : 
+            AssertSql(
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c]
+        WHERE [c].[ContactName] LIKE 'A' + '%' AND (LEFT([c].[ContactName], LEN('A')) = 'A')),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_top_level() : 
+            AssertSql(
+                @"@__p_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    @__p_0 IN (
+        SELECT [c].[CustomerID]
+        FROM [Customers] AS [c]
+    ),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_local_list_inline_closure_mix() : line_closure_mix() in C:\Develop\ForPlanning\EntityFrameworkCore.Jet\test\EFCore.Jet.FunctionalTests\QueryJetTest.cs:riga 6247
+            AssertSql(
+                @"@__id_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] IN ('ABCDE', @__id_0)",
+                //
+                @"@__id_0='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] IN ('ABCDE', @__id_0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_binary_expression() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID] * 2),0,[o].[OrderID] * 2)))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_simple() : 
+            AssertSql(
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c]),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_predicate() : 
+            AssertSql(
+                @"SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Customers] AS [c]
+        WHERE [c].[ContactName] LIKE 'A' + '%' AND (LEFT([c].[ContactName], LEN('A')) = 'A')),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_arg_expression() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID] + [o].[OrderID]),0,[o].[OrderID] + [o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_no_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_division_on_decimal_no_significant_digits() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull([od].[Quantity] / 2.0),0,[od].[Quantity] / 2.0)))
+FROM [Order Details] AS [od]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_on_float_column_in_subquery() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10300",
+                //
+                @"@_outer_OrderID='10248'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10249'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10250'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10251'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10252'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10253'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10254'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10255'
+
+SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))),0,AVG(CSng(IIf(IsNull([od0].[Discount]),0,[od0].[Discount])))))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]");
+
+Output truncated.
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_on_float_column() : 
+            AssertSql(
+                @"SELECT CSng(IIf(IsNull(AVG(CSng(IIf(IsNull([od].[Discount]),0,[od].[Discount])))),0,AVG(CSng(IIf(IsNull([od].[Discount]),0,[od].[Discount])))))
+FROM [Order Details] AS [od]
+WHERE [od].[ProductID] = 1");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_coalesce() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull(IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice])),0,IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice]))))
+FROM [Products] AS [p]
+WHERE [p].[ProductID] < 40");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_division_on_decimal() : 
+            AssertSql(
+                @"SELECT AVG(CCur(IIf(IsNull([od].[Quantity] / 2.09),0,[od].[Quantity] / 2.09)))
+FROM [Order Details] AS [od]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_binary_expression() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID] * 2),0,[o].[OrderID] * 2)))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_no_arg() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Average_with_binary_expression() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([o].[OrderID] * 2),0,[o].[OrderID] * 2)))
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.First_inside_subquery_gets_client_evaluated() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 1 [o0].[CustomerID]
+FROM [Orders] AS [o0]
+WHERE ([o0].[CustomerID] = 'ALFKI') AND (@_outer_CustomerID = [o0].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Filter_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE IIf(IsNull([c].[CompanyName]), [c].[ContactName], [c].[CompanyName]) = 'The Big Cheese'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where_OrderBy() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+WHERE ([o].[CustomerID] = 'ALFKI') OR ([c].[CustomerID] = 'ANATR')
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [t].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN (
+    SELECT [o].*
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_tracking_groups() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_join_default_if_empty_anonymous() : 
+            AssertSql(
+                @"SELECT [order0].[OrderID], [order0].[CustomerID], [order0].[EmployeeID], [order0].[OrderDate], [orderDetail0].[OrderID], [orderDetail0].[ProductID], [orderDetail0].[Discount], [orderDetail0].[Quantity], [orderDetail0].[UnitPrice]
+FROM ([Orders] AS [order0])
+LEFT JOIN [Order Details] AS [orderDetail0] ON [order0].[OrderID] = [orderDetail0].[OrderID]
+ORDER BY [order0].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM (
+    SELECT DISTINCT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+) AS [t]
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Orders] AS [o])
+LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Take_Count() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT TOP @__p_0 [o].*
+    FROM [Orders] AS [o]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple3() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple_subquery() : 
+            AssertSql(
+                @"@__p_0='4'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN (
+    SELECT TOP @__p_0 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_multiple() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate], [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o1] ON [c].[CustomerID] = [o1].[CustomerID])
+LEFT JOIN [Orders] AS [o2] ON [c].[CustomerID] = [o2].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty2() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Employees] AS [e])
+LEFT JOIN [Orders] AS [o] ON [e].[EmployeeID] = [o].[EmployeeID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [c].[ContactName]
+FROM ([Customers] AS [c])
+LEFT JOIN (
+    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NULL OR ([c].[Region] = ''),
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_Where() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+WHERE [o].[OrderID] IS NOT NULL AND ([o].[CustomerID] = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.FirstOrDefault_inside_subquery_gets_server_evaluated() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND ((
+    SELECT TOP 1 [o].[CustomerID]
+    FROM [Orders] AS [o]
+    WHERE ([o].[CustomerID] = 'ALFKI') AND ([c].[CustomerID] = [o].[CustomerID])
+) = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty3() : 
+            AssertSql(
+                @"@__p_0='1'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ((
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t])
+LEFT JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_join_anonymous() : 
+            AssertSql(
+                @"SELECT [order0].[OrderID], [order0].[CustomerID], [order0].[EmployeeID], [order0].[OrderDate], [orderDetail0].[OrderID], [orderDetail0].[ProductID], [orderDetail0].[Discount], [orderDetail0].[Quantity], [orderDetail0].[UnitPrice]
+FROM ([Orders] AS [order0])
+LEFT JOIN [Order Details] AS [orderDetail0] ON [order0].[OrderID] = [orderDetail0].[OrderID]
+ORDER BY [order0].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_Project() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_complex_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [Property]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Entity_equality_local() : 
+            AssertSql(
+                @"@__local_0_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = @__local_0_CustomerID");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_customers_orders_count() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key_projected_from_another_entity() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM (([Order Details] AS [od])
+INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+LEFT JOIN [Customers] AS [c] ON [od#Order].[CustomerID] = [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Does_not_change_ordering_of_projection_with_complex_projections() : 
+            AssertSql(
+                @"SELECT [e].[CustomerID] AS [Id], (
+    SELECT COUNT(*)
+    FROM [Orders] AS [o0]
+    WHERE [e].[CustomerID] = [o0].[CustomerID]
+) AS [TotalOrders]
+FROM [Customers] AS [e]
+WHERE ([e].[ContactTitle] = 'Owner') AND ((
+    SELECT COUNT(*)
+    FROM [Orders] AS [o]
+    WHERE [e].[CustomerID] = [o].[CustomerID]
+) > 2)
+ORDER BY [e].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key_with_predicate() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Orders] AS [o])
+LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
+WHERE [o].[OrderID] > 11500");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple_ordering() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID]
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Environment_newline_is_funcletized() : line_is_funcletized() in C:\Develop\ForPlanning\EntityFrameworkCore.Jet\test\EFCore.Jet.FunctionalTests\QueryJetTest.cs:riga 6374
+            AssertSql(
+                @"@__NewLine_0='
+' (Nullable = false) (Size = 2)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (Instr([c].[CustomerID], @__NewLine_0) > 0) OR (@__NewLine_0 = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_LongCount() : 
+            AssertSql(
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o0])
+
+ORDER BY [o0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Let_any_subquery_anonymous() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')
+ORDER BY [c].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM ([Orders] AS [o0])
+
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM ([Orders] AS [o0])
+
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='ANTON' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM ([Orders] AS [o0])
+
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='AROUT' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM ([Orders] AS [o0])
+
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_entities() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where_OrderBy() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE ([o].[CustomerID] = 'ALFKI') OR ([c].[CustomerID] = 'ANATR')
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Lifting_when_subquery_nested_order_by_simple() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [t0].[CustomerID]
+FROM ((
+    SELECT DISTINCT [t].[CustomerID]
+    FROM ((
+        SELECT TOP @__p_0 [c].*
+        FROM ([Customers] AS [c])
+
+        ORDER BY [c].[CustomerID]
+    ) AS [t])
+    , [Customers] AS [c2]
+
+) AS [t0])",
+                //
+                @"SELECT [c1_Orders].[OrderID], [c1_Orders].[CustomerID], [c1_Orders].[EmployeeID], [c1_Orders].[OrderDate]
+FROM ([Orders] AS [c1_Orders])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [t].[OrderID]
+FROM (([Customers] AS [c])
+INNER JOIN (
+    SELECT [o].*
+    FROM ([Orders] AS [o])
+
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_anonymous_property_method() : 
+            AssertSql(
+                @"SELECT [o20].[OrderID], [o20].[CustomerID], [o20].[EmployeeID], [o20].[OrderDate]
+FROM ([Orders] AS [o20])
+
+ORDER BY [o20].[OrderID]",
+                //
+                @"SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_predicate() : 
+            AssertSql(
+                @"SELECT [o20].[CustomerID], [o20].[OrderID]
+FROM ([Orders] AS [o20])
+
+WHERE [o20].[OrderID] > 0
+ORDER BY [o20].[OrderID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[ContactName]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_select_many() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+, [Employees] AS [e]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_client_new_expression() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Orders] AS [o])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.LastOrDefault() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+ORDER BY [c].[ContactName] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_in_predicate() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[Region] IS NULL OR ([c].[Region] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_with_orderby_take_skip_distinct() : 
+            AssertSql(
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o0])
+
+ORDER BY [o0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_OrderBy() : 
+            AssertSql(
+                @"SELECT [t].[Country]
+FROM ((
+    SELECT DISTINCT [c].[Country]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+ORDER BY [t].[Country]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_anonymous_property_method_with_take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM ((
+    SELECT TOP @__p_0 [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+    FROM ([Orders] AS [o2])
+
+    ORDER BY [o2].[OrderID]
+) AS [t])",
+                //
+                @"SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_projection() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [o].[OrderID]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_tracking_groups() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_where() : 
+            AssertSql(
+                @"SELECT [t].[Property]
+FROM ((
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+WHERE [t].[Property] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_Where_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct() : 
+            AssertSql(
+                @"SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ((
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_same_collection_force_alias_uniquefication() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM (([Orders] AS [o])
+INNER JOIN [Orders] AS [o0] ON [o].[CustomerID] = [o0].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Local_array() : 
+            AssertSql(
+                @"@__get_Item_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] = @__get_Item_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_GroupJoin_DefaultIfEmpty_Where() : 
+            AssertSql(
+                @"SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM ((([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+LEFT JOIN [Orders] AS [o2] ON [c].[CustomerID] = [o2].[CustomerID])
+
+WHERE [o2].[OrderID] IS NOT NULL AND ([o2].[CustomerID] = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM ((
+    SELECT DISTINCT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM ([Orders] AS [o])
+
+) AS [t])
+
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM (([Orders] AS [o])
+LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_simple() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Orders] AS [o])
+
+ORDER BY [o].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Entity_equality_self() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] = [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Lifting_when_subquery_nested_order_by_anonymous() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [c1_Orders].[OrderID], [c1_Orders].[CustomerID], [c1_Orders].[EmployeeID], [c1_Orders].[OrderDate], [t0].[CustomerID]
+FROM (([Orders] AS [c1_Orders])
+INNER JOIN (
+    SELECT DISTINCT [t].[CustomerID]
+    FROM ((
+        SELECT TOP @__p_0 [c].*
+        FROM ([Customers] AS [c])
+
+        ORDER BY [c].[CustomerID]
+    ) AS [t])
+    , [Customers] AS [c2]
+
+) AS [t0] ON [c1_Orders].[CustomerID] = [t0].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Take_Count() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT COUNT(*)
+FROM ((
+    SELECT DISTINCT TOP @__p_0 [o].*
+    FROM ([Orders] AS [o])
+
+) AS [t])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple3() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Entity_equality_not_null() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ((
+    SELECT DISTINCT [c].*
+    FROM ([Customers] AS [c])
+
+) AS [t])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple_subquery() : 
+            AssertSql(
+                @"@__p_0='4'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN (
+    SELECT TOP @__p_0 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM ([Orders] AS [o])
+
+    ORDER BY [o].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_multiple() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate], [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM ((([Customers] AS [c])
+LEFT JOIN [Orders] AS [o1] ON [c].[CustomerID] = [o1].[CustomerID])
+LEFT JOIN [Orders] AS [o2] ON [c].[CustomerID] = [o2].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_complex_distinct_where() : 
+            AssertSql(
+                @"SELECT [t].[Property]
+FROM ((
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [Property]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+WHERE [t].[Property] = 'ALFKIBerlin'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty2() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Employees] AS [e])
+LEFT JOIN [Orders] AS [o] ON [e].[EmployeeID] = [o].[EmployeeID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_nested_order_by_enumerable() : 
+            AssertSql(
+                @"SELECT [c0].[Country], [c0].[CustomerID]
+FROM ([Customers] AS [c0])
+
+ORDER BY [c0].[Country]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_orderby() : 
+            AssertSql(
+                @"SELECT [t].[Property]
+FROM ((
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+ORDER BY [t].[Property]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_with_take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[ContactName], [t].[OrderID]
+FROM (([Customers] AS [c])
+INNER JOIN (
+    SELECT TOP @__p_0 [o2].*
+    FROM ([Orders] AS [o2])
+
+    ORDER BY [o2].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])
+
+WHERE [t].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [c].[ContactName]
+FROM (([Customers] AS [c])
+LEFT JOIN (
+    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM ([Orders] AS [o])
+
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NULL OR ([c].[Region] = ''),
+    True,
+    False
+) AS [Value]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_Where() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE [o].[OrderID] IS NOT NULL AND ([o].[CustomerID] = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Last() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+ORDER BY [c].[ContactName] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_same_collection_multiple() : 
+            AssertSql(
+                @"SELECT [c3].[CustomerID], [c3].[Address], [c3].[City], [c3].[CompanyName], [c3].[ContactName], [c3].[ContactTitle], [c3].[Country], [c3].[Fax], [c3].[Phone], [c3].[PostalCode], [c3].[Region]
+FROM ((([Customers] AS [o])
+INNER JOIN [Customers] AS [c2] ON [o].[CustomerID] = [c2].[CustomerID])
+INNER JOIN [Customers] AS [c3] ON [o].[CustomerID] = [c3].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_OrderBy_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_OrderBy2() : 
+            AssertSql(
+                @"SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM ((
+    SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_anonymous() : 
+            AssertSql(
+                @"SELECT [c].[City], [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Default_if_empty_top_level_arg() : 
+            AssertSql(
+                @"SELECT [c].[EmployeeID], [c].[City], [c].[Country], [c].[FirstName], [c].[ReportsTo], [c].[Title]
+FROM ([Employees] AS [c])
+
+WHERE [c].[EmployeeID] = -1");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrWhiteSpace_in_predicate() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[Region] IS NULL OR (LTRIM(RTRIM([c].[Region])) = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Handle_materialization_properly_when_more_than_two_query_sources_are_involved() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+, [Orders] AS [o]
+, [Employees] AS [e]
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Int16_parameter_can_be_used_for_int_column() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Orders] AS [o])
+
+WHERE [o].[OrderID] = 10300");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty3() : 
+            AssertSql(
+                @"@__p_0='1'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (((
+    SELECT TOP @__p_0 [c].*
+    FROM ([Customers] AS [c])
+
+    ORDER BY [c].[CustomerID]
+) AS [t])
+LEFT JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_predicate_with_take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[ContactName], [t].[OrderID]
+FROM (([Customers] AS [c])
+INNER JOIN (
+    SELECT TOP @__p_0 [o2].*
+    FROM ([Orders] AS [o2])
+
+    WHERE [o2].[OrderID] > 0
+    ORDER BY [o2].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])
+
+WHERE [t].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Last_when_no_order_by() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.First_client_predicate() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Count_with_predicate() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ([Orders] AS [o])
+
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery() : 
+            AssertSql(
+                @"SELECT [o20].[CustomerID], [o20].[OrderID]
+FROM ([Orders] AS [o20])
+
+ORDER BY [o20].[OrderID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[ContactName]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_composite_key() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON ([c].[CustomerID] = [o].[CustomerID]) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_anonymous_with_where() : 
+            AssertSql(
+                @"SELECT [c].[City], [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+WHERE [c].[Country] IN ('Argentina', 'Austria', 'Brazil', 'France', 'Germany', 'USA')
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_with_orderby_and_anonymous_projection() : 
+            AssertSql(
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o0])
+
+ORDER BY [o0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_negated_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NOT NULL AND ([c].[Region] <> ''),
+    True,
+    False
+) AS [Value]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Entity_equality_null() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_select() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [o].[OrderID]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_Project() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_complex_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ((
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [Property]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_with_orderby() : 
+            AssertSql(
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o0])
+
+ORDER BY [o0].[CustomerID], [o0].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Entity_equality_local() : 
+            AssertSql(
+                @"@__local_0_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] = @__local_0_CustomerID");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_customers_orders_count() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_OrderBy3() : 
+            AssertSql(
+                @"SELECT [t].[CustomerID]
+FROM ((
+    SELECT DISTINCT [c].[CustomerID]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_complex_distinct_orderby() : 
+            AssertSql(
+                @"SELECT [t].[Property]
+FROM ((
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [Property]
+    FROM ([Customers] AS [c])
+
+) AS [t])
+
+ORDER BY [t].[Property]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key_projected_from_another_entity() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ((([Order Details] AS [od])
+INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+LEFT JOIN [Customers] AS [c] ON [od#Order].[CustomerID] = [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DateTime_parse_is_parameterized() : 
+            AssertSql(
+                @"@__Parse_0='01/01/1998 12:00:00' (DbType = DateTime)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Orders] AS [o])
+
+WHERE [o].[OrderDate] > @__Parse_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Does_not_change_ordering_of_projection_with_complex_projections() : 
+            AssertSql(
+                @"SELECT [e].[CustomerID] AS [Id], (
+    SELECT COUNT(*)
+    FROM ([Orders] AS [o0])
+
+    WHERE [e].[CustomerID] = [o0].[CustomerID]
+) AS [TotalOrders]
+FROM ([Customers] AS [e])
+
+WHERE ([e].[ContactTitle] = 'Owner') AND ((
+    SELECT COUNT(*)
+    FROM ([Orders] AS [o])
+
+    WHERE [e].[CustomerID] = [o].[CustomerID]
+) > 2)
+ORDER BY [e].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_Count() : 
+            AssertSql(
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o0])
+
+ORDER BY [o0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_Distinct() : 
+            AssertSql(
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o0])
+
+ORDER BY [o0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key_with_predicate() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM (([Orders] AS [o])
+LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID])
+
+WHERE [o].[OrderID] > 11500");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Distinct_Scalar() : 
+            AssertSql(
+                @"SELECT DISTINCT [c].[City]
+FROM ([Customers] AS [c])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple_ordering() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Last_Predicate() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[City] = 'London'
+ORDER BY [c].[ContactName] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Entity_equality_local_inline() : line() in C:\Develop\ForPlanning\EntityFrameworkCore.Jet\test\EFCore.Jet.FunctionalTests\QueryJetTest.cs:riga 164
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM ([Customers] AS [c])
+
+WHERE [c].[CustomerID] = 'ANATR'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM (([Customers] AS [c])
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.LastOrDefault_Predicate() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c])
+
+WHERE [c].[City] = 'London'
+ORDER BY [c].[ContactName] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Count_with_predicate() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM [Orders] AS [o]
+
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Let_any_subquery_anonymous() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')
+ORDER BY [c].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='ANTON' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)",
+                //
+                @"@_outer_CustomerID='AROUT' (Nullable = false) (Size = 5)
+
+SELECT IIf(
+    EXISTS (
+        SELECT 1
+        FROM [Orders] AS [o0]
+        WHERE [o0].[CustomerID] = @_outer_CustomerID),
+    True,
+    False
+)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_entities() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where_OrderBy() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE ([o].[CustomerID] = 'ALFKI') OR ([c].[CustomerID] = 'ANATR')
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Lifting_when_subquery_nested_order_by_simple() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [t0].[CustomerID]
+FROM (
+    SELECT DISTINCT [t].[CustomerID]
+    FROM (
+        SELECT TOP @__p_0 [c].*
+        FROM [Customers] AS [c]
+        ORDER BY [c].[CustomerID]
+    ) AS [t], [Customers] AS [c2]
+
+) AS [t0]",
+                //
+                @"SELECT [c1_Orders].[OrderID], [c1_Orders].[CustomerID], [c1_Orders].[EmployeeID], [c1_Orders].[OrderDate]
+FROM [Orders] AS [c1_Orders]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [t].[OrderID]
+FROM ([Customers] AS [c]INNER JOIN (
+    SELECT [o].*
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_select_many() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+, [Employees] AS [e]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_projection() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [o].[OrderID]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_orderby() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_tracking_groups() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_Where_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_same_collection_force_alias_uniquefication() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+FROM ([Orders] AS [o]INNER JOIN [Orders] AS [o0] ON [o].[CustomerID] = [o0].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Local_array() : 
+            AssertSql(
+                @"@__get_Item_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = @__get_Item_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_GroupJoin_DefaultIfEmpty_Where() : 
+            AssertSql(
+                @"SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM (([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+LEFT JOIN [Orders] AS [o2] ON [c].[CustomerID] = [o2].[CustomerID])
+
+WHERE [o2].[OrderID] IS NOT NULL AND ([o2].[CustomerID] = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Orders] AS [o]LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Lifting_when_subquery_nested_order_by_anonymous() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [c1_Orders].[OrderID], [c1_Orders].[CustomerID], [c1_Orders].[EmployeeID], [c1_Orders].[OrderDate], [t0].[CustomerID]
+FROM ([Orders] AS [c1_Orders]INNER JOIN (
+    SELECT DISTINCT [t].[CustomerID]
+    FROM (
+        SELECT TOP @__p_0 [c].*
+        FROM [Customers] AS [c]
+        ORDER BY [c].[CustomerID]
+    ) AS [t], [Customers] AS [c2]
+
+) AS [t0] ON [c1_Orders].[CustomerID] = [t0].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple3() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple_subquery() : 
+            AssertSql(
+                @"@__p_0='4'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN (
+    SELECT TOP @__p_0 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_multiple() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate], [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
+FROM (([Customers] AS [c]LEFT JOIN [Orders] AS [o1] ON [c].[CustomerID] = [o1].[CustomerID])
+LEFT JOIN [Orders] AS [o2] ON [c].[CustomerID] = [o2].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty2() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Employees] AS [e]LEFT JOIN [Orders] AS [o] ON [e].[EmployeeID] = [o].[EmployeeID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_with_take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[ContactName], [t].[OrderID]
+FROM ([Customers] AS [c]INNER JOIN (
+    SELECT TOP @__p_0 [o2].*
+    FROM [Orders] AS [o2]
+    ORDER BY [o2].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])
+
+WHERE [t].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_SelectMany_subquery_with_filter_and_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [c].[ContactName]
+FROM ([Customers] AS [c]LEFT JOIN (
+    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] > 5
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NULL OR ([c].[Region] = ''),
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_Where() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE [o].[OrderID] IS NOT NULL AND ([o].[CustomerID] = 'ALFKI')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_same_collection_multiple() : 
+            AssertSql(
+                @"SELECT [c3].[CustomerID], [c3].[Address], [c3].[City], [c3].[CompanyName], [c3].[ContactName], [c3].[ContactTitle], [c3].[Country], [c3].[Fax], [c3].[Phone], [c3].[PostalCode], [c3].[Region]
+FROM (([Customers] AS [o]INNER JOIN [Customers] AS [c2] ON [o].[CustomerID] = [c2].[CustomerID])
+INNER JOIN [Customers] AS [c3] ON [o].[CustomerID] = [c3].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_OrderBy_Count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Handle_materialization_properly_when_more_than_two_query_sources_are_involved() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c], [Orders] AS [o]
+, [Employees] AS [e]
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty3() : 
+            AssertSql(
+                @"@__p_0='1'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ((
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]LEFT JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_with_subquery_predicate_with_take() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[ContactName], [t].[OrderID]
+FROM ([Customers] AS [c]INNER JOIN (
+    SELECT TOP @__p_0 [o2].*
+    FROM [Orders] AS [o2]
+    WHERE [o2].[OrderID] > 0
+    ORDER BY [o2].[OrderID]
+) AS [t] ON [c].[CustomerID] = [t].[CustomerID])
+
+WHERE [t].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_composite_key() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON ([c].[CustomerID] = [o].[CustomerID]) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_negated_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NOT NULL AND ([c].[Region] <> ''),
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Join_customers_orders_select() : 
+            AssertSql(
+                @"SELECT [c].[ContactName], [o].[OrderID]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty_Project() : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_customers_orders_count() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key_projected_from_another_entity() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM (([Order Details] AS [od]INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+LEFT JOIN [Customers] AS [c] ON [od#Order].[CustomerID] = [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_with_different_outer_elements_with_same_key_with_predicate() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Orders] AS [o]LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID])
+
+WHERE [o].[OrderID] > 11500");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_simple_ordering() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+ORDER BY [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_DefaultIfEmpty() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]LEFT JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupJoin_Where() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM ([Customers] AS [c]INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NULL OR ([c].[Region] = ''),
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Handle_materialization_properly_when_more_than_two_query_sources_are_involved() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c], [Orders] AS [o]
+, [Employees] AS [e]
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.IsNullOrEmpty_negated_in_projection() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id], IIf(
+    [c].[Region] IS NOT NULL AND ([c].[Region] <> ''),
+    True,
+    False
+) AS [Value]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Handle_materialization_properly_when_more_than_two_query_sources_are_involved() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c], [Orders] AS [o]
+, [Employees] AS [e]
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Handle_materialization_properly_when_more_than_two_query_sources_are_involved() : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+, [Orders] AS [o]
+, [Employees] AS [e]
+
+ORDER BY [c].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_null_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(IsNull([c].[Region]), 'ZZ', [c].[Region])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[Id], [t].[Count]
+FROM [Customers] AS [c]
+, (
+    SELECT DISTINCT [o].[CustomerID] AS [Id], [o].[OrderID] AS [Count]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] < 10300
+) AS [t]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Projection_null_coalesce_operator() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[CompanyName], IIf(IsNull([c].[Region]), 'ZZ', [c].[Region]) AS [Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Null_conditional_deep() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CInt(IIf(IsNull(LEN([c].[CustomerID])),0,LEN([c].[CustomerID]))) = 5");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Local_array() : 
+            AssertSql(
+                @"@__get_Item_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = @__get_Item_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Max_with_coalesce() : 
+            AssertSql(
+                @"SELECT MAX(IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice]))
+FROM [Products] AS [p]
+WHERE [p].[ProductID] < 40");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_skip_take() : 
+            AssertSql(
+                @"@__p_0='5'
+@__p_1='8'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.SelectMany_cartesian_product_with_ordering() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[City] AS [City0]
+FROM [Customers] AS [c]
+, [Employees] AS [e]
+WHERE ([c].[City] = [e].[City]) OR ([c].[City] IS NULL AND [e].[City] IS NULL)
+ORDER BY [e].[City], [c].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_coalesce_take_distinct() : 
+            AssertSql(
+                @"@__p_0='15'
+
+SELECT DISTINCT [t].*
+FROM (
+    SELECT TOP @__p_0 [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+    FROM [Products] AS [p]
+    ORDER BY IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice])
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Min_with_coalesce() : 
+            AssertSql(
+                @"SELECT MIN(IIf(IsNull([p].[UnitPrice]), 0.0, [p].[UnitPrice]))
+FROM [Products] AS [p]
+WHERE [p].[ProductID] < 40");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Query_expression_with_to_string_and_contains() : 
+            AssertSql(
+                @"SELECT [o].[CustomerID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL AND (Instr(Str([o].[EmployeeID]), '10') > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Null_conditional_deep() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CInt(IIf(IsNull(LEN([c].[CustomerID])),0,LEN([c].[CustomerID]))) = 5");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_take_long_count() : 
+            AssertSql(
+                @"@__p_0='7'
+
+SELECT COUNT(*)
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_int_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[Id], [t].[Count]
+FROM [Customers] AS [c]
+, (
+    SELECT DISTINCT [o].[CustomerID] AS [Id], [o].[OrderID] AS [Count]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] < 10300
+) AS [t]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_math_round_int() : 
+            AssertSql(
+                @"SELECT ROUND(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])), 0) AS [A]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10250");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_long_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_other_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderDate]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_distinct_long_count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].*
+    FROM [Customers] AS [c]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_skip_take() : 
+            AssertSql(
+                @"@__p_0='5'
+@__p_1='8'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.SelectMany_cartesian_product_with_ordering() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[City] AS [City0]
+FROM [Customers] AS [c]
+, [Employees] AS [e]
+WHERE ([c].[City] = [e].[City]) OR ([c].[City] IS NULL AND [e].[City] IS NULL)
+ORDER BY [e].[City], [c].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level6() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 (
+        SELECT TOP 1 [od].[ProductID]
+        FROM [Order Details] AS [od]
+        WHERE ([od].[OrderID] <> CInt(IIf(IsNull(LEN([c].[CustomerID])),0,LEN([c].[CustomerID])))) AND ([o].[OrderID] = [od].[OrderID])
+    )
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [Order]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 3 [o].[OrderDate] AS [Date]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT TOP 3 [o].[OrderDate] AS [Date]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])",
+                //
+                @"@_outer_CustomerID='ANTON' (Nullable = false) (Size = 5)
+
+SELECT TOP 3 [o].[OrderDate] AS [Date]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])",
+                //
+                @"@_outer_CustomerID='AROUT' (Nullable = false) (Size = 5)
+
+SELECT TOP 3 [o].[OrderDate] AS [Date]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10500) AND (@_outer_CustomerID = [o].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_correlated_subquery_projection() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[CustomerID]
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+) AS [t]
+ORDER BY [t].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANTON' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_take_average() : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT AVG(CDbl(IIf(IsNull([t].[OrderID]),0,[t].[OrderID])))
+FROM (
+    SELECT TOP @__p_0 [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_Take() : 
+            AssertSql(
+                @"@__p_0='5'
+@__p_1='10'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Query_expression_with_to_string_and_contains() : 
+            AssertSql(
+                @"SELECT [o].[CustomerID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL AND (Instr(Str([o].[EmployeeID]), '10') > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_distinct_average() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([t].[OrderID]),0,[t].[OrderID])))
+FROM (
+    SELECT DISTINCT [o].[OrderID]
+    FROM [Orders] AS [o]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_anonymous_constant_in_expression() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], CInt(IIf(IsNull(LEN([c].[CustomerID])),0,LEN([c].[CustomerID]))) + 5 AS [Expression]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_Where_Subquery_Deep_Single() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[OrderID] = 10344",
+                //
+                @"@_outer_OrderID='10344'
+
+SELECT TOP 2 [o0].[CustomerID]
+FROM [Orders] AS [o0]
+WHERE @_outer_OrderID = [o0].[OrderID]",
+                //
+                @"@_outer_CustomerID1='WHITC' (Nullable = false) (Size = 5)
+
+SELECT TOP 2 [c2].[City]
+FROM [Customers] AS [c2]
+WHERE @_outer_CustomerID1 = [c2].[CustomerID]",
+                //
+                @"@_outer_OrderID='10344'
+
+SELECT TOP 2 [o0].[CustomerID]
+FROM [Orders] AS [o0]
+WHERE @_outer_OrderID = [o0].[OrderID]",
+                //
+                @"@_outer_CustomerID1='WHITC' (Nullable = false) (Size = 5)
+
+SELECT TOP 2 [c2].[City]
+FROM [Customers] AS [c2]
+WHERE @_outer_CustomerID1 = [c2].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_orderBy_take_long_count() : 
+            AssertSql(
+                @"@__p_0='7'
+
+SELECT COUNT(*)
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[Country]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level2() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 [o].[OrderDate]
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [OrderDates]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Query_expression_with_to_string_and_contains() : 
+            AssertSql(
+                @"SELECT [o].[CustomerID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL AND (Instr(Str([o].[EmployeeID]), '10') > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_int_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_math_round_int() : 
+            AssertSql(
+                @"SELECT ROUND(CDbl(IIf(IsNull([o].[OrderID]),0,[o].[OrderID])), 0) AS [A]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10250");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_long_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_other_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderDate]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_distinct_long_count() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].*
+    FROM [Customers] AS [c]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level6() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 (
+        SELECT TOP 1 [od].[ProductID]
+        FROM [Order Details] AS [od]
+        WHERE ([od].[OrderID] <> CInt(IIf(IsNull(LEN([c].[CustomerID])),0,LEN([c].[CustomerID])))) AND ([o].[OrderID] = [od].[OrderID])
+    )
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [Order]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_correlated_subquery_projection() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[CustomerID]
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+) AS [t]
+ORDER BY [t].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANTON' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_distinct_average() : 
+            AssertSql(
+                @"SELECT AVG(CDbl(IIf(IsNull([t].[OrderID]),0,[t].[OrderID])))
+FROM (
+    SELECT DISTINCT [o].[OrderID]
+    FROM [Orders] AS [o]
+) AS [t]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level2() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 [o].[OrderDate]
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [OrderDates]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_int_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_long_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_other_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderDate]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_nested_collection_multi_level2() : 
+            AssertSql(
+                @"SELECT (
+    SELECT TOP 1 [o].[OrderDate]
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
+) AS [OrderDates]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_int_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_long_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderID]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_other_to_string() : 
+            AssertSql(
+                @"SELECT Str([o].[OrderDate]) AS [ShipName]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_Literal() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE RIGHT([c].[ContactName], LEN('b')) = 'b'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_Column() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_Identity() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (RIGHT([c].[ContactName], LEN([c].[ContactName])) = [c].[ContactName]) OR ([c].[ContactName] = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_EndsWith_MethodCall() : 
+            AssertSql(
+                @"@__LocalMethod2_0='m' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (RIGHT([c].[ContactName], LEN(@__LocalMethod2_0)) = @__LocalMethod2_0) OR (@__LocalMethod2_0 = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_compare_with_parameter() : 
+            AssertSql(
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_in_complex_predicate() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[ProductID] > 100) AND ([p].[Discontinued] = True)) OR ([p].[Discontinued] = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_negated_twice() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_parameter() : 
+            AssertSql(
+                @"@__prm_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE @__prm_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_client_side_negated() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_equals_constant() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_false() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_shadow() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_false_shadow() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_bool_member_false() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_complex_negated_expression_optimized() : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[Discontinued] = False) AND ([p].[ProductID] < 60)) AND ([p].[ProductID] > 30)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_closure_via_query_cache() : 
+            AssertSql(
+                @"@__GetCity_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0",
+                //
+                @"@__GetCity_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_is_null() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure() : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_static_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__StaticFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0",
+                //
+                @"@__StaticFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure_constant() : 
+            AssertSql(
+                @"@__predicate_0='True'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE @__predicate_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_one_element_SingleOrDefault() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_shadow_subquery_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[Title] = (
+    SELECT TOP 1 [e2].[Title]
+    FROM [Employees] AS [e2]
+    ORDER BY [e2].[Title]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_false() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_int_overload_on_mismatched_types() : 
+            AssertSql(
+                @"@__shortPrm_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] = @__shortPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0",
+                //
+                @"@__city_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition2_FirstOrDefault() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]
+WHERE [t].[FirstName] = (
+    SELECT TOP 1 [e0].[FirstName]
+    FROM [Employees] AS [e0]
+    ORDER BY [e0].[EmployeeID]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_mismatched_types_nullable_int_long() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True",
+                //
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_false() : 
+            AssertSql(
+                @"@__flag_0='False'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_sin() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (SIN([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many_or_with_parameter() : 
+            AssertSql(
+                @"@__lisboa_1='Lisboa' (Nullable = false) (Size = 6)
+@__london_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Customers] AS [c]
+, [Employees] AS [e]
+WHERE [c].[City] IN (@__london_0, 'Berlin', 'Seattle', @__lisboa_1)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_is_not_null() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_true() : 
+            AssertSql(
+                @"@__flag_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure_via_query_cache_nullable_type() : 
+            AssertSql(
+                @"@__reportsTo_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"@__reportsTo_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_nested_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_Nested_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0",
+                //
+                @"@__city_Nested_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_nullable_type_reverse_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_NullableInt_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0",
+                //
+                @"@__city_NullableInt_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_exp() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (EXP([od].[Discount]) > 1E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE [e1].[FirstName] = (
+    SELECT TOP 1 [e].[FirstName]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_static_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__StaticPropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0",
+                //
+                @"@__StaticPropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_no_elements_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE (
+    SELECT TOP 1 [e2].[EmployeeID]
+    FROM [Employees] AS [e2]
+    WHERE [e2].[EmployeeID] = 42
+) = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_string_length() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CInt(IIf(IsNull(LEN([c].[City])),0,LEN([c].[City]))) = 6");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_cos() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (COS([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_simple_closure_via_query_cache_nullable_type_reverse() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] IS NULL",
+                //
+                @"@__reportsTo_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"@__reportsTo_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0",
+                //
+                @"@__city_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_null_is_not_null() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_nested_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_Nested_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0",
+                //
+                @"@__city_Nested_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_matched_nullable_int_types() : 
+            AssertSql(
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE @__nullableIntPrm_0 = [e].[ReportsTo]",
+                //
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__nullableIntPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_with_false_as_result_false() : 
+            AssertSql(
+                @"@__flag_0='False'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_new_instance_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0",
+                //
+                @"@__InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_multiple_elements_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE (
+    SELECT TOP 1 [e2].[EmployeeID]
+    FROM [Employees] AS [e2]
+    WHERE ([e2].[EmployeeID] <> [e1].[ReportsTo]) OR [e1].[ReportsTo] IS NULL
+) = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_object_overload_on_mismatched_types() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_mismatched_types_nullable_long_nullable_int() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True",
+                //
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_one_element_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE (
+    SELECT TOP 1 [e2].[EmployeeID]
+    FROM [Employees] AS [e2]
+    WHERE [e2].[EmployeeID] = [e1].[ReportsTo]
+) = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_tan() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (TAN([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_false() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_int_overload_on_mismatched_types() : 
+            AssertSql(
+                @"@__shortPrm_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] = @__shortPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_matched_nullable_int_types() : 
+            AssertSql(
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE @__nullableIntPrm_0 = [e].[ReportsTo]",
+                //
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__nullableIntPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_closure_via_query_cache() : 
+            AssertSql(
+                @"@__GetCity_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0",
+                //
+                @"@__GetCity_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_false() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_int_overload_on_mismatched_types() : 
+            AssertSql(
+                @"@__shortPrm_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] = @__shortPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_sin() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (SIN([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_nested_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_Nested_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0",
+                //
+                @"@__city_Nested_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_nullable_type_reverse_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_NullableInt_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0",
+                //
+                @"@__city_NullableInt_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_exp() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (EXP([od].[Discount]) > 1E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_cos() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (COS([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_nested_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_Nested_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0",
+                //
+                @"@__city_Nested_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_matched_nullable_int_types() : 
+            AssertSql(
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE @__nullableIntPrm_0 = [e].[ReportsTo]",
+                //
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__nullableIntPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_new_instance_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0",
+                //
+                @"@__InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_tan() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (TAN([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_on_matched_nullable_int_types() : 
+            AssertSql(
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE @__nullableIntPrm_0 = [e].[ReportsTo]",
+                //
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__nullableIntPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_DateTime_Date() : 
+            AssertSql(
+                @"SELECT [e].[OrderID], [e].[CustomerID], [e].[EmployeeID], [e].[OrderDate]
+FROM [Orders] AS [e]
+WHERE IIf(IsNull([e].[OrderDate]), NULL, DateValue([e].[OrderDate])) IN (#07/04/1996 00:00:00#, #07/16/1996 00:00:00#)",
+                //
+                @"SELECT [e].[OrderID], [e].[CustomerID], [e].[EmployeeID], [e].[OrderDate]
+FROM [Orders] AS [e]
+WHERE IIf(IsNull([e].[OrderDate]), NULL, DateValue([e].[OrderDate])) IN (#07/04/1996 00:00:00#)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_complex_orderby() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] + [c].[City] AS [A]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] + [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_complex_orderby() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] + [c].[City] AS [Property]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] + [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_client_Take() : 
+            AssertSql(
+                @"@__p_1='10'
+
+SELECT TOP @__p_1 [o].[EmployeeID], [o].[City], [o].[Country], [o].[FirstName], [o].[ReportsTo], [o].[Title]
+FROM [Employees] AS [o]
+ORDER BY  'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_DateTimeOffset_Property() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL
+ORDER BY DatePart(""m"", [o].[OrderDate])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.GroupBy_DateTimeOffset_Property() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL
+ORDER BY DatePart(""m"", [o].[OrderDate])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.OrderBy_integer() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Parameter_extraction_short_circuits_3() : 
+            AssertSql(
+                @"@__dateFilter_Value_Year_1='1996'
+@__dateFilter_Value_Month_0='7'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10400) OR (([o].[OrderDate] IS NOT NULL AND (DatePart('m', [o].[OrderDate]) = @__dateFilter_Value_Month_0)) AND (DatePart('yyyy', [o].[OrderDate]) = @__dateFilter_Value_Year_1))",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Parameter_extraction_short_circuits_3() : 
+            AssertSql(
+                @"@__dateFilter_Value_Year_1='1996'
+@__dateFilter_Value_Month_0='7'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10400) OR (([o].[OrderDate] IS NOT NULL AND (DatePart('m', [o].[OrderDate]) = @__dateFilter_Value_Month_0)) AND (DatePart('yyyy', [o].[OrderDate]) = @__dateFilter_Value_Year_1))",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Parameter_extraction_short_circuits_2() : 
+            AssertSql(
+                @"@__dateFilter_Value_Month_0='7'
+@__dateFilter_Value_Year_1='1996'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[OrderID] < 10400) AND (([o].[OrderDate] IS NOT NULL AND (DatePart('m', [o].[OrderDate]) = @__dateFilter_Value_Month_0)) AND (DatePart('yyyy', [o].[OrderDate]) = @__dateFilter_Value_Year_1))",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE False = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Query_expression_with_to_string_and_contains() : 
+            AssertSql(
+                @"SELECT [o].[CustomerID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL AND (Instr(Str([o].[EmployeeID]), '10') > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_chain() : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[CustomerID] = 'QUICK') AND ([o].[OrderDate] > #01/01/1998 00:00:00#)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_int_overload_on_mismatched_types() : 
+            AssertSql(
+                @"@__shortPrm_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] = @__shortPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_Take() : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Select_expression_date_add_year() : 
+            AssertSql(
+                @"SELECT DateAdd('yyyy', 1, [o].[OrderDate]) AS [OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_Take() : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_no_orderby() : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_Take() : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_Take() : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Skip_Take() : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_Compare_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_datetime_utcnow() : 
+            AssertSql(
+                @"@__myDatetime_0='04/10/2015 00:00:00' (DbType = DateTime)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Now() <> @__myDatetime_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_datetime_now() : 
+            AssertSql(
+                @"@__myDatetime_0='04/10/2015 00:00:00' (DbType = DateTime)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Now() <> @__myDatetime_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_datetime_utcnow() : 
+            AssertSql(
+                @"@__myDatetime_0='04/10/2015 00:00:00' (DbType = DateTime)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Now() <> @__myDatetime_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_functions_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_functions_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CInt(IIf(IsNull(Len([c].[CustomerID])),0,Len([c].[CustomerID])))^2E0 = 25E0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_equals_using_int_overload_on_mismatched_types() : 
+            AssertSql(
+                @"@__shortPrm_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] = @__shortPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_guid_newguid() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE NewGuid() <> '00000000-0000-0000-0000-000000000000'");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_power() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[Discount]^2E0 > 0.05000000074505806E0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_sin() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (SIN([od].[Discount]) > 0E0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_sign() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Sgn([od].[Discount]) > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_log() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE (([od].[OrderID] = 11077) AND ([od].[Discount] > 0)) AND (LOG([od].[Discount]) < 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_log() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE (([od].[OrderID] = 11077) AND ([od].[Discount] > 0)) AND (LOG([od].[Discount]) < 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_asin() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Atn([od].[Discount] / Sqr(-[od].[Discount] * [od].[Discount] + 1)) > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_acos() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND ((1.5707963267948966 + Atn(-[od].[Discount] / Sqr(-[od].[Discount] * [od].[Discount] + 1))) > 1)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_atan() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Atn([od].[Discount]) > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_closure_via_query_cache() : 
+            AssertSql(
+                @"@__GetCity_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0",
+                //
+                @"@__GetCity_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_sqrt() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Sqr([od].[Discount]) > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_nested_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_Nested_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0",
+                //
+                @"@__city_Nested_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_nullable_type_reverse_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_NullableInt_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0",
+                //
+                @"@__city_NullableInt_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_nested_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_Nested_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0",
+                //
+                @"@__city_Nested_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_new_instance_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0",
+                //
+                @"@__InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_log10() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE (([od].[OrderID] = 11077) AND ([od].[Discount] > 0)) AND ((Log([od].[Discount]) / 2.3025850929940459) < 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_log_new_base() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE (([od].[OrderID] = 11077) AND ([od].[Discount] > 0)) AND ((Log([od].[Discount]) / Log(7)) < 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_math_truncate() : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE Int([od].[UnitPrice]) > 10.0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_method_call_nullable_type_reverse_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_NullableInt_0='1'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0",
+                //
+                @"@__city_NullableInt_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[EmployeeID] > @__city_NullableInt_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition2_FirstOrDefault() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]
+WHERE [t].[FirstName] = (
+    SELECT TOP 1 [e0].[FirstName]
+    FROM [Employees] AS [e0]
+    ORDER BY [e0].[EmployeeID]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_is_null() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_one_element_SingleOrDefault() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_is_not_null() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_no_elements_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE (
+    SELECT TOP 1 [e2].[EmployeeID]
+    FROM [Employees] AS [e2]
+    WHERE [e2].[EmployeeID] = 42
+) = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__city_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0",
+                //
+                @"@__city_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_multiple_elements_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE (
+    SELECT TOP 1 [e2].[EmployeeID]
+    FROM [Employees] AS [e2]
+    WHERE ([e2].[EmployeeID] <> [e1].[ReportsTo]) OR [e1].[ReportsTo] IS NULL
+) = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_entity_equality_one_element_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM [Employees] AS [e1]
+WHERE (
+    SELECT TOP 1 [e2].[EmployeeID]
+    FROM [Employees] AS [e2]
+    WHERE [e2].[EmployeeID] = [e1].[ReportsTo]
+) = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_query_composition_is_null() : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e2].[EmployeeID], [e2].[City], [e2].[Country], [e2].[FirstName], [e2].[ReportsTo], [e2].[Title]
+FROM [Employees] AS [e2]
+WHERE [e2].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_shadow_subquery_FirstOrDefault() : 
+            AssertSql(
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[Title] = (
+    SELECT TOP 1 [e2].[Title]
+    FROM [Employees] AS [e2]
+    ORDER BY [e2].[Title]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_select_many_or_with_parameter() : 
+            AssertSql(
+                @"@__london_0='London' (Nullable = false) (Size = 6)
+@__lisboa_1='Lisboa' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Customers] AS [c]
+, [Employees] AS [e]
+WHERE [c].[City] IN (@__london_0, 'Berlin', 'Seattle', @__lisboa_1)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_static_field_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__StaticFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0",
+                //
+                @"@__StaticFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_false() : 
+            AssertSql(
+                @"@__flag_0='False'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_true() : 
+            AssertSql(
+                @"@__flag_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_static_property_access_closure_via_query_cache() : 
+            AssertSql(
+                @"@__StaticPropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0",
+                //
+                @"@__StaticPropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_string_length() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CInt(IIf(IsNull(Len([c].[City])),0,Len([c].[City]))) = 6");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_with_another_condition() : 
+            AssertSql(
+                @"@__productId_0='15'
+@__flag_1='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[ProductID] < @__productId_0) AND (((@__flag_1 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_1 <> True) AND ([p].[UnitsInStock] < 20)))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_with_false_as_result_false() : 
+            AssertSql(
+                @"@__flag_0='False'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_with_false_as_result_true() : 
+            AssertSql(
+                @"@__flag_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_false() : 
+            AssertSql(
+                @"@__flag_0='False'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_true() : 
+            AssertSql(
+                @"@__flag_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> True) AND ([p].[UnitsInStock] < 20))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Where_ternary_boolean_condition_with_another_condition() : 
+            AssertSql(
+                @"@__productId_0='15'
+@__flag_1='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[ProductID] < @__productId_0) AND (((@__flag_1 = True) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_1 <> True) AND ([p].[UnitsInStock] < 20)))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_complex_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [A]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[A] LIKE 'A' + '%' AND (LEFT([t].[A], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] AS [Property]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested3() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Anonymous_member_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[CustomerID] LIKE 'A' + '%' AND (LEFT([t].[CustomerID], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Contains_with_local_collection_empty_closure() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE 0 = 1");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested_negated() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Any_nested2() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A'))");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.DTO_complex_distinct_result() : 
+            AssertSql(
+                @"SELECT COUNT(*)
+FROM (
+    SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [Property]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], LEN('A')) = 'A')");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.String_Compare_nested() : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryJetTest.Query_expression_with_to_string_and_contains() : 
+            AssertSql(
+                @"SELECT [o].[CustomerID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL AND (Instr(1, Str([o].[EmployeeID]), '10', 0) > 0)");
+
+
+

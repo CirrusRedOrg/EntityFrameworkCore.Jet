@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetDateTimeTypeMapping : DateTimeTypeMapping
     {
-        private const string DateTimeFormatConst = "{0:yyyy-MM-ddTHH:mm:ss.fffK}";
+        private const string DateTimeFormatConst = "{0:MM/dd/yyyy HH:mm:ss}";
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="JetDateTimeTypeMapping" /> class.
@@ -55,6 +55,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// <summary>
         ///     Gets the string format to be used to generate SQL literals of this type.
         /// </summary>
-        protected override string SqlLiteralFormatString => "'" + DateTimeFormatConst + "'";
+        protected override string SqlLiteralFormatString => "#" + DateTimeFormatConst + "#";
     }
 }

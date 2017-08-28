@@ -23,12 +23,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public virtual Expression Translate(MethodCallExpression methodCallExpression)
             => _methodInfo.Equals(methodCallExpression.Method)
                 ? new SqlFunctionExpression(
-                    "SUBSTRING",
+                    "Mid",
                     methodCallExpression.Type,
                     new[]
                     {
                         methodCallExpression.Object,
-                        // Accommodate for Jet assumption of 1-based string indexes
+                        // Accommodate for JET assumption of 1-based string indexes
                         methodCallExpression.Arguments[0].NodeType == ExpressionType.Constant
                             ? (Expression)Expression.Constant(
                                 (int)((ConstantExpression)methodCallExpression.Arguments[0]).Value + 1)

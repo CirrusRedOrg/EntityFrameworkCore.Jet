@@ -153,6 +153,8 @@
     <Compile Include="DmlJetTest.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
     <Compile Include="Model_MainTests\Context.cs" />
+    <Compile Include="Model_MainTests\SqlServerTest.cs" />
+    <Compile Include="Model_MainTests\SqlCeTest.cs" />
     <Compile Include="Model_MainTests\JetTest.cs" />
     <Compile Include="Model_MainTests\Model.cs" />
     <Compile Include="Model_MainTests\Test.cs" />

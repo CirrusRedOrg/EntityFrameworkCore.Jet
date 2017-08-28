@@ -16,15 +16,16 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     /// </summary>
     public class JetConvertTranslator : IMethodCallTranslator
     {
-        private static readonly Dictionary<string, string> _typeMapping = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _functionName = new Dictionary<string, string>
         {
-            [nameof(Convert.ToByte)] = "tinyint",
-            [nameof(Convert.ToDecimal)] = "decimal(18, 2)",
-            [nameof(Convert.ToDouble)] = "float",
-            [nameof(Convert.ToInt16)] = "smallint",
-            [nameof(Convert.ToInt32)] = "int",
-            [nameof(Convert.ToInt64)] = "bigint",
-            [nameof(Convert.ToString)] = "text"
+            [nameof(Convert.ToByte)] = "CByte",
+            [nameof(Convert.ToDecimal)] = "CCur", // CDec does not work https://support.microsoft.com/it-it/help/225931/error-message-when-you-use-the-cdec-function-in-an-access-query-the-ex
+            [nameof(Convert.ToSingle)] = "CSng",
+            [nameof(Convert.ToDouble)] = "CDbl",
+            [nameof(Convert.ToInt16)] = "CInt",
+            [nameof(Convert.ToInt32)] = "CInt",
+            [nameof(Convert.ToInt64)] = "CLng",
+            [nameof(Convert.ToString)] = "CStr"
         };
 
         private static readonly List<Type> _supportedTypes = new List<Type>
@@ -41,7 +42,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         };
 
         private static readonly IEnumerable<MethodInfo> _supportedMethods
-            = _typeMapping.Keys
+            = _functionName.Keys
                 .SelectMany(
                     t => typeof(Convert).GetTypeInfo().GetDeclaredMethods(t)
                         .Where(
@@ -55,15 +56,25 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public virtual Expression Translate(MethodCallExpression methodCallExpression)
         {
             return _supportedMethods.Contains(methodCallExpression.Method)
-                ? new SqlFunctionExpression(
-                    "CONVERT",
+                ?
+
+                new SqlFunctionExpression(
+                    "IIf",
                     methodCallExpression.Type,
-                    new[]
+                    new Expression[]
                     {
-                        new SqlFragmentExpression(
-                            _typeMapping[methodCallExpression.Method.Name]),
-                        methodCallExpression.Arguments[0]
-                    })
+                        new SqlFunctionExpression("IsNull", typeof(bool), new[] { methodCallExpression.Arguments[0]}),
+                        Expression.Constant(null),
+                        new SqlFunctionExpression(
+                            _functionName[methodCallExpression.Method.Name],
+                            methodCallExpression.Type,
+                            new[]
+                            {
+                                methodCallExpression.Arguments[0]
+                            })
+                    }
+
+                )
                 : null;
         }
     }

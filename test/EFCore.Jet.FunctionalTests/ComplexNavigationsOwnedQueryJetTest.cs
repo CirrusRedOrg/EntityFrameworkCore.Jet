@@ -16,31 +16,31 @@ namespace EntityFramework.Jet.FunctionalTests
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void GroupJoin_in_subquery_with_client_projection_nested1()
         {
             base.GroupJoin_in_subquery_with_client_projection_nested1();
         }
 
-        [ConditionalFact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void GroupJoin_in_subquery_with_client_projection_nested2()
         {
             base.GroupJoin_in_subquery_with_client_projection_nested2();
         }
 
-        [ConditionalFact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void GroupJoin_in_subquery_with_client_result_operator()
         {
             base.GroupJoin_in_subquery_with_client_result_operator();
         }
 
-        [ConditionalFact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Explicit_GroupJoin_in_subquery_with_scalar_result_operator()
         {
             base.Explicit_GroupJoin_in_subquery_with_scalar_result_operator();
         }
 
-        [ConditionalFact(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Explicit_GroupJoin_in_subquery_with_multiple_result_operator_distinct_count_materializes_main_clause()
         {
             base.Explicit_GroupJoin_in_subquery_with_multiple_result_operator_distinct_count_materializes_main_clause();

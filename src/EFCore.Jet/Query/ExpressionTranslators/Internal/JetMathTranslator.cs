@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     /// </summary>
     public class JetMathTranslator : IMethodCallTranslator
     {
-        private static readonly Dictionary<MethodInfo, string> _supportedMethodTranslations = new Dictionary<MethodInfo, string>
+        private static readonly Dictionary<MethodInfo, string> _supportedMethodTranslationsDirect = new Dictionary<MethodInfo, string>
         {
             { typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] { typeof(decimal) }), "ABS" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] { typeof(double) }), "ABS" },
@@ -26,30 +26,34 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             { typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] { typeof(long) }), "ABS" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] { typeof(sbyte) }), "ABS" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] { typeof(short) }), "ABS" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] { typeof(decimal) }), "CEILING" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] { typeof(double) }), "CEILING" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] { typeof(decimal) }), "FLOOR" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] { typeof(double) }), "FLOOR" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Pow), new[] { typeof(double), typeof(double) }), "POWER" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Pow), new[] { typeof(double), typeof(double) }), "Pow" }, // This is handled by JetQuerySqlGenerator
             { typeof(Math).GetRuntimeMethod(nameof(Math.Exp), new[] { typeof(double) }), "EXP" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Log10), new[] { typeof(double) }), "LOG10" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] { typeof(double) }), "LOG" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] { typeof(double), typeof(double) }), "LOG" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sqrt), new[] { typeof(double) }), "SQRT" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Acos), new[] { typeof(double) }), "ACOS" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Asin), new[] { typeof(double) }), "ASIN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Atan), new[] { typeof(double) }), "ATAN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Atan2), new[] { typeof(double), typeof(double) }), "ATN2" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sqrt), new[] { typeof(double) }), "Sqr" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Atan), new[] { typeof(double) }), "Atn" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Cos), new[] { typeof(double) }), "COS" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Sin), new[] { typeof(double) }), "SIN" },
             { typeof(Math).GetRuntimeMethod(nameof(Math.Tan), new[] { typeof(double) }), "TAN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(decimal) }), "SIGN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(double) }), "SIGN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(float) }), "SIGN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(int) }), "SIGN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(long) }), "SIGN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(sbyte) }), "SIGN" },
-            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(short) }), "SIGN" }
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(decimal) }), "Sgn" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(double) }), "Sgn" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(float) }), "Sgn" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(int) }), "Sgn" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(long) }), "Sgn" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(sbyte) }), "Sgn" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] { typeof(short) }), "Sgn" }
+        };
+
+        private static readonly Dictionary<MethodInfo, string> _supportedMethodTranslationsIndirect = new Dictionary<MethodInfo, string>
+        {
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Acos), new[] {typeof(double)}), "ACOS"},
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Asin), new[] {typeof(double)}), "ASIN"},
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Atan2), new[] { typeof(double), typeof(double) }), "ATN2"},
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] { typeof(decimal) }), "FLOOR" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] { typeof(double) }), "FLOOR" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] { typeof(decimal) }), "CEILING" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] { typeof(double) }), "CEILING" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Log10), new[] { typeof(double) }), "LOG10" },
+            { typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] { typeof(double), typeof(double) }), "LOG" }
         };
 
         private static readonly IEnumerable<MethodInfo> _truncateMethodInfos = new[]
@@ -71,13 +75,99 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             Check.NotNull(methodCallExpression, nameof(methodCallExpression));
 
             var method = methodCallExpression.Method;
-            if (_supportedMethodTranslations.TryGetValue(method, out var sqlFunctionName))
+            if (_supportedMethodTranslationsDirect.TryGetValue(method, out var sqlFunctionName))
             {
                 return new SqlFunctionExpression(
                     sqlFunctionName,
                     methodCallExpression.Type,
                     methodCallExpression.Arguments);
             }
+
+            if (_supportedMethodTranslationsIndirect.TryGetValue(method, out var sqlFunctionToTranslate))
+            {
+                switch (sqlFunctionToTranslate)
+                {
+                    case "ACOS":
+                        // Arccos(X) = Atn(-X / Sqr(-X * X + 1)) + 2 * Atn(1)
+                        return
+                            Expression.MakeBinary(ExpressionType.Add,
+                                Expression.Constant(Math.Atan(1) * 2),
+                                new SqlFunctionExpression(
+                                "Atn",
+                                methodCallExpression.Type,
+                                new[]
+                                {
+                                    Expression.MakeBinary(
+                                        ExpressionType.Divide,
+                                        Expression.Negate(methodCallExpression.Arguments[0]),
+                                        Translate(
+                                            Expression.Call(
+                                                typeof(Math).GetMethod(nameof(Math.Sqrt)),
+                                                new[]
+                                                {
+                                                    Expression.MakeBinary(ExpressionType.Add,
+                                                        Expression.Negate(
+                                                            Expression.MakeBinary(ExpressionType.Multiply,
+                                                                methodCallExpression.Arguments[0],
+                                                                methodCallExpression.Arguments[0]
+                                                            )
+                                                        ),
+                                                        Expression.Constant(1d)
+                                                    )
+                                                }
+                                            )
+                                        )
+                                    )
+                                }));
+                    case "ASIN":
+                        // Arcsin(X) = Atn(X / Sqr(-X * X + 1))
+                        return new SqlFunctionExpression(
+                            "Atn",
+                            methodCallExpression.Type,
+                            new[]
+                            {
+                                Expression.MakeBinary(
+                                    ExpressionType.Divide,
+                                    methodCallExpression.Arguments[0],
+                                    Translate(
+                                        Expression.Call(
+                                            typeof(Math).GetMethod(nameof(Math.Sqrt)),
+                                            new[]
+                                            {
+                                                Expression.MakeBinary(ExpressionType.Add,
+                                                    Expression.Negate(
+                                                        Expression.MakeBinary(ExpressionType.Multiply,
+                                                            methodCallExpression.Arguments[0],
+                                                            methodCallExpression.Arguments[0]
+                                                        )
+                                                    ),
+                                                    Expression.Constant(1d)
+                                                )
+                                            }
+                                        )
+                                   )
+                                )
+                            });
+                    case "LOG10":
+                    //Logn(x) = Log(x) / Log(n)
+                        return Expression.Divide(
+                            new SqlFunctionExpression("Log", methodCallExpression.Type, new[] {methodCallExpression.Arguments[0]}),
+                            Expression.Constant(Math.Log(10))
+                        );
+                    case "LOG": // Math.Log(x, n)
+                        //Logn(x) = Log(x) / Log(n)
+                        return Expression.Divide(
+                            new SqlFunctionExpression("Log", methodCallExpression.Type, new[] { methodCallExpression.Arguments[0] }),
+                            new SqlFunctionExpression("Log", methodCallExpression.Type, new[] { methodCallExpression.Arguments[1] })
+                        );
+                    default:
+                        throw new NotImplementedException(sqlFunctionToTranslate + " not implemented");
+
+                }
+            }
+
+
+
 
             if (_truncateMethodInfos.Contains(method))
             {
@@ -89,9 +179,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 }
 
                 return new SqlFunctionExpression(
-                    "ROUND",
+                    "Int",
                     methodCallExpression.Type,
-                    new[] { firstArgument, Expression.Constant(0), Expression.Constant(1) });
+                    new[] { firstArgument });
             }
 
             if (_roundMethodInfos.Contains(method))

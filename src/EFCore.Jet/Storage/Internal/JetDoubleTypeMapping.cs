@@ -33,24 +33,5 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public override RelationalTypeMapping Clone(string storeType, int? size)
             => new JetDoubleTypeMapping(storeType, DbType);
 
-        /// <summary>
-        ///     Generates the SQL representation of a literal value.
-        /// </summary>
-        /// <param name="value">The literal value.</param>
-        /// <returns>
-        ///     The generated string.
-        /// </returns>
-        protected override string GenerateNonNullSqlLiteral(object value)
-        {
-            var literal = base.GenerateNonNullSqlLiteral(value);
-
-            if (!literal.Contains("E")
-                && !literal.Contains("e"))
-            {
-                return literal + "E0";
-            }
-
-            return literal;
-        }
     }
 }

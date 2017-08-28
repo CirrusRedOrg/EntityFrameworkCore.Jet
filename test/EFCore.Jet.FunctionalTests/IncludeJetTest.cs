@@ -327,7 +327,7 @@ INNER JOIN (
 ORDER BY [t].[OrderID]");
         }
 
-        [Theory(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Include_collection_order_by_collection_column(bool useString)
         {
             base.Include_collection_order_by_collection_column(useString);
@@ -470,7 +470,7 @@ INNER JOIN (
 ORDER BY [t].[CompanyName] DESC, [t].[CustomerID]");
         }
 
-        [Theory(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Include_collection_order_by_subquery(bool useString)
         {
             base.Include_collection_order_by_subquery(useString);
@@ -1284,7 +1284,7 @@ ORDER BY [t].[ContactName], [t].[CustomerID]");
             }
         }
 
-        [Theory(Skip = "SQLCE limitation")]
+        [Fact(Skip = "Unsupported by JET")]
         public override void Then_include_collection_order_by_collection_column(bool useString)
         {
             base.Then_include_collection_order_by_collection_column(useString);

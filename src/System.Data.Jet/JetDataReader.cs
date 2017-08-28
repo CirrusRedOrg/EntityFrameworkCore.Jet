@@ -142,7 +142,7 @@ namespace System.Data.Jet
                 return intValue;
             }
             else
-                return Convert.ToInt32(_wrappedDataReader.GetValue(ordinal));
+                return Convert.ToInt32(value);
         }
 
         public override long GetInt64(int ordinal)

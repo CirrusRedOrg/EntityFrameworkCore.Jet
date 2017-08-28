@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             new[]
                             {
                                 methodCallExpression.Object,
-                                new SqlFunctionExpression("LEN", typeof(int), new[] { patternExpression })
+                                new SqlFunctionExpression("Len", typeof(int), new[] { patternExpression })
                             }),
                         patternExpression));
 

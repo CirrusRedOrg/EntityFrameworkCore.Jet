@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                && memberExpression.Expression.Type == typeof(string)
                && memberExpression.Member.Name == nameof(string.Length)
                 ? new ExplicitCastExpression(
-                    new SqlFunctionExpression("LEN", memberExpression.Type, new[] { memberExpression.Expression }),
+                    new SqlFunctionExpression("Len", memberExpression.Type, new[] { memberExpression.Expression }),
                     typeof(int))
                 : null;
     }

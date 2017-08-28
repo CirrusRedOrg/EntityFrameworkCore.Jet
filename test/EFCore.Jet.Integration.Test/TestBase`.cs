@@ -23,32 +23,36 @@ namespace EFCore.Jet.Integration.Test
         {
             CreateContext();
 
-            CreateTables(Context);
+            bool tablesCreated = CreateTables(Context);
 
-            try
+            if (tablesCreated)
             {
-                Seed();
+                try
+                {
+                    Seed();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("E R R O R - Seed - " + GetType().Name + " === Dump Begin ==============");
+                    Console.WriteLine(e);
+                    Console.WriteLine("= Dump End ============================================= ");
+                    throw;
+                }
             }
-            catch (Exception e)
-            {
-                Console.WriteLine("E R R O R - Seed - " + GetType().Name + " === Dump Begin ==============");
-                Console.WriteLine(e);
-                Console.WriteLine("= Dump End ============================================= ");
-                throw;
-            }
-
         }
 
-        public static void CreateTables(T Context)
+        public static bool CreateTables(T Context)
         {
             RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator)Context.Database.GetService<IDatabaseCreator>();
             try
             {
                 databaseCreator.CreateTables();
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                return false;
             }
         }
 

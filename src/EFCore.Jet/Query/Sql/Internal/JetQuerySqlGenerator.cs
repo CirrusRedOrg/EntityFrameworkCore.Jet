@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data.Jet;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
@@ -25,6 +26,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private static readonly Dictionary<ExpressionType, string> _operatorMap = new Dictionary<ExpressionType, string>
         {
+            { ExpressionType.Modulo, " MOD " },
             { ExpressionType.And, " BAND " },
             { ExpressionType.Or, " BOR " }
         };
@@ -101,9 +103,34 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Sql.AppendLine()
                     .Append("FROM ");
 
-                for (int index = 0; index < selectExpression.Tables.Count - 1; index++)
-                    Sql.Append("(");
-                ProcessExpressionList(selectExpression.Tables, sql => sql.Append(")").AppendLine());
+                bool first;
+
+                first = true;
+                foreach (TableExpressionBase tableExpression in selectExpression.Tables)
+                {
+                    if (!(tableExpression  is CrossJoinExpression || tableExpression is CrossJoinLateralExpression))
+                    {
+                        if (first)
+                            first = false;
+                        else
+                            Sql.Append("(");
+                    }
+                }
+
+                first = true;
+                for (int index = 0; index < selectExpression.Tables.Count; index++)
+                {
+                    TableExpressionBase tableExpression = selectExpression.Tables[index];
+                    Visit(tableExpression);
+                    if (!(tableExpression is CrossJoinExpression || tableExpression is CrossJoinLateralExpression))
+                    {
+                        if (!first)
+                            Sql.Append(")");
+                    }
+                    if (index != selectExpression.Tables.Count - 1)
+                        Sql.AppendLine();
+                    first = false;
+                }
             }
             else
             {
@@ -161,56 +188,49 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
         }
 
-        public override Expression VisitFromSql(FromSqlExpression fromSqlExpression)
-        {
-            return base.VisitFromSql(fromSqlExpression);
-        }
-
-        protected override void GenerateFromSql(string sql, Expression arguments, IReadOnlyDictionary<string, object> parameters)
-        {
-            base.GenerateFromSql(sql, arguments, parameters);
-        }
-
-        public override Expression VisitInnerJoin(InnerJoinExpression innerJoinExpression)
-        {
-            return base.VisitInnerJoin(innerJoinExpression);
-        }
-
-
-        public override Expression VisitLeftOuterJoin(LeftOuterJoinExpression leftOuterJoinExpression)
-        {
-            return base.VisitLeftOuterJoin(leftOuterJoinExpression);
-        }
-
-
         /// <summary>
         ///     Generates a single ordering in an SQL ORDER BY clause.
         /// </summary>
         /// <param name="ordering"> The ordering. </param>
-        protected override void GenerateOrdering([NotNull] Ordering ordering)
+        protected override void GenerateOrdering(Ordering ordering)
         {
             Check.NotNull<Ordering>(ordering, nameof(ordering));
             Expression expression = ordering.Expression;
             AliasExpression aliasExpression;
-            if ((aliasExpression = expression as AliasExpression) == null)
-            {
-                base.GenerateOrdering(ordering);
-                return;
-            }
+            Expression orderingExpression = ordering.Expression;
 
-            if (aliasExpression.Expression is ColumnExpression)
+            if ((aliasExpression = expression as AliasExpression) != null)
             {
-                var columnExpression = aliasExpression.Expression as ColumnExpression;
-                Sql.Append(SqlGenerator
-                    .DelimitIdentifier(columnExpression.Table.Alias))
-                    .Append(".")
-                    .Append(SqlGenerator.DelimitIdentifier(columnExpression.Name));
+                if (aliasExpression.Expression is ColumnExpression)
+                {
+                    var columnExpression = aliasExpression.Expression as ColumnExpression;
+                    Sql.Append(SqlGenerator
+                            .DelimitIdentifier(columnExpression.Table.Alias))
+                        .Append(".")
+                        .Append(SqlGenerator.DelimitIdentifier(columnExpression.Name));
+                }
+                else
+                {
+                    // Jet does not support accessing to aliases
+                    //Sql.Append(SqlGenerator.DelimitIdentifier(aliasExpression.Alias));
+                    Visit(aliasExpression.Expression);
+                }
+
+                if (ordering.OrderingDirection == OrderingDirection.Desc)
+                    Sql.Append(" DESC");
+            }
+            else if (orderingExpression is ConstantExpression
+                     || orderingExpression is ParameterExpression)
+            {
+                Sql.Append("'a'");
             }
             else
-                Sql.Append(SqlGenerator.DelimitIdentifier(aliasExpression.Alias));
+            {
+                // Probably this won't work. In JET we need to specify whole expressions
+                // in ORDER BY clause
+                base.GenerateOrdering(ordering);
+            }
 
-            if (ordering.OrderingDirection == OrderingDirection.Desc)
-                Sql.Append(" DESC");
         }
 
         protected override Expression VisitBinary(BinaryExpression binaryExpression)
@@ -534,9 +554,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (sqlFunctionExpression.FunctionName.StartsWith("@@", StringComparison.Ordinal))
             {
                 Sql.Append(sqlFunctionExpression.FunctionName);
-
                 return sqlFunctionExpression;
             }
+            else if (sqlFunctionExpression.FunctionName == "Pow")
+            {
+                Visit(sqlFunctionExpression.Arguments[0]);
+                Sql.Append("^");
+                Visit(sqlFunctionExpression.Arguments[1]);
+                return sqlFunctionExpression;
+            }
+
 
             return base.VisitSqlFunction(sqlFunctionExpression);
         }

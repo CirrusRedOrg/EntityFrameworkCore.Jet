@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public virtual Expression Translate(MethodCallExpression methodCallExpression)
             => _methodInfo.Equals(methodCallExpression.Method)
                 ? new SqlFunctionExpression(
-                    "REPLACE",
+                    "Replace",
                     methodCallExpression.Type,
                     new[] { methodCallExpression.Object }.Concat(methodCallExpression.Arguments))
                 : null;

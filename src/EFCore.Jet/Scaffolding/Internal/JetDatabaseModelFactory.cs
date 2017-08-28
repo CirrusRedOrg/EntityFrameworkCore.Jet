@@ -210,13 +210,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private void GetDefaultSchema()
         {
-            var command = _connection.CreateCommand();
-            command.CommandText = "SELECT SCHEMA_NAME()";
-            if (command.ExecuteScalar() is string schema)
-            {
-                Logger.DefaultSchemaFound(schema);
-                _databaseModel.DefaultSchema = schema;
-            }
+            _databaseModel.DefaultSchema = "Jet";
         }
 
         private IReadOnlyDictionary<string, string> GetTypeAliases()

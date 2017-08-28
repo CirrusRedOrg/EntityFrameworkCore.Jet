@@ -128,5 +128,69 @@ namespace EntityFramework.Jet.FunctionalTests
             return base.OrderBy_correlated_subquery_lol();
         }
 
+        [Fact(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
+        public override Task OrderBy_Skip_CountAsync()
+        {
+            return base.OrderBy_Skip_CountAsync();
+
+            /*
+            SELECT COUNT(*)
+            FROM (
+                SELECT [c].*
+                FROM [Customers] AS [c]
+                ORDER BY [c].[Country]
+                 SKIP @__p_0
+            ) AS [t]
+            */
+        }
+
+        [Fact(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
+        public override Task OrderBy_Skip_LongCountAsync()
+        {
+            return base.OrderBy_Skip_LongCountAsync();
+            /*
+            SELECT COUNT(*)
+            FROM (
+                SELECT [c].*
+                FROM [Customers] AS [c]
+                ORDER BY [c].[Country]
+                 SKIP @__p_0
+            ) AS [t]
+            */
+        }
+
+        [Fact(Skip = "Unsupported by JET: SKIP TAKE DISTINCT")]
+        public override Task Skip_Take_Distinct()
+        {
+            return base.Skip_Take_Distinct();
+            /*
+            SELECT DISTINCT [t].*
+            FROM (
+                SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                FROM [Customers] AS [c]
+                ORDER BY [c].[ContactName]
+                 SKIP @__p_0
+            ) AS [t]
+            */
+        }
+
+        [Fact(Skip = "Unsupported by JET: SKIP TAKE DISTINCT")]
+        public override Task Take_Skip_Distinct()
+        {
+            return base.Take_Skip_Distinct();
+            /*
+            SELECT DISTINCT [t0].*
+            FROM (
+                SELECT [t].*
+                FROM (
+                    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+                    FROM [Customers] AS [c]
+                    ORDER BY [c].[ContactName]
+                ) AS [t]
+                ORDER BY [t].[ContactName]
+                 SKIP @__p_1
+            ) AS [t0]
+            */
+        }
     }
 }

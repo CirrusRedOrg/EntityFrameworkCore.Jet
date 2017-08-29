@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
 
@@ -57,13 +58,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     out storeType))
             {
 
-                return new SqlFunctionExpression(
-                    functionName: "Str",
+                return new NullCheckedConvertSqlFunctionExpression(
+                    functionName: "CStr",
                     returnType: methodCallExpression.Type,
-                    arguments: new[]
-                    {
-                        methodCallExpression.Object
-                    });
+                    expression: methodCallExpression.Object
+                    );
             }
 
             return null;

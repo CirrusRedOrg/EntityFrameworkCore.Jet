@@ -2,6 +2,7 @@
 
 using System;
 using System.Linq.Expressions;
+using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 using Microsoft.EntityFrameworkCore.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
@@ -27,22 +28,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
 
                 return 
-                    new SqlFunctionExpression(
-                        "IIf",
+                    new NullCheckedConvertSqlFunctionExpression
+                    (
+                        "DateValue",
                         memberExpression.Type,
-                        new Expression[]
-                        {
-                            new SqlFunctionExpression("IsNull", typeof(bool), new[] {memberExpression.Expression}),
-                            Expression.Constant(null),
-                            new SqlFunctionExpression(
-                                "DateValue",
-                                memberExpression.Type,
-                                new[]
-                                {
-                                    memberExpression.Expression
-                                })
-                        }
-
+                        memberExpression.Expression
                     );
 
             }

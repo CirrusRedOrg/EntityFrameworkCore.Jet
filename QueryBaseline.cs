@@ -28265,3 +28265,292 @@ WHERE IIf(IsNull([m].[Timeline]), NULL, DateValue([m].[Timeline])) > @__Date_0")
 
 
 
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Select_correlated_filtered_collection_works_with_caching() : 
+            AssertSql(
+                @"SELECT [t].[GearNickName]
+FROM [CogTag] AS [t]",
+                //
+                @"@_outer_GearNickName='Marcus' (Nullable = false) (Size = 6)
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ([g].[Nickname] = @_outer_GearNickName)",
+                //
+                @"@_outer_GearNickName='Baird' (Nullable = false) (Size = 5)
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ([g].[Nickname] = @_outer_GearNickName)",
+                //
+                @"@_outer_GearNickName='Paduk' (Nullable = false) (Size = 5)
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ([g].[Nickname] = @_outer_GearNickName)",
+                //
+                @"@_outer_GearNickName='Cole Train' (Nullable = false) (Size = 10)
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ([g].[Nickname] = @_outer_GearNickName)",
+                //
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND [g].[Nickname] IS NULL",
+                //
+                @"@_outer_GearNickName='Dom' (Nullable = false) (Size = 3)
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ([g].[Nickname] = @_outer_GearNickName)");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Select_correlated_filtered_collection_with_composite_key() : 
+            AssertSql(
+                @"SELECT [g].[Nickname], [g].[SquadId]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] = 'Officer'",
+                //
+                @"@_outer_Nickname='Baird' (Nullable = false) (Size = 5)
+@_outer_SquadId='1'
+
+SELECT [r].[Nickname], [r].[SquadId], [r].[AssignedCityName], [r].[CityOrBirthName], [r].[Discriminator], [r].[FullName], [r].[HasSoulPatch], [r].[LeaderNickname], [r].[LeaderSquadId], [r].[Rank]
+FROM [Gear] AS [r]
+WHERE ([r].[Discriminator] IN ('Officer', 'Gear') AND ([r].[Nickname] <> 'Dom')) AND ((@_outer_Nickname = [r].[LeaderNickname]) AND (@_outer_SquadId = [r].[LeaderSquadId]))",
+                //
+                @"@_outer_Nickname='Marcus' (Nullable = false) (Size = 6)
+@_outer_SquadId='1'
+
+SELECT [r].[Nickname], [r].[SquadId], [r].[AssignedCityName], [r].[CityOrBirthName], [r].[Discriminator], [r].[FullName], [r].[HasSoulPatch], [r].[LeaderNickname], [r].[LeaderSquadId], [r].[Rank]
+FROM [Gear] AS [r]
+WHERE ([r].[Discriminator] IN ('Officer', 'Gear') AND ([r].[Nickname] <> 'Dom')) AND ((@_outer_Nickname = [r].[LeaderNickname]) AND (@_outer_SquadId = [r].[LeaderSquadId]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Select_length_of_string_property() : 
+            AssertSql(
+                @"SELECT [w].[Name], CInt(IIf(IsNull(Len([w].[Name])),0,Len([w].[Name]))) AS [Length]
+FROM [Weapon] AS [w]");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Select_correlated_filtered_collection() : 
+            AssertSql(
+                @"SELECT [g].[FullName]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND [g].[CityOrBirthName] IN ('Ephyra', 'Hanover')",
+                //
+                @"@_outer_FullName='Augustus Cole' (Nullable = false) (Size = 13)
+
+SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+FROM [Weapon] AS [w]
+WHERE (([w].[Name] <> 'Lancer') OR [w].[Name] IS NULL) AND (@_outer_FullName = [w].[OwnerFullName])",
+                //
+                @"@_outer_FullName='Dominic Santiago' (Nullable = false) (Size = 16)
+
+SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+FROM [Weapon] AS [w]
+WHERE (([w].[Name] <> 'Lancer') OR [w].[Name] IS NULL) AND (@_outer_FullName = [w].[OwnerFullName])");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Subquery_containing_SelectMany_projecting_main_from_clause_gets_lifted() : 
+            AssertSql(
+                @"SELECT [gear].[FullName]
+FROM [Gear] AS [gear]
+, [CogTag] AS [tag]
+WHERE [gear].[Discriminator] IN ('Officer', 'Gear') AND ([gear].[HasSoulPatch] = True)
+ORDER BY [gear].[FullName], [tag].[Note]");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_enum_has_flag_with_non_nullable_parameter() : 
+            AssertSql(
+                @"@__parameter_0='Corporal'
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND @__parameter_0) = @__parameter_0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_has_flag_with_nullable_parameter() : 
+            AssertSql(
+                @"@__parameter_0='Corporal'
+
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND @__parameter_0) = @__parameter_0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_enum_has_flag() : 
+            AssertSql(
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND 1) = 1)",
+                //
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND 5) = 5)",
+                //
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND 1) = 1)",
+                //
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND 1) = 1)",
+                //
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ((1 BAND [g].[Rank]) = [g].[Rank])");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_nullable_enum_with_nullable_parameter() : 
+            AssertSql(
+                @"@__ammunitionType_0='Cartridge'
+
+SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+FROM [Weapon] AS [w]
+WHERE [w].[AmmunitionType] = @__ammunitionType_0",
+                //
+                @"SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+FROM [Weapon] AS [w]
+WHERE [w].[AmmunitionType] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Subquery_is_not_lifted_from_additional_from_clause() : 
+            AssertSql(
+                @"SELECT [g1].[FullName] AS [Name1]
+FROM [Gear] AS [g1]
+WHERE [g1].[Discriminator] IN ('Officer', 'Gear') AND ([g1].[HasSoulPatch] = True)
+ORDER BY [g1].[FullName]",
+                //
+                @"SELECT [g0].[HasSoulPatch], [g0].[FullName]
+FROM [Gear] AS [g0]
+WHERE [g0].[Discriminator] IN ('Officer', 'Gear')
+ORDER BY [g0].[Rank]",
+                //
+                @"SELECT [g0].[HasSoulPatch], [g0].[FullName]
+FROM [Gear] AS [g0]
+WHERE [g0].[Discriminator] IN ('Officer', 'Gear')
+ORDER BY [g0].[Rank]");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_count_subquery_without_collision() : 
+            AssertSql(
+                @"SELECT [w].[Nickname], [w].[SquadId], [w].[AssignedCityName], [w].[CityOrBirthName], [w].[Discriminator], [w].[FullName], [w].[HasSoulPatch], [w].[LeaderNickname], [w].[LeaderSquadId], [w].[Rank]
+FROM [Gear] AS [w]
+WHERE [w].[Discriminator] IN ('Officer', 'Gear') AND ((
+    SELECT COUNT(*)
+    FROM [Weapon] AS [w0]
+    WHERE [w].[FullName] = [w0].[OwnerFullName]
+) = 2)");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_subquery_boolean() : 
+            AssertSql(
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ((
+    SELECT TOP 1 [w].[IsAutomatic]
+    FROM [Weapon] AS [w]
+    WHERE [g].[FullName] = [w].[OwnerFullName]
+) = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Subquery_is_lifted_from_main_from_clause_of_SelectMany() : 
+            AssertSql(
+                @"SELECT [g].[FullName] AS [Name1], [g2].[FullName] AS [Name2]
+FROM [Gear] AS [g]
+, [Gear] AS [g2]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[HasSoulPatch] = True) AND ([g2].[HasSoulPatch] = False))
+ORDER BY [g].[FullName], [g].[Rank]");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Subquery_with_result_operator_is_not_lifted() : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT [t].[FullName]
+FROM (
+    SELECT TOP @__p_0 [g].*
+    FROM [Gear] AS [g]
+    WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ([g].[HasSoulPatch] = False)
+    ORDER BY [g].[FullName]
+) AS [t]
+ORDER BY [t].[Rank]");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_enum_has_flag_subquery() : 
+            AssertSql(
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Rank] BAND (
+    SELECT TOP 1 [x].[Rank]
+    FROM [Gear] AS [x]
+    WHERE [x].[Discriminator] IN ('Officer', 'Gear')
+    ORDER BY [x].[Nickname], [x].[SquadId]
+)) = (
+    SELECT TOP 1 [x].[Rank]
+    FROM [Gear] AS [x]
+    WHERE [x].[Discriminator] IN ('Officer', 'Gear')
+    ORDER BY [x].[Nickname], [x].[SquadId]
+))",
+                //
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ((1 BAND (
+    SELECT TOP 1 [x].[Rank]
+    FROM [Gear] AS [x]
+    WHERE [x].[Discriminator] IN ('Officer', 'Gear')
+    ORDER BY [x].[Nickname], [x].[SquadId]
+)) = (
+    SELECT TOP 1 [x].[Rank]
+    FROM [Gear] AS [x]
+    WHERE [x].[Discriminator] IN ('Officer', 'Gear')
+    ORDER BY [x].[Nickname], [x].[SquadId]
+))");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Subquery_is_not_lifted_from_additional_from_clause() : 
+            AssertSql(
+                @"SELECT [g1].[FullName] AS [Name1]
+FROM [Gear] AS [g1]
+WHERE [g1].[Discriminator] IN ('Officer', 'Gear') AND ([g1].[HasSoulPatch] = True)
+ORDER BY [g1].[FullName]",
+                //
+                @"SELECT [g0].[HasSoulPatch], [g0].[FullName]
+FROM [Gear] AS [g0]
+WHERE [g0].[Discriminator] IN ('Officer', 'Gear')
+ORDER BY [g0].[Rank]",
+                //
+                @"SELECT [g0].[HasSoulPatch], [g0].[FullName]
+FROM [Gear] AS [g0]
+WHERE [g0].[Discriminator] IN ('Officer', 'Gear')
+ORDER BY [g0].[Rank]");
+
+
+
+EntityFramework.Jet.FunctionalTests.GearsOfWarQueryJetTest.Where_subquery_boolean() : 
+            AssertSql(
+                @"SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOrBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gear] AS [g]
+WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND ((
+    SELECT TOP 1 [w].[IsAutomatic]
+    FROM [Weapon] AS [w]
+    WHERE [g].[FullName] = [w].[OwnerFullName]
+) = True)");
+
+
+

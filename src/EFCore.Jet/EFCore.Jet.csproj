@@ -184,6 +184,9 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>JetStrings.Designer.tt</DependentUpon>
     </Compile>
+    <Compile Include="Query\Expressions\Internal\IIfSqlFunctionExpression.cs" />
+    <Compile Include="Query\Expressions\Internal\IsNullSqlFunctionExpression.cs" />
+    <Compile Include="Query\Expressions\Internal\NullCheckedConvertSqlFunctionExpression.cs" />
     <Compile Include="Query\Expressions\Internal\RowNumberExpression.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetCompositeMemberTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetCompositeMethodCallTranslator.cs" />

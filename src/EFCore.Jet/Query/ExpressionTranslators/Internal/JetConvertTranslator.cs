@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
 
@@ -58,23 +59,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             return _supportedMethods.Contains(methodCallExpression.Method)
                 ?
 
-                new SqlFunctionExpression(
-                    "IIf",
+                new NullCheckedConvertSqlFunctionExpression(
+                    _functionName[methodCallExpression.Method.Name],
                     methodCallExpression.Type,
-                    new Expression[]
-                    {
-                        new SqlFunctionExpression("IsNull", typeof(bool), new[] { methodCallExpression.Arguments[0]}),
-                        Expression.Constant(null),
-                        new SqlFunctionExpression(
-                            _functionName[methodCallExpression.Method.Name],
-                            methodCallExpression.Type,
-                            new[]
-                            {
-                                methodCallExpression.Arguments[0]
-                            })
-                    }
-
-                )
+                    methodCallExpression.Arguments[0]
+                    )
                 : null;
         }
     }

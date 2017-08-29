@@ -11,3 +11,6 @@
 [Fact(Skip = "Unsupported by JET: Guid are supported indirectly")]
 [Fact(Skip = "Unsupported by JET: Should be implemented by provider")]
 [Fact(Skip = "Unsupported by JET: DateTimeOffset not fully supported")]
+[Fact(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
+[Fact(Skip = "Unsupported by JET: JOIN with unsupported ON PREDICATE")]
+[Fact(Skip = "Unsupported by JET: operators on IMAGE and TEXT data types are not supported")]

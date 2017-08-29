@@ -19,11 +19,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
         }
 
-        public override string GenerateSqlLiteral(object value)
-        {
-            return base.GenerateSqlLiteral(value);
-        }
-
         /// <summary>
         ///     Creates a copy of this mapping.
         /// </summary>

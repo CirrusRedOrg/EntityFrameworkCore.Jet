@@ -10,3 +10,4 @@
 [Fact(Skip = "Assertion failed without evident reason")]
 [Fact(Skip = "Unsupported by JET: Guid are supported indirectly")]
 [Fact(Skip = "Unsupported by JET: Should be implemented by provider")]
+[Fact(Skip = "Unsupported by JET: DateTimeOffset not fully supported")]

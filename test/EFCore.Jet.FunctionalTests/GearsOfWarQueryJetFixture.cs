@@ -11,13 +11,6 @@ namespace EntityFramework.Jet.FunctionalTests
 {
     public class GearsOfWarQueryJetFixture : GearsOfWarQueryRelationalFixture<JetTestStore>
     {
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-
-            modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("nvarchar(100)");
-            modelBuilder.Entity<Mission>().Ignore(m => m.Timeline);
-        }
 
         public static readonly string DatabaseName = "GearsOfWarQueryTest";
 
@@ -50,8 +43,11 @@ namespace EntityFramework.Jet.FunctionalTests
                             .UseJet(_connectionString, b => b.ApplyConfiguration())
                             .Options))
                 {
-                    context.Database.EnsureCreated();
-                    GearsOfWarModelInitializer.Seed(context);
+                    // The model contains in issue. There is a non nullable composite foreign key
+                    // that Jet enforce also if a part of the foreign key is null.
+                    // So the database must be copied from the prototype
+                    //context.Database.EnsureCreated();
+                    //GearsOfWarModelInitializer.Seed(context);
                 }
             });
         }

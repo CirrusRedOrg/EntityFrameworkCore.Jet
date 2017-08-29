@@ -46,8 +46,10 @@ namespace EntityFramework.Jet.FunctionalTests
         public static JetTestStore GetNorthwindStore()
             => JetTestStore.GetOrCreateShared(NorthwindName, () => { });
 
-        public static JetTestStore GetOrCreateShared(string name, Action initializeDatabase) =>
-            new JetTestStore(name).CreateShared(initializeDatabase);
+        public static JetTestStore GetOrCreateShared(string name, Action initializeDatabase)
+        {
+            return new JetTestStore(name).CreateShared(initializeDatabase);
+        }
 
         public static JetTestStore Create(string name)
             => new JetTestStore(name).CreateTransient(true);
@@ -77,10 +79,7 @@ namespace EntityFramework.Jet.FunctionalTests
             CreateShared(typeof(JetTestStore).Name + _name,
                 () =>
                 {
-                    if (!Exists())
-                    {
-                        initializeDatabase?.Invoke();
-                    }
+                    initializeDatabase?.Invoke();
                 });
 
             return this;

@@ -70,19 +70,17 @@ namespace System.Data.Jet
 
         internal static bool IsTimeSpan(DbParameter parameter)
         {
-            switch (parameter.DbType)
-            {
-                case DbType.DateTimeOffset:
-                    return true;
-                default:
-                    return false;
-            }
+            if (!(parameter is OleDbParameter))
+                return false;
+
+            return (parameter as OleDbParameter).OleDbType == OleDbType.DBTime;
         }
 
         internal static bool IsDateTime(DbParameter parameter)
         {
             switch (parameter.DbType)
             {
+                case DbType.DateTimeOffset:
                 case DbType.Date:
                 case DbType.DateTime:
                 case DbType.Time:

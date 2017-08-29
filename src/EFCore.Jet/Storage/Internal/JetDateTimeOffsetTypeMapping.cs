@@ -1,6 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Data;
+using System.Data.Common;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -21,9 +23,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// <param name="dbType"> The <see cref="System.Data.DbType" /> to be used. </param>
         public JetDateTimeOffsetTypeMapping(
             [NotNull] string storeType,
-            DbType? dbType = System.Data.DbType.DateTimeOffset)
+            DbType? dbType = System.Data.DbType.DateTime)
             : base(storeType, dbType)
         {
+        }
+
+        protected override void ConfigureParameter(DbParameter parameter)
+        {
+            base.ConfigureParameter(parameter);
+            if (parameter.Value is DateTimeOffset)
+                parameter.Value = ((DateTimeOffset) parameter.Value).LocalDateTime;
         }
 
         /// <summary>

@@ -134,7 +134,12 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
                         untypedValue = Convert.ToBoolean(untypedValue);
                 }
 
-                return (TValue)untypedValue;
+                // Relax requirement in case that on the DB there is null
+                // This is usefull with foreign keys
+                if (untypedValue == null && typeof(TValue).IsValueType && !typeof(TValue).IsNullableType())
+                    return default(TValue);
+                else
+                    return (TValue)untypedValue;
             }
             catch (Exception e)
             {

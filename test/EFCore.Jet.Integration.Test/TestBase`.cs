@@ -41,9 +41,28 @@ namespace EFCore.Jet.Integration.Test
             }
         }
 
-        public static bool CreateTables(T Context)
+        public static bool CreateTables(T context)
         {
-            RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator)Context.Database.GetService<IDatabaseCreator>();
+            RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator)context.Database.GetService<IDatabaseCreator>();
+
+            try
+            {
+                databaseCreator.Delete();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error dropping database\r\n{0}", GetFullExceptionStackMessages(ex));
+            }
+
+            try
+            {
+                databaseCreator.Create();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error creating database\r\n{0}", GetFullExceptionStackMessages(ex));
+            }
+
             try
             {
                 databaseCreator.CreateTables();
@@ -54,6 +73,14 @@ namespace EFCore.Jet.Integration.Test
                 Console.WriteLine(ex.Message);
                 return false;
             }
+        }
+
+        private static string GetFullExceptionStackMessages(Exception ex)
+        {
+            if (ex == null)
+                return String.Empty;
+
+            return ex.Message + "\r\n" + GetFullExceptionStackMessages(ex.InnerException);
         }
 
         public virtual void Seed()

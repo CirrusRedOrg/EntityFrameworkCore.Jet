@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Data.Common;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace System.Data.Jet
 {
@@ -91,6 +93,12 @@ namespace System.Data.Jet
             return timeSpan;
         }
 
+        public virtual DateTimeOffset GetDateTimeOffset(int ordinal)
+        {
+            return GetDateTime(ordinal);
+        }
+
+
         public override decimal GetDecimal(int ordinal)
         {
             return Convert.ToDecimal(_wrappedDataReader.GetValue(ordinal));
@@ -172,14 +180,17 @@ namespace System.Data.Jet
 
         public override object GetValue(int ordinal)
         {
-            object getValue = _wrappedDataReader.GetValue(ordinal);
+            return _wrappedDataReader.GetValue(ordinal);
+        }
 
-            // GetValue is called by EF on a DateTime only if the field is a TimeSpan
-            // otherwise EF calls GetDateTime.
-            // We can suppose that if the value is a DateTime then the EF type is a TimeSpan
-            if (getValue is DateTime)
-                return (DateTime) getValue - JetConfiguration.TimeSpanOffset;
-            return getValue;
+        public override T GetFieldValue<T>(int ordinal)
+        {
+            if (typeof(T) == typeof(TimeSpan))
+                return (T)(object)GetTimeSpan(ordinal);
+            else if (typeof(T) == typeof(DateTimeOffset))
+                return (T) (object) GetDateTimeOffset(ordinal);
+            else
+                return base.GetFieldValue<T>(ordinal);
         }
 
         public override int GetValues(object[] values)

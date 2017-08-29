@@ -23,8 +23,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
 
             _regExParseDropDatabaseCommand = new Regex(
-                @"^\s*drop\s*database\s*(?<filename>.*)\s*$",
-                RegexOptions.IgnoreCase);
+                @"^\s*drop\s*database\s*(?<filename>.*)\s*;*\s*$",
+                RegexOptions.IgnoreCase | RegexOptions.RightToLeft);
 
 
             _regExParseCreateDatabaseCommandFromConnection = new Regex(

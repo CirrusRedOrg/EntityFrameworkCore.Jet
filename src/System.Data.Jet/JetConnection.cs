@@ -373,7 +373,7 @@ namespace System.Data.Jet
         public static void CreateEmptyDatabase(string connectionString)
         {
             Type adoxCatalogType;
-            object catalog;
+            dynamic catalog;
 
             try
             {
@@ -395,7 +395,35 @@ namespace System.Data.Jet
 
             try
             {
-                adoxCatalogType.InvokeMember("Create", BindingFlags.InvokeMethod, null, catalog, new object[] { connectionString });
+                catalog.Create(connectionString);
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Cannot create database using the specified connection string.", e);
+            }
+
+
+            try
+            {
+                using (var connection = (new JetConnection(connectionString)))
+                {
+                    connection.Open();
+                    string sql = @"
+CREATE TABLE [MSysAccessStorage] (
+    [DateCreate] DATETIME NULL,
+    [DateUpdate] DATETIME NULL,
+    [Id] INT NOT NULL IDENTITY,
+    [Lv] IMAGE,
+    [Name] VARCHAR(128) NULL,
+    [ParentId] INT NULL,
+    [Type] INT NULL,
+    CONSTRAINT [Id] PRIMARY KEY ([Id])
+);
+CREATE UNIQUE INDEX [ParentIdId] ON [MSysAccessStorage] ([ParentId], [Id]);
+CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);";
+
+                    connection.CreateCommand(sql).ExecuteNonQuery();
+                }
             }
             catch (Exception e)
             {
@@ -404,8 +432,7 @@ namespace System.Data.Jet
 
             try
             {
-                object activeConnection = adoxCatalogType.InvokeMember("ActiveConnection", BindingFlags.GetProperty, null, catalog, null);
-                activeConnection.GetType().InvokeMember("Close", BindingFlags.InvokeMethod, null, activeConnection, null);
+                catalog.ActiveConnection.Close();
             }
             catch (Exception e)
             {

@@ -115,6 +115,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\build\GlobalAssemblyInfo.cs">
+      <Link>Properties\GlobalAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="CreateDatabaseTest.cs" />
     <Compile Include="CreateNorthwindTest.cs" />
     <Compile Include="DdlTest.cs" />

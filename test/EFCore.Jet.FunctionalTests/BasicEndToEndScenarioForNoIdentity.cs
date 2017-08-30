@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Data.Jet;
+using System.Linq;
 using EntityFrameworkCore.Jet;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -31,7 +32,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseJet(@"Data Source=BloggingNoIdentity.sdf");
+                optionsBuilder.UseJet(JetConnection.GetConnectionString("BloggingNoIdentity.sdf"));
             }
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)

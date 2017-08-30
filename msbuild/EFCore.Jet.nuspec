@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>EntityFrameworkCore.Jet</id>
+        <version>1.0.0</version>
+        <authors>Bubi</authors>
+        <owners>Bubi</owners>
+		<projectUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>Allows Jet (Microsoft Access mdb or accdb format files) to be used with Entity Framework Core</description> 
+		<summary>Allows Jet (Microsoft Access mdb or accdb format files) to be used with Entity Framework Core</summary> 
+		<releaseNotes>for EF Core 2.0</releaseNotes> 
+		<dependencies>
+			<group targetFramework="net461">
+				<dependency id="Microsoft.EntityFrameworkCore.Relational" version="2.0.0" />
+			 </group>
+		</dependencies>
+    </metadata>
+    <files>
+		<file src="..\src\EFCore.Jet\bin\Release\EntityFrameworkCore.Jet.dll" target="lib\net461\" />
+		<file src="..\src\EFCore.Jet\bin\Release\System.Data.Jet.dll" target="lib\net461\" />
+    </files>
+</package>

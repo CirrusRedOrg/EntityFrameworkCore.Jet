@@ -2737,7 +2737,7 @@ WHERE [l1.OneToOne_Optional_FK].[Id] IS NULL");
                 @"");
         }
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET: SKIP TAKE DISTINCT")]
         public override void Member_doesnt_get_pushed_down_into_subquery_with_result_operator()
         {
             base.Member_doesnt_get_pushed_down_into_subquery_with_result_operator();

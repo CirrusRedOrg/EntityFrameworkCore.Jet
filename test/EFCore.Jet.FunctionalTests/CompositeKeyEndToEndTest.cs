@@ -19,7 +19,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 .AddEntityFrameworkJet()
                 .BuildServiceProvider();
 
-            var ticks = DateTime.UtcNow.Ticks;
+            var ticks = DateTime.UtcNow.Ticks % 15091969;
 
             using (var context = new BronieContext(serviceProvider, "CompositePegasuses"))
             {

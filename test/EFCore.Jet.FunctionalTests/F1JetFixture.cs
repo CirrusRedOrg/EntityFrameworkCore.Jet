@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
+    // This test is based on rowversion that is unsupported by Jet
+    // The version is a ghosted property
     public class F1JetFixture : F1RelationalFixture<JetTestStore>
     {
         public static readonly string DatabaseName = "OptimisticConcurrencyTest";
@@ -38,7 +40,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 using (var context = new F1Context(optionsBuilder.Options))
                 {
-                    context.Database.EnsureClean();
+                    context.Database.EnsureCreated();
                     ConcurrencyModelInitializer.Seed(context);
                 }
             });
@@ -55,16 +57,20 @@ namespace EntityFramework.Jet.FunctionalTests
             return context;
         }
 
+        // ReSharper disable once RedundantOverriddenMember
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+
+            /*
             modelBuilder.Entity<Chassis>().Property<byte[]>("Version").IsRowVersion();
             modelBuilder.Entity<Driver>().Property<byte[]>("Version").IsRowVersion();
 
             modelBuilder.Entity<Team>().Property<byte[]>("Version")
                 .ValueGeneratedOnAddOrUpdate()
                 .IsConcurrencyToken();
+            */
         }
     }
 }

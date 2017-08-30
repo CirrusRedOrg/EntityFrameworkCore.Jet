@@ -60,5 +60,12 @@ namespace EntityFramework.Jet.FunctionalTests
             context.Database.UseTransaction(testStore.Transaction);
             return context;
         }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Two>().Ignore(_ => _.Timestamp);
+        }
     }
 }

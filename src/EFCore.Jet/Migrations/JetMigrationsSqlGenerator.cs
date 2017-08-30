@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.Jet;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,6 +10,7 @@ using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
 using EntityFrameworkCore.Jet.Properties;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
+using JetConnection = System.Data.Jet.JetConnection;
 
 namespace EntityFrameworkCore.Jet.Migrations
 {
@@ -379,21 +380,45 @@ namespace EntityFrameworkCore.Jet.Migrations
             builder.EndCommand();
         }
 
-        protected override void Generate(
-            CreateTableOperation operation,
-            IModel model,
+
+        /// <summary>
+        ///     Generates a SQL fragment for the default constraint of a column.
+        /// </summary>
+        /// <param name="defaultValue"> The default value for the column. </param>
+        /// <param name="defaultValueSql"> The SQL expression to use for the column's default constraint. </param>
+        /// <param name="builder"> The command builder to use to add the SQL fragment. </param>
+        protected override void DefaultValue(
+            object defaultValue,
+            string defaultValueSql,
             MigrationCommandListBuilder builder)
         {
-            base.Generate(operation, model, builder, terminate: false);
+            Check.NotNull(builder, nameof(builder));
 
+            if (defaultValueSql != null)
+            {
+                builder
+                    .Append(" DEFAULT (")
+                    .Append(defaultValueSql)
+                    .Append(")");
+            }
+            else if (defaultValue != null)
+            {
+                var typeMapping = Dependencies.TypeMapper.GetMappingForValue(defaultValue);
 
-            // Jet
-            var memoryOptimized = IsMemoryOptimized(operation);
+                // Jet does not support defaults for hh:mm:ss in create table statement
+                bool isDateTimeValue =
+                    defaultValue.GetType().UnwrapNullableType() == typeof(DateTime) ||
+                    defaultValue.GetType().UnwrapNullableType() == typeof(DateTimeOffset);
 
-            builder
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand(suppressTransaction: memoryOptimized);
+                builder
+                    .Append(" DEFAULT ")
+                    .Append(
+                        isDateTimeValue ? 
+                        JetDateTimeTypeMapping.GenerateSqlLiteral(defaultValue, true) : 
+                        typeMapping.GenerateSqlLiteral(defaultValue));
+            }
         }
+
 
         protected override void Generate(
             RenameTableOperation operation,
@@ -429,15 +454,6 @@ namespace EntityFrameworkCore.Jet.Migrations
             }
 
             builder.EndCommand();
-        }
-
-        protected override void Generate(DropTableOperation operation, IModel model, MigrationCommandListBuilder builder)
-        {
-            base.Generate(operation, model, builder, terminate: false);
-
-            builder
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand(suppressTransaction: IsMemoryOptimized(operation, model, operation.Schema, operation.Name));
         }
 
         protected override void Generate(

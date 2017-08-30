@@ -148,6 +148,7 @@
     <Compile Include="BooleanMaterializationTest2.cs" />
     <Compile Include="BooleanMaterializationTest1.cs" />
     <Compile Include="CanonicalFunctionsTest2.cs" />
+    <Compile Include="DefaultValueTest.cs" />
     <Compile Include="DmlBaseTest.cs" />
     <Compile Include="DmlSqlTest.cs" />
     <Compile Include="DmlJetTest.cs" />

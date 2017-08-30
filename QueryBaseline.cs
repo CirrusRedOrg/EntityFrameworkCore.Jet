@@ -32749,3 +32749,5433 @@ ORDER BY [l0].[Id]");
 
 Output truncated.
 
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_all_types_when_shared_column() : 
+            AssertSql(
+                @"SELECT [d].[Id], [d].[Discriminator], [d].[CaffeineGrams], [d].[CokeCO2], [d].[SugarGrams], [d].[LiltCO2], [d].[HasMilk]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] IN ('Tea', 'Lilt', 'Coke', 'Drink')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_kiwi_where_north_on_derived_property() : 
+            AssertSql(
+                @"SELECT [x].[Species], [x].[CountryId], [x].[Discriminator], [x].[Name], [x].[EagleId], [x].[IsFlightless], [x].[FoundOn]
+FROM [Animal] AS [x]
+WHERE ([x].[Discriminator] = 'Kiwi') AND ([x].[FoundOn] = 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_all_birds() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_prey() : 
+            AssertSql(
+                @"SELECT TOP 2 [e].[Species], [e].[CountryId], [e].[Discriminator], [e].[Name], [e].[EagleId], [e].[IsFlightless], [e].[Group]
+FROM [Animal] AS [e]
+WHERE [e].[Discriminator] = 'Eagle'
+ORDER BY [e].[Species]",
+                //
+                @"SELECT [e#Prey].[Species], [e#Prey].[CountryId], [e#Prey].[Discriminator], [e#Prey].[Name], [e#Prey].[EagleId], [e#Prey].[IsFlightless], [e#Prey].[Group], [e#Prey].[FoundOn]
+FROM ([Animal] AS [e#Prey]
+INNER JOIN (
+    SELECT TOP 1 [e0].[Species]
+    FROM [Animal] AS [e0]
+    WHERE [e0].[Discriminator] = 'Eagle'
+    ORDER BY [e0].[Species]
+) AS [t] ON [e#Prey].[EagleId] = [t].[Species])
+WHERE [e#Prey].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Discriminator_used_when_projection_over_derived_type() : 
+            AssertSql(
+                @"SELECT [k].[FoundOn]
+FROM [Animal] AS [k]
+WHERE [k].[Discriminator] = 'Kiwi'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_animal() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_when_shared_column() : 
+            AssertSql(
+                @"SELECT TOP 2 [d].[Id], [d].[Discriminator], [d].[CaffeineGrams], [d].[CokeCO2], [d].[SugarGrams]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] = 'Coke'",
+                //
+                @"SELECT TOP 2 [d].[Id], [d].[Discriminator], [d].[LiltCO2], [d].[SugarGrams]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] = 'Lilt'",
+                //
+                @"SELECT TOP 2 [d].[Id], [d].[Discriminator], [d].[CaffeineGrams], [d].[HasMilk]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] = 'Tea'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_kiwi_where_south_on_derived_property() : 
+            AssertSql(
+                @"SELECT [x].[Species], [x].[CountryId], [x].[Discriminator], [x].[Name], [x].[EagleId], [x].[IsFlightless], [x].[FoundOn]
+FROM [Animal] AS [x]
+WHERE ([x].[Discriminator] = 'Kiwi') AND ([x].[FoundOn] = 1)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_is_kiwi_with_other_predicate() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle') AND (([a].[Discriminator] = 'Kiwi') AND ([a].[CountryId] = 1))");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_bird_with_projection() : 
+            AssertSql(
+                @"SELECT [b].[EagleId]
+FROM [Animal] AS [b]
+WHERE [b].[Discriminator] IN ('Kiwi', 'Eagle')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_just_roses() : 
+            AssertSql(
+                @"SELECT TOP 2 [p].[Species], [p].[CountryId], [p].[Genus], [p].[Name], [p].[HasThorns]
+FROM [Plant] AS [p]
+WHERE [p].[Genus] = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_bird_predicate() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle') AND ([a].[CountryId] = 1)
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_is_kiwi_in_projection() : 
+            AssertSql(
+                @"SELECT IIf(
+    [a].[Discriminator] = 'Kiwi',
+    True,
+    False
+)
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_just_kiwis() : 
+            AssertSql(
+                @"SELECT TOP 2 [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] = 'Kiwi'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_animals() : 
+            AssertSql(
+                @"SELECT [c].[Id], [c].[Name]
+FROM [Country] AS [c]
+ORDER BY [c].[Name], [c].[Id]",
+                //
+                @"SELECT [c#Animals].[Species], [c#Animals].[CountryId], [c#Animals].[Discriminator], [c#Animals].[Name], [c#Animals].[EagleId], [c#Animals].[IsFlightless], [c#Animals].[Group], [c#Animals].[FoundOn]
+FROM ([Animal] AS [c#Animals]
+INNER JOIN (
+    SELECT [c0].[Id], [c0].[Name]
+    FROM [Country] AS [c0]
+) AS [t] ON [c#Animals].[CountryId] = [t].[Id])
+WHERE [c#Animals].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Name], [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_filter_all_animals() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle') AND ([a].[Name] = 'Great spotted kiwi')
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_kiwi() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] = 'Kiwi'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_is_kiwi() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle') AND ([a].[Discriminator] = 'Kiwi')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_bird_first() : 
+            AssertSql(
+                @"SELECT TOP 1 [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_all_animals() : 
+            AssertSql(
+                @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_prey() : 
+            AssertSql(
+                @"SELECT TOP 2 [e].[Species], [e].[CountryId], [e].[Discriminator], [e].[Name], [e].[EagleId], [e].[IsFlightless], [e].[Group]
+FROM [Animal] AS [e]
+WHERE [e].[Discriminator] = 'Eagle'
+ORDER BY [e].[Species]",
+                //
+                @"SELECT [e#Prey].[Species], [e#Prey].[CountryId], [e#Prey].[Discriminator], [e#Prey].[Name], [e#Prey].[EagleId], [e#Prey].[IsFlightless], [e#Prey].[Group], [e#Prey].[FoundOn]
+FROM ([Animal] AS [e#Prey]
+INNER JOIN (
+    SELECT TOP 1 [e0].[Species]
+    FROM [Animal] AS [e0]
+    WHERE [e0].[Discriminator] = 'Eagle'
+    ORDER BY [e0].[Species]
+) AS [t] ON [e#Prey].[EagleId] = [t].[Species])
+WHERE [e#Prey].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_when_shared_column() : 
+            AssertSql(
+                @"SELECT TOP 2 [d].[Id], [d].[Discriminator], [d].[CaffeineGrams], [d].[CokeCO2], [d].[SugarGrams]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] = 'Coke'",
+                //
+                @"SELECT TOP 2 [d].[Id], [d].[Discriminator], [d].[LiltCO2], [d].[SugarGrams]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] = 'Lilt'",
+                //
+                @"SELECT TOP 2 [d].[Id], [d].[Discriminator], [d].[CaffeineGrams], [d].[HasMilk]
+FROM [Drink] AS [d]
+WHERE [d].[Discriminator] = 'Tea'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_just_roses() : 
+            AssertSql(
+                @"SELECT TOP 2 [p].[Species], [p].[CountryId], [p].[Genus], [p].[Name], [p].[HasThorns]
+FROM [Plant] AS [p]
+WHERE [p].[Genus] = 0");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_is_kiwi_in_projection() : 
+            AssertSql(
+                @"SELECT IIf(
+    [a].[Discriminator] = 'Kiwi',
+    True,
+    False
+)
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_query_just_kiwis() : 
+            AssertSql(
+                @"SELECT TOP 2 [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] = 'Kiwi'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_animals() : 
+            AssertSql(
+                @"SELECT [c].[Id], [c].[Name]
+FROM [Country] AS [c]
+ORDER BY [c].[Name], [c].[Id]",
+                //
+                @"SELECT [c#Animals].[Species], [c#Animals].[CountryId], [c#Animals].[Discriminator], [c#Animals].[Name], [c#Animals].[EagleId], [c#Animals].[IsFlightless], [c#Animals].[Group], [c#Animals].[FoundOn]
+FROM ([Animal] AS [c#Animals]
+INNER JOIN (
+    SELECT [c0].[Id], [c0].[Name]
+    FROM [Country] AS [c0]
+) AS [t] ON [c#Animals].[CountryId] = [t].[Id])
+WHERE [c#Animals].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Name], [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_use_of_type_bird_first() : 
+            AssertSql(
+                @"SELECT TOP 1 [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
+FROM [Animal] AS [a]
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [a].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_animals() : 
+            AssertSql(
+                @"SELECT [c].[Id], [c].[Name]
+FROM [Country] AS [c]
+ORDER BY [c].[Name], [c].[Id]",
+                //
+                @"SELECT [c#Animals].[Species], [c#Animals].[CountryId], [c#Animals].[Discriminator], [c#Animals].[Name], [c#Animals].[EagleId], [c#Animals].[IsFlightless], [c#Animals].[Group], [c#Animals].[FoundOn]
+FROM ([Animal] AS [c#Animals]
+INNER JOIN (
+    SELECT [c0].[Id], [c0].[Name]
+    FROM [Country] AS [c0]
+) AS [t] ON [c#Animals].[CountryId] = [t].[Id])
+WHERE [c#Animals].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Name], [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_prey() : 
+            AssertSql(
+                @"SELECT TOP 2 [e].[Species], [e].[CountryId], [e].[Discriminator], [e].[Name], [e].[EagleId], [e].[IsFlightless], [e].[Group]
+FROM [Animal] AS [e]
+WHERE [e].[Discriminator] = 'Eagle'
+ORDER BY [e].[Species]",
+                //
+                @"SELECT [e#Prey].[Species], [e#Prey].[CountryId], [e#Prey].[Discriminator], [e#Prey].[Name], [e#Prey].[EagleId], [e#Prey].[IsFlightless], [e#Prey].[Group], [e#Prey].[FoundOn]
+FROM ([Animal] AS [e#Prey]
+INNER JOIN (
+    SELECT TOP 1 [e0].[Species]
+    FROM [Animal] AS [e0]
+    WHERE [e0].[Discriminator] = 'Eagle'
+    ORDER BY [e0].[Species]
+) AS [t] ON [e#Prey].[EagleId] = [t].[Species])
+WHERE [e#Prey].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Species]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceJetTest.Can_include_animals() : 
+            AssertSql(
+                @"SELECT [c].[Id], [c].[Name]
+FROM [Country] AS [c]
+ORDER BY [c].[Name], [c].[Id]",
+                //
+                @"SELECT [c#Animals].[Species], [c#Animals].[CountryId], [c#Animals].[Discriminator], [c#Animals].[Name], [c#Animals].[EagleId], [c#Animals].[IsFlightless], [c#Animals].[Group], [c#Animals].[FoundOn]
+FROM ([Animal] AS [c#Animals]
+INNER JOIN (
+    SELECT [c0].[Id], [c0].[Name]
+    FROM [Country] AS [c0]
+) AS [t] ON [c#Animals].[CountryId] = [t].[Id])
+WHERE [c#Animals].[Discriminator] IN ('Kiwi', 'Eagle')
+ORDER BY [t].[Name], [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE ([e].[Name] <> 'Bar') OR [e].[Name] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_reference_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedReferenceBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentReference].*
+    FROM [BaseReferenceOnBase] AS [e#ParentReference]
+    WHERE [e#ParentReference].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[ParentReferenceId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentReference#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentReference#BaseParent]
+    WHERE [e#ParentReference#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#CollectionOnBase].[Id], [e#CollectionOnBase].[Name], [e#CollectionOnBase].[ParentId]
+FROM ([CollectionOnBase] AS [e#CollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#CollectionOnBase].[ParentId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#BaseReferenceOnDerived]
+    WHERE [e#BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [t].[Id]",
+                //
+                @"SELECT [e#BaseReferenceOnBase#NestedCollection].[Id], [e#BaseReferenceOnBase#NestedCollection].[Discriminator], [e#BaseReferenceOnBase#NestedCollection].[Name], [e#BaseReferenceOnBase#NestedCollection].[ParentCollectionId], [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseReferenceOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [t0].[Id]
+    FROM ([BaseInheritanceRelationshipEntity] AS [e0]
+    LEFT JOIN (
+        SELECT [e#BaseReferenceOnBase0].*
+        FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase0]
+        WHERE [e#BaseReferenceOnBase0].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+    ) AS [t0] ON [e0].[Id] = [t0].[BaseParentId])
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t1] ON [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId] = [t1].[Id])
+WHERE [e#BaseReferenceOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_with_filter() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection3() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [t].[Id]",
+                //
+                @"SELECT [e#BaseReferenceOnBase#NestedCollection].[Id], [e#BaseReferenceOnBase#NestedCollection].[Discriminator], [e#BaseReferenceOnBase#NestedCollection].[Name], [e#BaseReferenceOnBase#NestedCollection].[ParentCollectionId], [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseReferenceOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [t0].[Id]
+    FROM ([BaseInheritanceRelationshipEntity] AS [e0]
+    LEFT JOIN (
+        SELECT [e#BaseReferenceOnBase0].*
+        FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase0]
+        WHERE [e#BaseReferenceOnBase0].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+    ) AS [t0] ON [e0].[Id] = [t0].[BaseParentId])
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t1] ON [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId] = [t1].[Id])
+WHERE [e#BaseReferenceOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_with_filter() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#CollectionOnBase].[Id], [e#CollectionOnBase].[Name], [e#CollectionOnBase].[ParentId]
+FROM ([CollectionOnBase] AS [e#CollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e0].[Name] <> 'Bar') OR [e0].[Name] IS NULL)
+) AS [t] ON [e#CollectionOnBase].[ParentId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnDerived].[Id], [e#ReferenceOnDerived].[Name], [e#ReferenceOnDerived].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnDerived] AS [e#ReferenceOnDerived] ON [e].[Id] = [e#ReferenceOnDerived].[ParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#BaseReferenceOnDerived]
+    WHERE [e#BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_reference3() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[ParentCollectionId], [t0].[ParentReferenceId]
+FROM (([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase#NestedReference].*
+    FROM [NestedReferenceBase] AS [e#BaseReferenceOnBase#NestedReference]
+    WHERE [e#BaseReferenceOnBase#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t0] ON [t].[Id] = [t0].[ParentReferenceId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_self_refence_with_inheritence_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseSelfRerefenceOnDerived].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseSelfRerefenceOnDerived]
+    WHERE [e#BaseSelfRerefenceOnDerived].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseId] = [t].[Id])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([CollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter4() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#DerivedReferenceOnDerived]
+    WHERE [e#DerivedReferenceOnDerived].[Discriminator] = 'DerivedReferenceOnDerived'
+) AS [t] ON [e].[Id] = [t].[DerivedInheritanceRelationshipEntityId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_collection_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedProperty], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedCollectionBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentCollection].*
+    FROM [BaseCollectionOnBase] AS [e#ParentCollection]
+    WHERE [e#ParentCollection].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t] ON [e].[ParentCollectionId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentCollection#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentCollection#BaseParent]
+    WHERE [e#ParentCollection#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived4() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#DerivedReferenceOnDerived]
+    WHERE [e#DerivedReferenceOnDerived].[Discriminator] = 'DerivedReferenceOnDerived'
+) AS [t] ON [e].[Id] = [t].[DerivedInheritanceRelationshipEntityId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnDerived].[Id], [e#BaseCollectionOnDerived].[Discriminator], [e#BaseCollectionOnDerived].[Name], [e#BaseCollectionOnDerived].[ParentId], [e#BaseCollectionOnDerived].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseCollectionOnDerived] AS [e#BaseCollectionOnDerived]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e#BaseCollectionOnDerived].[ParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnDerived].[Discriminator] IN ('DerivedCollectionOnDerived', 'BaseCollectionOnDerived')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e0].[Name] <> 'Bar') OR [e0].[Name] IS NULL)
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_collection_reference_on_non_entity_base() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name]
+FROM [ReferencedEntity] AS [e]
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#Principals].[Id], [e#Principals].[Name], [e#Principals].[ReferenceId], [e#Principals].[ReferencedEntityId], [p#Reference].[Id], [p#Reference].[Name]
+FROM (([PrincipalEntity] AS [e#Principals]
+LEFT JOIN [ReferencedEntity] AS [p#Reference] ON [e#Principals].[ReferenceId] = [p#Reference].[Id])
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [ReferencedEntity] AS [e0]
+) AS [t] ON [e#Principals].[ReferencedEntityId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentId], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnDerived', 'BaseCollectionOnDerived')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_self_refence_with_inheritence() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedSefReferenceOnBase].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#DerivedSefReferenceOnBase]
+    WHERE [e#DerivedSefReferenceOnBase].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[Id] = [t].[BaseId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedCollectionBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentReference].*
+    FROM [BaseReferenceOnBase] AS [e#ParentReference]
+    WHERE [e#ParentReference].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[ParentReferenceId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentReference#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentReference#BaseParent]
+    WHERE [e#ParentReference#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_reference_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedProperty], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedReferenceBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentCollection].*
+    FROM [BaseCollectionOnBase] AS [e#ParentCollection]
+    WHERE [e#ParentCollection].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t] ON [e].[ParentCollectionId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentCollection#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentCollection#BaseParent]
+    WHERE [e#ParentCollection#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_reference1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[ParentCollectionId], [t0].[ParentReferenceId]
+FROM (([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase#NestedReference].*
+    FROM [NestedReferenceBase] AS [e#BaseReferenceOnBase#NestedReference]
+    WHERE [e#BaseReferenceOnBase#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t0] ON [t].[Id] = [t0].[ParentReferenceId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([CollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE ([e].[Name] <> 'Bar') OR [e].[Name] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_reference1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[ParentCollectionId], [t].[ParentReferenceId]
+FROM (([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+LEFT JOIN (
+    SELECT [b#NestedReference].*
+    FROM [NestedReferenceBase] AS [b#NestedReference]
+    WHERE [b#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t] ON [e#BaseCollectionOnBase].[Id] = [t].[ParentCollectionId])
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [e#BaseCollectionOnBase].[BaseParentId] = [t0].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t0].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_collection1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id], [e#BaseCollectionOnBase].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase#NestedCollection].[Id], [e#BaseCollectionOnBase#NestedCollection].[Discriminator], [e#BaseCollectionOnBase#NestedCollection].[Name], [e#BaseCollectionOnBase#NestedCollection].[ParentCollectionId], [e#BaseCollectionOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseCollectionOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [e#BaseCollectionOnBase0].[Id], [t0].[Id] AS [Id0]
+    FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase0]
+    INNER JOIN (
+        SELECT [e1].[Id]
+        FROM [BaseInheritanceRelationshipEntity] AS [e1]
+        WHERE [e1].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+    ) AS [t0] ON [e#BaseCollectionOnBase0].[BaseParentId] = [t0].[Id])
+    WHERE [e#BaseCollectionOnBase0].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t1] ON [e#BaseCollectionOnBase#NestedCollection].[ParentCollectionId] = [t1].[Id])
+WHERE [e#BaseCollectionOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id0], [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE ([e].[Name] <> 'Bar') OR [e].[Name] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_reference_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedReferenceBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentReference].*
+    FROM [BaseReferenceOnBase] AS [e#ParentReference]
+    WHERE [e#ParentReference].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[ParentReferenceId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentReference#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentReference#BaseParent]
+    WHERE [e#ParentReference#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#CollectionOnBase].[Id], [e#CollectionOnBase].[Name], [e#CollectionOnBase].[ParentId]
+FROM ([CollectionOnBase] AS [e#CollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#CollectionOnBase].[ParentId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#BaseReferenceOnDerived]
+    WHERE [e#BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [t].[Id]",
+                //
+                @"SELECT [e#BaseReferenceOnBase#NestedCollection].[Id], [e#BaseReferenceOnBase#NestedCollection].[Discriminator], [e#BaseReferenceOnBase#NestedCollection].[Name], [e#BaseReferenceOnBase#NestedCollection].[ParentCollectionId], [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseReferenceOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [t0].[Id]
+    FROM ([BaseInheritanceRelationshipEntity] AS [e0]
+    LEFT JOIN (
+        SELECT [e#BaseReferenceOnBase0].*
+        FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase0]
+        WHERE [e#BaseReferenceOnBase0].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+    ) AS [t0] ON [e0].[Id] = [t0].[BaseParentId])
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t1] ON [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId] = [t1].[Id])
+WHERE [e#BaseReferenceOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_with_filter() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection3() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [t].[Id]",
+                //
+                @"SELECT [e#BaseReferenceOnBase#NestedCollection].[Id], [e#BaseReferenceOnBase#NestedCollection].[Discriminator], [e#BaseReferenceOnBase#NestedCollection].[Name], [e#BaseReferenceOnBase#NestedCollection].[ParentCollectionId], [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseReferenceOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [t0].[Id]
+    FROM ([BaseInheritanceRelationshipEntity] AS [e0]
+    LEFT JOIN (
+        SELECT [e#BaseReferenceOnBase0].*
+        FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase0]
+        WHERE [e#BaseReferenceOnBase0].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+    ) AS [t0] ON [e0].[Id] = [t0].[BaseParentId])
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t1] ON [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId] = [t1].[Id])
+WHERE [e#BaseReferenceOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_with_filter() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#CollectionOnBase].[Id], [e#CollectionOnBase].[Name], [e#CollectionOnBase].[ParentId]
+FROM ([CollectionOnBase] AS [e#CollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e0].[Name] <> 'Bar') OR [e0].[Name] IS NULL)
+) AS [t] ON [e#CollectionOnBase].[ParentId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnDerived].[Id], [e#ReferenceOnDerived].[Name], [e#ReferenceOnDerived].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnDerived] AS [e#ReferenceOnDerived] ON [e].[Id] = [e#ReferenceOnDerived].[ParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#BaseReferenceOnDerived]
+    WHERE [e#BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_reference3() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[ParentCollectionId], [t0].[ParentReferenceId]
+FROM (([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase#NestedReference].*
+    FROM [NestedReferenceBase] AS [e#BaseReferenceOnBase#NestedReference]
+    WHERE [e#BaseReferenceOnBase#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t0] ON [t].[Id] = [t0].[ParentReferenceId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_self_refence_with_inheritence_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseSelfRerefenceOnDerived].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseSelfRerefenceOnDerived]
+    WHERE [e#BaseSelfRerefenceOnDerived].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseId] = [t].[Id])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([CollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter4() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#DerivedReferenceOnDerived]
+    WHERE [e#DerivedReferenceOnDerived].[Discriminator] = 'DerivedReferenceOnDerived'
+) AS [t] ON [e].[Id] = [t].[DerivedInheritanceRelationshipEntityId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_collection_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedProperty], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedCollectionBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentCollection].*
+    FROM [BaseCollectionOnBase] AS [e#ParentCollection]
+    WHERE [e#ParentCollection].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t] ON [e].[ParentCollectionId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentCollection#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentCollection#BaseParent]
+    WHERE [e#ParentCollection#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived4() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#DerivedReferenceOnDerived]
+    WHERE [e#DerivedReferenceOnDerived].[Discriminator] = 'DerivedReferenceOnDerived'
+) AS [t] ON [e].[Id] = [t].[DerivedInheritanceRelationshipEntityId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnDerived].[Id], [e#BaseCollectionOnDerived].[Discriminator], [e#BaseCollectionOnDerived].[Name], [e#BaseCollectionOnDerived].[ParentId], [e#BaseCollectionOnDerived].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseCollectionOnDerived] AS [e#BaseCollectionOnDerived]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e#BaseCollectionOnDerived].[ParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnDerived].[Discriminator] IN ('DerivedCollectionOnDerived', 'BaseCollectionOnDerived')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e0].[Name] <> 'Bar') OR [e0].[Name] IS NULL)
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_collection_reference_on_non_entity_base() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name]
+FROM [ReferencedEntity] AS [e]
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#Principals].[Id], [e#Principals].[Name], [e#Principals].[ReferenceId], [e#Principals].[ReferencedEntityId], [p#Reference].[Id], [p#Reference].[Name]
+FROM (([PrincipalEntity] AS [e#Principals]
+LEFT JOIN [ReferencedEntity] AS [p#Reference] ON [e#Principals].[ReferenceId] = [p#Reference].[Id])
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [ReferencedEntity] AS [e0]
+) AS [t] ON [e#Principals].[ReferencedEntityId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentId], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnDerived', 'BaseCollectionOnDerived')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_self_refence_with_inheritence() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedSefReferenceOnBase].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#DerivedSefReferenceOnBase]
+    WHERE [e#DerivedSefReferenceOnBase].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[Id] = [t].[BaseId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedCollectionBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentReference].*
+    FROM [BaseReferenceOnBase] AS [e#ParentReference]
+    WHERE [e#ParentReference].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[ParentReferenceId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentReference#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentReference#BaseParent]
+    WHERE [e#ParentReference#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_reference_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedProperty], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedReferenceBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentCollection].*
+    FROM [BaseCollectionOnBase] AS [e#ParentCollection]
+    WHERE [e#ParentCollection].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t] ON [e].[ParentCollectionId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentCollection#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentCollection#BaseParent]
+    WHERE [e#ParentCollection#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_reference1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[ParentCollectionId], [t0].[ParentReferenceId]
+FROM (([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase#NestedReference].*
+    FROM [NestedReferenceBase] AS [e#BaseReferenceOnBase#NestedReference]
+    WHERE [e#BaseReferenceOnBase#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t0] ON [t].[Id] = [t0].[ParentReferenceId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([CollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE ([e].[Name] <> 'Bar') OR [e].[Name] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_reference1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[ParentCollectionId], [t].[ParentReferenceId]
+FROM (([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+LEFT JOIN (
+    SELECT [b#NestedReference].*
+    FROM [NestedReferenceBase] AS [b#NestedReference]
+    WHERE [b#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t] ON [e#BaseCollectionOnBase].[Id] = [t].[ParentCollectionId])
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [e#BaseCollectionOnBase].[BaseParentId] = [t0].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t0].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_collection1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id], [e#BaseCollectionOnBase].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase#NestedCollection].[Id], [e#BaseCollectionOnBase#NestedCollection].[Discriminator], [e#BaseCollectionOnBase#NestedCollection].[Name], [e#BaseCollectionOnBase#NestedCollection].[ParentCollectionId], [e#BaseCollectionOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseCollectionOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [e#BaseCollectionOnBase0].[Id], [t0].[Id] AS [Id0]
+    FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase0]
+    INNER JOIN (
+        SELECT [e1].[Id]
+        FROM [BaseInheritanceRelationshipEntity] AS [e1]
+        WHERE [e1].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+    ) AS [t0] ON [e#BaseCollectionOnBase0].[BaseParentId] = [t0].[Id])
+    WHERE [e#BaseCollectionOnBase0].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t1] ON [e#BaseCollectionOnBase#NestedCollection].[ParentCollectionId] = [t1].[Id])
+WHERE [e#BaseCollectionOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id0], [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE ([e].[Name] <> 'Bar') OR [e].[Name] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#CollectionOnBase].[Id], [e#CollectionOnBase].[Name], [e#CollectionOnBase].[ParentId]
+FROM ([CollectionOnBase] AS [e#CollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#CollectionOnBase].[ParentId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#BaseReferenceOnDerived]
+    WHERE [e#BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_reference_collection1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [t].[Id]",
+                //
+                @"SELECT [e#BaseReferenceOnBase#NestedCollection].[Id], [e#BaseReferenceOnBase#NestedCollection].[Discriminator], [e#BaseReferenceOnBase#NestedCollection].[Name], [e#BaseReferenceOnBase#NestedCollection].[ParentCollectionId], [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseReferenceOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [t0].[Id]
+    FROM ([BaseInheritanceRelationshipEntity] AS [e0]
+    LEFT JOIN (
+        SELECT [e#BaseReferenceOnBase0].*
+        FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase0]
+        WHERE [e#BaseReferenceOnBase0].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+    ) AS [t0] ON [e0].[Id] = [t0].[BaseParentId])
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t1] ON [e#BaseReferenceOnBase#NestedCollection].[ParentReferenceId] = [t1].[Id])
+WHERE [e#BaseReferenceOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_with_filter() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnBase].[Id], [e#ReferenceOnBase].[Name], [e#ReferenceOnBase].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnBase] AS [e#ReferenceOnBase] ON [e].[Id] = [e#ReferenceOnBase].[ParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_with_filter() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#CollectionOnBase].[Id], [e#CollectionOnBase].[Name], [e#CollectionOnBase].[ParentId]
+FROM ([CollectionOnBase] AS [e#CollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e0].[Name] <> 'Bar') OR [e0].[Name] IS NULL)
+) AS [t] ON [e#CollectionOnBase].[ParentId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [e#ReferenceOnDerived].[Id], [e#ReferenceOnDerived].[Name], [e#ReferenceOnDerived].[ParentId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN [ReferenceOnDerived] AS [e#ReferenceOnDerived] ON [e].[Id] = [e#ReferenceOnDerived].[ParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#BaseReferenceOnDerived]
+    WHERE [e#BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_self_refence_with_inheritence_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseSelfRerefenceOnDerived].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseSelfRerefenceOnDerived]
+    WHERE [e#BaseSelfRerefenceOnDerived].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseId] = [t].[Id])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([CollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter4() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#DerivedReferenceOnDerived]
+    WHERE [e#DerivedReferenceOnDerived].[Discriminator] = 'DerivedReferenceOnDerived'
+) AS [t] ON [e].[Id] = [t].[DerivedInheritanceRelationshipEntityId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_collection_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedProperty], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedCollectionBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentCollection].*
+    FROM [BaseCollectionOnBase] AS [e#ParentCollection]
+    WHERE [e#ParentCollection].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t] ON [e].[ParentCollectionId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentCollection#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentCollection#BaseParent]
+    WHERE [e#ParentCollection#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_without_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([ReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived4() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedReferenceOnDerived].*
+    FROM [BaseReferenceOnDerived] AS [e#DerivedReferenceOnDerived]
+    WHERE [e#DerivedReferenceOnDerived].[Discriminator] = 'DerivedReferenceOnDerived'
+) AS [t] ON [e].[Id] = [t].[DerivedInheritanceRelationshipEntityId])
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived2() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnDerived].[Id], [e#BaseCollectionOnDerived].[Discriminator], [e#BaseCollectionOnDerived].[Name], [e#BaseCollectionOnDerived].[ParentId], [e#BaseCollectionOnDerived].[DerivedInheritanceRelationshipEntityId]
+FROM ([BaseCollectionOnDerived] AS [e#BaseCollectionOnDerived]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e#BaseCollectionOnDerived].[ParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnDerived].[Discriminator] IN ('DerivedCollectionOnDerived', 'BaseCollectionOnDerived')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e0].[Name] <> 'Bar') OR [e0].[Name] IS NULL)
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_collection_reference_on_non_entity_base() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name]
+FROM [ReferencedEntity] AS [e]
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#Principals].[Id], [e#Principals].[Name], [e#Principals].[ReferenceId], [e#Principals].[ReferencedEntityId], [p#Reference].[Id], [p#Reference].[Name]
+FROM (([PrincipalEntity] AS [e#Principals]
+LEFT JOIN [ReferencedEntity] AS [p#Reference] ON [e#Principals].[ReferenceId] = [p#Reference].[Id])
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [ReferencedEntity] AS [e0]
+) AS [t] ON [e#Principals].[ReferencedEntityId] = [t].[Id])
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_with_filter1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseReferenceOnBase].*
+    FROM [BaseReferenceOnBase] AS [e#BaseReferenceOnBase]
+    WHERE [e#BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
+) AS [t] ON [e].[Id] = [t].[BaseParentId])
+WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentId], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseCollectionOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedCollectionOnDerived', 'BaseCollectionOnDerived')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_self_refence_with_inheritence() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseInheritanceRelationshipEntity] AS [e]
+LEFT JOIN (
+    SELECT [e#DerivedSefReferenceOnBase].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#DerivedSefReferenceOnBase]
+    WHERE [e#DerivedSefReferenceOnBase].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[Id] = [t].[BaseId])
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_reference_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[ParentCollectionId], [e].[ParentReferenceId], [t].[Id], [t].[BaseParentId], [t].[Discriminator], [t].[Name], [t].[DerivedProperty], [t0].[Id], [t0].[Discriminator], [t0].[Name], [t0].[BaseId]
+FROM (([NestedReferenceBase] AS [e]
+LEFT JOIN (
+    SELECT [e#ParentCollection].*
+    FROM [BaseCollectionOnBase] AS [e#ParentCollection]
+    WHERE [e#ParentCollection].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t] ON [e].[ParentCollectionId] = [t].[Id])
+LEFT JOIN (
+    SELECT [e#ParentCollection#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#ParentCollection#BaseParent]
+    WHERE [e#ParentCollection#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [t].[BaseParentId] = [t0].[Id])
+WHERE [e].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_with_inheritance1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_on_derived_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [e].[DerivedInheritanceRelationshipEntityId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnDerived] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] = 'DerivedInheritanceRelationshipEntity'
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_reference_with_inheritance_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[BaseParentId], [e].[Discriminator], [e].[Name], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([BaseReferenceOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#BaseParent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#BaseParent]
+    WHERE [e#BaseParent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[BaseParentId] = [t].[Id])
+WHERE [e].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Include_collection_without_inheritance_with_filter_reverse() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Name], [e].[ParentId], [t].[Id], [t].[Discriminator], [t].[Name], [t].[BaseId]
+FROM ([CollectionOnBase] AS [e]
+LEFT JOIN (
+    SELECT [e#Parent].*
+    FROM [BaseInheritanceRelationshipEntity] AS [e#Parent]
+    WHERE [e#Parent].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e].[ParentId] = [t].[Id])
+WHERE ([e].[Name] <> 'Bar') OR [e].[Name] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_reference1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty], [t].[Id], [t].[Discriminator], [t].[Name], [t].[ParentCollectionId], [t].[ParentReferenceId]
+FROM (([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+LEFT JOIN (
+    SELECT [b#NestedReference].*
+    FROM [NestedReferenceBase] AS [b#NestedReference]
+    WHERE [b#NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
+) AS [t] ON [e#BaseCollectionOnBase].[Id] = [t].[ParentCollectionId])
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t0] ON [e#BaseCollectionOnBase].[BaseParentId] = [t0].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t0].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.InheritanceRelationshipsQueryJetTest.Nested_include_with_inheritance_collection_collection1() : 
+            AssertSql(
+                @"SELECT [e].[Id], [e].[Discriminator], [e].[Name], [e].[BaseId]
+FROM [BaseInheritanceRelationshipEntity] AS [e]
+WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+ORDER BY [e].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase].[Id], [e#BaseCollectionOnBase].[BaseParentId], [e#BaseCollectionOnBase].[Discriminator], [e#BaseCollectionOnBase].[Name], [e#BaseCollectionOnBase].[DerivedProperty]
+FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase]
+INNER JOIN (
+    SELECT [e0].[Id]
+    FROM [BaseInheritanceRelationshipEntity] AS [e0]
+    WHERE [e0].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id])
+WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+ORDER BY [t].[Id], [e#BaseCollectionOnBase].[Id]",
+                //
+                @"SELECT [e#BaseCollectionOnBase#NestedCollection].[Id], [e#BaseCollectionOnBase#NestedCollection].[Discriminator], [e#BaseCollectionOnBase#NestedCollection].[Name], [e#BaseCollectionOnBase#NestedCollection].[ParentCollectionId], [e#BaseCollectionOnBase#NestedCollection].[ParentReferenceId]
+FROM ([NestedCollectionBase] AS [e#BaseCollectionOnBase#NestedCollection]
+INNER JOIN (
+    SELECT DISTINCT [e#BaseCollectionOnBase0].[Id], [t0].[Id] AS [Id0]
+    FROM ([BaseCollectionOnBase] AS [e#BaseCollectionOnBase0]
+    INNER JOIN (
+        SELECT [e1].[Id]
+        FROM [BaseInheritanceRelationshipEntity] AS [e1]
+        WHERE [e1].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')
+    ) AS [t0] ON [e#BaseCollectionOnBase0].[BaseParentId] = [t0].[Id])
+    WHERE [e#BaseCollectionOnBase0].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
+) AS [t1] ON [e#BaseCollectionOnBase#NestedCollection].[ParentCollectionId] = [t1].[Id])
+WHERE [e#BaseCollectionOnBase#NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
+ORDER BY [t1].[Id0], [t1].[Id]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_1+@__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_1+@__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]
+ORDER BY [c2].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c2#Orders].[OrderID], [c2#Orders].[CustomerID], [c2#Orders].[EmployeeID], [c2#Orders].[OrderDate]
+FROM ([Orders] AS [c2#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c20].[CustomerID]
+    FROM (
+        SELECT TOP @__p_0 [c0].*
+        FROM [Customers] AS [c0]
+        ORDER BY [c0].[CustomerID]
+    ) AS [t0]
+    , [Customers] AS [c20]
+) AS [t1] ON [c2#Orders].[CustomerID] = [t1].[CustomerID])
+ORDER BY [t1].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]
+ORDER BY [c2].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c2#Orders].[OrderID], [c2#Orders].[CustomerID], [c2#Orders].[EmployeeID], [c2#Orders].[OrderDate]
+FROM ([Orders] AS [c2#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c20].[CustomerID]
+    FROM (
+        SELECT TOP @__p_0 [c0].*
+        FROM [Customers] AS [c0]
+        ORDER BY [c0].[CustomerID]
+    ) AS [t0]
+    , [Customers] AS [c20]
+) AS [t1] ON [c2#Orders].[CustomerID] = [t1].[CustomerID])
+ORDER BY [t1].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT [o0].[OrderID]
+    FROM [Orders] AS [o0]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT [o0].[OrderID]
+    FROM [Orders] AS [o0]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM ([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM ([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_order_by_and_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID], [c0].[City]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_order_by_and_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID], [c0].[City]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_then_include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID], [c#Orders].[OrderID]",
+                //
+                @"SELECT [c#Orders#OrderDetails].[OrderID], [c#Orders#OrderDetails].[ProductID], [c#Orders#OrderDetails].[Discount], [c#Orders#OrderDetails].[Quantity], [c#Orders#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [c#Orders#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [c#Orders0].[OrderID], [t0].[CustomerID]
+    FROM ([Orders] AS [c#Orders0]
+    INNER JOIN (
+        SELECT [c1].[CustomerID]
+        FROM [Customers] AS [c1]
+    ) AS [t0] ON [c#Orders0].[CustomerID] = [t0].[CustomerID])
+) AS [t1] ON [c#Orders#OrderDetails].[OrderID] = [t1].[OrderID])
+ORDER BY [t1].[CustomerID], [t1].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_then_include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID], [c#Orders].[OrderID]",
+                //
+                @"SELECT [c#Orders#OrderDetails].[OrderID], [c#Orders#OrderDetails].[ProductID], [c#Orders#OrderDetails].[Discount], [c#Orders#OrderDetails].[Quantity], [c#Orders#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [c#Orders#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [c#Orders0].[OrderID], [t0].[CustomerID]
+    FROM ([Orders] AS [c#Orders0]
+    INNER JOIN (
+        SELECT [c1].[CustomerID]
+        FROM [Customers] AS [c1]
+    ) AS [t0] ON [c#Orders0].[CustomerID] = [t0].[CustomerID])
+) AS [t1] ON [c#Orders#OrderDetails].[OrderID] = [t1].[OrderID])
+ORDER BY [t1].[CustomerID], [t1].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_first_or_default(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_first_or_default(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_and_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [o0].[OrderID]
+    FROM ([Orders] AS [o0]
+    LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_and_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [o0].[OrderID]
+    FROM ([Orders] AS [o0]
+    LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_when_groupby(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_when_groupby(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last_no_orderby(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last_no_orderby(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_list(Boolean useString) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+ORDER BY [p].[ProductID]",
+                //
+                @"SELECT [p#OrderDetails].[OrderID], [p#OrderDetails].[ProductID], [p#OrderDetails].[Discount], [p#OrderDetails].[Quantity], [p#OrderDetails].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [p#OrderDetails]
+INNER JOIN [Orders] AS [o#Order] ON [p#OrderDetails].[OrderID] = [o#Order].[OrderID])
+INNER JOIN (
+    SELECT [p0].[ProductID]
+    FROM [Products] AS [p0]
+) AS [t] ON [p#OrderDetails].[ProductID] = [t].[ProductID])
+ORDER BY [t].[ProductID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_list(Boolean useString) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+ORDER BY [p].[ProductID]",
+                //
+                @"SELECT [p#OrderDetails].[OrderID], [p#OrderDetails].[ProductID], [p#OrderDetails].[Discount], [p#OrderDetails].[Quantity], [p#OrderDetails].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [p#OrderDetails]
+INNER JOIN [Orders] AS [o#Order] ON [p#OrderDetails].[OrderID] = [o#Order].[OrderID])
+INNER JOIN (
+    SELECT [p0].[ProductID]
+    FROM [Products] AS [p0]
+) AS [t] ON [p#OrderDetails].[ProductID] = [t].[ProductID])
+ORDER BY [t].[ProductID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level_reverse(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level_reverse(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_conditional_order_by(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(
+    [c].[CustomerID] LIKE 'S' + '%',
+    1,
+    2
+), [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], IIf(
+        [c0].[CustomerID] LIKE 'S' + '%',
+        1,
+        2
+    ) AS [c]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[c], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_conditional_order_by(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(
+    [c].[CustomerID] LIKE 'S' + '%',
+    1,
+    2
+), [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], IIf(
+        [c0].[CustomerID] LIKE 'S' + '%',
+        1,
+        2
+    ) AS [c]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[c], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_skip(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='80'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName], [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='80'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[ContactName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactName], [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactName], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_skip(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='80'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName], [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='80'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[ContactName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactName], [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactName], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_collection_and_then_include_reference_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] = 10248
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM (([Order Details] AS [o#OrderDetails]
+INNER JOIN [Products] AS [o#Product] ON [o#OrderDetails].[ProductID] = [o#Product].[ProductID])
+INNER JOIN (
+    SELECT TOP 1 [o0].[OrderID]
+    FROM [Orders] AS [o0]
+    WHERE [o0].[OrderID] = 10248
+    ORDER BY [o0].[OrderID]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_collection_and_then_include_reference_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] = 10248
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM (([Order Details] AS [o#OrderDetails]
+INNER JOIN [Products] AS [o#Product] ON [o#OrderDetails].[ProductID] = [o#Product].[ProductID])
+INNER JOIN (
+    SELECT TOP 1 [o0].[OrderID]
+    FROM [Orders] AS [o0]
+    WHERE [o0].[OrderID] = 10248
+    ORDER BY [o0].[OrderID]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_reference_and_collection_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[OrderID] = 10248
+ORDER BY [o#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Customer#Orders].[OrderID], [o#Customer#Orders].[CustomerID], [o#Customer#Orders].[EmployeeID], [o#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [t].*
+    FROM (
+        SELECT TOP 1 [o#Customer0].[CustomerID]
+        FROM ([Orders] AS [o0]
+        LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+        WHERE [o0].[OrderID] = 10248
+        ORDER BY [o#Customer0].[CustomerID]
+    ) AS [t]
+) AS [t0] ON [o#Customer#Orders].[CustomerID] = [t0].[CustomerID])
+ORDER BY [t0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_reference_and_collection_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[OrderID] = 10248
+ORDER BY [o#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Customer#Orders].[OrderID], [o#Customer#Orders].[CustomerID], [o#Customer#Orders].[EmployeeID], [o#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [t].*
+    FROM (
+        SELECT TOP 1 [o#Customer0].[CustomerID]
+        FROM ([Orders] AS [o0]
+        LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+        WHERE [o0].[OrderID] = 10248
+        ORDER BY [o#Customer0].[CustomerID]
+    ) AS [t]
+) AS [t0] ON [o#Customer#Orders].[CustomerID] = [t0].[CustomerID])
+ORDER BY [t0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_and_collection_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+ORDER BY [o#Order#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Order#Customer#Orders].[OrderID], [o#Order#Customer#Orders].[CustomerID], [o#Order#Customer#Orders].[EmployeeID], [o#Order#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Order#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [o#Order#Customer0].[CustomerID]
+    FROM (([Order Details] AS [o0]
+    INNER JOIN [Orders] AS [o#Order0] ON [o0].[OrderID] = [o#Order0].[OrderID])
+    LEFT JOIN [Customers] AS [o#Order#Customer0] ON [o#Order0].[CustomerID] = [o#Order#Customer0].[CustomerID])
+) AS [t] ON [o#Order#Customer#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_and_collection_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+ORDER BY [o#Order#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Order#Customer#Orders].[OrderID], [o#Order#Customer#Orders].[CustomerID], [o#Order#Customer#Orders].[EmployeeID], [o#Order#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Order#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [o#Order#Customer0].[CustomerID]
+    FROM (([Order Details] AS [o0]
+    INNER JOIN [Orders] AS [o#Order0] ON [o0].[OrderID] = [o#Order0].[OrderID])
+    LEFT JOIN [Customers] AS [o#Order#Customer0] ON [o#Order0].[CustomerID] = [o#Order#Customer0].[CustomerID])
+) AS [t] ON [o#Order#Customer#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[ContactTitle]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactTitle], [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactTitle], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[ContactTitle]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactTitle], [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactTitle], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City] DESC, [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[City] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City] DESC, [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[City] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_where_skip_take_projection(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='2'
+@__p_0='1'
+
+SELECT TOP @__p_1+@__p_0 [od#Order].[CustomerID]
+FROM ([Order Details] AS [od]
+INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+WHERE [od].[Quantity] = 10
+ORDER BY [od].[OrderID], [od].[ProductID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_where_skip_take_projection(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='2'
+@__p_0='1'
+
+SELECT TOP @__p_1+@__p_0 [od#Order].[CustomerID]
+FROM ([Order Details] AS [od]
+INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+WHERE [od].[Quantity] = 10
+ORDER BY [od].[OrderID], [od].[ProductID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c1]
+, [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM [Customers] AS [c10]
+    , [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c1]
+, [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM [Customers] AS [c10]
+    , [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_1+@__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_1='5'
+@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_1+@__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]
+ORDER BY [c2].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c2#Orders].[OrderID], [c2#Orders].[CustomerID], [c2#Orders].[EmployeeID], [c2#Orders].[OrderDate]
+FROM ([Orders] AS [c2#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c20].[CustomerID]
+    FROM (
+        SELECT TOP @__p_0 [c0].*
+        FROM [Customers] AS [c0]
+        ORDER BY [c0].[CustomerID]
+    ) AS [t0]
+    , [Customers] AS [c20]
+) AS [t1] ON [c2#Orders].[CustomerID] = [t1].[CustomerID])
+ORDER BY [t1].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].*
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]
+ORDER BY [c2].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c2#Orders].[OrderID], [c2#Orders].[CustomerID], [c2#Orders].[EmployeeID], [c2#Orders].[OrderDate]
+FROM ([Orders] AS [c2#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c20].[CustomerID]
+    FROM (
+        SELECT TOP @__p_0 [c0].*
+        FROM [Customers] AS [c0]
+        ORDER BY [c0].[CustomerID]
+    ) AS [t0]
+    , [Customers] AS [c20]
+) AS [t1] ON [c2#Orders].[CustomerID] = [t1].[CustomerID])
+ORDER BY [t1].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT [o0].[OrderID]
+    FROM [Orders] AS [o0]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT [o0].[OrderID]
+    FROM [Orders] AS [o0]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM ([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_alias_generation(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM ([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_order_by_and_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID], [c0].[City]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_order_by_and_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID], [c0].[City]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_join_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM ([Customers] AS [c]
+INNER JOIN [Orders] AS [o] ON [c].[CustomerID] = [o].[CustomerID])
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM ([Customers] AS [c0]
+    INNER JOIN [Orders] AS [o0] ON [c0].[CustomerID] = [o0].[CustomerID])
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_then_include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID], [c#Orders].[OrderID]",
+                //
+                @"SELECT [c#Orders#OrderDetails].[OrderID], [c#Orders#OrderDetails].[ProductID], [c#Orders#OrderDetails].[Discount], [c#Orders#OrderDetails].[Quantity], [c#Orders#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [c#Orders#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [c#Orders0].[OrderID], [t0].[CustomerID]
+    FROM ([Orders] AS [c#Orders0]
+    INNER JOIN (
+        SELECT [c1].[CustomerID]
+        FROM [Customers] AS [c1]
+    ) AS [t0] ON [c#Orders0].[CustomerID] = [t0].[CustomerID])
+) AS [t1] ON [c#Orders#OrderDetails].[OrderID] = [t1].[OrderID])
+ORDER BY [t1].[CustomerID], [t1].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_then_include_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID], [c#Orders].[OrderID]",
+                //
+                @"SELECT [c#Orders#OrderDetails].[OrderID], [c#Orders#OrderDetails].[ProductID], [c#Orders#OrderDetails].[Discount], [c#Orders#OrderDetails].[Quantity], [c#Orders#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [c#Orders#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [c#Orders0].[OrderID], [t0].[CustomerID]
+    FROM ([Orders] AS [c#Orders0]
+    INNER JOIN (
+        SELECT [c1].[CustomerID]
+        FROM [Customers] AS [c1]
+    ) AS [t0] ON [c#Orders0].[CustomerID] = [t0].[CustomerID])
+) AS [t1] ON [c#Orders#OrderDetails].[OrderID] = [t1].[OrderID])
+ORDER BY [t1].[CustomerID], [t1].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_first_or_default(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_first_or_default(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_take_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter_reordered(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_and_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [o0].[OrderID]
+    FROM ([Orders] AS [o0]
+    LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_and_collection(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice]
+FROM ([Order Details] AS [o#OrderDetails]
+INNER JOIN (
+    SELECT DISTINCT [o0].[OrderID]
+    FROM ([Orders] AS [o0]
+    LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_when_groupby(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_when_groupby(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last_no_orderby(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last_no_orderby(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City], [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked_as_no_tracking(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [o]
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_dependent_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_list(Boolean useString) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+ORDER BY [p].[ProductID]",
+                //
+                @"SELECT [p#OrderDetails].[OrderID], [p#OrderDetails].[ProductID], [p#OrderDetails].[Discount], [p#OrderDetails].[Quantity], [p#OrderDetails].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [p#OrderDetails]
+INNER JOIN [Orders] AS [o#Order] ON [p#OrderDetails].[OrderID] = [o#Order].[OrderID])
+INNER JOIN (
+    SELECT [p0].[ProductID]
+    FROM [Products] AS [p0]
+) AS [t] ON [p#OrderDetails].[ProductID] = [t].[ProductID])
+ORDER BY [t].[ProductID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_list(Boolean useString) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+ORDER BY [p].[ProductID]",
+                //
+                @"SELECT [p#OrderDetails].[OrderID], [p#OrderDetails].[ProductID], [p#OrderDetails].[Discount], [p#OrderDetails].[Quantity], [p#OrderDetails].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate]
+FROM (([Order Details] AS [p#OrderDetails]
+INNER JOIN [Orders] AS [o#Order] ON [p#OrderDetails].[OrderID] = [o#Order].[OrderID])
+INNER JOIN (
+    SELECT [p0].[ProductID]
+    FROM [Products] AS [p0]
+) AS [t] ON [p#OrderDetails].[ProductID] = [t].[ProductID])
+ORDER BY [t].[ProductID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level_reverse(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multiple_references_multi_level_reverse(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM ((([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+INNER JOIN [Products] AS [o#Product] ON [o].[ProductID] = [o#Product].[ProductID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_conditional_order_by(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(
+    [c].[CustomerID] LIKE 'S' + '%',
+    1,
+    2
+), [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], IIf(
+        [c0].[CustomerID] LIKE 'S' + '%',
+        1,
+        2
+    ) AS [c]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[c], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_conditional_order_by(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY IIf(
+    [c].[CustomerID] LIKE 'S' + '%',
+    1,
+    2
+), [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], IIf(
+        [c0].[CustomerID] LIKE 'S' + '%',
+        1,
+        2
+    ) AS [c]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[c], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_key(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_as_no_tracking2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@__p_0='5'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_principal_already_tracked(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'",
+                //
+                @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+    ORDER BY [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_skip(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='80'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName], [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='80'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[ContactName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactName], [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactName], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_skip(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='80'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName], [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='80'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID], [c0].[ContactName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactName], [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactName], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause2(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [t]
+, [Customers] AS [c2]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_collection_and_then_include_reference_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] = 10248
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM (([Order Details] AS [o#OrderDetails]
+INNER JOIN [Products] AS [o#Product] ON [o#OrderDetails].[ProductID] = [o#Product].[ProductID])
+INNER JOIN (
+    SELECT TOP 1 [o0].[OrderID]
+    FROM [Orders] AS [o0]
+    WHERE [o0].[OrderID] = 10248
+    ORDER BY [o0].[OrderID]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_collection_and_then_include_reference_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] = 10248
+ORDER BY [o].[OrderID]",
+                //
+                @"SELECT [o#OrderDetails].[OrderID], [o#OrderDetails].[ProductID], [o#OrderDetails].[Discount], [o#OrderDetails].[Quantity], [o#OrderDetails].[UnitPrice], [o#Product].[ProductID], [o#Product].[Discontinued], [o#Product].[ProductName], [o#Product].[UnitPrice], [o#Product].[UnitsInStock]
+FROM (([Order Details] AS [o#OrderDetails]
+INNER JOIN [Products] AS [o#Product] ON [o#OrderDetails].[ProductID] = [o#Product].[ProductID])
+INNER JOIN (
+    SELECT TOP 1 [o0].[OrderID]
+    FROM [Orders] AS [o0]
+    WHERE [o0].[OrderID] = 10248
+    ORDER BY [o0].[OrderID]
+) AS [t] ON [o#OrderDetails].[OrderID] = [t].[OrderID])
+ORDER BY [t].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_reference_and_collection_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[OrderID] = 10248
+ORDER BY [o#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Customer#Orders].[OrderID], [o#Customer#Orders].[CustomerID], [o#Customer#Orders].[EmployeeID], [o#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [t].*
+    FROM (
+        SELECT TOP 1 [o#Customer0].[CustomerID]
+        FROM ([Orders] AS [o0]
+        LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+        WHERE [o0].[OrderID] = 10248
+        ORDER BY [o#Customer0].[CustomerID]
+    ) AS [t]
+) AS [t0] ON [o#Customer#Orders].[CustomerID] = [t0].[CustomerID])
+ORDER BY [t0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_multi_level_reference_and_collection_predicate(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 2 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])
+WHERE [o].[OrderID] = 10248
+ORDER BY [o#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Customer#Orders].[OrderID], [o#Customer#Orders].[CustomerID], [o#Customer#Orders].[EmployeeID], [o#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [t].*
+    FROM (
+        SELECT TOP 1 [o#Customer0].[CustomerID]
+        FROM ([Orders] AS [o0]
+        LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])
+        WHERE [o0].[OrderID] = 10248
+        ORDER BY [o#Customer0].[CustomerID]
+    ) AS [t]
+) AS [t0] ON [o#Customer#Orders].[CustomerID] = [t0].[CustomerID])
+ORDER BY [t0].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_reference(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o#Customer].[CustomerID], [o#Customer].[Address], [o#Customer].[City], [o#Customer].[CompanyName], [o#Customer].[ContactName], [o#Customer].[ContactTitle], [o#Customer].[Country], [o#Customer].[Fax], [o#Customer].[Phone], [o#Customer].[PostalCode], [o#Customer].[Region]
+FROM ([Orders] AS [o]
+LEFT JOIN [Customers] AS [o#Customer] ON [o].[CustomerID] = [o#Customer].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_and_collection_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+ORDER BY [o#Order#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Order#Customer#Orders].[OrderID], [o#Order#Customer#Orders].[CustomerID], [o#Order#Customer#Orders].[EmployeeID], [o#Order#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Order#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [o#Order#Customer0].[CustomerID]
+    FROM (([Order Details] AS [o0]
+    INNER JOIN [Orders] AS [o#Order0] ON [o0].[OrderID] = [o#Order0].[OrderID])
+    LEFT JOIN [Customers] AS [o#Order#Customer0] ON [o#Order0].[CustomerID] = [o#Order#Customer0].[CustomerID])
+) AS [t] ON [o#Order#Customer#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_references_and_collection_multi_level(Boolean useString) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice], [o#Order].[OrderID], [o#Order].[CustomerID], [o#Order].[EmployeeID], [o#Order].[OrderDate], [o#Order#Customer].[CustomerID], [o#Order#Customer].[Address], [o#Order#Customer].[City], [o#Order#Customer].[CompanyName], [o#Order#Customer].[ContactName], [o#Order#Customer].[ContactTitle], [o#Order#Customer].[Country], [o#Order#Customer].[Fax], [o#Order#Customer].[Phone], [o#Order#Customer].[PostalCode], [o#Order#Customer].[Region]
+FROM (([Order Details] AS [o]
+INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID])
+LEFT JOIN [Customers] AS [o#Order#Customer] ON [o#Order].[CustomerID] = [o#Order#Customer].[CustomerID])
+ORDER BY [o#Order#Customer].[CustomerID]",
+                //
+                @"SELECT [o#Order#Customer#Orders].[OrderID], [o#Order#Customer#Orders].[CustomerID], [o#Order#Customer#Orders].[EmployeeID], [o#Order#Customer#Orders].[OrderDate]
+FROM ([Orders] AS [o#Order#Customer#Orders]
+INNER JOIN (
+    SELECT DISTINCT [o#Order#Customer0].[CustomerID]
+    FROM (([Order Details] AS [o0]
+    INNER JOIN [Orders] AS [o#Order0] ON [o0].[OrderID] = [o#Order0].[OrderID])
+    LEFT JOIN [Customers] AS [o#Order#Customer0] ON [o#Order0].[CustomerID] = [o#Order#Customer0].[CustomerID])
+) AS [t] ON [o#Order#Customer#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[ContactTitle]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactTitle], [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactTitle], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_order_by_non_key_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[ContactTitle]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[ContactTitle], [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[ContactTitle], [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_with_last(Boolean useString) : 
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CompanyName] DESC, [c].[CustomerID] DESC",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP 1 [c0].[CustomerID], [c0].[CompanyName]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CompanyName] DESC, [c0].[CustomerID] DESC
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CompanyName] DESC, [t].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City] DESC, [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[City] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_with_take(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[City] DESC, [c].[CustomerID]",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT TOP @__p_0 [c0].[CustomerID], [c0].[City]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[City] DESC, [c0].[CustomerID]
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[City] DESC, [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_where_skip_take_projection(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='2'
+@__p_0='1'
+
+SELECT TOP @__p_1+@__p_0 [od#Order].[CustomerID]
+FROM ([Order Details] AS [od]
+INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+WHERE [od].[Quantity] = 10
+ORDER BY [od].[OrderID], [od].[ProductID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_where_skip_take_projection(Boolean useString) : 
+            AssertSql(
+                @"@__p_1='2'
+@__p_0='1'
+
+SELECT TOP @__p_1+@__p_0 [od#Order].[CustomerID]
+FROM ([Order Details] AS [od]
+INNER JOIN [Orders] AS [od#Order] ON [od].[OrderID] = [od#Order].[OrderID])
+WHERE [od].[Quantity] = 10
+ORDER BY [od].[OrderID], [od].[ProductID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_skip_no_order_by(Boolean useString) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0",
+                //
+                @"@__p_0='10'
+
+SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT [c0].[CustomerID]
+    FROM [Customers] AS [c0]
+    ORDER BY [c0].[CustomerID]
+     SKIP @__p_0
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c1]
+, [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM [Customers] AS [c10]
+    , [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.IncludeJetTest.Include_collection_on_additional_from_clause_with_filter(Boolean useString) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c1]
+, [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [c#Orders].[OrderID], [c#Orders].[CustomerID], [c#Orders].[EmployeeID], [c#Orders].[OrderDate]
+FROM ([Orders] AS [c#Orders]
+INNER JOIN (
+    SELECT DISTINCT [c0].[CustomerID]
+    FROM [Customers] AS [c10]
+    , [Customers] AS [c0]
+    WHERE [c0].[CustomerID] = 'ALFKI'
+) AS [t] ON [c#Orders].[CustomerID] = [t].[CustomerID])
+ORDER BY [t].[CustomerID]");
+
+
+

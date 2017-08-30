@@ -96,6 +96,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
             if (createDatabase)
             {
+                JetConnection.DropDatabase(_connectionString, false);
                 _connection.CreateEmptyDatabase();
                 _connection.Open();
             }

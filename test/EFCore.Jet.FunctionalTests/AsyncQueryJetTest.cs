@@ -175,6 +175,12 @@ namespace EntityFramework.Jet.FunctionalTests
         }
 
         [Fact(Skip = "Unsupported by JET: SKIP TAKE DISTINCT")]
+        public override Task Skip_Distinct()
+        {
+            return base.Skip_Distinct();
+        }
+
+        [Fact(Skip = "Unsupported by JET: SKIP TAKE DISTINCT")]
         public override Task Take_Skip_Distinct()
         {
             return base.Take_Skip_Distinct();

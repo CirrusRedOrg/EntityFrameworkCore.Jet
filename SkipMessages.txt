@@ -14,3 +14,4 @@
 [Fact(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
 [Fact(Skip = "Unsupported by JET: JOIN with unsupported ON PREDICATE")]
 [Fact(Skip = "Unsupported by JET: operators on IMAGE and TEXT data types are not supported")]
+[Fact(Skip = "Unsupported by JET: Data type unsupported")]

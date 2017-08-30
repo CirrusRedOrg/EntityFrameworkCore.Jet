@@ -32,7 +32,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseJet(JetConnection.GetConnectionString("BloggingNoIdentity.sdf"));
+                optionsBuilder.UseJet(JetConnection.GetConnectionString("BloggingNoIdentity.accdb"));
             }
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -37,6 +37,57 @@ namespace EntityFrameworkCore.Jet.Migrations
             _migrationsAnnotations = migrationsAnnotations;
         }
 
+
+        /// <summary>
+        ///     Generates a SQL fragment for a foreign key constraint of an <see cref="AddForeignKeyOperation" />.
+        /// </summary>
+        /// <param name="operation"> The operation. </param>
+        /// <param name="model"> The target model which may be <c>null</c> if the operations exist without a model. </param>
+        /// <param name="builder"> The command builder to use to add the SQL fragment. </param>
+        protected override void ForeignKeyConstraint(
+            AddForeignKeyOperation operation,
+            IModel model,
+            MigrationCommandListBuilder builder)
+        {
+            Check.NotNull(operation, nameof(operation));
+            Check.NotNull(builder, nameof(builder));
+
+            if (operation.Name != null)
+            {
+                builder
+                    .Append("CONSTRAINT ")
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(TruncateName(operation.Name)))
+                    .Append(" ");
+            }
+
+            builder
+                .Append("FOREIGN KEY (")
+                .Append(ColumnList(operation.Columns))
+                .Append(") REFERENCES ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.PrincipalTable, operation.PrincipalSchema));
+
+            if (operation.PrincipalColumns != null)
+            {
+                builder
+                    .Append(" (")
+                    .Append(ColumnList(operation.PrincipalColumns))
+                    .Append(")");
+            }
+
+            if (operation.OnUpdate != ReferentialAction.NoAction)
+            {
+                builder.Append(" ON UPDATE ");
+                ForeignKeyAction(operation.OnUpdate, builder);
+            }
+
+            if (operation.OnDelete != ReferentialAction.NoAction)
+            {
+                builder.Append(" ON DELETE ");
+                ForeignKeyAction(operation.OnDelete, builder);
+            }
+        }
+
+
         public override IReadOnlyList<MigrationCommand> Generate(IReadOnlyList<MigrationOperation> operations, IModel model)
         {
             _operations = operations;
@@ -289,9 +340,9 @@ namespace EntityFrameworkCore.Jet.Migrations
             qualifiedName
                 .Append(operation.Table)
                 .Append(".")
-                .Append(operation.Name);
+                .Append(TruncateName(operation.Name));
 
-            Rename(qualifiedName.ToString(), operation.NewName, "INDEX", builder);
+            Rename(qualifiedName.ToString(), TruncateName(operation.NewName), "INDEX", builder);
             builder.EndCommand(suppressTransaction: IsMemoryOptimized(operation, model, operation.Schema, operation.Table));
         }
 
@@ -404,63 +455,42 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            var nullableColumns = operation.Columns
-                .Where(
-                    c =>
-                        {
-                            var property = FindProperty(model, operation.Schema, operation.Table, c);
+            Check.NotNull(operation, nameof(operation));
+            Check.NotNull(builder, nameof(builder));
 
-                            return property == null // Couldn't bind column to property
-                                   || property.IsColumnNullable();
-                        })
-                .ToList();
+            builder.Append("CREATE ");
 
-            var memoryOptimized = IsMemoryOptimized(operation, model, operation.Schema, operation.Table);
-            if (memoryOptimized)
+            if (operation.IsUnique)
             {
-                builder.Append("ALTER TABLE ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                    .Append(" ADD INDEX ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                    .Append(" ");
-
-                if (operation.IsUnique
-                    && nullableColumns.Count == 0)
-                {
-                    builder.Append("UNIQUE ");
-                }
-
-                IndexTraits(operation, model, builder);
-
-                builder
-                    .Append("(")
-                    .Append(ColumnList(operation.Columns))
-                    .Append(")");
+                builder.Append("UNIQUE ");
             }
-            else
+
+            IndexTraits(operation, model, builder);
+
+            builder
+                .Append("INDEX ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(TruncateName(operation.Name)))
+                .Append(" ON ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
+                .Append(" (")
+                .Append(ColumnList(operation.Columns))
+                .Append(")");
+
+            if (!string.IsNullOrEmpty(operation.Filter))
             {
-                base.Generate(operation, model, builder, terminate: false);
+                builder
+                    .Append(" WHERE ")
+                    .Append(operation.Filter);
             }
 
             if (terminate)
             {
-                builder
-                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                    .EndCommand(suppressTransaction: memoryOptimized);
+                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+                EndStatement(builder);
             }
+
         }
 
-        protected override void Generate(
-            DropPrimaryKeyOperation operation,
-            IModel model,
-            MigrationCommandListBuilder builder)
-        {
-            base.Generate(operation, model, builder, terminate: false);
-
-            builder
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand(suppressTransaction: IsMemoryOptimized(operation, model, operation.Schema, operation.Table));
-        }
 
         protected override void Generate(EnsureSchemaOperation operation, IModel model, MigrationCommandListBuilder builder)
         {
@@ -644,7 +674,14 @@ namespace EntityFrameworkCore.Jet.Migrations
 
         protected override void Generate(DropForeignKeyOperation operation, IModel model, MigrationCommandListBuilder builder)
         {
-            base.Generate(operation, model, builder, terminate: false);
+            Check.NotNull(operation, nameof(operation));
+            Check.NotNull(builder, nameof(builder));
+
+            builder
+                .Append("ALTER TABLE ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
+                .Append(" DROP CONSTRAINT ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(TruncateName(operation.Name)));
 
             builder
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
@@ -666,29 +703,17 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            var memoryOptimized = IsMemoryOptimized(operation, model, operation.Schema, operation.Table);
-            if (memoryOptimized)
-            {
-                builder
-                    .Append("ALTER TABLE ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
-                    .Append(" DROP INDEX ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name));
-            }
-            else
-            {
-                builder
-                    .Append("DROP INDEX ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                    .Append(" ON ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema));
-            }
+            builder
+                .Append("DROP INDEX ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(TruncateName(operation.Name)))
+                .Append(" ON ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema));
 
             if (terminate)
             {
                 builder
                     .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                    .EndCommand(suppressTransaction: memoryOptimized);
+                    .EndCommand();
             }
         }
 
@@ -1160,5 +1185,16 @@ namespace EntityFrameworkCore.Jet.Migrations
 
         private static bool IsMemoryOptimized(Annotatable annotatable)
             => annotatable[JetAnnotationNames.MemoryOptimized] as bool? == true;
+
+        private string TruncateName(string operationName)
+        {
+            if (operationName.Length <= 64)
+                return operationName;
+
+            return operationName.Substring(0, 56) + operationName.GetHashCode().ToString("X8");
+        }
+
+
+
     }
 }

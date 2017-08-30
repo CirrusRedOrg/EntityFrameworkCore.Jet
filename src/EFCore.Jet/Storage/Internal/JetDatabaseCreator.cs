@@ -55,30 +55,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override Task CreateAsync(CancellationToken cancellationToken = default(CancellationToken))
-        {
-            Create();
-            return Task.CompletedTask;
-        }
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         protected override bool HasTables()
         {
             using (var dataReader = Dependencies.ExecutionStrategyFactory.Create()
                 .Execute(_connection, connection => CreateShowUserTablesCommand().ExecuteReader(connection)))
                 return dataReader.DbDataReader.HasRows;
-        }
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        protected override Task<bool> HasTablesAsync(CancellationToken cancellationToken = default(CancellationToken))
-        {
-            return new Task<bool>(HasTables);
         }
 
         private IRelationalCommand CreateShowUserTablesCommand()
@@ -107,16 +88,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override Task<bool> ExistsAsync(CancellationToken cancellationToken = default(CancellationToken))
-        {
-            return new Task<bool>(Exists);
-        }
-
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public override void Delete()
         {
             ClearAllPools();
@@ -126,19 +97,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 Dependencies.MigrationCommandExecutor
                     .ExecuteNonQuery(CreateDropCommands(), emptyConnection);
             }
-        }
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public override Task DeleteAsync(CancellationToken cancellationToken = default(CancellationToken))
-        {
-            ClearAllPools();
-
-            Delete();
-
-            return Task.CompletedTask;
         }
 
         // ReSharper disable once UnusedMember.Local

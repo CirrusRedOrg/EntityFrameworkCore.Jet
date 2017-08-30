@@ -135,6 +135,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AsNoTrackingJetTest.cs" />
+    <Compile Include="AssertSqlHelper.cs" />
     <Compile Include="AsyncFromSqlQueryJetTest.cs" />
     <Compile Include="AsyncQueryJetTest.cs" />
     <Compile Include="BasicEndToEndScenarioForNoIdentity.cs" />

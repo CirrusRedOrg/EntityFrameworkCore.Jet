@@ -3885,16 +3885,6 @@ FROM [Customers] AS [c2]
 WHERE [c2].[CustomerID] = @_outer_CustomerID1");
         }
 
-        public override void Query_expression_with_to_string_and_contains()
-        {
-            base.Query_expression_with_to_string_and_contains();
-
-            AssertSql(
-                @"SELECT [o].[CustomerID]
-FROM [Orders] AS [o]
-WHERE [o].[OrderDate] IS NOT NULL AND (Instr(1, Str([o].[EmployeeID]), '10', 0) > 0)");
-        }
-
         public override void ToString_with_formatter_is_evaluated_on_the_client()
         {
             base.ToString_with_formatter_is_evaluated_on_the_client();

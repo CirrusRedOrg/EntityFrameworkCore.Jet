@@ -79,7 +79,10 @@ namespace EntityFramework.Jet.FunctionalTests
             CreateShared(typeof(JetTestStore).Name + _name,
                 () =>
                 {
-                    initializeDatabase?.Invoke();
+                    if (!Exists())
+                    {
+                        initializeDatabase?.Invoke();
+                    }
                 });
 
             return this;

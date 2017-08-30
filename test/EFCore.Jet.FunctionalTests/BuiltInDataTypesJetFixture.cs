@@ -60,8 +60,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 b.Ignore(dt => dt.TestCharacter);
                 b.Ignore(dt => dt.TestSignedByte);
                 b.Ignore(dt => dt.TestDateTimeOffset);
-                b.Ignore(dt => dt.TestTimeSpan);
-                b.Property(dt => dt.TestDecimal).HasColumnType("decimal(18,2)");
             });
 
             modelBuilder.Entity<BuiltInNullableDataTypes>(b =>
@@ -72,13 +70,13 @@ namespace EntityFramework.Jet.FunctionalTests
                 b.Ignore(dt => dt.TestNullableCharacter);
                 b.Ignore(dt => dt.TestNullableSignedByte);
                 b.Ignore(dt => dt.TestNullableDateTimeOffset);
-                b.Ignore(dt => dt.TestNullableTimeSpan);
             });
 
             modelBuilder.Entity<MappedDataTypes>(b =>
             {
                 b.HasKey(e => e.Int);
                 b.Property(e => e.Int).ValueGeneratedNever();
+                b.Ignore(_ => _.Ntext);
             });
 
             modelBuilder.Entity<MappedNullableDataTypes>(b =>
@@ -86,6 +84,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 b.HasKey(e => e.Int);
                 b.Property(e => e.Int)
                     .ValueGeneratedNever();
+                b.Ignore(_ => _.Smallint);
             });
 
             modelBuilder.Entity<MappedSizedDataTypes>()
@@ -138,7 +137,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 if (typeName.EndsWith("Max") && (typeName.StartsWith("N")))
                 {
-                    typeName = "ntext";
+                    typeName = "text";
                 }
 
                 if (typeName.EndsWith("Max") && (typeName.StartsWith("V") || typeName.StartsWith("B")))
@@ -184,9 +183,7 @@ namespace EntityFramework.Jet.FunctionalTests
     public class MappedDataTypes
     {
         public int Int { get; set; }
-        public long Bigint { get; set; }
-        public short Smallint { get; set; }
-        public byte Tinyint { get; set; }
+        public byte Byte { get; set; }
         public bool Bit { get; set; }
         public decimal Money { get; set; }
         public double Float { get; set; }
@@ -235,9 +232,8 @@ namespace EntityFramework.Jet.FunctionalTests
     public class MappedNullableDataTypes
     {
         public int? Int { get; set; }
-        public long? Bigint { get; set; }
         public short? Smallint { get; set; }
-        public byte? Tinyint { get; set; }
+        public byte? Byte { get; set; }
         public bool? Bit { get; set; }
         public decimal? Money { get; set; }
         public double? Float { get; set; }
@@ -246,7 +242,6 @@ namespace EntityFramework.Jet.FunctionalTests
         public string NvarcharMax { get; set; }
         public string National_char_varyingMax { get; set; }
         public string National_character_varyingMax { get; set; }
-        public string Ntext { get; set; }
         public byte[] VarbinaryMax { get; set; }
         public byte[] Image { get; set; }
         public decimal? Decimal { get; set; }
@@ -259,9 +254,8 @@ namespace EntityFramework.Jet.FunctionalTests
         public int Id { get; set; }
 
         public int Int { get; set; }
-        public long Bigint { get; set; }
         public short Smallint { get; set; }
-        public byte Tinyint { get; set; }
+        public byte Byte { get; set; }
         public bool Bit { get; set; }
         public decimal Money { get; set; }
         public double Float { get; set; }
@@ -319,9 +313,8 @@ namespace EntityFramework.Jet.FunctionalTests
         public int Id { get; set; }
 
         public int? Int { get; set; }
-        public long? Bigint { get; set; }
         public short? Smallint { get; set; }
-        public byte? Tinyint { get; set; }
+        public byte? Byte { get; set; }
         public bool? Bit { get; set; }
         public decimal? Money { get; set; }
         public double? Float { get; set; }
@@ -337,4 +330,5 @@ namespace EntityFramework.Jet.FunctionalTests
         public decimal? Dec { get; set; }
         public decimal? Numeric { get; set; }
     }
+
 }

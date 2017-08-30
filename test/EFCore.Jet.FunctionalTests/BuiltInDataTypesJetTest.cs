@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 using Xunit;
 
 // ReSharper disable UnusedParameter.Local
@@ -24,16 +23,164 @@ namespace EntityFramework.Jet.FunctionalTests
             fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET")]
         public virtual void Can_perform_query_with_ansi_strings()
         {
             //Can_perform_query_with_ansi_strings(supportsAnsi: false);
         }
 
+        [Fact(Skip = "Unsupported by JET")]
         public override void Can_perform_query_with_max_length()
         {
             //base.Can_perform_query_with_max_length();
         }
+
+        public override void Can_query_using_any_nullable_data_type()
+        {
+            using (var context = CreateContext())
+            {
+                context.Set<BuiltInNullableDataTypes>().Add(
+                    new BuiltInNullableDataTypes
+                    {
+                        Id = 11,
+                        PartitionId = 1,
+                        TestNullableInt16 = -1234,
+                        TestNullableInt32 = -123456789,
+                        TestNullableInt64 = -123456789,
+                        TestNullableDouble = -1.23456789,
+                        TestNullableDecimal = -1234567890.01M,
+                        TestNullableDateTime = Fixture.DefaultDateTime,
+                        TestNullableDateTimeOffset = new DateTimeOffset(new DateTime(), TimeSpan.FromHours(-8.0)),
+                        TestNullableTimeSpan = new TimeSpan(0, 10, 9, 8, 7),
+                        TestNullableSingle = -1.234F,
+                        TestNullableBoolean = true,
+                        TestNullableByte = 255,
+                        TestNullableUnsignedInt16 = 1234,
+                        TestNullableUnsignedInt32 = 1234565789U,
+                        TestNullableUnsignedInt64 = 12345678901234567890UL,
+                        TestNullableCharacter = 'a',
+                        TestNullableSignedByte = -128,
+                        Enum64 = Enum64.SomeValue,
+                        Enum32 = Enum32.SomeValue,
+                        Enum16 = Enum16.SomeValue,
+                        Enum8 = Enum8.SomeValue
+                    });
+
+                Assert.Equal(1, context.SaveChanges());
+            }
+
+            using (var context = CreateContext())
+            {
+                var entity = context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11);
+                var entityType = context.Model.FindEntityType(typeof(BuiltInNullableDataTypes));
+
+                short? param1 = -1234;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableInt16 == param1));
+
+                int? param2 = -123456789;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableInt32 == param2));
+
+                long? param3 = -123456789;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableInt64 == param3));
+
+                double? param4 = -1.23456789;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableDouble == param4));
+
+                decimal? param5 = -1234567890.01M;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableDecimal == param5));
+
+                DateTime? param6 = Fixture.DefaultDateTime;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableDateTime == param6));
+
+                TimeSpan? param8 = new TimeSpan(0, 10, 9, 8, 7);
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableTimeSpan == param8));
+
+                float? param9 = -1.234F;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableSingle == param9));
+
+                bool? param10 = true;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableBoolean == param10));
+
+                Enum64? param12 = Enum64.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.Enum64 == param12));
+
+                Enum32? param13 = Enum32.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.Enum32 == param13));
+
+                Enum16? param14 = Enum16.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.Enum16 == param14));
+
+                Enum8? param15 = Enum8.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.Enum8 == param15));
+            }
+        }
+
+
+        public override void Can_query_with_null_parameters_using_any_nullable_data_type()
+        {
+            using (var context = CreateContext())
+            {
+                context.Set<BuiltInNullableDataTypes>().Add(
+                    new BuiltInNullableDataTypes
+                    {
+                        Id = 711
+                    });
+
+                Assert.Equal(1, context.SaveChanges());
+            }
+
+            using (var context = CreateContext())
+            {
+                var entity = context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711);
+
+                short? param1 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableInt16 == param1));
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && (long?)(int?)e.TestNullableInt16 == param1));
+
+                int? param2 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableInt32 == param2));
+
+                long? param3 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableInt64 == param3));
+
+                double? param4 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableDouble == param4));
+
+                decimal? param5 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableDecimal == param5));
+
+                DateTime? param6 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableDateTime == param6));
+
+                DateTimeOffset? param7 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableDateTimeOffset == param7));
+
+                TimeSpan? param8 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableTimeSpan == param8));
+
+                float? param9 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableSingle == param9));
+
+                byte? param11 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableByte == param11));
+
+                Enum64? param12 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.Enum64 == param12));
+
+                Enum32? param13 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.Enum32 == param13));
+
+                Enum16? param14 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.Enum16 == param14));
+
+                Enum8? param15 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.Enum8 == param15));
+
+                char? param19 = null;
+                Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 711 && e.TestNullableCharacter == param19));
+            }
+        }
+
 
         [Fact]
         public virtual void Can_query_using_any_mapped_data_type()
@@ -44,9 +191,7 @@ namespace EntityFramework.Jet.FunctionalTests
                     new MappedNullableDataTypes
                     {
                         Int = 999,
-                        Bigint = 78L,
                         Smallint = 79,
-                        Tinyint = 80,
                         Bit = true,
                         Money = 81.1m,
                         Float = 83.3,
@@ -55,7 +200,6 @@ namespace EntityFramework.Jet.FunctionalTests
                         NvarcharMax = "don't",
                         National_char_varyingMax = "help",
                         National_character_varyingMax = "anyone!",
-                        Ntext = "Gumball Rules OK!",
                         VarbinaryMax = new byte[] { 89, 90, 91, 92 },
                         Image = new byte[] { 97, 98, 99, 100 },
                         Decimal = 101.7m,
@@ -70,14 +214,10 @@ namespace EntityFramework.Jet.FunctionalTests
             {
                 var entity = context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999);
 
-                long? param1 = 78L;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Bigint == param1));
 
                 short? param2 = 79;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Smallint == param2));
 
-                byte? param3 = 80;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Tinyint == param3));
 
                 bool? param4 = true;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Bit == param4));
@@ -94,27 +234,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 DateTime? param11 = new DateTime(2019, 1, 2, 14, 11, 12);
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Datetime == param11));
 
-                //TODO ErikEJ possible to support compares with ntext?
-                //var param27 = "don't";
-                //Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.NvarcharMax == param27));
-
-                //var param28 = "help";
-                //Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.National_char_varyingMax == param28));
-
-                //var param29 = "anyone!";
-                //Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.National_character_varyingMax == param29));
-
-                //var param35 = new byte[] { 89, 90, 91, 92 };
-                //Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.VarbinaryMax == param35));
-
-                decimal? param38 = 102m;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Decimal == param38));
-
-                decimal? param39 = 103m;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Dec == param39));
-
-                decimal? param40 = 104m;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Numeric == param40));
             }
         }
 
@@ -136,18 +255,9 @@ namespace EntityFramework.Jet.FunctionalTests
             {
                 var entity = context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911);
 
-                long? param1 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Bigint == param1));
-
                 short? param2 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Smallint == param2));
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && (long?)(int?)e.Smallint == param2));
-
-                byte? param3 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Tinyint == param3));
-
-                bool? param4 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Bit == param4));
 
                 decimal? param5 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Money == param5));
@@ -170,9 +280,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 string param29 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.National_character_varyingMax == param29));
 
-                string param31 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Ntext == param31));
-
                 byte[] param35 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.VarbinaryMax == param35));
 
@@ -190,6 +297,104 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
+        public override void Can_query_using_any_data_type()
+        {
+            using (var context = CreateContext())
+            {
+                context.Set<BuiltInDataTypes>().Add(
+                    new BuiltInDataTypes
+                    {
+                        Id = 11,
+                        PartitionId = 1,
+                        TestInt16 = -1234,
+                        TestInt32 = -123456789,
+                        TestInt64 = -123456789,
+                        TestDouble = -1.23456789,
+                        TestDecimal = -1234567890.01M,
+                        TestDateTime = Fixture.DefaultDateTime,
+                        TestDateTimeOffset = new DateTimeOffset(new DateTime(), TimeSpan.FromHours(-8.0)),
+                        TestTimeSpan = new TimeSpan(0, 10, 9, 8, 7),
+                        TestSingle = -1.234F,
+                        TestBoolean = true,
+                        TestByte = 255,
+                        TestUnsignedInt16 = 1234,
+                        TestUnsignedInt32 = 1234565789U,
+                        TestUnsignedInt64 = 12345678901234567890UL,
+                        TestCharacter = 'a',
+                        TestSignedByte = -128,
+                        Enum64 = Enum64.SomeValue,
+                        Enum32 = Enum32.SomeValue,
+                        Enum16 = Enum16.SomeValue,
+                        Enum8 = Enum8.SomeValue
+                    });
+
+                Assert.Equal(1, context.SaveChanges());
+            }
+
+            using (var context = CreateContext())
+            {
+                var entity = context.Set<BuiltInDataTypes>().Single(e => e.Id == 11);
+                var entityType = context.Model.FindEntityType(typeof(BuiltInDataTypes));
+
+                var param1 = (short)-1234;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestInt16 == param1));
+
+                var param2 = -123456789;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestInt32 == param2));
+
+                var param3 = -123456789;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestInt64 == param3));
+
+                var param4 = -1.23456789;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestDouble == param4));
+
+                var param5 = -1234567890.01M;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestDecimal == param5));
+
+                var param6 = Fixture.DefaultDateTime;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestDateTime == param6));
+
+                if (entityType.FindProperty("TestDateTimeOffset") != null)
+                {
+                    var param7 = new DateTimeOffset(new DateTime(), TimeSpan.FromHours(-8.0));
+                    Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestDateTimeOffset == param7));
+                }
+
+                if (entityType.FindProperty("TestTimeSpan") != null)
+                {
+                    var param8 = new TimeSpan(0, 10, 9, 8, 7);
+                    Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestTimeSpan == param8));
+                }
+
+                var param9 = -1.234F;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestSingle == param9));
+
+                var param10 = true;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestBoolean == param10));
+
+                if (entityType.FindProperty("TestByte") != null)
+                {
+                    var param11 = (byte)255;
+                    Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.TestByte == param11));
+                }
+
+                var param12 = Enum64.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.Enum64 == param12));
+
+                var param13 = Enum32.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.Enum32 == param13));
+
+                var param14 = Enum16.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.Enum16 == param14));
+
+
+                var param15 = Enum8.SomeValue;
+                Assert.Same(entity, context.Set<BuiltInDataTypes>().Single(e => e.Id == 11 && e.Enum8 == param15));
+            }
+        }
+
+
+
         [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types()
         {
@@ -200,28 +405,6 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 Assert.Equal(1, context.SaveChanges());
             }
-
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='77'
-@p1='78'
-@p2='True'
-@p3='01/02/2019 14:11:12' (DbType = DateTime)
-@p4='102.2'
-@p5='101.1'
-@p6='83.3'
-@p7='0x61626364' (Nullable = false) (Size = 8000)
-@p8='81.1'
-@p9='help' (Nullable = false)
-@p10='anyone!' (Nullable = false)
-@p11='Gumball Rules OK!' (Nullable = false)
-@p12='103.3'
-@p13='don't' (Nullable = false)
-@p14='84.4'
-@p15='79'
-@p16='80'
-@p17='0x595A5B5C' (Nullable = false) (Size = 8000)",
-                parameters);
 
             using (var context = CreateContext())
             {
@@ -235,11 +418,7 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedDataTypes(MappedDataTypes entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Equal(78, entity.Bigint);
-            Assert.Equal(79, entity.Smallint);
-            Assert.Equal(80, entity.Tinyint);
             Assert.Equal(true, entity.Bit);
-            Assert.Equal(81.1m, entity.Money);
             Assert.Equal(83.3, entity.Float);
             Assert.Equal(84.4f, entity.Real);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.Datetime);
@@ -258,9 +437,6 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedDataTypes
             {
                 Int = id,
-                Bigint = 78L,
-                Smallint = 79,
-                Tinyint = 80,
                 Bit = true,
                 Money = 81.1m,
                 Float = 83.3,
@@ -272,9 +448,9 @@ namespace EntityFramework.Jet.FunctionalTests
                 Ntext = "Gumball Rules OK!",
                 VarbinaryMax = new byte[] { 89, 90, 91, 92 },
                 Image = new byte[] { 97, 98, 99, 100 },
-                Decimal = 101.1m,
-                Dec = 102.2m,
-                Numeric = 103.3m
+                Decimal = 101m,
+                Dec = 102m,
+                Numeric = 103m
             };
 
         [Fact]
@@ -288,27 +464,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='77'
-@p1='78' (Nullable = true)
-@p2='True' (Nullable = true)
-@p3='01/02/2019 14:11:12' (Nullable = true) (DbType = DateTime)
-@p4='102.2' (Nullable = true)
-@p5='101.1' (Nullable = true)
-@p6='83.3' (Nullable = true)
-@p7='0x61626364' (Size = 8000)
-@p8='81.1' (Nullable = true)
-@p9='help'
-@p10='anyone!'
-@p11='Gumball Rules OK!'
-@p12='103.3' (Nullable = true)
-@p13='don't'
-@p14='84.4' (Nullable = true)
-@p15='79' (Nullable = true)
-@p16='80' (Nullable = true)
-@p17='0x595A5B5C' (Size = 8000)",
-                parameters);
 
             using (var context = CreateContext())
             {
@@ -319,18 +474,15 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedNullableDataTypes(MappedNullableDataTypes entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Equal(78, entity.Bigint);
             Assert.Equal(79, entity.Smallint.Value);
-            Assert.Equal(80, entity.Tinyint.Value);
             Assert.Equal(true, entity.Bit);
-            Assert.Equal(81.1m, entity.Money);
-            Assert.Equal(83.3, entity.Float);
-            Assert.Equal(84.4f, entity.Real);
+            Assert.Equal(81m, entity.Money);
+            Assert.Equal(83, entity.Float);
+            Assert.Equal(84f, entity.Real);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.Datetime);
             Assert.Equal("don't", entity.NvarcharMax);
             Assert.Equal("help", entity.National_char_varyingMax);
             Assert.Equal("anyone!", entity.National_character_varyingMax);
-            Assert.Equal("Gumball Rules OK!", entity.Ntext);
             Assert.Equal(new byte[] { 89, 90, 91, 92 }, entity.VarbinaryMax);
             Assert.Equal(new byte[] { 97, 98, 99, 100 }, entity.Image);
             Assert.Equal(101m, entity.Decimal);
@@ -342,23 +494,20 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedNullableDataTypes
             {
                 Int = id,
-                Bigint = 78L,
                 Smallint = 79,
-                Tinyint = 80,
                 Bit = true,
-                Money = 81.1m,
-                Float = 83.3,
-                Real = 84.4f,
+                Money = 81m,
+                Float = 83,
+                Real = 84f,
                 Datetime = new DateTime(2019, 1, 2, 14, 11, 12),
                 NvarcharMax = "don't",
                 National_char_varyingMax = "help",
                 National_character_varyingMax = "anyone!",
-                Ntext = "Gumball Rules OK!",
                 VarbinaryMax = new byte[] { 89, 90, 91, 92 },
                 Image = new byte[] { 97, 98, 99, 100 },
-                Decimal = 101.1m,
-                Dec = 102.2m,
-                Numeric = 103.3m
+                Decimal = 101m,
+                Dec = 102m,
+                Numeric = 103m
             };
 
         [Fact]
@@ -372,28 +521,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='78'
-@p1='' (DbType = Int64)
-@p2='' (DbType = Boolean)
-@p3='' (DbType = DateTime)
-@p4='' (DbType = Decimal)
-@p5='' (DbType = Decimal)
-@p6='' (DbType = Double)
-@p7='' (Size = 8000) (DbType = Binary)
-@p8='' (DbType = Decimal)
-@p9='' (DbType = String)
-@p10='' (DbType = String)
-@p11='' (DbType = String)
-@p12='' (DbType = Decimal)
-@p13='' (DbType = String)
-@p14='' (DbType = Single)
-@p15='' (DbType = Int16)
-@p16='' (DbType = Byte)
-@p17='' (Size = 8000) (DbType = Binary)",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertNullMappedNullableDataTypes(context.Set<MappedNullableDataTypes>().Single(e => e.Int == 78), 78);
@@ -403,10 +530,7 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertNullMappedNullableDataTypes(MappedNullableDataTypes entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Null(entity.Bigint);
             Assert.Null(entity.Smallint);
-            Assert.Null(entity.Tinyint);
-            Assert.Null(entity.Bit);
             Assert.Null(entity.Money);
             Assert.Null(entity.Float);
             Assert.Null(entity.Real);
@@ -414,7 +538,6 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.NvarcharMax);
             Assert.Null(entity.National_char_varyingMax);
             Assert.Null(entity.National_character_varyingMax);
-            Assert.Null(entity.Ntext);
             Assert.Null(entity.VarbinaryMax);
             Assert.Null(entity.Image);
             Assert.Null(entity.Decimal);
@@ -432,18 +555,6 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 Assert.Equal(1, context.SaveChanges());
             }
-
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='77'
-@p1='0x0A0B0C' (Size = 3)
-@p2='The' (Size = 3)
-@p3='Squ' (Size = 3) (DbType = StringFixedLength)
-@p4='Col' (Size = 3)
-@p5='Won' (Size = 3) (DbType = StringFixedLength)
-@p6='Int' (Size = 3)
-@p7='0x0B0C0D' (Size = 3)",
-                parameters);
 
             using (var context = CreateContext())
             {
@@ -487,18 +598,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='78'
-@p1='' (Size = 3) (DbType = Binary)
-@p2='' (Size = 3) (DbType = String)
-@p3='' (Size = 3) (DbType = StringFixedLength)
-@p4='' (Size = 3) (DbType = String)
-@p5='' (Size = 3) (DbType = StringFixedLength)
-@p6='' (Size = 3) (DbType = String)
-@p7='' (Size = 3) (DbType = Binary)",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertNullMappedSizedDataTypes(context.Set<MappedSizedDataTypes>().Single(e => e.Id == 78), 78);
@@ -517,7 +616,7 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.Varbinary);
         }
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET: Data type unsupported")]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale()
         {
             Fixture.TestSqlLoggerFactory.Clear();
@@ -562,7 +661,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 Numeric = 103.3m
             };
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET: Data type unsupported")]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale()
         {
             Fixture.TestSqlLoggerFactory.Clear();
@@ -615,29 +714,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='78'
-@p1='0x5D5E5F60' (Size = 8000)
-@p2='True'
-@p3='01/02/2019 14:11:12' (DbType = DateTime)
-@p4='102.2'
-@p5='101.1'
-@p6='83.3'
-@p7='0x61626364' (Size = 8000)
-@p8='77'
-@p9='81.1'
-@p10='help'
-@p11='anyone!'
-@p12='Gumball Rules OK!'
-@p13='103.3'
-@p14='don't'
-@p15='84.4'
-@p16='79'
-@p17='80'
-@p18='0x595A5B5C' (Size = 8000)",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertMappedDataTypesWithIdentity(context.Set<MappedDataTypesWithIdentity>().Single(e => e.Int == 77), 77);
@@ -647,11 +723,9 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedDataTypesWithIdentity(MappedDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Equal(78, entity.Bigint);
             Assert.Equal(79, entity.Smallint);
-            Assert.Equal(80, entity.Tinyint);
             Assert.Equal(true, entity.Bit);
-            Assert.Equal(81.1m, entity.Money);
+            Assert.Equal(81, entity.Money);
             Assert.Equal(83.3, entity.Float);
             Assert.Equal(84.4f, entity.Real);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.Datetime);
@@ -671,11 +745,9 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedDataTypesWithIdentity
             {
                 Int = id,
-                Bigint = 78L,
                 Smallint = 79,
-                Tinyint = 80,
                 Bit = true,
-                Money = 81.1m,
+                Money = 81m,
                 Float = 83.3,
                 Real = 84.4f,
                 Datetime = new DateTime(2019, 1, 2, 14, 11, 12),
@@ -686,9 +758,9 @@ namespace EntityFramework.Jet.FunctionalTests
                 VarbinaryMax = new byte[] { 89, 90, 91, 92 },
                 Binary_varyingMax = new byte[] { 93, 94, 95, 96 },
                 Image = new byte[] { 97, 98, 99, 100 },
-                Decimal = 101.1m,
-                Dec = 102.2m,
-                Numeric = 103.3m
+                Decimal = 101m,
+                Dec = 102m,
+                Numeric = 103m
             };
 
         [Fact]
@@ -702,28 +774,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='78' (Nullable = true)
-@p1='True' (Nullable = true)
-@p2='01/02/2019 14:11:12' (Nullable = true) (DbType = DateTime)
-@p3='102.2' (Nullable = true)
-@p4='101.1' (Nullable = true)
-@p5='83.3' (Nullable = true)
-@p6='0x61626364' (Size = 8000)
-@p7='77' (Nullable = true)
-@p8='81.1' (Nullable = true)
-@p9='help'
-@p10='anyone!'
-@p11='Gumball Rules OK!'
-@p12='103.3' (Nullable = true)
-@p13='don't'
-@p14='84.4' (Nullable = true)
-@p15='79' (Nullable = true)
-@p16='80' (Nullable = true)
-@p17='0x595A5B5C' (Size = 8000)",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 77), 77);
@@ -733,11 +783,9 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedNullableDataTypesWithIdentity(MappedNullableDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Equal(78, entity.Bigint);
             Assert.Equal(79, entity.Smallint.Value);
-            Assert.Equal(80, entity.Tinyint.Value);
             Assert.Equal(true, entity.Bit);
-            Assert.Equal(81.1m, entity.Money);
+            Assert.Equal(81, entity.Money);
             Assert.Equal(83.3, entity.Float);
             Assert.Equal(84.4f, entity.Real);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.Datetime);
@@ -756,11 +804,9 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedNullableDataTypesWithIdentity
             {
                 Int = id,
-                Bigint = 78L,
                 Smallint = 79,
-                Tinyint = 80,
                 Bit = true,
-                Money = 81.1m,
+                Money = 81,
                 Float = 83.3,
                 Real = 84.4f,
                 Datetime = new DateTime(2019, 1, 2, 14, 11, 12),
@@ -770,9 +816,9 @@ namespace EntityFramework.Jet.FunctionalTests
                 Ntext = "Gumball Rules OK!",
                 VarbinaryMax = new byte[] { 89, 90, 91, 92 },
                 Image = new byte[] { 97, 98, 99, 100 },
-                Decimal = 101.1m,
-                Dec = 102.2m,
-                Numeric = 103.3m
+                Decimal = 101m,
+                Dec = 102m,
+                Numeric = 103m
             };
 
         [Fact]
@@ -786,28 +832,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='' (DbType = Int64)
-@p1='' (DbType = Boolean)
-@p2='' (DbType = DateTime)
-@p3='' (DbType = Decimal)
-@p4='' (DbType = Decimal)
-@p5='' (DbType = Double)
-@p6='' (Size = 8000) (DbType = Binary)
-@p7='78' (Nullable = true)
-@p8='' (DbType = Decimal)
-@p9='' (DbType = String)
-@p10='' (DbType = String)
-@p11='' (DbType = String)
-@p12='' (DbType = Decimal)
-@p13='' (DbType = String)
-@p14='' (DbType = Single)
-@p15='' (DbType = Int16)
-@p16='' (DbType = Byte)
-@p17='' (Size = 8000) (DbType = Binary)",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertNullMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 78), 78);
@@ -818,10 +842,7 @@ namespace EntityFramework.Jet.FunctionalTests
             MappedNullableDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Null(entity.Bigint);
             Assert.Null(entity.Smallint);
-            Assert.Null(entity.Tinyint);
-            Assert.Null(entity.Bit);
             Assert.Null(entity.Money);
             Assert.Null(entity.Float);
             Assert.Null(entity.Real);
@@ -847,18 +868,6 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 Assert.Equal(1, context.SaveChanges());
             }
-
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='0x0A0B0C' (Size = 3)
-@p1='77'
-@p2='The' (Size = 3)
-@p3='Squ' (Size = 3) (DbType = StringFixedLength)
-@p4='Col' (Size = 3)
-@p5='Won' (Size = 3) (DbType = StringFixedLength)
-@p6='Int' (Size = 3)
-@p7='0x0B0C0D' (Size = 3)",
-                parameters);
 
             using (var context = CreateContext())
             {
@@ -901,18 +910,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='' (Size = 3) (DbType = Binary)
-@p1='78'
-@p2='' (Size = 3) (DbType = String)
-@p3='' (Size = 3) (DbType = StringFixedLength)
-@p4='' (Size = 3) (DbType = String)
-@p5='' (Size = 3) (DbType = StringFixedLength)
-@p6='' (Size = 3) (DbType = String)
-@p7='' (Size = 3) (DbType = Binary)",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertNullMappedSizedDataTypesWithIdentity(context.Set<MappedSizedDataTypesWithIdentity>().Single(e => e.Int == 78), 78);
@@ -942,15 +939,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='102.2'
-@p1='101.1'
-@p2='83.3'
-@p3='77'
-@p4='103.3'",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertMappedScaledDataTypesWithIdentity(context.Set<MappedScaledDataTypesWithIdentity>().Single(e => e.Int == 77), 77);
@@ -971,9 +959,9 @@ namespace EntityFramework.Jet.FunctionalTests
             {
                 Int = id,
                 Float = 83.3f,
-                Decimal = 101.1m,
-                Dec = 102.2m,
-                Numeric = 103.3m
+                Decimal = 101m,
+                Dec = 102m,
+                Numeric = 103m
             };
 
         [Fact]
@@ -987,14 +975,6 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-            var parameters = DumpParameters();
-            Assert.Equal(
-                @"@p0='102.2'
-@p1='101.1'
-@p2='77'
-@p3='103.3'",
-                parameters);
-
             using (var context = CreateContext())
             {
                 AssertMappedPrecisionAndScaledDataTypesWithIdentity(
@@ -1005,18 +985,18 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedPrecisionAndScaledDataTypesWithIdentity(MappedPrecisionAndScaledDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
-            Assert.Equal(101.1m, entity.Decimal);
-            Assert.Equal(102.2m, entity.Dec);
-            Assert.Equal(103.3m, entity.Numeric);
+            Assert.Equal(101m, entity.Decimal);
+            Assert.Equal(102m, entity.Dec);
+            Assert.Equal(103m, entity.Numeric);
         }
 
         private static MappedPrecisionAndScaledDataTypesWithIdentity CreateMappedPrecisionAndScaledDataTypesWithIdentity(int id)
             => new MappedPrecisionAndScaledDataTypesWithIdentity
             {
                 Int = id,
-                Decimal = 101.1m,
-                Dec = 102.2m,
-                Numeric = 103.3m
+                Decimal = 101m,
+                Dec = 102m,
+                Numeric = 103m
             };
 
         [Fact]
@@ -1119,7 +1099,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET: Data type unsupported")]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_in_batch()
         {
             using (var context = CreateContext())
@@ -1139,7 +1119,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET: Data type unsupported")]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_in_batch()
         {
             using (var context = CreateContext())
@@ -1239,7 +1219,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Unsupported by JET: Data type unsupported")]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1302,7 +1282,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact(Skip = "Unsupported by JET")]
         public virtual void Columns_have_expected_data_types()
         {
             const string query
@@ -1592,7 +1572,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
         private const string FileLineEnding = @"
 ";
 
-        private  string Sql => Fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
+        private string Sql => Fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
 
         private class ColumnInfo
         {

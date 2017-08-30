@@ -199,11 +199,11 @@
     <Compile Include="Query\ExpressionTranslators\Internal\JetDateTimeDateComponentTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetDateTimeDatePartComponentTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetDateTimeNowTranslator.cs" />
-    <Compile Include="Query\ExpressionTranslators\Internal\JetEndsWithOptimizedTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetEndsWithTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetMathTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetNewGuidTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetObjectToStringTranslator.cs" />
-    <Compile Include="Query\ExpressionTranslators\Internal\JetStartsWithOptimizedTranslator.cs" />
+    <Compile Include="Query\ExpressionTranslators\Internal\JetStartsWithTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetStringIsNullOrWhiteSpaceTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetStringLengthTranslator.cs" />
     <Compile Include="Query\ExpressionTranslators\Internal\JetStringReplaceTranslator.cs" />

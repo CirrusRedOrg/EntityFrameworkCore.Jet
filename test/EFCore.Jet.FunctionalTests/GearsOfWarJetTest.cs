@@ -2618,23 +2618,9 @@ ORDER BY [t1].[Name], [t1].[Name0], [t1].[Id]");
             int i = 0;
             foreach (var item in expected)
             {
+                if (AssertSqlHelper.IgnoreStatement(item))
+                    return;
                 expectedFixed[i++] = item.Replace("\r\n", "\n");
-                if (item.Contains("COALESCE"))
-                    return;
-                if (item.Contains("CONVERT"))
-                    return;
-                if (item.Contains("WHEN"))
-                    return;
-                if (item.Contains("LEFT JOIN"))
-                    return;
-                if (item.Contains("INNER JOIN"))
-                    return;
-                if (item.Contains("CROSS JOIN"))
-                    return;
-                if (item.Contains("CHARINDEX"))
-                    return;
-
-
             }
             Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
         }

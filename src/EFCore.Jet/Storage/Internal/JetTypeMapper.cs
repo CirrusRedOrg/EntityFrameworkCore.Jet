@@ -41,11 +41,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly IntTypeMapping _int = new IntTypeMapping("int", DbType.Int32);
 
-        private readonly LongTypeMapping _long = new LongTypeMapping("bigint", DbType.Int64);
+        private readonly LongTypeMapping _long = new LongTypeMapping("int", DbType.Int64);
 
         private readonly ShortTypeMapping _short = new ShortTypeMapping("smallint", DbType.Int16);
 
-        private readonly ByteTypeMapping _byte = new ByteTypeMapping("tinyint", DbType.Byte);
+        private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte);
 
         private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
 
@@ -102,31 +102,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping>(StringComparer.OrdinalIgnoreCase)
                 {
-                    { "bigint", _long },
-                    { "binary varying", _variableLengthBinary },
                     { "binary", _fixedLengthBinary },
                     { "bit", _bool },
-                    { "char varying", _variableLengthUnicodeString },
+                    { "byte", _byte },
                     { "char", _fixedLengthUnicodeString },
-                    { "character varying", _variableLengthUnicodeString },
-                    { "character", _fixedLengthUnicodeString },
                     { "date", _date },
                     { "datetime", _datetime },
-                    { "dec", _decimal },
                     { "decimal", _decimal },
                     { "float", _double },
                     { "image", _variableLengthBinary },
                     { "int", _int },
+                    { "guid", _uniqueidentifier },
                     { "money", _decimal },
-                    { "national char varying", _variableLengthUnicodeString },
-                    { "national character varying", _variableLengthUnicodeString },
-                    { "national character", _fixedLengthUnicodeString },
-                    { "nchar", _fixedLengthUnicodeString },
-                    { "ntext", _variableLengthUnicodeString },
                     { "numeric", _decimal },
-                    { "nvarchar", _variableLengthUnicodeString },
                     { "real", _real },
-                    { "rowversion", _rowversion },
                     { "smalldatetime", _datetime },
                     { "smallint", _short },
                     { "smallmoney", _decimal },
@@ -135,7 +124,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     { "timestamp", _rowversion },
                     { "tinyint", _byte },
                     { "uniqueidentifier", _uniqueidentifier },
-                    { "guid", _uniqueidentifier },
                     { "varbinary", _variableLengthBinary },
                     { "varchar", _variableLengthUnicodeString },
                     { "xml", _xml }

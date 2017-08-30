@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
 
@@ -59,15 +60,22 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 if (datePart == "millisecond")
                     throw new NotSupportedException("JET does not support milliseconds in DateTime");
 
-                return new SqlFunctionExpression(
-                    functionName: "DateAdd",
-                    returnType: methodCallExpression.Type,
-                    arguments: new[]
-                    {
-                        new SqlFragmentExpression("'" + datePart + "'"),
-                        amountToAdd,
-                        methodCallExpression.Object
-                    });
+                return new 
+                    IIfSqlFunctionExpression
+                    (
+                    methodCallExpression.Type,
+                    new IsNullSqlFunctionExpression(methodCallExpression.Object),
+                    null,
+                    new SqlFunctionExpression(
+                        functionName: "DateAdd",
+                        returnType: methodCallExpression.Type,
+                        arguments: new[]
+                        {
+                            new SqlFragmentExpression("'" + datePart + "'"),
+                            amountToAdd,
+                            methodCallExpression.Object
+                        })
+                        );
             }
 
             return null;

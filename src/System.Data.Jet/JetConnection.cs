@@ -367,78 +367,7 @@ namespace System.Data.Jet
 
         public void CreateEmptyDatabase()
         {
-            CreateEmptyDatabase(WrappedConnection.ConnectionString);
-        }
-
-        public static void CreateEmptyDatabase(string connectionString)
-        {
-            Type adoxCatalogType;
-            dynamic catalog;
-
-            try
-            {
-                adoxCatalogType = Type.GetTypeFromProgID("ADOX.Catalog", true);
-            }
-            catch (Exception e)
-            {
-                throw new Exception("Cannot create database. Cannot retrieve ADOX.Catalog type. Check ADOX installation.", e);
-            }
-
-            try
-            {
-                catalog = System.Activator.CreateInstance(adoxCatalogType);
-            }
-            catch (Exception e)
-            {
-                throw new Exception("Cannot create database. Cannot create an instance of ADOX.Catalog type.", e);
-            }
-
-            try
-            {
-                catalog.Create(connectionString);
-            }
-            catch (Exception e)
-            {
-                throw new Exception("Cannot create database using the specified connection string.", e);
-            }
-
-
-            try
-            {
-                using (var connection = (new JetConnection(connectionString)))
-                {
-                    connection.Open();
-                    string sql = @"
-CREATE TABLE [MSysAccessStorage] (
-    [DateCreate] DATETIME NULL,
-    [DateUpdate] DATETIME NULL,
-    [Id] INT NOT NULL IDENTITY,
-    [Lv] IMAGE,
-    [Name] VARCHAR(128) NULL,
-    [ParentId] INT NULL,
-    [Type] INT NULL,
-    CONSTRAINT [Id] PRIMARY KEY ([Id])
-);
-CREATE UNIQUE INDEX [ParentIdId] ON [MSysAccessStorage] ([ParentId], [Id]);
-CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);";
-
-                    connection.CreateCommand(sql).ExecuteNonQuery();
-                }
-            }
-            catch (Exception e)
-            {
-                throw new Exception("Cannot create database using the specified connection string.", e);
-            }
-
-            try
-            {
-                catalog.ActiveConnection.Close();
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("Cannot close active connection after create statement.\r\nThe exception is: {0}", e.Message);
-            }
-
+            AdoxWrapper.CreateEmptyDatabase(WrappedConnection.ConnectionString);
         }
 
         public static string GetConnectionString(string fileName)
@@ -457,15 +386,7 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new Exception("Cannot retrieve file name from connection string");
 
-            try
-            {
-                System.IO.File.Delete(fileName.Trim());
-            }
-            catch
-            {
-                if (throwOnError)
-                    throw;
-            }
+            JetStoreDatabaseHandling.DeleteFile(fileName.Trim(), throwOnError);
         }
 
         public bool DatabaseExists()

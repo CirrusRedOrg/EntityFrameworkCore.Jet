@@ -34,29 +34,11 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             {
                 var builder = new StringBuilder();
                 builder
-                    .Append("SHOW TABLES WHERE NAME='")
+                    .Append("SELECT * FROM (SHOW TABLES) WHERE NAME='")
                     .Append(SqlGenerationHelper.EscapeLiteral(TableName))
                     .Append("'");
 
                 return builder.ToString();
-
-                /*
-                builder.Append("SELECT OBJECT_ID(N'");
-
-
-                if (TableSchema != null)
-                {
-                    builder
-                        .Append(SqlGenerationHelper.EscapeLiteral(TableSchema))
-                        .Append(".");
-                }
-
-                builder
-                    .Append(SqlGenerationHelper.EscapeLiteral(TableName))
-                    .Append("');");
-
-                return builder.ToString();
-                */
             }
         }
 
@@ -78,7 +60,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             Check.NotNull(row, nameof(row));
 
             return new StringBuilder().Append("INSERT INTO ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema))
+                .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append(" (")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
                 .Append(", ")
@@ -101,7 +83,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             Check.NotEmpty(migrationId, nameof(migrationId));
 
             return new StringBuilder().Append("DELETE FROM ")
-                .AppendLine(SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema))
+                .AppendLine(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append("WHERE ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
                 .Append(" = '")
@@ -118,24 +100,15 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         {
             var builder = new IndentedStringBuilder();
 
-            builder.Append("IF OBJECT_ID(N'");
-
-            if (TableSchema != null)
-            {
-                builder
-                    .Append(SqlGenerationHelper.EscapeLiteral(TableSchema))
-                    .Append(".");
-            }
-
             builder
+                .Append("IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE Name = '")
                 .Append(SqlGenerationHelper.EscapeLiteral(TableName))
-                .AppendLine("') IS NULL")
-                .AppendLine("BEGIN");
+                .Append("') THEN ");
             using (builder.Indent())
             {
                 builder.AppendLines(GetCreateScript());
             }
-            builder.AppendLine("END;");
+            builder.AppendLine(";");
 
             return builder.ToString();
         }
@@ -150,13 +123,13 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
 
             return new StringBuilder()
                 .Append("IF NOT EXISTS(SELECT * FROM ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema))
+                .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append(" WHERE ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = N'")
+                .Append(" = '")
                 .Append(SqlGenerationHelper.EscapeLiteral(migrationId))
                 .AppendLine("')")
-                .Append("BEGIN")
+                .Append("THEN")
                 .ToString();
         }
 
@@ -170,13 +143,13 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
 
             return new StringBuilder()
                 .Append("IF EXISTS(SELECT * FROM ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema))
+                .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append(" WHERE ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = N'")
+                .Append(" = '")
                 .Append(SqlGenerationHelper.EscapeLiteral(migrationId))
                 .AppendLine("')")
-                .Append("BEGIN")
+                .Append("THEN")
                 .ToString();
         }
 
@@ -184,6 +157,6 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override string GetEndIfScript() => "END;" + Environment.NewLine;
+        public override string GetEndIfScript() => ";" + Environment.NewLine;
     }
 }

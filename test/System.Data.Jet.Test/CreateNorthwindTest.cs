@@ -34,7 +34,7 @@ namespace System.Data.Jet.Test
             _scriptPath = Path.Combine(Path.GetDirectoryName(this.GetType().Assembly.Location), "Northwind.sql");
 
             JetConnection.DropDatabase(JetConnection.GetConnectionString(DatabaseName), false);
-            JetConnection.CreateEmptyDatabase(JetConnection.GetConnectionString(DatabaseName));
+            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString(DatabaseName));
 
             _connection = new JetConnection(JetConnection.GetConnectionString(DatabaseName));
             _connection.Open();

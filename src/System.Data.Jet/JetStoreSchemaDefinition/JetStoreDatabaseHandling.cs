@@ -1,5 +1,3 @@
-using System.Data.OleDb;
-using System.IO;
 using System.Text.RegularExpressions;
 
 namespace System.Data.Jet.JetStoreSchemaDefinition
@@ -51,7 +49,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             match = _regExParseCreateDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
-                JetConnection.CreateEmptyDatabase(match.Groups["connectionString"].Value);
+                AdoxWrapper.CreateEmptyDatabase(match.Groups["connectionString"].Value);
                 return true;
             }
 
@@ -61,7 +59,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 string fileName = match.Groups["filename"].Value;
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
-                JetConnection.CreateEmptyDatabase(JetConnection.GetConnectionString(fileName));
+                AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString(fileName));
                 return true;
             }
 
@@ -75,7 +73,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
 
-                File.Delete(fileName.Trim());
+                DeleteFile(fileName.Trim());
                 return true;
             }
 
@@ -87,7 +85,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
 
-                File.Delete(fileName.Trim());
+                DeleteFile(fileName.Trim());
                 return true;
             }
 
@@ -104,6 +102,22 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             else
                 fileName = connectionString;
             return fileName;
+        }
+
+        public static void DeleteFile(string fileName, bool throwOnError = true)
+        {
+            if (throwOnError && !System.IO.File.Exists(fileName.Trim()))
+                throw new System.IO.FileNotFoundException("Database file not found", fileName.Trim());
+
+            try
+            {
+                System.IO.File.Delete(fileName.Trim());
+            }
+            catch
+            {
+                if (throwOnError)
+                    throw;
+            }
         }
     }
 }

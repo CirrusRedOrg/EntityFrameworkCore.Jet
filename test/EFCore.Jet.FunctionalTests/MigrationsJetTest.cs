@@ -14,92 +14,6 @@ namespace EntityFramework.Jet.FunctionalTests
         {
         }
 
-        public override void Can_generate_up_scripts()
-        {
-            base.Can_generate_up_scripts();
-
-            Assert.Equal(
-                @"CREATE TABLE [__EFMigrationsHistory] (
-    [MigrationId] nvarchar(150) NOT NULL,
-    [ProductVersion] nvarchar(32) NOT NULL,
-    CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
-)
-
-
-GO
-
-CREATE TABLE [Table1] (
-    [Id] int NOT NULL,
-    CONSTRAINT [PK_Table1] PRIMARY KEY ([Id])
-)
-
-
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES ('00000000000001_Migration1', '7.0.0-test')
-
-
-GO
-
-sp_rename N'Table1', N'Table2'
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES ('00000000000002_Migration2', '7.0.0-test')
-
-
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES ('00000000000003_Migration3', '7.0.0-test')
-
-
-GO
-
-",
-                Sql);
-        }
-
-        public override void Can_generate_idempotent_up_scripts()
-        {
-            Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_up_scripts());
-        }
-
-        public override void Can_generate_down_scripts()
-        {
-            base.Can_generate_down_scripts();
-
-            Assert.Equal(
-                @"sp_rename N'Table2', N'Table1'
-GO
-
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = '00000000000002_Migration2'
-
-
-GO
-
-DROP TABLE [Table1]
-
-
-GO
-
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = '00000000000001_Migration1'
-
-
-GO
-
-",
-                Sql);
-        }
-
-        public override void Can_generate_idempotent_down_scripts()
-        {
-            Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_down_scripts());
-        }
-
         public override void Can_get_active_provider()
         {
             base.Can_get_active_provider();
@@ -137,16 +51,14 @@ CreatedTable
             var builder = new IndentedStringBuilder();
 
             var command = connection.CreateCommand();
-            command.CommandText = @"SELECT 
-TABLE_NAME, 
-COLUMN_NAME, 
-DATA_TYPE, 
-CASE WHEN IS_NULLABLE = 'YES'
-	THEN CAST(1 as bit)
-	ELSE CAST (0 AS bit)
-END, 
-COLUMN_DEFAULT
-FROM INFORMATION_SCHEMA.COLUMNS;";
+            command.CommandText = @"
+SELECT 
+    Table, 
+    Name, 
+    TypeName, 
+    Default
+FROM 
+    (SHOW TABLECOLUMNS);";
 
             using (var reader = await command.ExecuteReaderAsync())
             {

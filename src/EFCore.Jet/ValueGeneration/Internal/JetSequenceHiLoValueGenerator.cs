@@ -62,18 +62,6 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        protected override async Task<long> GetNewLowValueAsync(CancellationToken cancellationToken = default(CancellationToken))
-            => (long)Convert.ChangeType(
-                await _rawSqlCommandBuilder
-                    .Build(_sqlGenerator.GenerateNextSequenceValueOperation(_sequence.Name, _sequence.Schema))
-                    .ExecuteScalarAsync(_connection, cancellationToken: cancellationToken),
-                typeof(long),
-                CultureInfo.InvariantCulture);
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public override bool GeneratesTemporaryValues => false;
     }
 }

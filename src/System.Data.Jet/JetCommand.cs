@@ -20,7 +20,7 @@ namespace System.Data.Jet
 
         private static readonly Regex _skipRegularExpression = new Regex(@"\bskip\s(?<stringSkipCount>@.*)\b", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*$", RegexOptions.IgnoreCase);
-
+        private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JetCommand"/> class.
@@ -280,6 +280,8 @@ namespace System.Data.Jet
 
             if (JetStoreDatabaseHandling.TryDatabaseOperation(_WrappedCommand.CommandText))
                 return 1;
+            if (JetRenameHandling.TryDatabaseOperation(_WrappedCommand.Connection.ConnectionString, _WrappedCommand.CommandText))
+                return 1;
 
             if (_WrappedCommand.CommandType != CommandType.Text)
                 return _WrappedCommand.ExecuteNonQuery();
@@ -359,7 +361,9 @@ namespace System.Data.Jet
             int topCount;
             int skipCount;
             string newCommandText;
-            ParseSkipTop(commandText, out topCount, out skipCount, out newCommandText);
+            if (!CheckExists(commandText, out newCommandText))
+                return 0;
+            ParseSkipTop(newCommandText, out topCount, out skipCount, out newCommandText);
             //ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
             SortParameters(newCommandText, _WrappedCommand.Parameters);
             FixParameters(_WrappedCommand.Parameters);
@@ -372,6 +376,33 @@ namespace System.Data.Jet
 
             return _rowCount.Value;
 
+        }
+
+        private bool CheckExists(string commandText, out string newCommandText)
+        {
+            Match match = _ifStatementRegex.Match(commandText);
+            newCommandText = commandText;
+            if (!match.Success)
+                return true;
+
+            string not = match.Groups["not"].Value;
+            string sqlCheckCommand = match.Groups["sqlCheckCommand"].Value;
+            newCommandText = match.Groups["sqlCommand"].Value;
+
+            bool hasRows;
+            using (var command = (DbCommand)((ICloneable)this._WrappedCommand).Clone())
+            {
+                command.CommandText = sqlCheckCommand;
+                using (var reader = command.ExecuteReader())
+                {
+                    hasRows = reader.HasRows;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(not))
+                return !hasRows;
+            else
+                return hasRows;
         }
 
         private void FixParameters(DbParameterCollection parameters)
@@ -426,46 +457,6 @@ namespace System.Data.Jet
                 if (xPosition == -1) xPosition = int.MaxValue;
                 if (yPosition == -1) yPosition = int.MaxValue;
                 return xPosition.CompareTo(yPosition);
-            }
-        }
-
-
-
-        private void SortParameters_(DbParameterCollection parameters)
-        {
-            if (parameters.Count == 0)
-                return;
-            var parameterArray = parameters.Cast<OleDbParameter>().ToArray();
-            // ReSharper disable once CoVariantArrayConversion
-            Array.Sort(parameterArray, ParameterComparer.Instance_);
-
-            parameters.Clear();
-            foreach (OleDbParameter parameter in parameterArray)
-                parameters.Add(new OleDbParameter(parameter.ParameterName, parameter.Value));
-        }
-
-        private class ParameterComparer : IComparer<DbParameter>
-        {
-            public static readonly ParameterComparer Instance_ = new ParameterComparer();
-
-            private ParameterComparer() { }
-
-            Regex _extractNumberRegex = new Regex(@"^@p(?<number>\d+)$", RegexOptions.IgnoreCase);
-            public int Compare(DbParameter x, DbParameter y)
-            {
-                if (x == null) throw new ArgumentNullException(nameof(x));
-                if (y == null) throw new ArgumentNullException(nameof(y));
-
-                Match xMatch = _extractNumberRegex.Match(x.ParameterName);
-                if (!xMatch.Success)
-                    return -1;
-                Match yMatch = _extractNumberRegex.Match(y.ParameterName);
-                if (!yMatch.Success)
-                    return -1;
-
-                var xNumber = int.Parse(xMatch.Groups["number"].Value);
-                var yNumber = int.Parse(yMatch.Groups["number"].Value);
-                return xNumber.CompareTo(yNumber);
             }
         }
 

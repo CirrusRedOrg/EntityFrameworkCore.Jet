@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
@@ -329,23 +328,8 @@ namespace EntityFrameworkCore.Jet.Migrations
                 throw new InvalidOperationException(JetStrings.IndexTableRequired);
             }
 
-            var qualifiedName = new StringBuilder();
-            // Jet does not support schemas
-            /*
-            if (operation.Schema != null)
-            {
-                qualifiedName
-                    .Append(operation.Schema)
-                    .Append(".");
-            }
-            */
-            qualifiedName
-                .Append(operation.Table)
-                .Append(".")
-                .Append(TruncateName(operation.Name));
-
-            Rename(qualifiedName.ToString(), TruncateName(operation.NewName), "INDEX", builder);
-            builder.EndCommand(suppressTransaction: IsMemoryOptimized(operation, model, operation.Schema, operation.Table));
+            builder.Append($"RENAME INDEX [{operation.Table}].[{TruncateName(operation.Name)}] TO [{TruncateName(operation.NewName)}]");
+            builder.EndCommand();
         }
 
         /// <summary>
@@ -395,29 +379,10 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            var name = operation.Name;
             if (operation.NewName != null)
             {
-                var qualifiedName = new StringBuilder();
-                // Jet does not support schemas
-                /*
-                if (operation.Schema != null)
-                {
-                    qualifiedName
-                        .Append(operation.Schema)
-                        .Append(".");
-                }
-                */
-                qualifiedName.Append(operation.Name);
-
-                Rename(qualifiedName.ToString(), operation.NewName, builder);
-
-                name = operation.NewName;
-            }
-
-            if (operation.NewSchema != null)
-            {
-                Transfer(operation.NewSchema, operation.Schema, name, builder);
+                builder.Append($"RENAME TABLE [{TruncateName(operation.Name)}] TO [{TruncateName(operation.NewName)}]");
+                builder.EndCommand();
             }
 
             builder.EndCommand();
@@ -561,87 +526,6 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-
-            // Jet does not support AlterDatabaseOperation
-            /*
-
-            if (!IsMemoryOptimized(operation))
-            {
-                return;
-            }
-
-            builder.AppendLine("IF SERVERPROPERTY('IsXTPSupported') = 1 AND SERVERPROPERTY('EngineEdition') <> 5");
-            using (builder.Indent())
-            {
-                builder
-                    .AppendLine("BEGIN")
-                    .AppendLine("IF NOT EXISTS (");
-                using (builder.Indent())
-                {
-                    builder
-                        .Append("SELECT 1 FROM [sys].[filegroups] [FG] ")
-                        .Append("JOIN [sys].[database_files] [F] ON [FG].[data_space_id] = [F].[data_space_id] ")
-                        .AppendLine("WHERE [FG].[type] = N'FX' AND [F].[type] = 2)");
-                }
-
-                using (builder.Indent())
-                {
-                    builder
-                        .AppendLine("BEGIN")
-                        .AppendLine("DECLARE @db_name NVARCHAR(MAX) = DB_NAME();")
-                        .AppendLine("DECLARE @fg_name NVARCHAR(MAX);")
-                        .AppendLine("SELECT TOP(1) @fg_name = [name] FROM [sys].[filegroups] WHERE [type] = N'FX';")
-                        .AppendLine()
-                        .AppendLine("IF @fg_name IS NULL");
-
-                    using (builder.Indent())
-                    {
-                        builder
-                            .AppendLine("BEGIN")
-                            .AppendLine("SET @fg_name = @db_name + N'_MODFG';")
-                            .AppendLine("EXEC(N'ALTER DATABASE CURRENT ADD FILEGROUP [' + @fg_name + '] CONTAINS MEMORY_OPTIMIZED_DATA;');")
-                            .AppendLine("END");
-                    }
-
-                    builder
-                        .AppendLine()
-                        .AppendLine("DECLARE @path NVARCHAR(MAX);")
-                        .Append("SELECT TOP(1) @path = [physical_name] FROM [sys].[database_files] ")
-                        .AppendLine("WHERE charindex('\\', [physical_name]) > 0 ORDER BY [file_id];")
-                        .AppendLine("IF (@path IS NULL)")
-                        .IncrementIndent().AppendLine("SET @path = '\\' + @db_name;").DecrementIndent()
-                        .AppendLine()
-                        .AppendLine("DECLARE @filename NVARCHAR(MAX) = right(@path, charindex('\\', reverse(@path)) - 1);")
-                        .AppendLine("SET @filename = REPLACE(left(@filename, len(@filename) - charindex('.', reverse(@filename))), '''', '''''') + N'_MOD';")
-                        .AppendLine("DECLARE @new_path NVARCHAR(MAX) = REPLACE(CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS NVARCHAR(MAX)), '''', '''''') + @filename;")
-                        .AppendLine()
-                        .AppendLine("EXEC(N'");
-
-                    using (builder.Indent())
-                    {
-                        builder
-                            .AppendLine("ALTER DATABASE CURRENT")
-                            .AppendLine("ADD FILE (NAME=''' + @filename + ''', filename=''' + @new_path + ''')")
-                            .AppendLine("TO FILEGROUP [' + @fg_name + '];')");
-                    }
-
-                    builder.AppendLine("END");
-                }
-                builder.AppendLine("END");
-            }
-
-            builder.AppendLine()
-                .AppendLine("IF SERVERPROPERTY('IsXTPSupported') = 1")
-                .AppendLine("EXEC(N'");
-            using (builder.Indent())
-            {
-                builder
-                    .AppendLine("ALTER DATABASE CURRENT")
-                    .AppendLine("SET MEMORY_OPTIMIZED_ELEVATE_TO_SNAPSHOT ON;')");
-            }
-
-            builder.EndCommand(suppressTransaction: true);
-            */
         }
 
         protected override void Generate(AlterTableOperation operation, IModel model, MigrationCommandListBuilder builder)
@@ -734,22 +618,7 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            var qualifiedName = new StringBuilder();
-            // Jet does not support schemas
-            /*
-            if (operation.Schema != null)
-            {
-                qualifiedName
-                    .Append(operation.Schema)
-                    .Append(".");
-            }
-            */
-            qualifiedName
-                .Append(operation.Table)
-                .Append(".")
-                .Append(operation.Name);
-
-            Rename(qualifiedName.ToString(), operation.NewName, "COLUMN", builder);
+            builder.Append($"RENAME COLUMN [{operation.Table}].[{TruncateName(operation.Name)}] TO [{TruncateName(operation.NewName)}]");
             builder.EndCommand();
         }
 
@@ -802,71 +671,6 @@ namespace EntityFrameworkCore.Jet.Migrations
                     EndStatement(builder, operation.SuppressTransaction);
                 }
             }
-        }
-
-        protected override void Generate(
-            InsertDataOperation operation,
-            IModel model,
-            MigrationCommandListBuilder builder)
-        {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
-            // Jet does not support schemas and identity_insert
-            /*
-            builder.Append("IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [object_id] = OBJECT_ID(N'");
-
-            if (operation.Schema != null)
-            {
-                builder
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(operation.Schema))
-                    .Append(".");
-            }
-
-            builder
-                .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(operation.Table))
-                .AppendLine("'))");
-
-            using (builder.Indent())
-            {
-                builder
-                    .Append("SET IDENTITY_INSERT ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
-                    .Append(" ON")
-                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-            }
-            */
-
-            base.Generate(operation, model, builder, terminate: false);
-
-            // Jet does not support schemas and identity insert
-            /*
-            builder
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .Append("IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [object_id] = OBJECT_ID(N'");
-
-            if (operation.Schema != null)
-            {
-                builder
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(operation.Schema))
-                    .Append(".");
-            }
-
-            builder
-                .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(operation.Table))
-                .AppendLine("'))");
-
-            using (builder.Indent())
-            {
-                builder
-                    .Append("SET IDENTITY_INSERT ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
-                    .Append(" OFF")
-                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-            }
-            */
-
-            builder.EndCommand();
         }
 
         protected override void ColumnDefinition(
@@ -964,57 +768,6 @@ namespace EntityFrameworkCore.Jet.Migrations
             {
                 builder.Append(" IDENTITY");
             }
-        }
-
-        protected virtual void Rename(
-            [NotNull] string name,
-            [NotNull] string newName,
-            [NotNull] MigrationCommandListBuilder builder) => Rename(name, newName, /*type:*/ null, builder);
-
-        protected virtual void Rename(
-            [NotNull] string name,
-            [NotNull] string newName,
-            [CanBeNull] string type,
-            [NotNull] MigrationCommandListBuilder builder)
-        {
-            Check.NotEmpty(name, nameof(name));
-            Check.NotEmpty(newName, nameof(newName));
-            Check.NotNull(builder, nameof(builder));
-
-            var stringTypeMapping = Dependencies.TypeMapper.GetMapping(typeof(string));
-
-            builder
-                .Append("EXEC sp_rename ")
-                .Append(stringTypeMapping.GenerateSqlLiteral(name))
-                .Append(", ")
-                .Append(stringTypeMapping.GenerateSqlLiteral(newName));
-
-            if (type != null)
-            {
-                builder
-                    .Append(", ")
-                    .Append(stringTypeMapping.GenerateSqlLiteral(type));
-            }
-
-            builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-        }
-
-        protected virtual void Transfer(
-            [NotNull] string newSchema,
-            [CanBeNull] string schema,
-            [NotNull] string name,
-            [NotNull] MigrationCommandListBuilder builder)
-        {
-            Check.NotEmpty(newSchema, nameof(newSchema));
-            Check.NotEmpty(name, nameof(name));
-            Check.NotNull(builder, nameof(builder));
-
-            builder
-                .Append("ALTER SCHEMA ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(newSchema))
-                .Append(" TRANSFER ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name, schema))
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
         }
 
         protected override void IndexTraits(MigrationOperation operation, IModel model, MigrationCommandListBuilder builder)

@@ -72,7 +72,7 @@ namespace EntityFramework.Jet.FunctionalTests
             using (var context = CreateContext())
             {
                 var entity = context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11);
-                var entityType = context.Model.FindEntityType(typeof(BuiltInNullableDataTypes));
+                context.Model.FindEntityType(typeof(BuiltInNullableDataTypes));
 
                 short? param1 = -1234;
                 Assert.Same(entity, context.Set<BuiltInNullableDataTypes>().Single(e => e.Id == 11 && e.TestNullableInt16 == param1));
@@ -225,9 +225,11 @@ namespace EntityFramework.Jet.FunctionalTests
                 decimal? param5 = 81.1m;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Money == param5));
 
+                // ReSharper disable once InconsistentNaming
                 double? param7a = 83.3;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Float == param7a));
 
+                // ReSharper disable once InconsistentNaming
                 float? param7b = 84.4f;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Real == param7b));
 
@@ -262,9 +264,11 @@ namespace EntityFramework.Jet.FunctionalTests
                 decimal? param5 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Money == param5));
 
+                // ReSharper disable once InconsistentNaming
                 double? param7a = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Float == param7a));
 
+                // ReSharper disable once InconsistentNaming
                 float? param7b = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Real == param7b));
 
@@ -1282,6 +1286,132 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
+        public override void Can_insert_and_read_back_all_non_nullable_data_types()
+        {
+            using (var context = CreateContext())
+            {
+                context.Set<BuiltInDataTypes>().Add(
+                    new BuiltInDataTypes
+                    {
+                        Id = 1,
+                        PartitionId = 1,
+                        TestInt16 = -1234,
+                        TestInt32 = -123456789,
+                        TestDouble = -1.23456789,
+                        TestDecimal = -1234567890.01M,
+                        TestDateTime = DateTime.Parse("01/01/2000 12:34:56"),
+                        TestDateTimeOffset = new DateTimeOffset(DateTime.Parse("01/01/2000 12:34:56"), TimeSpan.FromHours(-8.0)),
+                        TestTimeSpan = new TimeSpan(0, 10, 9, 8, 7),
+                        TestSingle = -1.234F,
+                        TestBoolean = true,
+                        TestByte = 255,
+                        TestUnsignedInt16 = 1234,
+                        TestUnsignedInt32 = 1234565789U,
+                        TestUnsignedInt64 = 1234567890123456789UL,
+                        TestCharacter = 'a',
+                        TestSignedByte = -128,
+                        Enum64 = Enum64.SomeValue,
+                        Enum32 = Enum32.SomeValue,
+                        Enum16 = Enum16.SomeValue,
+                        Enum8 = Enum8.SomeValue
+                    });
+
+                Assert.Equal(1, context.SaveChanges());
+            }
+
+            using (var context = CreateContext())
+            {
+                var dt = context.Set<BuiltInDataTypes>().Single(e => e.Id == 1);
+
+                Assert.Equal((short)-1234, dt.TestInt16);
+                Assert.Equal(-123456789, dt.TestInt32);
+                Assert.Equal(-1.23456789, dt.TestDouble);
+                //Assert.Equal(-1234567890.01M, dt.TestDecimal);
+                Assert.Equal(DateTime.Parse("01/01/2000 12:34:56"), dt.TestDateTime);
+                //Assert.Equal(new DateTimeOffset(DateTime.Parse("01/01/2000 12:34:56"), TimeSpan.FromHours(-8.0)), dt.TestDateTimeOffset);
+                Assert.Equal(new TimeSpan(0, 10, 9, 8), dt.TestTimeSpan);
+                Assert.Equal(-1.234F, dt.TestSingle);
+                Assert.Equal(true, dt.TestBoolean);
+                Assert.Equal((byte)255, dt.TestByte);
+                Assert.Equal(Enum64.SomeValue, dt.Enum64);
+                Assert.Equal(Enum32.SomeValue, dt.Enum32);
+                Assert.Equal(Enum16.SomeValue, dt.Enum16);
+                Assert.Equal(Enum8.SomeValue, dt.Enum8);
+            }
+        }
+        public override void Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_non_null()
+        {
+            using (var context = CreateContext())
+            {
+                context.Set<BuiltInNullableDataTypes>().Add(
+                    new BuiltInNullableDataTypes
+                    {
+                        Id = 101,
+                        PartitionId = 101,
+                        TestString = "TestString",
+                        TestByteArray = new byte[] { 10, 9, 8, 7, 6 },
+                        TestNullableInt16 = -1234,
+                        TestNullableInt32 = -123456789,
+                        TestNullableDouble = -1.23456789,
+                        TestNullableDecimal = -1234567890.01M,
+                        TestNullableDateTime = DateTime.Parse("01/01/2000 12:34:56"),
+                        TestNullableDateTimeOffset = new DateTimeOffset(DateTime.Parse("01/01/2000 12:34:56"), TimeSpan.FromHours(-8.0)),
+                        TestNullableTimeSpan = new TimeSpan(0, 10, 9, 8, 7),
+                        TestNullableSingle = -1.234F,
+                        TestNullableBoolean = false,
+                        TestNullableByte = 255,
+                        TestNullableUnsignedInt16 = 1234,
+                        TestNullableUnsignedInt32 = 1234565789U,
+                        TestNullableUnsignedInt64 = 1234567890123456789UL,
+                        TestNullableCharacter = 'a',
+                        TestNullableSignedByte = -128,
+                        Enum64 = Enum64.SomeValue,
+                        Enum32 = Enum32.SomeValue,
+                        Enum16 = Enum16.SomeValue,
+                        Enum8 = Enum8.SomeValue
+                    });
+
+                Assert.Equal(1, context.SaveChanges());
+            }
+
+            using (var context = CreateContext())
+            {
+                var dt = context.Set<BuiltInNullableDataTypes>().Single(ndt => ndt.Id == 101);
+
+                Assert.Equal("TestString", dt.TestString);
+                Assert.Equal(new byte[] { 10, 9, 8, 7, 6 }, dt.TestByteArray);
+                Assert.Equal((short)-1234, dt.TestNullableInt16);
+                Assert.Equal(-123456789, dt.TestNullableInt32);
+                Assert.Equal(-1.23456789, dt.TestNullableDouble);
+                //Assert.Equal(-1234567890.01M, dt.TestNullableDecimal);
+                Assert.Equal(DateTime.Parse("01/01/2000 12:34:56"), dt.TestNullableDateTime);
+                //Assert.Equal(new DateTimeOffset(DateTime.Parse("01/01/2000 12:34:56"), TimeSpan.FromHours(-8.0)), dt.TestNullableDateTimeOffset);
+                Assert.Equal(new TimeSpan(0, 10, 9, 8), dt.TestNullableTimeSpan);
+                Assert.Equal(-1.234F, dt.TestNullableSingle);
+                Assert.Equal(false, dt.TestNullableBoolean);
+                Assert.Equal((byte)255, dt.TestNullableByte);
+                Assert.Equal(Enum64.SomeValue, dt.Enum64);
+                Assert.Equal(Enum32.SomeValue, dt.Enum32);
+                Assert.Equal(Enum16.SomeValue, dt.Enum16);
+                Assert.Equal(Enum8.SomeValue, dt.Enum8);
+            }
+        }
+
+        public override void Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_null()
+        {
+            using (var context = CreateContext())
+            {
+                context.Set<BuiltInNullableDataTypes>().Add(
+                    new BuiltInNullableDataTypes
+                    {
+                        Id = 100,
+                        PartitionId = 100
+                    });
+
+                Assert.Equal(1, context.SaveChanges());
+            }
+        }
+
         [Fact(Skip = "Unsupported by JET")]
         public virtual void Columns_have_expected_data_types()
         {
@@ -1571,8 +1701,6 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
 
         private const string FileLineEnding = @"
 ";
-
-        private string Sql => Fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
 
         private class ColumnInfo
         {

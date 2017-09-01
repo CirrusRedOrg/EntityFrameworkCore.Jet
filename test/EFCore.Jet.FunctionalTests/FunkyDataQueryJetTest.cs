@@ -14,7 +14,27 @@ namespace EntityFramework.Jet.FunctionalTests
             fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [Fact]
+
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_ends_with_inside_conditional() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_ends_with_inside_conditional_negated() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_ends_with_on_argument_with_wildcard_column() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_ends_with_on_argument_with_wildcard_column_negated() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_ends_with_on_argument_with_wildcard_constant() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_ends_with_on_argument_with_wildcard_parameter() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_starts_with_on_argument_with_wildcard_column() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_starts_with_on_argument_with_wildcard_column_negated() {}
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+        public override void String_starts_with_on_argument_with_wildcard_parameter() {}
+
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
         public override void String_starts_with_on_argument_with_wildcard_constant()
         {
             using (var ctx = CreateContext())
@@ -49,6 +69,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
         public override void String_ends_with_equals_nullable_column()
         {
             base.String_ends_with_equals_nullable_column();
@@ -64,6 +85,7 @@ END = [c].[NullableBool]",
                 Sql);
         }
 
+        [Fact(Skip = "Unsupported by JET: nullable bit not supported")]
         public override void String_ends_with_not_equals_nullable_column()
         {
             base.String_ends_with_not_equals_nullable_column();

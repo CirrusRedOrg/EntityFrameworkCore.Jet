@@ -5,6 +5,7 @@ using System.Data.Jet;
 using System.Data.OleDb;
 using System.Data.SqlServerCe;
 using System.IO;
+using Microsoft.Data.Sqlite;
 
 namespace EFCore.Jet.Integration.Test
 {
@@ -174,6 +175,12 @@ namespace EFCore.Jet.Integration.Test
         public static DbConnection GetSqlServerConnection()
         {
             DbConnection connection = new System.Data.SqlClient.SqlConnection("Data Source=(local);Initial Catalog=JetEfProviderComparativeTest;Integrated Security=true");
+            return connection;
+        }
+
+        public static DbConnection GetSqliteConnection()
+        {
+            DbConnection connection = new SqliteConnection(@"Data Source=SQLite.db;");
             return connection;
         }
     }

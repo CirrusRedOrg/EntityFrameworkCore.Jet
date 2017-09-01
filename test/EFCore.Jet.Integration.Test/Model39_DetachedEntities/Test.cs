@@ -16,6 +16,26 @@ namespace EFCore.Jet.Integration.Test.Model39_DetachedEntities
             base.DisposeContext();
             base.CreateContext();
 
+            if (!Context.Grades.Any(_ => _.Id == 1))
+            {
+                Context.Grades.Add(new Grade()
+                {
+                    Id = 1,
+                    Quantity = 50,
+                    Name = "Dont care",
+                    GradeWidths = new List<GradeWidth>(new[]
+                    {
+                        new GradeWidth() {Width = 10},
+                        new GradeWidth() {Width = 20},
+                        new GradeWidth() {Width = 30}
+                    })
+                });
+                Context.SaveChanges();
+            }
+
+            base.DisposeContext();
+            base.CreateContext();
+
             {
                 Grade grade = new Grade() {Id = 1, Quantity = 50, Name = "Dont care"};
                 UpdateQuantity(Context, grade);

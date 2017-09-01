@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Data.Common;
-using System.Data.Jet.Test;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-
-namespace JetEntityFrameworkProvider.Test.JetProviderFactory
+namespace System.Data.Jet.Test
 {
     [TestClass]
     public class JetStoreSchemaDefinitionRetrieveTest

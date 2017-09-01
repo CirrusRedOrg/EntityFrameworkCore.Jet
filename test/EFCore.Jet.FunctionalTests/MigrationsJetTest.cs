@@ -104,7 +104,7 @@ GO
         {
             base.Can_get_active_provider();
 
-            Assert.Equal("EntityFrameworkCore.SqlServerCompact40", ActiveProvider);
+            Assert.Equal("EntityFrameworkCore.Jet", ActiveProvider);
         }
 
         protected override async Task AssertFirstMigrationAsync(DbConnection connection)

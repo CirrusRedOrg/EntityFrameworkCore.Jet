@@ -327,7 +327,7 @@ INNER JOIN (
 ORDER BY [t].[OrderID]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
+        [Theory(Skip = "Unsupported by JET")]
         public override void Include_collection_order_by_collection_column(bool useString)
         {
             base.Include_collection_order_by_collection_column(useString);
@@ -423,6 +423,7 @@ INNER JOIN (
 ORDER BY [t].[ContactTitle], [t].[CustomerID]");
         }
 
+        [Theory(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
         public override void Include_collection_order_by_non_key_with_skip(bool useString)
         {
             base.Include_collection_order_by_non_key_with_skip(useString);
@@ -451,6 +452,7 @@ ORDER BY [t].[ContactTitle], [t].[CustomerID]");
             }
         }
 
+        [Theory(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
         public override void Include_collection_order_by_non_key_with_first_or_default(bool useString)
         {
             base.Include_collection_order_by_non_key_with_first_or_default(useString);
@@ -470,7 +472,7 @@ INNER JOIN (
 ORDER BY [t].[CompanyName] DESC, [t].[CustomerID]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
+        [Theory(Skip = "Unsupported by JET")]
         public override void Include_collection_order_by_subquery(bool useString)
         {
             base.Include_collection_order_by_subquery(useString);
@@ -730,6 +732,7 @@ INNER JOIN (
 ORDER BY [t1].[CustomerID]");
         }
 
+        [Theory(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
         public override void Include_duplicate_collection(bool useString)
         {
             base.Include_duplicate_collection(useString);
@@ -795,6 +798,7 @@ ORDER BY [t6].[CustomerID0], [t6].[CustomerID]");
             }
         }
 
+        [Theory(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
         public override void Include_duplicate_collection_result_operator(bool useString)
         {
             base.Include_duplicate_collection_result_operator(useString);
@@ -948,6 +952,7 @@ OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY");
             }
         }
 
+        [Theory(Skip = "Unsupported by JET: SKIP TAKE is supported only in outer queries")]
         public override void Include_duplicate_collection_result_operator2(bool useString)
         {
             base.Include_duplicate_collection_result_operator2(useString);
@@ -1020,6 +1025,7 @@ FROM [Order Details] AS [o]
 INNER JOIN [Orders] AS [o#Order] ON [o].[OrderID] = [o#Order].[OrderID]");
         }
 
+        [Theory(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
         public override void Include_duplicate_reference(bool useString)
         {
             base.Include_duplicate_reference(useString);
@@ -1046,6 +1052,7 @@ LEFT JOIN [Customers] AS [o2.Customer] ON [t0].[CustomerID] = [o2.Customer].[Cus
             }
         }
 
+        [Theory(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
         public override void Include_duplicate_reference2(bool useString)
         {
             base.Include_duplicate_reference2(useString);
@@ -1071,6 +1078,7 @@ CROSS JOIN (
             }
         }
 
+        [Theory(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
         public override void Include_duplicate_reference3(bool useString)
         {
             base.Include_duplicate_reference3(useString);
@@ -1284,7 +1292,7 @@ ORDER BY [t].[ContactName], [t].[CustomerID]");
             }
         }
 
-        [Fact(Skip = "Unsupported by JET")]
+        [Theory(Skip = "Unsupported by JET")]
         public override void Then_include_collection_order_by_collection_column(bool useString)
         {
             base.Then_include_collection_order_by_collection_column(useString);

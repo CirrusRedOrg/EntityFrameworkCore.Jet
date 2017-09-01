@@ -15,7 +15,11 @@ namespace System.Data.Jet
         private JetTransaction _Transaction;
         private bool _DesignTimeVisible;
 
+        private Guid? _lastGuid = null;
+        private int? _rowCount = null;
+
         private static readonly Regex _skipRegularExpression = new Regex(@"\bskip\s(?<stringSkipCount>@.*)\b", RegexOptions.IgnoreCase);
+        private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*$", RegexOptions.IgnoreCase);
 
 
         /// <summary>
@@ -226,27 +230,43 @@ namespace System.Data.Jet
 
             DbDataReader dataReader;
             if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(_WrappedCommand, out dataReader))
-            {
                 // Retrieve of store schema definition
                 return dataReader;
-            }
 
             if (_WrappedCommand.CommandType != CommandType.Text)
                 return new JetDataReader(_WrappedCommand.ExecuteReader(behavior));
 
             string[] commandTextList = SplitCommands(_WrappedCommand.CommandText);
 
-            JetDataReader jetDataReader = null;
+            dataReader = null;
             for (int i = 0; i < commandTextList.Length; i++)
             {
                 string commandText = commandTextList[i];
+                if ((dataReader = TryGetDataReaderForSelectRowCount(commandText)) != null)
+                    continue;
+
                 commandText = ParseIdentity(commandText);
                 commandText = ParseGuid(commandText);
 
-                jetDataReader = InternalExecuteDbDataReader(commandText, behavior);
+                dataReader = InternalExecuteDbDataReader(commandText, behavior);
             }
 
-            return jetDataReader;
+            return dataReader;
+        }
+
+        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
+        {
+            if (_selectRowCountRegularExpression.Match(commandText).Success)
+            {
+                if (_rowCount == null)
+                    throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
+                DataTable dataTable = new DataTable("Rowcount");
+                dataTable.Columns.Add("ROWCOUNT", typeof(int));
+                dataTable.Rows.Add(_rowCount.Value);
+                return new DataTableReader(dataTable);
+            }
+
+            return null;
         }
 
 
@@ -312,19 +332,25 @@ namespace System.Data.Jet
             int skipCount;
             string newCommandText;
             ParseSkipTop(commandText, out topCount, out skipCount, out newCommandText);
-            SortParameters(_WrappedCommand.Parameters);
+            SortParameters(newCommandText, _WrappedCommand.Parameters);
             FixParameters(_WrappedCommand.Parameters);
 
             DbCommand command;
             command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
             command.CommandText = newCommandText;
 
+            JetDataReader dataReader;
+
             if (skipCount != 0)
-                return new JetDataReader(command.ExecuteReader(behavior), topCount == -1 ? 0 : topCount - skipCount, skipCount);
+                dataReader = new JetDataReader(command.ExecuteReader(behavior), topCount == -1 ? 0 : topCount - skipCount, skipCount);
             else if (topCount >= 0)
-                return new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
+                dataReader = new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
             else
-                return new JetDataReader(command.ExecuteReader(behavior));
+                dataReader = new JetDataReader(command.ExecuteReader(behavior));
+
+            _rowCount = dataReader.RecordsAffected;
+
+            return dataReader;
         }
 
         private int InternalExecuteNonQuery(string commandText)
@@ -335,14 +361,16 @@ namespace System.Data.Jet
             string newCommandText;
             ParseSkipTop(commandText, out topCount, out skipCount, out newCommandText);
             //ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
-            SortParameters(_WrappedCommand.Parameters);
+            SortParameters(newCommandText, _WrappedCommand.Parameters);
             FixParameters(_WrappedCommand.Parameters);
 
             DbCommand command;
             command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
             command.CommandText = newCommandText;
 
-            return command.ExecuteNonQuery();
+            _rowCount = command.ExecuteNonQuery();
+
+            return _rowCount.Value;
 
         }
 
@@ -363,12 +391,53 @@ namespace System.Data.Jet
             }
         }
 
-        private void SortParameters(DbParameterCollection parameters)
+
+        private void SortParameters(string query, DbParameterCollection parameters)
+        {
+            if (parameters.Count == 0)
+                return;
+
+            var parameterArray = parameters.Cast<OleDbParameter>().ToArray();
+            // ReSharper disable once CoVariantArrayConversion
+            Array.Sort(parameterArray, new ParameterPositionComparer(query));
+
+            parameters.Clear();
+            foreach (OleDbParameter parameter in parameterArray)
+                parameters.Add(new OleDbParameter(parameter.ParameterName, parameter.Value));
+        }
+
+
+        private class ParameterPositionComparer : IComparer<DbParameter>
+        {
+            private readonly string _query;
+
+            public ParameterPositionComparer(string query)
+            {
+                _query = query;
+            }
+
+            public int Compare(DbParameter x, DbParameter y)
+            {
+                if (x == null) throw new ArgumentNullException(nameof(x));
+                if (y == null) throw new ArgumentNullException(nameof(y));
+
+                int xPosition = _query.IndexOf(x.ParameterName, StringComparison.Ordinal);
+                int yPosition = _query.IndexOf(y.ParameterName, StringComparison.Ordinal);
+                if (xPosition == -1) xPosition = int.MaxValue;
+                if (yPosition == -1) yPosition = int.MaxValue;
+                return xPosition.CompareTo(yPosition);
+            }
+        }
+
+
+
+        private void SortParameters_(DbParameterCollection parameters)
         {
             if (parameters.Count == 0)
                 return;
             var parameterArray = parameters.Cast<OleDbParameter>().ToArray();
-            Array.Sort(parameterArray, ParameterComparer.Instance);
+            // ReSharper disable once CoVariantArrayConversion
+            Array.Sort(parameterArray, ParameterComparer.Instance_);
 
             parameters.Clear();
             foreach (OleDbParameter parameter in parameterArray)
@@ -377,13 +446,16 @@ namespace System.Data.Jet
 
         private class ParameterComparer : IComparer<DbParameter>
         {
-            public static readonly ParameterComparer Instance = new ParameterComparer();
+            public static readonly ParameterComparer Instance_ = new ParameterComparer();
 
             private ParameterComparer() { }
 
             Regex _extractNumberRegex = new Regex(@"^@p(?<number>\d+)$", RegexOptions.IgnoreCase);
             public int Compare(DbParameter x, DbParameter y)
             {
+                if (x == null) throw new ArgumentNullException(nameof(x));
+                if (y == null) throw new ArgumentNullException(nameof(y));
+
                 Match xMatch = _extractNumberRegex.Match(x.ParameterName);
                 if (!xMatch.Success)
                     return -1;
@@ -428,8 +500,6 @@ namespace System.Data.Jet
             return commandText;
         }
 
-
-        private Guid? _lastGuid = null;
 
         private string ParseGuid(string commandText)
         {

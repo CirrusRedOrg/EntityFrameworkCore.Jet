@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Data.Common;
+using System.Data.Jet;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EFCore.Jet.Integration.Test.Model05_WithIndex
@@ -7,9 +10,10 @@ namespace EFCore.Jet.Integration.Test.Model05_WithIndex
     [TestClass]
     public class Model05JetTest : Test
     {
+
         protected override DbConnection GetConnection()
         {
-            return Helpers.GetJetConnection();
+            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb"));
         }
     }
 }

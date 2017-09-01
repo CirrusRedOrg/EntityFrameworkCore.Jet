@@ -358,6 +358,13 @@ LEFT JOIN (
 ) AS [t0] ON [l1].[Id] = [t0].[Level1_Optional_Id]");
         }
 
+
+        [Fact(Skip = "Unsupported by JET: JOIN with unsupported ON PREDICATE")]
+        public override void Join_flattening_bug_4539()
+        {
+            base.Join_flattening_bug_4539();
+        }
+
         private void AssertSql(params string[] expected)
         {
             string[] expectedFixed = new string[expected.Length];

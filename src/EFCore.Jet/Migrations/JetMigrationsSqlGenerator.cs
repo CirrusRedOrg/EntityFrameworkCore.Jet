@@ -89,6 +89,7 @@ namespace EntityFrameworkCore.Jet.Migrations
         }
 
 
+        // ReSharper disable once OptionalParameterHierarchyMismatch
         public override IReadOnlyList<MigrationCommand> Generate(IReadOnlyList<MigrationOperation> operations, IModel model)
         {
             _operations = operations;
@@ -346,40 +347,6 @@ namespace EntityFrameworkCore.Jet.Migrations
             Rename(qualifiedName.ToString(), TruncateName(operation.NewName), "INDEX", builder);
             builder.EndCommand(suppressTransaction: IsMemoryOptimized(operation, model, operation.Schema, operation.Table));
         }
-
-        protected override void Generate(RenameSequenceOperation operation, IModel model, MigrationCommandListBuilder builder)
-        {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
-            var name = operation.Name;
-            if (operation.NewName != null)
-            {
-                var qualifiedName = new StringBuilder();
-                // Jet does not support schemas
-                /*
-                if (operation.Schema != null)
-                {
-                    qualifiedName
-                        .Append(operation.Schema)
-                        .Append(".");
-                }
-                */
-                qualifiedName.Append(operation.Name);
-
-                Rename(qualifiedName.ToString(), operation.NewName, builder);
-
-                name = operation.NewName;
-            }
-
-            if (operation.NewSchema != null)
-            {
-                Transfer(operation.NewSchema, operation.Schema, name, builder);
-            }
-
-            builder.EndCommand();
-        }
-
 
         /// <summary>
         ///     Generates a SQL fragment for the default constraint of a column.
@@ -1211,6 +1178,35 @@ namespace EntityFrameworkCore.Jet.Migrations
         }
 
 
+        #region Sequences not supported
+
+        // JET does not have sequences
+        protected override void Generate(RestartSequenceOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            throw new NotSupportedException("JET does not support sequences");
+        }
+
+        protected override void Generate(CreateSequenceOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            throw new NotSupportedException("JET does not support sequences");
+        }
+
+        protected override void Generate(RenameSequenceOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            throw new NotSupportedException("JET does not support sequences");
+        }
+
+        protected override void Generate(AlterSequenceOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            throw new NotSupportedException("JET does not support sequences");
+        }
+
+        protected override void Generate(DropSequenceOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            throw new NotSupportedException("JET does not support sequences");
+        }
+
+        #endregion
 
     }
 }

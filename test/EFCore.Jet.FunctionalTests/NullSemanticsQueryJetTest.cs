@@ -13,435 +13,19 @@ namespace EntityFramework.Jet.FunctionalTests
             //fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        public override void Projecting_nullable_bool_with_coalesce()
+
+
+        [Fact(Skip = "Unsupported by JET")]
+        public override void From_sql_composed_with_relational_null_comparison()
         {
-            base.Projecting_nullable_bool_with_coalesce();
-        }
-
-        public override void Projecting_nullable_bool_with_coalesce_nested()
-        {
-            base.Projecting_nullable_bool_with_coalesce_nested();
-        }
-
-        public override void Compare_bool_with_bool_equal()
-        {
-            base.Compare_bool_with_bool_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[NullableBoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_bool_equal()
-        {
-            base.Compare_negated_bool_with_bool_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) AND [e].[NullableBoolB] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) AND [e].[NullableBoolA] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) AND ([e].[NullableBoolA] IS NOT NULL AND [e].[NullableBoolB] IS NOT NULL)) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_negated_bool_equal()
-        {
-            base.Compare_bool_with_negated_bool_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) AND [e].[NullableBoolB] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) AND [e].[NullableBoolA] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) AND ([e].[NullableBoolA] IS NOT NULL AND [e].[NullableBoolB] IS NOT NULL)) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_negated_bool_equal()
-        {
-            base.Compare_negated_bool_with_negated_bool_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] = [e].[NullableBoolB]) AND [e].[NullableBoolB] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[BoolB]) AND [e].[NullableBoolA] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] = [e].[NullableBoolB]) AND ([e].[NullableBoolA] IS NOT NULL AND [e].[NullableBoolB] IS NOT NULL)) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_bool_equal_negated()
-        {
-            base.Compare_bool_with_bool_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_bool_equal_negated()
-        {
-            base.Compare_negated_bool_with_bool_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] = [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_negated_bool_equal_negated()
-        {
-            base.Compare_bool_with_negated_bool_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] = [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_negated_bool_equal_negated()
-        {
-            base.Compare_negated_bool_with_negated_bool_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_bool_not_equal()
-        {
-            base.Compare_bool_with_bool_not_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_bool_not_equal()
-        {
-            base.Compare_negated_bool_with_bool_not_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] = [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_negated_bool_not_equal()
-        {
-            base.Compare_bool_with_negated_bool_not_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] = [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_negated_bool_not_equal()
-        {
-            base.Compare_negated_bool_with_negated_bool_not_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_bool_not_equal_negated()
-        {
-            base.Compare_bool_with_bool_not_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[NullableBoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_bool_not_equal_negated()
-        {
-            base.Compare_negated_bool_with_bool_not_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) AND [e].[NullableBoolB] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) AND [e].[NullableBoolA] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) AND ([e].[NullableBoolA] IS NOT NULL AND [e].[NullableBoolB] IS NOT NULL)) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_bool_with_negated_bool_not_equal_negated()
-        {
-            base.Compare_bool_with_negated_bool_not_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) AND [e].[NullableBoolB] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) AND [e].[NullableBoolA] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) AND ([e].[NullableBoolA] IS NOT NULL AND [e].[NullableBoolB] IS NOT NULL)) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_negated_bool_with_negated_bool_not_equal_negated()
-        {
-            base.Compare_negated_bool_with_negated_bool_not_equal_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] = [e].[NullableBoolB]) AND [e].[NullableBoolB] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[BoolB]) AND [e].[NullableBoolA] IS NOT NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] = [e].[NullableBoolB]) AND ([e].[NullableBoolA] IS NOT NULL AND [e].[NullableBoolB] IS NOT NULL)) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_equals_method()
-        {
-            base.Compare_equals_method();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] = [e].[NullableBoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)",
-                Sql);
-        }
-
-        public override void Compare_equals_method_negated()
-        {
-            base.Compare_equals_method_negated();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[BoolA] <> [e].[BoolB]
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[BoolA] <> [e].[NullableBoolB]) OR [e].[NullableBoolB] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] <> [e].[BoolB]) OR [e].[NullableBoolA] IS NULL
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE (([e].[NullableBoolA] <> [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL OR [e].[NullableBoolB] IS NULL)) AND ([e].[NullableBoolA] IS NOT NULL OR [e].[NullableBoolB] IS NOT NULL)",
-                Sql);
+            base.From_sql_composed_with_relational_null_comparison();
         }
 
         public override void Compare_complex_equal_equal_equal()
         {
             base.Compare_complex_equal_equal_equal();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE CASE
@@ -478,7 +62,7 @@ END",
         {
             base.Compare_complex_equal_not_equal_equal();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE CASE
@@ -515,7 +99,7 @@ END",
         {
             base.Compare_complex_not_equal_equal_equal();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE CASE
@@ -552,7 +136,7 @@ END",
         {
             base.Compare_complex_not_equal_not_equal_equal();
 
-            Assert.Equal(@"SELECT [e].[Id]
+            AssertSql(@"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE CASE
     WHEN [e].[BoolA] <> [e].[BoolB]
@@ -588,7 +172,7 @@ END",
         {
             base.Compare_complex_not_equal_equal_not_equal();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE CASE
@@ -625,7 +209,7 @@ END",
         {
             base.Compare_complex_not_equal_not_equal_not_equal();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE CASE
@@ -658,159 +242,24 @@ END",
                 Sql);
         }
 
-        public override void Compare_nullable_with_null_parameter_equal()
-        {
-            base.Compare_nullable_with_null_parameter_equal();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] IS NULL",
-                Sql);
-        }
-
-        public override void Compare_nullable_with_non_null_parameter_not_equal()
-        {
-            base.Compare_nullable_with_non_null_parameter_not_equal();
-
-            Assert.Equal(
-                @"@__prm_0='Foo' (Size = 4000)
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] = @__prm_0",
-                Sql);
-        }
 
         public override void Join_uses_database_semantics()
         {
             base.Join_uses_database_semantics();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e1].[Id] AS [Id1], [e2].[Id] AS [Id2], [e1].[NullableIntA], [e2].[NullableIntB]
 FROM [NullSemanticsEntity1] AS [e1]
 INNER JOIN [NullSemanticsEntity2] AS [e2] ON [e1].[NullableIntA] = [e2].[NullableIntB]",
                 Sql);
         }
 
-        public override void Contains_with_local_array_closure_with_null()
-        {
-            base.Contains_with_local_array_closure_with_null();
-
-            AssertSql(
-                 @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableStringA] IN (N'Foo') OR [e].[NullableStringA] IS NULL)");
-        }
-
-        public override void Contains_with_local_array_closure_false_with_null()
-        {
-            base.Contains_with_local_array_closure_false_with_null();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] NOT IN (N'Foo') AND [e].[NullableStringA] IS NOT NULL",
-                Sql);
-        }
-
-        public override void Contains_with_local_array_closure_with_multiple_nulls()
-        {
-            base.Contains_with_local_array_closure_with_multiple_nulls();
-
-            AssertSql(
-                 @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableStringA] IN (N'Foo') OR [e].[NullableStringA] IS NULL)");
-
-        }
-
-        public override void Where_multiple_ors_with_null()
-        {
-            base.Where_multiple_ors_with_null();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] IN (N'Foo', N'Blah') OR [e].[NullableStringA] IS NULL",
-                Sql);
-        }
-
-        public override void Where_multiple_ands_with_null()
-        {
-            base.Where_multiple_ands_with_null();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] NOT IN (N'Foo', N'Blah') AND [e].[NullableStringA] IS NOT NULL",
-                Sql);
-        }
-
-        public override void Where_multiple_ors_with_nullable_parameter()
-        {
-            base.Where_multiple_ors_with_nullable_parameter();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableStringA] IN (N'Foo') OR [e].[NullableStringA] IS NULL)",
-                Sql);
-        }
-
-        public override void Where_multiple_ands_with_nullable_parameter_and_constant()
-        {
-            base.Where_multiple_ands_with_nullable_parameter_and_constant();
-
-            Assert.Equal(
-                @"@__prm3_2='Blah'
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] NOT IN (N'Foo', @__prm3_2) AND [e].[NullableStringA] IS NOT NULL",
-                Sql);
-        }
-
-        public override void Where_multiple_ands_with_nullable_parameter_and_constant_not_optimized()
-        {
-            base.Where_multiple_ands_with_nullable_parameter_and_constant_not_optimized();
-
-            Assert.Equal(
-                @"@__prm3_2='Blah' (Size = 4000)
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ((([e].[NullableStringB] IS NOT NULL AND (([e].[NullableStringA] <> N'Foo') OR [e].[NullableStringA] IS NULL)) AND [e].[NullableStringA] IS NOT NULL) AND [e].[NullableStringA] IS NOT NULL) AND (([e].[NullableStringA] <> @__prm3_2) OR [e].[NullableStringA] IS NULL)",
-                Sql);
-        }
-
-        public override void Where_equal_nullable_with_null_value_parameter()
-        {
-            base.Where_equal_nullable_with_null_value_parameter();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] IS NULL",
-                Sql);
-        }
-
-        public override void Where_not_equal_nullable_with_null_value_parameter()
-        {
-            base.Where_not_equal_nullable_with_null_value_parameter();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableStringA] IS NOT NULL",
-                Sql);
-        }
 
         public override void Where_equal_with_coalesce()
         {
             base.Where_equal_with_coalesce();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE (COALESCE([e].[NullableStringA], [e].[NullableStringB]) = [e].[NullableStringC]) OR (([e].[NullableStringA] IS NULL AND [e].[NullableStringB] IS NULL) AND [e].[NullableStringC] IS NULL)",
@@ -821,7 +270,7 @@ WHERE (COALESCE([e].[NullableStringA], [e].[NullableStringB]) = [e].[NullableStr
         {
             base.Where_not_equal_with_coalesce();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE ((COALESCE([e].[NullableStringA], [e].[NullableStringB]) <> [e].[NullableStringC]) OR (([e].[NullableStringA] IS NULL AND [e].[NullableStringB] IS NULL) OR [e].[NullableStringC] IS NULL)) AND (([e].[NullableStringA] IS NOT NULL OR [e].[NullableStringB] IS NOT NULL) OR [e].[NullableStringC] IS NOT NULL)",
@@ -832,7 +281,7 @@ WHERE ((COALESCE([e].[NullableStringA], [e].[NullableStringB]) <> [e].[NullableS
         {
             base.Where_equal_with_coalesce_both_sides();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE COALESCE([e].[NullableStringA], [e].[NullableStringB]) = COALESCE([e].[StringA], [e].[StringB])",
@@ -843,7 +292,7 @@ WHERE COALESCE([e].[NullableStringA], [e].[NullableStringB]) = COALESCE([e].[Str
         {
             base.Where_not_equal_with_coalesce_both_sides();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE ((COALESCE([e].[NullableIntA], [e].[NullableIntB]) <> COALESCE([e].[NullableIntC], [e].[NullableIntB])) OR (([e].[NullableIntA] IS NULL AND [e].[NullableIntB] IS NULL) OR ([e].[NullableIntC] IS NULL AND [e].[NullableIntB] IS NULL))) AND (([e].[NullableIntA] IS NOT NULL OR [e].[NullableIntB] IS NOT NULL) OR ([e].[NullableIntC] IS NOT NULL OR [e].[NullableIntB] IS NOT NULL))",
@@ -854,7 +303,7 @@ WHERE ((COALESCE([e].[NullableIntA], [e].[NullableIntB]) <> COALESCE([e].[Nullab
         {
             base.Where_equal_with_conditional();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE (CASE
@@ -871,7 +320,7 @@ END IS NULL AND [e].[NullableStringC] IS NULL)",
         {
             base.Where_not_equal_with_conditional();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE (([e].[NullableStringC] <> CASE
@@ -891,7 +340,7 @@ END IS NOT NULL)",
         {
             base.Where_equal_with_conditional_non_nullable();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE ([e].[NullableStringC] <> CASE
@@ -905,97 +354,13 @@ END) OR [e].[NullableStringC] IS NULL",
         {
             base.Where_equal_with_and_and_contains();
 
-            Assert.Equal(
+            AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
 WHERE ((CHARINDEX([e].[NullableStringB], [e].[NullableStringA]) > 0) OR ([e].[NullableStringB] = N'')) AND ([e].[BoolA] = 1)",
                 Sql);
         }
 
-        public override void Where_equal_using_relational_null_semantics()
-        {
-            base.Where_equal_using_relational_null_semantics();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = [e].[NullableBoolB]",
-                Sql);
-        }
-
-        public override void Where_equal_using_relational_null_semantics_with_parameter()
-        {
-            base.Where_equal_using_relational_null_semantics_with_parameter();
-
-            Assert.Equal(
-                @"@__prm_0='' (DbType = Boolean)
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = @__prm_0",
-                Sql);
-        }
-
-        public override void Where_equal_using_relational_null_semantics_complex_with_parameter()
-        {
-            base.Where_equal_using_relational_null_semantics_complex_with_parameter();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = [e].[NullableBoolB]",
-                Sql);
-        }
-
-        public override void Where_not_equal_using_relational_null_semantics()
-        {
-            base.Where_not_equal_using_relational_null_semantics();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] <> [e].[NullableBoolB]",
-                Sql);
-        }
-
-        public override void Where_not_equal_using_relational_null_semantics_with_parameter()
-        {
-            base.Where_not_equal_using_relational_null_semantics_with_parameter();
-
-            Assert.Equal(
-                @"@__prm_0='' (DbType = Boolean)
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] <> @__prm_0",
-                Sql);
-        }
-
-        public override void Where_not_equal_using_relational_null_semantics_complex_with_parameter()
-        {
-            base.Where_not_equal_using_relational_null_semantics_complex_with_parameter();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] <> [e].[NullableBoolB]",
-                Sql);
-        }
-
-        public override void Switching_null_semantics_produces_different_cache_entry()
-        {
-            base.Switching_null_semantics_produces_different_cache_entry();
-
-            Assert.Equal(
-                @"SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE ([e].[NullableBoolA] = [e].[NullableBoolB]) OR ([e].[NullableBoolA] IS NULL AND [e].[NullableBoolB] IS NULL)
-
-SELECT [e].[Id]
-FROM [NullSemanticsEntity1] AS [e]
-WHERE [e].[NullableBoolA] = [e].[NullableBoolB]",
-                Sql);
-        }
 
         private void AssertSql(params string[] expected)
         {
@@ -1003,6 +368,8 @@ WHERE [e].[NullableBoolA] = [e].[NullableBoolB]",
             int i = 0;
             foreach (var item in expected)
             {
+                if (AssertSqlHelper.IgnoreStatement(item))
+                    return;
                 expectedFixed[i++] = item.Replace("\r\n", "\n");
             }
             Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
@@ -1015,5 +382,6 @@ WHERE [e].[NullableBoolA] = [e].[NullableBoolB]",
         {
             get { return Fixture.TestSqlLoggerFactory.Sql; }
         }
+
     }
 }

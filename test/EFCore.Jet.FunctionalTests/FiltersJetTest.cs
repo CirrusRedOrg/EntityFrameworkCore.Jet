@@ -21,7 +21,7 @@ namespace EntityFramework.Jet.FunctionalTests
             base.Count_query();
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT COUNT(*)
 FROM [Customers] AS [c]
@@ -42,24 +42,11 @@ FROM [Products] AS [p]");
             base.Materialized_query();
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
-        }
-
-        public override void Find()
-        {
-            base.Find();
-
-            AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
-@__get_Item_0='ALFKI' (Size = 256)
-
-SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')) AND ([c].[CustomerID] = @__get_Item_0)");
         }
 
         public override void Materialized_query_parameter()
@@ -67,7 +54,7 @@ WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__Tenant
             base.Materialized_query_parameter();
 
             AssertSql(
-                @"@__TenantPrefix_0='F' (Size = 4000)
+                @"@__TenantPrefix_0='F' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
@@ -80,13 +67,13 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
             base.Materialized_query_parameter_new_context();
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')",
                 //
-                @"@__TenantPrefix_0='T' (Size = 4000)
+                @"@__TenantPrefix_0='T' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
@@ -98,7 +85,7 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
             base.Projection_query_parameter();
 
             AssertSql(
-                @"@__TenantPrefix_0='F' (Size = 4000)
+                @"@__TenantPrefix_0='F' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID]
 FROM [Customers] AS [c]
@@ -110,7 +97,7 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
             base.Projection_query();
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID]
 FROM [Customers] AS [c]
@@ -122,14 +109,14 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
             base.Include_query();
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
 WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')
 ORDER BY [c].[CustomerID]",
                 //
-                @"@__TenantPrefix_1='B' (Size = 4000)
+                @"@__TenantPrefix_1='B' (Nullable = false) (Size = 1)
 
 SELECT [c.Orders].[OrderID], [c.Orders].[CustomerID], [c.Orders].[EmployeeID], [c.Orders].[OrderDate]
 FROM [Orders] AS [c.Orders]
@@ -164,7 +151,7 @@ ORDER BY [t].[CustomerID]");
             base.Included_many_to_one_query();
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
 FROM [Orders] AS [o]
@@ -200,7 +187,7 @@ WHERE [o].[Quantity] > @___quantity_0");
 
             AssertSql(
                 @"@___quantity_1='50'
-@__TenantPrefix_0='B' (Size = 4000)
+@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
@@ -224,7 +211,7 @@ WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__Tenant
             }
 
             AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
+                @"@__TenantPrefix_0='B' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM (
@@ -233,25 +220,6 @@ FROM (
 WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
-        public override void Compiled_query()
-        {
-            base.Compiled_query();
-
-            AssertSql(
-                @"@__TenantPrefix_0='B' (Size = 4000)
-@__customerID='BERGS' (Size = 256)
-
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')) AND ([c].[CustomerID] = @__customerID)",
-                //
-                @"@__TenantPrefix_0='B' (Size = 4000)
-@__customerID='BLAUS' (Size = 256)
-
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')) AND ([c].[CustomerID] = @__customerID)");
-        }
 
         private void AssertSql(params string[] expected)
         {
@@ -259,6 +227,8 @@ WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__Tenant
             int i = 0;
             foreach (var item in expected)
             {
+                if (AssertSqlHelper.IgnoreStatement(item))
+                    return;
                 expectedFixed[i++] = item.Replace("\r\n", "\n");
             }
             Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);

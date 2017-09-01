@@ -51,7 +51,7 @@ namespace EntityFramework.Jet.FunctionalTests
             var modelBuilder = base.Timestamp_takes_precedence_over_MaxLength();
 
             var property = GetProperty<TimestampAndMaxlen>(modelBuilder, "MaxTimestamp");
-            Assert.Equal("rowversion", new JetTypeMapper(new RelationalTypeMapperDependencies()).FindMapping(property).StoreType);
+            Assert.Equal("varbinary(8)", new JetTypeMapper(new RelationalTypeMapperDependencies()).FindMapping(property).StoreType);
 
             return modelBuilder;
         }
@@ -61,7 +61,7 @@ namespace EntityFramework.Jet.FunctionalTests
             var modelBuilder = base.Timestamp_takes_precedence_over_MaxLength_with_value();
 
             var property = GetProperty<TimestampAndMaxlen>(modelBuilder, "NonMaxTimestamp");
-            Assert.Equal("rowversion", new JetTypeMapper(new RelationalTypeMapperDependencies()).FindMapping(property).StoreType);
+            Assert.Equal("varbinary(8)", new JetTypeMapper(new RelationalTypeMapperDependencies()).FindMapping(property).StoreType);
 
             return modelBuilder;
         }
@@ -121,7 +121,7 @@ WHERE [UniqueNo] = @p2 AND [RowVersion] = @p3", Sql);
             base.StringLengthAttribute_throws_while_inserting_value_longer_than_max_length();
         }
 
-        [Fact(Skip = "Unsupported by JET: Data type unsupported")]
+        [Fact(Skip = "Unsupported by JET: rowversion unsupported")]
         public override void TimestampAttribute_throws_if_value_in_database_changed()
         {
             using (var context = CreateContext())

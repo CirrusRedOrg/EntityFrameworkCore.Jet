@@ -19,7 +19,7 @@ namespace EntityFramework.Jet.FunctionalTests
             AssertSql(
                 @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
 FROM [Animal] AS [a]
-WHERE [a].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([a].[CountryId] = 1)
+WHERE [a].[Discriminator] IN ('Kiwi', 'Eagle') AND ([a].[CountryId] = 1)
 ORDER BY [a].[Species]");
         }
 
@@ -30,7 +30,7 @@ ORDER BY [a].[Species]");
             AssertSql(
                 @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
 FROM [Animal] AS [a]
-WHERE ([a].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([a].[CountryId] = 1)) AND ([a].[Discriminator] = N'Kiwi')");
+WHERE ([a].[Discriminator] IN ('Kiwi', 'Eagle') AND ([a].[CountryId] = 1)) AND ([a].[Discriminator] = 'Kiwi')");
         }
 
         public override void Can_use_is_kiwi_with_other_predicate()
@@ -40,21 +40,9 @@ WHERE ([a].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([a].[CountryId] = 1)) AND
             AssertSql(
                 @"SELECT [a].[Species], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
 FROM [Animal] AS [a]
-WHERE ([a].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([a].[CountryId] = 1)) AND (([a].[Discriminator] = N'Kiwi') AND ([a].[CountryId] = 1))");
+WHERE ([a].[Discriminator] IN ('Kiwi', 'Eagle') AND ([a].[CountryId] = 1)) AND (([a].[Discriminator] = 'Kiwi') AND ([a].[CountryId] = 1))");
         }
 
-        public override void Can_use_is_kiwi_in_projection()
-        {
-            base.Can_use_is_kiwi_in_projection();
-
-            AssertSql(
-                @"SELECT CASE
-    WHEN [a].[Discriminator] = N'Kiwi'
-    THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT)
-END
-FROM [Animal] AS [a]
-WHERE [a].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([a].[CountryId] = 1)");
-        }
 
         public override void Can_use_of_type_bird()
         {
@@ -63,7 +51,7 @@ WHERE [a].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([a].[CountryId] = 1)");
             AssertSql(
                 @"SELECT [b].[Species], [b].[CountryId], [b].[Discriminator], [b].[Name], [b].[EagleId], [b].[IsFlightless], [b].[Group], [b].[FoundOn]
 FROM [Animal] AS [b]
-WHERE [b].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([b].[CountryId] = 1)
+WHERE [b].[Discriminator] IN ('Kiwi', 'Eagle') AND ([b].[CountryId] = 1)
 ORDER BY [b].[Species]");
         }
 
@@ -74,7 +62,7 @@ ORDER BY [b].[Species]");
             AssertSql(
                 @"SELECT [b].[Species], [b].[CountryId], [b].[Discriminator], [b].[Name], [b].[EagleId], [b].[IsFlightless], [b].[Group], [b].[FoundOn]
 FROM [Animal] AS [b]
-WHERE ([b].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([b].[CountryId] = 1)) AND ([b].[CountryId] = 1)
+WHERE ([b].[Discriminator] IN ('Kiwi', 'Eagle') AND ([b].[CountryId] = 1)) AND ([b].[CountryId] = 1)
 ORDER BY [b].[Species]");
         }
 
@@ -85,7 +73,7 @@ ORDER BY [b].[Species]");
             AssertSql(
                 @"SELECT [b].[EagleId]
 FROM [Animal] AS [b]
-WHERE [b].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([b].[CountryId] = 1)");
+WHERE [b].[Discriminator] IN ('Kiwi', 'Eagle') AND ([b].[CountryId] = 1)");
         }
 
         public override void Can_use_of_type_bird_first()
@@ -93,9 +81,9 @@ WHERE [b].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([b].[CountryId] = 1)");
             base.Can_use_of_type_bird_first();
 
             AssertSql(
-                @"SELECT TOP(1) [b].[Species], [b].[CountryId], [b].[Discriminator], [b].[Name], [b].[EagleId], [b].[IsFlightless], [b].[Group], [b].[FoundOn]
+                @"SELECT TOP 1 [b].[Species], [b].[CountryId], [b].[Discriminator], [b].[Name], [b].[EagleId], [b].[IsFlightless], [b].[Group], [b].[FoundOn]
 FROM [Animal] AS [b]
-WHERE [b].[Discriminator] IN (N'Kiwi', N'Eagle') AND ([b].[CountryId] = 1)
+WHERE [b].[Discriminator] IN ('Kiwi', 'Eagle') AND ([b].[CountryId] = 1)
 ORDER BY [b].[Species]");
         }
 
@@ -106,7 +94,7 @@ ORDER BY [b].[Species]");
             AssertSql(
                 @"SELECT [k].[Species], [k].[CountryId], [k].[Discriminator], [k].[Name], [k].[EagleId], [k].[IsFlightless], [k].[FoundOn]
 FROM [Animal] AS [k]
-WHERE ([k].[Discriminator] = N'Kiwi') AND ([k].[CountryId] = 1)");
+WHERE ([k].[Discriminator] = 'Kiwi') AND ([k].[CountryId] = 1)");
         }
 
         private void AssertSql(params string[] expected)

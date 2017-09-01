@@ -1104,7 +1104,7 @@ FROM [Customers] AS [c]
 WHERE NOT EXISTS (
     SELECT 1
     FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], Len('A')) = 'A'))");
+    WHERE [o].[CustomerID] LIKE 'A' + '%')");
         }
 
         public override void Any_nested_negated2()
@@ -1117,21 +1117,9 @@ FROM [Customers] AS [c]
 WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND NOT EXISTS (
     SELECT 1
     FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], Len('A')) = 'A'))");
+    WHERE [o].[CustomerID] LIKE 'A' + '%')");
         }
 
-        public override void Any_nested_negated3()
-        {
-            base.Any_nested_negated3();
-
-            AssertSql(
-                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], Len('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
-        }
 
         public override void Any_nested()
         {
@@ -1143,7 +1131,7 @@ FROM [Customers] AS [c]
 WHERE EXISTS (
     SELECT 1
     FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], Len('A')) = 'A'))");
+    WHERE [o].[CustomerID] LIKE 'A' + '%')");
         }
 
         public override void Any_nested2()
@@ -1156,34 +1144,10 @@ FROM [Customers] AS [c]
 WHERE (([c].[City] <> 'London') OR [c].[City] IS NULL) AND EXISTS (
     SELECT 1
     FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], Len('A')) = 'A'))");
+    WHERE [o].[CustomerID] LIKE 'A' + '%')");
         }
 
-        public override void Any_nested3()
-        {
-            base.Any_nested3();
 
-            AssertSql(
-                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE EXISTS (
-    SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], Len('A')) = 'A')) AND (([c].[City] <> 'London') OR [c].[City] IS NULL)");
-        }
-
-        public override void Any_with_multiple_conditions_still_uses_exists()
-        {
-            base.Any_with_multiple_conditions_still_uses_exists();
-
-            AssertSql(
-                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE ([c].[City] = 'London') AND EXISTS (
-    SELECT 1
-    FROM [Orders] AS [o]
-    WHERE ([o].[EmployeeID] = 1) AND ([c].[CustomerID] = [o].[CustomerID]))");
-        }
 
         [Fact(Skip = "Unsupported by JET")]
         public override void All_top_level()
@@ -1558,16 +1522,6 @@ FROM [Orders] AS [o]
 WHERE DatePart('d', [o].[OrderDate]) = 4");
         }
 
-        public override void Where_date_add_year_constant_component()
-        {
-            base.Where_date_add_year_constant_component();
-
-            AssertSql(
-                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE DatePart('yyyy', DateAdd('yyyy', -1, [o].[OrderDate])) = 1997");
-        }
-
         public override void Where_datetime_year_component()
         {
             base.Where_datetime_year_component();
@@ -1598,15 +1552,6 @@ FROM [Orders] AS [o]
 WHERE DatePart('m', [o].[OrderDate]) = 4");
         }
 
-        public override void Where_datetime_hour_component()
-        {
-            base.Where_datetime_hour_component();
-
-            AssertSql(
-                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE DatePart('h', [o].[OrderDate]) = 14");
-        }
 
         public override void Where_datetime_minute_component()
         {
@@ -3234,7 +3179,7 @@ ORDER BY [o].[OrderID]");
     WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
 ) AS [OrderDates]
 FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A')");
+WHERE [c].[CustomerID] LIKE 'A' + '%'");
         }
 
         
@@ -3253,7 +3198,7 @@ WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A
     WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
 ) AS [Order]
 FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A')");
+WHERE [c].[CustomerID] LIKE 'A' + '%'");
         }
 
         
@@ -3276,7 +3221,7 @@ WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A
     WHERE ([o].[OrderID] < 10500) AND ([c].[CustomerID] = [o].[CustomerID])
 ) AS [Order]
 FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A')");
+WHERE [c].[CustomerID] LIKE 'A' + '%'");
         }
 
         
@@ -3292,7 +3237,7 @@ WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A
     WHERE [c].[CustomerID] = [o].[CustomerID]
 ) AS [Count]
 FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A')");
+WHERE [c].[CustomerID] LIKE 'A' + '%'");
         }
 
         
@@ -3307,7 +3252,7 @@ WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A
     WHERE [c].[CustomerID] = [o].[CustomerID]
 ) AS [Count]
 FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A')");
+WHERE [c].[CustomerID] LIKE 'A' + '%'");
         }
 
         public override void Select_DTO_distinct_translated_to_server()
@@ -3367,7 +3312,7 @@ FROM [Customers] AS [c]
     FROM [Orders] AS [o]
     WHERE [o].[OrderID] < 10300
 ) AS [t]
-WHERE [c].[CustomerID] LIKE 'A' + '%' AND (LEFT([c].[CustomerID], Len('A')) = 'A')");
+WHERE [c].[CustomerID] LIKE 'A' + '%'");
         }
 
         public override void Select_correlated_subquery_projection()
@@ -3899,15 +3844,6 @@ FROM [Orders] AS [o]
 WHERE [o].[OrderDate] IS NOT NULL");
         }
 
-        public override void Select_expression_date_add_year()
-        {
-            base.Select_expression_date_add_year();
-
-            AssertSql(
-                @"SELECT DateAdd('yyyy', 1, [o].[OrderDate]) AS [OrderDate]
-FROM [Orders] AS [o]
-WHERE [o].[OrderDate] IS NOT NULL");
-        }
 
         public override void Select_expression_date_add_milliseconds_above_the_range()
         {
@@ -4011,7 +3947,7 @@ FROM (
     SELECT DISTINCT [c].[CustomerID]
     FROM [Customers] AS [c]
 ) AS [t]
-WHERE [t].[CustomerID] LIKE 'A' + '%' AND (LEFT([t].[CustomerID], Len('A')) = 'A')");
+WHERE [t].[CustomerID] LIKE 'A' + '%'");
         }
 
         public override void Anonymous_complex_distinct_where()
@@ -4050,7 +3986,7 @@ FROM (
     SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [A]
     FROM [Customers] AS [c]
 ) AS [t]
-WHERE [t].[A] LIKE 'A' + '%' AND (LEFT([t].[A], Len('A')) = 'A')");
+WHERE [t].[A] LIKE 'A' + '%'");
         }
 
 
@@ -4116,7 +4052,7 @@ FROM (
     SELECT DISTINCT [c].[CustomerID] AS [Property]
     FROM [Customers] AS [c]
 ) AS [t]
-WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], Len('A')) = 'A')");
+WHERE [t].[Property] LIKE 'A' + '%'");
         }
 
         public override void DTO_complex_distinct_where()
@@ -4155,7 +4091,7 @@ FROM (
     SELECT DISTINCT [c].[CustomerID] + [c].[City] AS [Property]
     FROM [Customers] AS [c]
 ) AS [t]
-WHERE [t].[Property] LIKE 'A' + '%' AND (LEFT([t].[Property], Len('A')) = 'A')");
+WHERE [t].[Property] LIKE 'A' + '%'");
         }
 
         public override void DTO_complex_orderby()

@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             = new JetByteArrayTypeMapping("varbinary(255)", dbType: DbType.Binary, size: 255);
 
         private readonly JetByteArrayTypeMapping _rowversion
-            = new JetByteArrayTypeMapping("rowversion", dbType: DbType.Binary, size: 8);
+            = new JetByteArrayTypeMapping("varbinary(8)", dbType: DbType.Binary, size: 8);
 
         private readonly IntTypeMapping _int = new IntTypeMapping("int", DbType.Int32);
 
@@ -47,7 +47,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte);
 
-        private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
+        private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("smallint");
+        // JET bits are not nullable
+        //private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString
             = new JetStringTypeMapping("char", dbType: DbType.String, unicode: true);

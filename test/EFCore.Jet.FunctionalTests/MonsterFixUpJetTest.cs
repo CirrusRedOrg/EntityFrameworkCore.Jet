@@ -41,6 +41,11 @@ namespace EntityFramework.Jet.FunctionalTests
                 using (var context = createContext())
                 {
                     context.Database.EnsureCreated();
+                    // The test uses a foreign key to a couple of fields not to the primary key of the target table
+                    // If one of the fields is null the SQL Server does not check the foreign key constraint
+                    // JET check the foreign key constraint always if there is one of the fields not null
+                    context.Database.ExecuteSqlCommand("ALTER TABLE ProductWebFeature DROP CONSTRAINT FK_ProductWebFeature_ProductPhoto_PhotoId_ProductId");
+                    context.Database.ExecuteSqlCommand("ALTER TABLE ProductWebFeature DROP CONSTRAINT FK_ProductWebFeature_ProductReview_ReviewId_ProductId");
                     seed(context);
                 }
             });

@@ -76,7 +76,7 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(
                 @"@__get_Item_0='77'
 
-SELECT TOP(1) [e].[Id], [e].[Foo]
+SELECT TOP 1 [e].[Id], [e].[Foo]
 FROM [IntKey] AS [e]
 WHERE [e].[Id] = @__get_Item_0", Sql);
         }
@@ -89,7 +89,7 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal(
                 @"@__get_Item_0='99'
 
-SELECT TOP(1) [e].[Id], [e].[Foo]
+SELECT TOP 1 [e].[Id], [e].[Foo]
 FROM [IntKey] AS [e]
 WHERE [e].[Id] = @__get_Item_0", Sql);
         }
@@ -102,31 +102,6 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal("", Sql);
         }
 
-        [Fact]
-        public override void Find_string_key_from_store()
-        {
-            base.Find_string_key_from_store();
-
-            Assert.Equal(
-                @"@__get_Item_0='Cat' (Size = 256)
-
-SELECT TOP(1) [e].[Id], [e].[Foo]
-FROM [StringKey] AS [e]
-WHERE [e].[Id] = @__get_Item_0", Sql);
-        }
-
-        [Fact]
-        public override void Returns_null_for_string_key_not_in_store()
-        {
-            base.Returns_null_for_string_key_not_in_store();
-
-            Assert.Equal(
-                @"@__get_Item_0='Fox' (Size = 256)
-
-SELECT TOP(1) [e].[Id], [e].[Foo]
-FROM [StringKey] AS [e]
-WHERE [e].[Id] = @__get_Item_0", Sql);
-        }
 
         [Fact]
         public override void Find_composite_key_tracked()
@@ -136,33 +111,6 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal("", Sql);
         }
 
-        [Fact]
-        public override void Find_composite_key_from_store()
-        {
-            base.Find_composite_key_from_store();
-
-            Assert.Equal(
-                @"@__get_Item_0='77'
-@__get_Item_1='Dog' (Size = 256)
-
-SELECT TOP(1) [e].[Id1], [e].[Id2], [e].[Foo]
-FROM [CompositeKey] AS [e]
-WHERE ([e].[Id1] = @__get_Item_0) AND ([e].[Id2] = @__get_Item_1)", Sql);
-        }
-
-        [Fact]
-        public override void Returns_null_for_composite_key_not_in_store()
-        {
-            base.Returns_null_for_composite_key_not_in_store();
-
-            Assert.Equal(
-                @"@__get_Item_0='77'
-@__get_Item_1='Fox' (Size = 256)
-
-SELECT TOP(1) [e].[Id1], [e].[Id2], [e].[Foo]
-FROM [CompositeKey] AS [e]
-WHERE ([e].[Id1] = @__get_Item_0) AND ([e].[Id2] = @__get_Item_1)", Sql);
-        }
 
         [Fact]
         public override void Find_base_type_tracked()
@@ -180,9 +128,9 @@ WHERE ([e].[Id1] = @__get_Item_0) AND ([e].[Id2] = @__get_Item_1)", Sql);
             Assert.Equal(
                 @"@__get_Item_0='77'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE [e].[Discriminator] IN (N'DerivedType', N'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -193,9 +141,9 @@ WHERE [e].[Discriminator] IN (N'DerivedType', N'BaseType') AND ([e].[Id] = @__ge
             Assert.Equal(
                 @"@__get_Item_0='99'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE [e].[Discriminator] IN (N'DerivedType', N'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -214,9 +162,9 @@ WHERE [e].[Discriminator] IN (N'DerivedType', N'BaseType') AND ([e].[Id] = @__ge
             Assert.Equal(
                 @"@__get_Item_0='78'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -227,9 +175,9 @@ WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sq
             Assert.Equal(
                 @"@__get_Item_0='99'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -240,9 +188,9 @@ WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sq
             Assert.Equal(
                 @"@__get_Item_0='88'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -253,9 +201,9 @@ WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sq
             Assert.Equal(
                 @"@__get_Item_0='77'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -274,9 +222,9 @@ WHERE ([e].[Discriminator] = N'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sq
             Assert.Equal(
                 @"@__get_Item_0='78'
 
-SELECT TOP(1) [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
+SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
 FROM [BaseType] AS [e]
-WHERE [e].[Discriminator] IN (N'DerivedType', N'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
+WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
         }
 
         [Fact]
@@ -295,7 +243,7 @@ WHERE [e].[Discriminator] IN (N'DerivedType', N'BaseType') AND ([e].[Id] = @__ge
             Assert.Equal(
                 @"@__get_Item_0='77'
 
-SELECT TOP(1) [e].[Id], [e].[Foo]
+SELECT TOP 1 [e].[Id], [e].[Foo]
 FROM [ShadowKey] AS [e]
 WHERE [e].[Id] = @__get_Item_0", Sql);
         }
@@ -308,7 +256,7 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal(
                 @"@__get_Item_0='99'
 
-SELECT TOP(1) [e].[Id], [e].[Foo]
+SELECT TOP 1 [e].[Id], [e].[Foo]
 FROM [ShadowKey] AS [e]
 WHERE [e].[Id] = @__get_Item_0", Sql);
         }

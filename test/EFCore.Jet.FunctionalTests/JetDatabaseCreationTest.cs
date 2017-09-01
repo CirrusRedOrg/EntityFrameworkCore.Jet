@@ -236,33 +236,14 @@ namespace EntityFramework.Jet.FunctionalTests
                     await testStore.Connection.OpenAsync();
                 }
 
-                var tables = testStore.Query<string>("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ");
+                var tables = testStore.Query<string>("SELECT NAME FROM (SHOW TABLES)");
                 Assert.Equal(1, tables.Count());
                 Assert.Equal("Blogs", tables.Single());
 
                 var columns = (testStore.Query<string>(
-                    "SELECT TABLE_NAME + '.' + COLUMN_NAME + ' (' + DATA_TYPE + ')' FROM INFORMATION_SCHEMA.COLUMNS ORDER BY TABLE_NAME, COLUMN_NAME")).ToArray();
+                    "SELECT Table + '.' + Name + ' (' + TypeName + ')' FROM (SHOW TABLECOLUMNS) ORDER BY Table, Name")).ToArray();
                 Assert.Equal(14, columns.Length);
 
-                Assert.Equal(
-                    new[]
-                        {
-                            "Blogs.AndChew (varbinary)",
-                            "Blogs.AndRow (rowversion)",
-                            "Blogs.Cheese (nvarchar)",
-                            "Blogs.ErMilan (int)",
-                            "Blogs.Fuse (smallint)",
-                            "Blogs.George (bit)",
-                            "Blogs.Key1 (nvarchar)",
-                            "Blogs.Key2 (varbinary)",
-                            "Blogs.NotFigTime (datetime)",
-                            "Blogs.On (real)",
-                            "Blogs.OrNothing (float)",
-                            "Blogs.TheGu (uniqueidentifier)",
-                            "Blogs.ToEat (tinyint)",
-                            "Blogs.WayRound (bigint)"
-                        },
-                    columns);
             }
         }
 

@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Data.SqlServerCe;
 using System.Reflection;
 using EntityFrameworkCore.Jet;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -23,7 +24,11 @@ namespace EFCore.Jet.Integration.Test
         {
             CreateContext();
 
-            bool tablesCreated = CreateTables(Context);
+            TryDropDatabase(Context);
+
+            TryCreateDatabase(Context);
+
+            bool tablesCreated = TryCreateTables(Context);
 
             if (tablesCreated)
             {
@@ -41,31 +46,11 @@ namespace EFCore.Jet.Integration.Test
             }
         }
 
-        public static bool CreateTables(T context)
+        public static bool TryCreateTables(T context)
         {
-            RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator)context.Database.GetService<IDatabaseCreator>();
-
             try
             {
-                databaseCreator.Delete();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error dropping database\r\n{0}", GetFullExceptionStackMessages(ex));
-            }
-
-            try
-            {
-                databaseCreator.Create();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error creating database\r\n{0}", GetFullExceptionStackMessages(ex));
-            }
-
-            try
-            {
-                databaseCreator.CreateTables();
+                GetDatabaseCreatorService(context).CreateTables();
                 return true;
             }
             catch (Exception ex)
@@ -73,6 +58,36 @@ namespace EFCore.Jet.Integration.Test
                 Console.WriteLine(ex.Message);
                 return false;
             }
+        }
+
+        private static void TryCreateDatabase(T context)
+        {
+            try
+            {
+                GetDatabaseCreatorService(context).Create();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error creating database\r\n{0}", GetFullExceptionStackMessages(ex));
+            }
+        }
+
+        private static void TryDropDatabase(T context)
+        {
+            try
+            {
+                GetDatabaseCreatorService(context).Delete();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error dropping database\r\n{0}", GetFullExceptionStackMessages(ex));
+            }
+        }
+
+        private static RelationalDatabaseCreator GetDatabaseCreatorService(T context)
+        {
+            RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator) context.Database.GetService<IDatabaseCreator>();
+            return databaseCreator;
         }
 
         private static string GetFullExceptionStackMessages(Exception ex)
@@ -131,6 +146,8 @@ namespace EFCore.Jet.Integration.Test
                 return optionsBuilder.UseJet(dbConnection).Options;
             else if (dbConnection is SqlConnection)
                 return optionsBuilder.UseSqlServer(dbConnection).Options;
+            else if (dbConnection is SqliteConnection)
+                return optionsBuilder.UseSqlite(dbConnection).Options;
             else
             {
                 throw new InvalidOperationException("Connection type " + dbConnection.GetType().Name + " not handled");

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -16,6 +17,38 @@ namespace System.Data.Jet
             // In Jet everything's unicode
             return "'" + value.Replace("'", "''") + "'";
         }
+
+        public static string ToSqlString(int value)
+        {
+            return value.ToString(NumberFormatInfo.InvariantInfo);
+        }
+
+        public static string ToSqlString(byte[] value)
+        {
+            return " 0x" + ByteArrayToBinaryString((Byte[])value) + " ";
+        }
+
+        public static string ToSqlString(bool value)
+        {
+            return value ? "true" : "false";
+        }
+
+        static string ByteArrayToBinaryString(byte[] binaryArray)
+        {
+            StringBuilder sb = new StringBuilder(binaryArray.Length * 2);
+
+            foreach (byte b in binaryArray)
+                sb.Append(b.ToString("X2"));
+
+            return sb.ToString();
+        }
+
+        public static string ToSqlString(Guid value)
+        {
+            // In Jet everything's unicode
+            return "'P" + value.ToString() + "'";
+        }
+
 
         /// <summary>
         /// Quotes an identifier

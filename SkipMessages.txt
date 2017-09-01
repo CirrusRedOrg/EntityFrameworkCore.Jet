@@ -15,3 +15,7 @@
 [Fact(Skip = "Unsupported by JET: JOIN with unsupported ON PREDICATE")]
 [Fact(Skip = "Unsupported by JET: operators on IMAGE and TEXT data types are not supported")]
 [Fact(Skip = "Unsupported by JET: Data type unsupported")]
+[Fact(Skip = "Unsupported by JET: rowversion unsupported")]
+[Fact(Skip = "Unsupported by JET: nullable bit not supported")]
+[Fact(Skip = "Unsupported by JET: JET behaviour requires that both columns in a composite foreign key are null")]
+[Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]

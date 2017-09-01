@@ -585,11 +585,14 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Indexes, new object[] { });
 
             foreach (System.Data.DataRow table in schemaTable.Rows)
+            {
                 if (
+                    !IsSystemTable(table["TABLE_NAME"].ToString()) &&
+
                     Convert.ToInt32(table["ORDINAL_POSITION"]) == 1 &&  // Only the first field of the index
                     Convert.ToBoolean(table["PRIMARY_KEY"]) == false && // Not a primary key
                     Convert.ToBoolean(table["UNIQUE"]) == true           // Unique constraint
-                    )
+                )
                     dataTable.Rows.Add(
                         (string)table["TABLE_NAME"] + "." + (string)table["INDEX_NAME"], // Id
                         table["TABLE_NAME"], // ParentId
@@ -597,7 +600,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                         "UNIQUE", // ConstraintType
                         false,  // IsDeferrable
                         false   // IsIntiallyDeferred
-                        );
+                    );
+            }
 
             dataTable.AcceptChanges();
 
@@ -764,6 +768,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
               new object[] { null, null, null, null });
 
             foreach (System.Data.DataRow rowColumn in schemaTable.Rows)
+            {
                 if (objectsToGet.ContainsKey(rowColumn["TABLE_NAME"].ToString()))
                 {
                     dataTable.Rows.Add(
@@ -790,9 +795,9 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                         Convert.ToBoolean(rowColumn["COLUMN_HASDEFAULT"]) ? 1 : 0, // IsStoreGenerated
                         rowColumn["COLUMN_DEFAULT"], // Default
                         GetIsKey(connection, rowColumn) // IsKey
-                        );
+                    );
                 }
-
+            }
             dataTable.AcceptChanges();
         }
 
@@ -806,8 +811,10 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             Dictionary<string, string> list = new Dictionary<string, string>(schemaTable.Rows.Count, StringComparer.InvariantCultureIgnoreCase);
 
             foreach (System.Data.DataRow table in schemaTable.Rows)
-                list.Add(table["TABLE_NAME"].ToString(), table["TABLE_NAME"].ToString());
-
+            {
+                if (!IsSystemTable(table["TABLE_NAME"].ToString()))
+                    list.Add(table["TABLE_NAME"].ToString(), table["TABLE_NAME"].ToString());
+            }
             return list;
         }
 

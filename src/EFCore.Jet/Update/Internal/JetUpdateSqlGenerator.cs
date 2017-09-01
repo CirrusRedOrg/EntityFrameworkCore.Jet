@@ -39,6 +39,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
         {
             // Jet does not support ROWCOUNT
             // Here we really hope that ROWCOUNT is not required
+            // Actually, RecordsAffected is handled by JetModificationCommandBatch
             commandStringBuilder
                 .Append("1 = 1");
 
@@ -49,5 +50,20 @@ namespace EntityFrameworkCore.Jet.Update.Internal
                 .Append(expectedRowsAffected.ToString(CultureInfo.InvariantCulture));
             */
         }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        protected override ResultSetMapping AppendSelectAffectedCountCommand(StringBuilder commandStringBuilder, string name, string schema, int commandPosition)
+        {
+            commandStringBuilder
+                .Append("SELECT @@ROWCOUNT")
+                .Append(SqlGenerationHelper.StatementTerminator).AppendLine()
+                .AppendLine();
+
+            return ResultSetMapping.LastInResultSet;
+        }
+
     }
 }

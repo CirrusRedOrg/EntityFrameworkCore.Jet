@@ -25,6 +25,18 @@
 	  </DefiningQuery>
     </EntitySet>
 
+    <EntitySet Name="SIndexes" EntityType="Self.Index">
+      <DefiningQuery>
+        SHOW INDEXES
+      </DefiningQuery>
+    </EntitySet>
+
+    <EntitySet Name="SIndexColumns" EntityType="Self.IndexColumn">
+      <DefiningQuery>
+        SHOW INDEXCOLUMNS
+      </DefiningQuery>
+    </EntitySet>
+
     <EntitySet Name="SFunctions" EntityType="Self.Function">
       <DefiningQuery>
           SHOW FUNCTIONS
@@ -246,7 +258,32 @@
     <Property Name="Default" Nullable="true" Type="text"/>
     <Property Name="IsKey" Nullable="true" Type="bit" />
   </EntityType>
-  
+
+  <EntityType Name="Index">
+    <Key>
+      <PropertyRef Name="Id" />
+    </Key>
+    <Property Name="Id" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ParentId" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="Table" Nullable="false" MaxLength="255" Type="varchar" />
+    <Property Name="Name" Nullable="false" MaxLength="255" Type="varchar" />
+    <Property Name="IsUnique" Nullable="false" Type="bit" />
+    <Property Name="IsPrimary" Nullable="false" Type="bit" />
+  </EntityType>
+
+  <EntityType Name="IndexColumn">
+    <Key>
+      <PropertyRef Name="Id" />
+    </Key>
+    <Property Name="Id" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ParentId" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ColumnId" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="Table" Nullable="false" MaxLength="255" Type="varchar" />
+    <Property Name="Index" Nullable="false" MaxLength="255" Type="varchar" />
+    <Property Name="Name" Nullable="false" MaxLength="255" Type="varchar" />
+    <Property Name="Ordinal" Nullable="false" Type="int" />
+  </EntityType>
+
   <EntityType Name="Function">
     <Key>
       <PropertyRef Name="Id" />

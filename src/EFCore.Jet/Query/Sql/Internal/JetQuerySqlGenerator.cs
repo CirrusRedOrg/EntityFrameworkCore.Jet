@@ -330,6 +330,26 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
         /// <summary>
+        ///     Visit a LikeExpression.
+        /// </summary>
+        /// <param name="likeExpression"> The like expression. </param>
+        /// <returns>
+        ///     An Expression.
+        /// </returns>
+        public override Expression VisitLike(LikeExpression likeExpression)
+        {
+            Check.NotNull(likeExpression, nameof(likeExpression));
+
+            if (likeExpression.EscapeChar != null)
+                base.VisitLike(new LikeExpression(likeExpression.Match, likeExpression.Pattern));
+            else
+                base.VisitLike(likeExpression);
+
+            return likeExpression;
+        }
+
+
+        /// <summary>
         ///     Attempts to generate binary operator for a given expression type.
         /// </summary>
         /// <param name="op"> The operation. </param>

@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3C88D49A-7EF2-42BA-A8D7-9DF7D358FD24}</ProjectGuid>
+    <ProjectGuid>{C38B58D7-F346-40A2-9849-D12CB9EC5C69}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>EntityFramework.Jet.FunctionalTests</RootNamespace>
-    <AssemblyName>EntityFramework.Jet.FunctionalTests</AssemblyName>
+    <RootNamespace>EntityFrameworkCore.Jet.Tests</RootNamespace>
+    <AssemblyName>EntityFrameworkCore.Jet.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <NuGetPackageImportStamp>
@@ -32,25 +32,10 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
-    <OutputPath>bin\x86\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Castle.Core, Version=4.1.0.0, Culture=neutral, PublicKeyToken=407dd0808d44fbdc, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Castle.Core.4.1.0\lib\net45\Castle.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.EntityFrameworkCore, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Microsoft.EntityFrameworkCore.2.0.0\lib\netstandard2.0\Microsoft.EntityFrameworkCore.dll</HintPath>
     </Reference>
@@ -90,6 +75,9 @@
     <Reference Include="Microsoft.Extensions.Primitives, Version=2.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Microsoft.Extensions.Primitives.2.0.0\lib\netstandard2.0\Microsoft.Extensions.Primitives.dll</HintPath>
     </Reference>
+    <Reference Include="Moq, Version=4.7.63.0, Culture=neutral, PublicKeyToken=69f491c39445e920, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Moq.4.7.63\lib\net45\Moq.dll</HintPath>
+    </Reference>
     <Reference Include="Remotion.Linq, Version=2.1.0.0, Culture=neutral, PublicKeyToken=fee00910d6e5f53b, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Remotion.Linq.2.1.1\lib\net45\Remotion.Linq.dll</HintPath>
     </Reference>
@@ -103,10 +91,8 @@
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Data.SqlServerCe, Version=4.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files (x86)\Microsoft SQL Server Compact Edition\v4.0\Desktop\System.Data.SqlServerCe.dll</HintPath>
-    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Diagnostics.DiagnosticSource, Version=4.0.2.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\..\packages\System.Diagnostics.DiagnosticSource.4.4.1\lib\net46\System.Diagnostics.DiagnosticSource.dll</HintPath>
     </Reference>
@@ -117,9 +103,8 @@
       <HintPath>..\..\packages\System.Runtime.CompilerServices.Unsafe.4.4.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
     </Reference>
     <Reference Include="System.Transactions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
     <Reference Include="xunit.abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
       <HintPath>..\..\packages\xunit.abstractions.2.0.1\lib\net35\xunit.abstractions.dll</HintPath>
     </Reference>
@@ -137,116 +122,46 @@
     <Compile Include="..\..\build\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="AsNoTrackingJetTest.cs" />
-    <Compile Include="AssertSqlHelper.cs" />
-    <Compile Include="AsyncFromSqlQueryJetTest.cs" />
-    <Compile Include="AsyncQueryJetTest.cs" />
-    <Compile Include="BasicEndToEndScenarioForNoIdentity.cs" />
-    <Compile Include="BuiltInDataTypesJetFixture.cs" />
-    <Compile Include="BuiltInDataTypesJetTest.cs" />
-    <Compile Include="ChangeTrackingJetTest.cs" />
-    <Compile Include="CompiledQueryJetTest.cs" />
-    <Compile Include="ComplexNavigationsOwnedQueryJetFixture.cs" />
-    <Compile Include="ComplexNavigationsOwnedQueryJetTest.cs" />
-    <Compile Include="ComplexNavigationsQueryJetFixture.cs" />
-    <Compile Include="ComplexNavigationsQueryJetTest.cs" />
-    <Compile Include="CompositeKeyEndToEndTest.cs" />
-    <Compile Include="ConcurrencyDetectorJetTest.cs" />
-    <Compile Include="ConnectionStringBuilderHelper.cs" />
-    <Compile Include="DataAnnotationJetFixture.cs" />
-    <Compile Include="DataAnnotationJetTest.cs" />
-    <Compile Include="DataBindingJetTest.cs" />
-    <Compile Include="DbContextPoolingTest.cs" />
-    <Compile Include="DbFunctionsJetTest.cs" />
-    <Compile Include="DefaultValuesTest.cs" />
-    <Compile Include="F1JetFixture.cs" />
-    <Compile Include="FieldMappingJetTest.cs" />
-    <Compile Include="FiltersInheritanceJetTest.cs" />
-    <Compile Include="FiltersJetTest.cs" />
-    <Compile Include="FindJetTest.cs" />
-    <Compile Include="FromSqlQueryJetTest.cs" />
-    <Compile Include="FunkyDataQueryJetFixture.cs" />
-    <Compile Include="FunkyDataQueryJetTest.cs" />
-    <Compile Include="GearsOfWarQueryJetFixture.cs" />
-    <Compile Include="GearsOfWarJetTest.cs" />
-    <Compile Include="GraphUpdatesJetTestbase.cs" />
-    <Compile Include="GraphUpdateWithIdentityJetTest.cs" />
-    <Compile Include="IncludeAsyncJetTest.cs" />
-    <Compile Include="IncludeOneToOneJetTest.cs" />
-    <Compile Include="IncludeJetTest.cs" />
-    <Compile Include="InheritanceRelationshipsQueryJetTest.cs" />
-    <Compile Include="InheritanceRelationshipsQueryJetFixture.cs" />
-    <Compile Include="FiltersInheritanceJetFixture.cs" />
-    <Compile Include="InheritanceJetFixture.cs" />
-    <Compile Include="InheritanceJetTest.cs" />
-    <Compile Include="Issue398Test.cs" />
-    <Compile Include="Issue305Test.cs" />
-    <Compile Include="LoadJetTest.cs" />
-    <Compile Include="MappingQueryJetFixture.cs" />
-    <Compile Include="MappingQueryJetTest.cs" />
-    <Compile Include="MigrationsJetFixture.cs" />
-    <Compile Include="MigrationsJetTest.cs" />
-    <Compile Include="Migrations\20160215092248_Migration01.cs" />
-    <Compile Include="Migrations\20160215092248_Migration01.Designer.cs">
-      <DependentUpon>20160215092248_Migration01.cs</DependentUpon>
+    <Compile Include="..\..\src\Shared\Check.cs">
+      <Link>Utilities\Check.cs</Link>
     </Compile>
-    <Compile Include="Migrations\20160215092329_Migration02.cs" />
-    <Compile Include="Migrations\20160215092329_Migration02.Designer.cs">
-      <DependentUpon>20160215092329_Migration02.cs</DependentUpon>
+    <Compile Include="..\..\src\Shared\CodeAnnotations.cs">
+      <Link>Utilities\CodeAnnotations.cs</Link>
     </Compile>
-    <Compile Include="Migrations\20170129135547_MyFirstMigration.cs" />
-    <Compile Include="Migrations\20170129135547_MyFirstMigration.Designer.cs">
-      <DependentUpon>20170129135547_MyFirstMigration.cs</DependentUpon>
+    <Compile Include="..\..\src\Shared\SharedTypeExtensions.cs">
+      <Link>Utilities\SharedTypeExtensions.cs</Link>
     </Compile>
-    <Compile Include="Migrations\20170129140932_MySecondMigration.cs" />
-    <Compile Include="Migrations\20170129140932_MySecondMigration.Designer.cs">
-      <DependentUpon>20170129140932_MySecondMigration.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\BloggingContextModelSnapshot.cs" />
-    <Compile Include="Migrations\TiffFilesContextModelSnapshot.cs" />
-    <Compile Include="MonsterFixUpJetTest.cs" />
-    <Compile Include="NavigationTest.cs" />
-    <Compile Include="NorthwindQueryWithForcedClientEvalJetFixture.cs" />
-    <Compile Include="NorthwindQueryJetFixture.cs" />
-    <Compile Include="NotificationEntitiesJetTest.cs" />
-    <Compile Include="NullKeysJetTest.cs" />
-    <Compile Include="NullSemanticsQueryJetFixture.cs" />
-    <Compile Include="NullSemanticsQueryJetTest.cs" />
-    <Compile Include="OneToOneQueryJetFixture.cs" />
-    <Compile Include="OptimisticConcurrencyJetTest.cs" />
-    <Compile Include="OwnedQueryJetFixture.cs" />
-    <Compile Include="OwnedQueryJetTest.cs" />
+    <Compile Include="ApiConsistencyTest.cs" />
+    <Compile Include="ApiConsistencyTestBase.cs" />
+    <Compile Include="Design\DesignTimeProvidersServicesTest.cs" />
+    <Compile Include="Design\JetDesignTimeProviderServicesTest.cs" />
+    <Compile Include="Extensions\Metadata\JetBuilderExtensionsTest.cs" />
+    <Compile Include="Extensions\Metadata\InternalJetMetadataBuilderExtensionsTest.cs.cs" />
+    <Compile Include="Extensions\Metadata\JetMetadataExtensionsTest.cs" />
+    <Compile Include="Extensions\JetDbContextOptionsExtensionsTest.cs" />
+    <Compile Include="JetDatabaseFacadeTest.cs" />
+    <Compile Include="Utilities\FakeInterceptingLogger.cs" />
+    <Compile Include="Migrations\MigrationsModelDifferTestBase.cs" />
+    <Compile Include="Migrations\JetHistoryRepositoryTest.cs" />
+    <Compile Include="Migrations\JetMigrationSqlGeneratorTest.cs" />
+    <Compile Include="Migrations\JetModelDifferTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="PropertyEntryJetTest.cs" />
-    <Compile Include="PropertyValuesJetTest.cs" />
-    <Compile Include="QueryNavigationsWithForcedClientEvalJetTest.cs" />
-    <Compile Include="QueryNavigationsJetTest.cs" />
-    <Compile Include="QueryNoClientEvalJetFixture.cs" />
-    <Compile Include="QueryNoClientEvalJetTest.cs" />
-    <Compile Include="QueryJetTest.cs" />
-    <Compile Include="JetCommandDisposeTest.cs" />
-    <Compile Include="JetConfigPatternsTest.cs" />
-    <Compile Include="JetDatabaseCleaner.cs" />
-    <Compile Include="JetDatabaseCreationTest.cs" />
-    <Compile Include="JetDatabaseFacadeExtensions.cs" />
-    <Compile Include="JetDataStoreCreatorTest.cs" />
-    <Compile Include="JetMigrationsTest.cs" />
-    <Compile Include="JetServiceCollectionExtensionsTest.cs" />
-    <Compile Include="TestUtilities\JetTestHelpers.cs" />
-    <Compile Include="TestUtilities\JetTestStore.cs" />
-    <Compile Include="TableSplittingJetTest.cs" />
-    <Compile Include="TransactionJetFixture.cs" />
-    <Compile Include="TransactionJettest.cs" />
-    <Compile Include="TestUtilities\DbContextOptionsBuilderExtensions.cs" />
-    <Compile Include="TestUtilities\SqlServerConditionAttribute.cs" />
-    <Compile Include="TestUtilities\TestEnvironment.cs" />
+    <Compile Include="RelationalModelValidatorTest.cs" />
+    <Compile Include="JetDataStoreConnectionTest.cs" />
+    <Compile Include="JetDataStoreSourceTest.cs" />
+    <Compile Include="JetSqlGeneratorTest.cs" />
+    <Compile Include="JetTestHelpers.cs" />
+    <Compile Include="JetTypeMapperTest.cs" />
+    <Compile Include="Storage\RelationalTypeMappingTest.cs" />
+    <Compile Include="Storage\JetTypeMappingTest.cs" />
+    <Compile Include="Utilities\TestRelationalMetadataExtensions.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj">
@@ -254,19 +169,14 @@
       <Name>EFCore.Jet</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\src\System.Data.Jet\System.Data.Jet.csproj">
-      <Project>{88BE8B4F-8DA9-42B9-9A1F-839451BA5F8C}</Project>
+      <Project>{88be8b4f-8da9-42b9-9a1f-839451ba5f8c}</Project>
       <Name>System.Data.Jet</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="NorthwindEF7.accdb">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="GearsOfWarQueryTest.accdb">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+  </Target>
 </Project>

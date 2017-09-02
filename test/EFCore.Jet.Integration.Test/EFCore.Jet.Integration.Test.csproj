@@ -165,6 +165,9 @@
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\build\GlobalAssemblyInfo.cs">
+      <Link>Properties\GlobalAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="BooleanMaterializationTest2.cs" />
     <Compile Include="BooleanMaterializationTest1.cs" />
     <Compile Include="CanonicalFunctionsTest2.cs" />

@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
 
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
-            Assert.Equal("Data Source=C:\\data\\Multicorn.accdb", extension.ConnectionString);
+            Assert.Equal(JetConnection.GetConnectionString("C:\\data\\Multicorn.accdb"), extension.ConnectionString);
             Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.Connection);
         }

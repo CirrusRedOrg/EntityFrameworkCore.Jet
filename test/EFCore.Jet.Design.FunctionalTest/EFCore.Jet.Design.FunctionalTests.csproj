@@ -7,8 +7,8 @@
     <ProjectGuid>{543477FB-CF81-446D-AB02-1E41382DED5B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>EntityFramework.SqlServerCompact40.Design.FunctionalTest</RootNamespace>
-    <AssemblyName>EntityFramework.SqlServerCompact40.Design.FunctionalTest</AssemblyName>
+    <RootNamespace>EntityFrameworkCore.Jet.Design.FunctionalTests</RootNamespace>
+    <AssemblyName>EntityFrameworkCore.Jet.Design.FunctionalTests</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -33,8 +33,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\EntityFramework.SqlServerCompact.FunctionalTests\SqlCeTestStore.cs">
-      <Link>ReverseEngineering\SqlCeTestStore.cs</Link>
+    <Compile Include="..\EFCore.Jet.FunctionalTests\TestUtilities\JetTestStore.cs">
+      <Link>JetTestStore.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Content Include="ReverseEngineering\ExpectedResults\NonNullBoolWithDefault.cs">
@@ -52,11 +52,11 @@
     <Content Include="ReverseEngineering\ExpectedResults\StringKeysPosts.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Compile Include="ReverseEngineering\SqlCeE2EFixture.cs" />
-    <Compile Include="ReverseEngineering\SqlCeE2ETests.cs" />
-    <Compile Include="ScaffoldingTypeMapperSqlCeTest.cs" />
-    <Compile Include="SqlCeDatabaseModelFactoryTest.cs" />
-    <Compile Include="SqlCeDatabaseModelFixture.cs" />
+    <Compile Include="ReverseEngineering\JetE2EFixture.cs" />
+    <Compile Include="ReverseEngineering\JetE2ETests.cs" />
+    <Compile Include="ScaffoldingTypeMapperJetTest.cs" />
+    <Compile Include="JetDatabaseModelFactoryTest.cs" />
+    <Compile Include="JetDatabaseModelFixture.cs" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
@@ -245,10 +245,6 @@
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Data.SqlServerCe, Version=3.5.1.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\Program Files (x86)\Microsoft SQL Server Compact Edition\v4.0\Desktop\System.Data.SqlServerCe.dll</HintPath>
-    </Reference>
     <Reference Include="System.Diagnostics.DiagnosticSource, Version=4.0.2.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\..\packages\System.Diagnostics.DiagnosticSource.4.4.1\lib\net46\System.Diagnostics.DiagnosticSource.dll</HintPath>
     </Reference>
@@ -283,14 +279,18 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Provider40\EntityFramework.SqlServerCompact40.csproj">
-      <Project>{0bdb0cbb-c42a-45e5-8518-14e0c31119ad}</Project>
-      <Name>EntityFramework.SqlServerCompact40</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Analyzer Include="..\..\packages\Microsoft.CodeAnalysis.Analyzers.1.1.0\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />
     <Analyzer Include="..\..\packages\Microsoft.CodeAnalysis.Analyzers.1.1.0\analyzers\dotnet\cs\Microsoft.CodeAnalysis.CSharp.Analyzers.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj">
+      <Project>{d6966b04-4c38-4925-bcde-f8655f38d04c}</Project>
+      <Name>EFCore.Jet</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\System.Data.Jet\System.Data.Jet.csproj">
+      <Project>{88be8b4f-8da9-42b9-9a1f-839451ba5f8c}</Project>
+      <Name>System.Data.Jet</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

@@ -3,17 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Scaffolding;
-using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
-using Microsoft.EntityFrameworkCore.Scaffolding.Metadata.Internal;
-using Microsoft.EntityFrameworkCore.Specification.Tests;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
-namespace Microsoft.EntityFrameworkCore
+namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 {
-    public class SqlCeDatabaseModelFactoryTest : IClassFixture<SqlCeDatabaseModelFixture>
+    public class JetDatabaseModelFactoryTest : IClassFixture<JetDatabaseModelFixture>
     {
         [Fact]
         public void It_reads_tables()
@@ -284,12 +279,12 @@ CREATE TABLE [MountainsColumns] (
             Assert.Empty(table.ForeignKeys);
         }
 
-        private readonly SqlCeDatabaseModelFixture _fixture;
+        private readonly JetDatabaseModelFixture _fixture;
 
         public DatabaseModel CreateModel(List<string> createSql, IEnumerable<string> tables = null)
             => _fixture.CreateModel(createSql, tables);
 
-        public SqlCeDatabaseModelFactoryTest(SqlCeDatabaseModelFixture fixture)
+        public JetDatabaseModelFactoryTest(JetDatabaseModelFixture fixture)
         {
             _fixture = fixture;
         }

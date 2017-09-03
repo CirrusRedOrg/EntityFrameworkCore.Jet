@@ -2,21 +2,21 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using EntityFramework.Jet.FunctionalTests;
+using EntityFrameworkCore.Jet.Scaffolding.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
-using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.EntityFrameworkCore.Utilities;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore.Specification.Tests;
 
-namespace Microsoft.EntityFrameworkCore
+namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 {
-    public class SqlCeDatabaseModelFixture : IDisposable
+    public class JetDatabaseModelFixture : IDisposable
     {
-        public SqlCeDatabaseModelFixture()
+        public JetDatabaseModelFixture()
         {
-            TestStore = SqlCeTestStore.CreateScratch(true);
+            TestStore = JetTestStore.CreateScratch(true);
         }
 
         public TestDesignLoggerFactory TestDesignLoggerFactory { get; } = new TestDesignLoggerFactory();
@@ -28,7 +28,7 @@ namespace Microsoft.EntityFrameworkCore
                 TestStore.ExecuteNonQuery(sql);
             }
 
-            return new SqlCeDatabaseModelFactory(
+            return new JetDatabaseModelFactory(
                 new DiagnosticsLogger<DbLoggerCategory.Scaffolding>(
                 TestDesignLoggerFactory,
                 new LoggingOptions(),
@@ -38,7 +38,7 @@ namespace Microsoft.EntityFrameworkCore
 
         public IEnumerable<T> Query<T>(string sql, params object[] parameters) => TestStore.Query<T>(sql, parameters);
 
-        public SqlCeTestStore TestStore { get; }
+        public JetTestStore TestStore { get; }
 
         public void ExecuteNonQuery(string sql) => TestStore.ExecuteNonQuery(sql);
 

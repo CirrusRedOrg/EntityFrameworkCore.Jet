@@ -1,24 +1,25 @@
 ﻿using System.Collections.Generic;
+using System.Data.Jet;
 using System.IO;
 using System.Linq;
-using Microsoft.EntityFrameworkCore.Scaffolding;
+using EntityFramework.Jet.FunctionalTests;
+using EntityFrameworkCore.Jet.Design.Internal;
+using Microsoft.EntityFrameworkCore.ReverseEngineering;
 using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Xunit.Abstractions;
-using Microsoft.EntityFrameworkCore.ReverseEngineering;
-using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
-using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.EntityFrameworkCore.Specification.Tests;
 
-namespace EntityFramework.SqlServerCompact40.Design.FunctionalTest.ReverseEngineering
+namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
 {
-    public class SqlCeE2ETests : E2ETestBase, IClassFixture<SqlCeE2EFixture>
+    public class JetE2ETests : E2ETestBase, IClassFixture<JetE2EFixture>
     {
         protected override string ProviderName => "EntityFrameworkCore.SqlServerCompact40.Design";
 
         protected override void ConfigureDesignTimeServices(IServiceCollection services)
-            => new SqlCeDesignTimeServices().ConfigureDesignTimeServices(services);
+            => new JetDesignTimeServices().ConfigureDesignTimeServices(services);
 
         public virtual string TestNamespace => "E2ETest.Namespace";
         public virtual string TestProjectDir => Path.Combine("E2ETest", "Output");
@@ -67,12 +68,12 @@ namespace EntityFramework.SqlServerCompact40.Design.FunctionalTest.ReverseEngine
             };
 
         // ReSharper disable once UnusedParameter.Local
-        public SqlCeE2ETests(SqlCeE2EFixture fixture, ITestOutputHelper output)
+        public JetE2ETests(JetE2EFixture fixture, ITestOutputHelper output)
             : base(output)
         {
         }
 
-        private string _connectionString = @"Data Source=E2E.sdf";
+        private string _connectionString = JetConnection.GetConnectionString(@"E2E.accdb");
 
         private static readonly List<string> _expectedEntityTypeFiles = new List<string>
             {
@@ -165,7 +166,7 @@ namespace EntityFramework.SqlServerCompact40.Design.FunctionalTest.ReverseEngine
         [Fact]
         public void Non_null_boolean_columns_with_default_constraint_become_nullable_properties()
         {
-            using (var scratch = SqlCeTestStore.Create("NonNullBooleanWithDefaultConstraint"))
+            using (var scratch = JetTestStore.Create("NonNullBooleanWithDefaultConstraint"))
             {
                 scratch.ExecuteNonQuery(@"
 CREATE TABLE NonNullBoolWithDefault
@@ -212,7 +213,7 @@ CREATE TABLE NonNullBoolWithDefault
         [ConditionalFact]
         public void Correct_arguments_to_scaffolding_typemapper()
         {
-            using (var scratch = SqlCeTestStore.Create("StringKeys"))
+            using (var scratch = JetTestStore.Create("StringKeys"))
             {
                 scratch.ExecuteNonQuery(@"
 CREATE TABLE [StringKeysBlogs] (

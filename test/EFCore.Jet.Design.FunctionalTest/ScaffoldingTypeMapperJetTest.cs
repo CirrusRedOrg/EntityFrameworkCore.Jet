@@ -1,12 +1,12 @@
 ﻿using System;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Xunit;
 
-namespace Microsoft.EntityFrameworkCore
+namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 {
-    public class ScaffoldingTypeMapperSqlCeTest
+    public class ScaffoldingTypeMapperJetTest
     {
         [Theory]
         [InlineData(false)]
@@ -186,6 +186,6 @@ namespace Microsoft.EntityFrameworkCore
 
         private static ScaffoldingTypeMapper CreateMapper()
             => new ScaffoldingTypeMapper(
-                new SqlCeTypeMapper(new RelationalTypeMapperDependencies()));
+                new JetTypeMapper(new RelationalTypeMapperDependencies()));
     }
 }

@@ -17,7 +17,6 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
             Assert.Equal(JetConnection.GetConnectionString("C:\\data\\Unicorn.accdb"), extension.ConnectionString);
-            Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.Connection);
         }
 
@@ -30,7 +29,6 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
             Assert.Equal(JetConnection.GetConnectionString("C:\\data\\Multicorn.accdb"), extension.ConnectionString);
-            Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.Connection);
         }
 
@@ -45,7 +43,6 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
             Assert.Same(connection, extension.Connection);
-            Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.ConnectionString);
         }
 
@@ -60,7 +57,6 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
             Assert.Same(connection, extension.Connection);
-            Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.ConnectionString);
         }
 
@@ -74,7 +70,6 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
             Assert.Equal(JetConnection.GetConnectionString("C:\\data\\Multicorn.accdb"), extension.ConnectionString);
-            Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.Connection);
         }
 
@@ -88,7 +83,6 @@ namespace EntityFrameworkCore.Jet.Tests.Extensions
             var extension = optionsBuilder.Options.Extensions.OfType<JetOptionsExtension>().Single();
 
             Assert.Equal(JetConnection.GetConnectionString("C:\\data\\Multicorn.accdb"), extension.ConnectionString);
-            Assert.Equal(1, extension.MaxBatchSize);
             Assert.Null(extension.Connection);
         }
 

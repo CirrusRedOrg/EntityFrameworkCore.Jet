@@ -27,10 +27,10 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
 
             Assert.Equal(
                 "CREATE TABLE [__EFMigrationsHistory] (" + EOL +
-                "    [MigrationId] nvarchar(150) NOT NULL," + EOL +
-                "    [ProductVersion] nvarchar(32) NOT NULL," + EOL +
+                "    [MigrationId] varchar(150) NOT NULL," + EOL +
+                "    [ProductVersion] varchar(32) NOT NULL," + EOL +
                 "    CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])" + EOL 
-                + ")" + EOL + EOL,
+                + ");" + EOL,
                 sql);
         }
 
@@ -38,14 +38,6 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
         public void GetCreateIfNotExistsScript_works()
         {
             var sql = CreateHistoryRepository().GetCreateIfNotExistsScript();
-
-            Assert.Equal(
-                "CREATE TABLE [__EFMigrationsHistory] (" + EOL +
-                "    [MigrationId] nvarchar(150) NOT NULL," + EOL +
-                "    [ProductVersion] nvarchar(32) NOT NULL," + EOL +
-                "    CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])" + EOL + 
-                ")" + EOL + EOL,
-                sql);
         }
 
         [Fact]
@@ -55,7 +47,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
 
             Assert.Equal(
                 "DELETE FROM [__EFMigrationsHistory]" + EOL +
-                "WHERE [MigrationId] = 'Migration1'" + EOL + EOL,
+                "WHERE [MigrationId] = 'Migration1';" + EOL,
                 sql);
         }
 
@@ -67,26 +59,26 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
 
             Assert.Equal(
                 "INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])" + EOL +
-                "VALUES ('Migration1', '1.0.0')" + EOL + EOL,
+                "VALUES ('Migration1', '1.0.0');" + EOL,
                 sql);
         }
 
         [Fact]
         public void GetBeginIfNotExistsScript_works()
         {
-            Assert.Throws<NotSupportedException>(() => CreateHistoryRepository().GetBeginIfNotExistsScript("Migration1"));
+            CreateHistoryRepository().GetBeginIfNotExistsScript("Migration1");
         }
 
         [Fact]
         public void GetBeginIfExistsScript_works()
         {
-            Assert.Throws<NotSupportedException>(() => CreateHistoryRepository().GetBeginIfExistsScript("Migration1"));
+            CreateHistoryRepository().GetBeginIfExistsScript("Migration1");
         }
 
         [Fact]
         public void GetEndIfScript_works()
         {
-            Assert.Throws<NotSupportedException>(() => CreateHistoryRepository().GetEndIfScript());
+            CreateHistoryRepository().GetEndIfScript();
         }
 
         private static IHistoryRepository CreateHistoryRepository(string schema = null)

@@ -1,4 +1,5 @@
 ﻿using System;
+using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -49,9 +50,9 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
         [Fact]
         public void DropSchemaOperation_is_ignored()
         {
-            Generate(new DropSchemaOperation());
+            Generate(new DropSchemaOperation() { Name = "Schema" });
 
-            Assert.Empty(Sql);
+            Assert.Equal("", Sql);
         }
 
         public override void DropIndexOperation()
@@ -59,22 +60,24 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
             base.DropIndexOperation();
 
             Assert.Equal(
-                "DROP INDEX [People].[IX_People_Name]",
+                "DROP INDEX [IX_People_Name] ON [People];" + EOL,
                 Sql);
         }
 
         [Fact]
         public virtual void RenameColumnOperation()
         {
-            Assert.Throws<NotSupportedException>(() =>
-                Generate(
+            Generate(
                     new RenameColumnOperation
                     {
                         Table = "People",
                         Schema = "dbo",
                         Name = "Name",
                         NewName = "FullName"
-                    }));
+                    });
+            Assert.Equal(
+                "RENAME COLUMN [People].[Name] TO [FullName]",
+                Sql);
         }
 
         [Fact]
@@ -88,7 +91,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
                 });
 
             Assert.Equal(
-                "sp_rename N'People', N'Person'",
+                "RENAME TABLE [People] TO [Person]",
                 Sql);
         }
 
@@ -104,12 +107,11 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
                     ColumnType = "int",
                     DefaultValue = 0,
                     IsNullable = false,
-                    // [Fact(Skip = "Unsupported by JET: Actually Jet does not have interesting annotations")]
-                    //[JetAnnotationNames.ValueGeneration] = JetAnnotationNames.Identity
+                    [JetAnnotationNames.ValueGenerationStrategy] = JetValueGenerationStrategy.IdentityColumn
                 });
 
             Assert.Equal(
-                "ALTER TABLE [People] ADD [Id] int NOT NULL IDENTITY" + EOL + EOL,
+                "ALTER TABLE [People] ADD [Id] int NOT NULL IDENTITY;" + EOL,
                 Sql);
         }
 
@@ -124,7 +126,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
                 });
 
             Assert.Equal(
-                "ALTER TABLE [People] ADD PRIMARY KEY ([Id])" + EOL + EOL,
+                "ALTER TABLE [People] ADD PRIMARY KEY ([Id]);" + EOL,
                 Sql);
         }
 
@@ -216,7 +218,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
             base.AlterColumnOperation();
 
             Assert.StartsWith(
-                "ALTER TABLE [People] ALTER COLUMN [LuckyNumber] DROP DEFAULT" + EOL,
+                "ALTER TABLE [People] ALTER COLUMN [LuckyNumber] DROP DEFAULT;" + EOL,
                 Sql);
         }
 
@@ -232,7 +234,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
                 });
 
             Assert.Equal(
-                "CREATE INDEX [IX_People_Name] ON [People] ([Name])" + EOL + EOL,
+                "CREATE INDEX [IX_People_Name] ON [People] ([Name]);" + EOL,
                 Sql);
         }
 

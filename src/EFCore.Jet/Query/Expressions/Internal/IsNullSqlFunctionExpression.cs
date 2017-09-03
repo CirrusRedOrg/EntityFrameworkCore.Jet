@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 using System.Linq.Expressions;
+using JetBrains.Annotations;
 
 namespace EntityFrameworkCore.Jet.Query.Expressions.Internal
 {
@@ -14,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Query.Expressions.Internal
         /// Initializes a new instance of the <see cref="IsNullSqlFunctionExpression"/> class.
         /// </summary>
         /// <param name="nullableExpression">The nullable value to check.</param>
-        public IsNullSqlFunctionExpression(Expression nullableExpression) :
+        public IsNullSqlFunctionExpression([NotNull]Expression nullableExpression) :
             base(
                 functionName: "IsNull",
                 returnType: typeof(bool),

@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// <param name="dbType"> The <see cref="DbType" /> to be used. </param>
         public JetBoolTypeMapping(
             [NotNull] string storeType,
-            DbType? dbType = null)
+            DbType? dbType = System.Data.DbType.Boolean)
             : base(storeType, dbType)
         {
         }

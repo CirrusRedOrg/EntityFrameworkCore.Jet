@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         }
 
         private static int CalculateSize(int? size)
-            => size.HasValue && size < 8000 ? size.Value : 8000;
+            => size.HasValue && size < 510 ? size.Value : 510;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

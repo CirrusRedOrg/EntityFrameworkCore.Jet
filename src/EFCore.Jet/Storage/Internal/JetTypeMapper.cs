@@ -19,22 +19,22 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetTypeMapper : RelationalTypeMapper
     {
         private readonly JetStringTypeMapping _unboundedUnicodeString
-            = new JetStringTypeMapping("text", dbType: null, unicode: true);
+            = new JetStringTypeMapping("text");
 
         private readonly JetStringTypeMapping _keyUnicodeString
-            = new JetStringTypeMapping("varchar(255)", dbType: null, unicode: true, size: 255);
+            = new JetStringTypeMapping("varchar(255)", size: 255);
 
         private readonly JetStringTypeMapping _unboundedAnsiString
-            = new JetStringTypeMapping("text", dbType: DbType.AnsiString);
+            = new JetStringTypeMapping("text");
 
         private readonly JetStringTypeMapping _keyAnsiString
-            = new JetStringTypeMapping("varchar(255)", dbType: DbType.AnsiString, unicode: false, size: 255);
+            = new JetStringTypeMapping("varchar(255)", size: 255);
 
         private readonly JetByteArrayTypeMapping _unboundedBinary
             = new JetByteArrayTypeMapping("image");
 
         private readonly JetByteArrayTypeMapping _keyBinary
-            = new JetByteArrayTypeMapping("varbinary(255)", dbType: DbType.Binary, size: 255);
+            = new JetByteArrayTypeMapping("varbinary(510)", dbType: DbType.Binary, size: 510);
 
         private readonly JetByteArrayTypeMapping _rowversion
             = new JetByteArrayTypeMapping("varbinary(8)", dbType: DbType.Binary, size: 8);
@@ -52,10 +52,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         //private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString
-            = new JetStringTypeMapping("char", dbType: DbType.String, unicode: true);
+            = new JetStringTypeMapping("char");
 
         private readonly JetStringTypeMapping _variableLengthUnicodeString
-            = new JetStringTypeMapping("varchar", dbType: null, unicode: true);
+            = new JetStringTypeMapping("varchar");
 
         // Jet does not support ANSI strings
         /*
@@ -84,11 +84,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly GuidTypeMapping _uniqueidentifier = new GuidTypeMapping("guid", DbType.Guid);
 
-        private readonly DecimalTypeMapping _decimal = new DecimalTypeMapping("decimal(18, 2)");
+        private readonly DecimalTypeMapping _decimal = new DecimalTypeMapping("decimal(18, 2)", DbType.Decimal);
 
         private readonly TimeSpanTypeMapping _time = new JetTimeSpanTypeMapping("datetime");
 
-        private readonly JetStringTypeMapping _xml = new JetStringTypeMapping("text", dbType: null, unicode: true);
+        private readonly JetStringTypeMapping _xml = new JetStringTypeMapping("text");
 
         private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
@@ -192,8 +192,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     keyAnsiMapping: _keyAnsiString,
                     createBoundedAnsiMapping: size => new JetStringTypeMapping(
                         "varchar(" + size + ")",
-                        DbType.AnsiString,
-                        unicode: false,
                         size: size),
                     maxBoundedUnicodeLength: 255,
                     defaultUnicodeMapping: _unboundedUnicodeString,
@@ -201,8 +199,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     keyUnicodeMapping: _keyUnicodeString,
                     createBoundedUnicodeMapping: size => new JetStringTypeMapping(
                         "varchar(" + size + ")",
-                        dbType: null,
-                        unicode: true,
                         size: size));
         }
 

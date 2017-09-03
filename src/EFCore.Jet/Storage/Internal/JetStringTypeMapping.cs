@@ -1,7 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Data;
 using System.Data.Common;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -20,27 +19,17 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     Initializes a new instance of the <see cref="JetStringTypeMapping" /> class.
         /// </summary>
         /// <param name="storeType"> The name of the database type. </param>
-        /// <param name="dbType"> The <see cref="DbType" /> to be used. </param>
-        /// <param name="unicode"> A value indicating whether the type should handle Unicode data or not. </param>
         /// <param name="size"> The size of data the property is configured to store, or null if no size is configured. </param>
         public JetStringTypeMapping(
             [NotNull] string storeType,
-            DbType? dbType,
-            bool unicode = false,
             int? size = null)
-            : base(storeType, dbType, unicode, size)
+            : base(storeType, System.Data.DbType.String, true, size)
         {
-            _maxSpecificSize = CalculateSize(unicode, size);
+            _maxSpecificSize = size.HasValue && size < 255
+                ? size.Value
+                : 255;
         }
 
-        private static int CalculateSize(bool unicode, int? size)
-            => unicode
-                ? size.HasValue && size < 4000
-                    ? size.Value
-                    : 4000
-                : size.HasValue && size < 8000
-                    ? size.Value
-                    : 8000;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -49,8 +38,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public override RelationalTypeMapping Clone(string storeType, int? size)
             => new JetStringTypeMapping(
                 storeType,
-                DbType,
-                IsUnicode,
                 size);
 
         /// <summary>

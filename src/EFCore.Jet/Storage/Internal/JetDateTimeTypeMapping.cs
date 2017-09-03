@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Data;
 using System.Data.Common;
 using System.Data.OleDb;
@@ -59,13 +60,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override string SqlLiteralFormatString => "#" + DateTimeFormatConst + "#";
 
 
-        public static string GenerateSqlLiteral(object o, bool shortForm)
+        public static string GenerateSqlLiteral([NotNull] object o, bool shortForm)
         {
+            if (o == null) throw new ArgumentNullException(nameof(o));
+
             return
                 shortForm ? 
                 string.Format("#" + DateTimeShortFormatConst + "#", o) : 
                 string.Format("#" + DateTimeFormatConst + "#", o);
-
         }
 
     }

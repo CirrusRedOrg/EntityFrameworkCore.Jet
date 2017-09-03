@@ -440,32 +440,6 @@ namespace EntityFrameworkCore.Jet.Migrations
         }
 
 
-        protected override void Generate(EnsureSchemaOperation operation, IModel model, MigrationCommandListBuilder builder)
-        {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
-            // Jet does not support schemas
-            /*
-            if (string.Equals(operation.Name, "DBO", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            var stringTypeMapping = Dependencies.TypeMapper.GetMapping(typeof(string));
-
-            builder
-                .Append("IF SCHEMA_ID(")
-                .Append(stringTypeMapping.GenerateSqlLiteral(operation.Name))
-                .Append(") IS NULL EXEC(N'CREATE SCHEMA ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                .Append(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .Append("')")
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand();
-            */
-        }
-
         protected virtual void Generate(
             [NotNull] JetCreateDatabaseOperation operation,
             [CanBeNull] IModel model,
@@ -809,37 +783,11 @@ namespace EntityFrameworkCore.Jet.Migrations
             var variable = "@var" + _variableCounter++;
 
             builder
-                .Append("DECLARE ")
-                .Append(variable)
-                .AppendLine(" sysname;")
-                .Append("SELECT ")
-                .Append(variable)
-                .AppendLine(" = [d].[name]")
-                .AppendLine("FROM [sys].[default_constraints] [d]")
-                .AppendLine("INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]")
-                .Append("WHERE ([d].[parent_object_id] = OBJECT_ID(N'");
-
-            if (schema != null)
-            {
-                builder
-                    .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(schema))
-                    .Append(".");
-            }
-
-            builder
-                .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(tableName))
-                .Append("') AND [c].[name] = N'")
-                .Append(Dependencies.SqlGenerationHelper.EscapeLiteral(columnName))
-                .AppendLine("');")
-                .Append("IF ")
-                .Append(variable)
-                .Append(" IS NOT NULL EXEC(N'ALTER TABLE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(tableName, schema))
-                .Append(" DROP CONSTRAINT [' + ")
-                .Append(variable)
-                .Append(" + ']")
-                .Append(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .Append("')")
+                .Append("ALTER TABLE ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(tableName))
+                .Append(" ALTER COLUMN ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(columnName))
+                .Append(" DROP DEFAULT")
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
         }
 
@@ -929,6 +877,25 @@ namespace EntityFrameworkCore.Jet.Migrations
 
             return operationName.Substring(0, 56) + operationName.GetHashCode().ToString("X8");
         }
+
+
+        #region Schemas not supported
+
+        protected override void Generate(EnsureSchemaOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            Check.NotNull(operation, nameof(operation));
+            Check.NotNull(builder, nameof(builder));
+        }
+
+
+        protected override void Generate(DropSchemaOperation operation, IModel model, MigrationCommandListBuilder builder)
+        {
+            Check.NotNull(operation, nameof(operation));
+            Check.NotNull(builder, nameof(builder));
+        }
+
+        #endregion
+
 
 
         #region Sequences not supported

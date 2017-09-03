@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.Tests
         {
             using (var connection = new JetConnection(CreateDependencies()))
             {
-                Assert.IsType<JetConnection>(connection.DbConnection);
+                Assert.IsType<System.Data.Jet.JetConnection>(connection.DbConnection);
             }
         }
 

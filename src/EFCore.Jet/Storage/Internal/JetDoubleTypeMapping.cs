@@ -16,11 +16,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     Initializes a new instance of the <see cref="JetDoubleTypeMapping" /> class.
         /// </summary>
         /// <param name="storeType"> The name of the database type. </param>
-        /// <param name="dbType"> The <see cref="DbType" /> to be used. </param>
         public JetDoubleTypeMapping(
-            [NotNull] string storeType,
-            DbType? dbType = null)
-            : base(storeType, dbType)
+            [NotNull] string storeType)
+            : base(storeType, System.Data.DbType.Double)
         {
         }
 
@@ -31,7 +29,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// <param name="size"> The size of data the property is configured to store, or null if no size is configured. </param>
         /// <returns> The newly created mapping. </returns>
         public override RelationalTypeMapping Clone(string storeType, int? size)
-            => new JetDoubleTypeMapping(storeType, DbType);
+            => new JetDoubleTypeMapping(storeType);
 
     }
 }

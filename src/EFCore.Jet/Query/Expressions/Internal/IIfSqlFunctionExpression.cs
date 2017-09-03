@@ -1,16 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
+using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 
 namespace EntityFrameworkCore.Jet.Query.Expressions.Internal
 {
     public class IIfSqlFunctionExpression:SqlFunctionExpression
     {
-        public IIfSqlFunctionExpression(Type returnType, Expression condition, Expression ifTrue, Expression ifFalse)
+        public IIfSqlFunctionExpression([NotNull]Type returnType, [NotNull]Expression condition, [NotNull]Expression ifTrue, [NotNull]Expression ifFalse)
             :base(
                  functionName: "IIf",
                  returnType: returnType,

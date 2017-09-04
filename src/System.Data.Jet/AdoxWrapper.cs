@@ -64,18 +64,46 @@ namespace System.Data.Jet
 
             dynamic catalog = GetCatalogInstanceAndOpen("Cannot rename index", connectionString);
 
+            dynamic table;
+            dynamic index;
+
             try
             {
-                catalog.Tables[tableName].Indexes[indexName].Name = newIndexName;
+                table = catalog.Tables[tableName];
             }
             catch (Exception e)
             {
-                throw new Exception("Cannot rename index", e);
+                catalog.ActiveConnection.Close();
+                throw new Exception("Cannot rename index. Cannot retrieve the table '" + tableName + "'", e);
+            }
+
+
+            try
+            {
+                index = table.Indexes[indexName];
+            }
+            catch (Exception e)
+            {
+                catalog.ActiveConnection.Close();
+                throw new Exception("Cannot rename index. Cannot retrieve the old index '" + indexName + "'", e);
+            }
+
+
+
+            try
+            {
+                index.Name = newIndexName;
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Cannot rename index.", e);
             }
             finally
             {
                 catalog.ActiveConnection.Close();
             }
+
+
         }
 
 

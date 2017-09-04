@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data.Common;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -90,6 +91,38 @@ namespace System.Data.Jet.Test
         }
 
 
+        //[TestMethod]
+        public void RenameIndexAdox()
+        {
+            try
+            {
+                File.Delete("AdoxTest.accdb");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
+            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
+
+            using (JetConnection connection = new JetConnection(JetConnection.GetConnectionString("AdoxTest.accdb")))
+            {
+                connection.Open();
+                CreateTable(connection);
+
+                CheckIndexExists(connection, "indexName");
+
+                AdoxWrapper.RenameIndex(JetConnection.GetConnectionString("AdoxTest.accdb"), "tableName", "indexName", "newIndexName");
+
+                connection.Close();
+                connection.Open();
+                CheckIndexExists(connection, "newIndexName");
+
+            }
+
+            File.Delete("AdoxTest.accdb");
+        }
+
 
         [TestMethod]
         public void RenameTableQuery()
@@ -176,10 +209,23 @@ namespace System.Data.Jet.Test
                 throw new Exception($"Column {tableName}.{columnName} not found");
         }
 
+        private void CheckIndexExists(JetConnection connection, string indexName)
+        {
+            var command = connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW INDEXES) WHERE Name='{indexName}'");
+            int result = (int)command.ExecuteScalar();
+            command.Dispose();
+            if (result != 1)
+                throw new Exception($"Index {indexName} not found");
+        }
+
+
 
         private static void CreateTable(JetConnection connection)
         {
-            var command = connection.CreateCommand("CREATE TABLE tableName (columnName int)");
+            DbCommand command;
+            command = connection.CreateCommand(@"
+CREATE TABLE tableName (columnName int);
+CREATE INDEX indexName ON tableName (columnName);");
             command.ExecuteNonQuery();
             command.Dispose();
         }

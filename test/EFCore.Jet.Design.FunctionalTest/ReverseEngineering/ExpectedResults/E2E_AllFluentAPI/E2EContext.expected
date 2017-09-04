@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace E2ETest.Namespace
 {
-    public partial class E2EContext : DbContext
+    public partial class ModelContext : DbContext
     {
         public virtual DbSet<AllDataTypes> AllDataTypes { get; set; }
         public virtual DbSet<MultipleFksDependent> MultipleFksDependent { get; set; }
@@ -20,6 +20,7 @@ namespace E2ETest.Namespace
         public virtual DbSet<PropertyConfiguration> PropertyConfiguration { get; set; }
         public virtual DbSet<ReferredToByTableWithUnmappablePrimaryKeyColumn> ReferredToByTableWithUnmappablePrimaryKeyColumn { get; set; }
         public virtual DbSet<SelfReferencing> SelfReferencing { get; set; }
+        public virtual DbSet<TableWithUnmappablePrimaryKeyColumn> TableWithUnmappablePrimaryKeyColumn { get; set; }
         public virtual DbSet<TestSpacesKeywordsTable> TestSpacesKeywordsTable { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -27,7 +28,7 @@ namespace E2ETest.Namespace
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http://go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
-                optionsBuilder.UseJet(@"Data Source=E2E.sdf");
+                optionsBuilder.UseJet(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=E2E.accdb");
             }
         }
 
@@ -39,106 +40,111 @@ namespace E2ETest.Namespace
 
                 entity.Property(e => e.BigintColumn).HasColumnName("bigintColumn");
 
-                entity.Property(e => e.Binary111Column)
-                    .HasColumnName("binary111Column")
-                    .HasColumnType("binary(111)");
-
                 entity.Property(e => e.BinaryColumn)
                     .HasColumnName("binaryColumn")
-                    .HasColumnType("binary(1)");
+                    .HasMaxLength(510);
 
-                entity.Property(e => e.BitColumn).HasColumnName("bitColumn");
+                entity.Property(e => e.BitColumn)
+                    .HasColumnName("bitColumn")
+                    .HasColumnType("bit");
+
+                entity.Property(e => e.CharColumn)
+                    .HasColumnName("charColumn")
+                    .HasColumnType("char(255)");
+
+                entity.Property(e => e.DateColumn).HasColumnName("dateColumn");
+
+                entity.Property(e => e.Datetime24Column).HasColumnName("datetime24Column");
+
+                entity.Property(e => e.Datetime2Column).HasColumnName("datetime2Column");
 
                 entity.Property(e => e.DatetimeColumn).HasColumnName("datetimeColumn");
 
+                entity.Property(e => e.Datetimeoffset5Column).HasColumnName("datetimeoffset5Column");
+
+                entity.Property(e => e.DatetimeoffsetColumn).HasColumnName("datetimeoffsetColumn");
+
                 entity.Property(e => e.DecimalColumn)
                     .HasColumnName("decimalColumn")
-                    .HasColumnType("numeric(18, 0)");
+                    .HasColumnType("decimal(18, 0)");
 
                 entity.Property(e => e.FloatColumn).HasColumnName("floatColumn");
 
-                entity.Property(e => e.ImageColumn)
-                    .HasColumnName("imageColumn")
-                    .HasColumnType("image");
+                entity.Property(e => e.GeographyColumn).HasColumnName("geographyColumn");
+
+                entity.Property(e => e.GeometryColumn).HasColumnName("geometryColumn");
+
+                entity.Property(e => e.HierarchyidColumn).HasColumnName("hierarchyidColumn");
+
+                entity.Property(e => e.ImageColumn).HasColumnName("imageColumn");
 
                 entity.Property(e => e.IntColumn).HasColumnName("intColumn");
 
                 entity.Property(e => e.MoneyColumn)
                     .HasColumnName("moneyColumn")
-                    .HasColumnType("money");
-
-                entity.Property(e => e.NationalCharVarying177Column)
-                    .HasColumnName("nationalCharVarying177Column")
-                    .HasMaxLength(177);
-
-                entity.Property(e => e.NationalCharVaryingColumn)
-                    .HasColumnName("nationalCharVaryingColumn")
-                    .HasMaxLength(1);
-
-                entity.Property(e => e.NationalCharacter171Column)
-                    .HasColumnName("nationalCharacter171Column")
-                    .HasColumnType("nchar(171)");
-
-                entity.Property(e => e.NationalCharacterColumn)
-                    .HasColumnName("nationalCharacterColumn")
-                    .HasColumnType("nchar(1)");
-
-                entity.Property(e => e.NationalCharacterVarying188Column)
-                    .HasColumnName("nationalCharacterVarying188Column")
-                    .HasMaxLength(188);
-
-                entity.Property(e => e.NationalCharacterVaryingColumn)
-                    .HasColumnName("nationalCharacterVaryingColumn")
-                    .HasMaxLength(1);
-
-                entity.Property(e => e.Nchar99Column)
-                    .HasColumnName("nchar99Column")
-                    .HasColumnType("nchar(99)");
+                    .HasColumnType("decimal(19, 0)");
 
                 entity.Property(e => e.NcharColumn)
                     .HasColumnName("ncharColumn")
-                    .HasColumnType("nchar(1)");
+                    .HasColumnType("char(255)");
 
-                entity.Property(e => e.NtextColumn)
-                    .HasColumnName("ntextColumn")
-                    .HasColumnType("ntext");
+                entity.Property(e => e.NtextColumn).HasColumnName("ntextColumn");
 
                 entity.Property(e => e.NumericColumn)
                     .HasColumnName("numericColumn")
-                    .HasColumnType("numeric(18, 0)");
-
-                entity.Property(e => e.Nvarchar100Column)
-                    .HasColumnName("nvarchar100Column")
-                    .HasMaxLength(100);
+                    .HasColumnType("decimal(18, 0)");
 
                 entity.Property(e => e.NvarcharColumn)
                     .HasColumnName("nvarcharColumn")
-                    .HasMaxLength(1);
+                    .HasMaxLength(255);
 
                 entity.Property(e => e.RealColumn).HasColumnName("realColumn");
 
+                entity.Property(e => e.SmalldatetimeColumn).HasColumnName("smalldatetimeColumn");
+
                 entity.Property(e => e.SmallintColumn).HasColumnName("smallintColumn");
+
+                entity.Property(e => e.SmallmoneyColumn)
+                    .HasColumnName("smallmoneyColumn")
+                    .HasColumnType("decimal(19, 0)");
+
+                entity.Property(e => e.TextColumn).HasColumnName("textColumn");
+
+                entity.Property(e => e.Time4Column).HasColumnName("time4Column");
+
+                entity.Property(e => e.TimeColumn).HasColumnName("timeColumn");
 
                 entity.Property(e => e.TimestampColumn)
                     .HasColumnName("timestampColumn")
-                    .IsRowVersion();
+                    .HasMaxLength(8);
 
                 entity.Property(e => e.TinyintColumn).HasColumnName("tinyintColumn");
 
                 entity.Property(e => e.UniqueidentifierColumn).HasColumnName("uniqueidentifierColumn");
 
-                entity.Property(e => e.Varbinary123Column)
-                    .HasColumnName("varbinary123Column")
-                    .HasMaxLength(123);
-
                 entity.Property(e => e.VarbinaryColumn)
                     .HasColumnName("varbinaryColumn")
-                    .HasMaxLength(1);
+                    .HasMaxLength(510);
+
+                entity.Property(e => e.VarcharColumn)
+                    .HasColumnName("varcharColumn")
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.XmlColumn).HasColumnName("xmlColumn");
             });
 
             modelBuilder.Entity<MultipleFksDependent>(entity =>
             {
                 entity.ToTable("MultipleFKsDependent");
+
+                entity.HasIndex(e => e.RelationAid)
+                    .HasName("FK_RelationA");
+
+                entity.HasIndex(e => e.RelationBid)
+                    .HasName("FK_RelationB");
+
+                entity.HasIndex(e => e.RelationCid)
+                    .HasName("FK_RelationC");
 
                 entity.Property(e => e.MultipleFksDependentId)
                     .HasColumnName("MultipleFKsDependentId")
@@ -188,6 +194,9 @@ namespace E2ETest.Namespace
             {
                 entity.HasKey(e => new { e.OneToManyDependentId1, e.OneToManyDependentId2 });
 
+                entity.HasIndex(e => new { e.OneToManyDependentFk1, e.OneToManyDependentFk2 })
+                    .HasName("FK_OneToManyDependent");
+
                 entity.Property(e => e.OneToManyDependentId1).HasColumnName("OneToManyDependentID1");
 
                 entity.Property(e => e.OneToManyDependentId2).HasColumnName("OneToManyDependentID2");
@@ -223,6 +232,9 @@ namespace E2ETest.Namespace
             {
                 entity.HasKey(e => new { e.OneToOneDependentId1, e.OneToOneDependentId2 });
 
+                entity.HasIndex(e => new { e.OneToOneDependentId1, e.OneToOneDependentId2 })
+                    .HasName("FK_OneToOneDependent");
+
                 entity.Property(e => e.OneToOneDependentId1).HasColumnName("OneToOneDependentID1");
 
                 entity.Property(e => e.OneToOneDependentId2).HasColumnName("OneToOneDependentID2");
@@ -245,8 +257,7 @@ namespace E2ETest.Namespace
                 entity.ToTable("OneToOneFKToUniqueKeyDependent");
 
                 entity.HasIndex(e => new { e.OneToOneFktoUniqueKeyDependentFk1, e.OneToOneFktoUniqueKeyDependentFk2 })
-                    .HasName("UK_OneToOneFKToUniqueKeyDependent")
-                    .IsUnique();
+                    .HasName("FK_OneToOneFKToUniqueKeyDependent");
 
                 entity.Property(e => e.OneToOneFktoUniqueKeyDependentId1).HasColumnName("OneToOneFKToUniqueKeyDependentID1");
 
@@ -261,9 +272,9 @@ namespace E2ETest.Namespace
                     .HasMaxLength(20);
 
                 entity.HasOne(d => d.OneToOneFktoUniqueKeyDependentFk)
-                    .WithOne(p => p.OneToOneFktoUniqueKeyDependent)
-                    .HasPrincipalKey<OneToOneFktoUniqueKeyPrincipal>(p => new { p.OneToOneFktoUniqueKeyPrincipalUniqueKey1, p.OneToOneFktoUniqueKeyPrincipalUniqueKey2 })
-                    .HasForeignKey<OneToOneFktoUniqueKeyDependent>(d => new { d.OneToOneFktoUniqueKeyDependentFk1, d.OneToOneFktoUniqueKeyDependentFk2 })
+                    .WithMany(p => p.OneToOneFktoUniqueKeyDependent)
+                    .HasPrincipalKey(p => new { p.OneToOneFktoUniqueKeyPrincipalUniqueKey1, p.OneToOneFktoUniqueKeyPrincipalUniqueKey2 })
+                    .HasForeignKey(d => new { d.OneToOneFktoUniqueKeyDependentFk1, d.OneToOneFktoUniqueKeyDependentFk2 })
                     .HasConstraintName("FK_OneToOneFKToUniqueKeyDependent");
             });
 
@@ -310,8 +321,7 @@ namespace E2ETest.Namespace
                 entity.ToTable("OneToOneSeparateFKDependent");
 
                 entity.HasIndex(e => new { e.OneToOneSeparateFkdependentFk1, e.OneToOneSeparateFkdependentFk2 })
-                    .HasName("UK_OneToOneSeparateFKDependent")
-                    .IsUnique();
+                    .HasName("FK_OneToOneSeparateFKDependent");
 
                 entity.Property(e => e.OneToOneSeparateFkdependentId1).HasColumnName("OneToOneSeparateFKDependentID1");
 
@@ -326,8 +336,8 @@ namespace E2ETest.Namespace
                     .HasMaxLength(20);
 
                 entity.HasOne(d => d.OneToOneSeparateFkdependentFk)
-                    .WithOne(p => p.OneToOneSeparateFkdependent)
-                    .HasForeignKey<OneToOneSeparateFkdependent>(d => new { d.OneToOneSeparateFkdependentFk1, d.OneToOneSeparateFkdependentFk2 })
+                    .WithMany(p => p.OneToOneSeparateFkdependent)
+                    .HasForeignKey(d => new { d.OneToOneSeparateFkdependentFk1, d.OneToOneSeparateFkdependentFk2 })
                     .HasConstraintName("FK_OneToOneSeparateFKDependent");
             });
 
@@ -356,21 +366,27 @@ namespace E2ETest.Namespace
 
                 entity.Property(e => e.RowversionColumn)
                     .IsRequired()
-                    .IsRowVersion();
+                    .HasMaxLength(8);
 
-                entity.Property(e => e.WithDateDefaultExpression).HasDefaultValueSql("(getdate())");
+                entity.Property(e => e.SumOfAandB).HasColumnName("SumOfAAndB");
 
-                entity.Property(e => e.WithDateFixedDefault).HasDefaultValueSql("'October 20, 2015 11am'");
+                entity.Property(e => e.WithDateDefaultExpression).HasDefaultValueSql("Now()");
+
+                entity.Property(e => e.WithDateFixedDefault).HasDefaultValueSql("#10/20/2015#");
+
+                entity.Property(e => e.WithDateNullDefault).HasDefaultValueSql("NULL");
 
                 entity.Property(e => e.WithDefaultValue).HasDefaultValueSql("-1");
 
-                entity.Property(e => e.WithGuidDefaultExpression).HasDefaultValueSql("(NEWID())");
-
                 entity.Property(e => e.WithMoneyDefaultValue)
-                    .HasColumnType("money")
+                    .HasColumnType("decimal(19, 0)")
                     .HasDefaultValueSql("0.00");
 
-                entity.Property(e => e.WithVarcharNullDefaultValue).HasMaxLength(1);
+                entity.Property(e => e.WithNullDefaultValue).HasDefaultValueSql("NULL");
+
+                entity.Property(e => e.WithVarcharNullDefaultValue)
+                    .HasMaxLength(255)
+                    .HasDefaultValueSql("NULL");
             });
 
             modelBuilder.Entity<ReferredToByTableWithUnmappablePrimaryKeyColumn>(entity =>
@@ -389,6 +405,9 @@ namespace E2ETest.Namespace
 
             modelBuilder.Entity<SelfReferencing>(entity =>
             {
+                entity.HasIndex(e => e.SelfReferenceFk)
+                    .HasName("FK_SelfReferencing");
+
                 entity.Property(e => e.SelfReferencingId)
                     .HasColumnName("SelfReferencingID")
                     .ValueGeneratedNever();
@@ -407,6 +426,31 @@ namespace E2ETest.Namespace
                     .WithMany(p => p.InverseSelfReferenceFkNavigation)
                     .HasForeignKey(d => d.SelfReferenceFk)
                     .HasConstraintName("FK_SelfReferencing");
+            });
+
+            modelBuilder.Entity<TableWithUnmappablePrimaryKeyColumn>(entity =>
+            {
+                entity.HasIndex(e => e.AnotherColumn)
+                    .HasName("UK_TableWithUnmappablePrimaryKeyColumn")
+                    .IsUnique();
+
+                entity.HasIndex(e => e.TableWithUnmappablePrimaryKeyColumnFk)
+                    .HasName("FK_TableWithUnmappablePrimaryKeyColumn");
+
+                entity.Property(e => e.TableWithUnmappablePrimaryKeyColumnId)
+                    .HasColumnName("TableWithUnmappablePrimaryKeyColumnID")
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.AnotherColumn)
+                    .IsRequired()
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.TableWithUnmappablePrimaryKeyColumnFk).HasColumnName("TableWithUnmappablePrimaryKeyColumnFK");
+
+                entity.HasOne(d => d.TableWithUnmappablePrimaryKeyColumnFkNavigation)
+                    .WithMany(p => p.TableWithUnmappablePrimaryKeyColumn)
+                    .HasForeignKey(d => d.TableWithUnmappablePrimaryKeyColumnFk)
+                    .HasConstraintName("FK_TableWithUnmappablePrimaryKeyColumn");
             });
 
             modelBuilder.Entity<TestSpacesKeywordsTable>(entity =>
@@ -429,15 +473,13 @@ namespace E2ETest.Namespace
 
                 entity.Property(e => e.DollarSignColumn).HasColumnName("$Dollar$Sign$Column");
 
-                entity.Property(e => e.DoubleQuotesColumn).HasColumnName("\"Double\"Quotes\"Column");
+                entity.Property(e => e.DoubleQuotesColumn).HasColumnName("\"\"Double\"\"Quotes\"\"Column");
 
-                entity.Property(e => e.ExclamationMarkColumn).HasColumnName("!Exclamation!Mark!Column");
+                entity.Property(e => e.ExclamationMarkColumn).HasColumnName("#Exclamation#Mark#Column");
 
                 entity.Property(e => e.MultipleAtSymbolsInColumn).HasColumnName("@Multiple@At@Symbols@In@Column");
 
                 entity.Property(e => e.SpacesInColumn).HasColumnName("Spaces In Column");
-
-                entity.Property(e => e.TabsInColumn).HasColumnName("Tabs\tIn\tColumn");
 
                 entity.Property(e => e.Volatile).HasColumnName("volatile");
             });

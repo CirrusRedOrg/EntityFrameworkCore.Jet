@@ -3,11 +3,16 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace E2ETest.Namespace
+namespace E2ETest.Namespace.SubDir
 {
     [Table("OneToOneSeparateFKPrincipal")]
     public partial class OneToOneSeparateFkprincipal
     {
+        public OneToOneSeparateFkprincipal()
+        {
+            OneToOneSeparateFkdependent = new HashSet<OneToOneSeparateFkdependent>();
+        }
+
         [Column("OneToOneSeparateFKPrincipalID1")]
         public int OneToOneSeparateFkprincipalId1 { get; set; }
         [Column("OneToOneSeparateFKPrincipalID2")]
@@ -18,6 +23,6 @@ namespace E2ETest.Namespace
         public string SomeOneToOneSeparateFkprincipalColumn { get; set; }
 
         [InverseProperty("OneToOneSeparateFkdependentFk")]
-        public OneToOneSeparateFkdependent OneToOneSeparateFkdependent { get; set; }
+        public ICollection<OneToOneSeparateFkdependent> OneToOneSeparateFkdependent { get; set; }
     }
 }

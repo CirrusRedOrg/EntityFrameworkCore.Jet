@@ -3,25 +3,28 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace E2ETest.Namespace
+namespace E2ETest.Namespace.SubDir
 {
     public partial class PropertyConfiguration
     {
         [Column("PropertyConfigurationID")]
-        public int PropertyConfigurationId { get; set; }
+        public byte PropertyConfigurationId { get; set; }
         public DateTime WithDateDefaultExpression { get; set; }
         public DateTime WithDateFixedDefault { get; set; }
         public DateTime? WithDateNullDefault { get; set; }
         public Guid WithGuidDefaultExpression { get; set; }
-        [StringLength(1)]
+        [StringLength(255)]
         public string WithVarcharNullDefaultValue { get; set; }
         public int WithDefaultValue { get; set; }
         public short? WithNullDefaultValue { get; set; }
-        [Column(TypeName = "money")]
+        [Column(TypeName = "decimal(19, 0)")]
         public decimal WithMoneyDefaultValue { get; set; }
         public int A { get; set; }
         public int B { get; set; }
+        [Column("SumOfAAndB")]
+        public int? SumOfAandB { get; set; }
         [Required]
+        [MaxLength(8)]
         public byte[] RowversionColumn { get; set; }
     }
 }

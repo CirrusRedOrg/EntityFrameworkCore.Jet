@@ -2,6 +2,8 @@
 using System.Data.Jet;
 using EntityFrameworkCore.Jet;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests

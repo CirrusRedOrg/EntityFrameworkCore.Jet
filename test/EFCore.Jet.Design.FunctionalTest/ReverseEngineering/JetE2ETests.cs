@@ -91,6 +91,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
                 "PropertyConfiguration.expected",
                 "ReferredToByTableWithUnmappablePrimaryKeyColumn.expected",
                 "SelfReferencing.expected",
+                "TableWithUnmappablePrimaryKeyColumn.expected",
                 "Test_Spaces_Keywords_Table.expected"
             };
 
@@ -103,8 +104,8 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
                     Tables,
                     Enumerable.Empty<string>(),
                     TestProjectDir + Path.DirectorySeparatorChar, // tests that ending DirectorySeparatorChar does not affect namespace
-                    TestSubDir,
-                    TestNamespace,
+                    outputPath:TestSubDir,
+                    rootNamespace: TestNamespace,
                     contextName: "AttributesContext",
                     useDataAnnotations: true,
                     overwriteFiles: false,
@@ -117,8 +118,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
 
             var expectedFileSet = new FileSet(new FileSystemFileService(),
                 Path.Combine("ReverseEngineering", "ExpectedResults", "E2E_UseAttributesInsteadOfFluentApi"),
-                contents => contents.Replace("namespace " + TestNamespace, "namespace " + TestNamespace + "." + TestSubDir)
-                    .Replace("{{connectionString}}", _connectionString))
+                contents => contents)
             {
                 Files = new List<string> { "AttributesContext.expected" }
                     .Concat(_expectedEntityTypeFiles).ToList()
@@ -172,7 +172,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
 CREATE TABLE NonNullBoolWithDefault
 (
      Id int NOT NULL PRIMARY KEY,
-     BoolWithDefaultValueSql bit NOT NULL DEFAULT (CONVERT(""bit"", GETDATE())),
+     BoolWithDefaultValueSql bit NOT NULL DEFAULT True,
      BoolWithoutDefaultValueSql bit NOT NULL
 )");
 
@@ -217,19 +217,22 @@ CREATE TABLE NonNullBoolWithDefault
             {
                 scratch.ExecuteNonQuery(@"
 CREATE TABLE [StringKeysBlogs] (
-    [PrimaryKey] nvarchar(256) NOT NULL,
-    [AlternateKey] nvarchar(256) NOT NULL,
-    [IndexProperty] nvarchar(256) NULL,
-    [RowVersion] rowversion NULL,
-    CONSTRAINT [PK_StringKeysBlogs] PRIMARY KEY ([PrimaryKey]),
-    CONSTRAINT [AK_StringKeysBlogs_AlternateKey] UNIQUE ([AlternateKey]));");
+    [PrimaryKey] varchar(255) NOT NULL,
+    [AlternateKey] varchar(255) NOT NULL,
+    [IndexProperty] varchar(255) NULL,
+    [RowVersion] varbinary(8) NULL,
+    CONSTRAINT [PK_StringKeysBlogs] PRIMARY KEY ([PrimaryKey])
+);");
                 scratch.ExecuteNonQuery(@"
 CREATE INDEX [IX_StringKeysBlogs_IndexProperty] ON [StringKeysBlogs] ([IndexProperty]);");
 
                 scratch.ExecuteNonQuery(@"
+CREATE UNIQUE INDEX [AK_StringKeysBlogs_AlternateKey] ON [StringKeysBlogs] ([AlternateKey])");
+
+                scratch.ExecuteNonQuery(@"
 CREATE TABLE [StringKeysPosts] (
     [Id] int NOT NULL IDENTITY,
-    [BlogAlternateKey] nvarchar(256) NULL,
+    [BlogAlternateKey] varchar(255) NULL,
     CONSTRAINT [PK_StringKeysPosts] PRIMARY KEY ([Id]),
     CONSTRAINT [FK_StringKeysPosts_StringKeysBlogs_BlogAlternateKey] FOREIGN KEY ([BlogAlternateKey]) REFERENCES [StringKeysBlogs] ([AlternateKey]))");
 
@@ -273,17 +276,17 @@ CREATE INDEX [IX_StringKeysPosts_BlogAlternateKey] ON [StringKeysPosts] ([BlogAl
 
         protected override ICollection<BuildReference> References { get; } = new List<BuildReference>
         {
-            BuildReference.ByName("System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-            BuildReference.ByName("System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-            BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-            BuildReference.ByName("System.ComponentModel.DataAnnotations, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35"),
-            BuildReference.ByName("EntityFrameworkCore.Jet"),
-            BuildReference.ByName("System.Data.Jet"),
+            //BuildReference.ByName("System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+            //BuildReference.ByName("System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+            //BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+            //BuildReference.ByName("System.ComponentModel.DataAnnotations, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35"),
+            //BuildReference.ByName("EntityFrameworkCore.Jet"),
+            //BuildReference.ByName("System.Data.Jet"),
             
-            BuildReference.ByName("Microsoft.EntityFrameworkCore"),
-            BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational"),
-            BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions"),
-            BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions")
+            //BuildReference.ByName("Microsoft.EntityFrameworkCore"),
+            //BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational"),
+            //BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions"),
+            //BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions")
         };
     }
 }

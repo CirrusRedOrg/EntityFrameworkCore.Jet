@@ -329,17 +329,10 @@ ORDER BY
 
         private string GetStoreType(string dataTypeName, int? precision, int? scale, int? maxLength)
         {
-            if ((dataTypeName == "varchar"
-                 || dataTypeName == "char")
-                && maxLength != -1)
-            {
-                maxLength /= 2;
-            }
-
             if (dataTypeName == "decimal"
                 || dataTypeName == "numeric")
             {
-                return $"{dataTypeName}({precision}, {scale})";
+                return $"{dataTypeName}({precision}, {scale.GetValueOrDefault(0)})";
             }
             if (_dateTimePrecisionTypes.Contains(dataTypeName)
                 && scale != null)
@@ -355,14 +348,17 @@ ORDER BY
                 else
                     throw new InvalidOperationException("Unexpected type " + dataTypeName);
             }
-            if (maxLength.HasValue)
-            {
-                return $"{dataTypeName}({maxLength.Value})";
-            }
+
             if (dataTypeName == "timestamp")
-            {
                 return "rowversion";
+
+            if (dataTypeName == "bit")
+            {
+                return "bit";
             }
+
+            if (maxLength.HasValue && maxLength > 0)
+                return $"{dataTypeName}({maxLength.Value})";
 
             return dataTypeName;
         }
@@ -721,13 +717,13 @@ ORDER BY
                 case "CASCADE":
                     return ReferentialAction.Cascade;
 
-                case "SET_NULL":
+                case "SET NULL":
                     return ReferentialAction.SetNull;
 
-                case "SET_DEFAULT":
+                case "SET DEFAULT":
                     return ReferentialAction.SetDefault;
 
-                case "NO_ACTION":
+                case "NO ACTION":
                     return ReferentialAction.NoAction;
 
                 default:

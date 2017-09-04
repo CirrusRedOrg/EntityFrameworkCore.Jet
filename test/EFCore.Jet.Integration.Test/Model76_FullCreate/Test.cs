@@ -12,7 +12,7 @@ namespace EFCore.Jet.Integration.Test.Model76_FullCreate
         protected abstract DbConnection GetConnection();
 
         [TestMethod]
-        public void Model37_2ContextsRun()
+        public void Model76_FullCreate()
         {
             using (DbConnection connection = GetConnection())
             {

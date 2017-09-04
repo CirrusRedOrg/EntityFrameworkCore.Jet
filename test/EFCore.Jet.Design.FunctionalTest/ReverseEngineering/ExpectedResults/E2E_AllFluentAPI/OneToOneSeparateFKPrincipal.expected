@@ -5,10 +5,15 @@ namespace E2ETest.Namespace
 {
     public partial class OneToOneSeparateFkprincipal
     {
+        public OneToOneSeparateFkprincipal()
+        {
+            OneToOneSeparateFkdependent = new HashSet<OneToOneSeparateFkdependent>();
+        }
+
         public int OneToOneSeparateFkprincipalId1 { get; set; }
         public int OneToOneSeparateFkprincipalId2 { get; set; }
         public string SomeOneToOneSeparateFkprincipalColumn { get; set; }
 
-        public OneToOneSeparateFkdependent OneToOneSeparateFkdependent { get; set; }
+        public ICollection<OneToOneSeparateFkdependent> OneToOneSeparateFkdependent { get; set; }
     }
 }

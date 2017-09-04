@@ -390,7 +390,7 @@ namespace System.Data.Jet
             newCommandText = match.Groups["sqlCommand"].Value;
 
             bool hasRows;
-            using (var command = (DbCommand)((ICloneable)this._WrappedCommand).Clone())
+            using (JetCommand command = (JetCommand)((ICloneable)this).Clone())
             {
                 command.CommandText = sqlCheckCommand;
                 using (var reader = command.ExecuteReader())

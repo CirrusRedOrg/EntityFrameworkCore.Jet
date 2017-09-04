@@ -76,11 +76,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetDateTimeTypeMapping _datetime2 = new JetDateTimeTypeMapping("datetime", dbType: DbType.DateTime2);
 
-        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("float"); 
+        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("double"); 
 
         private readonly JetDateTimeOffsetTypeMapping _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime");
 
-        private readonly FloatTypeMapping _real = new JetFloatTypeMapping("real"); 
+        private readonly FloatTypeMapping _real = new JetFloatTypeMapping("single"); 
 
         private readonly GuidTypeMapping _uniqueidentifier = new GuidTypeMapping("guid", DbType.Guid);
 
@@ -112,12 +112,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     { "datetime", _datetime },
                     { "decimal", _decimal },
                     { "float", _double },
+                    { "double", _double },
                     { "image", _variableLengthBinary },
                     { "int", _int },
                     { "guid", _uniqueidentifier },
                     { "money", _decimal },
                     { "numeric", _decimal },
                     { "real", _real },
+                    { "single", _real },
                     { "smalldatetime", _datetime },
                     { "smallint", _short },
                     { "smallmoney", _decimal },

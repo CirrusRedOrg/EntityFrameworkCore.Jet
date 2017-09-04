@@ -14,11 +14,29 @@ namespace System.Data.Jet.Test
         public void Initialize()
         {
             _connection = Helpers.GetJetConnection();
+            _connection.Open();
+
+
+            string sql = @"IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE NAME = 'TestMoney') THEN
+CREATE TABLE TestMoney ( MoneyCol money, DecimalCol decimal(19,0) );
+";
+            var command = _connection.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+            command.Dispose();
         }
 
         [TestCleanup]
         public void Cleanup()
         {
+            string sql = @"
+DROP TABLE TestMoney;
+";
+            var command = _connection.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+            command.Dispose();
+
             _connection.Dispose();
         }
 

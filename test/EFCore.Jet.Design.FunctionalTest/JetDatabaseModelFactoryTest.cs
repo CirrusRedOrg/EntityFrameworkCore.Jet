@@ -23,12 +23,12 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
             Assert.Collection(dbInfo.Tables.OrderBy(t => t.Name),
                 d =>
                 {
-                    Assert.Equal(null, d.Schema);
+                    Assert.Equal("Jet", d.Schema);
                     Assert.Equal("Denali", d.Name);
                 },
                 e =>
                 {
-                    Assert.Equal(null, e.Schema);
+                    Assert.Equal("Jet", e.Schema);
                     Assert.Equal("Everest", e.Name);
                 });
         }
@@ -78,9 +78,11 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         {
             var sql = new List<string>
             {
-                "CREATE TABLE Place1 ( Id int PRIMARY KEY NONCLUSTERED, Name int UNIQUE, Location int);",
-                "CREATE NONCLUSTERED INDEX IX_Location_Name ON Place1 (Location, Name);", 
-                "CREATE NONCLUSTERED INDEX IX_Location ON Place1 (Location);"
+                "CREATE TABLE Place1 ( Id int, Name int, Location int);",
+                "CREATE UNIQUE INDEX IX_Name ON Place1 (Name);",
+                "CREATE INDEX IX_Location_Name ON Place1 (Location, Name);", 
+                "CREATE INDEX IX_Location ON Place1 (Location);",
+                "ALTER TABLE Place1 ADD CONSTRAINT PK_Place1 PRIMARY KEY (Id);"
             };
             var dbModel = CreateModel(sql, new List<string> { "Place1" });
 
@@ -88,7 +90,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 
             Assert.Equal("Jet", pkIndex.Table.Schema);
             Assert.Equal("Place1", pkIndex.Table.Name);
-            Assert.StartsWith("PK__Place1", pkIndex.Name);
+            Assert.StartsWith("PK_Place1", pkIndex.Name);
             Assert.Equal(new List<string> { "Id" }, pkIndex.Columns.Select(ic => ic.Name).ToList());
         }
 
@@ -97,8 +99,9 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         {
             var sql = new List<string>
             {
-                "CREATE TABLE Place2 ( Id int PRIMARY KEY NONCLUSTERED, Name int UNIQUE, Location int );",
-                "CREATE NONCLUSTERED INDEX IX_Location ON Place2 (Location);"
+                "CREATE TABLE Place2 ( Id int PRIMARY KEY, Name int, Location int );",
+                "CREATE UNIQUE INDEX IX_Name ON Place2 (Name);",
+                "CREATE INDEX IX_Location ON Place2 (Location);"
             };
             var dbModel = CreateModel(sql, new List<string> { "Place2" });
 
@@ -124,8 +127,9 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         {
             var sql = new List<string>
             {
-                "CREATE TABLE Place ( Id int PRIMARY KEY NONCLUSTERED, Name int UNIQUE, Location int );",
-                "CREATE NONCLUSTERED INDEX IX_Location ON Place (Location);"
+                "CREATE TABLE Place ( Id int PRIMARY KEY, Name int, Location int );",
+                "CREATE UNIQUE INDEX IX_Name ON Place (Name);",
+                "CREATE INDEX IX_Location ON Place (Location);"
             };
             var dbInfo = CreateModel(sql, new List<string> { "Place" });
 
@@ -133,7 +137,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 
             Assert.All(indexes, c =>
             {
-                Assert.Equal(null, c.Table.Schema);
+                Assert.Equal("Jet", c.Table.Schema);
                 Assert.Equal("Place", c.Table.Name);
             });
 
@@ -150,14 +154,13 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         {
             var sql = @"
 CREATE TABLE [MountainsColumns] (
-    Id int,
+    Id int NOT NULL,
     Name varchar(100) NOT NULL,
     Latitude decimal( 5, 2 ) DEFAULT 0.0,
-    Created datetime DEFAULT('October 20, 2015 11am'),
+    Created datetime DEFAULT #09/15/1969#,
     DiscoveredDate datetime,
-    Modified rowversion,
-    --VarbinaryMax image NOT NULL,
-    Primary Key (Name, Id)
+    Modified varbinary(8),
+    CONSTRAINT PK_MountainsColumns PRIMARY KEY (Name, Id)
 );";
             var dbModel = CreateModel(new List<string>{ sql }, new List<string> { "MountainsColumns" });
 
@@ -166,7 +169,7 @@ CREATE TABLE [MountainsColumns] (
             Assert.All(
                 columns, c =>
                 {
-                    Assert.Equal(null, c.Table.Schema);
+                    Assert.Equal("Jet", c.Table.Schema);
                     Assert.Equal("MountainsColumns", c.Table.Name);
                 });
 
@@ -189,7 +192,7 @@ CREATE TABLE [MountainsColumns] (
                 lat =>
                 {
                     Assert.Equal("Latitude", lat.Name);
-                    Assert.Equal("numeric(5, 2)", lat.StoreType);
+                    Assert.Equal("decimal(5, 2)", lat.StoreType);
                     Assert.True(lat.IsNullable);
                     Assert.Equal("0.0", lat.DefaultValueSql);
                 },
@@ -198,7 +201,7 @@ CREATE TABLE [MountainsColumns] (
                     Assert.Equal("Created", created.Name);
                     Assert.Equal("datetime", created.StoreType);
                     Assert.True(created.IsNullable);
-                    Assert.Equal("('October 20, 2015 11am')", created.DefaultValueSql);
+                    Assert.Equal("#09/15/1969#", created.DefaultValueSql);
                 },
                 discovered =>
                 {
@@ -211,8 +214,9 @@ CREATE TABLE [MountainsColumns] (
                 modified =>
                 {
                     Assert.Equal("Modified", modified.Name);
-                    Assert.Equal(ValueGenerated.OnAddOrUpdate, modified.ValueGenerated);
-                    Assert.Equal("rowversion", modified.StoreType);
+                    // This is a rowversion test. Rowversion is not supported by JET
+                    //Assert.Equal(ValueGenerated.OnAddOrUpdate, modified.ValueGenerated);
+                    Assert.Equal("varbinary(8)", modified.StoreType);
                 });
         }
 
@@ -222,7 +226,7 @@ CREATE TABLE [MountainsColumns] (
         [InlineData("text", null)]
         public void It_reads_max_length(string type, int? length)
         {
-            var tables = _fixture.Query<string>("SHOW Tables WHERE Name = 'Strings';");
+            var tables = _fixture.Query<string>("SHOW Tables WHERE Name = 'Strings'");
             if (tables.Count() > 0)
             {
                 _fixture.ExecuteNonQuery("DROP TABLE [Strings];");
@@ -242,7 +246,7 @@ CREATE TABLE [MountainsColumns] (
         [InlineData(false)]
         public void It_reads_identity(bool isIdentity)
         {
-            var tables = _fixture.Query<string>("SHOW Tables WHERE Name = 'Identities';");
+            var tables = _fixture.Query<string>("SHOW Tables WHERE Name = 'Identities'");
             if (tables.Count() > 0)
             {
                 _fixture.ExecuteNonQuery("DROP TABLE [Identities];");

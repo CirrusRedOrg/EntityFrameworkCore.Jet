@@ -34,12 +34,13 @@ namespace E2ETest.Namespace
 
                 entity.Property(e => e.AlternateKey).IsRequired();
 
-                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.Property(e => e.RowVersion).HasMaxLength(8);
             });
 
             modelBuilder.Entity<StringKeysPosts>(entity =>
             {
-                entity.HasIndex(e => e.BlogAlternateKey);
+                entity.HasIndex(e => e.BlogAlternateKey)
+                    .HasName("FK_StringKeysPosts_StringKeysBlogs_BlogAlternateKey");
 
                 entity.HasOne(d => d.BlogAlternateKeyNavigation)
                     .WithMany(p => p.StringKeysPosts)

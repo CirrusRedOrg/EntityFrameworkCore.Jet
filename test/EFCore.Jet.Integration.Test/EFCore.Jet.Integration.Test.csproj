@@ -199,6 +199,8 @@
     <Compile Include="Model16_OwnCollection\SqLiteTest.cs" />
     <Compile Include="Model16_OwnCollection\SqlCeTest.cs" />
     <Compile Include="Model16_OwnCollection\SqlServerTest.cs" />
+    <Compile Include="Model76_FullCreate\SqlServerTest.cs" />
+    <Compile Include="Model76_FullCreate\SqlCeTest.cs" />
     <Compile Include="Model_MainTests\Context.cs" />
     <Compile Include="Model_MainTests\SqlServerTest.cs" />
     <Compile Include="Model_MainTests\SqlCeTest.cs" />

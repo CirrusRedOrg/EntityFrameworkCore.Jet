@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EFCore.Jet.Integration.Test.Model76_FullCreate
 {
-    [Table("Module1MyEntity")]
+    [Table("NTT76")]
     public class MyEntity
     {
         public int Id { get; set; }

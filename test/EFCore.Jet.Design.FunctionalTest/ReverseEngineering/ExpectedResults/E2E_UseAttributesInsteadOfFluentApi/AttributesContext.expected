@@ -2,7 +2,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace E2ETest.Namespace
+namespace E2ETest.Namespace.SubDir
 {
     public partial class AttributesContext : DbContext
     {
@@ -20,6 +20,7 @@ namespace E2ETest.Namespace
         public virtual DbSet<PropertyConfiguration> PropertyConfiguration { get; set; }
         public virtual DbSet<ReferredToByTableWithUnmappablePrimaryKeyColumn> ReferredToByTableWithUnmappablePrimaryKeyColumn { get; set; }
         public virtual DbSet<SelfReferencing> SelfReferencing { get; set; }
+        public virtual DbSet<TableWithUnmappablePrimaryKeyColumn> TableWithUnmappablePrimaryKeyColumn { get; set; }
         public virtual DbSet<TestSpacesKeywordsTable> TestSpacesKeywordsTable { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -27,19 +28,23 @@ namespace E2ETest.Namespace
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http://go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
-                optionsBuilder.UseJet(@"{{connectionString}}");
+                optionsBuilder.UseJet(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=E2E.accdb");
             }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<AllDataTypes>(entity =>
-            {
-                entity.Property(e => e.TimestampColumn).IsRowVersion();
-            });
-
             modelBuilder.Entity<MultipleFksDependent>(entity =>
             {
+                entity.HasIndex(e => e.RelationAid)
+                    .HasName("FK_RelationA");
+
+                entity.HasIndex(e => e.RelationBid)
+                    .HasName("FK_RelationB");
+
+                entity.HasIndex(e => e.RelationCid)
+                    .HasName("FK_RelationC");
+
                 entity.Property(e => e.MultipleFksDependentId).ValueGeneratedNever();
 
                 entity.HasOne(d => d.RelationA)
@@ -68,6 +73,9 @@ namespace E2ETest.Namespace
             {
                 entity.HasKey(e => new { e.OneToManyDependentId1, e.OneToManyDependentId2 });
 
+                entity.HasIndex(e => new { e.OneToManyDependentFk1, e.OneToManyDependentFk2 })
+                    .HasName("FK_OneToManyDependent");
+
                 entity.HasOne(d => d.OneToManyDependentFk)
                     .WithMany(p => p.OneToManyDependent)
                     .HasForeignKey(d => new { d.OneToManyDependentFk1, d.OneToManyDependentFk2 })
@@ -83,6 +91,9 @@ namespace E2ETest.Namespace
             {
                 entity.HasKey(e => new { e.OneToOneDependentId1, e.OneToOneDependentId2 });
 
+                entity.HasIndex(e => new { e.OneToOneDependentId1, e.OneToOneDependentId2 })
+                    .HasName("FK_OneToOneDependent");
+
                 entity.HasOne(d => d.OneToOneDependentNavigation)
                     .WithOne(p => p.OneToOneDependent)
                     .HasForeignKey<OneToOneDependent>(d => new { d.OneToOneDependentId1, d.OneToOneDependentId2 })
@@ -95,13 +106,12 @@ namespace E2ETest.Namespace
                 entity.HasKey(e => new { e.OneToOneFktoUniqueKeyDependentId1, e.OneToOneFktoUniqueKeyDependentId2 });
 
                 entity.HasIndex(e => new { e.OneToOneFktoUniqueKeyDependentFk1, e.OneToOneFktoUniqueKeyDependentFk2 })
-                    .HasName("UK_OneToOneFKToUniqueKeyDependent")
-                    .IsUnique();
+                    .HasName("FK_OneToOneFKToUniqueKeyDependent");
 
                 entity.HasOne(d => d.OneToOneFktoUniqueKeyDependentFk)
-                    .WithOne(p => p.OneToOneFktoUniqueKeyDependent)
-                    .HasPrincipalKey<OneToOneFktoUniqueKeyPrincipal>(p => new { p.OneToOneFktoUniqueKeyPrincipalUniqueKey1, p.OneToOneFktoUniqueKeyPrincipalUniqueKey2 })
-                    .HasForeignKey<OneToOneFktoUniqueKeyDependent>(d => new { d.OneToOneFktoUniqueKeyDependentFk1, d.OneToOneFktoUniqueKeyDependentFk2 })
+                    .WithMany(p => p.OneToOneFktoUniqueKeyDependent)
+                    .HasPrincipalKey(p => new { p.OneToOneFktoUniqueKeyPrincipalUniqueKey1, p.OneToOneFktoUniqueKeyPrincipalUniqueKey2 })
+                    .HasForeignKey(d => new { d.OneToOneFktoUniqueKeyDependentFk1, d.OneToOneFktoUniqueKeyDependentFk2 })
                     .HasConstraintName("FK_OneToOneFKToUniqueKeyDependent");
             });
 
@@ -124,12 +134,11 @@ namespace E2ETest.Namespace
                 entity.HasKey(e => new { e.OneToOneSeparateFkdependentId1, e.OneToOneSeparateFkdependentId2 });
 
                 entity.HasIndex(e => new { e.OneToOneSeparateFkdependentFk1, e.OneToOneSeparateFkdependentFk2 })
-                    .HasName("UK_OneToOneSeparateFKDependent")
-                    .IsUnique();
+                    .HasName("FK_OneToOneSeparateFKDependent");
 
                 entity.HasOne(d => d.OneToOneSeparateFkdependentFk)
-                    .WithOne(p => p.OneToOneSeparateFkdependent)
-                    .HasForeignKey<OneToOneSeparateFkdependent>(d => new { d.OneToOneSeparateFkdependentFk1, d.OneToOneSeparateFkdependentFk2 })
+                    .WithMany(p => p.OneToOneSeparateFkdependent)
+                    .HasForeignKey(d => new { d.OneToOneSeparateFkdependentFk1, d.OneToOneSeparateFkdependentFk2 })
                     .HasConstraintName("FK_OneToOneSeparateFKDependent");
             });
 
@@ -143,17 +152,19 @@ namespace E2ETest.Namespace
                 entity.HasIndex(e => new { e.A, e.B })
                     .HasName("Test_PropertyConfiguration_Index");
 
-                entity.Property(e => e.RowversionColumn).IsRowVersion();
+                entity.Property(e => e.WithDateDefaultExpression).HasDefaultValueSql("Now()");
 
-                entity.Property(e => e.WithDateDefaultExpression).HasDefaultValueSql("(getdate())");
+                entity.Property(e => e.WithDateFixedDefault).HasDefaultValueSql("#10/20/2015#");
 
-                entity.Property(e => e.WithDateFixedDefault).HasDefaultValueSql("'October 20, 2015 11am'");
+                entity.Property(e => e.WithDateNullDefault).HasDefaultValueSql("NULL");
 
                 entity.Property(e => e.WithDefaultValue).HasDefaultValueSql("-1");
 
-                entity.Property(e => e.WithGuidDefaultExpression).HasDefaultValueSql("(NEWID())");
-
                 entity.Property(e => e.WithMoneyDefaultValue).HasDefaultValueSql("0.00");
+
+                entity.Property(e => e.WithNullDefaultValue).HasDefaultValueSql("NULL");
+
+                entity.Property(e => e.WithVarcharNullDefaultValue).HasDefaultValueSql("NULL");
             });
 
             modelBuilder.Entity<ReferredToByTableWithUnmappablePrimaryKeyColumn>(entity =>
@@ -165,12 +176,32 @@ namespace E2ETest.Namespace
 
             modelBuilder.Entity<SelfReferencing>(entity =>
             {
+                entity.HasIndex(e => e.SelfReferenceFk)
+                    .HasName("FK_SelfReferencing");
+
                 entity.Property(e => e.SelfReferencingId).ValueGeneratedNever();
 
                 entity.HasOne(d => d.SelfReferenceFkNavigation)
                     .WithMany(p => p.InverseSelfReferenceFkNavigation)
                     .HasForeignKey(d => d.SelfReferenceFk)
                     .HasConstraintName("FK_SelfReferencing");
+            });
+
+            modelBuilder.Entity<TableWithUnmappablePrimaryKeyColumn>(entity =>
+            {
+                entity.HasIndex(e => e.AnotherColumn)
+                    .HasName("UK_TableWithUnmappablePrimaryKeyColumn")
+                    .IsUnique();
+
+                entity.HasIndex(e => e.TableWithUnmappablePrimaryKeyColumnFk)
+                    .HasName("FK_TableWithUnmappablePrimaryKeyColumn");
+
+                entity.Property(e => e.TableWithUnmappablePrimaryKeyColumnId).ValueGeneratedNever();
+
+                entity.HasOne(d => d.TableWithUnmappablePrimaryKeyColumnFkNavigation)
+                    .WithMany(p => p.TableWithUnmappablePrimaryKeyColumn)
+                    .HasForeignKey(d => d.TableWithUnmappablePrimaryKeyColumnFk)
+                    .HasConstraintName("FK_TableWithUnmappablePrimaryKeyColumn");
             });
 
             modelBuilder.Entity<TestSpacesKeywordsTable>(entity =>

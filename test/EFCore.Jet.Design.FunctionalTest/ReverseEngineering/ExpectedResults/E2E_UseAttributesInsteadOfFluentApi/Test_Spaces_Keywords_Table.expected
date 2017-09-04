@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace E2ETest.Namespace
+namespace E2ETest.Namespace.SubDir
 {
     [Table("Test Spaces Keywords Table")]
     public partial class TestSpacesKeywordsTable
@@ -18,7 +18,6 @@ namespace E2ETest.Namespace
         public int Volatile { get; set; }
         [Column("Spaces In Column")]
         public int? SpacesInColumn { get; set; }
-        [Column("Tabs\tIn\tColumn")]
         public int TabsInColumn { get; set; }
         [Column("@AtSymbolAtStartOfColumn")]
         public int? AtSymbolAtStartOfColumn { get; set; }
@@ -28,9 +27,9 @@ namespace E2ETest.Namespace
         public int? CommasInColumn { get; set; }
         [Column("$Dollar$Sign$Column")]
         public int DollarSignColumn { get; set; }
-        [Column("!Exclamation!Mark!Column")]
+        [Column("#Exclamation#Mark#Column")]
         public int? ExclamationMarkColumn { get; set; }
-        [Column("\"Double\"Quotes\"Column")]
+        [Column("\"\"Double\"\"Quotes\"\"Column")]
         public int? DoubleQuotesColumn { get; set; }
         [Column("\\Backslashes\\In\\Column")]
         public int? BackslashesInColumn { get; set; }

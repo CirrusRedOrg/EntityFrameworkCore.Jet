@@ -5,8 +5,15 @@ namespace E2ETest.Namespace
 {
     public partial class ReferredToByTableWithUnmappablePrimaryKeyColumn
     {
+        public ReferredToByTableWithUnmappablePrimaryKeyColumn()
+        {
+            TableWithUnmappablePrimaryKeyColumn = new HashSet<TableWithUnmappablePrimaryKeyColumn>();
+        }
+
         public int ReferredToByTableWithUnmappablePrimaryKeyColumnId { get; set; }
         public string Acolumn { get; set; }
         public int ValueGeneratedOnAddColumn { get; set; }
+
+        public ICollection<TableWithUnmappablePrimaryKeyColumn> TableWithUnmappablePrimaryKeyColumn { get; set; }
     }
 }

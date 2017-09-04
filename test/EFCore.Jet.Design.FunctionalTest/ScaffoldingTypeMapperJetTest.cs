@@ -21,21 +21,11 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void Maps_bigint_column(bool isKeyOrIndex)
-        {
-            var mapping = CreateMapper().FindMapping("bigint", isKeyOrIndex, rowVersion: false);
-
-            AssertMapping<long>(mapping, inferred: true, maxLength: null, unicode: null);
-        }
-
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
         public void Maps_bit_column(bool isKeyOrIndex)
         {
             var mapping = CreateMapper().FindMapping("bit", isKeyOrIndex, rowVersion: false);
 
-            AssertMapping<bool>(mapping, inferred: true, maxLength: null, unicode: null);
+            AssertMapping<bool>(mapping, inferred: false, maxLength: null, unicode: null);
         }
 
         [Theory]
@@ -53,7 +43,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         {
             var mapping = CreateMapper().FindMapping("image", keyOrIndex: false, rowVersion: false);
 
-            AssertMapping<byte[]>(mapping, inferred: false, maxLength: null, unicode: null);
+            AssertMapping<byte[]>(mapping, inferred: true, maxLength: null, unicode: null);
         }
 
         [Fact]
@@ -99,7 +89,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         [Fact]
         public void Maps_key_varbinary_default_sized_column()
         {
-            var mapping = CreateMapper().FindMapping("varbinary(512)", keyOrIndex: true, rowVersion: false);
+            var mapping = CreateMapper().FindMapping("varbinary(510)", keyOrIndex: true, rowVersion: false);
 
             AssertMapping<byte[]>(mapping, inferred: true, maxLength: null, unicode: null);
         }
@@ -107,7 +97,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
         [Fact]
         public void Maps_key_binary_max_column()
         {
-            var mapping = CreateMapper().FindMapping("binary(8000)", keyOrIndex: true, rowVersion: false);
+            var mapping = CreateMapper().FindMapping("image", keyOrIndex: true, rowVersion: false);
 
             AssertMapping<byte[]>(mapping, inferred: false, maxLength: null, unicode: null);
         }

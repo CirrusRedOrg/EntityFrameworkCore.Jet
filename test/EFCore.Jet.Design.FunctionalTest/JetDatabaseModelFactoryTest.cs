@@ -44,9 +44,9 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 
             var fk = Assert.Single(dbInfo.Tables.Single(t => t.ForeignKeys.Count > 0).ForeignKeys);
 
-            Assert.Equal(null, fk.Table.Schema);
+            Assert.Equal("Jet", fk.Table.Schema);
             Assert.Equal("Mountains", fk.Table.Name);
-            Assert.Equal(null, fk.PrincipalTable.Schema);
+            Assert.Equal("Jet", fk.PrincipalTable.Schema);
             Assert.Equal("Ranges", fk.PrincipalTable.Name);
             Assert.Equal("RangeId", fk.Columns.Single().Name);
             Assert.Equal("Id", fk.PrincipalColumns.Single().Name);
@@ -64,9 +64,9 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 
             var fk = Assert.Single(dbInfo.Tables.Single(t => t.ForeignKeys.Count > 0).ForeignKeys);
 
-            Assert.Equal(null, fk.Table.Schema);
+            Assert.Equal("Jet", fk.Table.Schema);
             Assert.Equal("Mountains1", fk.Table.Name);
-            Assert.Equal(null, fk.PrincipalTable.Schema);
+            Assert.Equal("Jet", fk.PrincipalTable.Schema);
             Assert.Equal("Ranges1", fk.PrincipalTable.Name);
             Assert.Equal(new[] { "RangeId", "RangeAltId" }, fk.Columns.Select(c => c.Name).ToArray());
             Assert.Equal(new[] { "Id", "AltId" }, fk.PrincipalColumns.Select(c => c.Name).ToArray());
@@ -86,7 +86,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 
             var pkIndex = dbModel.Tables.Single().PrimaryKey;
 
-            Assert.Equal(null, pkIndex.Table.Schema);
+            Assert.Equal("Jet", pkIndex.Table.Schema);
             Assert.Equal("Place1", pkIndex.Table.Name);
             Assert.StartsWith("PK__Place1", pkIndex.Name);
             Assert.Equal(new List<string> { "Id" }, pkIndex.Columns.Select(ic => ic.Name).ToList());
@@ -107,7 +107,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
             Assert.All(
                 indexes, c =>
                 {
-                    Assert.Equal(null, c.Table.Schema);
+                    Assert.Equal("Jet", c.Table.Schema);
                     Assert.Equal("Place2", c.Table.Name);
                 });
 
@@ -151,7 +151,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
             var sql = @"
 CREATE TABLE [MountainsColumns] (
     Id int,
-    Name nvarchar(100) NOT NULL,
+    Name varchar(100) NOT NULL,
     Latitude decimal( 5, 2 ) DEFAULT 0.0,
     Created datetime DEFAULT('October 20, 2015 11am'),
     DiscoveredDate datetime,
@@ -182,7 +182,7 @@ CREATE TABLE [MountainsColumns] (
                 name =>
                 {
                     Assert.Equal("Name", name.Name);
-                    Assert.Equal("nvarchar(100)", name.StoreType);
+                    Assert.Equal("varchar(100)", name.StoreType);
                     Assert.False(name.IsNullable);
                     Assert.Null(name.DefaultValueSql);
                 },
@@ -217,12 +217,12 @@ CREATE TABLE [MountainsColumns] (
         }
 
         [Theory]
-        [InlineData("nvarchar(55)", 55)]
-        [InlineData("nchar(14)", 14)]
-        [InlineData("ntext", null)]
+        [InlineData("varchar(55)", 55)]
+        [InlineData("char(14)", 14)]
+        [InlineData("text", null)]
         public void It_reads_max_length(string type, int? length)
         {
-            var tables = _fixture.Query<string>("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Strings';");
+            var tables = _fixture.Query<string>("SHOW Tables WHERE Name = 'Strings';");
             if (tables.Count() > 0)
             {
                 _fixture.ExecuteNonQuery("DROP TABLE [Strings];");
@@ -242,7 +242,7 @@ CREATE TABLE [MountainsColumns] (
         [InlineData(false)]
         public void It_reads_identity(bool isIdentity)
         {
-            var tables = _fixture.Query<string>("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Identities';");
+            var tables = _fixture.Query<string>("SHOW Tables WHERE Name = 'Identities';");
             if (tables.Count() > 0)
             {
                 _fixture.ExecuteNonQuery("DROP TABLE [Identities];");
@@ -265,8 +265,8 @@ CREATE TABLE [MountainsColumns] (
         {
             var sql = new List<string>
             {
-                "CREATE TABLE [K2] ( Id int, A nvarchar, UNIQUE (A) );",
-                "CREATE TABLE [Kilimanjaro] ( Id int,B nvarchar, UNIQUE (B ), FOREIGN KEY (B) REFERENCES K2 (A) );"
+                "CREATE TABLE [K2] ( Id int, A varchar, UNIQUE (A) );",
+                "CREATE TABLE [Kilimanjaro] ( Id int,B varchar, UNIQUE (B ), FOREIGN KEY (B) REFERENCES K2 (A) );"
             };
             var selectionSet = new List<string> { "K2" };
 

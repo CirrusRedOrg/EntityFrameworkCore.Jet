@@ -5,19 +5,35 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+/* 
+       Additional operations and considerations:
+
+[PropertyConfiguration].[SumOfAAndB] = [A] + [B]
+    JET CREATE TABLE STATEMENT does not support computed colum creation. Also Migration will have this issue but adding this configuration
+    using Microsoft Access user interface will create the same column
+[Tabs   In  Column]
+    JET does not allow tabs in column names. Tabs has been removed
+[!Exclamation!Mark!Column]
+    JET does not support exclamation marks in column names. Exclamation marks has been replaced with #
+
+
+
+*/
+
+
 namespace System.Data.Jet.Test
 {
     [TestClass]
-    public class CreateNorthwindTest
+    public class CreateE2ETest
     {
         private string _scriptPath;
 
-        private const string DatabaseName = "NorthwindEF7.accdb";
+        private const string DatabaseName = "E2E.accdb";
 
         private DbConnection _connection;
 
         [TestMethod]
-        public void CreateNorthwindTestRun()
+        public void CreateE2ETestRun()
         {
             JetConfiguration.ShowSqlStatements = false;
             ExecuteScript();
@@ -29,7 +45,7 @@ namespace System.Data.Jet.Test
         public void Initialize()
         {
             // ReSharper disable once AssignNullToNotNullAttribute
-            _scriptPath = Path.Combine(Path.GetDirectoryName(this.GetType().Assembly.Location), "Northwind.sql");
+            _scriptPath = Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location), "E2E.sql");
 
             JetConnection.DropDatabase(JetConnection.GetConnectionString(DatabaseName), false);
             AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString(DatabaseName));

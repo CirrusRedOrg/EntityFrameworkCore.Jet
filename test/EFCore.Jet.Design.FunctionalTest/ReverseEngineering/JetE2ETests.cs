@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
 {
     public class JetE2ETests : E2ETestBase, IClassFixture<JetE2EFixture>
     {
-        protected override string ProviderName => "EntityFrameworkCore.SqlServerCompact40.Design";
+        protected override string ProviderName => "EntityFrameworkCore.Jet.Design";
 
         protected override void ConfigureDesignTimeServices(IServiceCollection services)
             => new JetDesignTimeServices().ConfigureDesignTimeServices(services);
@@ -277,9 +277,9 @@ CREATE INDEX [IX_StringKeysPosts_BlogAlternateKey] ON [StringKeysPosts] ([BlogAl
             BuildReference.ByName("System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
             BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
             BuildReference.ByName("System.ComponentModel.DataAnnotations, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35"),
-            BuildReference.ByName("EntityFrameworkCore.SqlServerCompact40"),
-            BuildReference.ByName("System.Data.SqlServerCe, Version=4.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91"),
-
+            BuildReference.ByName("EntityFrameworkCore.Jet"),
+            BuildReference.ByName("System.Data.Jet"),
+            
             BuildReference.ByName("Microsoft.EntityFrameworkCore"),
             BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational"),
             BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions"),

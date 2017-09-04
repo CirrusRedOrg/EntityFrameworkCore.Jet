@@ -120,6 +120,7 @@
     </Compile>
     <Compile Include="AdoxTest.cs" />
     <Compile Include="CreateDatabaseTest.cs" />
+    <Compile Include="CreateE2ETest.cs" />
     <Compile Include="CreateNorthwindTest.cs" />
     <Compile Include="DdlTest.cs" />
     <Compile Include="Helpers.cs" />
@@ -166,6 +167,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <None Include="E2E.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Content Include="NorthwindNotRunningQueries.sql" />
     <None Include="Resources\InsertTestQueries.txt" />
   </ItemGroup>

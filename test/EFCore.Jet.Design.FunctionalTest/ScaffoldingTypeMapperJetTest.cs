@@ -128,50 +128,35 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
             AssertMapping<byte[]>(mapping, inferred: false, maxLength: null, unicode: null);
         }
 
-        [Fact]
-        public void Maps_rowversion_rowversion_column()
-        {
-            var mapping = CreateMapper().FindMapping("rowversion", keyOrIndex: false, rowVersion: true);
-
-            AssertMapping<byte[]>(mapping, inferred: true, maxLength: null, unicode: null);
-        }
 
         [Fact]
-        public void Maps_normal_nvarchar_max_column()
+        public void Maps_normal_varchar_sized_column()
         {
-            var mapping = CreateMapper().FindMapping("nvarchar(4000)", keyOrIndex: false, rowVersion: false);
-
-            AssertMapping<string>(mapping, inferred: true, maxLength: null, unicode: null);
-        }
-
-        [Fact]
-        public void Maps_normal_nvarchar_sized_column()
-        {
-            var mapping = CreateMapper().FindMapping("nvarchar(200)", keyOrIndex: false, rowVersion: false);
+            var mapping = CreateMapper().FindMapping("varchar(200)", keyOrIndex: false, rowVersion: false);
 
             AssertMapping<string>(mapping, inferred: true, maxLength: 200, unicode: null);
         }
 
         [Fact]
-        public void Maps_key_nvarchar_max_column()
+        public void Maps_key_varchar_max_column()
         {
-            var mapping = CreateMapper().FindMapping("ntext", keyOrIndex: true, rowVersion: false);
+            var mapping = CreateMapper().FindMapping("text", keyOrIndex: true, rowVersion: false);
 
             AssertMapping<string>(mapping, inferred: false, maxLength: null, unicode: null);
         }
 
         [Fact]
-        public void Maps_key_nvarchar_sized_column()
+        public void Maps_key_varchar_sized_column()
         {
-            var mapping = CreateMapper().FindMapping("nvarchar(200)", keyOrIndex: true, rowVersion: false);
+            var mapping = CreateMapper().FindMapping("varchar(200)", keyOrIndex: true, rowVersion: false);
 
             AssertMapping<string>(mapping, inferred: true, maxLength: 200, unicode: null);
         }
 
         [Fact]
-        public void Maps_key_nvarchar_default_sized_column()
+        public void Maps_key_varchar_default_sized_column()
         {
-            var mapping = CreateMapper().FindMapping("nvarchar(256)", keyOrIndex: true, rowVersion: false);
+            var mapping = CreateMapper().FindMapping("varchar(255)", keyOrIndex: true, rowVersion: false);
 
             AssertMapping<string>(mapping, inferred: true, maxLength: null, unicode: null);
         }

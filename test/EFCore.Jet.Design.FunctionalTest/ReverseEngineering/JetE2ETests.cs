@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
             };
 
             AssertEqualFileContents(expectedFileSet, actualFileSet);
-            //TODO ErikEJ Investigate compile issue
+            // Actually compile does not work. To compile must also restore References
             //AssertCompile(actualFileSet);
         }
 
@@ -159,7 +159,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests.ReverseEngineering
             };
 
             AssertEqualFileContents(expectedFileSet, actualFileSet);
-            //TODO ErikEJ Investigate compile issue
+            // Actually compile does not work. To compile must also restore References
             //AssertCompile(actualFileSet);
         }
 

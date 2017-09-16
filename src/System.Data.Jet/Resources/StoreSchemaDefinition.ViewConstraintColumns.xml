@@ -9,6 +9,11 @@
               <xs:sequence>
                 <xs:element name="ConstraintId" type="xs:string" minOccurs="0" />
                 <xs:element name="ColumnId" type="xs:string" minOccurs="0" />
+                <xs:element name="ConstraintName" type="xs:string" minOccurs="0" />
+                <xs:element name="ConstraintType" type="xs:string" minOccurs="0" />
+                <xs:element name="TableName" type="xs:string" minOccurs="0" />
+                <xs:element name="ColumnName" type="xs:string" minOccurs="0" />
+                <xs:element name="ColumnOrdinal" type="xs:int" minOccurs="0" />
               </xs:sequence>
             </xs:complexType>
           </xs:element>

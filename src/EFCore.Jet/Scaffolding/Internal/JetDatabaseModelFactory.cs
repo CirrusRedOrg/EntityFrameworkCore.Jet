@@ -366,30 +366,13 @@ ORDER BY
         private void GetPrimaryKeys()
         {
             var command = _connection.CreateCommand();
-            command.CommandText = @"
-SELECT 
-    [#Tables].SchemaName,
-    [#Tables].NAME AS TableName,
-    [#Constraints].NAME AS IndexName,
-    [#Constraints].ConstraintType,
-    [#TableColumns].NAME AS ColumnName,
-    [#TableColumns].Ordinal AS KeyOrdinal
-FROM (
-    (SHOW CONSTRAINTCOLUMNS) INNER JOIN (
-        (SHOW CONSTRAINTS) INNER JOIN (SHOW TABLES)
-            ON [#Constraints].ParentId = [#Tables].Id
-        )
-        ON [#ConstraintColumns].ConstraintId = [#Constraints].Id
-    )
-INNER JOIN (SHOW TABLECOLUMNS)
-    ON [#ConstraintColumns].ColumnId = [#TableColumns].Id
-WHERE 
-    ConstraintType = 'PRIMARY KEY' AND
-    [#Tables].NAME <> '" + HistoryRepository.DefaultTableName + @"'
-ORDER BY 
-    [#Tables].NAME, 
-    [#Constraints].NAME, 
-    [#TableColumns].Ordinal";
+            command.CommandText =
+                "SHOW " +
+                "   CONSTRAINTCOLUMNS " +
+                "WHERE " +
+                "   ConstraintType = 'PRIMARY KEY' AND TableName <> '" + HistoryRepository.DefaultTableName + "' " +
+                "ORDER BY " +
+                "   TableName, ConstraintName, ColumnOrdinal";
 
             using (var reader = command.ExecuteReader())
             {
@@ -398,10 +381,10 @@ ORDER BY
                 {
                     var schemaName = "Jet";
                     var tableName = reader.GetValueOrDefault<string>("TableName");
-                    var indexName = reader.GetValueOrDefault<string>("IndexName");
+                    var indexName = reader.GetValueOrDefault<string>("ConstraintName");
                     var typeDesc = reader.GetValueOrDefault<string>("ConstraintType");
                     var columnName = reader.GetValueOrDefault<string>("ColumnName");
-                    var indexOrdinal = reader.GetValueOrDefault<int>("KeyOrdinal");
+                    var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
 
                     Logger.IndexColumnFound(
                         DisplayName(schemaName, tableName), indexName, true, columnName, indexOrdinal);
@@ -445,26 +428,13 @@ ORDER BY
         private void GetUniqueConstraints()
         {
             var command = _connection.CreateCommand();
-            command.CommandText = @"
-SELECT 
-    [#Constraints].ParentId,
-    [#Constraints].NAME,
-    [#Constraints].ConstraintType,
-    [#TableColumns].NAME AS ColumnName,
-    [#TableColumns].Ordinal AS ColumnOrdinal
-FROM (
-    (SHOW ConstraintColumns) INNER JOIN (SHOW Constraints)
-        ON [#ConstraintColumns].ConstraintId = [#Constraints].Id
-    )
-INNER JOIN (SHOW TableColumns)
-    ON [#ConstraintColumns].ColumnId = [#TableColumns].Id
-WHERE
-    ConstraintType = 'UNIQUE' AND
-    [#Constraints].ParentId <> '" + HistoryRepository.DefaultTableName + @"'
-ORDER BY 
-    [#Constraints].ParentId, 
-    [#Constraints].NAME, 
-    [#TableColumns].Ordinal";
+            command.CommandText =
+                "SHOW " +
+                "   CONSTRAINTCOLUMNS " +
+                "WHERE " +
+                "   ConstraintType = 'UNIQUE' AND TableName <> '" + HistoryRepository.DefaultTableName + "' " +
+                "ORDER BY " +
+                "   TableName, ConstraintName, ColumnOrdinal";
 
             using (var reader = command.ExecuteReader())
             {
@@ -472,8 +442,8 @@ ORDER BY
                 while (reader.Read())
                 {
                     var schemaName = "Jet";
-                    var tableName = reader.GetValueOrDefault<string>("ParentId");
-                    var indexName = reader.GetValueOrDefault<string>("Name");
+                    var tableName = reader.GetValueOrDefault<string>("TableName");
+                    var indexName = reader.GetValueOrDefault<string>("ConstraintName");
                     var typeDesc = reader.GetValueOrDefault<string>("ConstraintType");
                     var columnName = reader.GetValueOrDefault<string>("ColumnName");
                     var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
@@ -519,26 +489,15 @@ ORDER BY
         private void GetIndexes()
         {
             var command = _connection.CreateCommand();
-            command.CommandText = @"
-SELECT 
-    [#Indexes].TABLE,
-    [#Indexes].NAME,
-    [#Indexes].IsUnique,
-    [#IndexColumns].NAME AS ColumnName,
-    [#IndexColumns].Ordinal
-FROM 
-    (SHOW IndexColumns)
-INNER JOIN
-    (SHOW Indexes)
-        ON [#IndexColumns].ParentId = [#Indexes].Id
-WHERE 
-    IsPrimary = False AND
-    IsUnique = False AND 
-    [#Indexes].Table <> '" + HistoryRepository.DefaultTableName + @"'
-ORDER BY 
-    [#Indexes].Table,
-    [#Indexes].Name,
-    Ordinal";
+            command.CommandText =
+                "SHOW " +
+                "   IndexColumns " +
+                "WHERE " +
+                "   IsPrimary = False AND " +
+                "   IsUnique = False AND " +
+                "   Table <> '" + HistoryRepository.DefaultTableName + "' " +
+                "ORDER BY " +
+                "   Table, Index, Ordinal";
 
             using (var reader = command.ExecuteReader())
             {
@@ -547,10 +506,10 @@ ORDER BY
                 {
                     var schemaName = "Jet";
                     var tableName = reader.GetValueOrDefault<string>("Table");
-                    var indexName = reader.GetValueOrDefault<string>("Name");
+                    var indexName = reader.GetValueOrDefault<string>("Index");
                     var isUnique = reader.GetValueOrDefault<bool>("IsUnique");
                     var typeDesc = "NON CLUSTERED";
-                    var columnName = reader.GetValueOrDefault<string>("ColumnName");
+                    var columnName = reader.GetValueOrDefault<string>("Name");
                     var indexOrdinal = reader.GetValueOrDefault<int>("Ordinal");
 
                     Logger.IndexColumnFound(
@@ -596,33 +555,13 @@ ORDER BY
         private void GetForeignKeys()
         {
             var command = _connection.CreateCommand();
-            command.CommandText = @"
-SELECT 
-    [#ForeignKeys].ToTable,
-    [#ForeignKeyConstraints].Id AS NAME,
-    [#ForeignKeys].FromTable,
-    [#TableColumns].NAME AS FromColumnName,
-    [#TableColumns_1].NAME AS ToColumnName,
-    [#ForeignKeyConstraints].UpdateRule,
-    [#ForeignKeyConstraints].DeleteRule,
-    [#ForeignKeys].Ordinal
-FROM ((
-    (SHOW ForeignKeys) 
-INNER JOIN 
-    (SHOW ForeignKeyConstraints) 
-            ON [#ForeignKeys].ConstraintId = [#ForeignKeyConstraints].Id) 
-INNER JOIN 
-    (SHOW TableColumns) 
-        ON [#ForeignKeys].FromColumnId = [#TableColumns].Id
-    )
-INNER JOIN 
-    (SHOW TableColumns) AS [#TableColumns_1]
-        ON [#ForeignKeys].ToColumnId = [#TableColumns_1].Id
-ORDER BY 
-    [#ForeignKeys].ToTable, 
-    [#ForeignKeyConstraints].Id, 
-    [#ForeignKeys].Ordinal
-; ";
+            command.CommandText =
+                "SHOW " +
+                "    ForeignKeys " +
+                "ORDER BY " +
+                "    ToTable, " +
+                "    ConstraintId, " +
+                "    Ordinal";
 
             using (var reader = command.ExecuteReader())
             {
@@ -634,11 +573,11 @@ ORDER BY
                 {
                     var schemaName = "Jet";
                     var tableName = reader.GetValueOrDefault<string>("FromTable");
-                    var constraintName = reader.GetValueOrDefault<string>("Name");
+                    var constraintName = reader.GetValueOrDefault<string>("ConstraintId");
                     var principalTableSchemaName = "Jet";
                     var principalTableName = reader.GetValueOrDefault<string>("ToTable");
-                    var fromColumnName = reader.GetValueOrDefault<string>("FromColumnName");
-                    var toColumnName = reader.GetValueOrDefault<string>("ToColumnName");
+                    var fromColumnName = reader.GetValueOrDefault<string>("FromColumn");
+                    var toColumnName = reader.GetValueOrDefault<string>("ToColumn");
                     var updateAction = reader.GetValueOrDefault<string>("UpdateRule");
                     var deleteAction = reader.GetValueOrDefault<string>("DeleteRule");
                     var ordinal = reader.GetValueOrDefault<int>("Ordinal");

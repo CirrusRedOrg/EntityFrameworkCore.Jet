@@ -16,6 +16,8 @@
                 <xs:element name="FromColumn" type="xs:string" minOccurs="0" />
                 <xs:element name="ToTable" type="xs:string" minOccurs="0" />
                 <xs:element name="ToColumn" type="xs:string" minOccurs="0" />
+                <xs:element name="UpdateRule" type="xs:string" minOccurs="0" />
+                <xs:element name="DeleteRule" type="xs:string" minOccurs="0" />
               </xs:sequence>
             </xs:complexType>
           </xs:element>

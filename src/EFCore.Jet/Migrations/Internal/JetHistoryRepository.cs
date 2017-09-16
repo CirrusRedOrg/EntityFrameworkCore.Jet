@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             {
                 var builder = new StringBuilder();
                 builder
-                    .Append("SELECT * FROM (SHOW TABLES) WHERE NAME='")
+                    .Append("SHOW TABLES WHERE NAME='")
                     .Append(SqlGenerationHelper.EscapeLiteral(TableName))
                     .Append("'");
 

@@ -280,6 +280,8 @@
     <Property Name="ColumnId" Nullable="false" Type="varchar" MaxLength="255" />
     <Property Name="Table" Nullable="false" MaxLength="255" Type="varchar" />
     <Property Name="Index" Nullable="false" MaxLength="255" Type="varchar" />
+    <Property Name="IsUnique" Nullable="false" Type="bit" />
+    <Property Name="IsPrimary" Nullable="false" Type="bit" />
     <Property Name="Name" Nullable="false" MaxLength="255" Type="varchar" />
     <Property Name="Ordinal" Nullable="false" Type="int" />
   </EntityType>
@@ -397,6 +399,11 @@
     </Key>
     <Property Name="ConstraintId" Nullable="false" Type="varchar" MaxLength="255" />
     <Property Name="ColumnId" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ConstraintName" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ConstraintType" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="TableName" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ColumnName" Nullable="false" Type="varchar" MaxLength="255" />
+    <Property Name="ColumnOrdinal" Nullable="false" Type="varchar"/>
   </EntityType>
 
   <EntityType Name="ForeignKeyConstraint">
@@ -423,6 +430,8 @@
     <Property Name="FromColumn" Type="varchar" MaxLength="255" />
     <Property Name="ToTable" Type="varchar" MaxLength="255" />
     <Property Name="ToColumn" Type="varchar" MaxLength="255" />
+    <Property Name="UpdateRule" Nullable="false" MaxLength="11" Type="varchar" />
+    <Property Name="DeleteRule" Nullable="false" MaxLength="11" Type="varchar" />
   </EntityType>
 
   <EntityType Name="ViewConstraint">

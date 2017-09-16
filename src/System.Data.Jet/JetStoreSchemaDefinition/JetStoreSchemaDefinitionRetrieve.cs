@@ -452,6 +452,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     table["TABLE_NAME"] + "." + table["COLUMN_NAME"], // ColumnId
                     table["TABLE_NAME"], // Table
                     table["INDEX_NAME"], // Index
+                    Convert.ToBoolean(table["UNIQUE"]), // IsUnique
+                    Convert.ToBoolean(table["PRIMARY_KEY"]), // IsPrimary
                     table["COLUMN_NAME"], // Name
                     Convert.ToInt32(table["ORDINAL_POSITION"]) // Ordinal
                 );
@@ -564,7 +566,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                         table["FK_NAME"], // Id
                         table["FK_TABLE_NAME"], // ParentId
                         table["FK_NAME"], // Name
-                        "FOREIGN KEY", // ConstraintType
+                        CONSTRAINTTYPE_FOREIGNKEY, // ConstraintType
                         table["DEFERRABILITY"],  // IsDeferrable
                         false   // IsIntiallyDeferred
                         );
@@ -577,7 +579,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                         table["TABLE_NAME"] + "." + table["PK_NAME"], // Id
                         table["TABLE_NAME"], // ParentId
                         table["PK_NAME"], // Name
-                        "PRIMARY KEY", // ConstraintType
+                        CONSTRAINTTYPE_PRIMARYKEY, // ConstraintType
                         false,  // IsDeferrable
                         false   // IsIntiallyDeferred
                         );
@@ -597,7 +599,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                         (string)table["TABLE_NAME"] + "." + (string)table["INDEX_NAME"], // Id
                         table["TABLE_NAME"], // ParentId
                         table["INDEX_NAME"], // Name
-                        "UNIQUE", // ConstraintType
+                        CONSTRAINTTYPE_UNIQUE, // ConstraintType
                         false,  // IsDeferrable
                         false   // IsIntiallyDeferred
                     );
@@ -616,19 +618,27 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
 
             DataTable schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, new object[] { });
-
             foreach (System.Data.DataRow table in schemaTable.Rows)
                 dataTable.Rows.Add(
                     table["FK_NAME"], // ConstraintId
-                    table["FK_TABLE_NAME"] + "." + table["FK_COLUMN_NAME"] // ColumnId
+                    table["FK_TABLE_NAME"] + "." + table["FK_COLUMN_NAME"], // ColumnId
+                    table["FK_NAME"], // ConstraintName
+                    CONSTRAINTTYPE_FOREIGNKEY, // ConstraintType
+                    table["FK_TABLE_NAME"], // TableName
+                    table["FK_COLUMN_NAME"], // ColumnName
+                    table["ORDINAL"] //ColumnOrdinal
                     );
 
             schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Primary_Keys, new object[] { });
-
             foreach (System.Data.DataRow table in schemaTable.Rows)
                 dataTable.Rows.Add(
                     table["TABLE_NAME"] + "." + table["PK_NAME"], // ConstraintId
-                    table["TABLE_NAME"] + "." + table["COLUMN_NAME"] // ColumnId
+                    table["TABLE_NAME"] + "." + table["COLUMN_NAME"], // ColumnId
+                    table["PK_NAME"], // ConstraintName
+                    CONSTRAINTTYPE_PRIMARYKEY, //ConstraintType
+                    table["TABLE_NAME"], // TableName
+                    table["COLUMN_NAME"], // ColumnName
+                    table["ORDINAL"] //ColumnOrdinal
                     );
 
             schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Indexes, new object[] { });
@@ -640,7 +650,12 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     )
                     dataTable.Rows.Add(
                         table["TABLE_NAME"] + "." + table["INDEX_NAME"], // ConstraintId
-                        table["TABLE_NAME"] + "." + table["COLUMN_NAME"] // ColumnId
+                        table["TABLE_NAME"] + "." + table["COLUMN_NAME"], // ColumnId
+                        table["INDEX_NAME"], // ConstraintName
+                        CONSTRAINTTYPE_UNIQUE, // ConstraintType
+                        table["TABLE_NAME"], // TableName
+                        table["COLUMN_NAME"], // ColumnName
+                        table["ORDINAL_POSITION"] //ColumnOrdinal
                         );
 
             dataTable.AcceptChanges();
@@ -714,7 +729,9 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     table["FK_TABLE_NAME"], // FromTable
                     table["FK_COLUMN_NAME"], // FromColumn
                     table["PK_TABLE_NAME"], // ToTable
-                    table["PK_COLUMN_NAME"] // ToColumn
+                    table["PK_COLUMN_NAME"], // ToColumn
+                    table["UPDATE_RULE"], // Update rule
+                    table["DELETE_RULE"] // Delete rule
                     );
 
 
@@ -898,6 +915,11 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         static string _lastTableName;
         static DataTable _lastStructureDataTable;
+        static object _lastStructureDataTableLock = new object();
+
+        private const string CONSTRAINTTYPE_FOREIGNKEY = "FOREIGN KEY";
+        private const string CONSTRAINTTYPE_PRIMARYKEY = "PRIMARY KEY";
+        private const string CONSTRAINTTYPE_UNIQUE = "UNIQUE";
 
         private static bool GetIsIdentity(IDbConnection connection, DataRow rowColumn)
         {
@@ -987,53 +1009,66 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         private static DataRow GetFieldRow(IDbConnection connection, string tableName, string columnName)
         {
-            if (_lastTableName != tableName)
+            lock(_lastStructureDataTableLock)
             {
-                _lastTableName = tableName;
-
-                // This is the standard read column for DBMS
-                string sql = string.Empty;
-
-                sql += "Select ";
-                sql += "    * ";
-                sql += "From ";
-                sql += string.Format("    {0} ", JetSyntaxHelper.QuoteIdentifier(_lastTableName));
-                sql += "Where ";
-                sql += "    1 = 2 ";
-
-                IDbCommand command = null;
-                IDataReader dataReader = null;
-
-                try
+                if (_lastTableName != tableName)
                 {
-                    command = connection.CreateCommand();
-                    command.CommandText = sql;
-
-                    dataReader = command.ExecuteReader(CommandBehavior.KeyInfo);
-
-                    _lastStructureDataTable = dataReader.GetSchemaTable();
+                    ReadLastStructureDataTable(connection, tableName);
                 }
 
-                finally
+                DataRow[] fieldRows = _lastStructureDataTable.Select(string.Format("ColumnName = '{0}'", columnName.Replace("'", "''")));
+
+                if (fieldRows.Length == 0) 
                 {
-                    // Exceptions will not be catched but these instructions will be executed anyway
-                    if (command != null)
-                        command.Dispose();
-
-                    if (dataReader != null)
-                        dataReader.Dispose();
+                    // Structure changed since last refresh?
+                    ReadLastStructureDataTable(connection, tableName);
+                    fieldRows = _lastStructureDataTable.Select(string.Format("ColumnName = '{0}'", columnName.Replace("'", "''")));
+                    if (fieldRows.Length == 0)  // Second error
+                    {
+                        return null;
+                    }
                 }
+
+                return fieldRows[0];
             }
+        }
 
-            DataRow[] fieldRows = _lastStructureDataTable.Select(string.Format("ColumnName = '{0}'", columnName.Replace("'", "''")));
+        private static void ReadLastStructureDataTable(IDbConnection connection, string tableName)
+        {
+            _lastTableName = tableName;
 
-            if (fieldRows.Length != 1) // 0 columns or more column with that name
+            // This is the standard read column for DBMS
+            string sql = string.Empty;
+
+            sql += "Select ";
+            sql += "    * ";
+            sql += "From ";
+            sql += string.Format("    {0} ", JetSyntaxHelper.QuoteIdentifier(_lastTableName));
+            sql += "Where ";
+            sql += "    1 = 2 ";
+
+            IDbCommand command = null;
+            IDataReader dataReader = null;
+
+            try
             {
-                Debug.Assert(false);
-                return null;
+                command = connection.CreateCommand();
+                command.CommandText = sql;
+
+                dataReader = command.ExecuteReader(CommandBehavior.KeyInfo);
+
+                _lastStructureDataTable = dataReader.GetSchemaTable();
             }
 
-            return fieldRows[0];
+            finally
+            {
+                // Exceptions will not be catched but these instructions will be executed anyway
+                if (command != null)
+                    command.Dispose();
+
+                if (dataReader != null)
+                    dataReader.Dispose();
+            }
         }
 
         #endregion

@@ -5,6 +5,24 @@ using System.Data.Jet;
 
 static internal class LogHelper
 {
+
+    internal static void ShowInfo(string info)
+    {
+        if (!JetConfiguration.ShowSqlStatements)
+            return;
+
+        Console.WriteLine(info);
+    }
+
+    internal static void ShowInfo(string format, params object[] args)
+    {
+        if (!JetConfiguration.ShowSqlStatements)
+            return;
+
+        Console.WriteLine(format, args);
+    }
+
+
     internal static void ShowCommandHeader(string caller)
     {
         if (!JetConfiguration.ShowSqlStatements)
@@ -12,6 +30,7 @@ static internal class LogHelper
 
         Console.WriteLine("{0}==========", caller);
     }
+
 
     internal static void ShowCommandText(string caller, DbCommand command)
     {

@@ -485,7 +485,7 @@ namespace System.Data.Jet
                 command.CommandText = "Select @@identity";
                 object identity = command.ExecuteScalar();
                 int iIdentity = Convert.ToInt32(identity);
-                Console.WriteLine("@@identity = {0}", iIdentity);
+                LogHelper.ShowInfo("@@identity = {0}", iIdentity);
                 return Regex.Replace(commandText, "@@identity", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
             }
             return commandText;
@@ -502,7 +502,7 @@ namespace System.Data.Jet
 
             if (commandText.ToLower().Contains("@@guid"))
             {
-                Console.WriteLine("@@guid = {{{0}}}", _lastGuid);
+                LogHelper.ShowInfo("@@guid = {{{0}}}", _lastGuid);
                 commandText = Regex.Replace(commandText, "@@guid", string.Format("{{{0}}}", _lastGuid), RegexOptions.IgnoreCase);
             }
             return commandText;

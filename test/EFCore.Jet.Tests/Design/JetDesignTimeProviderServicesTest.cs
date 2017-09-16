@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.Tests.Design
     public class JetDesignTimeProviderServicesTest : DesignTimeProviderServicesTest
     {
         protected override Assembly GetRuntimeAssembly()
-            => typeof(JetConnection).GetTypeInfo().Assembly;
+            => typeof(JetRelationalConnection).GetTypeInfo().Assembly;
 
         protected override Type GetDesignTimeServicesType()
             => typeof(JetDesignTimeServices);

@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
     {
         private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
         private readonly IJetUpdateSqlGenerator _sqlGenerator;
-        private readonly IJetConnection _connection;
+        private readonly IJetRelationalConnection _relationalConnection;
         private readonly ISequence _sequence;
 
         /// <summary>
@@ -33,17 +33,17 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
             [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder,
             [NotNull] IJetUpdateSqlGenerator sqlGenerator,
             [NotNull] JetSequenceValueGeneratorState generatorState,
-            [NotNull] IJetConnection connection)
+            [NotNull] IJetRelationalConnection relationalConnection)
             : base(generatorState)
         {
             Check.NotNull(rawSqlCommandBuilder, nameof(rawSqlCommandBuilder));
             Check.NotNull(sqlGenerator, nameof(sqlGenerator));
-            Check.NotNull(connection, nameof(connection));
+            Check.NotNull(relationalConnection, nameof(relationalConnection));
 
             _sequence = generatorState.Sequence;
             _rawSqlCommandBuilder = rawSqlCommandBuilder;
             _sqlGenerator = sqlGenerator;
-            _connection = connection;
+            _relationalConnection = relationalConnection;
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
             => (long)Convert.ChangeType(
                 _rawSqlCommandBuilder
                     .Build(_sqlGenerator.GenerateNextSequenceValueOperation(_sequence.Name, _sequence.Schema))
-                    .ExecuteScalar(_connection),
+                    .ExecuteScalar(_relationalConnection),
                 typeof(long),
                 CultureInfo.InvariantCulture);
 

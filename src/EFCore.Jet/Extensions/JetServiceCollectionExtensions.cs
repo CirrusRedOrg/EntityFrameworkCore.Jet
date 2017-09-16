@@ -84,7 +84,7 @@ namespace Extensions.DependencyInjection
                 .TryAdd<IUpdateSqlGenerator>(p => p.GetService<IJetUpdateSqlGenerator>())
                 .TryAdd<IModificationCommandBatchFactory, JetModificationCommandBatchFactory>()
                 .TryAdd<IValueGeneratorSelector, JetValueGeneratorSelector>()
-                .TryAdd<IRelationalConnection>(p => p.GetService<IJetConnection>())
+                .TryAdd<IRelationalConnection>(p => p.GetService<IJetRelationalConnection>())
                 .TryAdd<IMigrationsSqlGenerator, JetMigrationsSqlGenerator>()
                 .TryAdd<IRelationalDatabaseCreator, JetDatabaseCreator>()
                 .TryAdd<IHistoryRepository, JetHistoryRepository>()
@@ -100,7 +100,7 @@ namespace Extensions.DependencyInjection
                         .TryAddSingleton<IJetOptions, JetOptions>()
                         .TryAddScoped<IJetUpdateSqlGenerator, JetUpdateSqlGenerator>()
                         .TryAddScoped<IJetSequenceValueGeneratorFactory, JetSequenceValueGeneratorFactory>()
-                        .TryAddScoped<IJetConnection, JetConnection>());
+                        .TryAddScoped<IJetRelationalConnection, JetRelationalConnection>());
 
             builder.TryAddCoreServices();
 

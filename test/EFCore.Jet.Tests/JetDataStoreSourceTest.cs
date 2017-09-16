@@ -30,7 +30,7 @@ namespace EntityFrameworkCore.Jet.Tests
         public void Returns_appropriate_name()
         {
             Assert.Equal(
-                typeof(JetConnection).GetTypeInfo().Assembly.GetName().Name,
+                typeof(JetRelationalConnection).GetTypeInfo().Assembly.GetName().Name,
                 new DatabaseProvider<JetOptionsExtension>(new DatabaseProviderDependencies()).Name);
         }
     }

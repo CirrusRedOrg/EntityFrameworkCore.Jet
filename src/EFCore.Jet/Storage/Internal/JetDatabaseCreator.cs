@@ -21,16 +21,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetDatabaseCreator : RelationalDatabaseCreator
     {
-        private readonly IJetConnection _connection;
+        private readonly IJetRelationalConnection _relationalConnection;
         private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
 
         public JetDatabaseCreator(
             [NotNull] RelationalDatabaseCreatorDependencies dependencies,
-            [NotNull] IJetConnection connection,
+            [NotNull] IJetRelationalConnection relationalConnection,
             [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder)
             : base(dependencies)
         {
-            _connection = connection;
+            _relationalConnection = relationalConnection;
             _rawSqlCommandBuilder = rawSqlCommandBuilder;
         }
 
@@ -41,7 +41,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public override void Create()
         {
 
-            using (var emptyConnection = _connection.CreateEmptyConnection())
+            using (var emptyConnection = _relationalConnection.CreateEmptyConnection())
             {
                 Dependencies.MigrationCommandExecutor
                     .ExecuteNonQuery(CreateCreateOperations(), emptyConnection);
@@ -58,7 +58,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override bool HasTables()
         {
             using (var dataReader = Dependencies.ExecutionStrategyFactory.Create()
-                .Execute(_connection, connection => CreateShowUserTablesCommand().ExecuteReader(connection)))
+                .Execute(_relationalConnection, connection => CreateShowUserTablesCommand().ExecuteReader(connection)))
                 return dataReader.DbDataReader.HasRows;
         }
 
@@ -71,7 +71,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // ReSharper disable once UnusedMember.Local
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
         {
-            var builder = new OleDbConnectionStringBuilder(_connection.DbConnection.ConnectionString);
+            var builder = new OleDbConnectionStringBuilder(_relationalConnection.DbConnection.ConnectionString);
             return Dependencies.MigrationsSqlGenerator.Generate(new[] { new JetCreateDatabaseOperation { Name = builder.DataSource} });
         }
 
@@ -81,7 +81,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public override bool Exists()
         {
-            return System.Data.Jet.JetConnection.DatabaseExists(_connection.DbConnection.ConnectionString);
+            return System.Data.Jet.JetConnection.DatabaseExists(_relationalConnection.DbConnection.ConnectionString);
         }
 
         /// <summary>
@@ -92,7 +92,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             ClearAllPools();
 
-            using (var emptyConnection = _connection.CreateEmptyConnection())
+            using (var emptyConnection = _relationalConnection.CreateEmptyConnection())
             {
                 Dependencies.MigrationCommandExecutor
                     .ExecuteNonQuery(CreateDropCommands(), emptyConnection);
@@ -102,7 +102,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // ReSharper disable once UnusedMember.Local
         private IReadOnlyList<MigrationCommand> CreateDropCommands()
         {
-            var databaseName = _connection.DbConnection.DataSource;
+            var databaseName = _relationalConnection.DbConnection.DataSource;
             if (string.IsNullOrEmpty(databaseName))
             {
                 throw new InvalidOperationException(JetStrings.NoDataSource);
@@ -122,6 +122,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         // Clear connection pool for the database connection since after the 'create database' call, a previously
         // invalid connection may now be valid.
-        private void ClearPool() => System.Data.Jet.JetConnection.ClearPool((System.Data.Jet.JetConnection)_connection.DbConnection);
+        private void ClearPool() => System.Data.Jet.JetConnection.ClearPool((System.Data.Jet.JetConnection)_relationalConnection.DbConnection);
     }
 }

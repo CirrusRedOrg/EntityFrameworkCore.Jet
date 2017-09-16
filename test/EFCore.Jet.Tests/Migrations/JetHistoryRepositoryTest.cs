@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
                 new HistoryRepositoryDependencies(
                     Mock.Of<IRelationalDatabaseCreator>(),
                     Mock.Of<IRawSqlCommandBuilder>(),
-                    Mock.Of<IJetConnection>(),
+                    Mock.Of<IJetRelationalConnection>(),
                     new DbContextOptions<DbContext>(
                         new Dictionary<Type, IDbContextOptionsExtension>
                         {

@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
     {
         private readonly IJetSequenceValueGeneratorFactory _sequenceFactory;
 
-        private readonly IJetConnection _connection;
+        private readonly IJetRelationalConnection _relationalConnection;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -28,14 +28,14 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
         public JetValueGeneratorSelector(
             [NotNull] ValueGeneratorSelectorDependencies dependencies,
             [NotNull] IJetSequenceValueGeneratorFactory sequenceFactory,
-            [NotNull] IJetConnection connection)
+            [NotNull] IJetRelationalConnection relationalConnection)
             : base(dependencies)
         {
             Check.NotNull(sequenceFactory, nameof(sequenceFactory));
-            Check.NotNull(connection, nameof(connection));
+            Check.NotNull(relationalConnection, nameof(relationalConnection));
 
             _sequenceFactory = sequenceFactory;
-            _connection = connection;
+            _relationalConnection = relationalConnection;
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
 
             return property.GetValueGeneratorFactory() == null
                    && property.Jet().ValueGenerationStrategy == JetValueGenerationStrategy.SequenceHiLo
-                ? _sequenceFactory.Create(property, Cache.GetOrAddSequenceState(property), _connection)
+                ? _sequenceFactory.Create(property, Cache.GetOrAddSequenceState(property), _relationalConnection)
                 : base.Select(property, entityType);
         }
 

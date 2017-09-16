@@ -20,6 +20,6 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
         ValueGenerator Create(
             [NotNull] IProperty property,
             [NotNull] JetSequenceValueGeneratorState generatorState,
-            [NotNull] IJetConnection connection);
+            [NotNull] IJetRelationalConnection relationalConnection);
     }
 }

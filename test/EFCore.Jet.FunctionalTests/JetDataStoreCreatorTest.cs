@@ -393,9 +393,9 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             public TestDatabaseCreator(
                 RelationalDatabaseCreatorDependencies dependencies,
-                JetConnection connection,
+                JetRelationalConnection relationalConnection,
                 IRawSqlCommandBuilder rawSqlCommandBuilder)
-                : base(dependencies, connection, rawSqlCommandBuilder)
+                : base(dependencies, relationalConnection, rawSqlCommandBuilder)
             {
             }
 

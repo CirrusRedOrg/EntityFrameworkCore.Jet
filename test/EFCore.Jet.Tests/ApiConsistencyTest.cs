@@ -7,6 +7,6 @@ namespace EntityFrameworkCore.Jet.Tests
 {
     public class ApiConsistencyTest : ApiConsistencyTestBase
     {
-        protected override Assembly TargetAssembly => typeof(JetConnection).GetTypeInfo().Assembly;
+        protected override Assembly TargetAssembly => typeof(JetRelationalConnection).GetTypeInfo().Assembly;
     }
 }

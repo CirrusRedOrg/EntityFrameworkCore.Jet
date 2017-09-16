@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetConnection : RelationalConnection, IJetConnection
+    public class JetRelationalConnection : RelationalConnection, IJetRelationalConnection
     {
         // Compensate for slow Jet database creation
         internal const int DefaultMasterConnectionCommandTimeout = 60;
@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetConnection([NotNull] RelationalConnectionDependencies dependencies)
+        public JetRelationalConnection([NotNull] RelationalConnectionDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public virtual IJetConnection CreateEmptyConnection()
+        public virtual IJetRelationalConnection CreateEmptyConnection()
         {
             var connection = new System.Data.Jet.JetConnection();
             connection.IsEmpty = true;
@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 .UseJet(connection)
                 .Options;
 
-            return new JetConnection(Dependencies.With(contextOptions));
+            return new JetRelationalConnection(Dependencies.With(contextOptions));
         }
 
         /// <summary>

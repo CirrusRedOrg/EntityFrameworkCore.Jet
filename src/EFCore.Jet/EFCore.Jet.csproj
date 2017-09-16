@@ -222,10 +222,10 @@
     <Compile Include="Scaffolding\Internal\JetDatabaseModelFactory.cs" />
     <Compile Include="Scaffolding\Internal\JetDataReaderExtension.cs" />
     <Compile Include="Scaffolding\Internal\JetScaffoldingCodeGenerator.cs" />
-    <Compile Include="Storage\Internal\IJetConnection.cs" />
+    <Compile Include="Storage\Internal\IJetRelationalConnection.cs" />
     <Compile Include="Storage\Internal\JetBoolTypeMapping.cs" />
     <Compile Include="Storage\Internal\JetByteArrayTypeMapping.cs" />
-    <Compile Include="Storage\Internal\JetConnection.cs" />
+    <Compile Include="Storage\Internal\JetRelationalConnection.cs" />
     <Compile Include="Storage\Internal\JetDatabaseCreator.cs" />
     <Compile Include="Storage\Internal\JetDateTimeOffsetTypeMapping.cs" />
     <Compile Include="Storage\Internal\JetDateTimeTypeMapping.cs" />

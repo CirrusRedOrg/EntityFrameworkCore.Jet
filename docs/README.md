@@ -7,6 +7,9 @@ the .NET Core runtime (netcore and netstandard).
 
 You can find the latest build on [NuGet](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
   
-**Questions**  
+## More documentation
+More documentation can be found on project [Wiki](https://www.github.com/bubibubi/EntityFrameworkCore.Jet/wiki)
+
+## Questions 
 For question on how to use it please use stackoverflow, tags _access-ef-provider_ and _jet-ef-provider_.
 

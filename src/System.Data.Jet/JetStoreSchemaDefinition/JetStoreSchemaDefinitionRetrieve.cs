@@ -1040,12 +1040,10 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             // This is the standard read column for DBMS
             string sql = string.Empty;
 
-            sql += "Select ";
+            sql += "Select Top 1 ";
             sql += "    * ";
             sql += "From ";
             sql += string.Format("    {0} ", JetSyntaxHelper.QuoteIdentifier(_lastTableName));
-            sql += "Where ";
-            sql += "    1 = 2 ";
 
             IDbCommand command = null;
             IDataReader dataReader = null;

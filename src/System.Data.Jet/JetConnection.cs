@@ -3,33 +3,25 @@ using System.ComponentModel;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
-using System.Reflection;
 using System.Transactions;
 
 namespace System.Data.Jet
 {
     public class JetConnection : DbConnection, IDisposable, ICloneable
     {
+        private ConnectionState _state;
+        private string _ConnectionString;
 
-        internal DbConnection WrappedConnection { get; private set; }
+        internal DbConnection InnerConnection { get; private set; }
+
+        internal DbTransaction ActiveTransaction { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
         public JetConnection()
         {
-            WrappedConnection = new OleDbConnection();
-            WrappedConnection.StateChange += WrappedConnection_StateChange;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="JetConnection"/> class.
-        /// </summary>
-        /// <param name="connection">The underling OleDb connection.</param>
-        public JetConnection(OleDbConnection connection)
-        {
-            WrappedConnection = connection;
-            WrappedConnection.StateChange += WrappedConnection_StateChange;
+            _state = ConnectionState.Closed;
         }
 
         /// <summary>
@@ -70,19 +62,24 @@ namespace System.Data.Jet
         /// </returns>
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
         {
+            if (State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("BeginDbTransaction", State));
+
+            if (ActiveTransaction != null)
+                throw new InvalidOperationException(Messages.UnsupportedParallelTransactions());
+
             switch (isolationLevel)
             {
                 case IsolationLevel.Serializable:
-                    return new JetTransaction(WrappedConnection.BeginTransaction(IsolationLevel.ReadCommitted), this);
-                case IsolationLevel.Chaos:
-                case IsolationLevel.ReadCommitted:
-                case IsolationLevel.ReadUncommitted:
-                case IsolationLevel.RepeatableRead:
-                case IsolationLevel.Snapshot:
-                case IsolationLevel.Unspecified:
+                    ActiveTransaction = new JetTransaction(InnerConnection.BeginTransaction(IsolationLevel.ReadCommitted), this);
+                    break;
                 default:
-                    return new JetTransaction(WrappedConnection.BeginTransaction(isolationLevel), this);
+                    ActiveTransaction = new JetTransaction(InnerConnection.BeginTransaction(isolationLevel), this);
+                    break;
             }
+
+            return ActiveTransaction;
+
         }
 
         /// <summary>
@@ -91,7 +88,10 @@ namespace System.Data.Jet
         /// <param name="databaseName">Specifies the name of the database for the connection to use.</param>
         public override void ChangeDatabase(string databaseName)
         {
-            this.WrappedConnection.ChangeDatabase(databaseName);
+            if (State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ConnectionString), ConnectionState.Open, State));
+
+            throw new InvalidOperationException(Messages.MethodUnsupportedByJet("ChangeDatabase"));
         }
 
         /// <summary>
@@ -99,7 +99,19 @@ namespace System.Data.Jet
         /// </summary>
         public override void Close()
         {
-            this.WrappedConnection.Close();
+            if (_state == ConnectionState.Closed)
+                return;
+            if (ActiveTransaction != null)
+                ActiveTransaction.Rollback();
+            ActiveTransaction = null;
+            _state = ConnectionState.Closed;
+            if (InnerConnection != null)
+            {
+                InnerConnectionFactory.Instance.CloseConnection(_ConnectionString, InnerConnection);
+                InnerConnection.StateChange -= WrappedConnection_StateChange;
+            }
+            InnerConnection = null;
+            OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
         }
 
         /// <summary>
@@ -109,22 +121,25 @@ namespace System.Data.Jet
         {
             get
             {
-                return this.WrappedConnection.ConnectionString;
+                return _ConnectionString;
             }
             set
             {
-                this.WrappedConnection.ConnectionString = value;
+                if (State != ConnectionState.Closed)
+                    throw new InvalidOperationException(Messages.CannotChangePropertyValueInThisConnectionState(nameof(ConnectionString), State));
+                _ConnectionString = value;
             }
         }
 
         /// <summary>
         /// Gets the time to wait while establishing a connection before terminating the attempt and generating an error.
+        /// For Jet this time is unlimited
         /// </summary>
         public override int ConnectionTimeout
         {
             get
             {
-                return this.WrappedConnection.ConnectionTimeout;
+                return 0;
             }
         }
 
@@ -142,19 +157,25 @@ namespace System.Data.Jet
         }
 
         /// <summary>
-        /// Gets the name of the current database after a connection is opened, or the database name specified in the connection string before the connection is opened.
+        /// This property is always empty in Jet. Use DataSource property instead.
+        /// Gets the name of the current database after a connection is opened, or the database name specified 
+        /// in the connection string before the connection is opened.
         /// </summary>
         public override string Database
         {
-            get { return this.WrappedConnection.Database; }
+            get { return string.Empty; }
         }
 
         /// <summary>
-        /// Gets the name of the database server to which to connect.
+        /// Gets the name of the file to open.
         /// </summary>
         public override string DataSource
         {
-            get { return this.WrappedConnection.DataSource; }
+            get
+            {
+                OleDbConnectionStringBuilder connectionStringBuilder = new OleDbConnectionStringBuilder(_ConnectionString);
+                return connectionStringBuilder.DataSource;
+            }
         }
 
         /// <summary>
@@ -163,10 +184,12 @@ namespace System.Data.Jet
         /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         protected override void Dispose(bool disposing)
         {
+            _ConnectionString = string.Empty;
+
             if (disposing)
-                this.WrappedConnection.Dispose();
+                Close();
+
             base.Dispose(disposing);
-            OnDisposed(EventArgs.Empty);
         }
 
         /// <summary>
@@ -175,7 +198,9 @@ namespace System.Data.Jet
         /// <param name="transaction">A reference to an existing <see cref="T:System.Transactions.Transaction" /> in which to enlist.</param>
         public override void EnlistTransaction(Transaction transaction)
         {
-            this.WrappedConnection.EnlistTransaction(transaction);
+            if (InnerConnection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
+            InnerConnection.EnlistTransaction(transaction);
         }
 
         /// <summary>
@@ -190,7 +215,9 @@ namespace System.Data.Jet
         /// </PermissionSet>
         public override DataTable GetSchema(string collectionName)
         {
-            return this.WrappedConnection.GetSchema(collectionName);
+            if (State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
+            return InnerConnection.GetSchema(collectionName);
         }
 
         /// <summary>
@@ -204,7 +231,9 @@ namespace System.Data.Jet
         /// </PermissionSet>
         public override DataTable GetSchema()
         {
-            return this.WrappedConnection.GetSchema();
+            if (State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
+            return InnerConnection.GetSchema();
         }
 
         /// <summary>
@@ -220,7 +249,9 @@ namespace System.Data.Jet
         /// </PermissionSet>
         public override DataTable GetSchema(string collectionName, string[] restrictionValues)
         {
-            return this.WrappedConnection.GetSchema(collectionName, restrictionValues);
+            if (State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
+            return InnerConnection.GetSchema(collectionName, restrictionValues);
         }
 
         /// <summary>
@@ -230,7 +261,15 @@ namespace System.Data.Jet
         {
             if (IsEmpty)
                 return;
-            this.WrappedConnection.Open();
+            if (string.IsNullOrWhiteSpace(_ConnectionString))
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(ConnectionString)));
+            if (State != ConnectionState.Closed)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Open), ConnectionState.Closed, State));
+
+            _state = ConnectionState.Open;
+            InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_ConnectionString);
+            InnerConnection.StateChange += WrappedConnection_StateChange;
+            OnStateChange(new StateChangeEventArgs(ConnectionState.Closed, ConnectionState.Open));
         }
 
         /// <summary>
@@ -238,21 +277,11 @@ namespace System.Data.Jet
         /// </summary>
         public override string ServerVersion
         {
-            get { return this.WrappedConnection.ServerVersion; }
-        }
-
-        /// <summary>
-        /// Gets or sets the <see cref="T:System.ComponentModel.ISite" /> of the <see cref="T:System.ComponentModel.Component" />.
-        /// </summary>
-        public override ISite Site
-        {
             get
             {
-                return this.WrappedConnection.Site;
-            }
-            set
-            {
-                this.WrappedConnection.Site = value;
+                if (State != ConnectionState.Open)
+                    throw new InvalidOperationException(Messages.CannotReadPropertyValueInThisConnectionState(nameof(ServerVersion), State));
+                return InnerConnection.ServerVersion;
             }
         }
 
@@ -261,7 +290,7 @@ namespace System.Data.Jet
         /// </summary>
         public override ConnectionState State
         {
-            get { return this.WrappedConnection.State; }
+            get { return _state; }
         }
 
         void WrappedConnection_StateChange(object sender, StateChangeEventArgs e)
@@ -308,21 +337,6 @@ namespace System.Data.Jet
         }
 
         /// <summary>
-        /// Occurs when the component is disposed by a call to the <see cref="M:System.ComponentModel.Component.Dispose" /> method.
-        /// </summary>
-        public new event EventHandler Disposed;
-
-        /// <summary>
-        /// Raises the <see cref="E:Disposed" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected virtual void OnDisposed(EventArgs e)
-        {
-            if (Disposed != null)
-                Disposed(this, e);
-        }
-
-        /// <summary>
         /// Creates a new object that is a copy of the current instance.
         /// </summary>
         /// <returns>
@@ -331,7 +345,8 @@ namespace System.Data.Jet
         object ICloneable.Clone()
         {
             JetConnection clone = new JetConnection();
-            clone.WrappedConnection = (DbConnection)((ICloneable)this.WrappedConnection).Clone();
+            if (InnerConnection != null)
+                clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_ConnectionString);
             return clone;
         }
 
@@ -345,7 +360,7 @@ namespace System.Data.Jet
         /// </returns>
         public static explicit operator OleDbConnection(JetConnection connection)
         {
-            return (OleDbConnection)connection.WrappedConnection;
+            return (OleDbConnection)connection.InnerConnection;
         }
 
         /// <summary>
@@ -362,13 +377,19 @@ namespace System.Data.Jet
         /// </summary>
         public static void ClearAllPools()
         {
-            // Actually Jet does not support pools
+            InnerConnectionFactory.Instance.ClearAllPools();
         }
 
         public void CreateEmptyDatabase()
         {
-            AdoxWrapper.CreateEmptyDatabase(WrappedConnection.ConnectionString);
+            AdoxWrapper.CreateEmptyDatabase(_ConnectionString);
         }
+
+        public static void CreateEmptyDatabase(string connectionString)
+        {
+            AdoxWrapper.CreateEmptyDatabase(connectionString);
+        }
+
 
         public static string GetConnectionString(string fileName)
         {
@@ -377,7 +398,7 @@ namespace System.Data.Jet
 
         public void DropDatabase(bool throwOnError = true)
         {
-            DropDatabase(WrappedConnection.ConnectionString, throwOnError);
+            DropDatabase(_ConnectionString, throwOnError);
         }
 
         public static void DropDatabase(string connectionString, bool throwOnError = true)
@@ -391,7 +412,7 @@ namespace System.Data.Jet
 
         public bool DatabaseExists()
         {
-            return DatabaseExists(WrappedConnection.ConnectionString);
+            return DatabaseExists(_ConnectionString);
         }
 
         public static bool DatabaseExists(string connectionString)

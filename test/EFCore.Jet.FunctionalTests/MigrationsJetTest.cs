@@ -56,9 +56,13 @@ SELECT
     Table, 
     Name, 
     TypeName, 
+    IsNullable, 
     Default
 FROM 
-    (SHOW TABLECOLUMNS);";
+    (SHOW TABLECOLUMNS)
+ORDER BY
+    Ordinal
+;";
 
             using (var reader = await command.ExecuteReaderAsync())
             {
@@ -104,7 +108,7 @@ FROM
                 }
             }
 
-            return builder.ToString();
+            return builder.ToString().Replace("\r\n", "\n");
         }
     }
 }

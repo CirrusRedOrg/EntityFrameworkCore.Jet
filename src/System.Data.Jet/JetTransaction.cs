@@ -7,9 +7,9 @@ namespace System.Data.Jet
     {
 
         internal DbTransaction WrappedTransaction { get; private set; }
-        readonly DbConnection _connection;
+        readonly JetConnection _connection;
 
-        public JetTransaction(DbTransaction wrappedTransaction, DbConnection connection)
+        public JetTransaction(DbTransaction wrappedTransaction, JetConnection connection)
         {
             LogHelper.ShowCommandHeader("\r\nvvv BeginTransaction (" + wrappedTransaction.IsolationLevel + ")");
             WrappedTransaction = wrappedTransaction;
@@ -20,6 +20,7 @@ namespace System.Data.Jet
         {
             LogHelper.ShowCommandHeader("--- Commit");
             WrappedTransaction.Commit();
+            _connection.ActiveTransaction = null;
         }
 
         protected override DbConnection DbConnection
@@ -36,6 +37,7 @@ namespace System.Data.Jet
         {
             LogHelper.ShowCommandHeader("^^^ Rollback");
             WrappedTransaction.Rollback();
+            _connection.ActiveTransaction = null;
         }
 
 

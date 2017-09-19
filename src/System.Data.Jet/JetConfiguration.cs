@@ -89,5 +89,14 @@ namespace System.Data.Jet
         /// </value>
         public static bool ShowSqlStatements = false;
 
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the connection pooling should be used
+        /// </summary>
+        /// <value>
+        /// <c>true</c> to use the connection pooling; otherwise, <c>false</c>.
+        /// </value>
+        public static bool UseConnectionPooling = false;
+
     }
 }

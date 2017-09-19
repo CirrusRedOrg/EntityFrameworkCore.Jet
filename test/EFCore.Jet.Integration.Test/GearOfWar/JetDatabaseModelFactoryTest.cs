@@ -53,7 +53,7 @@ WHERE 1 = 2;
 
             using (var connection = GetConnection())
             {
-
+                connection.Open();
                 var command = connection.CreateCommand();
                 command.CommandText = "SHOW TABLES";
                 using (DbDataReader reader = command.ExecuteReader())

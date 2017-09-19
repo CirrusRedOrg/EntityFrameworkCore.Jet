@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.PerformanceTest
 {
-    [TestClass]
+    //[TestClass]
     public class Where_False
     {
         [TestMethod]

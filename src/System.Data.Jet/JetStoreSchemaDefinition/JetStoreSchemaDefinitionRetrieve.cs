@@ -19,6 +19,11 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         static SystemTableCollection _systemTables;
 
+        static string _lastTableName;
+        static DataTable _lastStructureDataTable;
+        static object _lastStructureDataTableLock = new object();
+
+
         static JetStoreSchemaDefinitionRetrieve()
         {
             _regExParseShowCommand = new Regex(
@@ -35,6 +40,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             if (command.CommandType == System.Data.CommandType.Text && command.CommandText.Trim().StartsWith("show ", StringComparison.InvariantCultureIgnoreCase))
             {
                 dataReader = GetDbDataReaderFromSimpleStatement(command.Connection, command.CommandText);
+                lock (_lastStructureDataTableLock)
+                    _lastTableName = null;
                 return true;
             }
 
@@ -50,10 +57,14 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 if (isSchemaTable)
                 {
                     dataReader = GetDbDataReaderFromComplexStatement(command.Connection, command);
+                    lock (_lastStructureDataTableLock)
+                        _lastTableName = null;
                     return true;
                 }
             }
 
+            lock (_lastStructureDataTableLock)
+                _lastTableName = null;
             dataReader = null;
             return false;
         }
@@ -912,10 +923,6 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             }
         }
 
-
-        static string _lastTableName;
-        static DataTable _lastStructureDataTable;
-        static object _lastStructureDataTableLock = new object();
 
         private const string CONSTRAINTTYPE_FOREIGNKEY = "FOREIGN KEY";
         private const string CONSTRAINTTYPE_PRIMARYKEY = "PRIMARY KEY";

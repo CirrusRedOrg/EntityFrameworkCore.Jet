@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -159,7 +160,6 @@ namespace System.Data.Jet
                 if (value == null)
                 {
                     this._Connection = null;
-                    this._WrappedCommand.Connection = null;
                 }
                 else
                 {
@@ -167,7 +167,6 @@ namespace System.Data.Jet
                         throw new InvalidOperationException("The JetCommand connection should be a JetConnection");
 
                     this._Connection = (JetConnection)value;
-                    this._WrappedCommand.Connection = this._Connection.WrappedConnection;
                 }
             }
         }
@@ -193,12 +192,11 @@ namespace System.Data.Jet
         {
             get
             {
-                return this._Transaction;
+                return _Transaction;
             }
             set
             {
-                this._Transaction = (JetTransaction)value;
-                this._WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+                _Transaction = (JetTransaction)value;
             }
         }
 
@@ -226,6 +224,16 @@ namespace System.Data.Jet
         /// <returns></returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
+            if (Connection.State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("ExecuteReader", ConnectionState.Open, Connection.State));
+
+
+            _WrappedCommand.Connection = _Connection.InnerConnection;
+            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+
             LogHelper.ShowCommandText("ExecuteDbDataReader", _WrappedCommand);
 
             DbDataReader dataReader;
@@ -276,12 +284,22 @@ namespace System.Data.Jet
         /// <returns></returns>
         public override int ExecuteNonQuery()
         {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
             LogHelper.ShowCommandText("ExecuteNonQuery", _WrappedCommand);
 
             if (JetStoreDatabaseHandling.TryDatabaseOperation(_WrappedCommand.CommandText))
                 return 1;
-            if (JetRenameHandling.TryDatabaseOperation(_WrappedCommand.Connection.ConnectionString, _WrappedCommand.CommandText))
+            if (JetRenameHandling.TryDatabaseOperation(Connection.ConnectionString, _WrappedCommand.CommandText))
                 return 1;
+
+            if (Connection.State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteNonQuery), ConnectionState.Open, Connection.State));
+
+            _WrappedCommand.Connection = _Connection.InnerConnection;
+            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+
 
             if (_WrappedCommand.CommandType != CommandType.Text)
                 return _WrappedCommand.ExecuteNonQuery();
@@ -307,6 +325,16 @@ namespace System.Data.Jet
         /// <returns></returns>
         public override object ExecuteScalar()
         {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
+            if (Connection.State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteScalar), ConnectionState.Open, Connection.State));
+
+
+            _WrappedCommand.Connection = _Connection.InnerConnection;
+            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+
             LogHelper.ShowCommandText("ExecuteScalar", _WrappedCommand);
 
             DbDataReader dataReader;
@@ -364,7 +392,7 @@ namespace System.Data.Jet
             if (!CheckExists(commandText, out newCommandText))
                 return 0;
             ParseSkipTop(newCommandText, out topCount, out skipCount, out newCommandText);
-            //ApplyParameters(newCommandText, _WrappedCommand.Parameters, out newCommandText);
+
             SortParameters(newCommandText, _WrappedCommand.Parameters);
             FixParameters(_WrappedCommand.Parameters);
 
@@ -571,6 +599,15 @@ namespace System.Data.Jet
         /// </summary>
         public override void Prepare()
         {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
+            if (Connection.State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Prepare), ConnectionState.Open, Connection.State));
+
+            _WrappedCommand.Connection = _Connection.InnerConnection;
+            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+
             this._WrappedCommand.Prepare();
         }
 

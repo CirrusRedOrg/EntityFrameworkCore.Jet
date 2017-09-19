@@ -19,11 +19,11 @@ namespace EntityFrameworkCore.Jet.Tests
             Assert.Equal("datetime", GetTypeMapping(typeof(DateTime)).StoreType);
             Assert.Equal("guid", GetTypeMapping(typeof(Guid)).StoreType);
             Assert.Equal("byte", GetTypeMapping(typeof(byte)).StoreType);
-            Assert.Equal("float", GetTypeMapping(typeof(double)).StoreType);
+            Assert.Equal("double", GetTypeMapping(typeof(double)).StoreType);
             Assert.Equal("smallint", GetTypeMapping(typeof(bool)).StoreType);
             Assert.Equal("smallint", GetTypeMapping(typeof(short)).StoreType);
             Assert.Equal("int", GetTypeMapping(typeof(long)).StoreType);
-            Assert.Equal("real", GetTypeMapping(typeof(float)).StoreType);
+            Assert.Equal("single", GetTypeMapping(typeof(float)).StoreType);
            
         }
 
@@ -40,11 +40,11 @@ namespace EntityFrameworkCore.Jet.Tests
             Assert.Equal("datetime", GetTypeMapping(typeof(DateTime?)).StoreType);
             Assert.Equal("guid", GetTypeMapping(typeof(Guid?)).StoreType);
             Assert.Equal("byte", GetTypeMapping(typeof(byte?)).StoreType);
-            Assert.Equal("float", GetTypeMapping(typeof(double?)).StoreType);
+            Assert.Equal("double", GetTypeMapping(typeof(double?)).StoreType);
             Assert.Equal("smallint", GetTypeMapping(typeof(bool?)).StoreType);
             Assert.Equal("smallint", GetTypeMapping(typeof(short?)).StoreType);
             Assert.Equal("int", GetTypeMapping(typeof(long?)).StoreType);
-            Assert.Equal("real", GetTypeMapping(typeof(float?)).StoreType);
+            Assert.Equal("single", GetTypeMapping(typeof(float?)).StoreType);
         }
 
         [Fact]

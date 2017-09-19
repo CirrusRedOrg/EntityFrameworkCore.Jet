@@ -111,6 +111,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
             try
             {
+                JetConnection.ClearAllPools();
                 System.IO.File.Delete(fileName.Trim());
             }
             catch

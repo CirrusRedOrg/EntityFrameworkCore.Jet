@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Data.Jet;
 using System.Data.OleDb;
 using System.Linq;
 using System.Threading;
@@ -232,12 +233,14 @@ namespace EntityFramework.Jet.FunctionalTests
                     {
                         await creator.CreateTablesAsync();
                         testDatabase.Connection.Close();
+                        JetConnection.ClearAllPools();
                         await testDatabase.Connection.OpenAsync();
                     }
                     else
                     {
                         creator.CreateTables();
                         testDatabase.Connection.Close();
+                        JetConnection.ClearAllPools();
                         testDatabase.Connection.Open();
                     }
 

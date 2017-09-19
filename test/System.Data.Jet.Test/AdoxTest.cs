@@ -13,6 +13,7 @@ namespace System.Data.Jet.Test
         {
             try
             {
+                JetConnection.ClearAllPools();
                 File.Delete("AdoxTest.accdb");
             }
             catch (Exception e)
@@ -22,6 +23,7 @@ namespace System.Data.Jet.Test
 
             AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
 
+            JetConnection.ClearAllPools();
             File.Delete("AdoxTest.accdb");
         }
 
@@ -30,6 +32,7 @@ namespace System.Data.Jet.Test
         {
             try
             {
+                JetConnection.ClearAllPools();
                 File.Delete("AdoxTest.accdb");
             }
             catch (Exception e)
@@ -51,6 +54,7 @@ namespace System.Data.Jet.Test
                 CheckTableExists(connection, "newTableName");
             }
 
+            JetConnection.ClearAllPools();
             File.Delete("AdoxTest.accdb");
 
         }
@@ -62,6 +66,7 @@ namespace System.Data.Jet.Test
         {
             try
             {
+                JetConnection.ClearAllPools();
                 File.Delete("AdoxTest.accdb");
             }
             catch (Exception e)
@@ -81,11 +86,13 @@ namespace System.Data.Jet.Test
                 AdoxWrapper.RenameColumn(JetConnection.GetConnectionString("AdoxTest.accdb"), "tableName", "columnName", "newColumnName");
 
                 connection.Close();
+                JetConnection.ClearAllPools();
                 connection.Open();
                 CheckColumnExists(connection, "tableName", "newColumnName");
                 
             }
 
+            JetConnection.ClearAllPools();
             File.Delete("AdoxTest.accdb");
 
         }
@@ -96,6 +103,7 @@ namespace System.Data.Jet.Test
         {
             try
             {
+                JetConnection.ClearAllPools();
                 File.Delete("AdoxTest.accdb");
             }
             catch (Exception e)
@@ -120,6 +128,7 @@ namespace System.Data.Jet.Test
 
             }
 
+            JetConnection.ClearAllPools();
             File.Delete("AdoxTest.accdb");
         }
 
@@ -129,6 +138,7 @@ namespace System.Data.Jet.Test
         {
             try
             {
+                JetConnection.ClearAllPools();
                 File.Delete("AdoxTest.accdb");
             }
             catch (Exception e)
@@ -150,6 +160,8 @@ namespace System.Data.Jet.Test
                 CheckTableExists(connection, "newTableName");
             }
 
+            JetConnection.ClearAllPools();
+
             File.Delete("AdoxTest.accdb");
 
         }
@@ -161,6 +173,7 @@ namespace System.Data.Jet.Test
         {
             try
             {
+                JetConnection.ClearAllPools();
                 File.Delete("AdoxTest.accdb");
             }
             catch (Exception e)
@@ -180,11 +193,13 @@ namespace System.Data.Jet.Test
                 connection.CreateCommand("rename column tableName.columnName to newColumnName").ExecuteNonQuery();
 
                 connection.Close();
+                JetConnection.ClearAllPools();
                 connection.Open();
                 CheckColumnExists(connection, "tableName", "newColumnName");
 
             }
 
+            JetConnection.ClearAllPools();
             File.Delete("AdoxTest.accdb");
 
         }

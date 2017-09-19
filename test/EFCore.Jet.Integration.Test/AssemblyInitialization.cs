@@ -17,6 +17,7 @@ namespace EFCore.Jet.Integration.Test
 
             // This is the only reason why we include the Provider
             JetConfiguration.ShowSqlStatements = true;
+            JetConfiguration.UseConnectionPooling = false;
 
             Connection = Helpers.GetJetConnection();
 
@@ -32,6 +33,9 @@ namespace EFCore.Jet.Integration.Test
                 Connection.Dispose();
 
             Helpers.DeleteSqlCeDatabase();
+
+
+            JetConnection.ClearAllPools();
         }
 
 

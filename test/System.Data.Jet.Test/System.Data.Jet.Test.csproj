@@ -119,6 +119,7 @@
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="AdoxTest.cs" />
+    <Compile Include="ConnectionPoolingTest.cs" />
     <Compile Include="CreateDatabaseTest.cs" />
     <Compile Include="CreateE2ETest.cs" />
     <Compile Include="CreateNorthwindTest.cs" />

@@ -107,8 +107,8 @@ namespace System.Data.Jet
             _state = ConnectionState.Closed;
             if (InnerConnection != null)
             {
-                InnerConnectionFactory.Instance.CloseConnection(_ConnectionString, InnerConnection);
                 InnerConnection.StateChange -= WrappedConnection_StateChange;
+                InnerConnectionFactory.Instance.CloseConnection(_ConnectionString, InnerConnection);
             }
             InnerConnection = null;
             OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
@@ -300,20 +300,27 @@ namespace System.Data.Jet
 
         public bool TableExists(string tableName)
         {
-            if (State != ConnectionState.Open)
-                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(TableExists), ConnectionState.Open, State));
+            ConnectionState oldConnectionState = State;
+            bool tableExists;
+
+            if (oldConnectionState == ConnectionState.Closed)
+                Open();
 
             try
             {
-                string sqlFormat = "select top 1 * from [{0}]";
+                string sqlFormat = "select count(*) from [{0}] where 1=2";
                 CreateCommand(String.Format(sqlFormat, tableName)).ExecuteNonQuery();
-                return true;
+                tableExists = true;
             }
             catch
             {
-                return false;
+                tableExists = false;
             }
 
+            if (oldConnectionState == ConnectionState.Closed)
+                Close();
+
+            return tableExists;
         }
 
         public DbCommand CreateCommand(string commandText, int? commandTimeout = null)

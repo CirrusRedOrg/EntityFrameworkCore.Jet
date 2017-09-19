@@ -55,7 +55,7 @@ namespace System.Data.Jet
         //
         // then change the DUAL property
         //
-        // JetConnection.DUAL = "Dual";
+        // JetConfiguration.DUAL = "Dual";
         //
         // For more information see also https://en.wikipedia.org/wiki/DUAL_table
         /// <summary>
@@ -72,14 +72,6 @@ namespace System.Data.Jet
         /// The dual table for accdb
         /// </summary>
         public const string DUALForAccdb = "(SELECT COUNT(*) FROM MSysAccessStorage)";
-
-        /// <summary>
-        /// Gets or sets a value indicating whether append random number for foreign key names.
-        /// </summary>
-        /// <value>
-        /// <c>true</c> if append random number for foreign key names; otherwise, <c>false</c>.
-        /// </value>
-        public static bool AppendRandomNumberForForeignKeyNames = true;
 
         /// <summary>
         /// Gets or sets a value indicating whether show SQL statements.

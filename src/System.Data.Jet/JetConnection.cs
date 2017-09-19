@@ -300,27 +300,20 @@ namespace System.Data.Jet
 
         public bool TableExists(string tableName)
         {
-            ConnectionState oldConnectionState = State;
-            bool tableExists;
-
-            if (oldConnectionState == ConnectionState.Closed)
-                Open();
+            if (State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(TableExists), ConnectionState.Open, State));
 
             try
             {
-                string sqlFormat = "select count(*) from [{0}] where 1=2";
+                string sqlFormat = "select top 1 * from [{0}]";
                 CreateCommand(String.Format(sqlFormat, tableName)).ExecuteNonQuery();
-                tableExists = true;
+                return true;
             }
             catch
             {
-                tableExists = false;
+                return false;
             }
 
-            if (oldConnectionState == ConnectionState.Closed)
-                Close();
-
-            return tableExists;
         }
 
         public DbCommand CreateCommand(string commandText, int? commandTimeout = null)

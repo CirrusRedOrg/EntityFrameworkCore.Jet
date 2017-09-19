@@ -68,6 +68,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CheckTableExistenceTest.cs" />
     <Compile Include="JetDatabaseFixture.cs" />
     <Compile Include="TestInitialization.cs" />
     <Compile Include="Timer.cs" />

@@ -166,7 +166,10 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public static string CreateConnectionString(string name)
         {
-            return JetConnection.GetConnectionString(name + ".accdb");
+            if (!name.Contains("."))
+                return JetConnection.GetConnectionString(name + ".accdb");
+            else
+                return JetConnection.GetConnectionString(name);
         }
 
 

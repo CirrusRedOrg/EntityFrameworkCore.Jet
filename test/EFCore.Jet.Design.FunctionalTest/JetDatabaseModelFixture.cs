@@ -14,10 +14,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 {
     public class JetDatabaseModelFixture : IDisposable
     {
-        public JetDatabaseModelFixture()
-        {
-            TestStore = JetTestStore.CreateScratch(true);
-        }
+        private JetTestStore _TestStore;
 
         public TestDesignLoggerFactory TestDesignLoggerFactory { get; } = new TestDesignLoggerFactory();
 
@@ -28,17 +25,30 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
                 TestStore.ExecuteNonQuery(sql);
             }
 
+            return ReadModel(tables);
+        }
+
+        public DatabaseModel ReadModel(IEnumerable<string> tables = null)
+        {
             return new JetDatabaseModelFactory(
-                new DiagnosticsLogger<DbLoggerCategory.Scaffolding>(
-                TestDesignLoggerFactory,
-                new LoggingOptions(),
-                new DiagnosticListener("Fake")))
-            .Create(TestStore.ConnectionString, tables ?? Enumerable.Empty<string>(), Enumerable.Empty<string>());
+                    new DiagnosticsLogger<DbLoggerCategory.Scaffolding>(
+                        TestDesignLoggerFactory,
+                        new LoggingOptions(),
+                        new DiagnosticListener("Fake")))
+                .Create(TestStore.ConnectionString, tables ?? Enumerable.Empty<string>(), Enumerable.Empty<string>());
         }
 
         public IEnumerable<T> Query<T>(string sql, params object[] parameters) => TestStore.Query<T>(sql, parameters);
 
-        public JetTestStore TestStore { get; }
+        public virtual JetTestStore TestStore
+        {
+            get
+            {
+                if (_TestStore == null)
+                    _TestStore = JetTestStore.CreateScratch(true);
+                return _TestStore;
+            }
+        }
 
         public void ExecuteNonQuery(string sql) => TestStore.ExecuteNonQuery(sql);
 

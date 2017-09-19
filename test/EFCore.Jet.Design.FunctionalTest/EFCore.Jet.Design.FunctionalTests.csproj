@@ -54,8 +54,13 @@
     <Compile Include="..\EFCore.Jet.FunctionalTests\TestUtilities\JetTestStore.cs">
       <Link>JetTestStore.cs</Link>
     </Compile>
+    <Compile Include="Issue4Test.cs" />
+    <Compile Include="JetDatabaseModelIssue4Fixture.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <None Include="E2E.accdb">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Issue_4.mdb">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Content Include="ReverseEngineering\ExpectedResults\NonNullBoolWithDefault.cs">

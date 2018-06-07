@@ -1,10 +1,19 @@
-﻿using Microsoft.EntityFrameworkCore.Query;
+﻿using EntityFramework.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet;
+using EntityFrameworkCore.Jet.Infrastructure;
+using Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.NullSemanticsModel;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class NullSemanticsQueryJetTest : NullSemanticsQueryTestBase<JetTestStore, NullSemanticsQueryJetFixture>
+    public class NullSemanticsQueryJetTest : NullSemanticsQueryTestBase<NullSemanticsQueryJetTest.NullSemanticsQueryJetFixture>
     {
         public NullSemanticsQueryJetTest(NullSemanticsQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
@@ -357,30 +366,61 @@ END) OR [e].[NullableStringC] IS NULL",
             AssertSql(
                 @"SELECT [e].[Id]
 FROM [NullSemanticsEntity1] AS [e]
-WHERE ((CHARINDEX([e].[NullableStringB], [e].[NullableStringA]) > 0) OR ([e].[NullableStringB] = N'')) AND ([e].[BoolA] = 1)",
+WHERE ((Instr(1, [e].[NullableStringB], [e].[NullableStringA], 0) > 0) OR ([e].[NullableStringB] = N'')) AND ([e].[BoolA] = 1)",
                 Sql);
         }
 
 
         private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
+
+        protected override NullSemanticsContext CreateContext(bool useRelationalNulls = false)
         {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
+            var options = new DbContextOptionsBuilder(Fixture.CreateOptions());
+            if (useRelationalNulls)
             {
-                if (AssertSqlHelper.IgnoreStatement(item))
-                    return;
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
+                new JetDbContextOptionsBuilder(options).UseRelationalNulls();
             }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
+
+            var context = new NullSemanticsContext(options.Options);
+
+            context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+
+            return context;
         }
 
         protected override void ClearLog()
             => Fixture.TestSqlLoggerFactory.Clear();
 
-        private string Sql
+        private string Sql => Fixture.TestSqlLoggerFactory.Sql;
+
+        public class NullSemanticsQueryJetFixture : NullSemanticsQueryRelationalFixture
         {
-            get { return Fixture.TestSqlLoggerFactory.Sql; }
+            public static readonly string DatabaseName = "NullSemanticsQueryTest";
+
+            private readonly DbContextOptions _options;
+
+            private readonly string _connectionString = JetTestStore.CreateConnectionString(DatabaseName);
+
+            public NullSemanticsQueryJetFixture()
+            {
+                var serviceProvider = new ServiceCollection()
+                    .AddEntityFrameworkJet()
+                    .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
+                    .AddSingleton<ILoggerFactory>(TestSqlLoggerFactory)
+                    .BuildServiceProvider();
+
+                _options = new DbContextOptionsBuilder()
+                    .EnableSensitiveDataLogging()
+                    .UseInternalServiceProvider(serviceProvider)
+                    .Options;
+            }
+
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
 
     }

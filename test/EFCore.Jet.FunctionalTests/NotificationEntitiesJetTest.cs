@@ -2,12 +2,13 @@
 using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class NotificationEntitiesJetTest
-        : NotificationEntitiesTestBase<JetTestStore, NotificationEntitiesJetTest.NotificationEntitiesJetFixture>
+        : NotificationEntitiesTestBase<NotificationEntitiesJetTest.NotificationEntitiesJetFixture>
     {
         public NotificationEntitiesJetTest(NotificationEntitiesJetFixture fixture)
             : base(fixture)
@@ -33,9 +34,7 @@ namespace EntityFramework.Jet.FunctionalTests
             public override DbContext CreateContext()
                 => new DbContext(_options);
 
-            public override JetTestStore CreateTestStore()
-                => JetTestStore.GetOrCreateShared(DatabaseName, EnsureCreated);
-
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 
         }
     }

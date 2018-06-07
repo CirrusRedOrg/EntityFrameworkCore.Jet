@@ -3,8 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data.OleDb;
-using System.Threading;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Migrations.Operations;
 using EntityFrameworkCore.Jet.Properties;
 using JetBrains.Annotations;
@@ -105,7 +103,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             var databaseName = _relationalConnection.DbConnection.DataSource;
             if (string.IsNullOrEmpty(databaseName))
             {
-                throw new InvalidOperationException(JetStrings.NoDataSource);
+                throw new InvalidOperationException(JetStrings.NoInitialCatalog);
             }
 
             var operations = new MigrationOperation[]

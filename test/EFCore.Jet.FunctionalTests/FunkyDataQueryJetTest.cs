@@ -1,12 +1,18 @@
 ﻿using System;
 using System.Linq;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.FunkyDataModel;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class FunkyDataQueryJetTest : FunkyDataQueryTestBase<JetTestStore, FunkyDataQueryJetFixture>
+    public class FunkyDataQueryJetTest : FunkyDataQueryTestBase<FunkyDataQueryJetTest.FunkyDataQueryJetFixture>
     {
         public FunkyDataQueryJetTest(FunkyDataQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
@@ -77,7 +83,7 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(
                 @"SELECT [c].[Id], [c].[FirstName], [c].[LastName], [c].[NullableBool], [c2].[Id], [c2].[FirstName], [c2].[LastName], [c2].[NullableBool]
 FROM [FunkyCustomer] AS [c]
-CROSS JOIN [FunkyCustomer] AS [c2]
+, [FunkyCustomer] AS [c2]
 WHERE CASE
     WHEN (SUBSTRING([c].[FirstName], (LEN([c].[FirstName]) + 1) - LEN([c2].[LastName]), LEN([c2].[LastName])) = [c2].[LastName]) OR ([c2].[LastName] = N'')
     THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT)
@@ -93,7 +99,7 @@ END = [c].[NullableBool]",
             Assert.Equal(
                 @"SELECT [c].[Id], [c].[FirstName], [c].[LastName], [c].[NullableBool], [c2].[Id], [c2].[FirstName], [c2].[LastName], [c2].[NullableBool]
 FROM [FunkyCustomer] AS [c]
-CROSS JOIN [FunkyCustomer] AS [c2]
+, [FunkyCustomer] AS [c2]
 WHERE (CASE
     WHEN (SUBSTRING([c].[FirstName], (LEN([c].[FirstName]) + 1) - LEN([c2].[LastName]), LEN([c2].[LastName])) = [c2].[LastName]) OR ([c2].[LastName] = N'')
     THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT)
@@ -107,5 +113,19 @@ END <> [c].[NullableBool]) OR [c].[NullableBool] IS NULL",
 ";
 
         private string Sql => Fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
+
+        public class FunkyDataQueryJetFixture : FunkyDataQueryFixtureBase
+        {
+            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ServiceProvider.GetRequiredService<ILoggerFactory>();
+
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+
+            public override FunkyDataContext CreateContext()
+            {
+                var context = base.CreateContext();
+                context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+                return context;
+            }
+        }
     }
 }

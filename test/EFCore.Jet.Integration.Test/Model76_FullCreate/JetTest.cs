@@ -16,7 +16,7 @@ namespace EFCore.Jet.Integration.Test.Model76_FullCreate
             OleDbConnectionStringBuilder oleDbConnectionStringBuilder = new OleDbConnectionStringBuilder();
             //oleDbConnectionStringBuilder.Provider = "Microsoft.Jet.OLEDB.4.0";
             //oleDbConnectionStringBuilder.DataSource = @".\Empty.mdb";
-            oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.12.0";
+            oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.15.0";
             oleDbConnectionStringBuilder.DataSource = Helpers.GetTestDirectory() + "\\BrandNewDatabase.accdb";
             return new JetConnection(oleDbConnectionStringBuilder.ToString());
         }

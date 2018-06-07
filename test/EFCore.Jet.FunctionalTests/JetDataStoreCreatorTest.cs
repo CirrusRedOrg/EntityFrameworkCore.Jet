@@ -152,7 +152,7 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             using (var testDatabase = JetTestStore.CreateScratch(createDatabase: true))
             {
-                testDatabase.Connection.Close();
+                testDatabase.Dispose();
 
                 var creator = GetDatabaseCreator(testDatabase);
 
@@ -223,7 +223,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 var serviceProvider = serviceCollection.BuildServiceProvider();
 
                 var optionsBuilder = new DbContextOptionsBuilder();
-                optionsBuilder.UseJet(testDatabase.Connection.ConnectionString);
+                optionsBuilder.UseJet(testDatabase.ConnectionString);
 
                 using (var context = new BloggingContext(optionsBuilder.Options))
                 {
@@ -232,16 +232,16 @@ namespace EntityFramework.Jet.FunctionalTests
                     if (async)
                     {
                         await creator.CreateTablesAsync();
-                        testDatabase.Connection.Close();
+                        testDatabase.Dispose();
                         JetConnection.ClearAllPools();
-                        await testDatabase.Connection.OpenAsync();
+                        await testDatabase.OpenAsync();
                     }
                     else
                     {
                         creator.CreateTables();
-                        testDatabase.Connection.Close();
+                        testDatabase.Dispose();
                         JetConnection.ClearAllPools();
-                        testDatabase.Connection.Open();
+                        testDatabase.Open();
                     }
 
                     var tables = testDatabase.Query<string>("SHOW TABLES");
@@ -316,9 +316,9 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 Assert.True(creator.Exists());
 
-                if (testDatabase.Connection.State != ConnectionState.Open)
+                if (testDatabase.State != ConnectionState.Open)
                 {
-                    await testDatabase.Connection.OpenAsync();
+                    await testDatabase.OpenAsync();
                 }
 
                 Assert.Equal(0, (testDatabase.Query<string>("SELECT NAME FROM (SHOW TABLES)")).Count());

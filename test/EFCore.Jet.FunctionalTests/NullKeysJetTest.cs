@@ -4,6 +4,7 @@ using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFramework.Jet.FunctionalTests
@@ -15,10 +16,9 @@ namespace EntityFramework.Jet.FunctionalTests
         {
         }
 
-        public class NullKeysJetFixture : NullKeysFixtureBase, IDisposable
+        public class NullKeysJetFixture : NullKeysFixtureBase
         {
             private readonly DbContextOptions _options;
-            private readonly JetTestStore _testStore;
 
             public NullKeysJetFixture()
             {
@@ -33,13 +33,12 @@ namespace EntityFramework.Jet.FunctionalTests
                         .BuildServiceProvider())
                     .Options;
 
-                _testStore = JetTestStore.GetOrCreateShared(name, EnsureCreated);
             }
 
             public override DbContext CreateContext()
                 => new DbContext(_options);
 
-            public void Dispose() => _testStore.Dispose();
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
     }
 }

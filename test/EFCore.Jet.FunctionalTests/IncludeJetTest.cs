@@ -5,11 +5,11 @@ using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class IncludeJetTest : IncludeTestBase<NorthwindQueryJetFixture>
+    public class IncludeJetTest : IncludeTestBase<IncludeJetFixture>
     {
         private bool SupportsOffset => TestEnvironment.GetFlag(nameof(SqlServerCondition.SupportsOffset)) ?? true;
 
-        public IncludeJetTest(NorthwindQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+        public IncludeJetTest(IncludeJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();
@@ -1378,17 +1378,11 @@ ORDER BY [t].[c], [t].[CustomerID]");
         }
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                if (AssertSqlHelper.IgnoreStatement(item))
-                    return;
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
 
         protected override void ClearLog()
             => Fixture.TestSqlLoggerFactory.Clear();

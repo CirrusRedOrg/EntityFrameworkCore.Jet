@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data;
 using System.Data.Common;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -16,29 +17,44 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly int _maxSpecificSize;
 
         /// <summary>
-        ///     Initializes a new instance of the <see cref="JetStringTypeMapping" /> class.
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        /// <param name="storeType"> The name of the database type. </param>
-        /// <param name="size"> The size of data the property is configured to store, or null if no size is configured. </param>
         public JetStringTypeMapping(
             [NotNull] string storeType,
-            int? size = null)
-            : base(storeType, System.Data.DbType.String, true, size)
-        {
-            _maxSpecificSize = size.HasValue && size < 255
-                ? size.Value
-                : 255;
-        }
-
+            bool unicode = false,
+            int? size = null,
+            bool fixedLength = false,
+            StoreTypePostfix? storeTypePostfix = null)
+            : this(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(string)),
+                    storeType,
+                    storeTypePostfix ?? StoreTypePostfix.Size,
+                    (fixedLength ? System.Data.DbType.String : (DbType?)null),
+                    unicode,
+                    size,
+                    fixedLength))
+        { }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override RelationalTypeMapping Clone(string storeType, int? size)
-            => new JetStringTypeMapping(
-                storeType,
-                size);
+        protected JetStringTypeMapping(RelationalTypeMappingParameters parameters)
+            : base(parameters)
+        {
+            _maxSpecificSize = CalculateSize(parameters.Size);
+        }
+
+
+        private static int CalculateSize(int? size)
+        {
+            return size.HasValue && size < 255
+                ? size.Value
+                : 255;
+        }
+
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

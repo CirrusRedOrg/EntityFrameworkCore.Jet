@@ -3,10 +3,15 @@ using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.EntityFrameworkCore.Update.Internal;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.Tests.Migrations
@@ -600,9 +605,22 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
 
         protected override ModelBuilder CreateModelBuilder() => JetTestHelpers.Instance.CreateConventionBuilder();
 
-        protected override MigrationsModelDiffer CreateModelDiffer()
-            => new MigrationsModelDiffer(
-        new JetTypeMapper(new RelationalTypeMapperDependencies()),
-        new JetMigrationsAnnotationProvider(new MigrationsAnnotationProviderDependencies()));
+        protected override TestHelpers TestHelpers => JetTestHelpers.Instance;
+
+        protected override MigrationsModelDiffer CreateModelDiffer(IModel model)
+        {
+            var ctx = TestHelpers.CreateContext(
+                TestHelpers.AddProviderOptions(new DbContextOptionsBuilder())
+                    .UseModel(model).EnableSensitiveDataLogging().Options);
+            return new MigrationsModelDiffer(
+                new JetTypeMappingSource(
+                    TestServiceFactory.Instance.Create<TypeMappingSourceDependencies>(),
+                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>()),
+                new JetMigrationsAnnotationProvider(
+                    new MigrationsAnnotationProviderDependencies()),
+                ctx.GetService<IChangeDetector>(),
+                ctx.GetService<StateManagerDependencies>(),
+                ctx.GetService<CommandBatchPreparerDependencies>());
+        }
     }
 }

@@ -1,15 +1,14 @@
 ﻿using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class FiltersJetTest : FiltersTestBase<NorthwindQueryJetFixture>
+    public class FiltersJetTest : FiltersTestBase<NorthwindQueryJetFixture<NorthwindFiltersCustomizer>>
     {
-        public FiltersJetTest(NorthwindQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+        public FiltersJetTest(NorthwindQueryJetFixture<NorthwindFiltersCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();
@@ -25,7 +24,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
 SELECT COUNT(*)
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
         public override void Client_eval()
@@ -46,7 +45,7 @@ FROM [Products] AS [p]");
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
         public override void Materialized_query_parameter()
@@ -58,7 +57,7 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
 
         }
 
@@ -71,13 +70,13 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')",
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')",
                 //
                 @"@__TenantPrefix_0='T' (Nullable = false) (Size = 1)
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
         public override void Projection_query_parameter()
@@ -89,7 +88,7 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
 
 SELECT [c].[CustomerID]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
         public override void Projection_query()
@@ -101,7 +100,7 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
 
 SELECT [c].[CustomerID]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
         public override void Include_query()
@@ -113,7 +112,7 @@ WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantP
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')
 ORDER BY [c].[CustomerID]",
                 //
                 @"@__TenantPrefix_1='B' (Nullable = false) (Size = 1)
@@ -123,7 +122,7 @@ FROM [Orders] AS [c.Orders]
 INNER JOIN (
     SELECT [c0].[CustomerID]
     FROM [Customers] AS [c0]
-    WHERE ([c0].[CompanyName] LIKE @__TenantPrefix_1 + N'%' AND (CHARINDEX(@__TenantPrefix_1, [c0].[CompanyName]) = 1)) OR (@__TenantPrefix_1 = N'')
+    WHERE ([c0].[CompanyName] LIKE @__TenantPrefix_1 + N'%' AND (Instr(1, @__TenantPrefix_1, [c0].[CompanyName]) = 1)) OR (@__TenantPrefix_1 = N'')
 ) AS [t] ON [c.Orders].[CustomerID] = [t].[CustomerID]
 ORDER BY [t].[CustomerID]");
         }
@@ -158,7 +157,7 @@ FROM [Orders] AS [o]
 LEFT JOIN (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
     FROM [Customers] AS [c]
-    WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')
+    WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')
 ) AS [t] ON [o].[CustomerID] = [t].[CustomerID]");
         }
 
@@ -197,7 +196,7 @@ INNER JOIN (
     FROM [Order Details] AS [o]
     WHERE [o].[Quantity] > @___quantity_1
 ) AS [t] ON [c.Orders].[OrderID] = [t].[OrderID]
-WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')) AND ([t].[Discount] < 10)");
+WHERE (([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')) AND ([t].[Discount] < 10)");
         }
 
 
@@ -218,32 +217,14 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
 FROM (
     select * from Customers
 ) AS [c]
-WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (CHARINDEX(@__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
+WHERE ([c].[CompanyName] LIKE @__TenantPrefix_0 + N'%' AND (Instr(1, @__TenantPrefix_0, [c].[CompanyName]) = 1)) OR (@__TenantPrefix_0 = N'')");
         }
 
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                if (AssertSqlHelper.IgnoreStatement(item))
-                    return;
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
 
         private void AssertContains(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed, assertOrder: false);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
     }
 }

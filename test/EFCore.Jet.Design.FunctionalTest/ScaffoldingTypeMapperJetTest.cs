@@ -2,6 +2,7 @@
 using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.Design.FunctionalTests
@@ -161,6 +162,9 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
 
         private static ScaffoldingTypeMapper CreateMapper()
             => new ScaffoldingTypeMapper(
-                new JetTypeMapper(new RelationalTypeMapperDependencies()));
+                new JetTypeMappingSource(
+                    TestServiceFactory.Instance.Create<TypeMappingSourceDependencies>(),
+                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>()));
+
     }
 }

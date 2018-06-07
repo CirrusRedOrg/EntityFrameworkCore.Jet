@@ -4,7 +4,7 @@ using EFCore.Jet.Integration.Test;
 using EFCore.Jet.Integration.Test.GearOfWar;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace EFCore.SqlServer.Integration.Test.GearOfWar
+namespace EFCore.Jet.Integration.Test.GearOfWar
 {
     //[TestClass]
     public class GearOfWarTestSqlCe : TestBase<GearsOfWarContext>

@@ -21,9 +21,9 @@ namespace EntityFrameworkCore.Jet.Design.Internal
         /// </summary>
         public virtual void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
             => serviceCollection
-                .AddSingleton<IRelationalTypeMapper, JetTypeMapper>()
+                .AddSingleton<IRelationalTypeMappingSource, JetTypeMappingSource>()
                 .AddSingleton<IDatabaseModelFactory, JetDatabaseModelFactory>()
-                .AddSingleton<IScaffoldingProviderCodeGenerator, JetScaffoldingCodeGenerator>()
+                .AddSingleton<IProviderConfigurationCodeGenerator, JetCodeGenerator>()
                 .AddSingleton<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>();
     }
 }

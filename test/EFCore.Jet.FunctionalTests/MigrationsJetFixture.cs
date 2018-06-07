@@ -1,7 +1,9 @@
 ﻿using System;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFramework.Jet.FunctionalTests
@@ -25,7 +27,6 @@ namespace EntityFramework.Jet.FunctionalTests
         }
 
         public override MigrationsContext CreateContext() => new MigrationsContext(_options);
-
-        public override EmptyMigrationsContext CreateEmptyContext() => new EmptyMigrationsContext(_options);
+        protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
     }
 }

@@ -6,7 +6,7 @@ using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class InheritanceJetTest : InheritanceTestBase<JetTestStore, InheritanceJetFixture>
+    public class InheritanceJetTest : InheritanceTestBase<InheritanceJetFixture>
     {
         public InheritanceJetTest(InheritanceJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
@@ -288,8 +288,8 @@ WHERE [c].[Id] = 1",
                 @"@p0='Apteryx owenii' (Nullable = false) (Size = 100)
 @p1='1'
 @p2='Kiwi' (Nullable = false) (Size = 4000)
-@p3='Little spotted kiwi' (Size = 4000)
-@p4='' (Size = 100) (DbType = String)
+@p3='Little spotted kiwi' (Nullable = false) (Size = 4000)
+@p4='' (Nullable = false) (Size = 100) (DbType = String)
 @p5='True'
 @p6='North'
 
@@ -301,7 +301,7 @@ FROM [Animal] AS [k]
 WHERE ([k].[Discriminator] = 'Kiwi') AND (SUBSTRING([k].[Species], (LEN([k].[Species]) + 1) - LEN('owenii'), LEN('owenii')) = 'owenii')",
                 //
                 @"@p1='Apteryx owenii' (Nullable = false) (Size = 100)
-@p0='Aquila chrysaetos canadensis' (Size = 100)
+@p0='Aquila chrysaetos canadensis' (Nullable = false) (Size = 100)
 
 UPDATE [Animal] SET [EagleId] = @p0
 WHERE [Species] = @p1",
@@ -321,14 +321,10 @@ WHERE ([k].[Discriminator] = 'Kiwi') AND (SUBSTRING([k].[Species], (LEN([k].[Spe
         }
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
     }
 }

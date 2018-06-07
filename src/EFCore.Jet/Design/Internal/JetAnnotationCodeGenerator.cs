@@ -2,7 +2,6 @@
 
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -28,26 +27,34 @@ namespace EntityFrameworkCore.Jet.Design.Internal
             return false;
         }
 
-        public override string GenerateFluentApi(IKey key, IAnnotation annotation, string language)
+        public override MethodCallCodeFragment GenerateFluentApi(IKey key, IAnnotation annotation)
         {
             Check.NotNull(key, nameof(key));
             Check.NotNull(annotation, nameof(annotation));
-            Check.NotNull(language, nameof(language));
 
-            return annotation.Name == JetAnnotationNames.Clustered && language == "CSharp"
-                ? $".{nameof(JetIndexBuilderExtensions.ForJetIsClustered)}({((bool)annotation.Value == false ? "false" : "")})"
-                : null;
+            if (annotation.Name == JetAnnotationNames.Clustered)
+            {
+                return (bool)annotation.Value == false
+                    ? new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered), false)
+                    : new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered));
+            }
+
+            return null;
         }
 
-        public override string GenerateFluentApi(IIndex index, IAnnotation annotation, string language)
+        public override MethodCallCodeFragment GenerateFluentApi(IIndex index, IAnnotation annotation)
         {
             Check.NotNull(index, nameof(index));
             Check.NotNull(annotation, nameof(annotation));
-            Check.NotNull(language, nameof(language));
 
-            return annotation.Name == JetAnnotationNames.Clustered && language == "CSharp"
-                ? $".{nameof(JetIndexBuilderExtensions.ForJetIsClustered)}({((bool)annotation.Value == false ? "false" : "")})"
-                : null;
+            if (annotation.Name == JetAnnotationNames.Clustered)
+            {
+                return (bool)annotation.Value == false
+                    ? new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered), false)
+                    : new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered));
+            }
+
+            return null;
         }
     }
 }

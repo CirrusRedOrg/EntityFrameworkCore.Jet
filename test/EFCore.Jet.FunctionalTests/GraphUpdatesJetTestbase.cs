@@ -1,15 +1,15 @@
 ﻿using System;
 using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public abstract class GraphUpdatesJetTestBase<TFixture> : GraphUpdatesTestBase<JetTestStore, TFixture>
+    public abstract class GraphUpdatesJetTestBase<TFixture> : GraphUpdatesTestBase<TFixture>
         where TFixture : GraphUpdatesJetTestBase<TFixture>.GraphUpdatesJetFixtureBase, new()
     {
         protected GraphUpdatesJetTestBase(TFixture fixture)
@@ -22,39 +22,8 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public abstract class GraphUpdatesJetFixtureBase : GraphUpdatesFixtureBase
         {
-            private readonly IServiceProvider _serviceProvider;
-            private DbContextOptions _options;
-
-            protected GraphUpdatesJetFixtureBase()
-            {
-                _serviceProvider = new ServiceCollection()
-                    .AddEntityFrameworkJet()
-                    .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                    .BuildServiceProvider();
-            }
-
-            protected abstract string DatabaseName { get; }
-
-            public override JetTestStore CreateTestStore()
-            {
-                var testStore = JetTestStore.CreateScratch(true);
-
-                _options = new DbContextOptionsBuilder()
-                    .UseJet(testStore.Connection, b => b.ApplyConfiguration())
-                    .UseInternalServiceProvider(_serviceProvider)
-                    .Options;
-
-                using (var context = new GraphUpdatesContext(_options))
-                {
-                    context.Database.EnsureClean();
-                    Seed(context);
-                }
-
-                return testStore;
-            }
-
-            public override DbContext CreateContext(JetTestStore testStore)
-                => new GraphUpdatesContext(_options);
+            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ServiceProvider.GetRequiredService<ILoggerFactory>();
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
     }
 }

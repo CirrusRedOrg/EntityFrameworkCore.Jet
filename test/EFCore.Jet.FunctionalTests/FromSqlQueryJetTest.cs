@@ -7,14 +7,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class FromSqlQueryJetTest : FromSqlQueryTestBase<NorthwindQueryJetFixture>
+    public class FromSqlQueryJetTest : FromSqlQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
-        public FromSqlQueryJetTest(NorthwindQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+        public FromSqlQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
@@ -824,14 +825,11 @@ AND ((UnitsInStock + UnitsOnOrder) < ReorderLevel)")
         private string Sql => Fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
     }
 }
+

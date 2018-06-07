@@ -1,17 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Data.Jet;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class JetTestStore : RelationalTestStore
     {
+        public const int CommandTimeout = 600;
 
         private const string NorthwindName = "NorthwindEF7";
 
@@ -21,36 +28,44 @@ namespace EntityFramework.Jet.FunctionalTests
 
         private static string BaseDirectory => AppContext.BaseDirectory;
 
-        private JetConnection _connection;
         //private JetTransaction _transaction;
         /// <summary>
         /// The database file name
         /// </summary>
         private readonly string _name;
-        private string _connectionString;
-        private bool _deleteDatabase;
+        private readonly string _scriptPath;
+        private readonly bool _deleteDatabase;
 
-        public override string ConnectionString => _connectionString;
-
-        public JetTestStore(string name)
+        [SuppressMessage("ReSharper", "VirtualMemberCallInConstructor")]
+        private JetTestStore(string name, bool deleteDatabase = false, string scriptPath = null, bool shared = true) : base(name, shared)
         {
             _name = name;
-           
+            _deleteDatabase = deleteDatabase;
+            _scriptPath = scriptPath;
+            ConnectionString = CreateConnectionString(name);
+            Connection = new JetConnection(ConnectionString);
         }
 
+        public static JetTestStore GetOrCreate(string name)
+            => new JetTestStore(name);
 
-        public string Name { get; }
+        public static JetTestStore GetOrCreateInitialized(string name)
+            => new JetTestStore(name).InitializeJet(null, (Func<DbContext>)null, null);
+
+        public static JetTestStore GetOrCreate(string name, string scriptPath)
+            => new JetTestStore(name, scriptPath: scriptPath);
 
         public static JetTestStore GetNorthwindStore()
-            => JetTestStore.GetOrCreateShared(NorthwindName, () => { });
+            => (JetTestStore)JetNorthwindTestStoreFactory.Instance
+                .GetOrCreate(JetNorthwindTestStoreFactory.Name).Initialize(null, (Func<DbContext>)null, null);
 
-        public static JetTestStore GetOrCreateShared(string name, Action initializeDatabase)
-        {
-            return new JetTestStore(name).CreateShared(initializeDatabase);
-        }
 
-        public static JetTestStore Create(string name)
-            => new JetTestStore(name).CreateTransient(true);
+        public static JetTestStore Create(string name, bool useFileName = false)
+            => new JetTestStore(name, shared: false);
+
+        public static JetTestStore CreateInitialized(string name, bool useFileName = false, bool? multipleActiveResultSets = null)
+            => new JetTestStore(name, shared: false)
+                .InitializeJet(null, (Func<DbContext>)null, null);
 
         public static JetTestStore CreateScratch(bool createDatabase)
         {
@@ -61,7 +76,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
             while (File.Exists(name + ".accdb"));
 
-            return new JetTestStore(name).CreateTransient(createDatabase);
+            return new JetTestStore(name, deleteDatabase: true);
         }
 
         public static Task<JetTestStore> CreateScratchAsync(bool createDatabase = true)
@@ -69,47 +84,137 @@ namespace EntityFramework.Jet.FunctionalTests
             return Task.FromResult(CreateScratch(createDatabase));
         }
 
-        private JetTestStore CreateShared(Action initializeDatabase)
+
+        public JetTestStore InitializeJet(
+            IServiceProvider serviceProvider, Func<DbContext> createContext, Action<DbContext> seed)
+            => (JetTestStore)Initialize(serviceProvider, createContext, seed);
+
+        public JetTestStore InitializeJet(
+            IServiceProvider serviceProvider, Func<JetTestStore, DbContext> createContext, Action<DbContext> seed)
+            => InitializeJet(serviceProvider, () => createContext(this), seed);
+
+        protected override void Initialize(Func<DbContext> createContext, Action<DbContext> seed)
         {
-            _connectionString = CreateConnectionString(_name);
-            _connection = new JetConnection(_connectionString);
-
-            CreateShared(typeof(JetTestStore).Name + _name,
-                () =>
+            if (CreateDatabase())
+            {
+                if (_scriptPath != null)
                 {
-                    if (!Exists())
+                    ExecuteScript(_scriptPath);
+                }
+                else
+                {
+                    using (var context = createContext())
                     {
-                        initializeDatabase?.Invoke();
+                        context.Database.EnsureCreated();
+                        seed(context);
                     }
-                });
-
-            return this;
+                }
+            }
         }
 
-        private JetTestStore CreateTransient(bool createDatabase)
+        public void ExecuteScript(string scriptPath)
         {
-            _connectionString = CreateConnectionString(_name);
+            var script = File.ReadAllText(scriptPath);
+            Execute(
+                Connection, command =>
+                {
+                    foreach (var batch in
+                        new Regex("^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                            .Split(script).Where(b => !string.IsNullOrEmpty(b)))
+                    {
+                        command.CommandText = batch;
+                        command.ExecuteNonQuery();
+                    }
 
-            _connection = new JetConnection(_connectionString);
+                    return 0;
+                }, "");
+        }
 
-            if (createDatabase)
+        private static T Execute<T>(
+            DbConnection connection, Func<DbCommand, T> execute, string sql,
+            bool useTransaction = false, object[] parameters = null)
+            =>
+            ExecuteCommand(connection, execute, sql, useTransaction, parameters);
+
+
+        private static T ExecuteCommand<T>(
+            DbConnection connection, Func<DbCommand, T> execute, string sql, bool useTransaction, object[] parameters)
+        {
+            if (connection.State != ConnectionState.Closed)
             {
-                JetConnection.DropDatabase(_connectionString, false);
-                _connection.CreateEmptyDatabase();
-                _connection.Open();
+                connection.Close();
             }
 
-            _deleteDatabase = true;
+            connection.Open();
+            try
+            {
+                using (var transaction = useTransaction ? connection.BeginTransaction() : null)
+                {
+                    T result;
+                    using (var command = CreateCommand(connection, sql, parameters))
+                    {
+                        command.Transaction = transaction;
+                        result = execute(command);
+                    }
 
-            return this;
+                    transaction?.Commit();
+
+                    return result;
+                }
+            }
+            finally
+            {
+                if (connection.State != ConnectionState.Closed)
+                {
+                    connection.Close();
+                }
+            }
         }
 
-        public override DbConnection Connection => _connection;
-        public override DbTransaction Transaction => null;
+        private bool CreateDatabase()
+        {
+            if (File.Exists(_name + ".accdb"))
+            {
+                if (_scriptPath != null)
+                {
+                    return false;
+                }
+
+                using (var context = new DbContext(AddProviderOptions(new DbContextOptionsBuilder()).Options))
+                {
+                    Clean(context);
+                    return true;
+                }
+
+            }
+
+            JetConnection.CreateEmptyDatabase(JetConnection.GetConnectionString(_name + ".accdb"));
+            return true;
+        }
+
+        private void DeleteDatabase()
+        {
+            JetConnection.ClearAllPools();
+
+            if (File.Exists(_name + ".accdb"))
+                File.Delete(_name + ".accdb");
+
+        }
+
+        public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
+            => builder.UseJet(Connection, b => b.ApplyConfiguration().CommandTimeout(CommandTimeout));
+
+
+        public override void Clean(DbContext context)
+            => context.Database.EnsureClean();
+
+
+        public DbTransaction Transaction => null;
+        public ConnectionState State => Connection.State;
 
         public int ExecuteNonQuery(string sql, params object[] parameters)
         {
-            using (var command = CreateCommand(sql, parameters))
+            using (var command = CreateCommand(Connection, sql, parameters))
             {
                 return command.ExecuteNonQuery();
             }
@@ -117,7 +222,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public IEnumerable<T> Query<T>(string sql, params object[] parameters)
         {
-            using (var command = CreateCommand(sql, parameters))
+            using (var command = CreateCommand(Connection, sql, parameters))
             {
                 using (var dataReader = command.ExecuteReader())
                 {
@@ -135,12 +240,12 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public bool Exists()
         {
-            return _connection.DatabaseExists();
+            return ((JetConnection)Connection).DatabaseExists();
         }
 
-        private DbCommand CreateCommand(string commandText, object[] parameters)
+        private static DbCommand CreateCommand(DbConnection connection, string commandText, object[] parameters)
         {
-            var command = _connection.CreateCommand();
+            var command = connection.CreateCommand();
 
             command.CommandText = commandText;
 
@@ -155,14 +260,16 @@ namespace EntityFramework.Jet.FunctionalTests
         public override void Dispose()
         {
             Transaction?.Dispose();
-
-            if (_deleteDatabase)
-            {
-                _connection.DropDatabase(false);
-            }
             Connection?.Dispose();
+            if (_deleteDatabase)
+                ((JetConnection)Connection)?.DropDatabase(false);
+
             base.Dispose();
         }
+
+        public async Task OpenAsync() => await Connection?.OpenAsync();
+
+        public void Open() => Connection?.Open();
 
         public static string CreateConnectionString(string name)
         {
@@ -173,6 +280,9 @@ namespace EntityFramework.Jet.FunctionalTests
         }
 
 
+        public void Close() => Connection?.Close();
+
+        
 
     }
 }

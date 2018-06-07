@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class InheritanceRelationshipsQueryJetTest
-        : InheritanceRelationshipsQueryTestBase<JetTestStore, InheritanceRelationshipsQueryJetFixture>
+        : InheritanceRelationshipsQueryTestBase<InheritanceRelationshipsQueryJetFixture>
     {
         public InheritanceRelationshipsQueryJetTest(
             InheritanceRelationshipsQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
@@ -26,14 +26,6 @@ LEFT JOIN (
     WHERE [e.BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
 ) AS [t] ON [e].[Id] = [t].[BaseParentId]
 WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
-        }
-
-        public override void Include_reference_with_inheritance2()
-        {
-            base.Include_reference_with_inheritance2();
-
-            AssertSql(
-                @"");
         }
 
         public override void Include_reference_with_inheritance_reverse()
@@ -94,14 +86,6 @@ LEFT JOIN (
     WHERE [e.BaseReferenceOnBase].[Discriminator] IN ('DerivedReferenceOnBase', 'BaseReferenceOnBase')
 ) AS [t] ON [e].[Id] = [t].[BaseParentId]
 WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
-        }
-
-        public override void Include_reference_with_inheritance_with_filter2()
-        {
-            base.Include_reference_with_inheritance_with_filter2();
-
-            AssertSql(
-                @"");
         }
 
         public override void Include_reference_with_inheritance_with_filter_reverse()
@@ -191,14 +175,6 @@ WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'B
 ORDER BY [t].[Id]");
         }
 
-        public override void Include_collection_with_inheritance2()
-        {
-            base.Include_collection_with_inheritance2();
-
-            AssertSql(
-                @"");
-        }
-
         public override void Include_collection_with_inheritance_reverse()
         {
             base.Include_collection_with_inheritance_reverse();
@@ -233,14 +209,6 @@ INNER JOIN (
 ) AS [t] ON [e#BaseCollectionOnBase].[BaseParentId] = [t].[Id]
 WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
 ORDER BY [t].[Id]");
-        }
-
-        public override void Include_collection_with_inheritance_with_filter2()
-        {
-            base.Include_collection_with_inheritance_with_filter2();
-
-            AssertSql(
-                @"");
         }
 
         public override void Include_collection_with_inheritance_with_filter_reverse()
@@ -357,14 +325,6 @@ LEFT JOIN (
 WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
         }
 
-        public override void Include_reference_with_inheritance_on_derived3()
-        {
-            base.Include_reference_with_inheritance_on_derived3();
-
-            AssertSql(
-                @"");
-        }
-
         public override void Include_reference_with_inheritance_on_derived4()
         {
             base.Include_reference_with_inheritance_on_derived4();
@@ -423,14 +383,6 @@ LEFT JOIN (
     WHERE [e.BaseReferenceOnDerived].[Discriminator] IN ('DerivedReferenceOnDerived', 'BaseReferenceOnDerived')
 ) AS [t] ON [e].[Id] = [t].[BaseParentId]
 WHERE ([e].[Discriminator] = 'DerivedInheritanceRelationshipEntity') AND (([e].[Name] <> 'Bar') OR [e].[Name] IS NULL)");
-        }
-
-        public override void Include_reference_with_inheritance_on_derived_with_filter3()
-        {
-            base.Include_reference_with_inheritance_on_derived_with_filter3();
-
-            AssertSql(
-                @"");
         }
 
         public override void Include_reference_with_inheritance_on_derived_with_filter4()
@@ -549,14 +501,6 @@ ORDER BY [t].[Id]");
                 @"");
         }
 
-        public override void Include_collection_with_inheritance_on_derived4()
-        {
-            base.Include_collection_with_inheritance_on_derived4();
-
-            AssertSql(
-                @"");
-        }
-
         public override void Include_collection_with_inheritance_on_derived_reverse()
         {
             base.Include_collection_with_inheritance_on_derived_reverse();
@@ -592,14 +536,6 @@ LEFT JOIN (
 WHERE [e].[Discriminator] IN ('DerivedInheritanceRelationshipEntity', 'BaseInheritanceRelationshipEntity')");
         }
 
-        public override void Nested_include_with_inheritance_reference_reference2()
-        {
-            base.Nested_include_with_inheritance_reference_reference2();
-
-            AssertSql(
-                @"");
-        }
-
         public override void Nested_include_with_inheritance_reference_reference3()
         {
             base.Nested_include_with_inheritance_reference_reference3();
@@ -618,14 +554,6 @@ LEFT JOIN (
     WHERE [e.BaseReferenceOnBase.NestedReference].[Discriminator] IN ('NestedReferenceDerived', 'NestedReferenceBase')
 ) AS [t0] ON [t].[Id] = [t0].[ParentReferenceId]
 WHERE [e].[Discriminator] = 'DerivedInheritanceRelationshipEntity'");
-        }
-
-        public override void Nested_include_with_inheritance_reference_reference4()
-        {
-            base.Nested_include_with_inheritance_reference_reference4();
-
-            AssertSql(
-                @"");
         }
 
         public override void Nested_include_with_inheritance_reference_reference_reverse()
@@ -679,14 +607,6 @@ WHERE [e.BaseReferenceOnBase.NestedCollection].[Discriminator] IN ('NestedCollec
 ORDER BY [t1].[Id]");
         }
 
-        public override void Nested_include_with_inheritance_reference_collection2()
-        {
-            base.Nested_include_with_inheritance_reference_collection2();
-
-            AssertSql(
-                @"");
-        }
-
         public override void Nested_include_with_inheritance_reference_collection3()
         {
             base.Nested_include_with_inheritance_reference_collection3();
@@ -716,14 +636,6 @@ INNER JOIN (
 ) AS [t1] ON [e.BaseReferenceOnBase.NestedCollection].[ParentReferenceId] = [t1].[Id]
 WHERE [e.BaseReferenceOnBase.NestedCollection].[Discriminator] IN ('NestedCollectionDerived', 'NestedCollectionBase')
 ORDER BY [t1].[Id]");
-        }
-
-        public override void Nested_include_with_inheritance_reference_collection4()
-        {
-            base.Nested_include_with_inheritance_reference_collection4();
-
-            AssertSql(
-                @"");
         }
 
         public override void Nested_include_with_inheritance_reference_collection_reverse()
@@ -770,30 +682,6 @@ INNER JOIN (
 ) AS [t0] ON [e#BaseCollectionOnBase].[BaseParentId] = [t0].[Id]
 WHERE [e#BaseCollectionOnBase].[Discriminator] IN ('DerivedCollectionOnBase', 'BaseCollectionOnBase')
 ORDER BY [t0].[Id]");
-        }
-
-        public override void Nested_include_with_inheritance_collection_reference2()
-        {
-            base.Nested_include_with_inheritance_collection_reference2();
-
-            AssertSql(
-                @"");
-        }
-
-        public override void Nested_include_with_inheritance_collection_reference3()
-        {
-            base.Nested_include_with_inheritance_collection_reference3();
-
-            AssertSql(
-                @"");
-        }
-
-        public override void Nested_include_with_inheritance_collection_reference4()
-        {
-            base.Nested_include_with_inheritance_collection_reference4();
-
-            AssertSql(
-                @"");
         }
 
         public override void Nested_include_with_inheritance_collection_reference_reverse()
@@ -852,30 +740,6 @@ WHERE [e.BaseCollectionOnBase.NestedCollection].[Discriminator] IN ('NestedColle
 ORDER BY [t1].[Id0], [t1].[Id]");
         }
 
-        public override void Nested_include_with_inheritance_collection_collection2()
-        {
-            base.Nested_include_with_inheritance_collection_collection2();
-
-            AssertSql(
-                @"");
-        }
-
-        public override void Nested_include_with_inheritance_collection_collection3()
-        {
-            base.Nested_include_with_inheritance_collection_collection3();
-
-            AssertSql(
-                @"");
-        }
-
-        public override void Nested_include_with_inheritance_collection_collection4()
-        {
-            base.Nested_include_with_inheritance_collection_collection4();
-
-            AssertSql(
-                @"");
-        }
-
         public override void Nested_include_with_inheritance_collection_collection_reverse()
         {
             base.Nested_include_with_inheritance_collection_collection_reverse();
@@ -916,16 +780,10 @@ ORDER BY [t].[Id]");
         }
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                if (AssertSqlHelper.IgnoreStatement(item))
-                    return;
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
     }
 }

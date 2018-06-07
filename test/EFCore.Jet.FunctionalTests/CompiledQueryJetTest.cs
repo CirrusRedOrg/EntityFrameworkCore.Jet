@@ -1,13 +1,14 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class CompiledQueryJetTest : CompiledQueryTestBase<NorthwindQueryJetFixture>
+    public class CompiledQueryJetTest : CompiledQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
-        public CompiledQueryJetTest(NorthwindQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+        public CompiledQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();

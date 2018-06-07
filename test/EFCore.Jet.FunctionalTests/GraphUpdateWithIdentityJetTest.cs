@@ -1,4 +1,6 @@
-﻿using Xunit;
+﻿using EntityFrameworkCore.Jet;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
@@ -11,7 +13,14 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class GraphUpdatesWithIdentityJetFixture : GraphUpdatesJetFixtureBase
         {
-            protected override string DatabaseName => "GraphIdentityUpdatesTest";
+            protected override string StoreName { get; } = "GraphIdentityUpdatesTest";
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+            {
+                modelBuilder.ForJetUseIdentityColumns();
+
+                base.OnModelCreating(modelBuilder, context);
+            }
         }
 
         [Theory(Skip = "Unsupported by JET: JET behaviour requires that both columns in a composite foreign key are null")]
@@ -21,9 +30,9 @@ namespace EntityFramework.Jet.FunctionalTests
         }
 
         [Theory(Skip = "Unsupported by JET: JET behaviour requires that both columns in a composite foreign key are null")]
-        public override void Optional_many_to_one_dependents_with_alternate_key_are_orphaned() { }
+        public override DbUpdateException Optional_many_to_one_dependents_with_alternate_key_are_orphaned() { return null; }
         [Theory(Skip = "Unsupported by JET: JET behaviour requires that both columns in a composite foreign key are null")]
-        public override void Optional_one_to_one_with_alternate_key_are_orphaned() { }
+        public override DbUpdateException Optional_one_to_one_with_alternate_key_are_orphaned() { return null; }
         [Theory(Skip = "Unsupported by JET: JET behaviour requires that both columns in a composite foreign key are null")]
         public override void Save_optional_many_to_one_dependents_with_alternate_key(ChangeMechanism changeMechanism, bool useExistingEntities) { }
         [Theory(Skip = "Unsupported by JET: JET behaviour requires that both columns in a composite foreign key are null")]
@@ -31,46 +40,46 @@ namespace EntityFramework.Jet.FunctionalTests
 
 
         [Theory(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Save_required_one_to_one_changed_by_reference(ChangeMechanism changeMechanism) { }
+        public override DbUpdateException Save_required_one_to_one_changed_by_reference(ChangeMechanism changeMechanism) { return null; }
 
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_many_to_one_dependents_are_cascade_deleted_starting_detached() { }
+        public override DbUpdateException Required_many_to_one_dependents_are_cascade_deleted_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_many_to_one_dependents_with_alternate_key_are_cascade_deleted_in_store() { }
+        public override DbUpdateException Required_many_to_one_dependents_with_alternate_key_are_cascade_deleted_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_many_to_one_dependents_with_alternate_key_are_cascade_deleted_starting_detached() { }
+        public override DbUpdateException Required_many_to_one_dependents_with_alternate_key_are_cascade_deleted_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_non_PK_one_to_one_are_cascade_deleted_in_store() { }
+        public override DbUpdateException Required_non_PK_one_to_one_are_cascade_deleted_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_non_PK_one_to_one_are_cascade_deleted_starting_detached() { }
+        public override DbUpdateException Required_non_PK_one_to_one_are_cascade_deleted_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_non_PK_one_to_one_with_alternate_key_are_cascade_deleted_in_store() { }
+        public override DbUpdateException Required_non_PK_one_to_one_with_alternate_key_are_cascade_deleted_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_non_PK_one_to_one_with_alternate_key_are_cascade_deleted_starting_detached() { }
+        public override DbUpdateException Required_non_PK_one_to_one_with_alternate_key_are_cascade_deleted_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_one_to_one_are_cascade_deleted_in_store() { }
+        public override DbUpdateException Required_one_to_one_are_cascade_deleted_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_one_to_one_are_cascade_deleted_starting_detached() { }
+        public override DbUpdateException Required_one_to_one_are_cascade_deleted_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_one_to_one_with_alternate_key_are_cascade_deleted_in_store() { }
+        public override DbUpdateException Required_one_to_one_with_alternate_key_are_cascade_deleted_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Required_one_to_one_with_alternate_key_are_cascade_deleted_starting_detached() { }
+        public override DbUpdateException Required_one_to_one_with_alternate_key_are_cascade_deleted_starting_detached() { return null; }
 
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_many_to_one_dependents_are_orphaned_in_store() { }
+        public override DbUpdateException Optional_many_to_one_dependents_are_orphaned_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_many_to_one_dependents_are_orphaned_starting_detached() { }
+        public override DbUpdateException Optional_many_to_one_dependents_are_orphaned_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_many_to_one_dependents_with_alternate_key_are_orphaned_in_store() { }
+        public override DbUpdateException Optional_many_to_one_dependents_with_alternate_key_are_orphaned_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_many_to_one_dependents_with_alternate_key_are_orphaned_starting_detached() { }
+        public override DbUpdateException Optional_many_to_one_dependents_with_alternate_key_are_orphaned_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_one_to_one_are_orphaned_in_store() { }
+        public override DbUpdateException Optional_one_to_one_are_orphaned_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_one_to_one_are_orphaned_starting_detached() { }
+        public override DbUpdateException Optional_one_to_one_are_orphaned_starting_detached() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_one_to_one_with_alternate_key_are_orphaned_in_store() { }
+        public override DbUpdateException Optional_one_to_one_with_alternate_key_are_orphaned_in_store() { return null; }
         [Fact(Skip = "Unsupported by JET: OleDB does not support parallel transactions")]
-        public override void Optional_one_to_one_with_alternate_key_are_orphaned_starting_detached() { }
+        public override DbUpdateException Optional_one_to_one_with_alternate_key_are_orphaned_starting_detached() { return null; }
     }
 }

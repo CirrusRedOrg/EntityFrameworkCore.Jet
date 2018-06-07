@@ -4,6 +4,7 @@ using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -11,7 +12,7 @@ using Xunit;
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class LoadJetTest
-        : LoadTestBase<JetTestStore, LoadJetTest.LoadJetFixture>
+        : LoadTestBase<LoadJetTest.LoadJetFixture>
     {
         public LoadJetTest(LoadJetFixture fixture)
             : base(fixture)
@@ -1565,20 +1566,8 @@ WHERE False = True",
                     .Options;
             }
 
-            public override JetTestStore CreateTestStore()
-            {
-                return JetTestStore.GetOrCreateShared(DatabaseName, () =>
-                {
-                    using (var context = new LoadContext(_options))
-                    {
-                        context.Database.EnsureCreated();
-                        Seed(context);
-                    }
-                });
-            }
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 
-            public override DbContext CreateContext(JetTestStore testStore)
-                => new LoadContext(_options);
         }
     }
 }

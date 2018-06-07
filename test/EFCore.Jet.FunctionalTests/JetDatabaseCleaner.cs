@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.Logging;
 
 namespace EntityFramework.Jet.FunctionalTests
@@ -19,7 +20,9 @@ namespace EntityFramework.Jet.FunctionalTests
                     new DiagnosticListener("Fake")));
 
         protected override bool AcceptIndex(DatabaseIndex index)
-            => !index.Name.StartsWith("PK_", StringComparison.Ordinal)
-               && !index.Name.StartsWith("AK_", StringComparison.Ordinal);
+            => !index.Name.StartsWith("PK_", StringComparison.Ordinal) &&
+               !index.Name.StartsWith("AK_", StringComparison.Ordinal) &&
+               !index.Name.StartsWith("FK_", StringComparison.Ordinal);
+
     }
 }

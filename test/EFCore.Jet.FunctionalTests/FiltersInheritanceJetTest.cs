@@ -3,7 +3,7 @@ using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class FiltersInheritanceJetTest : FiltersInheritanceTestBase<JetTestStore, FiltersInheritanceJetFixture>
+    public class FiltersInheritanceJetTest : FiltersInheritanceTestBase<FiltersInheritanceJetFixture>
     {
         public FiltersInheritanceJetTest(FiltersInheritanceJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
@@ -98,14 +98,10 @@ WHERE ([k].[Discriminator] = 'Kiwi') AND ([k].[CountryId] = 1)");
         }
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
     }
 }

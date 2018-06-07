@@ -5,13 +5,14 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class AsyncFromSqlQueryJetTest : AsyncFromSqlQueryTestBase<NorthwindQueryJetFixture>
+    public class AsyncFromSqlQueryJetTest : AsyncFromSqlQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
-        public AsyncFromSqlQueryJetTest(NorthwindQueryJetFixture fixture)
+        public AsyncFromSqlQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture)
             : base(fixture)
         {
         }

@@ -3,14 +3,13 @@ using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestModels.ComplexNavigationsModel;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class ComplexNavigationsQueryJetFixture
-        : ComplexNavigationsQueryFixtureBase<JetTestStore>
+    public class ComplexNavigationsQueryJetFixture : ComplexNavigationsQueryFixtureBase
     {
         public static readonly string DatabaseName = "ComplexNavigations";
 
@@ -35,27 +34,8 @@ namespace EntityFramework.Jet.FunctionalTests
                 .UseInternalServiceProvider(serviceProvider).Options;
         }
 
-        public override JetTestStore CreateTestStore()
-        {
-            return JetTestStore.GetOrCreateShared(DatabaseName, () =>
-            {
-                using (var context = new ComplexNavigationsContext(_options))
-                {
-                    context.Database.EnsureCreated();
-                    ComplexNavigationsModelInitializer.Seed(context);
-                }
-            });
-        }
 
-        public override ComplexNavigationsContext CreateContext(JetTestStore testStore)
-        {
-            var context = new ComplexNavigationsContext(_options);
 
-            context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
-
-            context.Database.UseTransaction(testStore.Transaction);
-
-            return context;
-        }
+        protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
     }
 }

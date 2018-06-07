@@ -1,13 +1,12 @@
 ﻿using System;
-using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class PropertyValuesJetTest
-        : PropertyValuesTestBase<JetTestStore, PropertyValuesJetTest.PropertyValuesJetFixture>
+        : PropertyValuesTestBase<PropertyValuesJetTest.PropertyValuesJetFixture>
     {
         public PropertyValuesJetTest(PropertyValuesJetFixture fixture)
             : base(fixture)
@@ -16,44 +15,17 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class PropertyValuesJetFixture : PropertyValuesFixtureBase
         {
-            private const string DatabaseName = "PropertyValues";
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 
-            private readonly IServiceProvider _serviceProvider;
-
-            public PropertyValuesJetFixture()
+            protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
-                _serviceProvider = new ServiceCollection()
-                    .AddEntityFrameworkJet()
-                    .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                    .BuildServiceProvider();
-            }
+                base.OnModelCreating(modelBuilder, context);
 
-            public override JetTestStore CreateTestStore()
-            {
-                return JetTestStore.GetOrCreateShared(DatabaseName, () =>
-                {
-                    var optionsBuilder = new DbContextOptionsBuilder()
-                        .UseJet(JetTestStore.CreateConnectionString(DatabaseName))
-                        .UseInternalServiceProvider(_serviceProvider);
+                modelBuilder.Entity<Building>()
+                    .Property(b => b.Value).HasColumnType("decimal(18,2)");
 
-                    using (var context = new AdvancedPatternsMasterContext(optionsBuilder.Options))
-                    {
-                        context.Database.EnsureClean();
-                        Seed(context);
-                    }
-                });
-            }
-
-            public override DbContext CreateContext(JetTestStore testStore)
-            {
-                var optionsBuilder = new DbContextOptionsBuilder()
-                    .UseJet(testStore.Connection)
-                    .UseInternalServiceProvider(_serviceProvider);
-
-                var context = new AdvancedPatternsMasterContext(optionsBuilder.Options);
-                context.Database.UseTransaction(testStore.Transaction);
-
-                return context;
+                modelBuilder.Entity<CurrentEmployee>()
+                    .Property(ce => ce.LeaveBalance).HasColumnType("decimal(18,2)");
             }
         }
     }

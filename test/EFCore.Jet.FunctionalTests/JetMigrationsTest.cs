@@ -36,7 +36,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var optionsBuilder = new DbContextOptionsBuilder();
             optionsBuilder
-                .UseJet(testStore.Connection.ConnectionString)
+                .UseJet(testStore.ConnectionString)
                 .UseInternalServiceProvider(serviceProvider);
 
             return new BloggingContext(serviceProvider, optionsBuilder.Options);

@@ -1,7 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -11,7 +10,7 @@ namespace EntityFrameworkCore.Jet.Diagnostics
     /// <summary>
     ///     <para>
     ///         Event IDs for Jet events that correspond to messages logged to an <see cref="ILogger" />
-    ///         and events sent to a <see cref="DiagnosticSource" />.
+    ///         and events sent to a <see cref="System.Diagnostics.DiagnosticSource" />.
     ///     </para>
     ///     <para>
     ///         These IDs are also used with <see cref="WarningsConfigurationBuilder" /> to configure the
@@ -53,7 +52,12 @@ namespace EntityFrameworkCore.Jet.Diagnostics
             TableFound,
             TableSkipped,
             TypeAliasFound,
-            ForeignKeyTableMissingWarning
+            ForeignKeyTableMissingWarning,
+            PrimaryKeyFound,
+            UniqueConstraintFound,
+            IndexFound,
+            ForeignKeyFound,
+            ForeignKeyPrincipalColumnMissingWarning
         }
 
         private static readonly string _validationPrefix = DbLoggerCategory.Model.Validation.Name + ".";
@@ -67,20 +71,20 @@ namespace EntityFrameworkCore.Jet.Diagnostics
         ///         This event is in the <see cref="DbLoggerCategory.Model.Validation" /> category.
         ///     </para>
         ///     <para>
-        ///         This event uses the <see cref="PropertyEventData" /> payload when used with a <see cref="DiagnosticSource" />.
+        ///         This event uses the <see cref="PropertyEventData" /> payload when used with a <see cref="System.Diagnostics.DiagnosticSource" />.
         ///     </para>
         /// </summary>
         public static readonly EventId DecimalTypeDefaultWarning = MakeValidationId(Id.DecimalTypeDefaultWarning);
 
         /// <summary>
         ///     <para>
-        ///         A byte property is set up to use a Jet identity column.
+        ///         A byte property is set up to use a SQL Server identity column.
         ///     </para>
         ///     <para>
         ///         This event is in the <see cref="DbLoggerCategory.Model.Validation" /> category.
         ///     </para>
         ///     <para>
-        ///         This event uses the <see cref="PropertyEventData" /> payload when used with a <see cref="DiagnosticSource" />.
+        ///         This event uses the <see cref="PropertyEventData" /> payload when used with a <see cref="System.Diagnostics.DiagnosticSource" />.
         ///     </para>
         /// </summary>
         public static readonly EventId ByteIdentityColumnWarning = MakeValidationId(Id.ByteIdentityColumnWarning);
@@ -98,6 +102,7 @@ namespace EntityFrameworkCore.Jet.Diagnostics
         ///     A column of a foreign key was found.
         ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
         /// </summary>
+        [Obsolete]
         public static readonly EventId ForeignKeyColumnFound = MakeScaffoldingId(Id.ForeignKeyColumnFound);
 
         /// <summary>
@@ -187,9 +192,10 @@ namespace EntityFrameworkCore.Jet.Diagnostics
         public static readonly EventId IndexNotNamedWarning = MakeScaffoldingId(Id.IndexNotNamedWarning);
 
         /// <summary>
-        ///     The table referened by an index was not found.
+        ///     The table referenced by an index was not found.
         ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
         /// </summary>
+        [Obsolete]
         public static readonly EventId IndexTableMissingWarning = MakeScaffoldingId(Id.IndexTableMissingWarning);
 
         /// <summary>
@@ -209,18 +215,21 @@ namespace EntityFrameworkCore.Jet.Diagnostics
         ///     A table was skipped.
         ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
         /// </summary>
+        [Obsolete]
         public static readonly EventId TableSkipped = MakeScaffoldingId(Id.TableSkipped);
 
         /// <summary>
         ///     A column was skipped.
         ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
         /// </summary>
+        [Obsolete]
         public static readonly EventId ColumnSkipped = MakeScaffoldingId(Id.ColumnSkipped);
 
         /// <summary>
         ///     An index was skipped.
         ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
         /// </summary>
+        [Obsolete]
         public static readonly EventId IndexColumnFound = MakeScaffoldingId(Id.IndexColumnFound);
 
         /// <summary>
@@ -240,6 +249,37 @@ namespace EntityFrameworkCore.Jet.Diagnostics
         ///     A foreign key table was not found.
         ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
         /// </summary>
+        [Obsolete]
         public static readonly EventId ForeignKeyTableMissingWarning = MakeScaffoldingId(Id.ForeignKeyTableMissingWarning);
+
+        /// <summary>
+        ///     Primary key was found.
+        ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
+        /// </summary>
+        public static readonly EventId PrimaryKeyFound = MakeScaffoldingId(Id.PrimaryKeyFound);
+
+        /// <summary>
+        ///     An unique constraint was found.
+        ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
+        /// </summary>
+        public static readonly EventId UniqueConstraintFound = MakeScaffoldingId(Id.UniqueConstraintFound);
+
+        /// <summary>
+        ///     An index was found.
+        ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
+        /// </summary>
+        public static readonly EventId IndexFound = MakeScaffoldingId(Id.IndexFound);
+
+        /// <summary>
+        ///     A foreign key was found.
+        ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
+        /// </summary>
+        public static readonly EventId ForeignKeyFound = MakeScaffoldingId(Id.ForeignKeyFound);
+
+        /// <summary>
+        ///     A principal column referenced by a foreign key was not found.
+        ///     This event is in the <see cref="DbLoggerCategory.Scaffolding" /> category.
+        /// </summary>
+        public static readonly EventId ForeignKeyPrincipalColumnMissingWarning = MakeScaffoldingId(Id.ForeignKeyPrincipalColumnMissingWarning);
     }
 }

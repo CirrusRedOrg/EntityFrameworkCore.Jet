@@ -1,12 +1,14 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Metadata.Conventions.Internal;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
+using Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Metadata.Conventions
 {
@@ -63,17 +65,24 @@ namespace EntityFrameworkCore.Jet.Metadata.Conventions
             return conventionSet;
         }
 
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
         public static ConventionSet Build()
         {
-            var jetTypeMapper = new JetTypeMapper(new RelationalTypeMapperDependencies());
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkJet()
+                .AddDbContext<DbContext>(o => o.UseJet("Provider=Microsoft.ACE.OLEDB.15.0;Data Source=_.accdb;"))
+                .BuildServiceProvider();
 
-            return new JetConventionSetBuilder(
-                    new RelationalConventionSetBuilderDependencies(jetTypeMapper, null, null),
-                    new JetSqlGenerationHelper(new RelationalSqlGenerationHelperDependencies()))
-                .AddConventions(
-                    new CoreConventionSetBuilder(
-                            new CoreConventionSetBuilderDependencies(jetTypeMapper))
-                        .CreateConventionSet());
+            using (var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope())
+            {
+                using (var context = serviceScope.ServiceProvider.GetService<DbContext>())
+                {
+                    return ConventionSet.CreateConventionSet(context);
+                }
+            }
         }
     }
 }

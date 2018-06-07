@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.Jet.Infrastructure
 {
+#pragma warning disable 1574
     /// <summary>
     ///     <para>
     ///         Allows Jet specific configuration to be performed on <see cref="DbContextOptions" />.
@@ -15,12 +16,11 @@ namespace EntityFrameworkCore.Jet.Infrastructure
     ///     <para>
     ///         Instances of this class are returned from a call to
     ///         <see
-#pragma warning disable 1574
     ///             cref="JetDbContextOptionsExtensions.UseJet" />
-#pragma warning restore 1574
     ///         and it is not designed to be directly constructed in your application code.
     ///     </para>
     /// </summary>
+#pragma warning restore 1574
     public class JetDbContextOptionsBuilder
         : RelationalDbContextOptionsBuilder<JetDbContextOptionsBuilder, JetOptionsExtension>
     {

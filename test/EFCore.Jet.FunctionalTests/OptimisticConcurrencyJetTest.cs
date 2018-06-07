@@ -6,7 +6,7 @@ using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class OptimisticConcurrencyJetTest : OptimisticConcurrencyTestBase<JetTestStore, F1JetFixture>
+    public class OptimisticConcurrencyJetTest : OptimisticConcurrencyTestBase<F1JetFixture>
     {
         public OptimisticConcurrencyJetTest(F1JetFixture fixture)
             : base(fixture)

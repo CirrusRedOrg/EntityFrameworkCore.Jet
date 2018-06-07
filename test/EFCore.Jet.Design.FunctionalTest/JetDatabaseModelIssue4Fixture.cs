@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.Design.FunctionalTests
             get
             {
                 if (_TestStore == null)
-                    _TestStore = JetTestStore.GetOrCreateShared("Issue_4.mdb", () => {});
+                    _TestStore = JetTestStore.Create("Issue_4.mdb");
                 return _TestStore;
             }
         }

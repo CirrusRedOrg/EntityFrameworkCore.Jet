@@ -1,45 +1,19 @@
 ﻿using System;
 using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Infrastructure;
-using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class NorthwindQueryWithForcedClientEvalJetFixture : NorthwindQueryRelationalFixture, IDisposable
+    public class NorthwindQueryWithForcedClientEvalJetFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>, IDisposable
+        where TModelCustomizer : IModelCustomizer, new()
     {
         private readonly DbContextOptions _options;
 
         private readonly JetTestStore _testStore = JetTestStore.GetNorthwindStore();
-
-        public TestSqlLoggerFactory TestSqlLoggerFactory { get; } = new TestSqlLoggerFactory();
-
-        public NorthwindQueryWithForcedClientEvalJetFixture()
-        {
-            _options = BuildOptions();
-        }
-
-        public override DbContextOptions BuildOptions(IServiceCollection additionalServices = null)
-            => ConfigureOptions(
-                new DbContextOptionsBuilder()
-                    .EnableSensitiveDataLogging()
-                    .UseInternalServiceProvider((additionalServices ?? new ServiceCollection())
-                        .AddEntityFrameworkJet()
-                        .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                        .AddSingleton<ILoggerFactory>(TestSqlLoggerFactory)
-                        .BuildServiceProvider()))
-                .UseJet(
-                    _testStore.ConnectionString,
-                    b =>
-                    {
-                        ConfigureOptions(b);
-                        b.ApplyConfiguration();
-                    })
-                    .Options;
 
         protected virtual DbContextOptionsBuilder ConfigureOptions(DbContextOptionsBuilder dbContextOptionsBuilder)
             => dbContextOptionsBuilder;
@@ -48,6 +22,6 @@ namespace EntityFramework.Jet.FunctionalTests
         {
         }
 
-        public void Dispose() => _testStore.Dispose();
+        protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
     }
 }

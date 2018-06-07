@@ -43,7 +43,7 @@ namespace System.Data.Jet.Test
             var script = File.ReadAllText(_scriptPath);
             foreach (var batch in
                 new Regex("^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
-                    .Split(script).Where(b => !string.IsNullOrEmpty(b)))
+                    .Split(script).Where(b => !string.IsNullOrEmpty(b)).ToList())
             {
                 DbCommand command = _connection.CreateCommand();
                 command.CommandText = batch;

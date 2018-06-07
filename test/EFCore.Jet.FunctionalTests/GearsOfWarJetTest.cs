@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class GearsOfWarQueryJetTest : GearsOfWarQueryTestBase<JetTestStore, GearsOfWarQueryJetFixture>
+    public class GearsOfWarQueryJetTest : GearsOfWarQueryTestBase<GearsOfWarQueryJetFixture>
     {
         public GearsOfWarQueryJetTest(GearsOfWarQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
@@ -1006,7 +1006,7 @@ WHERE [g].[Discriminator] IN ('Officer', 'Gear')");
     THEN [g2].[LeaderNickname] ELSE NULL
 END
 FROM [Gear] AS [g1]
-CROSS JOIN [Gear] AS [g2]
+, [Gear] AS [g2]
 WHERE [g1].[Discriminator] IN ('Officer', 'Gear')");
         }
 
@@ -1042,7 +1042,7 @@ LEFT JOIN (
     FROM [Gear] AS [ct1.Gear]
     WHERE [ct1.Gear].[Discriminator] IN ('Officer', 'Gear')
 ) AS [t] ON ([ct1].[GearNickName] = [t].[Nickname]) AND ([ct1].[GearSquadId] = [t].[SquadId])
-CROSS JOIN [CogTag] AS [ct2]
+, [CogTag] AS [ct2]
 LEFT JOIN (
     SELECT [ct2.Gear].*
     FROM [Gear] AS [ct2.Gear]
@@ -1109,7 +1109,7 @@ LEFT JOIN (
     FROM [Gear] AS [ct1.Gear]
     WHERE [ct1.Gear].[Discriminator] IN ('Officer', 'Gear')
 ) AS [t] ON ([ct1].[GearNickName] = [t].[Nickname]) AND ([ct1].[GearSquadId] = [t].[SquadId])
-CROSS JOIN [CogTag] AS [ct2]
+, [CogTag] AS [ct2]
 LEFT JOIN (
     SELECT [ct2.Gear].*
     FROM [Gear] AS [ct2.Gear]
@@ -1151,7 +1151,7 @@ LEFT JOIN (
     FROM [Gear] AS [ct1.Gear]
     WHERE [ct1.Gear].[Discriminator] IN ('Officer', 'Gear')
 ) AS [t] ON ([ct1].[GearNickName] = [t].[Nickname]) AND ([ct1].[GearSquadId] = [t].[SquadId])
-CROSS JOIN [CogTag] AS [ct2]
+, [CogTag] AS [ct2]
 LEFT JOIN (
     SELECT [ct2.Gear].*
     FROM [Gear] AS [ct2.Gear]
@@ -1299,7 +1299,7 @@ WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[Nickname] = 'Marcus'
             AssertSql(
                 @"SELECT [c].[Name], [c].[Location]
 FROM [City] AS [c]
-WHERE CHARINDEX('Jacinto', [c].[Location]) > 0");
+WHERE Instr(1, 'Jacinto', [c].[Location], 0) > 0");
         }
 
         public override void Non_unicode_string_literals_is_used_for_non_unicode_column_with_concat()
@@ -1309,7 +1309,7 @@ WHERE CHARINDEX('Jacinto', [c].[Location]) > 0");
             AssertSql(
                 @"SELECT [c].[Name], [c].[Location]
 FROM [City] AS [c]
-WHERE CHARINDEX('Add', [c].[Location] + 'Added') > 0");
+WHERE Instr(1, 'Add', [c].[Location] + 'Added', 0) > 0");
         }
 
         public override void Include_on_GroupJoin_SelectMany_DefaultIfEmpty_with_coalesce_result2()
@@ -1661,7 +1661,7 @@ LEFT JOIN (
     FROM [Gear] AS [t.Gear]
     WHERE [t.Gear].[Discriminator] IN ('Officer', 'Gear')
 ) AS [t0] ON ([t].[GearNickName] = [t0].[Nickname]) AND ([t].[GearSquadId] = [t0].[SquadId])
-WHERE ([t0].[HasSoulPatch] = True) OR (CHARINDEX('Cole', [t].[Note]) > 0)");
+WHERE ([t0].[HasSoulPatch] = True) OR (Instr(1, 'Cole', [t].[Note], 0) > 0)");
         }
 
         public override void Optional_navigation_type_compensation_works_with_projection()
@@ -1922,28 +1922,6 @@ END = CASE
     THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT)
 END
 WHERE [g].[Discriminator] IN ('Officer', 'Gear')");
-        }
-
-        public override void DateTimeOffset_Date_works()
-        {
-            base.DateTimeOffset_Date_works();
-
-            AssertSql(
-                @"@__Date_0='01/01/0001 00:00:00' (DbType = DateTime)
-
-SELECT [m].[Id], [m].[CodeName], [m].[Timeline]
-FROM [Mission] AS [m]
-WHERE CONVERT(date, [m].[Timeline]) > @__Date_0");
-        }
-
-        public override void DateTimeOffset_Datepart_works()
-        {
-            base.DateTimeOffset_Datepart_works();
-
-            AssertSql(
-                @"SELECT [m].[Id], [m].[CodeName], [m].[Timeline]
-FROM [Mission] AS [m]
-WHERE DatePart('m', [m].[Timeline]) = 5");
         }
 
 
@@ -2216,7 +2194,7 @@ ORDER BY [g].[FullName], [g].[Rank]");
             AssertSql(
                 @"SELECT [g].[FullName] AS [Name1], [g2].[FullName] AS [Name2]
 FROM [Gear] AS [g]
-CROSS JOIN [Gear] AS [g2]
+, [Gear] AS [g2]
 WHERE [g].[Discriminator] IN ('Officer', 'Gear') AND (([g].[HasSoulPatch] = True) AND ([g2].[HasSoulPatch] = False))
 ORDER BY [g].[FullName], [g].[Rank]");
         }
@@ -2228,7 +2206,7 @@ ORDER BY [g].[FullName], [g].[Rank]");
             AssertSql(
                 @"SELECT [gear].[FullName]
 FROM [Gear] AS [gear]
-CROSS JOIN [CogTag] AS [tag]
+, [CogTag] AS [tag]
 WHERE [gear].[Discriminator] IN ('Officer', 'Gear') AND ([gear].[HasSoulPatch] = True)
 ORDER BY [gear].[FullName], [tag].[Note]");
         }
@@ -2558,7 +2536,7 @@ WHERE [f.Leaders].[Discriminator] IN ('LocustCommander', 'LocustLeader')
 ORDER BY [t1].[Name], [t1].[Id]");
         }
 
-        [Fact(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
+        [Fact(Skip = "Unsupported by JET: , and OTHER JOIN")]
         public override void Include_on_derived_entity_using_subquery_with_cast_cross_product_base_entity()
         {
             base.Include_on_derived_entity_using_subquery_with_cast_cross_product_base_entity();
@@ -2571,7 +2549,7 @@ LEFT JOIN (
     FROM [LocustLeader] AS [f2.Commander]
     WHERE [f2.Commander].[Discriminator] = 'LocustCommander'
 ) AS [t] ON [f2].[CommanderName] = [t].[Name]
-CROSS JOIN [Faction] AS [ff]
+, [Faction] AS [ff]
 LEFT JOIN [City] AS [ff.Capital] ON [ff].[CapitalName] = [ff.Capital].[Name]
 WHERE ([f2].[Discriminator] = 'LocustHorde') AND ([f2].[Discriminator] = 'LocustHorde')
 ORDER BY [f2].[Name], [ff].[Name], [f2].[Id]",
@@ -2586,7 +2564,7 @@ INNER JOIN (
         FROM [LocustLeader] AS [f2.Commander0]
         WHERE [f2.Commander0].[Discriminator] = 'LocustCommander'
     ) AS [t0] ON [f20].[CommanderName] = [t0].[Name]
-    CROSS JOIN [Faction] AS [ff0]
+    , [Faction] AS [ff0]
     LEFT JOIN [City] AS [ff.Capital0] ON [ff0].[CapitalName] = [ff.Capital0].[Name]
     WHERE ([f20].[Discriminator] = 'LocustHorde') AND ([f20].[Discriminator] = 'LocustHorde')
 ) AS [t1] ON [f2.Leaders].[LocustHordeId] = [t1].[Id]
@@ -2613,20 +2591,11 @@ ORDER BY [t1].[Name], [t1].[Name0], [t1].[Id]");
         }
 
         private void AssertSql(params string[] expected)
-        {
-            string[] expectedFixed = new string[expected.Length];
-            int i = 0;
-            foreach (var item in expected)
-            {
-                if (AssertSqlHelper.IgnoreStatement(item))
-                    return;
-                expectedFixed[i++] = item.Replace("\r\n", "\n");
-            }
-            Fixture.TestSqlLoggerFactory.AssertBaseline(expectedFixed);
-        }
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
 
-        private void AssertContainsSql(params string[] expected)
-            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected, assertOrder: false);
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
 
         protected override void ClearLog()
             => Fixture.TestSqlLoggerFactory.Clear();

@@ -56,6 +56,7 @@ namespace System.Data.Jet.Test
 
         public void ExecuteScript()
         {
+
             var script = File.ReadAllText(_scriptPath);
             foreach (var batch in
                 new Regex("^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))

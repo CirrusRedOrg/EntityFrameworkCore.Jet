@@ -4,13 +4,14 @@ using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public abstract class FindJetTest :  FindTestBase<JetTestStore, FindJetTest.FindJetFixture>
+    public abstract class FindJetTest :  FindTestBase<FindJetTest.FindJetFixture>
     {
         protected FindJetTest(FindJetFixture fixture)
             : base(fixture)
@@ -269,6 +270,7 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
         public class FindJetFixture : FindFixtureBase
         {
             private const string DatabaseName = "FindTest";
+            // ReSharper disable once NotAccessedField.Local
             private readonly DbContextOptions _options;
 
             public TestSqlLoggerFactory TestSqlLoggerFactory { get; } = new TestSqlLoggerFactory();
@@ -288,20 +290,7 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
                     .Options;
             }
 
-            public override JetTestStore CreateTestStore()
-            {
-                return JetTestStore.GetOrCreateShared(DatabaseName, () =>
-                {
-                    using (var context = new FindContext(_options))
-                    {
-                        context.Database.EnsureClean();
-                        Seed(context);
-                    }
-                });
-            }
-
-            public override DbContext CreateContext(JetTestStore testStore)
-                => new FindContext(_options);
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
     }
 }

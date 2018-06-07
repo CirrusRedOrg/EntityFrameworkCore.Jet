@@ -354,7 +354,7 @@ namespace EntityFrameworkCore.Jet.Migrations
             }
             else if (defaultValue != null)
             {
-                var typeMapping = Dependencies.TypeMapper.GetMappingForValue(defaultValue);
+                var typeMapping = Dependencies.TypeMappingSource.GetMappingForValue(defaultValue);
 
                 // Jet does not support defaults for hh:mm:ss in create table statement
                 bool isDateTimeValue =

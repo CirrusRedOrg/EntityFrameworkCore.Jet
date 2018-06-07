@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Data.Common;
-using Microsoft.EntityFrameworkCore.Query.ResultOperators.Internal;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test

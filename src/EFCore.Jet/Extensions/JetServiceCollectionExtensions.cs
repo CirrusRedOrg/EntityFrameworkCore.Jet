@@ -9,7 +9,6 @@ using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
 using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.Jet.Query.Sql.Internal;
-using EntityFrameworkCore.Jet.Storage;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.Jet.Update.Internal;
 using EntityFrameworkCore.Jet.ValueGeneration.Internal;
@@ -73,7 +72,7 @@ namespace Extensions.DependencyInjection
             var builder = new EntityFrameworkRelationalServicesBuilder(serviceCollection)
                 .TryAdd<IDatabaseProvider, DatabaseProvider<JetOptionsExtension>>()
                 .TryAdd<IValueGeneratorCache>(p => p.GetService<IJetValueGeneratorCache>())
-                .TryAdd<IRelationalTypeMapper, JetTypeMapper>()
+                .TryAdd<IRelationalTypeMappingSource, JetTypeMappingSource>()
                 
                 .TryAdd<IEntityMaterializerSource, JetEntityMaterializerSource>()
 

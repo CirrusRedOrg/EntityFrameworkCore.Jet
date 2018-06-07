@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.Tests
@@ -160,14 +161,33 @@ namespace EntityFrameworkCore.Jet.Tests
             Assert.Equal(255, typeMapping.CreateParameter(new TestCommand(), "Name", "Value").Size);
         }
 
+        public static RelationalTypeMapping GetMapping(Property value)
+            => (RelationalTypeMapping)new JetTypeMappingSource(
+                    TestServiceFactory.Instance.Create<TypeMappingSourceDependencies>(),
+                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>())
+                .GetMapping(value);
+
+        public static RelationalTypeMapping GetMapping(Type type)
+            => (RelationalTypeMapping)new JetTypeMappingSource(
+                    TestServiceFactory.Instance.Create<TypeMappingSourceDependencies>(),
+                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>())
+                .FindMapping(type);
+
+        public static RelationalTypeMapping GetMappingForValue(object value)
+            => (RelationalTypeMapping)new JetTypeMappingSource(
+                    TestServiceFactory.Instance.Create<TypeMappingSourceDependencies>(),
+                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>())
+                .GetMappingForValue(value);
+
+
         [Fact]
         public void Does_key_Jet_string_mapping()
         {
-            var property = CreateEntityType().AddProperty("MyProp", typeof(string));
+            Property property = CreateEntityType().AddProperty("MyProp", typeof(string));
             property.IsNullable = false;
             property.DeclaringEntityType.SetPrimaryKey(property);
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = GetMapping(property);
 
             Assert.Equal(DbType.String, typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
@@ -185,7 +205,7 @@ namespace EntityFrameworkCore.Jet.Tests
             var pk = property.DeclaringEntityType.SetPrimaryKey(property);
             property.DeclaringEntityType.AddForeignKey(fkProperty, pk, property.DeclaringEntityType);
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(fkProperty);
+            var typeMapping = GetMapping(fkProperty);
 
             Assert.Equal(DbType.String, typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
@@ -204,7 +224,7 @@ namespace EntityFrameworkCore.Jet.Tests
             property.DeclaringEntityType.AddForeignKey(fkProperty, pk, property.DeclaringEntityType);
             fkProperty.IsNullable = false;
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(fkProperty);
+            var typeMapping = GetMapping(fkProperty);
 
             Assert.Equal(DbType.String, typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
@@ -220,7 +240,7 @@ namespace EntityFrameworkCore.Jet.Tests
             var property = entityType.AddProperty("MyProp", typeof(string));
             entityType.AddIndex(property);
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = GetMapping(property);
 
             Assert.Equal(DbType.String, typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
@@ -258,7 +278,7 @@ namespace EntityFrameworkCore.Jet.Tests
             property.IsNullable = false;
             property.DeclaringEntityType.SetPrimaryKey(property);
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = GetMapping(property);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("varbinary(510)", typeMapping.StoreType);
@@ -274,7 +294,7 @@ namespace EntityFrameworkCore.Jet.Tests
             var pk = property.DeclaringEntityType.SetPrimaryKey(property);
             property.DeclaringEntityType.AddForeignKey(fkProperty, pk, property.DeclaringEntityType);
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(fkProperty);
+            var typeMapping = GetMapping(fkProperty);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("varbinary(510)", typeMapping.StoreType);
@@ -291,7 +311,7 @@ namespace EntityFrameworkCore.Jet.Tests
             property.DeclaringEntityType.AddForeignKey(fkProperty, pk, property.DeclaringEntityType);
             fkProperty.IsNullable = false;
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(fkProperty);
+            var typeMapping = GetMapping(fkProperty);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("varbinary(510)", typeMapping.StoreType);
@@ -305,7 +325,7 @@ namespace EntityFrameworkCore.Jet.Tests
             var property = entityType.AddProperty("MyProp", typeof(byte[]));
             entityType.AddIndex(property);
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = GetMapping(property);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("varbinary(510)", typeMapping.StoreType);
@@ -319,7 +339,7 @@ namespace EntityFrameworkCore.Jet.Tests
             property.IsConcurrencyToken = true;
             property.ValueGenerated = ValueGenerated.OnAddOrUpdate;
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = GetMapping(property);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("varbinary(8)", typeMapping.StoreType);
@@ -335,7 +355,7 @@ namespace EntityFrameworkCore.Jet.Tests
             property.ValueGenerated = ValueGenerated.OnAddOrUpdate;
             property.IsNullable = false;
 
-            var typeMapping = new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = GetMapping(property);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("varbinary(8)", typeMapping.StoreType);
@@ -349,7 +369,7 @@ namespace EntityFrameworkCore.Jet.Tests
             var property = CreateEntityType().AddProperty("MyProp", typeof(byte[]));
             property.IsConcurrencyToken = true;
 
-            var typeMapping = (JetByteArrayTypeMapping)new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            var typeMapping = (JetByteArrayTypeMapping)GetMapping(property);
 
             Assert.Equal(DbType.Binary, typeMapping.DbType);
             Assert.Equal("image", typeMapping.StoreType);
@@ -365,7 +385,7 @@ namespace EntityFrameworkCore.Jet.Tests
             if (maxLength.HasValue)
                 property.SetMaxLength(maxLength);
 
-            return new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(property);
+            return GetMapping(property);
         }
 
         private static EntityType CreateEntityType() => new Model().AddEntityType("MyType");
@@ -373,32 +393,32 @@ namespace EntityFrameworkCore.Jet.Tests
         [Fact]
         public void Does_default_mappings_for_sequence_types()
         {
-            Assert.Equal("int", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(typeof(int)).StoreType);
-            Assert.Equal("smallint", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(typeof(short)).StoreType);
-            Assert.Equal("int", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(typeof(long)).StoreType);
-            Assert.Equal("byte", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(typeof(byte)).StoreType);
+            Assert.Equal("int", GetMapping(typeof(int)).StoreType);
+            Assert.Equal("smallint", GetMapping(typeof(short)).StoreType);
+            Assert.Equal("int", GetMapping(typeof(long)).StoreType);
+            Assert.Equal("byte", GetMapping(typeof(byte)).StoreType);
         }
 
         [Fact]
         public void Does_default_mappings_for_strings_and_byte_arrays()
         {
-            Assert.Equal("text", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(typeof(string)).StoreType);
-            Assert.Equal("image", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMapping(typeof(byte[])).StoreType);
+            Assert.Equal("text", GetMapping(typeof(string)).StoreType);
+            Assert.Equal("image", GetMapping(typeof(byte[])).StoreType);
         }
 
         [Fact]
         public void Does_default_mappings_for_values()
         {
-            Assert.Equal("text", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMappingForValue("Cheese").StoreType);
-            Assert.Equal("image", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMappingForValue(new byte[1]).StoreType);
-            Assert.Equal("datetime", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMappingForValue(new DateTime()).StoreType);
+            Assert.Equal("text", GetMappingForValue("Cheese").StoreType);
+            Assert.Equal("image", GetMappingForValue(new byte[1]).StoreType);
+            Assert.Equal("datetime", GetMappingForValue(new DateTime()).StoreType);
         }
 
         [Fact]
         public void Does_default_mappings_for_null_values()
         {
-            Assert.Equal("NULL", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMappingForValue(null).StoreType);
-            Assert.Equal("NULL", new JetTypeMapper(new RelationalTypeMapperDependencies()).GetMappingForValue(DBNull.Value).StoreType);
+            Assert.Equal("NULL", GetMappingForValue(null).StoreType);
+            Assert.Equal("NULL", GetMappingForValue(DBNull.Value).StoreType);
             Assert.Equal("NULL", RelationalTypeMapperExtensions.GetMappingForValue(null, "Itz").StoreType);
         }
 

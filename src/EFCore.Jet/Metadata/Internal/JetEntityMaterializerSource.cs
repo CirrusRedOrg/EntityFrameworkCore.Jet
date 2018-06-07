@@ -15,11 +15,16 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
     {
         private static readonly MethodInfo _readValue;
 
+        private static readonly MethodInfo _getValueBufferMethod;
+
+        private static readonly ConstructorInfo _obsoleteConstructor;
 
         static JetEntityMaterializerSource()
         {
             _readValue = typeof(ValueBuffer).GetTypeInfo().DeclaredProperties
                 .Single(p => p.GetIndexParameters().Any()).GetMethod;
+            _getValueBufferMethod = typeof(MaterializationContext).GetProperty(nameof(MaterializationContext.ValueBuffer)).GetMethod;
+            _obsoleteConstructor = typeof(MaterializationContext).GetConstructor(new[] { typeof(ValueBuffer) });
         }
 
 
@@ -28,7 +33,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             Expression valueBuffer,
             Type type,
             int index,
-            IProperty property)
+            IPropertyBase property)
             => Expression.Call(
                 TryReadValueMethod.MakeGenericMethod(type),
                 valueBuffer,
@@ -39,22 +44,11 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override  Expression CreateMaterializeExpression(
+        public override Expression CreateMaterializeExpression(
             IEntityType entityType,
-            Expression valueBufferExpression,
+            Expression materializationExpression,
             int[] indexMap = null)
         {
-            // ReSharper disable once SuspiciousTypeConversion.Global
-            var materializer = entityType as IEntityMaterializer;
-
-            if (materializer != null)
-            {
-                return Expression.Call(
-                    Expression.Constant(materializer),
-                    ((Func<ValueBuffer, object>)materializer.CreateEntity).GetMethodInfo(),
-                    valueBufferExpression);
-            }
-
             if (!entityType.HasClrType())
             {
                 throw new InvalidOperationException(CoreStrings.NoClrType(entityType.DisplayName()));
@@ -65,36 +59,82 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
                 throw new InvalidOperationException(CoreStrings.CannotMaterializeAbstractType(entityType));
             }
 
-            var constructorInfo = entityType.ClrType.GetDeclaredConstructor(null);
+            var constructorBinding = (ConstructorBinding)entityType[CoreAnnotationNames.ConstructorBinding];
 
-            if (constructorInfo == null)
+            if (constructorBinding == null)
             {
-                throw new InvalidOperationException(CoreStrings.NoParameterlessConstructor(entityType.DisplayName()));
+                var constructorInfo = entityType.ClrType.GetDeclaredConstructor(null);
+
+                if (constructorInfo == null)
+                {
+                    throw new InvalidOperationException(CoreStrings.NoParameterlessConstructor(entityType.DisplayName()));
+                }
+
+                constructorBinding = new DirectConstructorBinding(constructorInfo, Array.Empty<ParameterBinding>());
             }
 
-            var instanceVariable = Expression.Variable(entityType.ClrType, "instance");
+            // This is to avoid breaks because this method used to expect ValueBuffer but now expects MaterializationContext
+            var valueBufferExpression = materializationExpression;
+            if (valueBufferExpression.Type == typeof(MaterializationContext))
+            {
+                valueBufferExpression = Expression.Call(materializationExpression, _getValueBufferMethod);
+            }
+            else
+            {
+                materializationExpression = Expression.New(_obsoleteConstructor, materializationExpression);
+            }
+
+            var bindingInfo = new ParameterBindingInfo(
+                entityType,
+                materializationExpression,
+                indexMap);
+
+            var properties = new HashSet<IPropertyBase>(
+                entityType.GetServiceProperties().Cast<IPropertyBase>()
+                    .Concat(
+                        entityType
+                            .GetProperties()
+                            .Where(p => !p.IsShadowProperty)));
+
+            foreach (var consumedProperty in constructorBinding
+                .ParameterBindings
+                .SelectMany(p => p.ConsumedProperties))
+            {
+                properties.Remove(consumedProperty);
+            }
+
+            var constructorExpression = constructorBinding.CreateConstructorExpression(bindingInfo);
+
+            if (properties.Count == 0)
+            {
+                return constructorExpression;
+            }
+
+            var instanceVariable = Expression.Variable(constructorBinding.RuntimeType, "instance");
 
             var blockExpressions
                 = new List<Expression>
                 {
                     Expression.Assign(
                         instanceVariable,
-                        Expression.New(constructorInfo))
+                        constructorExpression)
                 };
 
             blockExpressions.AddRange(
-                from property in entityType.GetProperties().Where(p => !p.IsShadowProperty)
+                from property in properties
                 let targetMember = Expression.MakeMemberAccess(
                     instanceVariable,
                     property.GetMemberInfo(forConstruction: true, forSet: true))
                 select
-                Expression.Assign(
-                    targetMember,
-                    CreateReadValueExpression(
-                        valueBufferExpression,
-                        targetMember.Type,
-                        indexMap?[property.GetIndex()] ?? property.GetIndex(),
-                        property)));
+                    Expression.Assign(
+                        targetMember,
+                        property is IServiceProperty
+                            ? ((IServiceProperty)property).GetParameterBinding().BindToParameter(bindingInfo)
+                            : CreateReadValueExpression(
+                                valueBufferExpression,
+                                targetMember.Type,
+                                indexMap?[property.GetIndex()] ?? property.GetIndex(),
+                                property)));
 
             blockExpressions.Add(instanceVariable);
 
@@ -105,6 +145,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
+        [Obsolete]
         public override Expression CreateReadValueCallExpression(Expression valueBuffer, int index)
             => Expression.Call(valueBuffer, _readValue, Expression.Constant(index));
 

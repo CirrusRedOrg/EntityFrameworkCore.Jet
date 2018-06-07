@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Data.Jet;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
@@ -134,12 +133,24 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
             else
             {
-                Sql.AppendLine()
-                    .Append("FROM " + JetConfiguration.DUAL);
+                GeneratePseudoFromClause();
             }
 
             if (selectExpression.Predicate != null)
                 GeneratePredicate(selectExpression.Predicate);
+
+            if (selectExpression.GroupBy.Count > 0)
+            {
+                Sql.AppendLine();
+
+                Sql.Append("GROUP BY ");
+                GenerateList(selectExpression.GroupBy);
+            }
+
+            if (selectExpression.Having != null)
+            {
+                GenerateHaving(selectExpression.Having);
+            }
 
             if (selectExpression.OrderBy.Any())
             {
@@ -168,9 +179,11 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
 
-        private void ProcessExpressionList(
-            IReadOnlyList<Expression> expressions, Action<IRelationalCommandBuilder> joinAction = null)
-            => ProcessExpressionList(expressions, e => Visit(e), joinAction);
+        protected override void GeneratePseudoFromClause()
+        {
+            Sql.AppendLine()
+                .Append("FROM " + JetConfiguration.DUAL);
+        }
 
         private void ProcessExpressionList<T>(
             IReadOnlyList<T> items, Action<T> itemAction, Action<IRelationalCommandBuilder> joinAction = null)
@@ -194,7 +207,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// <param name="ordering"> The ordering. </param>
         protected override void GenerateOrdering(Ordering ordering)
         {
-            Check.NotNull<Ordering>(ordering, nameof(ordering));
+            Check.NotNull(ordering, nameof(ordering));
             Expression expression = ordering.Expression;
             AliasExpression aliasExpression;
             Expression orderingExpression = ordering.Expression;
@@ -258,7 +271,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         public override Expression VisitExplicitCast(ExplicitCastExpression explicitCastExpression)
         {
-            var typeMapping = Dependencies.RelationalTypeMapper.FindMapping(explicitCastExpression.Type);
+            var typeMapping = Dependencies.TypeMappingSource.FindMapping(explicitCastExpression.Type);
 
             if (typeMapping == null)
                 throw new InvalidOperationException(RelationalStrings.UnsupportedType(explicitCastExpression.Type.ShortDisplayName()));
@@ -312,10 +325,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     //function = "CDec";
                     function = "CCur";
                     break;
+                // ReSharper disable RedundantCaseLabel
                 case "VarNumeric":
                 case "Xml":
                 case "Binary":
                 case "Guid":
+                // ReSharper restore RedundantCaseLabel
                 default:
                     throw new InvalidOperationException(string.Format("invalid type for cast(): cannot handle type {0} with Jet", typeMapping.ClrType.Name));
             }
@@ -357,6 +372,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// <returns>
         ///     true if it succeeds, false if it fails.
         /// </returns>
+        [Obsolete]
         protected override bool TryGenerateBinaryOperator(ExpressionType op, out string result)
         {
             if (_operatorMap.TryGetValue(op, out result))
@@ -371,6 +387,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// <returns>
         ///     The binary operator.
         /// </returns>
+        [Obsolete]
         protected override string GenerateBinaryOperator(ExpressionType op)
         {
             string result;
@@ -378,6 +395,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return result;
             return _operatorMap[op];
         }
+
 
         /// <summary>
         ///     Generates an SQL operator for a given expression.
@@ -388,37 +406,21 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </returns>
         protected override string GenerateOperator(Expression expression)
         {
-            switch (expression.NodeType)
+            string result;
+            switch (expression)
             {
-                case ExpressionType.Extension:
-                    {
-                        if (expression is StringCompareExpression asStringCompareExpression)
-                        {
-                            return GenerateBinaryOperator(asStringCompareExpression.Operator);
-                        }
-                        goto default;
-                    }
+                case StringCompareExpression stringCompareExpression:
+                    if (_operatorMap.TryGetValue(stringCompareExpression.Operator, out result))
+                        return result;
+                    break;
                 default:
-                    {
-                        string op;
-                        if (expression is BinaryExpression)
-                        {
-                            if (!TryGenerateBinaryOperator(expression.NodeType, out op))
-                            {
-                                throw new ArgumentOutOfRangeException();
-                            }
-                            return op;
-                        }
-                        if (!_operatorMap.TryGetValue(expression.NodeType, out op))
-                        {
-                            return base.GenerateOperator(expression);
-                        }
-                        return op;
-                    }
+                    if (_operatorMap.TryGetValue(expression.NodeType, out result))
+                        return result;
+                    break;
             }
+
+            return base.GenerateOperator(expression);
         }
-
-
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

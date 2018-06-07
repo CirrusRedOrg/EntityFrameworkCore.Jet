@@ -1,11 +1,14 @@
 ﻿using System;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class MappingQueryJetTest : MappingQueryTestBase, IClassFixture<MappingQueryJetFixture>
+    public class MappingQueryJetTest : MappingQueryTestBase<MappingQueryJetTest.MappingQueryJetFixture>
     {
         public override void All_customers()
         {
@@ -49,7 +52,7 @@ FROM [Orders] AS [o]",
 
         private readonly MappingQueryJetFixture _fixture;
 
-        public MappingQueryJetTest(MappingQueryJetFixture fixture)
+        public MappingQueryJetTest(MappingQueryJetFixture fixture) : base(fixture)
         {
             _fixture = fixture;
             _fixture.TestSqlLoggerFactory.Clear();
@@ -61,5 +64,30 @@ FROM [Orders] AS [o]",
 ";
 
         private string Sql => _fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
+
+        public class MappingQueryJetFixture : MappingQueryFixtureBase
+        {
+            protected override ITestStoreFactory TestStoreFactory => JetNorthwindTestStoreFactory.Instance;
+
+            protected override string DatabaseSchema { get; } = "dbo";
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+            {
+                base.OnModelCreating(modelBuilder, context);
+
+                modelBuilder.Entity<MappedCustomer>(
+                    e =>
+                    {
+                        e.Property(c => c.CompanyName2).Metadata.Jet().ColumnName = "CompanyName";
+                        e.Metadata.Jet().TableName = "Customers";
+                        e.Metadata.Jet().Schema = "dbo";
+                    });
+
+                modelBuilder.Entity<MappedEmployee>()
+                    .Property(c => c.EmployeeID)
+                    .HasColumnType("int");
+            }
+        }
+
     }
 }

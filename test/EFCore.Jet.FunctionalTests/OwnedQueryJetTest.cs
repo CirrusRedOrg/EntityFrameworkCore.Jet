@@ -1,17 +1,21 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using EntityFramework.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet;
+using Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class OwnedQueryJetTest : OwnedQueryTestBase, IClassFixture<OwnedQueryJetFixture>
+    public class OwnedQueryJetTest : RelationalOwnedQueryTestBase<OwnedQueryJetTest.OwnedQueryJetFixture>
     {
         private readonly OwnedQueryJetFixture _fixture;
 
-        public OwnedQueryJetTest(OwnedQueryJetFixture fixture)
+        public OwnedQueryJetTest(OwnedQueryJetTest.OwnedQueryJetFixture fixture) : base(fixture)
         {
-            _fixture = fixture;
-            fixture.TestSqlLoggerFactory.Clear();
         }
 
         [Fact(Skip = "#8973")]
@@ -56,6 +60,15 @@ WHERE [o].[Discriminator] = N'LeafA'");
         protected override DbContext CreateContext() => _fixture.CreateContext();
 
         private void AssertSql(params string[] expected)
-            => _fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+            => Fixture.TestSqlLoggerFactory.AssertSql(expected);
+
+        private void AssertContains(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertContains(expected);
+
+        public class OwnedQueryJetFixture : RelationalOwnedQueryFixture
+        {
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+        }
+
     }
 }

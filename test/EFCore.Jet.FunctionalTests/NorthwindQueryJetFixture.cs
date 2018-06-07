@@ -1,53 +1,56 @@
 ﻿using System;
 using System.Diagnostics;
 using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Infrastructure;
-using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class NorthwindQueryJetFixture : NorthwindQueryRelationalFixture, IDisposable
+    public class NorthwindQueryJetFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>
+        where TModelCustomizer : IModelCustomizer, new()
     {
-        private readonly DbContextOptions _options;
+        protected override ITestStoreFactory TestStoreFactory => JetNorthwindTestStoreFactory.Instance;
 
-        private readonly JetTestStore _testStore = JetTestStore.GetNorthwindStore();
-
-        public TestSqlLoggerFactory TestSqlLoggerFactory { [DebuggerStepThrough] get; } = new TestSqlLoggerFactory();
-
-        public NorthwindQueryJetFixture()
+        protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
-            _options = BuildOptions();
+            base.OnModelCreating(modelBuilder, context);
+
+            modelBuilder.Entity<Customer>()
+                .Property(c => c.CustomerID)
+                .HasColumnType("nchar(5)");
+
+            modelBuilder.Entity<Employee>(
+                b =>
+                {
+                    b.Property(c => c.EmployeeID).HasColumnType("int");
+                    b.Property(c => c.ReportsTo).HasColumnType("int");
+                });
+
+            modelBuilder.Entity<Order>(
+                b =>
+                {
+                    b.Property(o => o.EmployeeID).HasColumnType("int");
+                    b.Property(o => o.OrderDate).HasColumnType("datetime");
+                });
+
+            modelBuilder.Entity<OrderDetail>()
+                .Property(od => od.UnitPrice)
+                .HasColumnType("money");
+
+            modelBuilder.Entity<Product>(
+                b =>
+                {
+                    b.Property(p => p.UnitPrice).HasColumnType("money");
+                    b.Property(p => p.UnitsInStock).HasColumnType("smallint");
+                });
+
+            modelBuilder.Entity<MostExpensiveProduct>()
+                .Property(p => p.UnitPrice)
+                .HasColumnType("money");
         }
-
-        public override DbContextOptions BuildOptions(IServiceCollection additionalServices = null)
-            => ConfigureOptions(
-                new DbContextOptionsBuilder()
-                    .EnableSensitiveDataLogging()
-                    .UseInternalServiceProvider((additionalServices ?? new ServiceCollection())
-                        .AddEntityFrameworkJet()
-                        .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                        .AddSingleton<ILoggerFactory>(TestSqlLoggerFactory)
-                        .BuildServiceProvider()))
-                .UseJet(
-                    _testStore.ConnectionString,
-                    b =>
-                    {
-                        ConfigureOptions(b);
-                        b.ApplyConfiguration();
-                    }).Options;
-
-        protected virtual DbContextOptionsBuilder ConfigureOptions(DbContextOptionsBuilder dbContextOptionsBuilder)
-            => dbContextOptionsBuilder;
-
-        protected virtual void ConfigureOptions(JetDbContextOptionsBuilder sqlCeDbContextOptionsBuilder)
-        {
-        }
-
-        public void Dispose() => _testStore.Dispose();
     }
 }

@@ -1,10 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class ChangeTrackingJetTest : ChangeTrackingTestBase<NorthwindQueryJetFixture>
+    public class ChangeTrackingJetTest : ChangeTrackingTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
-        public ChangeTrackingJetTest(NorthwindQueryJetFixture fixture)
+        public ChangeTrackingJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture)
             : base(fixture)
         {
         }

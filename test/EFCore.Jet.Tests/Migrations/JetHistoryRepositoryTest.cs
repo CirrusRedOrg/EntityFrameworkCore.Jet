@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Jet;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Migrations;
 using EntityFrameworkCore.Jet.Migrations.Internal;
@@ -81,39 +82,17 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
             CreateHistoryRepository().GetEndIfScript();
         }
 
+
+
         private static IHistoryRepository CreateHistoryRepository(string schema = null)
-        {
-            var sqlGenerator = new JetSqlGenerationHelper(new RelationalSqlGenerationHelperDependencies());
-            var typeMapper = new JetTypeMapper(new RelationalTypeMapperDependencies());
-
-            var commandBuilderFactory = new RelationalCommandBuilderFactory(
-                new FakeDiagnosticsLogger<DbLoggerCategory.Database.Command>(),
-                typeMapper);
-
-            return new JetHistoryRepository(
-                new HistoryRepositoryDependencies(
-                    Mock.Of<IRelationalDatabaseCreator>(),
-                    Mock.Of<IRawSqlCommandBuilder>(),
-                    Mock.Of<IJetRelationalConnection>(),
-                    new DbContextOptions<DbContext>(
-                        new Dictionary<Type, IDbContextOptionsExtension>
-                        {
-                            {
-                                typeof(JetOptionsExtension),
-                                new JetOptionsExtension().WithMigrationsHistoryTableSchema(schema)
-                            }
-                        }),
-                    new MigrationsModelDiffer(
-                        new JetTypeMapper(new RelationalTypeMapperDependencies()),
-                        new JetMigrationsAnnotationProvider(new MigrationsAnnotationProviderDependencies())),
-                    new JetMigrationsSqlGenerator(
-                        new MigrationsSqlGeneratorDependencies(
-                            commandBuilderFactory,
-                            new JetSqlGenerationHelper(new RelationalSqlGenerationHelperDependencies()),
-                            typeMapper),
-                        new JetMigrationsAnnotationProvider(new MigrationsAnnotationProviderDependencies())),
-                    sqlGenerator));
-        }
+            => new DbContext(
+                    new DbContextOptionsBuilder()
+                        .UseInternalServiceProvider(JetTestHelpers.Instance.CreateServiceProvider())
+                        .UseJet(
+                            new JetConnection(JetConnection.GetConnectionString("DummyDatabase")),
+                            b => b.MigrationsHistoryTable(HistoryRepository.DefaultTableName, schema))
+                        .Options)
+                .GetService<IHistoryRepository>();
 
         private class Context : DbContext
         {

@@ -4,9 +4,9 @@ using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class IncludeAsyncJetTest : IncludeAsyncTestBase<NorthwindQueryJetFixture>
+    public class IncludeAsyncJetTest : IncludeAsyncTestBase<IncludeJetFixture>
     {
-        public IncludeAsyncJetTest(NorthwindQueryJetFixture fixture)
+        public IncludeAsyncJetTest(IncludeJetFixture fixture)
             : base(fixture)
         {
         }
@@ -30,21 +30,22 @@ namespace EntityFramework.Jet.FunctionalTests
             return Task.CompletedTask;
         }
 
-        [Theory(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
         public override Task Include_duplicate_reference()
         {
             return Task.CompletedTask;
         }
 
-        [Theory(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
         public override Task Include_duplicate_reference2()
         {
             return Task.CompletedTask;
         }
 
-        [Theory(Skip = "Unsupported by JET: CROSS JOIN and OTHER JOIN")]
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
         public override Task Include_duplicate_reference3()
         { return Task.CompletedTask; }
+
     }
 }
 

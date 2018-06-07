@@ -160,3 +160,4 @@ $RECYCLE.BIN/
 /.vs/EntityFrameworkCore.Jet/v15/sqlite3/storage.ide
 /msbuild/Compile
 /msbuild/Output
+/.vs/EntityFrameworkCore.Jet

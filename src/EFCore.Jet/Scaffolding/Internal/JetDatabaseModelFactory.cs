@@ -211,10 +211,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         _databaseModel.Tables.Add(table);
                         _tables[TableKey(table)] = table;
                     }
-                    else
-                    {
-                        Logger.TableSkipped(DisplayName(table.Schema, table.Name));
-                    }
                 }
             }
         }
@@ -271,6 +267,7 @@ ORDER BY
                     var dataTypeSchemaName = "Jet";
                     var ordinal = reader.GetValueOrDefault<int>("Ordinal");
                     var nullable = reader.GetValueOrDefault<bool>("IsNullable");
+                    // ReSharper disable once UnusedVariable
                     var primaryKeyOrdinal = reader.GetValueOrDefault<bool>("IsKey") ? (int?)reader.GetValueOrDefault<int>("Ordinal") : null;
                     var defaultValue = reader.GetValueOrDefault<string>("Default");
                     var computedValue = (string)null;
@@ -280,14 +277,20 @@ ORDER BY
                     var isIdentity = reader.GetValueOrDefault<bool>("IsIdentity");
 
                     Logger.ColumnFound(
-                        DisplayName(schemaName, tableName), columnName, DisplayName(dataTypeSchemaName, dataTypeName), ordinal, nullable,
-                        primaryKeyOrdinal, defaultValue, computedValue, precision, scale, maxLength, isIdentity);
+                        DisplayName(schemaName, tableName),
+                        columnName,
+                        ordinal,
+                        DisplayName(dataTypeSchemaName, dataTypeName),
+                        maxLength,
+                        precision,
+                        scale,
+                        nullable,
+                        isIdentity,
+                        defaultValue,
+                        computedValue);
 
                     if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
-                    {
-                        Logger.ColumnSkipped(DisplayName(schemaName, tableName), columnName);
                         continue;
-                    }
 
                     string storeType;
                     string underlyingStoreType;
@@ -384,10 +387,8 @@ ORDER BY
                     var indexName = reader.GetValueOrDefault<string>("ConstraintName");
                     var typeDesc = reader.GetValueOrDefault<string>("ConstraintType");
                     var columnName = reader.GetValueOrDefault<string>("ColumnName");
+                    // ReSharper disable once UnusedVariable
                     var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
-
-                    Logger.IndexColumnFound(
-                        DisplayName(schemaName, tableName), indexName, true, columnName, indexOrdinal);
 
                     Debug.Assert(primaryKey == null || primaryKey.Table != null);
                     if (primaryKey == null
@@ -398,9 +399,11 @@ ORDER BY
                     {
                         if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
                         {
-                            Logger.IndexTableMissingWarning(indexName, DisplayName(schemaName, tableName));
                             continue;
                         }
+
+                        Logger.PrimaryKeyFound(
+                            indexName, DisplayName(schemaName, tableName));
 
                         primaryKey = new DatabasePrimaryKey
                         {
@@ -446,10 +449,8 @@ ORDER BY
                     var indexName = reader.GetValueOrDefault<string>("ConstraintName");
                     var typeDesc = reader.GetValueOrDefault<string>("ConstraintType");
                     var columnName = reader.GetValueOrDefault<string>("ColumnName");
+                    // ReSharper disable once UnusedVariable
                     var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
-
-                    Logger.IndexColumnFound(
-                        DisplayName(schemaName, tableName), indexName, true, columnName, indexOrdinal);
 
                     Debug.Assert(uniqueConstraint == null || uniqueConstraint.Table != null);
                     if (uniqueConstraint == null
@@ -460,9 +461,10 @@ ORDER BY
                     {
                         if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
                         {
-                            Logger.IndexTableMissingWarning(indexName, DisplayName(schemaName, tableName));
                             continue;
                         }
+
+                        Logger.UniqueConstraintFound(indexName, DisplayName(schemaName, tableName));
 
                         uniqueConstraint = new DatabaseUniqueConstraint
                         {
@@ -510,10 +512,8 @@ ORDER BY
                     var isUnique = reader.GetValueOrDefault<bool>("IsUnique");
                     var typeDesc = "NON CLUSTERED";
                     var columnName = reader.GetValueOrDefault<string>("Name");
+                    // ReSharper disable once UnusedVariable
                     var indexOrdinal = reader.GetValueOrDefault<int>("Ordinal");
-
-                    Logger.IndexColumnFound(
-                        DisplayName(schemaName, tableName), indexName, isUnique, columnName, indexOrdinal);
 
                     Debug.Assert(index == null || index.Table != null);
                     if (index == null
@@ -524,9 +524,10 @@ ORDER BY
                     {
                         if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
                         {
-                            Logger.IndexTableMissingWarning(indexName, DisplayName(schemaName, tableName));
                             continue;
                         }
+
+                        Logger.IndexFound(indexName, DisplayName(schemaName, tableName), isUnique);
 
                         index = new DatabaseIndex
                         {
@@ -578,13 +579,17 @@ ORDER BY
                     var principalTableName = reader.GetValueOrDefault<string>("ToTable");
                     var fromColumnName = reader.GetValueOrDefault<string>("FromColumn");
                     var toColumnName = reader.GetValueOrDefault<string>("ToColumn");
+                    // ReSharper disable once UnusedVariable
                     var updateAction = reader.GetValueOrDefault<string>("UpdateRule");
                     var deleteAction = reader.GetValueOrDefault<string>("DeleteRule");
+                    // ReSharper disable once UnusedVariable
                     var ordinal = reader.GetValueOrDefault<int>("Ordinal");
 
-                    Logger.ForeignKeyColumnFound(
-                        DisplayName(schemaName, tableName), constraintName, DisplayName(principalTableSchemaName, principalTableName),
-                        fromColumnName, toColumnName, updateAction, deleteAction, ordinal);
+                    Logger.ForeignKeyFound(
+                        constraintName,
+                        DisplayName(schemaName, tableName),
+                        DisplayName(schemaName, principalTableName),
+                        deleteAction);
 
                     if (foreignKey == null
                         || lastFkSchemaName != schemaName
@@ -597,7 +602,6 @@ ORDER BY
 
                         if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
                         {
-                            Logger.ForeignKeyTableMissingWarning(constraintName, DisplayName(schemaName, tableName));
                             continue;
                         }
 

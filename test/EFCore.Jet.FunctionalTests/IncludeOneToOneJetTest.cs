@@ -1,17 +1,17 @@
-﻿using System.Linq;
+﻿using EntityFramework.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    public class IncludeOneToOneJetTest : IncludeOneToOneTestBase, IClassFixture<OneToOneQueryJetFixture>
+    public class IncludeOneToOneJetTest : IncludeOneToOneTestBase<IncludeOneToOneJetTest.OneToOneQueryJetFixture>
     {
 
 
         private readonly OneToOneQueryJetFixture _fixture;
 
-        public IncludeOneToOneJetTest(OneToOneQueryJetFixture fixture)
+        public IncludeOneToOneJetTest(OneToOneQueryJetFixture fixture) : base(fixture)
         {
             _fixture = fixture;
         }
@@ -21,9 +21,12 @@ namespace EntityFramework.Jet.FunctionalTests
             return _fixture.CreateContext();
         }
 
-        private  string Sql
+        public class OneToOneQueryJetFixture : OneToOneQueryFixtureBase
         {
-            get { return _fixture.TestSqlLoggerFactory.SqlStatements.Last(); }
+            public TestSqlLoggerFactory TestSqlLoggerFactory { get; } = new TestSqlLoggerFactory();
+
+            protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
+
     }
 }

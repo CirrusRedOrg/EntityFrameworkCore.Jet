@@ -99,7 +99,7 @@ namespace EntityFramework.Jet.FunctionalTests
             {
                 if (!openConnection)
                 {
-                    testDatabase.Connection.Close();
+                    testDatabase.Close();
                 }
 
                 using (var context = new BloggingContext(testDatabase))
@@ -231,9 +231,9 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
 
-                if (testStore.Connection.State != ConnectionState.Open)
+                if (testStore.State != ConnectionState.Open)
                 {
-                    await testStore.Connection.OpenAsync();
+                    await testStore.OpenAsync();
                 }
 
                 var tables = testStore.Query<string>("SELECT NAME FROM (SHOW TABLES)");
@@ -302,7 +302,7 @@ namespace EntityFramework.Jet.FunctionalTests
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 optionsBuilder
-                    .UseJet(_testStore.Connection.ConnectionString)
+                    .UseJet(_testStore.ConnectionString)
                     .UseInternalServiceProvider(CreateServiceProvider());
             }
 

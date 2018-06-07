@@ -9,10 +9,10 @@
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<description>Allows Jet (Microsoft Access mdb or accdb format files) to be used with Entity Framework Core</description> 
 		<summary>Allows Jet (Microsoft Access mdb or accdb format files) to be used with Entity Framework Core</summary> 
-		<releaseNotes>for EF Core 2.0</releaseNotes> 
+		<releaseNotes>for EF Core 2.1</releaseNotes> 
 		<dependencies>
 			<group targetFramework="net461">
-				<dependency id="Microsoft.EntityFrameworkCore.Relational" version="2.0.0" />
+				<dependency id="Microsoft.EntityFrameworkCore.Relational" version="2.1.0" />
 			 </group>
 		</dependencies>
     </metadata>

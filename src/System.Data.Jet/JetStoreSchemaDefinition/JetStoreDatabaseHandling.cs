@@ -34,7 +34,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
 
             _regExExtractFilenameFromConnectionString = new Regex(
-                @"provider=.*;\s*data\s+source\s*=\s*(?<filename>.*)\s*;??.*$",
+                @"provider=.*;\s*data\s+source\s*=\s*(?<filename>[^;]*)\s*;?.*$",
                 RegexOptions.IgnoreCase);
 
 

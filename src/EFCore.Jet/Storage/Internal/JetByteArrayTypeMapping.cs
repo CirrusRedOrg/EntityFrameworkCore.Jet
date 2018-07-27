@@ -6,6 +6,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -16,21 +17,35 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetByteArrayTypeMapping : ByteArrayTypeMapping
     {
-        private readonly int _maxSpecificSize;
 
         /// <summary>
-        ///     Initializes a new instance of the <see cref="JetByteArrayTypeMapping" /> class.
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        /// <param name="storeType"> The name of the database type. </param>
-        /// <param name="dbType"> The <see cref="System.Data.DbType" /> to be used. </param>
-        /// <param name="size"> The size of data the property is configured to store, or null if no size is configured. </param>
         public JetByteArrayTypeMapping(
-            [NotNull] string storeType,
-            DbType? dbType = System.Data.DbType.Binary,
-            int? size = null)
-            : base(storeType, dbType, size)
+            [CanBeNull] string storeType = null,
+            int? size = null,
+            bool fixedLength = false,
+            [CanBeNull] ValueComparer comparer = null,
+            StoreTypePostfix? storeTypePostfix = null)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(byte[]), null, comparer),
+                    storeType ?? (fixedLength ? "binary" : "varbinary"),
+                    storeTypePostfix ?? StoreTypePostfix.Size,
+                    System.Data.DbType.Binary,
+                    size: size,
+                    fixedLength: fixedLength))
         {
-            _maxSpecificSize = CalculateSize(size);
+        }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        protected JetByteArrayTypeMapping(RelationalTypeMappingParameters parameters)
+            : base(parameters)
+        {
         }
 
         private static int CalculateSize(int? size)
@@ -41,10 +56,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override RelationalTypeMapping Clone(string storeType, int? size)
-            => new JetByteArrayTypeMapping(
-                storeType,
-                DbType,
-                size);
+            => new JetByteArrayTypeMapping(storeType, size, IsFixedLength, Comparer, StoreTypePostfix);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -59,9 +71,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             var value = parameter.Value;
             var length = (value as string)?.Length ?? (value as byte[])?.Length;
+            int maxSpecificSize = CalculateSize(Size);
 
-            parameter.Size = value == null || value == DBNull.Value || length != null && length <= _maxSpecificSize
-                ? _maxSpecificSize
+            parameter.Size = value == null || value == DBNull.Value || length != null && length <= maxSpecificSize
+                ? maxSpecificSize
                 : -1;
         }
 

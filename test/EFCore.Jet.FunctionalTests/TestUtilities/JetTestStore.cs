@@ -75,7 +75,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 name = "scratch-" + Interlocked.Increment(ref _scratchCount);
             }
             while (File.Exists(name + ".accdb"));
-
+            JetConnection.CreateEmptyDatabase(JetConnection.GetConnectionString(name + ".accdb"));
             return new JetTestStore(name, deleteDatabase: true);
         }
 
@@ -214,28 +214,39 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public int ExecuteNonQuery(string sql, params object[] parameters)
         {
+            var connectionState = Connection.State;
+            if (connectionState != ConnectionState.Open)
+                Connection.Open();
+            int result;
             using (var command = CreateCommand(Connection, sql, parameters))
             {
-                return command.ExecuteNonQuery();
+                result = command.ExecuteNonQuery();
             }
+            if (connectionState != ConnectionState.Open)
+                Connection.Close();
+            return result;
         }
 
         public IEnumerable<T> Query<T>(string sql, params object[] parameters)
         {
+            var connectionState = Connection.State;
+            if (connectionState != ConnectionState.Open)
+                Connection.Open();
+
+            var results = Enumerable.Empty<T>();
             using (var command = CreateCommand(Connection, sql, parameters))
             {
                 using (var dataReader = command.ExecuteReader())
                 {
-                    var results = Enumerable.Empty<T>();
-
                     while (dataReader.Read())
                     {
                         results = results.Concat(new[] { dataReader.GetFieldValue<T>(0) });
                     }
-
-                    return results;
                 }
             }
+            if (connectionState != ConnectionState.Open)
+                Connection.Close();
+            return results;
         }
 
         public bool Exists()
@@ -262,7 +273,7 @@ namespace EntityFramework.Jet.FunctionalTests
             Transaction?.Dispose();
             Connection?.Dispose();
             if (_deleteDatabase)
-                ((JetConnection)Connection)?.DropDatabase(false);
+                JetConnection.DropDatabase(ConnectionString);
 
             base.Dispose();
         }

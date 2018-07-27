@@ -65,7 +65,7 @@ namespace EntityFrameworkCore.Jet.Tests
         public void Does_simple_Jet_mappings_to_DbTypes()
         {
             Assert.Equal(DbType.Int32, GetTypeMapping(typeof(int)).DbType);
-            Assert.Equal(DbType.String, GetTypeMapping(typeof(string)).DbType);
+            Assert.Null(GetTypeMapping(typeof(string)).DbType);
             Assert.Equal(DbType.Binary, GetTypeMapping(typeof(byte[])).DbType);
             Assert.Equal(DbType.Guid, GetTypeMapping(typeof(Guid)).DbType);
             Assert.Equal(DbType.Byte, GetTypeMapping(typeof(byte)).DbType);
@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.Jet.Tests
             Assert.Equal(DbType.Boolean, GetTypeMapping(typeof(bool)).DbType);
             Assert.Equal(DbType.Int16, GetTypeMapping(typeof(short)).DbType);
             Assert.Equal(DbType.Int64, GetTypeMapping(typeof(long)).DbType);
-            Assert.Equal(DbType.Single, GetTypeMapping(typeof(float)).DbType);
+            Assert.Null(GetTypeMapping(typeof(float)).DbType);
             Assert.Equal(DbType.DateTime, GetTypeMapping(typeof(DateTime)).DbType);
         }
 
@@ -81,7 +81,7 @@ namespace EntityFrameworkCore.Jet.Tests
         public void Does_simple_Jet_mappings_for_nullable_CLR_types_to_DbTypes()
         {
             Assert.Equal(DbType.Int32, GetTypeMapping(typeof(int?)).DbType);
-            Assert.Equal(DbType.String, GetTypeMapping(typeof(string)).DbType);
+            Assert.Null(GetTypeMapping(typeof(string)).DbType);
             Assert.Equal(DbType.Binary, GetTypeMapping(typeof(byte[])).DbType);
             Assert.Equal(DbType.Guid, GetTypeMapping(typeof(Guid?)).DbType);
             Assert.Equal(DbType.Byte, GetTypeMapping(typeof(byte?)).DbType);
@@ -89,7 +89,7 @@ namespace EntityFrameworkCore.Jet.Tests
             Assert.Equal(DbType.Boolean, GetTypeMapping(typeof(bool?)).DbType);
             Assert.Equal(DbType.Int16, GetTypeMapping(typeof(short?)).DbType);
             Assert.Equal(DbType.Int64, GetTypeMapping(typeof(long?)).DbType);
-            Assert.Equal(DbType.Single, GetTypeMapping(typeof(float?)).DbType);
+            Assert.Null(GetTypeMapping(typeof(float?)).DbType);
             Assert.Equal(DbType.DateTime, GetTypeMapping(typeof(DateTime?)).DbType);
         }
 
@@ -129,7 +129,7 @@ namespace EntityFrameworkCore.Jet.Tests
         {
             var typeMapping = GetTypeMapping(typeof(string));
 
-            Assert.Equal(DbType.String, typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("text", typeMapping.StoreType);
             Assert.Equal(null, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -142,7 +142,7 @@ namespace EntityFrameworkCore.Jet.Tests
         {
             var typeMapping = GetTypeMapping(typeof(string), null, 3);
 
-            //Assert.Null(typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("varchar(3)", typeMapping.StoreType);
             Assert.Equal(3, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -154,7 +154,7 @@ namespace EntityFrameworkCore.Jet.Tests
         {
             var typeMapping = GetTypeMapping(typeof(string), isNullable: false);
 
-            Assert.Equal(DbType.String, typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("text", typeMapping.StoreType);
             Assert.Equal(null, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -189,7 +189,7 @@ namespace EntityFrameworkCore.Jet.Tests
 
             var typeMapping = GetMapping(property);
 
-            Assert.Equal(DbType.String, typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
             Assert.Equal(255, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -207,7 +207,7 @@ namespace EntityFrameworkCore.Jet.Tests
 
             var typeMapping = GetMapping(fkProperty);
 
-            Assert.Equal(DbType.String, typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
             Assert.Equal(255, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -226,7 +226,7 @@ namespace EntityFrameworkCore.Jet.Tests
 
             var typeMapping = GetMapping(fkProperty);
 
-            Assert.Equal(DbType.String, typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
             Assert.Equal(255, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -242,7 +242,7 @@ namespace EntityFrameworkCore.Jet.Tests
 
             var typeMapping = GetMapping(property);
 
-            Assert.Equal(DbType.String, typeMapping.DbType);
+            Assert.Null(typeMapping.DbType);
             Assert.Equal("varchar(255)", typeMapping.StoreType);
             Assert.Equal(255, typeMapping.Size);
             Assert.True(typeMapping.IsUnicode);
@@ -419,7 +419,8 @@ namespace EntityFrameworkCore.Jet.Tests
         {
             Assert.Equal("NULL", GetMappingForValue(null).StoreType);
             Assert.Equal("NULL", GetMappingForValue(DBNull.Value).StoreType);
-            Assert.Equal("NULL", RelationalTypeMapperExtensions.GetMappingForValue(null, "Itz").StoreType);
+            // Now no TypeMapper no party
+            //Assert.Equal("NULL", RelationalTypeMapperExtensions.GetMappingForValue(null, "Itz").StoreType);
         }
 
         private enum LongEnum : long

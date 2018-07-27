@@ -71,11 +71,11 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 .Append(", ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(ProductVersionColumnName))
                 .AppendLine(")")
-                .Append("VALUES ('")
+                .Append("VALUES (")
                 .Append(stringTypeMapping.GenerateSqlLiteral(row.MigrationId))
-                .Append("', '")
+                .Append(", ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(row.ProductVersion))
-                .AppendLine("');")
+                .AppendLine(");")
                 .ToString();
         }
 
@@ -93,9 +93,9 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 .AppendLine(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append("WHERE ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = '")
+                .Append(" = ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(migrationId))
-                .AppendLine("';")
+                .AppendLine(";")
                 .ToString();
         }
 

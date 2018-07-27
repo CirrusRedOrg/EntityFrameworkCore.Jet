@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetTypeMappingSource : RelationalTypeMappingSource
     {
         private readonly JetStringTypeMapping _unboundedUnicodeString
-            = new JetStringTypeMapping("text");
+            = new JetStringTypeMapping("text", unicode: true);
 
         private readonly JetStringTypeMapping _unboundedAnsiString
             = new JetStringTypeMapping("text");
@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             = new JetByteArrayTypeMapping("image");
 
         private readonly JetByteArrayTypeMapping _rowversion
-            = new JetByteArrayTypeMapping("varbinary(8)", dbType: DbType.Binary, size: 8);
+            = new JetByteArrayTypeMapping("varbinary(8)", size: 8);
 
         private readonly IntTypeMapping _int = new IntTypeMapping("int", DbType.Int32);
 
@@ -41,10 +41,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         //private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString
-            = new JetStringTypeMapping("char");
+            = new JetStringTypeMapping("char", unicode: true);
 
         private readonly JetStringTypeMapping _variableLengthUnicodeString
-            = new JetStringTypeMapping("varchar");
+            = new JetStringTypeMapping("varchar", unicode: true);
 
         // Jet does not support ANSI strings
         /*
@@ -78,7 +78,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly TimeSpanTypeMapping _time = new JetTimeSpanTypeMapping("datetime");
 
-        private readonly JetStringTypeMapping _xml = new JetStringTypeMapping("text");
+        private readonly JetStringTypeMapping _xml = new JetStringTypeMapping("text", unicode: true);
 
         private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
@@ -207,7 +207,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             var storeTypeName = mappingInfo.StoreTypeName;
             var storeTypeNameBase = mappingInfo.StoreTypeNameBase;
 
-            clrType = clrType.UnwrapNullableType().UnwrapEnumType();
+            // Fixes: #22
+            //clrType = clrType.UnwrapNullableType().UnwrapEnumType();
 
 
             if (storeTypeName != null)
@@ -252,7 +253,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
                     return size == null
                         ? isAnsi ? _unboundedAnsiString : _unboundedUnicodeString
-                        : new JetStringTypeMapping(storeType: isFixedLength ? "char" : "varchar", size: size);
+                        : new JetStringTypeMapping(storeType: isFixedLength ? "char" : "varchar", size: size, unicode: true);
                 }
 
                 if (clrType == typeof(byte[]))

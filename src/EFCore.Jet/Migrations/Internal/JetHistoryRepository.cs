@@ -37,9 +37,8 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
 
                 var builder = new StringBuilder();
                 builder
-                    .Append("SHOW TABLES WHERE NAME='")
-                    .Append(stringTypeMapping.GenerateSqlLiteral(TableName))
-                    .Append("'");
+                    .Append("SHOW TABLES WHERE NAME=")
+                    .Append(stringTypeMapping.GenerateSqlLiteral(TableName));
 
                 return builder.ToString();
             }
@@ -110,9 +109,9 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
 
             builder
-                .Append("IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE Name = '")
+                .Append("IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE Name = ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(TableName))
-                .Append("') THEN ");
+                .Append(") THEN ");
             using (builder.Indent())
             {
                 builder.AppendLines(GetCreateScript());
@@ -137,9 +136,9 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append(" WHERE ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = '")
+                .Append(" = ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(migrationId))
-                .AppendLine("')")
+                .AppendLine(")")
                 .Append("THEN")
                 .ToString();
         }
@@ -159,9 +158,9 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
                 .Append(" WHERE ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = '")
+                .Append(" = ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(migrationId))
-                .AppendLine("')")
+                .AppendLine(")")
                 .Append("THEN")
                 .ToString();
         }

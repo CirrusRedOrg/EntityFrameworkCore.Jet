@@ -36,7 +36,7 @@ namespace System.Data.Jet
             }
         }
 
-        public static string OleDbDefaultProvider => "Microsoft.ACE.OLEDB.15.0";
+        public static string OleDbDefaultProvider = "Microsoft.ACE.OLEDB.15.0";
 
 
         // The SQL statement

@@ -35,8 +35,8 @@ namespace EntityFramework.Jet.FunctionalTests
 
             }
 
-            public override DbContext CreateContext()
-                => new DbContext(_options);
+            public override PoolableDbContext CreateContext()
+                => new PoolableDbContext(_options);
 
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }

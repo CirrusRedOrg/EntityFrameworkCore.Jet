@@ -1,6 +1,8 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Internal;
 using Xunit;
 
@@ -8,9 +10,9 @@ namespace EntityFramework.Jet.FunctionalTests.Query
 {
     public partial class SimpleQueryJetTest
     {
-        public override void Union_with_custom_projection()
+        public override async Task Union_with_custom_projection(bool isAsync)
         {
-            base.Union_with_custom_projection();
+            await base.Union_with_custom_projection(isAsync);
 
             AssertSql(
                 @"SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
@@ -36,63 +38,63 @@ WHERE [c2].[CompanyName] LIKE 'B' + '%' AND (LEFT([c2].[CompanyName], LEN(N'B'))
 END");
         }
 
-        public override void Sum_with_no_arg()
+        public override async Task Sum_with_no_arg(bool isAsync)
         {
-            base.Sum_with_no_arg();
+            await base.Sum_with_no_arg(isAsync);
 
             AssertSql(
                 @"SELECT SUM([o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Sum_with_binary_expression()
+        public override async Task Sum_with_binary_expression(bool isAsync)
         {
-            base.Sum_with_binary_expression();
+            await base.Sum_with_binary_expression(isAsync);
 
             AssertSql(
                 @"SELECT SUM([o].[OrderID] * 2)
 FROM [Orders] AS [o]");
         }
 
-        public override void Sum_with_arg()
+        public override async Task Sum_with_arg(bool isAsync)
         {
-            base.Sum_with_arg();
+            await base.Sum_with_arg(isAsync);
 
             AssertSql(
                 @"SELECT SUM([o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Sum_with_arg_expression()
+        public override async Task Sum_with_arg_expression(bool isAsync)
         {
-            base.Sum_with_arg_expression();
+            await base.Sum_with_arg_expression(isAsync);
 
             AssertSql(
                 @"SELECT SUM([o].[OrderID] + [o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Sum_with_division_on_decimal()
+        public override async Task Sum_with_division_on_decimal(bool isAsync)
         {
-            base.Sum_with_division_on_decimal();
+            await base.Sum_with_division_on_decimal(isAsync);
 
             AssertSql(
                 @"SELECT SUM([od].[Quantity] / 2.09)
 FROM [Order Details] AS [od]");
         }
 
-        public override void Sum_with_division_on_decimal_no_significant_digits()
+        public override async Task Sum_with_division_on_decimal_no_significant_digits(bool isAsync)
         {
-            base.Sum_with_division_on_decimal_no_significant_digits();
+            await base.Sum_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
                 @"SELECT SUM([od].[Quantity] / 2.0)
 FROM [Order Details] AS [od]");
         }
 
-        public override void Sum_with_coalesce()
+        public override async Task Sum_with_coalesce(bool isAsync)
         {
-            base.Sum_with_coalesce();
+            await base.Sum_with_coalesce(isAsync);
 
             AssertSql(
                 @"SELECT SUM(COALESCE([p].[UnitPrice], 0.0))
@@ -100,9 +102,9 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        public override void Sum_over_subquery_is_client_eval()
+        public override async Task Sum_over_subquery_is_client_eval(bool isAsync)
         {
-            base.Sum_over_subquery_is_client_eval();
+            await base.Sum_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -113,9 +115,9 @@ WHERE [p].[ProductID] < 40");
 FROM [Customers] AS [c]");
         }
 
-        public override void Sum_on_float_column()
+        public override async Task Sum_on_float_column(bool isAsync)
         {
-            base.Sum_on_float_column();
+            await base.Sum_on_float_column(isAsync);
 
             AssertSql(
                 @"SELECT CAST(SUM([od].[Discount]) AS real)
@@ -123,9 +125,9 @@ FROM [Order Details] AS [od]
 WHERE [od].[ProductID] = 1");
         }
 
-        public override void Sum_on_float_column_in_subquery()
+        public override async Task Sum_on_float_column_in_subquery(bool isAsync)
         {
-            base.Sum_on_float_column_in_subquery();
+            await base.Sum_on_float_column_in_subquery(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], (
@@ -137,63 +139,63 @@ FROM [Orders] AS [o]
 WHERE [o].[OrderID] < 10300");
         }
 
-        public override void Average_with_no_arg()
+        public override async Task Average_with_no_arg(bool isAsync)
         {
-            base.Average_with_no_arg();
+            await base.Average_with_no_arg(isAsync);
 
             AssertSql(
                 @"SELECT AVG(CAST([o].[OrderID] AS float))
 FROM [Orders] AS [o]");
         }
 
-        public override void Average_with_binary_expression()
+        public override async Task Average_with_binary_expression(bool isAsync)
         {
-            base.Average_with_binary_expression();
+            await base.Average_with_binary_expression(isAsync);
 
             AssertSql(
                 @"SELECT AVG(CAST([o].[OrderID] * 2 AS float))
 FROM [Orders] AS [o]");
         }
 
-        public override void Average_with_arg()
+        public override async Task Average_with_arg(bool isAsync)
         {
-            base.Average_with_arg();
+            await base.Average_with_arg(isAsync);
 
             AssertSql(
                 @"SELECT AVG(CAST([o].[OrderID] AS float))
 FROM [Orders] AS [o]");
         }
 
-        public override void Average_with_arg_expression()
+        public override async Task Average_with_arg_expression(bool isAsync)
         {
-            base.Average_with_arg_expression();
+            await base.Average_with_arg_expression(isAsync);
 
             AssertSql(
                 @"SELECT AVG(CAST([o].[OrderID] + [o].[OrderID] AS float))
 FROM [Orders] AS [o]");
         }
 
-        public override void Average_with_division_on_decimal()
+        public override async Task Average_with_division_on_decimal(bool isAsync)
         {
-            base.Average_with_division_on_decimal();
+            await base.Average_with_division_on_decimal(isAsync);
 
             AssertSql(
                 @"SELECT AVG([od].[Quantity] / 2.09)
 FROM [Order Details] AS [od]");
         }
 
-        public override void Average_with_division_on_decimal_no_significant_digits()
+        public override async Task Average_with_division_on_decimal_no_significant_digits(bool isAsync)
         {
-            base.Average_with_division_on_decimal_no_significant_digits();
+            await base.Average_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
                 @"SELECT AVG([od].[Quantity] / 2.0)
 FROM [Order Details] AS [od]");
         }
 
-        public override void Average_with_coalesce()
+        public override async Task Average_with_coalesce(bool isAsync)
         {
-            base.Average_with_coalesce();
+            await base.Average_with_coalesce(isAsync);
 
             AssertSql(
                 @"SELECT AVG(COALESCE([p].[UnitPrice], 0.0))
@@ -201,9 +203,9 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        public override void Average_over_subquery_is_client_eval()
+        public override async Task Average_over_subquery_is_client_eval(bool isAsync)
         {
-            base.Average_over_subquery_is_client_eval();
+            await base.Average_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -214,9 +216,9 @@ WHERE [p].[ProductID] < 40");
 FROM [Customers] AS [c]");
         }
 
-        public override void Average_on_float_column()
+        public override async Task Average_on_float_column(bool isAsync)
         {
-            base.Average_on_float_column();
+            await base.Average_on_float_column(isAsync);
 
             AssertSql(
                 @"SELECT CAST(AVG([od].[Discount]) AS real)
@@ -224,9 +226,9 @@ FROM [Order Details] AS [od]
 WHERE [od].[ProductID] = 1");
         }
 
-        public override void Average_on_float_column_in_subquery()
+        public override async Task Average_on_float_column_in_subquery(bool isAsync)
         {
-            base.Average_on_float_column_in_subquery();
+            await base.Average_on_float_column_in_subquery(isAsync);
 
             AssertContains(
                 @"SELECT [o].[OrderID]
@@ -241,12 +243,12 @@ WHERE @_outer_OrderID = [od0].[OrderID]");
 
             Assert.Contains(
                 RelationalStrings.LogQueryPossibleExceptionWithAggregateOperator.GenerateMessage(),
-                Fixture.TestSqlLoggerFactory.Log);
+                Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
         }
 
-        public override void Average_on_float_column_in_subquery_with_cast()
+        public override async Task Average_on_float_column_in_subquery_with_cast(bool isAsync)
         {
-            base.Average_on_float_column_in_subquery_with_cast();
+            await base.Average_on_float_column_in_subquery_with_cast(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], (
@@ -258,27 +260,27 @@ FROM [Orders] AS [o]
 WHERE [o].[OrderID] < 10300");
         }
 
-        public override void Min_with_no_arg()
+        public override async Task Min_with_no_arg(bool isAsync)
         {
-            base.Min_with_no_arg();
+            await base.Min_with_no_arg(isAsync);
 
             AssertSql(
                 @"SELECT MIN([o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Min_with_arg()
+        public override async Task Min_with_arg(bool isAsync)
         {
-            base.Min_with_arg();
+            await base.Min_with_arg(isAsync);
 
             AssertSql(
                 @"SELECT MIN([o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Min_with_coalesce()
+        public override async Task Min_with_coalesce(bool isAsync)
         {
-            base.Min_with_coalesce();
+            await base.Min_with_coalesce(isAsync);
 
             AssertSql(
                 @"SELECT MIN(COALESCE([p].[UnitPrice], 0.0))
@@ -286,9 +288,9 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        public override void Min_over_subquery_is_client_eval()
+        public override async Task Min_over_subquery_is_client_eval(bool isAsync)
         {
-            base.Min_over_subquery_is_client_eval();
+            await base.Min_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -299,27 +301,27 @@ WHERE [p].[ProductID] < 40");
 FROM [Customers] AS [c]");
         }
 
-        public override void Max_with_no_arg()
+        public override async Task Max_with_no_arg(bool isAsync)
         {
-            base.Max_with_no_arg();
+            await base.Max_with_no_arg(isAsync);
 
             AssertSql(
                 @"SELECT MAX([o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Max_with_arg()
+        public override async Task Max_with_arg(bool isAsync)
         {
-            base.Max_with_arg();
+            await base.Max_with_arg(isAsync);
 
             AssertSql(
                 @"SELECT MAX([o].[OrderID])
 FROM [Orders] AS [o]");
         }
 
-        public override void Max_with_coalesce()
+        public override async Task Max_with_coalesce(bool isAsync)
         {
-            base.Max_with_coalesce();
+            await base.Max_with_coalesce(isAsync);
 
             AssertSql(
                 @"SELECT MAX(COALESCE([p].[UnitPrice], 0.0))
@@ -327,9 +329,9 @@ FROM [Products] AS [p]
 WHERE [p].[ProductID] < 40");
         }
 
-        public override void Max_over_subquery_is_client_eval()
+        public override async Task Max_over_subquery_is_client_eval(bool isAsync)
         {
-            base.Max_over_subquery_is_client_eval();
+            await base.Max_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -340,9 +342,9 @@ WHERE [p].[ProductID] < 40");
 FROM [Customers] AS [c]");
         }
 
-        public override void Count_with_predicate()
+        public override async Task Count_with_predicate(bool isAsync)
         {
-            base.Count_with_predicate();
+            await base.Count_with_predicate(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -350,9 +352,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] = 'ALFKI'");
         }
 
-        public override void Where_OrderBy_Count()
+        public override async Task Where_OrderBy_Count(bool isAsync)
         {
-            base.Where_OrderBy_Count();
+            await base.Where_OrderBy_Count(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -360,9 +362,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] = 'ALFKI'");
         }
 
-        public override void OrderBy_Where_Count()
+        public override async Task OrderBy_Where_Count(bool isAsync)
         {
-            base.OrderBy_Where_Count();
+            await base.OrderBy_Where_Count(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -370,9 +372,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] = 'ALFKI'");
         }
 
-        public override void OrderBy_Count_with_predicate()
+        public override async Task OrderBy_Count_with_predicate(bool isAsync)
         {
-            base.OrderBy_Count_with_predicate();
+            await base.OrderBy_Count_with_predicate(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -380,9 +382,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] = 'ALFKI'");
         }
 
-        public override void OrderBy_Where_Count_with_predicate()
+        public override async Task OrderBy_Where_Count_with_predicate(bool isAsync)
         {
-            base.OrderBy_Where_Count_with_predicate();
+            await base.OrderBy_Where_Count_with_predicate(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -390,18 +392,18 @@ FROM [Orders] AS [o]
 WHERE ([o].[OrderID] > 10) AND (([o].[CustomerID] <> 'ALFKI') OR [o].[CustomerID] IS NULL)");
         }
 
-        public override void Where_OrderBy_Count_client_eval()
+        public override async Task Where_OrderBy_Count_client_eval(bool isAsync)
         {
-            base.Where_OrderBy_Count_client_eval();
+            await base.Where_OrderBy_Count_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]");
         }
 
-        public override void Where_OrderBy_Count_client_eval_mixed()
+        public override async Task Where_OrderBy_Count_client_eval_mixed(bool isAsync)
         {
-            base.Where_OrderBy_Count_client_eval_mixed();
+            await base.Where_OrderBy_Count_client_eval_mixed(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -409,54 +411,54 @@ FROM [Orders] AS [o]
 WHERE [o].[OrderID] > 10");
         }
 
-        public override void OrderBy_Where_Count_client_eval()
+        public override async Task OrderBy_Where_Count_client_eval(bool isAsync)
         {
-            base.OrderBy_Where_Count_client_eval();
+            await base.OrderBy_Where_Count_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]");
         }
 
-        public override void OrderBy_Where_Count_client_eval_mixed()
+        public override async Task OrderBy_Where_Count_client_eval_mixed(bool isAsync)
         {
-            base.OrderBy_Where_Count_client_eval_mixed();
+            await base.OrderBy_Where_Count_client_eval_mixed(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]");
         }
 
-        public override void OrderBy_Count_with_predicate_client_eval()
+        public override async Task OrderBy_Count_with_predicate_client_eval(bool isAsync)
         {
-            base.OrderBy_Count_with_predicate_client_eval();
+            await base.OrderBy_Count_with_predicate_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]");
         }
 
-        public override void OrderBy_Count_with_predicate_client_eval_mixed()
+        public override async Task OrderBy_Count_with_predicate_client_eval_mixed(bool isAsync)
         {
-            base.OrderBy_Count_with_predicate_client_eval_mixed();
+            await base.OrderBy_Count_with_predicate_client_eval_mixed(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]");
         }
 
-        public override void OrderBy_Where_Count_with_predicate_client_eval()
+        public override async Task OrderBy_Where_Count_with_predicate_client_eval(bool isAsync)
         {
-            base.OrderBy_Where_Count_with_predicate_client_eval();
+            await base.OrderBy_Where_Count_with_predicate_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
 FROM [Orders] AS [o]");
         }
 
-        public override void OrderBy_Where_Count_with_predicate_client_eval_mixed()
+        public override async Task OrderBy_Where_Count_with_predicate_client_eval_mixed(bool isAsync)
         {
-            base.OrderBy_Where_Count_with_predicate_client_eval_mixed();
+            await base.OrderBy_Where_Count_with_predicate_client_eval_mixed(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
@@ -464,9 +466,9 @@ FROM [Orders] AS [o]
 WHERE ([o].[CustomerID] <> 'ALFKI') OR [o].[CustomerID] IS NULL");
         }
 
-        public override void OrderBy_client_Take()
+        public override async Task OrderBy_client_Take(bool isAsync)
         {
-            base.OrderBy_client_Take();
+            await base.OrderBy_client_Take(isAsync);
 
             AssertSql(
                 @"@__p_1='10'
@@ -476,27 +478,27 @@ FROM [Employees] AS [o]
 ORDER BY (SELECT 1)");
         }
 
-        public override void Distinct()
+        public override async Task Distinct(bool isAsync)
         {
-            base.Distinct();
+            await base.Distinct(isAsync);
 
             AssertSql(
                 @"SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]");
         }
 
-        public override void Distinct_Scalar()
+        public override async Task Distinct_Scalar(bool isAsync)
         {
-            base.Distinct_Scalar();
+            await base.Distinct_Scalar(isAsync);
 
             AssertSql(
                 @"SELECT DISTINCT [c].[City]
 FROM [Customers] AS [c]");
         }
 
-        public override void OrderBy_Distinct()
+        public override async Task OrderBy_Distinct(bool isAsync)
         {
-            base.OrderBy_Distinct();
+            await base.OrderBy_Distinct(isAsync);
 
             // Ordering not preserved by distinct when ordering columns not projected.
             AssertSql(
@@ -504,9 +506,9 @@ FROM [Customers] AS [c]");
 FROM [Customers] AS [c]");
         }
 
-        public override void Distinct_OrderBy()
+        public override async Task Distinct_OrderBy(bool isAsync)
         {
-            base.Distinct_OrderBy();
+            await base.Distinct_OrderBy(isAsync);
 
             AssertSql(
                 @"SELECT [t].[Country]
@@ -517,9 +519,9 @@ FROM (
 ORDER BY [t].[Country]");
         }
 
-        public override void Distinct_OrderBy2()
+        public override async Task Distinct_OrderBy2(bool isAsync)
         {
-            base.Distinct_OrderBy2();
+            await base.Distinct_OrderBy2(isAsync);
 
             AssertSql(
                 @"SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
@@ -530,9 +532,9 @@ FROM (
 ORDER BY [t].[CustomerID]");
         }
 
-        public override void Distinct_OrderBy3()
+        public override async Task Distinct_OrderBy3(bool isAsync)
         {
-            base.Distinct_OrderBy3();
+            await base.Distinct_OrderBy3(isAsync);
 
             AssertSql(
                 @"SELECT [t].[CustomerID]
@@ -543,9 +545,9 @@ FROM (
 ORDER BY [t].[CustomerID]");
         }
 
-        public override void Distinct_Count()
+        public override async Task Distinct_Count(bool isAsync)
         {
-            base.Distinct_Count();
+            await base.Distinct_Count(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -555,9 +557,9 @@ FROM (
 ) AS [t]");
         }
 
-        public override void Select_Select_Distinct_Count()
+        public override async Task Select_Select_Distinct_Count(bool isAsync)
         {
-            base.Select_Select_Distinct_Count();
+            await base.Select_Select_Distinct_Count(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)
@@ -567,9 +569,9 @@ FROM (
 ) AS [t]");
         }
 
-        public override void Single_Predicate()
+        public override async Task Single_Predicate(bool isAsync)
         {
-            base.Single_Predicate();
+            await base.Single_Predicate(isAsync);
 
             AssertSql(
                 @"SELECT TOP 2 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -577,9 +579,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] = 'ALFKI'");
         }
 
-        public override void FirstOrDefault_inside_subquery_gets_server_evaluated()
+        public override async Task FirstOrDefault_inside_subquery_gets_server_evaluated(bool isAsync)
         {
-            base.FirstOrDefault_inside_subquery_gets_server_evaluated();
+            await base.FirstOrDefault_inside_subquery_gets_server_evaluated(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -591,9 +593,9 @@ WHERE ([c].[CustomerID] = 'ALFKI') AND ((
 ) = 'ALFKI')");
         }
 
-        public override void First_inside_subquery_gets_client_evaluated()
+        public override async Task First_inside_subquery_gets_client_evaluated(bool isAsync)
         {
-            base.First_inside_subquery_gets_client_evaluated();
+            await base.First_inside_subquery_gets_client_evaluated(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -607,9 +609,9 @@ FROM [Orders] AS [o0]
 WHERE ([o0].[CustomerID] = 'ALFKI') AND (@_outer_CustomerID = [o0].[CustomerID])");
         }
 
-        public override void Last()
+        public override async Task Last(bool isAsync)
         {
-            base.Last();
+            await base.Last(isAsync);
 
             AssertSql(
                 @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -617,9 +619,9 @@ FROM [Customers] AS [c]
 ORDER BY [c].[ContactName] DESC");
         }
 
-        public override void Last_when_no_order_by()
+        public override async Task Last_when_no_order_by(bool isAsync)
         {
-            base.Last_when_no_order_by();
+            await base.Last_when_no_order_by(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -627,9 +629,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] = 'ALFKI'");
         }
 
-        public override void Last_Predicate()
+        public override async Task Last_Predicate(bool isAsync)
         {
-            base.Last_Predicate();
+            await base.Last_Predicate(isAsync);
 
             AssertSql(
                 @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -638,9 +640,9 @@ WHERE [c].[City] = 'London'
 ORDER BY [c].[ContactName] DESC");
         }
 
-        public override void Where_Last()
+        public override async Task Where_Last(bool isAsync)
         {
-            base.Where_Last();
+            await base.Where_Last(isAsync);
 
             AssertSql(
                 @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -649,9 +651,9 @@ WHERE [c].[City] = 'London'
 ORDER BY [c].[ContactName] DESC");
         }
 
-        public override void LastOrDefault()
+        public override async Task LastOrDefault(bool isAsync)
         {
-            base.LastOrDefault();
+            await base.LastOrDefault(isAsync);
 
             AssertSql(
                 @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -659,20 +661,9 @@ FROM [Customers] AS [c]
 ORDER BY [c].[ContactName] DESC");
         }
 
-        public override void LastOrDefault_Predicate()
+        public override async Task LastOrDefault_Predicate(bool isAsync)
         {
-            base.LastOrDefault_Predicate();
-
-            AssertSql(
-                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[City] = 'London'
-ORDER BY [c].[ContactName] DESC");
-        }
-
-        public override void Where_LastOrDefault()
-        {
-            base.Where_LastOrDefault();
+            await base.LastOrDefault_Predicate(isAsync);
 
             AssertSql(
                 @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -681,9 +672,20 @@ WHERE [c].[City] = 'London'
 ORDER BY [c].[ContactName] DESC");
         }
 
-        public override void Contains_with_subquery()
+        public override async Task Where_LastOrDefault(bool isAsync)
         {
-            base.Contains_with_subquery();
+            await base.Where_LastOrDefault(isAsync);
+
+            AssertSql(
+                @"SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = 'London'
+ORDER BY [c].[ContactName] DESC");
+        }
+
+        public override async Task Contains_with_subquery(bool isAsync)
+        {
+            await base.Contains_with_subquery(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -694,9 +696,9 @@ WHERE [c].[CustomerID] IN (
 )");
         }
 
-        public override void Contains_with_local_array_closure()
+        public override async Task Contains_with_local_array_closure(bool isAsync)
         {
-            base.Contains_with_local_array_closure();
+            await base.Contains_with_local_array_closure(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -708,9 +710,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE')");
         }
 
-        public override void Contains_with_subquery_and_local_array_closure()
+        public override async Task Contains_with_subquery_and_local_array_closure(bool isAsync)
         {
-            base.Contains_with_subquery_and_local_array_closure();
+            await base.Contains_with_subquery_and_local_array_closure(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -728,9 +730,9 @@ WHERE EXISTS (
     WHERE [c1].[City] IN ('London') AND ([c1].[CustomerID] = [c].[CustomerID]))");
         }
 
-        public override void Contains_with_local_int_array_closure()
+        public override async Task Contains_with_local_int_array_closure(bool isAsync)
         {
-            base.Contains_with_local_int_array_closure();
+            await base.Contains_with_local_int_array_closure(isAsync);
 
             AssertSql(
                 @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
@@ -742,9 +744,9 @@ FROM [Employees] AS [e]
 WHERE [e].[EmployeeID] IN (0)");
         }
 
-        public override void Contains_with_local_nullable_int_array_closure()
+        public override async Task Contains_with_local_nullable_int_array_closure(bool isAsync)
         {
-            base.Contains_with_local_nullable_int_array_closure();
+            await base.Contains_with_local_nullable_int_array_closure(isAsync);
 
             AssertSql(
                 @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
@@ -756,9 +758,9 @@ FROM [Employees] AS [e]
 WHERE [e].[EmployeeID] IN (0)");
         }
 
-        public override void Contains_with_local_array_inline()
+        public override async Task Contains_with_local_array_inline(bool isAsync)
         {
-            base.Contains_with_local_array_inline();
+            await base.Contains_with_local_array_inline(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -766,9 +768,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI')");
         }
 
-        public override void Contains_with_local_list_closure()
+        public override async Task Contains_with_local_list_closure(bool isAsync)
         {
-            base.Contains_with_local_list_closure();
+            await base.Contains_with_local_list_closure(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -776,9 +778,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI')");
         }
 
-        public override void Contains_with_local_list_closure_all_null()
+        public override async Task Contains_with_local_list_closure_all_null(bool isAsync)
         {
-            base.Contains_with_local_list_closure_all_null();
+            await base.Contains_with_local_list_closure_all_null(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -786,9 +788,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IS NULL");
         }
 
-        public override void Contains_with_local_list_inline()
+        public override async Task Contains_with_local_list_inline(bool isAsync)
         {
-            base.Contains_with_local_list_inline();
+            await base.Contains_with_local_list_inline(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -796,9 +798,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI')");
         }
 
-        public override void Contains_with_local_list_inline_closure_mix()
+        public override async Task Contains_with_local_list_inline_closure_mix(bool isAsync)
         {
-            base.Contains_with_local_list_inline_closure_mix();
+            await base.Contains_with_local_list_inline_closure_mix(isAsync);
 
             AssertSql(
                 @"@__id_0='ALFKI' (Nullable = false) (Size = 5)
@@ -814,9 +816,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', @__id_0)");
         }
 
-        public override void Contains_with_local_collection_false()
+        public override async Task Contains_with_local_collection_false(bool isAsync)
         {
-            base.Contains_with_local_collection_false();
+            await base.Contains_with_local_collection_false(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -824,9 +826,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] NOT IN ('ABCDE', 'ALFKI')");
         }
 
-        public override void Contains_with_local_collection_complex_predicate_and()
+        public override async Task Contains_with_local_collection_complex_predicate_and(bool isAsync)
         {
-            base.Contains_with_local_collection_complex_predicate_and();
+            await base.Contains_with_local_collection_complex_predicate_and(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -834,9 +836,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ALFKI', 'ABCDE') AND [c].[CustomerID] IN ('ABCDE', 'ALFKI')");
         }
 
-        public override void Contains_with_local_collection_complex_predicate_or()
+        public override async Task Contains_with_local_collection_complex_predicate_or(bool isAsync)
         {
-            base.Contains_with_local_collection_complex_predicate_or();
+            await base.Contains_with_local_collection_complex_predicate_or(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -844,9 +846,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI', 'ALFKI', 'ABCDE')");
         }
 
-        public override void Contains_with_local_collection_complex_predicate_not_matching_ins1()
+        public override async Task Contains_with_local_collection_complex_predicate_not_matching_ins1(bool isAsync)
         {
-            base.Contains_with_local_collection_complex_predicate_not_matching_ins1();
+            await base.Contains_with_local_collection_complex_predicate_not_matching_ins1(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -854,9 +856,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ALFKI', 'ABCDE') OR [c].[CustomerID] NOT IN ('ABCDE', 'ALFKI')");
         }
 
-        public override void Contains_with_local_collection_complex_predicate_not_matching_ins2()
+        public override async Task Contains_with_local_collection_complex_predicate_not_matching_ins2(bool isAsync)
         {
-            base.Contains_with_local_collection_complex_predicate_not_matching_ins2();
+            await base.Contains_with_local_collection_complex_predicate_not_matching_ins2(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -864,9 +866,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI') AND [c].[CustomerID] NOT IN ('ALFKI', 'ABCDE')");
         }
 
-        public override void Contains_with_local_collection_sql_injection()
+        public override async Task Contains_with_local_collection_sql_injection(bool isAsync)
         {
-            base.Contains_with_local_collection_sql_injection();
+            await base.Contains_with_local_collection_sql_injection(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -874,9 +876,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ALFKI', 'ABC'')); GO; DROP TABLE Orders; GO; --', 'ALFKI', 'ABCDE')");
         }
 
-        public override void Contains_with_local_collection_empty_closure()
+        public override async Task Contains_with_local_collection_empty_closure(bool isAsync)
         {
-            base.Contains_with_local_collection_empty_closure();
+            await base.Contains_with_local_collection_empty_closure(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -884,18 +886,18 @@ FROM [Customers] AS [c]
 WHERE False = True");
         }
 
-        public override void Contains_with_local_collection_empty_inline()
+        public override async Task Contains_with_local_collection_empty_inline(bool isAsync)
         {
-            base.Contains_with_local_collection_empty_inline();
+            await base.Contains_with_local_collection_empty_inline(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
 FROM [Customers] AS [c]");
         }
 
-        public override void Contains_top_level()
+        public override async Task Contains_top_level(bool isAsync)
         {
-            base.Contains_top_level();
+            await base.Contains_top_level(isAsync);
 
             AssertSql(
                 @"@__p_0='ALFKI' (Nullable = false) (Size = 4000)
@@ -909,9 +911,9 @@ SELECT CASE
 END");
         }
 
-        public override void Contains_with_local_tuple_array_closure()
+        public override async Task Contains_with_local_tuple_array_closure(bool isAsync)
         {
-            base.Contains_with_local_tuple_array_closure();
+            await base.Contains_with_local_tuple_array_closure(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
@@ -921,9 +923,9 @@ FROM [Order Details] AS [o]",
 FROM [Order Details] AS [o]");
         }
 
-        public override void Contains_with_local_anonymous_type_array_closure()
+        public override async Task Contains_with_local_anonymous_type_array_closure(bool isAsync)
         {
-            base.Contains_with_local_anonymous_type_array_closure();
+            await base.Contains_with_local_anonymous_type_array_closure(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
@@ -955,9 +957,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 ORDER BY [o].[OrderID]");
         }
 
-        public override void Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast()
+        public override async Task Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(bool isAsync)
         {
-            base.Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast();
+            await base.Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(isAsync);
 
             AssertSql(
                 @"SELECT AVG(CAST([o].[OrderID] AS float))
@@ -965,9 +967,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] LIKE 'A' + '%'");
         }
 
-        public override void Max_with_non_matching_types_in_projection_introduces_explicit_cast()
+        public override async Task Max_with_non_matching_types_in_projection_introduces_explicit_cast(bool isAsync)
         {
-            base.Max_with_non_matching_types_in_projection_introduces_explicit_cast();
+            await base.Max_with_non_matching_types_in_projection_introduces_explicit_cast(isAsync);
 
             AssertSql(
                 @"SELECT MAX(CAST([o].[OrderID] AS bigint))
@@ -975,9 +977,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] LIKE 'A' + '%'");
         }
 
-        public override void Min_with_non_matching_types_in_projection_introduces_explicit_cast()
+        public override async Task Min_with_non_matching_types_in_projection_introduces_explicit_cast(bool isAsync)
         {
-            base.Min_with_non_matching_types_in_projection_introduces_explicit_cast();
+            await base.Min_with_non_matching_types_in_projection_introduces_explicit_cast(isAsync);
 
             AssertSql(
                 @"SELECT MIN(CAST([o].[OrderID] AS bigint))
@@ -985,9 +987,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] LIKE 'A' + '%'");
         }
 
-        public override void OrderBy_Take_Last_gives_correct_result()
+        public override async Task OrderBy_Take_Last_gives_correct_result(bool isAsync)
         {
-            base.OrderBy_Take_Last_gives_correct_result();
+            await base.OrderBy_Take_Last_gives_correct_result(isAsync);
 
             AssertSql(
                 @"@__p_0='20'
@@ -1001,9 +1003,9 @@ FROM (
 ORDER BY [t].[CustomerID] DESC");
         }
 
-        public override void OrderBy_Skip_Last_gives_correct_result()
+        public override async Task OrderBy_Skip_Last_gives_correct_result(bool isAsync)
         {
-            base.OrderBy_Skip_Last_gives_correct_result();
+            await base.OrderBy_Skip_Last_gives_correct_result(isAsync);
 
             AssertSql(
                 @"@__p_0='20'
@@ -1059,21 +1061,21 @@ WHERE [o].[ProductID] = 42");
 
             Assert.DoesNotContain(
                 CoreStrings.LogFirstWithoutOrderByAndFilter.GenerateMessage(
-                    @"(from char <generated>_1 in [c].CustomerID select [<generated>_1]).FirstOrDefault()"), Fixture.TestSqlLoggerFactory.Log);
+                    @"(from char <generated>_1 in [c].CustomerID select [<generated>_1]).FirstOrDefault()"), Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
         }
 
-        public override void Project_constant_Sum()
+        public override async Task Project_constant_Sum(bool isAsync)
         {
-            base.Project_constant_Sum();
+            await base.Project_constant_Sum(isAsync);
 
             AssertSql(
                 @"SELECT 1
 FROM [Employees] AS [e]");
         }
 
-        public override void Where_subquery_any_equals_operator()
+        public override async Task Where_subquery_any_equals_operator(bool isAsync)
         {
-            base.Where_subquery_any_equals_operator();
+            await base.Where_subquery_any_equals_operator(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1081,9 +1083,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_any_equals()
+        public override async Task Where_subquery_any_equals(bool isAsync)
         {
-            base.Where_subquery_any_equals();
+            await base.Where_subquery_any_equals(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1091,9 +1093,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_any_equals_static()
+        public override async Task Where_subquery_any_equals_static(bool isAsync)
         {
-            base.Where_subquery_any_equals_static();
+            await base.Where_subquery_any_equals_static(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1101,9 +1103,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_where_any()
+        public override async Task Where_subquery_where_any(bool isAsync)
         {
-            base.Where_subquery_where_any();
+            await base.Where_subquery_where_any(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1111,9 +1113,9 @@ FROM [Customers] AS [c]
 WHERE ([c].[City] = 'México D.F.') AND [c].[CustomerID] IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_all_not_equals_operator()
+        public override async Task Where_subquery_all_not_equals_operator(bool isAsync)
         {
-            base.Where_subquery_all_not_equals_operator();
+            await base.Where_subquery_all_not_equals_operator(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1121,9 +1123,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] NOT IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_all_not_equals()
+        public override async Task Where_subquery_all_not_equals(bool isAsync)
         {
-            base.Where_subquery_all_not_equals();
+            await base.Where_subquery_all_not_equals(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1131,9 +1133,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] NOT IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_all_not_equals_static()
+        public override async Task Where_subquery_all_not_equals_static(bool isAsync)
         {
-            base.Where_subquery_all_not_equals_static();
+            await base.Where_subquery_all_not_equals_static(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1141,9 +1143,9 @@ FROM [Customers] AS [c]
 WHERE [c].[CustomerID] NOT IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Where_subquery_where_all()
+        public override async Task Where_subquery_where_all(bool isAsync)
         {
-            base.Where_subquery_where_all();
+            await base.Where_subquery_where_all(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -1151,9 +1153,9 @@ FROM [Customers] AS [c]
 WHERE ([c].[City] = 'México D.F.') AND [c].[CustomerID] NOT IN ('ABCDE', 'ALFKI', 'ANATR')");
         }
 
-        public override void Cast_to_same_Type_Count_works()
+        public override async Task Cast_to_same_Type_Count_works(bool isAsync)
         {
-            base.Cast_to_same_Type_Count_works();
+            await base.Cast_to_same_Type_Count_works(isAsync);
 
             AssertSql(
                 @"SELECT COUNT(*)

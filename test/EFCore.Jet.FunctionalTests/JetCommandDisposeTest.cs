@@ -4,7 +4,7 @@ using Xunit;
 
 namespace EntityFramework.Jet.FunctionalTests
 {
-    class JetCommandDisposeTest
+    public class JetCommandDisposeTest
     {
         [Fact]
         public void JetCommandCannotBeLoggedAfterDispose()

@@ -293,9 +293,7 @@ ORDER BY
                         continue;
 
                     string storeType;
-                    string underlyingStoreType;
                     storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
-                    underlyingStoreType = null;
 
                     if (defaultValue == "(NULL)")
                     {
@@ -312,17 +310,15 @@ ORDER BY
                         ComputedColumnSql = computedValue,
                         ValueGenerated = isIdentity
                             ? ValueGenerated.OnAdd
-                            : (underlyingStoreType ?? storeType) == "rowversion"
+                            : (storeType) == "rowversion"
                                 ? ValueGenerated.OnAddOrUpdate
                                 : default(ValueGenerated?)
                     };
 
-                    if ((underlyingStoreType ?? storeType) == "rowversion")
+                    if (storeType == "rowversion")
                     {
                         column[ScaffoldingAnnotationNames.ConcurrencyToken] = true;
                     }
-
-                    column.SetUnderlyingStoreType(underlyingStoreType);
 
                     table.Columns.Add(column);
                     _tableColumns.Add(ColumnKey(table, column.Name), column);

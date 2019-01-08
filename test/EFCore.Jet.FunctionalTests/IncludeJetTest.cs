@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
 using Xunit.Abstractions;
 
+#pragma warning disable xUnit1003 // Theory methods must have test data
+
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class IncludeJetTest : IncludeTestBase<IncludeJetFixture>

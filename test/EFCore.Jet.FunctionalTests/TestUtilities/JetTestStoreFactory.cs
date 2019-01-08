@@ -1,14 +1,14 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace EntityFramework.Jet.FunctionalTests.TestUtilities
 {
-    public class JetTestStoreFactory : ITestStoreFactory
+    public class JetTestStoreFactory : RelationalTestStoreFactory
     {
         public static JetTestStoreFactory Instance { get; } = new JetTestStoreFactory();
 
@@ -16,14 +16,13 @@ namespace EntityFramework.Jet.FunctionalTests.TestUtilities
         {
         }
 
-        public virtual TestStore Create(string storeName)
+        public override TestStore Create(string storeName)
             => JetTestStore.Create(storeName);
 
-        public virtual TestStore GetOrCreate(string storeName)
-            => JetTestStore.GetOrCreate(storeName);
+        public override TestStore GetOrCreate(string storeName)
+            => JetTestStore.CreateScratch(true);
 
-        public virtual IServiceCollection AddProviderServices(IServiceCollection serviceCollection)
-            => serviceCollection.AddEntityFrameworkJet()
-                .AddSingleton<ILoggerFactory>(new TestSqlLoggerFactory());
+        public override IServiceCollection AddProviderServices(IServiceCollection serviceCollection)
+            => serviceCollection.AddEntityFrameworkJet();
     }
 }

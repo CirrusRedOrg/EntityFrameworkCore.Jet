@@ -81,7 +81,7 @@ namespace EntityFrameworkCore.Jet.Tests.Migrations
         }
 
         [Fact]
-        public virtual void RenameTableOperation()
+        public override void RenameTableOperation()
         {
             Generate(
                 new RenameTableOperation

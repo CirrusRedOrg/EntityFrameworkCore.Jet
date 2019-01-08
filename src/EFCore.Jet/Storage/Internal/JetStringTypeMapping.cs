@@ -47,6 +47,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _maxSpecificSize = CalculateSize(parameters.Size);
         }
 
+        protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
+            => new JetStringTypeMapping(parameters);
+
 
         private static int CalculateSize(int? size)
         {

@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
+#pragma warning disable xUnit1003 // Theory methods must have test data
+
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class QueryNavigationsJetTest : QueryNavigationsTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
@@ -15,10 +17,10 @@ namespace EntityFramework.Jet.FunctionalTests
             fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Navigation_with_collection_with_nullable_type_key()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Navigation_with_collection_with_nullable_type_key(bool isAsync)
         {
-            base.Navigation_with_collection_with_nullable_type_key();
+            await base.Navigation_with_collection_with_nullable_type_key(isAsync);
         }
 
         [Fact(Skip = "Unsupported by JET")]
@@ -34,15 +36,15 @@ namespace EntityFramework.Jet.FunctionalTests
         }
 
 
-        [Fact(Skip = "Assertion failed without evident reason")]
-        public override void Select_collection_navigation_multi_part()
+        [Theory(Skip = "Assertion failed without evident reason")]
+        public override async Task Select_collection_navigation_multi_part(bool isAsync)
         {
-            base.Select_collection_navigation_multi_part();
+            await base.Select_collection_navigation_multi_part(isAsync);
         }
 
-        public override void Join_with_nav_projected_in_subquery_when_client_eval()
+        public override async Task Join_with_nav_projected_in_subquery_when_client_eval(bool isAsync)
         {
-            base.Join_with_nav_projected_in_subquery_when_client_eval();
+            await base.Join_with_nav_projected_in_subquery_when_client_eval(isAsync);
 
             AssertContains(
                 @"SELECT [od0].[OrderID], [od0].[ProductID], [od0].[Discount], [od0].[Quantity], [od0].[UnitPrice], [od.Product0].[ProductID], [od.Product0].[Discontinued], [od.Product0].[ProductName], [od.Product0].[UnitPrice], [od.Product0].[UnitsInStock]
@@ -57,9 +59,9 @@ LEFT JOIN [Customers] AS [o.Customer0] ON [o0].[CustomerID] = [o.Customer0].[Cus
 FROM [Customers] AS [c]");
         }
 
-        public override void GroupJoin_with_nav_projected_in_subquery_when_client_eval()
+        public override async Task GroupJoin_with_nav_projected_in_subquery_when_client_eval(bool isAsync)
         {
-            base.GroupJoin_with_nav_projected_in_subquery_when_client_eval();
+            await base.GroupJoin_with_nav_projected_in_subquery_when_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [od0].[OrderID], [od0].[ProductID], [od0].[Discount], [od0].[Quantity], [od0].[UnitPrice], [od.Product0].[ProductID], [od.Product0].[Discontinued], [od.Product0].[ProductName], [od.Product0].[UnitPrice], [od.Product0].[UnitsInStock]
@@ -74,9 +76,9 @@ LEFT JOIN [Customers] AS [o.Customer0] ON [o0].[CustomerID] = [o.Customer0].[Cus
 FROM [Customers] AS [c]");
         }
 
-        public override void Join_with_nav_in_predicate_in_subquery_when_client_eval()
+        public override async Task Join_with_nav_in_predicate_in_subquery_when_client_eval(bool isAsync)
         {
-            base.Join_with_nav_in_predicate_in_subquery_when_client_eval();
+            await base.Join_with_nav_in_predicate_in_subquery_when_client_eval(isAsync);
 
             AssertContains(
                 @"SELECT [od0].[OrderID], [od0].[ProductID], [od0].[Discount], [od0].[Quantity], [od0].[UnitPrice], [od.Product0].[ProductID], [od.Product0].[Discontinued], [od.Product0].[ProductName], [od.Product0].[UnitPrice], [od.Product0].[UnitsInStock]
@@ -92,9 +94,9 @@ FROM [Customers] AS [c]");
         }
 
 
-        public override void Join_with_nav_in_orderby_in_subquery_when_client_eval()
+        public override async Task Join_with_nav_in_orderby_in_subquery_when_client_eval(bool isAsync)
         {
-            base.Join_with_nav_in_orderby_in_subquery_when_client_eval();
+            await base.Join_with_nav_in_orderby_in_subquery_when_client_eval(isAsync);
 
             AssertContains(
                 @"SELECT [od0].[OrderID], [od0].[ProductID], [od0].[Discount], [od0].[Quantity], [od0].[UnitPrice], [od.Product0].[ProductID], [od.Product0].[Discontinued], [od.Product0].[ProductName], [od.Product0].[UnitPrice], [od.Product0].[UnitsInStock]
@@ -109,9 +111,9 @@ LEFT JOIN [Customers] AS [o.Customer0] ON [o0].[CustomerID] = [o.Customer0].[Cus
 FROM [Customers] AS [c]");
         }
 
-        public override void GroupJoin_with_nav_in_orderby_in_subquery_when_client_eval()
+        public override async Task GroupJoin_with_nav_in_orderby_in_subquery_when_client_eval(bool isAsync)
         {
-            base.GroupJoin_with_nav_in_orderby_in_subquery_when_client_eval();
+            await base.GroupJoin_with_nav_in_orderby_in_subquery_when_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [od0].[OrderID], [od0].[ProductID], [od0].[Discount], [od0].[Quantity], [od0].[UnitPrice], [od.Product0].[ProductID], [od.Product0].[Discontinued], [od.Product0].[ProductName], [od.Product0].[UnitPrice], [od.Product0].[UnitsInStock]
@@ -126,9 +128,9 @@ LEFT JOIN [Customers] AS [o.Customer0] ON [o0].[CustomerID] = [o.Customer0].[Cus
 FROM [Customers] AS [c]");
         }
 
-        public override void Select_Where_Navigation()
+        public override async Task Select_Where_Navigation(bool isAsync)
         {
-            base.Select_Where_Navigation();
+            await base.Select_Where_Navigation(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
@@ -137,9 +139,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE [o.Customer].[City] = 'Seattle'");
         }
 
-        public override void Select_Where_Navigation_Contains()
+        public override async Task Select_Where_Navigation_Contains(bool isAsync)
         {
-            base.Select_Where_Navigation_Contains();
+            await base.Select_Where_Navigation_Contains(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
@@ -148,9 +150,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE Instr(1, 'Sea', [o.Customer].[City], 0) > 0");
         }
 
-        public override void Select_Where_Navigation_Deep()
+        public override async Task Select_Where_Navigation_Deep(bool isAsync)
         {
-            base.Select_Where_Navigation_Deep();
+            await base.Select_Where_Navigation_Deep(isAsync);
 
             AssertSql(
                 @"@__p_0='1'
@@ -163,9 +165,9 @@ WHERE [od.Order.Customer].[City] = 'Seattle'
 ORDER BY [od].[OrderID], [od].[ProductID]");
         }
 
-        public override void Take_Select_Navigation()
+        public override async Task Take_Select_Navigation(bool isAsync)
         {
-            base.Take_Select_Navigation();
+            await base.Take_Select_Navigation(isAsync);
 
             AssertSql(
                 @"@__p_0='2'
@@ -187,10 +189,10 @@ FROM [Orders] AS [o]
 WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Select_collection_FirstOrDefault_project_single_column1()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Select_collection_FirstOrDefault_project_single_column1(bool isAsync)
         {
-            base.Select_collection_FirstOrDefault_project_single_column1();
+            await base.Select_collection_FirstOrDefault_project_single_column1(isAsync);
 
             AssertSql(
                 @"@__p_0='2'
@@ -204,10 +206,10 @@ FROM [Customers] AS [c]
 ORDER BY [c].[CustomerID]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Select_collection_FirstOrDefault_project_single_column2()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Select_collection_FirstOrDefault_project_single_column2(bool isAsync)
         {
-            base.Select_collection_FirstOrDefault_project_single_column2();
+            await base.Select_collection_FirstOrDefault_project_single_column2(isAsync);
 
             AssertSql(
                 @"@__p_0='2'
@@ -221,9 +223,9 @@ FROM [Customers] AS [c]
 ORDER BY [c].[CustomerID]");
         }
 
-        public override void Select_collection_FirstOrDefault_project_anonymous_type()
+        public override async Task Select_collection_FirstOrDefault_project_anonymous_type(bool isAsync)
         {
-            base.Select_collection_FirstOrDefault_project_anonymous_type();
+            await base.Select_collection_FirstOrDefault_project_anonymous_type(isAsync);
 
             AssertSql(
                 @"@__p_0='2'
@@ -245,9 +247,9 @@ FROM [Orders] AS [o]
 WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
-        public override void Select_collection_FirstOrDefault_project_entity()
+        public override async Task Select_collection_FirstOrDefault_project_entity(bool isAsync)
         {
-            base.Select_collection_FirstOrDefault_project_entity();
+            await base.Select_collection_FirstOrDefault_project_entity(isAsync);
 
             AssertSql(
                 @"@__p_0='2'
@@ -270,9 +272,9 @@ WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
 
-        public override void Select_Where_Navigation_Included()
+        public override async Task Select_Where_Navigation_Included(bool isAsync)
         {
-            base.Select_Where_Navigation_Included();
+            await base.Select_Where_Navigation_Included(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o.Customer].[CustomerID], [o.Customer].[Address], [o.Customer].[City], [o.Customer].[CompanyName], [o.Customer].[ContactName], [o.Customer].[ContactTitle], [o.Customer].[Country], [o.Customer].[Fax], [o.Customer].[Phone], [o.Customer].[PostalCode], [o.Customer].[Region]
@@ -281,9 +283,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE [o.Customer].[City] = 'Seattle'");
         }
 
-        public override void Include_with_multiple_optional_navigations()
+        public override async Task Include_with_multiple_optional_navigations(bool isAsync)
         {
-            base.Include_with_multiple_optional_navigations();
+            await base.Include_with_multiple_optional_navigations(isAsync);
 
             AssertSql(
                 @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice], [od.Order].[OrderID], [od.Order].[CustomerID], [od.Order].[EmployeeID], [od.Order].[OrderDate], [od.Order.Customer].[CustomerID], [od.Order.Customer].[Address], [od.Order.Customer].[City], [od.Order.Customer].[CompanyName], [od.Order.Customer].[ContactName], [od.Order.Customer].[ContactTitle], [od.Order.Customer].[Country], [od.Order.Customer].[Fax], [od.Order.Customer].[Phone], [od.Order.Customer].[PostalCode], [od.Order.Customer].[Region]
@@ -293,9 +295,9 @@ LEFT JOIN [Customers] AS [od.Order.Customer] ON [od.Order].[CustomerID] = [od.Or
 WHERE [od.Order.Customer].[City] = 'London'");
         }
 
-        public override void Select_Navigation()
+        public override async Task Select_Navigation(bool isAsync)
         {
-            base.Select_Navigation();
+            await base.Select_Navigation(isAsync);
 
             AssertSql(
                 @"SELECT [o.Customer].[CustomerID], [o.Customer].[Address], [o.Customer].[City], [o.Customer].[CompanyName], [o.Customer].[ContactName], [o.Customer].[ContactTitle], [o.Customer].[Country], [o.Customer].[Fax], [o.Customer].[Phone], [o.Customer].[PostalCode], [o.Customer].[Region]
@@ -303,9 +305,9 @@ FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[CustomerID]");
         }
 
-        public override void Select_Navigations()
+        public override async Task Select_Navigations(bool isAsync)
         {
-            base.Select_Navigations();
+            await base.Select_Navigations(isAsync);
 
             AssertSql(
                 @"SELECT [o.Customer].[CustomerID], [o.Customer].[Address], [o.Customer].[City], [o.Customer].[CompanyName], [o.Customer].[ContactName], [o.Customer].[ContactTitle], [o.Customer].[Country], [o.Customer].[Fax], [o.Customer].[Phone], [o.Customer].[PostalCode], [o.Customer].[Region]
@@ -313,9 +315,9 @@ FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[CustomerID]");
         }
 
-        public override void Select_Where_Navigation_Multiple_Access()
+        public override async Task Select_Where_Navigation_Multiple_Access(bool isAsync)
         {
-            base.Select_Where_Navigation_Multiple_Access();
+            await base.Select_Where_Navigation_Multiple_Access(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
@@ -324,9 +326,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE ([o.Customer].[City] = 'Seattle') AND (([o.Customer].[Phone] <> '555 555 5555') OR [o.Customer].[Phone] IS NULL)");
         }
 
-        public override void Select_Navigations_Where_Navigations()
+        public override async Task Select_Navigations_Where_Navigations(bool isAsync)
         {
-            base.Select_Navigations_Where_Navigations();
+            await base.Select_Navigations_Where_Navigations(isAsync);
 
             AssertSql(
                 @"SELECT [o.Customer].[CustomerID], [o.Customer].[Address], [o.Customer].[City], [o.Customer].[CompanyName], [o.Customer].[ContactName], [o.Customer].[ContactTitle], [o.Customer].[Country], [o.Customer].[Fax], [o.Customer].[Phone], [o.Customer].[PostalCode], [o.Customer].[Region]
@@ -335,9 +337,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE ([o.Customer].[City] = 'Seattle') AND (([o.Customer].[Phone] <> '555 555 5555') OR [o.Customer].[Phone] IS NULL)");
         }
 
-        public override void Select_Where_Navigation_Client()
+        public override async Task Select_Where_Navigation_Client(bool isAsync)
         {
-            base.Select_Where_Navigation_Client();
+            await base.Select_Where_Navigation_Client(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o.Customer].[CustomerID], [o.Customer].[Address], [o.Customer].[City], [o.Customer].[CompanyName], [o.Customer].[ContactName], [o.Customer].[ContactTitle], [o.Customer].[Country], [o.Customer].[Fax], [o.Customer].[Phone], [o.Customer].[PostalCode], [o.Customer].[Region]
@@ -345,9 +347,9 @@ FROM [Orders] AS [o]
 LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[CustomerID]");
         }
 
-        public override void Select_Singleton_Navigation_With_Member_Access()
+        public override async Task Select_Singleton_Navigation_With_Member_Access(bool isAsync)
         {
-            base.Select_Singleton_Navigation_With_Member_Access();
+            await base.Select_Singleton_Navigation_With_Member_Access(isAsync);
 
             AssertSql(
                 @"SELECT [o.Customer].[CustomerID], [o.Customer].[Address], [o.Customer].[City] AS [B], [o.Customer].[CompanyName], [o.Customer].[ContactName], [o.Customer].[ContactTitle], [o.Customer].[Country], [o.Customer].[Fax], [o.Customer].[Phone], [o.Customer].[PostalCode], [o.Customer].[Region]
@@ -356,10 +358,10 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE ([o.Customer].[City] = 'Seattle') AND (([o.Customer].[Phone] <> '555 555 5555') OR [o.Customer].[Phone] IS NULL)");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Select_count_plus_sum()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Select_count_plus_sum(bool isAsync)
         {
-            base.Select_count_plus_sum();
+            await base.Select_count_plus_sum(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -374,9 +376,9 @@ WHERE ([o.Customer].[City] = 'Seattle') AND (([o.Customer].[Phone] <> '555 555 5
 FROM [Orders] AS [o]");
         }
 
-        public override void Singleton_Navigation_With_Member_Access()
+        public override async Task Singleton_Navigation_With_Member_Access(bool isAsync)
         {
-            base.Singleton_Navigation_With_Member_Access();
+            await base.Singleton_Navigation_With_Member_Access(isAsync);
 
             AssertSql(
                 @"SELECT [o.Customer].[City] AS [B]
@@ -386,9 +388,9 @@ WHERE ([o.Customer].[City] = 'Seattle') AND (([o.Customer].[Phone] <> '555 555 5
         }
 
 
-        public override void Select_Where_Navigation_Equals_Navigation()
+        public override async Task Select_Where_Navigation_Equals_Navigation(bool isAsync)
         {
-            base.Select_Where_Navigation_Equals_Navigation();
+            await base.Select_Where_Navigation_Equals_Navigation(isAsync);
 
             AssertSql(
                 @"SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate], [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate]
@@ -397,9 +399,9 @@ FROM [Orders] AS [o1]
 WHERE ([o1].[CustomerID] = [o2].[CustomerID]) OR ([o1].[CustomerID] IS NULL AND [o2].[CustomerID] IS NULL)");
         }
 
-        public override void Select_Where_Navigation_Null()
+        public override async Task Select_Where_Navigation_Null(bool isAsync)
         {
-            base.Select_Where_Navigation_Null();
+            await base.Select_Where_Navigation_Null(isAsync);
 
             AssertSql(
                 @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
@@ -407,9 +409,9 @@ FROM [Employees] AS [e]
 WHERE [e].[ReportsTo] IS NULL");
         }
 
-        public override void Select_Where_Navigation_Null_Deep()
+        public override async Task Select_Where_Navigation_Null_Deep(bool isAsync)
         {
-            base.Select_Where_Navigation_Null_Deep();
+            await base.Select_Where_Navigation_Null_Deep(isAsync);
 
             AssertSql(
                 @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
@@ -418,9 +420,9 @@ LEFT JOIN [Employees] AS [e.Manager] ON [e].[ReportsTo] = [e.Manager].[EmployeeI
 WHERE [e.Manager].[ReportsTo] IS NULL");
         }
 
-        public override void Select_Where_Navigation_Null_Reverse()
+        public override async Task Select_Where_Navigation_Null_Reverse(bool isAsync)
         {
-            base.Select_Where_Navigation_Null_Reverse();
+            await base.Select_Where_Navigation_Null_Reverse(isAsync);
 
             AssertSql(
                 @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
@@ -428,9 +430,9 @@ FROM [Employees] AS [e]
 WHERE [e].[ReportsTo] IS NULL");
         }
 
-        public override void Select_collection_navigation_simple()
+        public override async Task Select_collection_navigation_simple(bool isAsync)
         {
-            base.Select_collection_navigation_simple();
+            await base.Select_collection_navigation_simple(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -449,10 +451,10 @@ ORDER BY [t].[CustomerID]");
         }
 
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_any()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_any(bool isAsync)
         {
-            base.Collection_select_nav_prop_any();
+            await base.Collection_select_nav_prop_any(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -467,10 +469,10 @@ ORDER BY [t].[CustomerID]");
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_predicate()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_predicate(bool isAsync)
         {
-            base.Collection_select_nav_prop_predicate();
+            await base.Collection_select_nav_prop_predicate(isAsync);
 
             AssertSql(
                 @"SELECT CASE
@@ -484,9 +486,9 @@ END
 FROM [Customers] AS [c]");
         }
 
-        public override void Collection_where_nav_prop_any()
+        public override async Task Collection_where_nav_prop_any(bool isAsync)
         {
-            base.Collection_where_nav_prop_any();
+            await base.Collection_where_nav_prop_any(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -497,9 +499,9 @@ WHERE EXISTS (
     WHERE [c].[CustomerID] = [o].[CustomerID])");
         }
 
-        public override void Collection_where_nav_prop_any_predicate()
+        public override async Task Collection_where_nav_prop_any_predicate(bool isAsync)
         {
-            base.Collection_where_nav_prop_any_predicate();
+            await base.Collection_where_nav_prop_any_predicate(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -510,10 +512,10 @@ WHERE EXISTS (
     WHERE ([o].[OrderID] > 0) AND ([c].[CustomerID] = [o].[CustomerID]))");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_all()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_all(bool isAsync)
         {
-            base.Collection_select_nav_prop_all();
+            await base.Collection_select_nav_prop_all(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -529,9 +531,9 @@ FROM [Customers] AS [c]");
         }
 
 
-        public override void Collection_where_nav_prop_all()
+        public override async Task Collection_where_nav_prop_all(bool isAsync)
         {
-            base.Collection_where_nav_prop_all();
+            await base.Collection_where_nav_prop_all(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -564,10 +566,10 @@ FROM [Orders] AS [o]
 WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_count()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_count(bool isAsync)
         {
-            base.Collection_select_nav_prop_count();
+            await base.Collection_select_nav_prop_count(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -578,10 +580,10 @@ WHERE @_outer_CustomerID = [o].[CustomerID]");
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_where_nav_prop_count()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_where_nav_prop_count(bool isAsync)
         {
-            base.Collection_where_nav_prop_count();
+            await base.Collection_where_nav_prop_count(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -593,10 +595,10 @@ WHERE (
 ) > 5");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_where_nav_prop_count_reverse()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_where_nav_prop_count_reverse(bool isAsync)
         {
-            base.Collection_where_nav_prop_count_reverse();
+            await base.Collection_where_nav_prop_count_reverse(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -608,10 +610,10 @@ WHERE 5 < (
 )");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_orderby_nav_prop_count()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_orderby_nav_prop_count(bool isAsync)
         {
-            base.Collection_orderby_nav_prop_count();
+            await base.Collection_orderby_nav_prop_count(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -623,10 +625,10 @@ ORDER BY (
 )");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_long_count()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_long_count(bool isAsync)
         {
-            base.Collection_select_nav_prop_long_count();
+            await base.Collection_select_nav_prop_long_count(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -637,10 +639,10 @@ ORDER BY (
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Select_multiple_complex_projections()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Select_multiple_complex_projections(bool isAsync)
         {
-            base.Select_multiple_complex_projections();
+            await base.Select_multiple_complex_projections(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -675,10 +677,10 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A')");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_sum()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_sum(bool isAsync)
         {
-            base.Collection_select_nav_prop_sum();
+            await base.Collection_select_nav_prop_sum(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -689,10 +691,10 @@ WHERE [o].[CustomerID] LIKE 'A' + '%' AND (LEFT([o].[CustomerID], LEN('A')) = 'A
 FROM [Customers] AS [c]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_where_nav_prop_sum()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_where_nav_prop_sum(bool isAsync)
         {
-            base.Collection_where_nav_prop_sum();
+            await base.Collection_where_nav_prop_sum(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -704,9 +706,9 @@ WHERE (
 ) > 1000");
         }
 
-        public override void Collection_select_nav_prop_first_or_default()
+        public override async Task Collection_select_nav_prop_first_or_default(bool isAsync)
         {
-            base.Collection_select_nav_prop_first_or_default();
+            await base.Collection_select_nav_prop_first_or_default(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID]
@@ -726,9 +728,9 @@ FROM [Orders] AS [o]
 WHERE @_outer_CustomerID = [o].[CustomerID]");
         }
 
-        public override void Collection_select_nav_prop_first_or_default_then_nav_prop()
+        public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop(bool isAsync)
         {
-            base.Collection_select_nav_prop_first_or_default_then_nav_prop();
+            await base.Collection_select_nav_prop_first_or_default_then_nav_prop(isAsync);
 
             AssertSql(
                 @"SELECT [e].[CustomerID]
@@ -765,10 +767,10 @@ LEFT JOIN [Customers] AS [e.Customer] ON [e0].[CustomerID] = [e.Customer].[Custo
 WHERE [e0].[OrderID] IN (10643, 10692, 10702, 10835, 10952, 11011) AND (@_outer_CustomerID = [e0].[CustomerID])");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_first_or_default_then_nav_prop_nested()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested(bool isAsync)
         {
-            base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested();
+            await base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -781,9 +783,9 @@ FROM [Customers] AS [e]
 WHERE [e].[CustomerID] LIKE 'A' + '%' AND (LEFT([e].[CustomerID], LEN('A')) = 'A')");
         }
 
-        public override void Collection_select_nav_prop_single_or_default_then_nav_prop_nested()
+        public override async Task Collection_select_nav_prop_single_or_default_then_nav_prop_nested(bool isAsync)
         {
-            base.Collection_select_nav_prop_single_or_default_then_nav_prop_nested();
+            await base.Collection_select_nav_prop_single_or_default_then_nav_prop_nested(isAsync);
 
             AssertSql(
                 @"SELECT 1
@@ -811,10 +813,10 @@ LEFT JOIN [Customers] AS [o.Customer0] ON [o0].[CustomerID] = [o.Customer0].[Cus
 WHERE [o0].[OrderID] = 10643");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method(bool isAsync)
         {
-            base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method();
+            await base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -827,10 +829,10 @@ FROM [Customers] AS [e]
 WHERE [e].[CustomerID] LIKE 'A' + '%' AND (LEFT([e].[CustomerID], LEN('A')) = 'A')");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby(bool isAsync)
         {
-            base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby();
+            await base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby(isAsync);
 
             AssertSql(
                 @"SELECT (
@@ -844,9 +846,9 @@ FROM [Customers] AS [e]
 WHERE [e].[CustomerID] LIKE 'A' + '%' AND (LEFT([e].[CustomerID], LEN('A')) = 'A')");
         }
 
-        public override void Navigation_fk_based_inside_contains()
+        public override async Task Navigation_fk_based_inside_contains(bool isAsync)
         {
-            base.Navigation_fk_based_inside_contains();
+            await base.Navigation_fk_based_inside_contains(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
@@ -854,9 +856,9 @@ FROM [Orders] AS [o]
 WHERE [o].[CustomerID] IN ('ALFKI')");
         }
 
-        public override void Navigation_inside_contains()
+        public override async Task Navigation_inside_contains(bool isAsync)
         {
-            base.Navigation_inside_contains();
+            await base.Navigation_inside_contains(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
@@ -865,9 +867,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE [o.Customer].[City] IN ('Novigrad', 'Seattle')");
         }
 
-        public override void Navigation_inside_contains_nested()
+        public override async Task Navigation_inside_contains_nested(bool isAsync)
         {
-            base.Navigation_inside_contains_nested();
+            await base.Navigation_inside_contains_nested(isAsync);
 
             AssertSql(
                 @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
@@ -877,9 +879,9 @@ LEFT JOIN [Customers] AS [od.Order.Customer] ON [od.Order].[CustomerID] = [od.Or
 WHERE [od.Order.Customer].[City] IN ('Novigrad', 'Seattle')");
         }
 
-        public override void Navigation_from_join_clause_inside_contains()
+        public override async Task Navigation_from_join_clause_inside_contains(bool isAsync)
         {
-            base.Navigation_from_join_clause_inside_contains();
+            await base.Navigation_from_join_clause_inside_contains(isAsync);
 
             AssertSql(
                 @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
@@ -889,10 +891,10 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 WHERE [o.Customer].[Country] IN ('USA', 'Redania')");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Where_subquery_on_navigation()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Where_subquery_on_navigation(bool isAsync)
         {
-            base.Where_subquery_on_navigation();
+            await base.Where_subquery_on_navigation(isAsync);
 
             AssertSql(
                 @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
@@ -912,10 +914,10 @@ WHERE EXISTS (
     ) AS [t1] ON ([t0].[OrderID] = [t1].[OrderID]) AND ([t0].[ProductID] = [t1].[ProductID]))");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Where_subquery_on_navigation2()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Where_subquery_on_navigation2(bool isAsync)
         {
-            base.Where_subquery_on_navigation2();
+            await base.Where_subquery_on_navigation2(isAsync);
 
             AssertSql(
                 @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitPrice], [p].[UnitsInStock]
@@ -934,9 +936,9 @@ WHERE EXISTS (
     ) AS [t1] ON ([t0].[OrderID] = [t1].[OrderID]) AND ([t0].[ProductID] = [t1].[ProductID]))");
         }
 
-        public override void Where_subquery_on_navigation_client_eval()
+        public override async Task Where_subquery_on_navigation_client_eval(bool isAsync)
         {
-            base.Where_subquery_on_navigation_client_eval();
+            await base.Where_subquery_on_navigation_client_eval(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
@@ -983,9 +985,9 @@ WHERE ((
 ) > 0) AND [o].[OrderID] IN (10643, 10692)");
         }
 
-        public override void GroupBy_on_nav_prop()
+        public override async Task GroupBy_on_nav_prop(bool isAsync)
         {
-            base.GroupBy_on_nav_prop();
+            await base.GroupBy_on_nav_prop(isAsync);
 
             AssertSql(
                 @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [o.Customer].[City]
@@ -994,9 +996,9 @@ LEFT JOIN [Customers] AS [o.Customer] ON [o].[CustomerID] = [o.Customer].[Custom
 ORDER BY [o.Customer].[City]");
         }
 
-        public override void Where_nav_prop_group_by()
+        public override async Task Where_nav_prop_group_by(bool isAsync)
         {
-            base.Where_nav_prop_group_by();
+            await base.Where_nav_prop_group_by(isAsync);
 
             AssertSql(
                 @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
@@ -1006,9 +1008,9 @@ WHERE [od.Order].[CustomerID] = 'ALFKI'
 ORDER BY [od].[Quantity]");
         }
 
-        public override void Let_group_by_nav_prop()
+        public override async Task Let_group_by_nav_prop(bool isAsync)
         {
-            base.Let_group_by_nav_prop();
+            await base.Let_group_by_nav_prop(isAsync);
 
             AssertSql(
                 @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice], [od.Order].[CustomerID] AS [customer]
@@ -1017,18 +1019,18 @@ INNER JOIN [Orders] AS [od.Order] ON [od].[OrderID] = [od.Order].[OrderID]
 ORDER BY [od.Order].[CustomerID]");
         }
 
-        public override void Project_first_or_default_on_empty_collection_of_value_types_returns_proper_default()
+        public override async Task Project_first_or_default_on_empty_collection_of_value_types_returns_proper_default(bool isAsync)
         {
-            base.Project_first_or_default_on_empty_collection_of_value_types_returns_proper_default();
+            await base.Project_first_or_default_on_empty_collection_of_value_types_returns_proper_default(isAsync);
 
             AssertSql(
                 "");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Project_single_scalar_value_subquery_is_properly_inlined()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Project_single_scalar_value_subquery_is_properly_inlined(bool isAsync)
         {
-            base.Project_single_scalar_value_subquery_is_properly_inlined();
+            await base.Project_single_scalar_value_subquery_is_properly_inlined(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID], (
@@ -1040,9 +1042,9 @@ ORDER BY [od.Order].[CustomerID]");
 FROM [Customers] AS [c]");
         }
 
-        public override void Project_single_entity_value_subquery_works()
+        public override async Task Project_single_entity_value_subquery_works(bool isAsync)
         {
-            base.Project_single_entity_value_subquery_works();
+            await base.Project_single_entity_value_subquery_works(isAsync);
 
             AssertSql(
                 @"SELECT [c].[CustomerID]
@@ -1079,10 +1081,10 @@ WHERE @_outer_CustomerID = [o].[CustomerID]
 ORDER BY [o].[OrderID]");
         }
 
-        [Fact(Skip = "Unsupported by JET")]
-        public override void Project_single_scalar_value_subquery_in_query_with_optional_navigation_works()
+        [Theory(Skip = "Unsupported by JET")]
+        public override async Task Project_single_scalar_value_subquery_in_query_with_optional_navigation_works(bool isAsync)
         {
-            base.Project_single_scalar_value_subquery_in_query_with_optional_navigation_works();
+            await base.Project_single_scalar_value_subquery_in_query_with_optional_navigation_works(isAsync);
 
             AssertSql(
                 @"@__p_0='3'
@@ -1099,17 +1101,17 @@ ORDER BY [o].[OrderID]");
         }
 
 
-        [Fact(Skip = "Unsupported by JET: , and OTHER JOIN")]
-        public override void GroupJoin_with_complex_subquery_and_LOJ_gets_flattened() { }
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
+        public override async Task GroupJoin_with_complex_subquery_and_LOJ_gets_flattened(bool isAsync) { }
 
-        [Fact(Skip = "Unsupported by JET: , and OTHER JOIN")]
-        public override void GroupJoin_with_complex_subquery_and_LOJ_gets_flattened2() { }
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
+        public override async Task GroupJoin_with_complex_subquery_and_LOJ_gets_flattened2(bool isAsync) { }
 
-        [Fact(Skip = "Unsupported by JET: , and OTHER JOIN")]
-        public override void Select_Where_Navigation_Scalar_Equals_Navigation_Scalar() { }
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
+        public override async Task Select_Where_Navigation_Scalar_Equals_Navigation_Scalar(bool isAsync) { }
 
-        [Fact(Skip = "Unsupported by JET: , and OTHER JOIN")]
-        public override void Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected() { }
+        [Theory(Skip = "Unsupported by JET: , and OTHER JOIN")]
+        public override async Task Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(bool isAsync) { }
 
 
         private void AssertSql(params string[] expected)

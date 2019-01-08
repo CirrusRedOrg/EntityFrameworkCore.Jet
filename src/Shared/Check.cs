@@ -115,7 +115,7 @@ namespace EntityFrameworkCore.Jet.Utilities
             {
                 NotEmpty(parameterName, nameof(parameterName));
 
-                throw new ArgumentException(CoreStrings.InvalidEntityType(value, parameterName));
+                throw new ArgumentException(CoreStrings.InvalidEntityType(value));
             }
 
             return value;

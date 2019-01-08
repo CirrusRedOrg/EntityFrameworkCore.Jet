@@ -184,10 +184,9 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             }
             catch (Exception e)
             {
-                ThrowReadValueExceptionMethod.MakeGenericMethod(typeof(TValue)).Invoke(null, new[] {e, untypedValue, property});
+                throw e;
             }
 
-            return default(TValue);
         }
 
 

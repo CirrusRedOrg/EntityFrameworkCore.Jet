@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
+#pragma warning disable xUnit1003 // Theory methods must have test data
+
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class GraphUpdatesWithIdentityJetTest : GraphUpdatesJetTestBase<GraphUpdatesWithIdentityJetTest.GraphUpdatesWithIdentityJetFixture>

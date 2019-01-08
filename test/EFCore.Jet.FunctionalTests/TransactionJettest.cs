@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
+#pragma warning disable xUnit1003 // Theory methods must have test data
+
 namespace EntityFramework.Jet.FunctionalTests
 {
     public class TransactionJetTest : TransactionTestBase<TransactionJetTest.TransactionJetFixture>

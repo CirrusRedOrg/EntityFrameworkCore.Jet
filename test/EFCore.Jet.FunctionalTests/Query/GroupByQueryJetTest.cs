@@ -1572,7 +1572,7 @@ ORDER BY [c].[EmployeeID]",
 FROM [Customers] AS [i#Customer0]",
                 //
                 @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
-FROM [Customers] AS [i.Customer0]");
+FROM [Customers] AS [i#Customer0]");
         }
 
         public override void GroupBy_anonymous_key_without_aggregate()

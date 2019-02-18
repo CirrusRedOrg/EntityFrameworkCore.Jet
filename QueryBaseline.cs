@@ -83735,3 +83735,2852 @@ WHERE [c].[ContactName] LIKE @__LocalMethod1_0 + '%'");
 
 
 
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter__TenantPrefix_0='B' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter__TenantPrefix_0='F' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter__TenantPrefix_0='F' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter__TenantPrefix_0='B' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'",
+                //
+                @"@__ef_filter__TenantPrefix_0='T' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter__TenantPrefix_0='B' (Nullable = false) (Size = 1)
+
+SELECT COUNT(*)
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+ORDER BY [p].[ProductID]",
+                //
+                @"SELECT [p1].[ProductID], [p1].[Discontinued], [p1].[ProductName], [p1].[SupplierID], [p1].[UnitPrice], [p1].[UnitsInStock]
+FROM [Products] AS [p1]",
+                //
+                @"@__ef_filter___quantity_0='50'
+
+SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[Quantity] > @__ef_filter___quantity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.FiltersJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter__TenantPrefix_0='B' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CompanyName] LIKE @__ef_filter__TenantPrefix_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.ComplexNavigationsQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                );
+
+
+
+EntityFramework.Jet.FunctionalTests.ComplexNavigationsQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                );
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id1], [o].[OrderID] AS [Id2]
+FROM [Customers] AS [c]
+, [Orders] AS [o]
+WHERE ([c].[CustomerID] = 'ALFKI') AND ([c].[CustomerID] = [o].[CustomerID])
+ORDER BY [c].[CustomerID], [o].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] AS [Id1], [o].[OrderID] AS [Id2]
+FROM [Customers] AS [c]
+, [Orders] AS [o]
+WHERE ([c].[CustomerID] = 'ALFKI') AND ([c].[CustomerID] = [o].[CustomerID])
+ORDER BY [c].[CustomerID], [o].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.ComplexNavigationsQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                );
+
+
+
+EntityFramework.Jet.FunctionalTests.ComplexNavigationsQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                );
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryNavigationsJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT TOP @__p_0 [c].[CustomerID]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 1 [o].[CustomerID], [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE @_outer_CustomerID = [o].[CustomerID]
+ORDER BY [o].[OrderID]",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT TOP 1 [o].[CustomerID], [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE @_outer_CustomerID = [o].[CustomerID]
+ORDER BY [o].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryNavigationsJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='2'
+
+SELECT TOP @__p_0 [c].[CustomerID]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT TOP 1 [o].[CustomerID], [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE @_outer_CustomerID = [o].[CustomerID]
+ORDER BY [o].[OrderID]",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT TOP 1 [o].[CustomerID], [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE @_outer_CustomerID = [o].[CustomerID]
+ORDER BY [o].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.ComplexNavigationsQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                );
+
+
+
+EntityFramework.Jet.FunctionalTests.ComplexNavigationsQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                );
+
+
+
+EntityFramework.Jet.FunctionalTests.QueryNavigationsJetTest.AssertContains(String[] expected) : 
+            AssertSql(
+                @"SELECT [od0].[OrderID], [od0].[ProductID], [od0].[Discount], [od0].[Quantity], [od0].[UnitPrice], [od#Product0].[ProductID], [od#Product0].[Discontinued], [od#Product0].[ProductName], [od#Product0].[SupplierID], [od#Product0].[UnitPrice], [od#Product0].[UnitsInStock]
+FROM ([Order Details] AS [od0]
+INNER JOIN [Products] AS [od#Product0] ON [od0].[ProductID] = [od#Product0].[ProductID])",
+                //
+                @"SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate], [o#Customer0].[CustomerID], [o#Customer0].[Address], [o#Customer0].[City], [o#Customer0].[CompanyName], [o#Customer0].[ContactName], [o#Customer0].[ContactTitle], [o#Customer0].[Country], [o#Customer0].[Fax], [o#Customer0].[Phone], [o#Customer0].[PostalCode], [o#Customer0].[Region]
+FROM ([Orders] AS [o0]
+LEFT JOIN [Customers] AS [o#Customer0] ON [o0].[CustomerID] = [o#Customer0].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__predicateTuple_Item2_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__predicateTuple_Item2_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__predicateTuple_Item2_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__predicateTuple_Item2_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.GroupByQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='20'
+@__p_1='4'
+
+SELECT [t].*
+FROM (
+    SELECT TOP @__p_0 [e].[CustomerID] AS [c]
+    FROM [Orders] AS [e]
+    GROUP BY [e].[CustomerID]
+    HAVING COUNT(*) > 10
+    ORDER BY [e].[CustomerID]
+) AS [t]
+ORDER BY [t].[c]
+ SKIP @__p_1");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.GroupByQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='20'
+@__p_1='4'
+
+SELECT [t].*
+FROM (
+    SELECT TOP @__p_0 [e].[CustomerID] AS [c]
+    FROM [Orders] AS [e]
+    GROUP BY [e].[CustomerID]
+    HAVING COUNT(*) > 10
+    ORDER BY [e].[CustomerID]
+) AS [t]
+ORDER BY [t].[c]
+ SKIP @__p_1");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o1].[OrderID] AS [Id1], [o2].[OrderID] AS [Id2]
+FROM [Orders] AS [o1]
+, [Orders] AS [o2]
+WHERE [o1].[CustomerID] LIKE 'A' + '%' AND (([o1].[CustomerID] = [o2].[CustomerID]) OR ([o1].[CustomerID] IS NULL AND [o2].[CustomerID] IS NULL))
+ORDER BY [o1].[OrderID], [o2].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o1].[OrderID] AS [Id1], [o2].[OrderID] AS [Id2]
+FROM [Orders] AS [o1]
+, [Orders] AS [o2]
+WHERE [o1].[CustomerID] LIKE 'A' + '%' AND (([o1].[CustomerID] = [o2].[CustomerID]) OR ([o1].[CustomerID] IS NULL AND [o2].[CustomerID] IS NULL))
+ORDER BY [o1].[OrderID], [o2].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Atn([od].[Discount] / Sqr(-[od].[Discount] * [od].[Discount] + 1.0)) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Atn([od].[Discount] / Sqr(-[od].[Discount] * [od].[Discount] + 1.0)) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[ProductID] > 100) AND ([p].[Discontinued] = True)) OR ([p].[Discontinued] = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[ProductID] > 100) AND ([p].[Discontinued] = True)) OR ([p].[Discontinued] = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
+FROM [Customers] AS [c1]
+WHERE [c1].[CompanyName] LIKE 'A' + '%'",
+                //
+                @"SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM [Customers] AS [c2]
+WHERE [c2].[CompanyName] LIKE 'B' + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
+FROM [Customers] AS [c1]
+WHERE [c1].[CompanyName] LIKE 'A' + '%'",
+                //
+                @"SELECT [c2].[CustomerID], [c2].[Address], [c2].[City], [c2].[CompanyName], [c2].[ContactName], [c2].[ContactTitle], [c2].[Country], [c2].[Fax], [c2].[Phone], [c2].[PostalCode], [c2].[Region]
+FROM [Customers] AS [c2]
+WHERE [c2].[CompanyName] LIKE 'B' + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__prm_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE @__prm_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__prm_0='True'
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE @__prm_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[ProductID] IN (
+    SELECT TOP 20 [p].[ProductID]
+    FROM [Products] AS [p]
+    ORDER BY [p].[ProductID]
+) AND [od].[OrderID] IN (
+    SELECT TOP 10 [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[ProductID] IN (
+    SELECT TOP 20 [p].[ProductID]
+    FROM [Products] AS [p]
+    ORDER BY [p].[ProductID]
+) AND [od].[OrderID] IN (
+    SELECT TOP 10 [o].[OrderID]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT Mid([c].[ContactName], 3, 0)
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT Mid([c].[ContactName], 3, 0)
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[Discontinued] = False) AND ([p].[ProductID] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[Discontinued] = False) AND ([p].[ProductID] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='8'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='8'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderDate] = #10/24/2008 00:00:00#) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderDate] = #10/24/2008 00:00:00#) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertContains(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10300",
+                //
+                @"@_outer_OrderID='10248'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10249'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10250'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10251'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10252'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10253'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10254'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10255'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]");
+
+Output truncated.
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertContains(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID]
+FROM [Orders] AS [o]
+WHERE [o].[OrderID] < 10300",
+                //
+                @"@_outer_OrderID='10248'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10249'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10250'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10251'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10252'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10253'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10254'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]",
+                //
+                @"@_outer_OrderID='10255'
+
+SELECT CSng(IIf(IsNull(AVG([od0].[Discount])),0,AVG([od0].[Discount])))
+FROM [Order Details] AS [od0]
+WHERE @_outer_OrderID = [od0].[OrderID]");
+
+Output truncated.
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (EXP([od].[Discount]) > 1.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (EXP([od].[Discount]) > 1.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[Discontinued] = False) OR ([p].[ProductID] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[Discontinued] = False) OR ([p].[ProductID] >= 20)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='1'
+
+SELECT [e].[EmployeeID]
+FROM [Employees] AS [e]
+ORDER BY [e].[EmployeeID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='1'
+
+SELECT [e].[EmployeeID]
+FROM [Employees] AS [e]
+ORDER BY [e].[EmployeeID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[City] AS [City0]
+FROM [Customers] AS [c]
+, [Employees] AS [e]
+WHERE ([c].[City] = [e].[City]) OR ([c].[City] IS NULL AND [e].[City] IS NULL)
+ORDER BY [e].[City], [c].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [e].[City] AS [City0]
+FROM [Customers] AS [c]
+, [Employees] AS [e]
+WHERE ([c].[City] = [e].[City]) OR ([c].[City] IS NULL AND [e].[City] IS NULL)
+ORDER BY [e].[City], [c].[CustomerID] DESC");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+) AS [t]
+ORDER BY [t].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+) AS [t]
+ORDER BY [t].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[Discontinued] = False) AND ([p].[ProductID] < 60)) AND ([p].[ProductID] > 30)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (([p].[Discontinued] = False) AND ([p].[ProductID] < 60)) AND ([p].[ProductID] > 30)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE [c].[ContactName] + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE [c].[ContactName] + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <> UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= 'M' + [c].[CustomerID]",
+                //
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > UCase([c].[CustomerID])",
+                //
+                @"@__ToUpper_0='ALF' (Nullable = false) (Size = 3)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < Replace('ALFKI', @__ToUpper_0, [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID] AS [Id]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID] AS [Id]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE @__nullableIntPrm_0 = [e].[ReportsTo]",
+                //
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__nullableIntPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE @__nullableIntPrm_0 = [e].[ReportsTo]",
+                //
+                @"@__nullableIntPrm_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__nullableIntPrm_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + [c].[ContactName]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + [c].[ContactName]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Mid([c].[City], 2, 2) = 'ea'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Mid([c].[City], 2, 2) = 'ea'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0",
+                //
+                @"@__InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0",
+                //
+                @"@__InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + [c].[ContactName]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + [c].[ContactName]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0",
+                //
+                @"@__city_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0",
+                //
+                @"@__city_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Sqr([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Sqr([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertContains(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM [Customers] AS [c]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"SELECT [y#Customer].[CustomerID], [y#Customer].[Address], [y#Customer].[City], [y#Customer].[CompanyName], [y#Customer].[ContactName], [y#Customer].[ContactTitle], [y#Customer].[Country], [y#Customer].[Fax], [y#Customer].[Phone], [y#Customer].[PostalCode], [y#Customer].[Region]
+FROM [Customers] AS [y#Customer]",
+                //
+                @"@_outer_CustomerID='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID",
+                //
+                @"@_outer_CustomerID='ANATR' (Nullable = false) (Size = 5)
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[CustomerID] = @_outer_CustomerID");
+
+Output truncated.
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + 'b'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + 'b'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+
+SELECT TOP @__p_1 [o].[EmployeeID], [o].[City], [o].[Country], [o].[FirstName], [o].[ReportsTo], [o].[Title]
+FROM [Employees] AS [o]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+
+SELECT TOP @__p_1 [o].[EmployeeID], [o].[City], [o].[Country], [o].[FirstName], [o].[ReportsTo], [o].[Title]
+FROM [Employees] AS [o]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE NewGuid() <> '00000000-0000-0000-0000-000000000000'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE NewGuid() <> '00000000-0000-0000-0000-000000000000'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT DatePart('y', [o].[OrderDate])
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT DatePart('y', [o].[OrderDate])
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__LocalMethod2_0='m' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + @__LocalMethod2_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__LocalMethod2_0='m' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE '%' + @__LocalMethod2_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='5'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (TAN([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (TAN([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [t0].[EmployeeID], [t0].[City], [t0].[Country], [t0].[FirstName], [t0].[ReportsTo], [t0].[Title]
+FROM (
+    SELECT TOP @__p_0 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t]
+, (
+    SELECT TOP 5 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+) AS [t0]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='10'
+
+SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [t0].[EmployeeID], [t0].[City], [t0].[Country], [t0].[FirstName], [t0].[ReportsTo], [t0].[Title]
+FROM (
+    SELECT TOP @__p_0 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+    FROM [Orders] AS [o]
+    ORDER BY [o].[OrderID]
+) AS [t]
+, (
+    SELECT TOP 5 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+) AS [t0]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[Discount]^2.0 > 0.05000000074505806");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE [od].[Discount]^2.0 > 0.05000000074505806");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE Int([od].[UnitPrice]) > 10.0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE Int([od].[UnitPrice]) > 10.0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Trim([c].[ContactTitle]) = 'Owner'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Trim([c].[ContactTitle]) = 'Owner'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE False = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND NOT EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE False = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c1].[CustomerID] AS [Id1], [c2].[CustomerID] AS [Id2]
+FROM [Customers] AS [c1]
+, [Customers] AS [c2]
+WHERE [c1].[CustomerID] LIKE 'ALFKI' + '%' AND ([c1].[CustomerID] = [c2].[CustomerID])
+ORDER BY [c1].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c1].[CustomerID] AS [Id1], [c2].[CustomerID] AS [Id2]
+FROM [Customers] AS [c1]
+, [Customers] AS [c2]
+WHERE [c1].[CustomerID] LIKE 'ALFKI' + '%' AND ([c1].[CustomerID] = [c2].[CustomerID])
+ORDER BY [c1].[CustomerID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_Nested_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0",
+                //
+                @"@__city_Nested_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_Nested_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0",
+                //
+                @"@__city_Nested_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] + [c].[City] AS [A]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] + [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] + [c].[City] AS [A]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] + [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_Nested_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0",
+                //
+                @"@__city_Nested_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_Nested_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0",
+                //
+                @"@__city_Nested_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_Nested_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE (([o].[OrderDate] <> #10/24/2008 00:00:00#) OR [o].[OrderDate] IS NULL) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE (([o].[OrderDate] <> #10/24/2008 00:00:00#) OR [o].[OrderDate] IS NULL) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    ORDER BY [e].[EmployeeID]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0",
+                //
+                @"@__city_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_InstancePropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0",
+                //
+                @"@__city_InstancePropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstancePropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__GetCity_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0",
+                //
+                @"@__GetCity_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__GetCity_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0",
+                //
+                @"@__GetCity_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__GetCity_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = False");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE DatePart('y', [o].[OrderDate]) = 68");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE DatePart('y', [o].[OrderDate]) = 68");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__StaticFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0",
+                //
+                @"@__StaticFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__StaticFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0",
+                //
+                @"@__StaticFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__NewLine_0='
+' (Nullable = false) (Size = 2)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (Instr(1, [c].[CustomerID], @__NewLine_0, 0) > 0) OR (@__NewLine_0 = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__NewLine_0='
+' (Nullable = false) (Size = 2)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (Instr(1, [c].[CustomerID], @__NewLine_0, 0) > 0) OR (@__NewLine_0 = '')");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE [c].[ContactName] + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE [c].[ContactName] + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__get_Item_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__get_Item_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__get_Item_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__get_Item_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o1].[OrderID] AS [Id1], [o2].[OrderID] AS [Id2]
+FROM [Orders] AS [o1]
+, [Orders] AS [o2]
+WHERE [o1].[CustomerID] LIKE 'A' + '%' AND (([o1].[CustomerID] = [o2].[CustomerID]) OR ([o1].[CustomerID] IS NULL AND [o2].[CustomerID] IS NULL))
+ORDER BY [o1].[OrderID], [o2].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o1].[OrderID] AS [Id1], [o2].[OrderID] AS [Id2]
+FROM [Orders] AS [o1]
+, [Orders] AS [o2]
+WHERE [o1].[CustomerID] LIKE 'A' + '%' AND (([o1].[CustomerID] = [o2].[CustomerID]) OR ([o1].[CustomerID] IS NULL AND [o2].[CustomerID] IS NULL))
+ORDER BY [o1].[OrderID], [o2].[OrderID]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT [t].[EmployeeID], [t].[City], [t].[Country], [t].[FirstName], [t].[ReportsTo], [t].[Title]
+FROM (
+    SELECT TOP @__p_0 [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+) AS [t]",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo",
+                //
+                @"SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] IS NULL",
+                //
+                @"@_outer_ReportsTo='2'
+
+SELECT TOP 2 [e20].[EmployeeID]
+FROM [Employees] AS [e20]
+WHERE [e20].[EmployeeID] = @_outer_ReportsTo");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__start_0='2'
+
+SELECT Mid([c].[ContactName], @__start_0 + 1, 3)
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__start_0='2'
+
+SELECT Mid([c].[ContactName], @__start_0 + 1, 3)
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+) AS [t]
+ORDER BY [t].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
+FROM (
+    SELECT DISTINCT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+) AS [t]
+ORDER BY [t].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderDate] = #10/24/2008 00:00:00#) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE ([o].[OrderDate] = #10/24/2008 00:00:00#) AND ([c].[CustomerID] = [o].[CustomerID]))");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__predicate_0='True'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE @__predicate_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__predicate_0='True'
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE @__predicate_0 = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__StaticPropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0",
+                //
+                @"@__StaticPropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__StaticPropertyValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0",
+                //
+                @"@__StaticPropertyValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__StaticPropertyValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__myDatetime_0='2015-04-10T00:00:00' (DbType = DateTime)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Now() <> @__myDatetime_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__myDatetime_0='2015-04-10T00:00:00' (DbType = DateTime)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Now() <> @__myDatetime_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='10'
+@__p_1='5'
+
+SELECT [t].*
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[ContactName]
+) AS [t]
+ORDER BY [t].[ContactName]
+ SKIP @__p_1");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='10'
+@__p_1='5'
+
+SELECT [t].*
+FROM (
+    SELECT TOP @__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[ContactName]
+) AS [t]
+ORDER BY [t].[ContactName]
+ SKIP @__p_1");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Replace([c].[City], 'Sea', 'Rea') = 'Reattle'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE Replace([c].[City], 'Sea', 'Rea') = 'Reattle'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND ([c].[CustomerID] = [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] LIKE 'A' + '%' AND ([c].[CustomerID] = [c].[CustomerID])");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY 'a'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_InstanceFieldValue_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0",
+                //
+                @"@__city_InstanceFieldValue_0='Seattle' (Nullable = false) (Size = 7)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_InstanceFieldValue_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__city_0='London' (Nullable = false) (Size = 6)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[City] = @__city_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_1='10'
+@__p_0='5'
+
+SELECT TOP @__p_1+@__p_0 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactName]
+ SKIP @__p_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT IIf(IsNull([o].[OrderDate]), NULL, DateAdd('yyyy', 1, [o].[OrderDate])) AS [OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT IIf(IsNull([o].[OrderDate]), NULL, DateAdd('yyyy', 1, [o].[OrderDate])) AS [OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (COS([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (COS([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE LCase([c].[CustomerID]) = 'alfki'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE LCase([c].[CustomerID]) = 'alfki'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND ((1.5707963267948966 + Atn(-[od].[Discount] / Sqr(-[od].[Discount] * [od].[Discount] + 1.0))) > 1.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND ((1.5707963267948966 + Atn(-[od].[Discount] / Sqr(-[od].[Discount] * [od].[Discount] + 1.0))) > 1.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE RTrim([c].[ContactTitle]) = 'Owner'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE RTrim([c].[ContactTitle]) = 'Owner'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[CustomerID] = 'QUICK') AND ([o].[OrderDate] > #01/01/1998 00:00:00#)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE ([o].[CustomerID] = 'QUICK') AND ([o].[OrderDate] > #01/01/1998 00:00:00#)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT TOP @__p_0 [c].[CustomerID]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__p_0='3'
+
+SELECT TOP @__p_0 [c].[CustomerID]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                //
+                @"SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE False = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE ([c].[CustomerID] = 'ALFKI') AND EXISTS (
+    SELECT 1
+    FROM [Orders] AS [o]
+    WHERE False = True)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Sgn([od].[Discount]) > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (Sgn([od].[Discount]) > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__ef_filter___searchTerm_0='A' (Nullable = false) (Size = 1)
+@__ef_filter___searchTerm_1='A' (Nullable = false) (Size = 1)
+
+SELECT [t].[CompanyName], [t].[OrderCount], [t].[SearchTerm]
+FROM (
+    SELECT [c].[CompanyName], (
+        SELECT COUNT(*)
+        FROM [Orders] AS [o]
+        WHERE [c].[CustomerID] = [o].[CustomerID]
+    ) AS [OrderCount], @__ef_filter___searchTerm_0 AS [SearchTerm]
+    FROM [Customers] AS [c]
+) AS [t]
+WHERE [t].[CompanyName] LIKE @__ef_filter___searchTerm_1 + '%' AND ([t].[OrderCount] > 0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (SIN([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [od].[OrderID], [od].[ProductID], [od].[Discount], [od].[Quantity], [od].[UnitPrice]
+FROM [Order Details] AS [od]
+WHERE ([od].[OrderID] = 11077) AND (SIN([od].[Discount]) > 0.0)");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] + [c].[City] AS [Property]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] + [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID] + [c].[City] AS [Property]
+FROM [Customers] AS [c]
+ORDER BY [c].[CustomerID] + [c].[City]");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT Replace([c].[ContactName], 'ari', '')
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT Replace([c].[ContactName], 'ari', '')
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] = 'ALFKI'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE 'M' + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE 'M' + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[SupplierID], [p].[UnitPrice], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE [p].[Discontinued] = True");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] > @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] < @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] <= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0",
+                //
+                @"@__customer_CustomerID_0='ALFKI' (Nullable = false) (Size = 5)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[CustomerID] >= @__customer_CustomerID_0");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__reportsTo_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"@__reportsTo_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__reportsTo_0='2'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"@__reportsTo_0='5'
+
+SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] = @__reportsTo_0",
+                //
+                @"SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+FROM [Employees] AS [e]
+WHERE [e].[ReportsTo] IS NULL");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__LocalMethod1_0='M' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE @__LocalMethod1_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.SimpleQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"@__LocalMethod1_0='M' (Nullable = false) (Size = 1)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] LIKE @__LocalMethod1_0 + '%'");
+
+
+
+EntityFramework.Jet.FunctionalTests.Query.GroupByQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[OrderID], [c].[CustomerID], [c].[EmployeeID], [c].[OrderDate]
+FROM [Orders] AS [c]
+ORDER BY [c].[EmployeeID]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]");
+
+Output truncated.
+
+EntityFramework.Jet.FunctionalTests.Query.GroupByQueryJetTest.AssertSql(String[] expected) : 
+            AssertSql(
+                @"SELECT [c].[OrderID], [c].[CustomerID], [c].[EmployeeID], [c].[OrderDate]
+FROM [Orders] AS [c]
+ORDER BY [c].[EmployeeID]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]",
+                //
+                @"SELECT [i#Customer0].[CustomerID], [i#Customer0].[Region]
+FROM [Customers] AS [i#Customer0]");
+
+Output truncated.
+

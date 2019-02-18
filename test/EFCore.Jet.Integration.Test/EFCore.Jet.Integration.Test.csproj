@@ -247,6 +247,7 @@
     <Compile Include="Model16_OwnCollection\SqlServerTest.cs" />
     <Compile Include="Model76_FullCreate\SqlServerTest.cs" />
     <Compile Include="Model76_FullCreate\SqlCeTest.cs" />
+    <Compile Include="Model77_DateTimeOffset\SqlCeTest.cs" />
     <Compile Include="Model_MainTests\Context.cs" />
     <Compile Include="Model_MainTests\SqlServerTest.cs" />
     <Compile Include="Model_MainTests\SqlCeTest.cs" />
@@ -269,6 +270,10 @@
     <Compile Include="Model37_2Contexts\SqlServerTest.cs" />
     <Compile Include="Model37_2Contexts\SqlCeTest.cs" />
     <Compile Include="Model44_CaseSensitivity\SqlCeTest.cs" />
+    <Compile Include="Model77_DateTimeOffset\Context.cs" />
+    <Compile Include="Model77_DateTimeOffset\JetTest.cs" />
+    <Compile Include="Model77_DateTimeOffset\Model.cs" />
+    <Compile Include="Model77_DateTimeOffset\Test.cs" />
     <Compile Include="TestBase`.cs" />
     <Compile Include="Model68_sbyte\SqlCeTest.cs" />
     <Compile Include="Model72_TableSplitting\Context.cs" />

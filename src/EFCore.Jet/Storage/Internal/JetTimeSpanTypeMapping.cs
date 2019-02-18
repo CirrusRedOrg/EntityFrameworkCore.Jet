@@ -28,6 +28,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             }
         }
 
+        public override RelationalTypeMapping Clone(string storeType, int? size)
+        {
+            return new JetTimeSpanTypeMapping(storeType);
+        }
+
         protected override string GenerateNonNullSqlLiteral(object value)
         {
             return string.Format("{0:#MM/dd/yyyy hh:mm:ss#}", JetConfiguration.TimeSpanOffset + (TimeSpan)value);

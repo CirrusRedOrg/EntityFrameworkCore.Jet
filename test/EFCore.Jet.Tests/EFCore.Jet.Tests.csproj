@@ -199,6 +199,7 @@
     <Compile Include="Extensions\Metadata\JetMetadataExtensionsTest.cs" />
     <Compile Include="Extensions\JetDbContextOptionsExtensionsTest.cs" />
     <Compile Include="JetDatabaseFacadeTest.cs" />
+    <Compile Include="Scaffolding\JetCodeGeneratorTest.cs" />
     <Compile Include="TestRelationalTypeMappingSource.cs" />
     <Compile Include="Utilities\FakeInterceptingLogger.cs" />
     <Compile Include="Migrations\MigrationsModelDifferTestBase.cs" />

@@ -418,6 +418,7 @@ namespace System.Data.Jet
         public static bool DatabaseExists(string connectionString)
         {
             string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
+            fileName = fileName.Trim('"');
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new Exception("Cannot retrieve file name from connection string");
             return System.IO.File.Exists(fileName);

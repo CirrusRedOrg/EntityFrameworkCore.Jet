@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -20,7 +19,7 @@ namespace System.Data.Jet
         private int? _rowCount = null;
 
         private static readonly Regex _skipRegularExpression = new Regex(@"\bskip\s(?<stringSkipCount>@.*)\b", RegexOptions.IgnoreCase);
-        private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*$", RegexOptions.IgnoreCase);
+        private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*[;]?\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
 
         /// <summary>
@@ -277,7 +276,6 @@ namespace System.Data.Jet
             return null;
         }
 
-
         /// <summary>
         /// Executes the non query.
         /// </summary>
@@ -310,6 +308,13 @@ namespace System.Data.Jet
             for (int i = 0; i < commandTextList.Length; i++)
             {
                 string commandText = commandTextList[i];
+                if (_selectRowCountRegularExpression.Match(commandText).Success)
+                {
+                    if (_rowCount == null)
+                        throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
+                    returnValue = _rowCount.Value;
+                    continue;
+                }
                 commandText = ParseIdentity(commandText);
                 commandText = ParseGuid(commandText);
 
@@ -386,8 +391,10 @@ namespace System.Data.Jet
         private int InternalExecuteNonQuery(string commandText)
         {
 
+            // ReSharper disable NotAccessedVariable
             int topCount;
             int skipCount;
+            // ReSharper restore NotAccessedVariable
             string newCommandText;
             if (!CheckExists(commandText, out newCommandText))
                 return 0;

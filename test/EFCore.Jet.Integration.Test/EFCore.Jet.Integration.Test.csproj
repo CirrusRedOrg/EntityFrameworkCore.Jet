@@ -241,6 +241,8 @@
     <Compile Include="GearOfWar\Model\Squad.cs" />
     <Compile Include="GearOfWar\Model\SquadMission.cs" />
     <Compile Include="GearOfWar\Model\Weapon.cs" />
+    <Compile Include="Model78_MigrationUpdate\Context.cs" />
+    <Compile Include="Model78_MigrationUpdate\Student.cs" />
     <Compile Include="Model04\SqlCeTest.cs" />
     <Compile Include="Model16_OwnCollection\SqLiteTest.cs" />
     <Compile Include="Model16_OwnCollection\SqlCeTest.cs" />
@@ -248,6 +250,7 @@
     <Compile Include="Model76_FullCreate\SqlServerTest.cs" />
     <Compile Include="Model76_FullCreate\SqlCeTest.cs" />
     <Compile Include="Model77_DateTimeOffset\SqlCeTest.cs" />
+    <Compile Include="Model78_MigrationUpdate\Test.cs" />
     <Compile Include="Model_MainTests\Context.cs" />
     <Compile Include="Model_MainTests\SqlServerTest.cs" />
     <Compile Include="Model_MainTests\SqlCeTest.cs" />

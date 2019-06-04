@@ -8,6 +8,7 @@ using EntityFrameworkCore.Jet;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -88,6 +89,11 @@ namespace EFCore.Jet.Integration.Test
         {
             RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator) context.Database.GetService<IDatabaseCreator>();
             return databaseCreator;
+        }
+
+        public static IMigrator GetDatabaseMigratorService(T context)
+        {
+            return context.GetService<IMigrator>();
         }
 
         private static string GetFullExceptionStackMessages(Exception ex)

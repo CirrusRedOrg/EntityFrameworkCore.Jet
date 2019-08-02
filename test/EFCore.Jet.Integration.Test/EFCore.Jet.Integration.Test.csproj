@@ -251,6 +251,10 @@
     <Compile Include="Model76_FullCreate\SqlCeTest.cs" />
     <Compile Include="Model77_DateTimeOffset\SqlCeTest.cs" />
     <Compile Include="Model78_MigrationUpdate\Test.cs" />
+    <Compile Include="Model79_CantSaveDecimalValue\Context.cs" />
+    <Compile Include="Model79_CantSaveDecimalValue\JetTest.cs" />
+    <Compile Include="Model79_CantSaveDecimalValue\Table.cs" />
+    <Compile Include="Model79_CantSaveDecimalValue\Test.cs" />
     <Compile Include="Model_MainTests\Context.cs" />
     <Compile Include="Model_MainTests\SqlServerTest.cs" />
     <Compile Include="Model_MainTests\SqlCeTest.cs" />

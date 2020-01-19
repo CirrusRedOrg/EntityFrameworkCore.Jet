@@ -390,6 +390,10 @@ namespace System.Data.Jet
             AdoxWrapper.CreateEmptyDatabase(connectionString);
         }
 
+        public static string GetConnectionString(string provider, string fileName)
+        {
+            return $"Provider={provider};Data Source={fileName}";
+        }
 
         public static string GetConnectionString(string fileName)
         {

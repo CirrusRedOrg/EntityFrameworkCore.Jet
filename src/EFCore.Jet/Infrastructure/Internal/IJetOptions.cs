@@ -10,5 +10,6 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
     /// </summary>
     public interface IJetOptions : ISingletonOptions
     {
+        string ConnectionString { get; }
     }
 }

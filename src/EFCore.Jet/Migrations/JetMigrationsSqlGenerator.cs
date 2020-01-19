@@ -2,9 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Jet;
+using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
@@ -25,16 +28,19 @@ namespace EntityFrameworkCore.Jet.Migrations
     public class JetMigrationsSqlGenerator : MigrationsSqlGenerator
     {
         private readonly IMigrationsAnnotationProvider _migrationsAnnotations;
+        [NotNull] private readonly IJetOptions _options;
 
         private IReadOnlyList<MigrationOperation> _operations;
         private int _variableCounter;
 
         public JetMigrationsSqlGenerator(
             [NotNull] MigrationsSqlGeneratorDependencies dependencies,
-            [NotNull] IMigrationsAnnotationProvider migrationsAnnotations)
+            [NotNull] IMigrationsAnnotationProvider migrationsAnnotations,
+            [NotNull] IJetOptions options)
             : base(dependencies)
         {
             _migrationsAnnotations = migrationsAnnotations;
+            _options = options;
         }
 
 
@@ -448,11 +454,14 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-
+            var connectionStringBuilder = new OleDbConnectionStringBuilder(_options.ConnectionString);
+            var provider = string.IsNullOrEmpty(connectionStringBuilder.Provider)
+                ? JetConfiguration.OleDbDefaultProvider
+                : connectionStringBuilder.Provider;
+            
             builder
                 .Append("CREATE DATABASE ")
-                .Append(JetConnection.GetConnectionString(ExpandFileName(operation.Name)));
-
+                .Append(JetConnection.GetConnectionString(provider, ExpandFileName(operation.Name)));
 
             builder
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)

@@ -13,31 +13,28 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         static JetStoreDatabaseHandling()
         {
             _regExIsCreateOrDropDatabaseCommand = new Regex(
-                @"(^\s*create\s*database\s*.*$)+|(^drop\s*database\s*.*$)",
+                @"^\s*(?:create|drop)\s+database\s",
                 RegexOptions.IgnoreCase);
 
             _regExParseCreateDatabaseCommand = new Regex(
-                @"^\s*create\s*database\s*(?<filename>.*)\s*$",
+                @"^\s*create\s+database\s+(?<filename>.*?)\s*;*\s*$",
                 RegexOptions.IgnoreCase);
 
             _regExParseDropDatabaseCommand = new Regex(
-                @"^\s*drop\s*database\s*(?<filename>.*)\s*;*\s*$",
+                @"^\s*drop\s+database\s+(?<filename>.*?)\s*;*\s*$",
                 RegexOptions.IgnoreCase | RegexOptions.RightToLeft);
 
-
             _regExParseCreateDatabaseCommandFromConnection = new Regex(
-                @"^\s*create\s*database\s*(?<connectionString>provider\s*=\s*.*)\s*$",
+                @"^\s*create\s+database\s+(?<connectionString>provider\s*=\s*.*?)\s*$",
                 RegexOptions.IgnoreCase);
 
             _regExParseDropDatabaseCommandFromConnection = new Regex(
-                @"^\s*drop\s*database\s*(?<connectionString>provider\s*=\s*.*)\s*$",
+                @"^\s*drop\s+database\s+(?<connectionString>provider\s*=\s*.*?)\s*$",
                 RegexOptions.IgnoreCase);
 
             _regExExtractFilenameFromConnectionString = new Regex(
-                @"provider=.*;\s*data\s+source\s*=\s*(?<filename>[^;]*)\s*;?.*$",
+                @"provider\s*=\s*.*?;\s*data\s+source\s*=\s*(?<filename>.*?)\s*(?=;|$)",
                 RegexOptions.IgnoreCase);
-
-
         }
 
         public static bool TryDatabaseOperation(string commandText)

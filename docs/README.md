@@ -16,7 +16,12 @@ You can find the latest build on [NuGet](https://www.nuget.org/packages/EntityFr
   - x86, x64, or Both
 - The folder "C:\TEMP" must exist
 - Ensure xUnit test projects contain a reference to the nuget package xunit.runner.visualstudio to run the test from Visual Studio Test Explorer
-  
+
+
+## Random Notes
+- Path to msadox.dll: C:\Program Files\Common Files\System\ado
+- Probably want to set Visual Studio to use PackageReference instead of packages.config by default (Options->Nuget Package Manager)
+
 ## More documentation
 More documentation can be found on project [Wiki](https://www.github.com/bubibubi/EntityFrameworkCore.Jet/wiki)
 

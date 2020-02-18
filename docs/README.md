@@ -15,6 +15,7 @@ You can find the latest build on [NuGet](https://www.nuget.org/packages/EntityFr
 - (maybe?) Install Microsoft Access Database Engine 2010 Redistributable (https://www.microsoft.com/en-US/download/details.aspx?id=13255)
   - x86, x64, or Both
 - The folder "C:\TEMP" must exist
+- Ensure xUnit test contain a reference to the nuget package xunit.runner.visualstudio to run the test from Visual Studio Test Explorer
   
 ## More documentation
 More documentation can be found on project [Wiki](https://www.github.com/bubibubi/EntityFrameworkCore.Jet/wiki)

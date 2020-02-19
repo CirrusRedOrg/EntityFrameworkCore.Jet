@@ -7,8 +7,9 @@
 
     <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
+
   <ItemGroup>
-    <None Include="packages.config" />
+    <None Remove="System.Data.Jet.PerformanceTest.csproj.DotSettings" />
   </ItemGroup>
 
   <ItemGroup>

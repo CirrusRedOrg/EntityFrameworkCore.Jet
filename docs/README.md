@@ -18,7 +18,7 @@ You can find the latest build on [NuGet](https://www.nuget.org/packages/EntityFr
 - Ensure xUnit test projects contain a reference to the nuget package xunit.runner.visualstudio to run the test from Visual Studio Test Explorer
 
 ## Random Notes
-- Will need to upgrade test projects to use Microsoft.NET.Test.SDK version 16.4.0 or higher, otherwise Visual Studio test runner still tries to run x86 tests on x64.
+- Will need to upgrade test projects to use Microsoft.NET.Test.SDK version 16.4.0 or higher, otherwise Visual Studio test runner still tries to run x86 tests on x64.  Refer to: https://developercommunity.visualstudio.com/content/problem/697732/test-runner-wont-execute-net-core-tests-in-32-bit.html
 - Paths to msadox.dll:
     - C:\Program Files\Common Files\System\ado
     - C:\Program Files (x86)\Common Files\System\ado

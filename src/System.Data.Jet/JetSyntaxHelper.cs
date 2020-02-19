@@ -33,6 +33,32 @@ namespace System.Data.Jet
             return value ? "true" : "false";
         }
 
+        public static string ToSqlStringSwitch(object value)
+        {
+            string output;
+            switch (value)
+            {
+                case bool b:
+                    output = ToSqlString(b);
+                    break;
+                case int i:
+                    output = ToSqlString(i);
+                    break;
+                case string str:
+                    output = ToSqlString(str);
+                    break;
+                case Guid guid:
+                    output = ToSqlString(guid);
+                    break;
+                case byte[] byteArray:
+                    output = ToSqlString(byteArray);
+                    break;
+                default:
+                    throw new NotSupportedException();
+            }
+            return output;
+        }
+
         static string ByteArrayToBinaryString(byte[] binaryArray)
         {
             StringBuilder sb = new StringBuilder(binaryArray.Length * 2);

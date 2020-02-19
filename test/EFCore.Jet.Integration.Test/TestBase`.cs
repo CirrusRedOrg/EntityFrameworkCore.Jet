@@ -147,7 +147,14 @@ namespace EFCore.Jet.Integration.Test
             var optionsBuilder = new DbContextOptionsBuilder<T>().EnableSensitiveDataLogging();
 
             if (dbConnection is SqlCeConnection)
+#if NETFRAMEWORK
                 return optionsBuilder.UseSqlCe(dbConnection).Options;
+#else
+            {
+                Assert.Inconclusive();
+                return default;
+            }
+#endif
             else if (dbConnection is JetConnection)
                 return optionsBuilder.UseJet(dbConnection).Options;
             else if (dbConnection is SqlConnection)

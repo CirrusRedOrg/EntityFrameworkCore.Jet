@@ -1,196 +1,18 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3C88D49A-7EF2-42BA-A8D7-9DF7D358FD24}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>EntityFramework.Jet.FunctionalTests</RootNamespace>
-    <AssemblyName>EntityFramework.Jet.FunctionalTests</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
-    <TargetFrameworkProfile />
+    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <WarningsAsErrors>CS0108;CS0114</WarningsAsErrors>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
-    <OutputPath>bin\x86\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.ComponentModel.Composition" />
-    <Reference Include="System.ComponentModel.DataAnnotations" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data.SqlServerCe, Version=4.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files (x86)\Microsoft SQL Server Compact Edition\v4.0\Desktop\System.Data.SqlServerCe.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Transactions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\build\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="AsNoTrackingJetTest.cs" />
-    <Compile Include="AssertSqlHelper.cs" />
-    <Compile Include="AsyncFromSqlQueryJetTest.cs" />
-    <Compile Include="BasicEndToEndScenarioForNoIdentity.cs" />
-    <Compile Include="BuiltInDataTypesJetTest.cs" />
-    <Compile Include="ChangeTrackingJetTest.cs" />
-    <Compile Include="CompiledQueryJetTest.cs" />
-    <Compile Include="ComplexNavigationsQueryJetFixture.cs" />
-    <Compile Include="ComplexNavigationsQueryJetTest.cs" />
-    <Compile Include="CompositeKeyEndToEndTest.cs" />
-    <Compile Include="ConnectionStringBuilderHelper.cs" />
-    <Compile Include="DataAnnotationJetTest.cs" />
-    <Compile Include="DataBindingJetTest.cs" />
-    <Compile Include="DbContextPoolingTest.cs" />
-    <Compile Include="DbFunctionsJetTest.cs" />
-    <Compile Include="DefaultValuesTest.cs" />
-    <Compile Include="F1JetFixture.cs" />
-    <Compile Include="FieldMappingJetTest.cs" />
-    <Compile Include="FiltersInheritanceJetTest.cs" />
-    <Compile Include="FiltersJetTest.cs" />
-    <Compile Include="FindJetTest.cs" />
-    <Compile Include="FromSqlQueryJetTest.cs" />
-    <Compile Include="FunkyDataQueryJetTest.cs" />
-    <Compile Include="GearsOfWarQueryJetFixture.cs" />
-    <Compile Include="GearsOfWarJetTest.cs" />
-    <Compile Include="GraphUpdatesJetTestbase.cs" />
-    <Compile Include="GraphUpdateWithIdentityJetTest.cs" />
-    <Compile Include="IncludeAsyncJetTest.cs" />
-    <Compile Include="IncludeJetFixture.cs" />
-    <Compile Include="IncludeOneToOneJetTest.cs" />
-    <Compile Include="IncludeJetTest.cs" />
-    <Compile Include="InheritanceRelationshipsQueryJetTest.cs" />
-    <Compile Include="InheritanceRelationshipsQueryJetFixture.cs" />
-    <Compile Include="FiltersInheritanceJetFixture.cs" />
-    <Compile Include="InheritanceJetFixture.cs" />
-    <Compile Include="InheritanceJetTest.cs" />
-    <Compile Include="Issue398Test.cs" />
-    <Compile Include="Issue305Test.cs" />
-    <Compile Include="LazyLoadProxyJetTest.cs" />
-    <Compile Include="LoadJetTest.cs" />
-    <Compile Include="MappingQueryJetTest.cs" />
-    <Compile Include="MigrationsJetFixture.cs" />
-    <Compile Include="MigrationsJetTest.cs" />
-    <Compile Include="Migrations\20160215092248_Migration01.cs" />
-    <Compile Include="Migrations\20160215092248_Migration01.Designer.cs">
-      <DependentUpon>20160215092248_Migration01.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\20160215092329_Migration02.cs" />
-    <Compile Include="Migrations\20160215092329_Migration02.Designer.cs">
-      <DependentUpon>20160215092329_Migration02.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\20170129135547_MyFirstMigration.cs" />
-    <Compile Include="Migrations\20170129135547_MyFirstMigration.Designer.cs">
-      <DependentUpon>20170129135547_MyFirstMigration.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\20170129140932_MySecondMigration.cs" />
-    <Compile Include="Migrations\20170129140932_MySecondMigration.Designer.cs">
-      <DependentUpon>20170129140932_MySecondMigration.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\BloggingContextModelSnapshot.cs" />
-    <Compile Include="Migrations\TiffFilesContextModelSnapshot.cs" />
-    <Compile Include="NavigationTest.cs" />
-    <Compile Include="NorthwindQueryWithForcedClientEvalJetFixture.cs" />
-    <Compile Include="NorthwindQueryJetFixture.cs" />
-    <Compile Include="NotificationEntitiesJetTest.cs" />
-    <Compile Include="NullKeysJetTest.cs" />
-    <Compile Include="NullSemanticsQueryJetTest.cs" />
-    <Compile Include="OptimisticConcurrencyJetTest.cs" />
-    <Compile Include="OwnedQueryJetTest.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="PropertyEntryJetTest.cs" />
-    <Compile Include="PropertyValuesJetTest.cs" />
-    <Compile Include="QueryNavigationsWithForcedClientEvalJetTest.cs" />
-    <Compile Include="QueryNavigationsJetTest.cs" />
-    <Compile Include="QueryNoClientEvalJetFixture.cs" />
-    <Compile Include="QueryNoClientEvalJetTest.cs" />
-    <Compile Include="JetCommandDisposeTest.cs" />
-    <Compile Include="JetConfigPatternsTest.cs" />
-    <Compile Include="JetDatabaseCleaner.cs" />
-    <Compile Include="JetDatabaseCreationTest.cs" />
-    <Compile Include="JetDatabaseFacadeExtensions.cs" />
-    <Compile Include="JetDataStoreCreatorTest.cs" />
-    <Compile Include="JetMigrationsTest.cs" />
-    <Compile Include="Query\GroupByQueryJetTest.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.Functions.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.JoinGroupJoin.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.QueryTypes.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.ResultOperators.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.Select.cs" />
-    <Compile Include="Query\SimpleQueryJetTest.Where.cs" />
-    <Compile Include="TestUtilities\JetNorthwindTestStoreFactory.cs" />
-    <Compile Include="TestUtilities\JetTestHelpers.cs" />
-    <Compile Include="TestUtilities\JetTestStore.cs" />
-    <Compile Include="TableSplittingJetTest.cs" />
-    <Compile Include="TestUtilities\JetTestStoreFactory.cs" />
-    <Compile Include="TransactionJetTest.cs" />
-    <Compile Include="TestUtilities\DbContextOptionsBuilderExtensions.cs" />
-    <Compile Include="TestUtilities\SqlServerConditionAttribute.cs" />
-    <Compile Include="TestUtilities\TestEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj">
-      <Project>{d6966b04-4c38-4925-bcde-f8655f38d04c}</Project>
-      <Name>EFCore.Jet</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\System.Data.Jet\System.Data.Jet.csproj">
-      <Project>{88BE8B4F-8DA9-42B9-9A1F-839451BA5F8C}</Project>
-      <Name>System.Data.Jet</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="NorthwindEF7.accdb">
@@ -203,74 +25,20 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Castle.Core">
-      <Version>4.3.1</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CSharp">
-      <Version>4.5.0</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests">
-      <Version>2.2.0</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.NETCore.Platforms">
-      <Version>2.2.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Buffers">
-      <Version>4.5.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Collections">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.ComponentModel">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Diagnostics.Debug">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Diagnostics.DiagnosticSource">
-      <Version>4.5.1</Version>
-    </PackageReference>
-    <PackageReference Include="System.Linq">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Linq.Expressions">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Linq.Queryable">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Numerics.Vectors">
-      <Version>4.5.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.ObjectModel">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Reflection">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Reflection.Extensions">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Runtime">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe">
-      <Version>4.5.2</Version>
-    </PackageReference>
-    <PackageReference Include="System.Runtime.Extensions">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="System.Threading">
-      <Version>4.3.0</Version>
-    </PackageReference>
-    <PackageReference Include="xunit">
-      <Version>2.4.1</Version>
-    </PackageReference>
-    <PackageReference Include="xunit.runner.visualstudio">
-      <Version>2.4.1</Version>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="2.2.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.1" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1">
       <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="1.2.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
+  </ItemGroup>
 </Project>

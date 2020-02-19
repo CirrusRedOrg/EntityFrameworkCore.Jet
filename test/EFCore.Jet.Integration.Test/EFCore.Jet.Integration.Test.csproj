@@ -1,411 +1,82 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\build\common.props" />
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{50CA2970-B995-4D28-9F6C-F7CA4940F23A}</ProjectGuid>
-    <OutputType>Exe</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>EFCore.Jet.Integration.Test</RootNamespace>
-    <AssemblyName>EFCore.Jet.Integration.Test</AssemblyName>
-    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-    <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <TargetFrameworkProfile>
-    </TargetFrameworkProfile>
-    <FileAlignment>512</FileAlignment>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
+    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
-    <PlatformTarget>x86</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
-    <PlatformTarget>x86</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <CodeAnalysisLogFile>bin\Debug\CSEFBetweenOperation.exe.CodeAnalysisLog.xml</CodeAnalysisLogFile>
-    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
-    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
-    <CodeAnalysisIgnoreBuiltInRuleSets>true</CodeAnalysisIgnoreBuiltInRuleSets>
-    <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
-    <CodeAnalysisIgnoreBuiltInRules>true</CodeAnalysisIgnoreBuiltInRules>
-    <Prefer32Bit>false</Prefer32Bit>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <CodeAnalysisLogFile>bin\Release\CSEFBetweenOperation.exe.CodeAnalysisLog.xml</CodeAnalysisLogFile>
-    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
-    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
-    <CodeAnalysisIgnoreBuiltInRuleSets>true</CodeAnalysisIgnoreBuiltInRuleSets>
-    <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
-    <CodeAnalysisIgnoreBuiltInRules>true</CodeAnalysisIgnoreBuiltInRules>
-    <Prefer32Bit>false</Prefer32Bit>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System" />
-    <Reference Include="System.ComponentModel.Composition" />
-    <Reference Include="System.ComponentModel.DataAnnotations" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.XML" />
+    <Compile Remove="MigrationUpDownTest\**" />
+    <Compile Remove="Model11\**" />
+    <Compile Remove="Model21_CommandInterception\**" />
+    <Compile Remove="Model24_MultiTenantApp\**" />
+    <Compile Remove="Model38_OneEntity2Tables\**" />
+    <Compile Remove="Model40_HardMapping\**" />
+    <Compile Remove="Model42\**" />
+    <Compile Remove="Model49_Inheritance_EagerlyLoad\**" />
+    <Compile Remove="Model50_Interception\**" />
+    <Compile Remove="Model52_Requires_HasFalse_LogicalDelete\**" />
+    <Compile Remove="Model58_TruncateTime\**" />
+    <Compile Remove="Model60_StackOverflow_m2n_Person_Book\**" />
+    <Compile Remove="Model61_StackOverflow_Seed\**" />
+    <Compile Remove="Model62_InnerQueryBug_DbInitializerSeed\**" />
+    <Compile Remove="Model65_InMemoryObjects\**" />
+    <Compile Remove="Model67_DifferentProxies\**" />
+    <Compile Remove="Model71_MasterDetail\**" />
+    <EmbeddedResource Remove="MigrationUpDownTest\**" />
+    <EmbeddedResource Remove="Model11\**" />
+    <EmbeddedResource Remove="Model21_CommandInterception\**" />
+    <EmbeddedResource Remove="Model24_MultiTenantApp\**" />
+    <EmbeddedResource Remove="Model38_OneEntity2Tables\**" />
+    <EmbeddedResource Remove="Model40_HardMapping\**" />
+    <EmbeddedResource Remove="Model42\**" />
+    <EmbeddedResource Remove="Model49_Inheritance_EagerlyLoad\**" />
+    <EmbeddedResource Remove="Model50_Interception\**" />
+    <EmbeddedResource Remove="Model52_Requires_HasFalse_LogicalDelete\**" />
+    <EmbeddedResource Remove="Model58_TruncateTime\**" />
+    <EmbeddedResource Remove="Model60_StackOverflow_m2n_Person_Book\**" />
+    <EmbeddedResource Remove="Model61_StackOverflow_Seed\**" />
+    <EmbeddedResource Remove="Model62_InnerQueryBug_DbInitializerSeed\**" />
+    <EmbeddedResource Remove="Model65_InMemoryObjects\**" />
+    <EmbeddedResource Remove="Model67_DifferentProxies\**" />
+    <EmbeddedResource Remove="Model71_MasterDetail\**" />
+    <None Remove="MigrationUpDownTest\**" />
+    <None Remove="Model11\**" />
+    <None Remove="Model21_CommandInterception\**" />
+    <None Remove="Model24_MultiTenantApp\**" />
+    <None Remove="Model38_OneEntity2Tables\**" />
+    <None Remove="Model40_HardMapping\**" />
+    <None Remove="Model42\**" />
+    <None Remove="Model49_Inheritance_EagerlyLoad\**" />
+    <None Remove="Model50_Interception\**" />
+    <None Remove="Model52_Requires_HasFalse_LogicalDelete\**" />
+    <None Remove="Model58_TruncateTime\**" />
+    <None Remove="Model60_StackOverflow_m2n_Person_Book\**" />
+    <None Remove="Model61_StackOverflow_Seed\**" />
+    <None Remove="Model62_InnerQueryBug_DbInitializerSeed\**" />
+    <None Remove="Model65_InMemoryObjects\**" />
+    <None Remove="Model67_DifferentProxies\**" />
+    <None Remove="Model71_MasterDetail\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="BuiltInFunctionsTest.cs" />
+    <Compile Remove="CanonicalFunctionsTest1.cs" />
+    <Compile Remove="FunctionTest.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="EFCore.Jet.Integration.Test.csproj.DotSettings" />
+    <None Remove="EFCore.Jet.Integration.Test.DotSettings" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\build\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="BooleanMaterializationTest2.cs" />
-    <Compile Include="BooleanMaterializationTest1.cs" />
-    <Compile Include="CanonicalFunctionsTest2.cs" />
-    <Compile Include="DatabaseHandlingTest.cs" />
-    <Compile Include="DefaultValueTest.cs" />
-    <Compile Include="DmlBaseTest.cs" />
-    <Compile Include="DmlSqlTest.cs" />
-    <Compile Include="DmlJetTest.cs" />
-    <Compile Include="GearOfWar\GearOfWarTestSqlCe.cs" />
-    <Compile Include="GearOfWar\GearOfWarTestSqlServer.cs" />
-    <Compile Include="GearOfWar\GearOfWarTestJet.cs" />
-    <Compile Include="GearOfWar\JetDatabaseModelFactoryTest.cs" />
-    <Compile Include="GearOfWar\Model\AmmunitionType.cs" />
-    <Compile Include="GearOfWar\Model\City.cs" />
-    <Compile Include="GearOfWar\Model\CogTag.cs" />
-    <Compile Include="GearOfWar\Model\Faction.cs" />
-    <Compile Include="GearOfWar\Model\Gear.cs" />
-    <Compile Include="GearOfWar\Model\GearsOfWarContext.cs" />
-    <Compile Include="GearOfWar\Model\GearsOfWarData.cs" />
-    <Compile Include="GearOfWar\Model\LocustCommander.cs" />
-    <Compile Include="GearOfWar\Model\LocustHorde.cs" />
-    <Compile Include="GearOfWar\Model\LocustLeader.cs" />
-    <Compile Include="GearOfWar\Model\MilitaryRank.cs" />
-    <Compile Include="GearOfWar\Model\Mission.cs" />
-    <Compile Include="GearOfWar\Model\Officer.cs" />
-    <Compile Include="GearOfWar\Model\Squad.cs" />
-    <Compile Include="GearOfWar\Model\SquadMission.cs" />
-    <Compile Include="GearOfWar\Model\Weapon.cs" />
-    <Compile Include="Model78_MigrationUpdate\Context.cs" />
-    <Compile Include="Model78_MigrationUpdate\Student.cs" />
-    <Compile Include="Model04\SqlCeTest.cs" />
-    <Compile Include="Model16_OwnCollection\SqLiteTest.cs" />
-    <Compile Include="Model16_OwnCollection\SqlCeTest.cs" />
-    <Compile Include="Model16_OwnCollection\SqlServerTest.cs" />
-    <Compile Include="Model76_FullCreate\SqlServerTest.cs" />
-    <Compile Include="Model76_FullCreate\SqlCeTest.cs" />
-    <Compile Include="Model77_DateTimeOffset\SqlCeTest.cs" />
-    <Compile Include="Model78_MigrationUpdate\Test.cs" />
-    <Compile Include="Model79_CantSaveDecimalValue\Context.cs" />
-    <Compile Include="Model79_CantSaveDecimalValue\JetTest.cs" />
-    <Compile Include="Model79_CantSaveDecimalValue\Table.cs" />
-    <Compile Include="Model79_CantSaveDecimalValue\Test.cs" />
-    <Compile Include="Model_MainTests\Context.cs" />
-    <Compile Include="Model_MainTests\SqlServerTest.cs" />
-    <Compile Include="Model_MainTests\SqlCeTest.cs" />
-    <Compile Include="Model_MainTests\JetTest.cs" />
-    <Compile Include="Model_MainTests\Model.cs" />
-    <Compile Include="Model_MainTests\Test.cs" />
-    <Compile Include="Model76_FullCreate\Context.cs" />
-    <Compile Include="Model76_FullCreate\JetTest.cs" />
-    <Compile Include="Model76_FullCreate\Model.cs" />
-    <Compile Include="Model76_FullCreate\Test.cs" />
-    <Compile Include="Model75_Enums\Context.cs" />
-    <Compile Include="Model75_Enums\JetTest.cs" />
-    <Compile Include="Model75_Enums\Model.cs" />
-    <Compile Include="Model75_Enums\Test.cs" />
-    <Compile Include="Model74_ComplexTypeContained_Github9536\Context.cs" />
-    <Compile Include="Model74_ComplexTypeContained_Github9536\JetTest.cs" />
-    <Compile Include="Model74_ComplexTypeContained_Github9536\Model.cs" />
-    <Compile Include="Model74_ComplexTypeContained_Github9536\Test.cs" />
-    <Compile Include="Model12_ComplexType\README.cs" />
-    <Compile Include="Model37_2Contexts\SqlServerTest.cs" />
-    <Compile Include="Model37_2Contexts\SqlCeTest.cs" />
-    <Compile Include="Model44_CaseSensitivity\SqlCeTest.cs" />
-    <Compile Include="Model77_DateTimeOffset\Context.cs" />
-    <Compile Include="Model77_DateTimeOffset\JetTest.cs" />
-    <Compile Include="Model77_DateTimeOffset\Model.cs" />
-    <Compile Include="Model77_DateTimeOffset\Test.cs" />
-    <Compile Include="TestBase`.cs" />
-    <Compile Include="Model68_sbyte\SqlCeTest.cs" />
-    <Compile Include="Model72_TableSplitting\Context.cs" />
-    <Compile Include="Model72_TableSplitting\JetTest.cs" />
-    <Compile Include="Model72_TableSplitting\Model.cs" />
-    <Compile Include="Model72_TableSplitting\Test.cs" />
-    <Compile Include="Model54_MemoryLeakageTest\Context.cs" />
-    <Compile Include="Model54_MemoryLeakageTest\JetTest.cs" />
-    <Compile Include="Model54_MemoryLeakageTest\Standard.cs" />
-    <Compile Include="Model54_MemoryLeakageTest\Student.cs" />
-    <Compile Include="Model33_OneToOneDeleteCascade\Person.cs" />
-    <Compile Include="Model01\Context.cs" />
-    <Compile Include="Model02\Context.cs" />
-    <Compile Include="Model02\TableWithSeveralFieldsType.cs" />
-    <Compile Include="Model01\Standard.cs" />
-    <Compile Include="Model01\Student.cs" />
-    <Compile Include="Model04\Car.cs" />
-    <Compile Include="Model04\CarsContext.cs" />
-    <Compile Include="Model04\JetTest.cs" />
-    <Compile Include="Model04\Person.cs" />
-    <Compile Include="Model04\SeedHelper.cs" />
-    <Compile Include="Model04\Test.cs" />
-    <Compile Include="Model04_Guid\Car.cs" />
-    <Compile Include="Model04_Guid\CarsContext.cs" />
-    <Compile Include="Model04_Guid\JetTest.cs" />
-    <Compile Include="Model04_Guid\Person.cs" />
-    <Compile Include="Model04_Guid\Test.cs" />
-    <Compile Include="Model05_WithIndex\Bar.cs" />
-    <Compile Include="Model05_WithIndex\Foo.cs" />
-    <Compile Include="Model05_WithIndex\JetTest.cs" />
-    <Compile Include="Model05_WithIndex\Context.cs" />
-    <Compile Include="Model05_WithIndex\Test.cs" />
-    <Compile Include="Model06_Inherit\Address.cs" />
-    <Compile Include="Model06_Inherit\BaseEntity.cs" />
-    <Compile Include="Model06_Inherit\Context.cs" />
-    <Compile Include="Model06_Inherit\JetTest.cs" />
-    <Compile Include="Model06_Inherit\Test.cs" />
-    <Compile Include="Model06_Inherit\User.cs" />
-    <Compile Include="Model07\Entities.cs" />
-    <Compile Include="Model07\Context.cs" />
-    <Compile Include="Model07\JetTest.cs" />
-    <Compile Include="Model07\Test.cs" />
-    <Compile Include="Model08\Context.cs" />
-    <Compile Include="Model08\Model.cs" />
-    <Compile Include="Model08\Mappings.cs" />
-    <Compile Include="Model08\JetTest.cs" />
-    <Compile Include="Model08\Test.cs" />
-    <Compile Include="Model09\JetTest.cs" />
-    <Compile Include="Model09\Test.cs" />
-    <Compile Include="Model09\ThreeMap.cs" />
-    <Compile Include="Model09\Context.cs" />
-    <Compile Include="Model09\One.cs" />
-    <Compile Include="Model09\OneMap.cs" />
-    <Compile Include="Model09\Three.cs" />
-    <Compile Include="Model09\Two.cs" />
-    <Compile Include="Model09\TwoMap.cs" />
-    <Compile Include="Model10\Context.cs" />
-    <Compile Include="Model10\JetTest.cs" />
-    <Compile Include="Model10\Model.cs" />
-    <Compile Include="Model10\Test.cs" />
-    <Compile Include="Model12_ComplexType\Context.cs" />
-    <Compile Include="Model12_ComplexType\JetTest.cs" />
-    <Compile Include="Model12_ComplexType\Model.cs" />
-    <Compile Include="Model12_ComplexType\Test.cs" />
-    <Compile Include="Model13_TableSplit_1_1rel\TestContext.cs" />
-    <Compile Include="Model13_TableSplit_1_1rel\JetTest.cs" />
-    <Compile Include="Model13_TableSplit_1_1rel\Model.cs" />
-    <Compile Include="Model13_TableSplit_1_1rel\Test.cs" />
-    <Compile Include="Model14_StackOverflow31992383\Context.cs" />
-    <Compile Include="Model14_StackOverflow31992383\Model.cs" />
-    <Compile Include="Model14_StackOverflow31992383\JetTest.cs" />
-    <Compile Include="Model14_StackOverflow31992383\Test.cs" />
-    <Compile Include="Model15_SortInheritedColumns\Context.cs" />
-    <Compile Include="Model15_SortInheritedColumns\Model.cs" />
-    <Compile Include="Model15_SortInheritedColumns\JetTest.cs" />
-    <Compile Include="Model15_SortInheritedColumns\Test.cs" />
-    <Compile Include="Model16_OwnCollection\Blog.cs" />
-    <Compile Include="Model16_OwnCollection\BloggingContext.cs" />
-    <Compile Include="Model16_OwnCollection\JetTest.cs" />
-    <Compile Include="Model16_OwnCollection\Post.cs" />
-    <Compile Include="Model16_OwnCollection\PostCollection.cs" />
-    <Compile Include="Model16_OwnCollection\Test.cs" />
-    <Compile Include="Model18_CompositeKeys\JetTest.cs" />
-    <Compile Include="Model18_CompositeKeys\Model.cs" />
-    <Compile Include="Model18_CompositeKeys\Test.cs" />
-    <Compile Include="Model18_CompositeKeys\TestContext.cs" />
-    <Compile Include="Model19_1_1\Context.cs" />
-    <Compile Include="Model19_1_1\JetTest.cs" />
-    <Compile Include="Model19_1_1\Model.cs" />
-    <Compile Include="Model19_1_1\Test.cs" />
-    <Compile Include="Model20_HiddenBackingField\Context.cs" />
-    <Compile Include="Model20_HiddenBackingField\JetTest.cs" />
-    <Compile Include="Model20_HiddenBackingField\Model.cs" />
-    <Compile Include="Model20_HiddenBackingField\Test.cs" />
-    <Compile Include="Model23_NestedInclude\Context.cs" />
-    <Compile Include="Model23_NestedInclude\Document.cs" />
-    <Compile Include="Model23_NestedInclude\DocumentMetadata.cs" />
-    <Compile Include="Model23_NestedInclude\DocumentMetadataExpression.cs" />
-    <Compile Include="Model23_NestedInclude\Expression.cs" />
-    <Compile Include="Model23_NestedInclude\JetTest.cs" />
-    <Compile Include="Model23_NestedInclude\Test.cs" />
-    <Compile Include="Model23_NestedInclude\VariableMetadata.cs" />
-    <Compile Include="Model25_InheritTPH\JetTest.cs" />
-    <Compile Include="Model25_InheritTPT\Context.cs" />
-    <Compile Include="Model25_InheritTPT\JetTest.cs" />
-    <Compile Include="Model25_InheritTPT\Mapping.cs" />
-    <Compile Include="Model25_InheritTPT\Model.cs" />
-    <Compile Include="Model25_InheritTPT\Test.cs" />
-    <Compile Include="Model26_Decompile\JetTest.cs" />
-    <Compile Include="Model26_Decompile\Model.cs" />
-    <Compile Include="Model26_Decompile\Test.cs" />
-    <Compile Include="Model27_SimpleTest\JetTest.cs" />
-    <Compile Include="Model27_SimpleTest\MyDbContext.cs" />
-    <Compile Include="Model27_SimpleTest\Test.cs" />
-    <Compile Include="Model27_SimpleTest\User.cs" />
-    <Compile Include="Model27_SimpleTest\Vehicle.cs" />
-    <Compile Include="Model28\Context.cs" />
-    <Compile Include="Model28\Helpers.cs" />
-    <Compile Include="Model28\JetTest.cs" />
-    <Compile Include="Model28\Model.cs" />
-    <Compile Include="Model28\Test.cs" />
-    <Compile Include="Model25_InheritTPH\Context.cs" />
-    <Compile Include="Model25_InheritTPH\Model.cs" />
-    <Compile Include="Model25_InheritTPH\Test.cs" />
-    <Compile Include="Model30\Context.cs" />
-    <Compile Include="Model30\JetTest.cs" />
-    <Compile Include="Model30\Model.cs" />
-    <Compile Include="Model30\Test.cs" />
-    <Compile Include="Model31_DoubleReference\Context.cs" />
-    <Compile Include="Model31_DoubleReference\JetTest.cs" />
-    <Compile Include="Model31_DoubleReference\Model.cs" />
-    <Compile Include="Model31_DoubleReference\Test.cs" />
-    <Compile Include="Model32_Include_NotInclude\Context.cs" />
-    <Compile Include="Model32_Include_NotInclude\JetTest.cs" />
-    <Compile Include="Model32_Include_NotInclude\Model.cs" />
-    <Compile Include="Model32_Include_NotInclude\Test.cs" />
-    <Compile Include="Model33_OneToOneDeleteCascade\Context.cs" />
-    <Compile Include="Model33_OneToOneDeleteCascade\JetTest.cs" />
-    <Compile Include="Model33_OneToOneDeleteCascade\Address.cs" />
-    <Compile Include="Model33_OneToOneDeleteCascade\Test.cs" />
-    <Compile Include="Model34_JetEfBug\Context.cs" />
-    <Compile Include="Model34_JetEfBug\JetTest.cs" />
-    <Compile Include="Model34_JetEfBug\Model.cs" />
-    <Compile Include="Model34_JetEfBug\Test.cs" />
-    <Compile Include="Model35_OneToZeroOneDeleteCascade\Context.cs" />
-    <Compile Include="Model35_OneToZeroOneDeleteCascade\JetTest.cs" />
-    <Compile Include="Model35_OneToZeroOneDeleteCascade\Mappings.cs" />
-    <Compile Include="Model35_OneToZeroOneDeleteCascade\Model.cs" />
-    <Compile Include="Model35_OneToZeroOneDeleteCascade\Test.cs" />
-    <Compile Include="Model37_2Contexts\Context1.cs" />
-    <Compile Include="Model37_2Contexts\Context2.cs" />
-    <Compile Include="Model37_2Contexts\JetTest.cs" />
-    <Compile Include="Model37_2Contexts\Model1.cs" />
-    <Compile Include="Model37_2Contexts\Model2.cs" />
-    <Compile Include="Model37_2Contexts\Test.cs" />
-    <Compile Include="Model39_DetachedEntities\JetTest.cs" />
-    <Compile Include="Model39_DetachedEntities\Model.cs" />
-    <Compile Include="Model39_DetachedEntities\MyContext.cs" />
-    <Compile Include="Model39_DetachedEntities\Test.cs" />
-    <Compile Include="Model41\Check.cs" />
-    <Compile Include="Model41\JetTest.cs" />
-    <Compile Include="Model41\Test.cs" />
-    <Compile Include="Model43_PKasFK\Context.cs" />
-    <Compile Include="Model43_PKasFK\JetTest.cs" />
-    <Compile Include="Model43_PKasFK\Model.cs" />
-    <Compile Include="Model43_PKasFK\ParentsHelper.cs" />
-    <Compile Include="Model43_PKasFK\Test.cs" />
-    <Compile Include="Model44_CaseSensitivity\Context.cs" />
-    <Compile Include="Model44_CaseSensitivity\JetTest.cs" />
-    <Compile Include="Model44_CaseSensitivity\Model.cs" />
-    <Compile Include="Model44_CaseSensitivity\Test.cs" />
-    <Compile Include="Model45_InheritTPHWithSameRelationship\Context.cs" />
-    <Compile Include="Model45_InheritTPHWithSameRelationship\JetTest.cs" />
-    <Compile Include="Model45_InheritTPHWithSameRelationship\Model.cs" />
-    <Compile Include="Model45_InheritTPHWithSameRelationship\Test.cs" />
-    <Compile Include="Model46_InnerClasses\Context.cs" />
-    <Compile Include="Model46_InnerClasses\JetTest.cs" />
-    <Compile Include="Model46_InnerClasses\Model.cs" />
-    <Compile Include="Model46_InnerClasses\Test.cs" />
-    <Compile Include="Model47_200\Context.cs" />
-    <Compile Include="Model47_200\JetTest.cs" />
-    <Compile Include="Model47_200\Model.cs" />
-    <Compile Include="Model47_200\Test.cs" />
-    <Compile Include="Model48_Cast\Context.cs" />
-    <Compile Include="Model48_Cast\JetTest.cs" />
-    <Compile Include="Model48_Cast\Model.cs" />
-    <Compile Include="Model48_Cast\Test.cs" />
-    <Compile Include="Model51_1_Many_RemoveChildren\Context.cs" />
-    <Compile Include="Model51_1_Many_RemoveChildren\JetTest.cs" />
-    <Compile Include="Model51_1_Many_RemoveChildren\Model.cs" />
-    <Compile Include="Model51_1_Many_RemoveChildren\Test.cs" />
-    <Compile Include="Model53_TableSplitting\Context.cs" />
-    <Compile Include="Model53_TableSplitting\JetTest.cs" />
-    <Compile Include="Model53_TableSplitting\Model.cs" />
-    <Compile Include="Model53_TableSplitting\Test.cs" />
-    <Compile Include="Model54_MemoryLeakageTest\Test.cs" />
-    <Compile Include="Model70_InMemoryObjectPartialUpdate\Context.cs" />
-    <Compile Include="Model70_InMemoryObjectPartialUpdate\JetTest.cs" />
-    <Compile Include="Model70_InMemoryObjectPartialUpdate\Model.cs" />
-    <Compile Include="Model70_InMemoryObjectPartialUpdate\Test.cs" />
-    <Compile Include="Model69_PrivateBackingField\Context.cs" />
-    <Compile Include="Model69_PrivateBackingField\JetTest.cs" />
-    <Compile Include="Model69_PrivateBackingField\Model.cs" />
-    <Compile Include="Model69_PrivateBackingField\Test.cs" />
-    <Compile Include="Model68_sbyte\Context.cs" />
-    <Compile Include="Model68_sbyte\SqlServerTest.cs" />
-    <Compile Include="Model68_sbyte\JetTest.cs" />
-    <Compile Include="Model68_sbyte\Model.cs" />
-    <Compile Include="Model68_sbyte\Test.cs" />
-    <Compile Include="Model66_StackOverflow_TooManyColumns\Context.cs" />
-    <Compile Include="Model66_StackOverflow_TooManyColumns\JetTest.cs" />
-    <Compile Include="Model66_StackOverflow_TooManyColumns\Model.cs" />
-    <Compile Include="Model66_StackOverflow_TooManyColumns\Test.cs" />
-    <Compile Include="Model64_Schema\Context.cs" />
-    <Compile Include="Model64_Schema\JetTest.cs" />
-    <Compile Include="Model64_Schema\Model.cs" />
-    <Compile Include="Model64_Schema\Test.cs" />
-    <Compile Include="Model63_Time\Context.cs" />
-    <Compile Include="Model63_Time\JetTest.cs" />
-    <Compile Include="Model63_Time\Model.cs" />
-    <Compile Include="Model63_Time\Test.cs" />
-    <Compile Include="Model59_StackOverflow_TPT_TPH\Context.cs" />
-    <Compile Include="Model59_StackOverflow_TPT_TPH\JetTest.cs" />
-    <Compile Include="Model59_StackOverflow_TPT_TPH\Model.cs" />
-    <Compile Include="Model59_StackOverflow_TPT_TPH\Test.cs" />
-    <Compile Include="Model57_StackOverflow\Context.cs" />
-    <Compile Include="Model57_StackOverflow\JetTest.cs" />
-    <Compile Include="Model57_StackOverflow\Model.cs" />
-    <Compile Include="Model57_StackOverflow\Test.cs" />
-    <Compile Include="Model56_SkipTake\Context.cs" />
-    <Compile Include="Model56_SkipTake\JetTest.cs" />
-    <Compile Include="Model56_SkipTake\Model.cs" />
-    <Compile Include="Model56_SkipTake\Test.cs" />
-    <Compile Include="Model55_Unicode\Context.cs" />
-    <Compile Include="Model55_Unicode\JetTest.cs" />
-    <Compile Include="Model55_Unicode\Model.cs" />
-    <Compile Include="Model55_Unicode\Test.cs" />
-    <Compile Include="Model73_ValidationContext\README.cs" />
-    <Compile Include="Program.cs" />
-    <Compile Include="AssemblyInitialization.cs" />
-    <Compile Include="Helpers.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SqlJoinTest.cs" />
-    <Compile Include="DataTypesTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">
@@ -423,9 +94,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="obj\" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="EntityFrameworkCore.SqlServerCompact40">
       <Version>2.2.0.5</Version>
     </PackageReference>
@@ -435,39 +103,22 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer">
       <Version>2.2.0</Version>
     </PackageReference>
-    <PackageReference Include="MSTest.TestAdapter">
-      <Version>2.1.0</Version>
-    </PackageReference>
-    <PackageReference Include="MSTest.TestFramework">
-      <Version>2.1.0</Version>
-    </PackageReference>
+    <PackageReference Include="Microsoft.SqlServer.Compact" Version="4.0.8876.1" />    
     <PackageReference Include="SQLitePCLRaw.core">
       <Version>1.1.12</Version>
     </PackageReference>
     <PackageReference Include="System.Diagnostics.DiagnosticSource">
       <Version>4.5.1</Version>
     </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.1.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.1.0" />
+    <PackageReference Include="coverlet.collector" Version="1.2.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj">
-      <Project>{d6966b04-4c38-4925-bcde-f8655f38d04c}</Project>
-      <Name>EFCore.Jet</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\System.Data.Jet\System.Data.Jet.csproj">
-      <Project>{88be8b4f-8da9-42b9-9a1f-839451ba5f8c}</Project>
-      <Name>System.Data.Jet</Name>
-    </ProjectReference>
+    <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
-  </PropertyGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
 </Project>

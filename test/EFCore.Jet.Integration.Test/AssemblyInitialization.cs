@@ -21,8 +21,14 @@ namespace EFCore.Jet.Integration.Test
 
             Connection = Helpers.GetJetConnection();
 
+#if NETFRAMEWORK
             Helpers.DeleteSqlCeDatabase();
             Helpers.CreateSqlCeDatabase();
+#elif NETCOREAPP
+
+#else
+            throw new PlatformNotSupportedException();
+#endif
         }
 
 

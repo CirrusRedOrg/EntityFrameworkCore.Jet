@@ -1,7 +1,7 @@
 # Notes for Developers/Builders
 
 ## Important Notes as of Feb 21, 2020
-- System.Data.OleDb currently has several issues with x86, testing on x64 is recommended.
+- System.Data.OleDb currently has several issues with x86 (see below).  Testing using the 64-bit Access OleDb driver instead is recommended.
 
 ## System.Data.OleDb Issues
 - Current Nuget.org package (version 4.7.0) contains several significant bugs:
@@ -16,7 +16,7 @@
 
 ## .NET Core 3.0/3.1 Issues
 - Using the dynamic keyword with COM objects not supported on .NET Core 3.0/3.1
-- Instead, System.Data.Jet.csproj includes two COMReference nodes for ADODB.dll & ADOX.dll, which generate strongly-typed references to these packages.  No x86/x64 issues have been encountered during preliminary tests, but I believe .NET 5.0 may support using the dynamic keyword with COM objects, so the code could possibly be reverted to the way it was, if issues with the COM wrappers are found.
+- Instead, System.Data.Jet.csproj includes two COMReference nodes for ADODB.dll & ADOX.dll, which generate strongly-typed references to these libraries.  No x86/x64 issues have been encountered during preliminary tests, but I believe .NET 5.0 may support using the dynamic keyword with COM objects, so the code could possibly be reverted to the way it was, if issues with the COM wrappers are found.
 - Affects AdoxWrapper.cs, JetStoreSchemaDefinitionRetrieve.cs & JetSyntaxHelper.cs
 - FYI: Paths to msadox.dll:
     - C:\Program Files\Common Files\System\ado

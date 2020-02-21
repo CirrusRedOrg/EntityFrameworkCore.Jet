@@ -42,7 +42,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Data.Jet.Performance
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build help", "build help", "{20B764C9-8664-4609-A743-8CF32BA6CA69}"
 	ProjectSection(SolutionItems) = preProject
-		Directory.Build.targets = Directory.Build.targets
 		NuGet.Config = NuGet.Config
 	EndProjectSection
 EndProject

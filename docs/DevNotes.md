@@ -22,11 +22,6 @@
     - C:\Program Files\Common Files\System\ado
     - C:\Program Files (x86)\Common Files\System\ado
 
-## Directory.Build.targets
-- Used due to conflict between the EF Core 2.2 and .NET Core 3.1 versions of IAsyncGrouping<,> & IAsyncEnumerable<>.  Invoked via setting an Alias attribute on the appropriate PackageReference.
-- Affects SharedTypeExtensions.cs
-- Likely is not be needed after upgrading to use EF Core 3.1 on .NET Core 3.1
-
 ## Test Design Guidelines
 - Consider extracting out the following settings to a single, global test configuration file:
     - Provider [string]: "Microsoft.ACE.OLEDB.15.0"

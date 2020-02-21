@@ -1,8 +1,4 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-#if NETCOREAPP3_1
-extern alias SystemInteractiveAsync;
-#endif
-
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -65,17 +61,11 @@ namespace System
 
         public static bool IsGrouping(this Type type) => IsGrouping(type.GetTypeInfo());
 
-#if NETCOREAPP3_1
+        // TODO: Is this method ever actually called?
         private static bool IsGrouping(TypeInfo type)
-            => type.IsGenericType
-               && (type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
-                   || type.GetGenericTypeDefinition() == typeof(SystemInteractiveAsync::System.Linq.IAsyncGrouping<,>));
-#else
-        private static bool IsGrouping(TypeInfo type)
-            => type.IsGenericType
-               && (type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
-                   || type.GetGenericTypeDefinition() == typeof(IAsyncGrouping<,>));
-#endif
+                    => type.IsGenericType
+                       && (type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
+                           || type.GetGenericTypeDefinition() == typeof(IAsyncGrouping<,>));
 
         public static Type UnwrapEnumType(this Type type)
         {
@@ -102,15 +92,9 @@ namespace System
             return sequenceType;
         }
 
-#if NETCOREAPP3_1
-        public static Type TryGetSequenceType(this Type type)
-            => type.TryGetElementType(typeof(IEnumerable<>))
-               ?? type.TryGetElementType(typeof(SystemInteractiveAsync::System.Collections.Generic.IAsyncEnumerable<>));
-#else
         public static Type TryGetSequenceType(this Type type)
             => type.TryGetElementType(typeof(IEnumerable<>))
                ?? type.TryGetElementType(typeof(IAsyncEnumerable<>));
-#endif
 
         public static Type TryGetElementType(this Type type, Type interfaceOrBaseType)
         {

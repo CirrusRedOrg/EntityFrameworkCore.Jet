@@ -42,9 +42,4 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
   </ItemGroup>
-
-  <!-- Will need an alias when using EFCore 2.2 & .NET Core 3.1 (Alias via Directory.Build.targets) -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
-    <PackageReference Include="System.Interactive.Async" Version="3.2.0" Alias="SystemInteractiveAsync" />
-  </ItemGroup>
 </Project>

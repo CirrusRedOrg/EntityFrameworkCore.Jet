@@ -25,7 +25,7 @@ namespace EFCore.Jet.Integration.Test
             Helpers.DeleteSqlCeDatabase();
             Helpers.CreateSqlCeDatabase();
 #elif NETCOREAPP
-
+            // SqlCe does not currently support .NET Core, so don't do anything for AssemblyInitialization
 #else
             throw new PlatformNotSupportedException();
 #endif

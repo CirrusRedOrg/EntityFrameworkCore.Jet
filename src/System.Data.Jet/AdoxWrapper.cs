@@ -24,7 +24,6 @@ namespace System.Data.Jet
             }
             finally
             {
-                //catalog.ActiveConnection.Close();
                 ((ADODB.Connection)catalog.ActiveConnection).Close();
             }
         }
@@ -50,7 +49,6 @@ namespace System.Data.Jet
             }
             finally
             {
-                //catalog.ActiveConnection.Close();
                 ((ADODB.Connection)catalog.ActiveConnection).Close();
             }
         }
@@ -75,7 +73,6 @@ namespace System.Data.Jet
             }
             catch (Exception e)
             {
-                //catalog.ActiveConnection.Close();
                 ((ADODB.Connection)catalog.ActiveConnection).Close();
                 throw new Exception("Cannot rename index. Cannot retrieve the table '" + tableName + "'", e);
             }
@@ -87,7 +84,6 @@ namespace System.Data.Jet
             }
             catch (Exception e)
             {
-                //catalog.ActiveConnection.Close();
                 ((ADODB.Connection)catalog.ActiveConnection).Close();
                 throw new Exception("Cannot rename index. Cannot retrieve the old index '" + indexName + "'", e);
             }
@@ -104,7 +100,6 @@ namespace System.Data.Jet
             }
             finally
             {
-                //catalog.ActiveConnection.Close();
                 ((ADODB.Connection)catalog.ActiveConnection).Close();
             }
 
@@ -156,7 +151,6 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
 
             try
             {
-                //catalog.ActiveConnection.Close();
                 var x = ((ADODB.Connection)catalog.ActiveConnection);
                 x.Close();
             }
@@ -172,30 +166,7 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
 
         private static ADOX.Catalog GetCatalogInstance(string errorPrefix)
         {
-            var catalog = new ADOX.Catalog();
-            return catalog;
-
-            //Type adoxCatalogType;
-            //dynamic catalog;
-
-            //try
-            //{
-            //    adoxCatalogType = Type.GetTypeFromProgID("ADOX.Catalog", true);
-            //}
-            //catch (Exception e)
-            //{
-            //    throw new Exception(errorPrefix + ". Cannot retrieve ADOX.Catalog type. Check ADOX installation.", e);
-            //}
-
-            //try
-            //{
-            //    catalog = System.Activator.CreateInstance(adoxCatalogType);
-            //}
-            //catch (Exception e)
-            //{
-            //    throw new Exception(errorPrefix + ". Cannot create an instance of ADOX.Catalog type.", e);
-            //}
-            //return catalog;
+            return new ADOX.Catalog();
         }
 
         private static ADOX.Catalog GetCatalogInstanceAndOpen(string errorPrefix, string connectionString)
@@ -204,7 +175,6 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
 
             try
             {
-                //catalog.ActiveConnection = connectionString;
                 ADODB.Connection cnn = new ADODB.Connection();
                 cnn.Open(ConnectionString: connectionString);
                 catalog.ActiveConnection = cnn;

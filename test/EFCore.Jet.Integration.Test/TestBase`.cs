@@ -146,14 +146,19 @@ namespace EFCore.Jet.Integration.Test
         {
             var optionsBuilder = new DbContextOptionsBuilder<T>().EnableSensitiveDataLogging();
 
-            if (dbConnection is SqlCeConnection)
+
 #if NETFRAMEWORK
+            if (dbConnection is SqlCeConnection)
                 return optionsBuilder.UseSqlCe(dbConnection).Options;
-#else
+#elif NETCOREAPP
+            if (dbConnection is SqlCeConnection)
             {
-                Assert.Inconclusive();
+                Assert.Inconclusive("SqlCe does not currently support .NET Core");
                 return default;
             }
+#else
+            if (dbConnection is SqlCeConnection)
+                throw new PlatformNotSupportedException();
 #endif
             else if (dbConnection is JetConnection)
                 return optionsBuilder.UseJet(dbConnection).Options;

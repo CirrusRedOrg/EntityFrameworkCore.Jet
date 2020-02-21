@@ -7,24 +7,6 @@ the .NET Core runtime (netcore and netstandard).
 
 You can find the latest build on [NuGet](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
 
-## Prerequisites for building tests
-- Install SQL Compact 4.0
-  - x86 or x64 (whichever applies)
-- Install Microsoft Access 2013 Runtime (https://www.microsoft.com/en-us/download/details.aspx?id=39358)
-  - x86, x64, or Both
-- (maybe?) Install Microsoft Access Database Engine 2010 Redistributable (https://www.microsoft.com/en-US/download/details.aspx?id=13255)
-  - x86, x64, or Both
-- The folder "C:\TEMP" must exist
-- Ensure xUnit test projects contain a reference to the nuget package xunit.runner.visualstudio to run the test from Visual Studio Test Explorer
-
-## Random Notes
-- Will need to upgrade test projects to use Microsoft.NET.Test.SDK version 16.4.0 or higher, otherwise Visual Studio test runner still tries to run x86 tests on x64.  Refer to: https://developercommunity.visualstudio.com/content/problem/697732/test-runner-wont-execute-net-core-tests-in-32-bit.html
-- Paths to msadox.dll:
-    - C:\Program Files\Common Files\System\ado
-    - C:\Program Files (x86)\Common Files\System\ado
-- Probably want to set Visual Studio to use PackageReference instead of packages.config by default (Options->Nuget Package Manager)
-- https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries#how-to-multitarget
-
 ## More documentation
 More documentation can be found on project [Wiki](https://www.github.com/bubibubi/EntityFrameworkCore.Jet/wiki)
 

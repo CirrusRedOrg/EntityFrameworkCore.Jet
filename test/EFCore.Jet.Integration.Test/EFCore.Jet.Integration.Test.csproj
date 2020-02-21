@@ -99,14 +99,14 @@
       <Version>2.2.0.5</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite">
-      <Version>2.2.0</Version>
+      <Version>3.1.2</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer">
-      <Version>2.2.0</Version>
+      <Version>3.1.2</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.SqlServer.Compact" Version="4.0.8876.1" />    
     <PackageReference Include="SQLitePCLRaw.core">
-      <Version>1.1.12</Version>
+      <Version>2.0.2</Version>
     </PackageReference>
     <PackageReference Include="System.Diagnostics.DiagnosticSource">
       <Version>4.7.0</Version>

@@ -57,7 +57,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="2.2.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="3.1.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\System.Data.Jet\System.Data.Jet.csproj" />

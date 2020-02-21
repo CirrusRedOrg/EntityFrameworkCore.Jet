@@ -63,20 +63,6 @@ namespace System
                && !type.IsInterface
                && (!type.IsGenericType || !type.IsGenericTypeDefinition);
 
-        public static bool IsGrouping(this Type type) => IsGrouping(type.GetTypeInfo());
-
-#if NETCOREAPP3_1
-        private static bool IsGrouping(TypeInfo type)
-            => type.IsGenericType
-               && (type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
-                   || type.GetGenericTypeDefinition() == typeof(SystemInteractiveAsync::System.Linq.IAsyncGrouping<,>));
-#else
-        private static bool IsGrouping(TypeInfo type)
-            => type.IsGenericType
-               && (type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
-                   || type.GetGenericTypeDefinition() == typeof(IAsyncGrouping<,>));
-#endif
-
         public static Type UnwrapEnumType(this Type type)
         {
             var isNullable = type.IsNullableType();

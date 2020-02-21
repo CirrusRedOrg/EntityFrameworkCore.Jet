@@ -12,11 +12,11 @@
 
 ## Nuget.Config
 - Used to get latest nightly builds of System.Data.OleDb
-- When a public release is posted to NuGet.org, having the NuGet.Config file likely won't be necessary
+- When a public release with bug fixes is posted to NuGet.org, having the NuGet.Config file in the EFCore.Jet solution likely won't be necessary
 
 ## .NET Core 3.0/3.1 Issues
-- using the dynamic keyword with COM objects not supported on .NET Core 3.0/3.1
-- instead, System.Data.Jet.csproj includes two COMReference nodes for ADODB.dll & ADOX.dll, which generate strongly-typed references to these packages.  No x86/x64 issues have been encountered during preliminary tests, but I believe .NET 5.0 may support using the dynamic keyword with COM objects, so the code could possibly be reverted to the way it was, if issues with the COM wrappers are found.
+- Using the dynamic keyword with COM objects not supported on .NET Core 3.0/3.1
+- Instead, System.Data.Jet.csproj includes two COMReference nodes for ADODB.dll & ADOX.dll, which generate strongly-typed references to these packages.  No x86/x64 issues have been encountered during preliminary tests, but I believe .NET 5.0 may support using the dynamic keyword with COM objects, so the code could possibly be reverted to the way it was, if issues with the COM wrappers are found.
 - Affects AdoxWrapper.cs, JetStoreSchemaDefinitionRetrieve.cs & JetSyntaxHelper.cs
 - FYI: Paths to msadox.dll:
     - C:\Program Files\Common Files\System\ado
@@ -25,9 +25,10 @@
 ## Directory.Build.targets
 - Used due to conflict between the EF Core 2.2 and .NET Core 3.1 versions of IAsyncGrouping<,> & IAsyncEnumerable<>.  Invoked via setting an Alias attribute on the appropriate PackageReference.
 - Affects SharedTypeExtensions.cs
+- Likely is not be needed after upgrading to use EF Core 3.1 on .NET Core 3.1
 
 ## Test Design Guidelines
-- Consider extracting out global test configuration settings to a single file:
+- Consider extracting out the following settings to a single, global test configuration file:
     - Provider [string]: "Microsoft.ACE.OLEDB.15.0"
     - TempDirectoryPath [string]: "C:\TEMP"
     - RunSqlCeTests [bool] : true/false
@@ -42,15 +43,13 @@
 - The folder "C:\TEMP" must exist, certain tests will throw if it does not
 
 ## Test Runner Issues
-- Test projects need to use Microsoft.NET.Test.SDK version 16.4.0 or higher to switch between x86/x64, otherwise Visual Studio test runner does not respect the "Processor Architecture for Any CPU" setting and still tries to run x86 tests on x64.
-- Refer to: https://developercommunity.visualstudio.com/content/problem/697732/test-runner-wont-execute-net-core-tests-in-32-bit.html
+- Test projects need to use a NuGet package reference of Microsoft.NET.Test.SDK version 16.4.0 or higher to switch between x86/x64, otherwise Visual Studio test runner does not respect the "Processor Architecture for Any CPU" setting and still tries to run x86 tests on x64.
+    - Refer to: https://developercommunity.visualstudio.com/content/problem/697732/test-runner-wont-execute-net-core-tests-in-32-bit.html
 - Ensure xUnit test projects contain a reference to the nuget package xunit.runner.visualstudio to run the test from Visual Studio Test Explorer
 
 ## General Resources
-- Multitargeting
-https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries#how-to-multitarget
-- MS Access Data Manipulation Language
-https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/data-manipulation-language
+- [Multitargeting](https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries#how-to-multitarget)
+- [MS Access Data Manipulation Language](https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/data-manipulation-language)
 
 ## Outdated Notes that Probably are No Longer Important
 - Probably want to set Visual Studio to use PackageReference instead of packages.config by default (Options->Nuget Package Manager)

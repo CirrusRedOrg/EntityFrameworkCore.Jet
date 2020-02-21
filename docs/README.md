@@ -6,7 +6,7 @@ may also work under ASP.NET 4.6 and ASP.NET Core 1.0 when using the .NET Framewo
 the .NET Core runtime (netcore and netstandard).
 
 You can find the latest build on [NuGet](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
-
+  
 ## More documentation
 More documentation can be found on project [Wiki](https://www.github.com/bubibubi/EntityFrameworkCore.Jet/wiki)
 

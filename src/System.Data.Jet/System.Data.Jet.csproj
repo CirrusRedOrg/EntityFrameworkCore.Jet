@@ -9,6 +9,9 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\build\Key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="System.Data.Jet.csproj.DotSettings" />
+  </ItemGroup>
 
 <ItemGroup>
     <Content Include="Properties\System.Data.Jet.rd.xml" />

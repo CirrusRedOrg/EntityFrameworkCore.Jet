@@ -1,7 +1,7 @@
 # Notes for Developers/Builders
 
 ## Important Notes as of Feb 21, 2020
-- System.Data.OleDb currently has several issues with x86 (see below).  Testing using the 64-bit Access OleDb driver instead is recommended.
+- System.Data.OleDb currently has several issues with x86 on .NET Core (see below). If needing to test on .NET Core, using the 64-bit Access OleDb driver instead is recommended. Otherwise, tests can still be run against .NET Framework (x86 or x64).
 
 ## System.Data.OleDb Issues
 - Current Nuget.org package (version 4.7.0) contains several significant bugs:
@@ -44,11 +44,11 @@
 
 ## .NET Standard Compatibility
 - Should the projects also target .NET Standard 2.0?  Even if the project compiles for .NET Standard 2.0, it will not work across all .NET Standard 2.0 platforms.  In particular, it will only work on Windows, which many users may expect, however, I believe either the COM or System.Data.OleDb (or both) will fail if running on .NET Core 2.0/2.1/2.2, which would be an incompatibility that is more difficult for users to guess.
-- Is targeting .NET Standard 2.1 instead an option?  Would have to explicitly target .NET Framework as well, unless EFCore.Jet wants to drop support for it.  However, what is the advantage?  Perhaps just Mono on Windows?
+- Consider targeting both .NET Standard 2.1 and .NET Framework. However, what is the advantage?  Perhaps just Mono on Windows?
 
 ## General Resources
-- [Multitargeting](https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries#how-to-multitarget)
-- [MS Access Data Manipulation Language](https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/data-manipulation-language)
+- [How to multitarget](https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries#how-to-multitarget)
+- [Microsoft Access SQL reference](https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/microsoft-access-sql-reference)
 
 ## Outdated Notes that Probably are No Longer Important
 - Probably want to set Visual Studio to use PackageReference instead of packages.config by default (Options->Nuget Package Manager)

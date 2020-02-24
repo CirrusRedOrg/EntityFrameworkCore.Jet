@@ -66,7 +66,9 @@ namespace System.Data.Jet
         /// </returns>
         public override DbConnectionStringBuilder CreateConnectionStringBuilder()
         {
-            return new OleDbConnectionStringBuilder();
+            OleDbConnectionStringBuilder oleDbConnectionStringBuilder = new OleDbConnectionStringBuilder();
+            
+            return oleDbConnectionStringBuilder;
         }
 
         /// <summary>

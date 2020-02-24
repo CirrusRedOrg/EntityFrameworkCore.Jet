@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Jet;
+using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -453,14 +454,10 @@ namespace EntityFrameworkCore.Jet.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            var connectionStringBuilder = JetProviderFactory.Instance.CreateConnectionStringBuilder();
-            connectionStringBuilder.ConnectionString = _options.ConnectionString;
-
-            var provider = connectionStringBuilder.GetProvider();
-            if (string.IsNullOrEmpty(provider))
-            {
-                provider = JetConfiguration.OleDbDefaultProvider;
-            }
+            var connectionStringBuilder = new OleDbConnectionStringBuilder(_options.ConnectionString);
+            var provider = string.IsNullOrEmpty(connectionStringBuilder.Provider)
+                ? JetConfiguration.OleDbDefaultProvider
+                : connectionStringBuilder.Provider;
             
             builder
                 .Append("CREATE DATABASE ")

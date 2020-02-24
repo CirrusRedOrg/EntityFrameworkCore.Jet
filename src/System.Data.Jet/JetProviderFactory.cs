@@ -103,18 +103,5 @@ namespace System.Data.Jet
         {
             return new OleDbParameter();
         }
-
-        /// <summary>
-        /// Returns a new instance of the provider's class that implements the provider's version of the <see cref="T:System.Security.CodeAccessPermission" /> class.
-        /// </summary>
-        /// <param name="state">One of the <see cref="T:System.Security.Permissions.PermissionState" /> values.</param>
-        /// <returns>
-        /// A <see cref="T:System.Security.CodeAccessPermission" /> object for the specified <see cref="T:System.Security.Permissions.PermissionState" />.
-        /// </returns>
-        public override System.Security.CodeAccessPermission CreatePermission(System.Security.Permissions.PermissionState state)
-        {
-            return new OleDbPermission(state);
-        }
-
     }
 }

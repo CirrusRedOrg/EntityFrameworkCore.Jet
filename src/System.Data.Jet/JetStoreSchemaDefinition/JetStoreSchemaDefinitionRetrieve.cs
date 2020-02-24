@@ -179,8 +179,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     }
 
                     columns += string.Format("[{0}]", column.ColumnName);
-                    dynamic value = row[column];
-                    values += JetSyntaxHelper.ToSqlString(value);
+                    object value = row[column];
+                    values += JetSyntaxHelper.ToSqlStringSwitch(value);
                 }
             }
             return string.Format("INSERT INTO [{0}] ({1}) VALUES ({2})", tableName, columns, values);

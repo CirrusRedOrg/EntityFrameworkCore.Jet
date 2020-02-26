@@ -1,60 +1,53 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
+using EntityFrameworkCore.Jet.Utilities;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using EntityFrameworkCore.Jet.Utilities;
 
 namespace EntityFrameworkCore.Jet.Design.Internal
 {
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public class JetAnnotationCodeGenerator : AnnotationCodeGenerator
     {
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public JetAnnotationCodeGenerator([NotNull] AnnotationCodeGeneratorDependencies dependencies)
             : base(dependencies)
         {
         }
 
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public override bool IsHandledByConvention(IModel model, IAnnotation annotation)
         {
             Check.NotNull(model, nameof(model));
             Check.NotNull(annotation, nameof(annotation));
 
+            // CHECK: Jet default schema handling.
             if (annotation.Name == RelationalAnnotationNames.DefaultSchema)
-                return true;
-
-            return false;
-        }
-
-        public override MethodCallCodeFragment GenerateFluentApi(IKey key, IAnnotation annotation)
-        {
-            Check.NotNull(key, nameof(key));
-            Check.NotNull(annotation, nameof(annotation));
-
-            if (annotation.Name == JetAnnotationNames.Clustered)
             {
-                return (bool)annotation.Value == false
-                    ? new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered), false)
-                    : new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered));
+                return string.Equals("dbo", (string)annotation.Value);
             }
 
-            return null;
-        }
-
-        public override MethodCallCodeFragment GenerateFluentApi(IIndex index, IAnnotation annotation)
-        {
-            Check.NotNull(index, nameof(index));
-            Check.NotNull(annotation, nameof(annotation));
-
-            if (annotation.Name == JetAnnotationNames.Clustered)
-            {
-                return (bool)annotation.Value == false
-                    ? new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered), false)
-                    : new MethodCallCodeFragment(nameof(JetIndexBuilderExtensions.ForJetIsClustered));
-            }
-
-            return null;
+            return annotation.Name == JetAnnotationNames.ValueGenerationStrategy
+                && (JetValueGenerationStrategy)annotation.Value == JetValueGenerationStrategy.IdentityColumn;
         }
     }
 }

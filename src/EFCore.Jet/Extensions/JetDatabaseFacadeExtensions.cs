@@ -4,10 +4,10 @@ using System;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace EntityFrameworkCore.Jet.Extensions
+// ReSharper disable once CheckNamespace
+namespace Microsoft.EntityFrameworkCore
 {
     /// <summary>
     ///     Jet specific extension methods for <see cref="DbContext.Database" />.

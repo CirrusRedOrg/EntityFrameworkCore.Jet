@@ -8,15 +8,14 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore;
 
 // ReSharper disable once CheckNamespace
-namespace EntityFrameworkCore.Jet
+namespace Microsoft.EntityFrameworkCore
 {
     /// <summary>
     ///     Jet specific extension methods for <see cref="DbContextOptionsBuilder" />.
     /// </summary>
-    public static class JetDbContextOptionsExtensions
+    public static class JetDbContextOptionsBuilderExtensions
     {
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.

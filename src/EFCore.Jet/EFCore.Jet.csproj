@@ -1,16 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
+    <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
+    <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
+  </PropertyGroup>
+
+  <Import Project="..\..\build\dependencies.props" />
+  <Import Project="..\..\build\Development.props" Condition="Exists('..\..\build\Development.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
+    <LangVersion>8.0</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
     <Platforms>AnyCPU;x86;x64</Platforms>
-  </PropertyGroup>
-  <PropertyGroup>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\build\Key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
+  
   <ItemGroup>
     <None Remove="EFCore.Jet.csproj.DotSettings" />
   </ItemGroup>
@@ -36,35 +44,71 @@
     <Compile Include="..\Shared\StringBuilderExtensions.cs">
       <Link>StringBuilderExtensions.cs</Link>
     </Compile>
-    <Compile Update="Properties\JetStrings.Designer1.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>JetStrings.Designer.tt</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="Properties\JetStrings.Designer.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Properties\EntityFrameworkCore.Jet.rd.xml" />
-    <Content Include="Properties\JetStrings.Designer.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>JetStrings.Designer1.cs</LastGenOutput>
-    </Content>
   </ItemGroup>
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="3.1.2" />
+    <None Update="Properties\JetStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Update="Properties\JetStrings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>JetStrings.Designer.tt</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Properties\JetStrings.resx">
+      <CustomToolNamespace>EntityFrameworkCore.Jet.Internal</CustomToolNamespace>
+    </EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
+    <Reference Include="Microsoft.EntityFrameworkCore">
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore.Relational">
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+    </Reference>
+    
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjection)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsConfigurationEnvironmentVariablesVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="$(MicrosoftExtensionsConfigurationVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="$(MicrosoftExtensionsCachingMemoryVersion)" />
+    <PackageReference Include="Microsoft.Extensions.HostFactoryResolver.Sources" Version="$(MicrosoftExtensionsHostFactoryResolverSourcesVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsLoggingVersion)" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="$(MicrosoftBclAsyncInterfacesVersion)" />
+    <PackageReference Include="Microsoft.Bcl.HashCode" Version="$(MicrosoftBclHashCodeVersion)" />
+    <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
+    <PackageReference Include="System.ComponentModel.Annotations" Version="$(SystemComponentModelAnnotationsVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\System.Data.Jet\System.Data.Jet.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
+
 </Project>

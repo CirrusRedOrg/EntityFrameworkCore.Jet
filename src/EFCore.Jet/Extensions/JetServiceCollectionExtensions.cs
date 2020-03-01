@@ -36,7 +36,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             var builder = new EntityFrameworkRelationalServicesBuilder(serviceCollection)
                 .TryAdd<IDatabaseProvider, DatabaseProvider<JetOptionsExtension>>()
-                .TryAdd<IValueGeneratorCache>(p => p.GetService<IJetValueGeneratorCache>())
                 .TryAdd<IRelationalTypeMappingSource, JetTypeMappingSource>()
                 .TryAdd<ISqlGenerationHelper, JetSqlGenerationHelper>()
                 .TryAdd<IMigrationsAnnotationProvider, JetMigrationsAnnotationProvider>()
@@ -58,10 +57,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetService<IJetOptions>())
                 .TryAddProviderSpecificServices(
                     b => b
-                        .TryAddSingleton<IJetValueGeneratorCache, JetValueGeneratorCache>()
                         .TryAddSingleton<IJetOptions, JetOptions>()
                         .TryAddScoped<IJetUpdateSqlGenerator, JetUpdateSqlGenerator>()
-                        .TryAddScoped<IJetSequenceValueGeneratorFactory, JetSequenceValueGeneratorFactory>()
                         .TryAddScoped<IJetRelationalConnection, JetRelationalConnection>());
 
             builder.TryAddCoreServices();

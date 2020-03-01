@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Data.Jet;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,11 +53,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 
         public static ConventionSet Build()
         {
-            // TODO: Use default provider.
             var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkJet()
                 .AddDbContext<DbContext>((p, o) => o
-                    .UseJet("Provider=Microsoft.ACE.OLEDB.15.0;Data Source=_.accdb;")
+                    .UseJet(JetConnection.GetConnectionString("Jet.accdb"))
                     .UseInternalServiceProvider(p))
                 .BuildServiceProvider();
 

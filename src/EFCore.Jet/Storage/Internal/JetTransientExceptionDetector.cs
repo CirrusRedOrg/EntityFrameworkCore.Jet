@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// <summary>
     ///     Detects the exceptions caused by Jet transient failures.
     /// </summary>
-    public class JetTransientExceptionDetector
+    public static class JetTransientExceptionDetector
     {
         public static bool ShouldRetryOn([NotNull] Exception ex)
         {
@@ -19,6 +19,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 foreach (OleDbError err in sqlException.Errors)
                 {
                     // TODO: Check proper Jet Errors
+                    /*
                     switch (err.NativeError)
                     {
                         // SQL Error Code: 49920
@@ -113,6 +114,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         // Timeout expired. The timeout period elapsed prior to completion of the operation or the server is not responding. The statement has been terminated.
                         //case -2:
                     }
+                    */
                 }
 
                 return false;

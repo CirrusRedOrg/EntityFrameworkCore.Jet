@@ -95,7 +95,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 
         private sealed class ExtensionInfo : RelationalExtensionInfo
         {
-            private long? _serviceProviderHash;
+            // private long? _serviceProviderHash;
             private string _logFragment;
 
             public ExtensionInfo(IDbContextOptionsExtension extension)

@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using EntityFrameworkCore.Jet.Properties;
+using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -16,69 +16,37 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetTypeMappingSource : RelationalTypeMappingSource
     {
-        private readonly JetStringTypeMapping _unboundedUnicodeString
-            = new JetStringTypeMapping("text", unicode: true);
-
-        private readonly JetStringTypeMapping _unboundedAnsiString
-            = new JetStringTypeMapping("text");
-
-        private readonly JetByteArrayTypeMapping _unboundedBinary
-            = new JetByteArrayTypeMapping("image");
-
-        private readonly JetByteArrayTypeMapping _rowversion
-            = new JetByteArrayTypeMapping("varbinary(8)", size: 8);
-
-        private readonly IntTypeMapping _int = new IntTypeMapping("int", DbType.Int32);
-
-        private readonly LongTypeMapping _long = new LongTypeMapping("int", DbType.Int64);
-
-        private readonly ShortTypeMapping _short = new ShortTypeMapping("smallint", DbType.Int16);
-
-        private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte);
-
-        private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("smallint");
-        // JET bits are not nullable
-        //private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
-
-        private readonly JetStringTypeMapping _fixedLengthUnicodeString
-            = new JetStringTypeMapping("char", unicode: true);
-
-        private readonly JetStringTypeMapping _variableLengthUnicodeString
-            = new JetStringTypeMapping("varchar", unicode: true);
-
-        // Jet does not support ANSI strings
-        /*
-        private readonly JetStringTypeMapping _fixedLengthAnsiString
-            = new JetStringTypeMapping("char", dbType: DbType.AnsiString);
-
-        private readonly JetStringTypeMapping _variableLengthAnsiString
-            = new JetStringTypeMapping("varchar", dbType: DbType.AnsiString);
-        */
-
-        private readonly JetByteArrayTypeMapping _variableLengthBinary = new JetByteArrayTypeMapping("varbinary");
-
         private readonly JetByteArrayTypeMapping _fixedLengthBinary = new JetByteArrayTypeMapping("binary");
+        private readonly JetByteArrayTypeMapping _variableLengthBinary = new JetByteArrayTypeMapping("varbinary");
+        private readonly JetByteArrayTypeMapping _unboundedBinary = new JetByteArrayTypeMapping("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
-        private readonly JetDateTimeTypeMapping _date = new JetDateTimeTypeMapping("datetime", dbType: DbType.Date);
+        private readonly JetBoolTypeMapping _bit = new JetBoolTypeMapping("bit"); // JET bits are not nullable
+        private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("smallint");
+
+        private readonly IntTypeMapping _counter = new IntTypeMapping("counter", DbType.Int32);
+        
+        private readonly ByteTypeMapping _tinyint = new ByteTypeMapping("tinyint", DbType.Byte);
+        private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
+        private readonly IntTypeMapping _integer = new IntTypeMapping("integer", DbType.Int32);
+        private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
+
+        private readonly FloatTypeMapping _single = new JetFloatTypeMapping("single");
+        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("double");
+
+        private readonly DecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 10, StoreTypePostfix.PrecisionAndScale);
+        private readonly DecimalTypeMapping _currency = new JetCurrencyTypeMapping("currency");
 
         private readonly JetDateTimeTypeMapping _datetime = new JetDateTimeTypeMapping("datetime", dbType: DbType.DateTime);
-
-        // ReSharper disable once UnusedMember.Local
-        private readonly JetDateTimeTypeMapping _datetime2 = new JetDateTimeTypeMapping("datetime", dbType: DbType.DateTime2);
-
-        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("double"); 
-
         private readonly JetDateTimeOffsetTypeMapping _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime");
-
-        private readonly FloatTypeMapping _real = new JetFloatTypeMapping("single"); 
-
-        private readonly GuidTypeMapping _uniqueidentifier = new GuidTypeMapping("guid", DbType.Guid);
-
-        private readonly DecimalTypeMapping _decimal = new DecimalTypeMapping("decimal(18, 2)", DbType.Decimal);
-
+        private readonly JetDateTimeTypeMapping _date = new JetDateTimeTypeMapping("datetime", dbType: DbType.Date);
         private readonly TimeSpanTypeMapping _time = new JetTimeSpanTypeMapping("datetime");
 
-        private readonly JetStringTypeMapping _xml = new JetStringTypeMapping("text", unicode: true);
+        private readonly JetStringTypeMapping _fixedLengthUnicodeString = new JetStringTypeMapping("char", unicode: true);
+        private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
+        private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
+
+        private readonly GuidTypeMapping _uniqueidentifier = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
+        private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8);
 
         private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
@@ -93,55 +61,117 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             [NotNull] RelationalTypeMappingSourceDependencies relationalDependencies)
             : base(dependencies, relationalDependencies)
         {
+            // References:
+            // https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
+            // https://docs.microsoft.com/en-us/office/vba/access/concepts/error-codes/comparison-of-data-types
+            // https://support.office.com/en-us/article/equivalent-ansi-sql-data-types-7a0a6bef-ef25-45f9-8a9a-3c5f21b5c65d
+            // https://sourcedaddy.com/ms-access/sql-data-types.html
+
+            // TODO: Check the types and their mappings against
+            //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
+            
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping>(StringComparer.OrdinalIgnoreCase)
                 {
-                    { "binary", _fixedLengthBinary },
-                    { "bit", _bool },
-                    { "byte", _byte },
-                    { "char", _fixedLengthUnicodeString },
-                    { "date", _date },
-                    { "datetime", _datetime },
-                    { "decimal", _decimal },
-                    { "float", _double },
-                    { "double", _double },
-                    { "image", _variableLengthBinary },
-                    { "int", _int },
-                    { "guid", _uniqueidentifier },
-                    { "money", _decimal },
-                    { "numeric", _decimal },
-                    { "real", _real },
-                    { "single", _real },
-                    { "smalldatetime", _datetime },
-                    { "smallint", _short },
-                    { "smallmoney", _decimal },
-                    { "text", _variableLengthUnicodeString },
-                    { "time", _time },
-                    { "timestamp", _rowversion },
-                    { "tinyint", _byte },
-                    { "uniqueidentifier", _uniqueidentifier },
-                    { "varbinary", _variableLengthBinary },
-                    { "varchar", _variableLengthUnicodeString },
-                    { "xml", _xml }
+                    {"binary", _fixedLengthBinary},
+
+                    {"varbinary", _variableLengthBinary},
+                    {"binary varying", _variableLengthBinary},
+                    {"bit varying", _variableLengthBinary},
+
+                    {"longbinary", _unboundedBinary},
+                    {"general", _unboundedBinary},
+                    {"image", _unboundedBinary},
+                    {"oleobject", _unboundedBinary},
+
+                    {"bit", _bit},
+                    {"boolean", _bit},
+                    {"logical", _bit},
+                    {"logical1", _bit},
+                    {"yesno", _bit},
+
+                    {"counter", _counter},
+                    {"identity", _counter},
+                    {"autoincrement", _counter},
+                    
+                    {"tinyint", _tinyint},
+                    {"byte", _tinyint},
+                    {"integer1", _tinyint},
+
+                    {"smallint", _smallint},
+                    {"short", _smallint},
+                    {"integer2", _smallint},
+
+                    {"integer", _integer},
+                    {"long", _integer},
+                    {"int", _integer},
+                    {"integer4", _integer},
+
+                    {"single", _single},
+                    {"real", _single},
+                    {"float4", _single},
+                    {"ieeesingle", _single},
+
+                    {"double", _double},
+                    {"float", _double},
+                    {"float8", _double},
+                    {"ieeedouble", _double},
+                    {"number", _double},
+                    
+                    {"decimal", _decimal},
+                    {"numeric", _decimal},
+                    {"dec", _decimal},
+                
+                    {"currency", _currency},
+                    {"money", _currency},
+
+                    {"datetime", _datetime},
+                    {"date", _date},
+                    {"time", _time},
+
+                    {"char", _fixedLengthUnicodeString},
+                    {"alphanumeric", _fixedLengthUnicodeString},
+                    {"character", _fixedLengthUnicodeString},
+                    {"nchar", _fixedLengthUnicodeString},
+                    {"national char", _fixedLengthUnicodeString},
+                    {"national character", _fixedLengthUnicodeString},
+
+                    {"varchar", _variableLengthUnicodeString},
+                    {"string", _variableLengthUnicodeString},
+                    {"char varying", _variableLengthUnicodeString},
+                    {"character varying", _variableLengthUnicodeString},
+                    {"national char varying", _variableLengthUnicodeString},
+                    {"national character varying", _variableLengthUnicodeString},
+
+                    {"longchar", _unboundedUnicodeString},
+                    {"longtext", _unboundedUnicodeString},
+                    {"memo", _unboundedUnicodeString},
+                    {"note", _unboundedUnicodeString},
+                    {"ntext", _unboundedUnicodeString},
+
+                    {"uniqueidentifier", _uniqueidentifier},
+                    {"guid", _uniqueidentifier},
+
+                    {"timestamp", _rowversion},
                 };
 
-            // Note: sbyte, ushort, uint, char and ulong type mappings are not supported by Jet.
+            // Note: sbyte, ushort, uint, char, long and ulong type mappings are not supported by Jet.
             // We would need the type conversions feature to allow this to work - see https://github.com/aspnet/EntityFramework/issues/242.
             _clrTypeMappings
                 = new Dictionary<Type, RelationalTypeMapping>
                 {
-                    { typeof(int), _int },
-                    { typeof(long), _long },
-                    { typeof(DateTime), _datetime },
-                    { typeof(Guid), _uniqueidentifier },
-                    { typeof(bool), _bool },
-                    { typeof(byte), _byte },
-                    { typeof(double), _double },
-                    { typeof(DateTimeOffset), _datetimeoffset },
-                    { typeof(short), _short },
-                    { typeof(float), _real },
-                    { typeof(decimal), _decimal },
-                    { typeof(TimeSpan), _time }
+                    {typeof(bool), _bool},
+                    {typeof(byte), _tinyint},
+                    {typeof(short), _smallint},
+                    {typeof(int), _integer},
+                    {typeof(long), _bigint}, // uses DECIMAL(28,0)
+                    {typeof(float), _single},
+                    {typeof(double), _double},
+                    {typeof(decimal), _decimal}, // CHECK: Is this supported or do we need to use CURRENCY?
+                    {typeof(DateTime), _datetime},
+                    {typeof(DateTimeOffset), _datetimeoffset},
+                    {typeof(TimeSpan), _time},
+                    {typeof(Guid), _uniqueidentifier},
                 };
 
             // These are disallowed only if specified without any kind of length specified in parenthesis.
@@ -151,23 +181,27 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _disallowedMappings
                 = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "binary varying",
                     "binary",
-                    "char varying",
+
+                    "varbinary",
+                    "image",
+                    "binary varying",
+                    "bit varying",
+
                     "char",
-                    "character varying",
+                    "alphanumeric",
                     "character",
+                    "nchar",
+                    "national char",
+                    "national character",
+
+                    "varchar",
+                    "string",
+                    "char varying",
+                    "character varying",
                     "national char varying",
                     "national character varying",
-                    "national character",
-                    "nchar",
-                    "nvarchar",
-                    "varbinary",
-                    "varchar"
                 };
-
-
-
         }
 
         /// <summary>
@@ -176,7 +210,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         protected override void ValidateMapping(CoreTypeMapping mapping, IProperty property)
         {
-            RelationalTypeMapping relationalMapping = (RelationalTypeMapping) mapping;
+            var relationalMapping = mapping as RelationalTypeMapping;
 
             if (_disallowedMappings.Contains(relationalMapping?.StoreType))
             {
@@ -189,13 +223,12 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             }
         }
 
-
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         protected override RelationalTypeMapping FindMapping(in RelationalTypeMappingInfo mappingInfo)
-        => FindRawMapping(mappingInfo)?.Clone(mappingInfo) ?? base.FindMapping(mappingInfo);
+            => base.FindMapping(mappingInfo) ?? FindRawMapping(mappingInfo)?.Clone(mappingInfo);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -207,19 +240,19 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             var storeTypeName = mappingInfo.StoreTypeName;
             var storeTypeNameBase = mappingInfo.StoreTypeNameBase;
 
-            // Fixes: #22
-            //clrType = clrType.UnwrapNullableType().UnwrapEnumType();
-
-
             if (storeTypeName != null)
             {
-                if (clrType == typeof(float)
-                    && mappingInfo.Size != null
-                    && mappingInfo.Size <= 24
-                    && (storeTypeNameBase.Equals("float", StringComparison.OrdinalIgnoreCase)
-                        || storeTypeNameBase.Equals("double precision", StringComparison.OrdinalIgnoreCase)))
+                // If the TEXT store type is used with a size argument like `TEXT(n)`, it is handled as a synonym
+                // for `VARCHAR(n)`.
+                // If the TEXT store type is used without a size argument like `TEXT`, it is handled as a synonym
+                // for `LONGCHAR`. 
+                // See "Notes" in: https://support.office.com/en-us/article/equivalent-ansi-sql-data-types-7a0a6bef-ef25-45f9-8a9a-3c5f21b5c65d
+                if (storeTypeNameBase.Equals("text", StringComparison.OrdinalIgnoreCase) &&
+                    !mappingInfo.IsFixedLength.GetValueOrDefault())
                 {
-                    return _real;
+                    return mappingInfo.Size.GetValueOrDefault() > 0
+                        ? _variableLengthUnicodeString
+                        : _unboundedUnicodeString;
                 }
 
                 if (_storeTypeMappings.TryGetValue(storeTypeName, out var mapping)
@@ -241,19 +274,25 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
                 if (clrType == typeof(string))
                 {
-                    bool isAnsi = mappingInfo.IsUnicode == false;
-                    bool isFixedLength = mappingInfo.IsFixedLength == true;
-                    int maxSize = 255;
+                    var isFixedLength = mappingInfo.IsFixedLength == true;
 
-                    int? size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)255 : null);
-                    if (size > maxSize)
+                    const int maxCharColumnSize = 255;
+                    const int maxIndexedCharColumnSize = 255;
+
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?) maxIndexedCharColumnSize : null);
+                    if (size > maxCharColumnSize)
                     {
-                        size = isFixedLength ? maxSize : (int?)null;
+                        size = isFixedLength ? maxCharColumnSize : (int?) null;
                     }
 
                     return size == null
-                        ? isAnsi ? _unboundedAnsiString : _unboundedUnicodeString
-                        : new JetStringTypeMapping(storeType: isFixedLength ? "char" : "varchar", size: size, unicode: true);
+                        ? _unboundedUnicodeString
+                        : new JetStringTypeMapping(
+                            storeType: isFixedLength
+                                ? _fixedLengthUnicodeString.StoreTypeNameBase
+                                : _variableLengthUnicodeString.StoreTypeNameBase,
+                            size: size,
+                            unicode: true);
                 }
 
                 if (clrType == typeof(byte[]))
@@ -265,15 +304,21 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
                     var isFixedLength = mappingInfo.IsFixedLength == true;
 
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)510 : null);
-                    if (size > 510)
+                    const int maxBinaryColumnSize = 510;
+
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?) maxBinaryColumnSize : null);
+                    if (size > maxBinaryColumnSize)
                     {
-                        size = isFixedLength ? 510 : (int?)null;
+                        size = isFixedLength ? maxBinaryColumnSize : (int?) null;
                     }
 
                     return size == null
                         ? _unboundedBinary
-                        : new JetByteArrayTypeMapping(size: size, storeType: isFixedLength ? "binary": "varbinary");
+                        : new JetByteArrayTypeMapping(
+                            size: size,
+                            storeType: isFixedLength
+                                ? _fixedLengthBinary.StoreTypeNameBase
+                                : _variableLengthBinary.StoreTypeNameBase);
                 }
             }
 

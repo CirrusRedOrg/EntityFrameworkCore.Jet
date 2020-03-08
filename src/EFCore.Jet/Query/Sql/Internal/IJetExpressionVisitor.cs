@@ -8,6 +8,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
     public interface IJetExpressionVisitor
     {
-        Expression VisitRowNumber([NotNull] RowNumberExpression rowNumberExpression);
+        // Expression VisitRowNumber([NotNull] RowNumberExpression rowNumberExpression);
     }
 }

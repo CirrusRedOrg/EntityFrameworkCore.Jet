@@ -1,8 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
-using EntityFrameworkCore.Jet.Migrations;
 using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Query;
 using EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
@@ -18,6 +18,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
@@ -35,6 +36,7 @@ namespace Microsoft.Extensions.DependencyInjection
             Check.NotNull(serviceCollection, nameof(serviceCollection));
 
             var builder = new EntityFrameworkRelationalServicesBuilder(serviceCollection)
+                .TryAdd<LoggingDefinitions, JetLoggingDefinitions>()
                 .TryAdd<IDatabaseProvider, DatabaseProvider<JetOptionsExtension>>()
                 .TryAdd<IRelationalTypeMappingSource, JetTypeMappingSource>()
                 .TryAdd<ISqlGenerationHelper, JetSqlGenerationHelper>()
@@ -49,16 +51,16 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IRelationalDatabaseCreator, JetDatabaseCreator>()
                 .TryAdd<IHistoryRepository, JetHistoryRepository>()
                 .TryAdd<ICompiledQueryCacheKeyGenerator, JetCompiledQueryCacheKeyGenerator>()
-                .TryAdd<IQueryCompilationContextFactory, JetQueryCompilationContextFactory>()
-                .TryAdd<IMemberTranslator, JetCompositeMemberTranslator>()
-                .TryAdd<ICompositeMethodCallTranslator, JetCompositeMethodCallTranslator>()
+                .TryAdd<IExecutionStrategyFactory, JetExecutionStrategyFactory>()
+                .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetService<IJetOptions>())
+                .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
+                .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()
                 .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
-                .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetService<IJetOptions>())
                 .TryAddProviderSpecificServices(
                     b => b
                         .TryAddSingleton<IJetOptions, JetOptions>()
-                        .TryAddScoped<IJetUpdateSqlGenerator, JetUpdateSqlGenerator>()
+                        .TryAddSingleton<IJetUpdateSqlGenerator, JetUpdateSqlGenerator>()
                         .TryAddScoped<IJetRelationalConnection, JetRelationalConnection>());
 
             builder.TryAddCoreServices();

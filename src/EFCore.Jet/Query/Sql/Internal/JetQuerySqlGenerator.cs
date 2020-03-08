@@ -7,12 +7,12 @@ using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Query.Expressions.Internal;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Query.Expressions;
-using Microsoft.EntityFrameworkCore.Query.Sql;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Internal;
-using Remotion.Linq.Clauses;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
@@ -20,16 +20,24 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetQuerySqlGenerator : DefaultQuerySqlGenerator, IJetExpressionVisitor
+    public class JetQuerySqlGenerator : QuerySqlGenerator, IJetExpressionVisitor
     {
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
 
-        private static readonly Dictionary<ExpressionType, string> _operatorMap = new Dictionary<ExpressionType, string>
+        private static readonly Dictionary<string, string> _convertMappings = new Dictionary<string, string>
         {
-            { ExpressionType.Modulo, " MOD " },
-            { ExpressionType.And, " BAND " },
-            { ExpressionType.Or, " BOR " }
+            {nameof(Boolean), "CBool"},
+            {nameof(SByte), "CInt"},
+            {nameof(Byte), "CByte"},
+            {nameof(Int16), "CInt"},
+            {nameof(Int32), "CLng"},
+            {nameof(Single), "CSng"},
+            {nameof(Double), "CDbl"},
+            {nameof(Decimal), "CCur"},
+            {nameof(DateTime), "CDate"},
         };
 
+        private readonly ISqlGenerationHelper _sqlGenerationHelper;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -37,98 +45,78 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         public JetQuerySqlGenerator(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
-            [NotNull] SelectExpression selectExpression)
-            : base(dependencies, selectExpression)
+            ISqlExpressionFactory sqlExpressionFactory)
+            : base(dependencies)
         {
-
+            _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
+            _sqlGenerationHelper = dependencies.SqlGenerationHelper;
         }
 
-        /// <summary>The default true literal SQL.</summary>
-        protected override string TypedTrueLiteral => "True";
-
-        /// <summary>The default false literal SQL.</summary>
-        protected override string TypedFalseLiteral => "False";
-
-
-
-        public override Expression VisitSelect(SelectExpression selectExpression)
+        protected override Expression VisitSelect(SelectExpression selectExpression)
         {
-            Check.NotNull(selectExpression, nameof(selectExpression));
+            // Copy & pasted from `QuerySqlGenerator` to implement Jet's non-standard JOIN syntax and DUAL table
+            // workaround.
+            // Should be kept in sync with the base class.
+
+            if (IsNonComposedSetOperation(selectExpression))
+            {
+                // Naked set operation
+                GenerateSetOperation((SetOperationBase) selectExpression.Tables[0]);
+
+                return selectExpression;
+            }
 
             IDisposable subQueryIndent = null;
 
             if (selectExpression.Alias != null)
             {
                 Sql.AppendLine("(");
-
                 subQueryIndent = Sql.Indent();
             }
 
             Sql.Append("SELECT ");
 
             if (selectExpression.IsDistinct)
+            {
                 Sql.Append("DISTINCT ");
+            }
 
             GenerateTop(selectExpression);
 
-            var projectionAdded = false;
-
-            if (selectExpression.IsProjectStar)
-            {
-                var tableAlias = selectExpression.ProjectStarTable.Alias;
-
-                Sql
-                    .Append(SqlGenerator.DelimitIdentifier(tableAlias))
-                    .Append(".*");
-
-                projectionAdded = true;
-            }
-
             if (selectExpression.Projection.Any())
             {
-                if (selectExpression.IsProjectStar)
-                    Sql.Append(", ");
-
-                ProcessExpressionList(selectExpression.Projection, GenerateProjection);
-
-                projectionAdded = true;
+                GenerateList(selectExpression.Projection, e => Visit(e));
+            }
+            else
+            {
+                Sql.Append("1");
             }
 
-            if (!projectionAdded)
-                Sql.Append("1");
-
+            // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
             if (selectExpression.Tables.Any())
             {
                 Sql.AppendLine()
                     .Append("FROM ");
 
-                bool first;
+                Sql.Append(
+                    new string(
+                        '(', Math.Max(
+                            0, selectExpression
+                                .Tables
+                                .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) - 1)));
 
-                first = true;
-                foreach (TableExpressionBase tableExpression in selectExpression.Tables)
-                {
-                    if (!(tableExpression  is CrossJoinExpression || tableExpression is CrossJoinLateralExpression))
-                    {
-                        if (first)
-                            first = false;
-                        else
-                            Sql.Append("(");
-                    }
-                }
-
-                first = true;
-                for (int index = 0; index < selectExpression.Tables.Count; index++)
+                for (var index = 0; index < selectExpression.Tables.Count; index++)
                 {
                     TableExpressionBase tableExpression = selectExpression.Tables[index];
                     Visit(tableExpression);
-                    if (!(tableExpression is CrossJoinExpression || tableExpression is CrossJoinLateralExpression))
+                    if (!(tableExpression is CrossJoinExpression || tableExpression is CrossApplyExpression))
                     {
-                        if (!first)
+                        if (index > 0)
                             Sql.Append(")");
                     }
+
                     if (index != selectExpression.Tables.Count - 1)
                         Sql.AppendLine();
-                    first = false;
                 }
             }
             else
@@ -137,58 +125,74 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             if (selectExpression.Predicate != null)
-                GeneratePredicate(selectExpression.Predicate);
+            {
+                Sql.AppendLine()
+                    .Append("WHERE ");
+
+                Visit(selectExpression.Predicate);
+            }
 
             if (selectExpression.GroupBy.Count > 0)
             {
-                Sql.AppendLine();
+                Sql.AppendLine()
+                    .Append("GROUP BY ");
 
-                Sql.Append("GROUP BY ");
-                GenerateList(selectExpression.GroupBy);
+                GenerateList(selectExpression.GroupBy, e => Visit(e));
             }
 
             if (selectExpression.Having != null)
             {
-                GenerateHaving(selectExpression.Having);
+                Sql.AppendLine()
+                    .Append("HAVING ");
+
+                Visit(selectExpression.Having);
             }
 
-            if (selectExpression.OrderBy.Any())
-            {
-                Sql.AppendLine();
-
-                GenerateOrderBy(selectExpression.OrderBy);
-            }
-
+            GenerateOrderings(selectExpression);
             GenerateLimitOffset(selectExpression);
 
-            if (subQueryIndent != null)
+            if (selectExpression.Alias != null)
             {
                 subQueryIndent.Dispose();
 
                 Sql.AppendLine()
-                    .Append(")");
-
-                if (selectExpression.Alias.Length > 0)
-                {
-                    Sql.Append(" AS ")
-                        .Append(SqlGenerator.DelimitIdentifier(selectExpression.Alias));
-                }
+                    .Append(")" + AliasSeparator + _sqlGenerationHelper.DelimitIdentifier(selectExpression.Alias));
             }
 
             return selectExpression;
         }
 
+        private bool IsNonComposedSetOperation(SelectExpression selectExpression)
+            => selectExpression.Offset == null
+               && selectExpression.Limit == null
+               && !selectExpression.IsDistinct
+               && selectExpression.Predicate == null
+               && selectExpression.Having == null
+               && selectExpression.Orderings.Count == 0
+               && selectExpression.GroupBy.Count == 0
+               && selectExpression.Tables.Count == 1
+               && selectExpression.Tables[0] is SetOperationBase setOperation
+               && selectExpression.Projection.Count == setOperation.Source1.Projection.Count
+               && selectExpression.Projection.Select(
+                       (pe, index) => pe.Expression is ColumnExpression column
+                                      && string.Equals(column.Table.Alias, setOperation.Alias, StringComparison.OrdinalIgnoreCase)
+                                      && string.Equals(
+                                          column.Name, setOperation.Source1.Projection[index]
+                                              .Alias, StringComparison.OrdinalIgnoreCase))
+                   .All(e => e);
 
-        protected override void GeneratePseudoFromClause()
+        private void GeneratePseudoFromClause()
         {
             Sql.AppendLine()
                 .Append("FROM " + JetConfiguration.DUAL);
         }
 
-        private void ProcessExpressionList<T>(
-            IReadOnlyList<T> items, Action<T> itemAction, Action<IRelationalCommandBuilder> joinAction = null)
+        private void GenerateList<T>(
+            IReadOnlyList<T> items,
+            Action<T> generationAction,
+            Action<IRelationalCommandBuilder> joinAction = null)
         {
-            joinAction = joinAction ?? (isb => isb.Append(", "));
+            joinAction ??= (isb => isb.Append(", "));
 
             for (var i = 0; i < items.Count; i++)
             {
@@ -197,151 +201,62 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     joinAction(Sql);
                 }
 
-                itemAction(items[i]);
+                generationAction(items[i]);
             }
         }
 
-        /// <summary>
-        ///     Generates a single ordering in an SQL ORDER BY clause.
-        /// </summary>
-        /// <param name="ordering"> The ordering. </param>
-        protected override void GenerateOrdering(Ordering ordering)
+        protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
         {
-            Check.NotNull(ordering, nameof(ordering));
-            Expression expression = ordering.Expression;
-            AliasExpression aliasExpression;
-            Expression orderingExpression = ordering.Expression;
+            Check.NotNull(sqlBinaryExpression, nameof(sqlBinaryExpression));
 
-            if ((aliasExpression = expression as AliasExpression) != null)
+            if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                if (aliasExpression.Expression is ColumnExpression)
-                {
-                    var columnExpression = aliasExpression.Expression as ColumnExpression;
-                    Sql.Append(SqlGenerator
-                            .DelimitIdentifier(columnExpression.Table.Alias))
-                        .Append(".")
-                        .Append(SqlGenerator.DelimitIdentifier(columnExpression.Name));
-                }
-                else
-                {
-                    // Jet does not support accessing to aliases
-                    //Sql.Append(SqlGenerator.DelimitIdentifier(aliasExpression.Alias));
-                    Visit(aliasExpression.Expression);
-                }
-
-                if (ordering.OrderingDirection == OrderingDirection.Desc)
-                    Sql.Append(" DESC");
-            }
-            else if (orderingExpression is ConstantExpression
-                     || orderingExpression is ParameterExpression)
-            {
-                Sql.Append("'a'");
-            }
-            else
-            {
-                // Probably this won't work. In JET we need to specify whole expressions
-                // in ORDER BY clause
-                base.GenerateOrdering(ordering);
+                Sql.Append("IIf(");
+                Visit(sqlBinaryExpression.Left);
+                Sql.Append(" IS NULL, ");
+                Visit(sqlBinaryExpression.Right);
+                Sql.Append(", ");
+                Visit(sqlBinaryExpression.Left);
+                Sql.Append(")");
+                return sqlBinaryExpression;
             }
 
+            return base.VisitSqlBinary(sqlBinaryExpression);
         }
 
-        protected override Expression VisitBinary(BinaryExpression binaryExpression)
+        protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
+            => sqlUnaryExpression.OperatorType == ExpressionType.Convert
+                ? VisitJetConvertExpression(sqlUnaryExpression)
+                : base.VisitSqlUnary(sqlUnaryExpression);
+
+        protected Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
-            Check.NotNull(binaryExpression, nameof(binaryExpression));
-
-            switch (binaryExpression.NodeType)
-            {
-                case ExpressionType.Coalesce:
-                    {
-                        Sql.Append("IIf(IsNull(");
-                        Visit(binaryExpression.Left);
-                        Sql.Append("), ");
-                        Visit(binaryExpression.Right);
-                        Sql.Append(", ");
-                        Visit(binaryExpression.Left);
-                        Sql.Append(")");
-                        return binaryExpression;
-                    }
-                default:
-                    return base.VisitBinary(binaryExpression);
-            }
-
-        }
-
-        public override Expression VisitExplicitCast(ExplicitCastExpression explicitCastExpression)
-        {
-            var typeMapping = Dependencies.TypeMappingSource.FindMapping(explicitCastExpression.Type);
+            var typeMapping = convertExpression.TypeMapping;
 
             if (typeMapping == null)
-                throw new InvalidOperationException(RelationalStrings.UnsupportedType(explicitCastExpression.Type.ShortDisplayName()));
+                throw new InvalidOperationException(RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
-            string function;
-
-
-            switch (typeMapping.ClrType.Name)
+            if (_convertMappings.TryGetValue(typeMapping.ClrType.Name, out var function))
             {
-                case "String":
-                    Sql.Append("(");
-                    Visit(explicitCastExpression.Operand);
-                    Sql.Append("&\"\")");
-                    return explicitCastExpression;
-                case "TimeSpan":
-                case "DateTime":
-                    function = "CDate";
-                    break;
-                case "Single":
-                    function = "CSng";
-                    break;
-                case "Double":
-                    function = "CDbl";
-                    break;
-                case "Byte":
-                    function = "CByte";
-                    break;
-                case "Int16":
-                case "Int32":
-                    function = "CInt";
-                    break;
-                case "Int64":
-                    function = "CLng";
-                    break;
-                case "Boolean":
-                    function = "CBool";
-                    break;
-                case "Currency":
-                    function = "CCur";
-                    break;
-                case "UInt16":
-                case "UInt32":
-                case "UInt64":
-                    function = "CLng";
-                    break;
-                case "SByte":
-                    function = "CInt";
-                    break;
-                case "Decimal":
-                    // CDec does not work https://support.microsoft.com/it-it/help/225931/error-message-when-you-use-the-cdec-function-in-an-access-query-the-ex
-                    //function = "CDec";
-                    function = "CCur";
-                    break;
-                // ReSharper disable RedundantCaseLabel
-                case "VarNumeric":
-                case "Xml":
-                case "Binary":
-                case "Guid":
-                // ReSharper restore RedundantCaseLabel
-                default:
-                    throw new InvalidOperationException(string.Format("invalid type for cast(): cannot handle type {0} with Jet", typeMapping.ClrType.Name));
+                Visit(
+                    _sqlExpressionFactory.JetNullChecked(
+                        _sqlExpressionFactory.Function(
+                            function,
+                            new[] {convertExpression.Operand},
+                            typeMapping.ClrType)));
+
+                return convertExpression;
             }
 
-            Sql.Append(function + "(IIf(IsNull(");
-            Visit(explicitCastExpression.Operand);
-            Sql.Append("),0,");
-            Visit(explicitCastExpression.Operand);
-            Sql.Append("))");
+            if (typeMapping.ClrType.Name == nameof(String))
+            {
+                Sql.Append("(");
+                Visit(convertExpression.Operand);
+                Sql.Append(@" & """")");
+                return convertExpression;
+            }
 
-            return explicitCastExpression;
+            throw new InvalidOperationException($"Cannot cast to CLR type '{typeMapping.ClrType.Name}' with Jet.");
         }
 
         /// <summary>
@@ -351,103 +266,37 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// <returns>
         ///     An Expression.
         /// </returns>
-        public override Expression VisitLike(LikeExpression likeExpression)
+        protected override Expression VisitLike(LikeExpression likeExpression)
         {
             Check.NotNull(likeExpression, nameof(likeExpression));
 
             if (likeExpression.EscapeChar != null)
-                base.VisitLike(new LikeExpression(likeExpression.Match, likeExpression.Pattern));
+                base.VisitLike(_sqlExpressionFactory.Like(likeExpression.Match, likeExpression.Pattern));
             else
                 base.VisitLike(likeExpression);
 
             return likeExpression;
         }
-
-
-        /// <summary>
-        ///     Attempts to generate binary operator for a given expression type.
-        /// </summary>
-        /// <param name="op"> The operation. </param>
-        /// <param name="result"> [out] The SQL binary operator. </param>
-        /// <returns>
-        ///     true if it succeeds, false if it fails.
-        /// </returns>
-        [Obsolete]
-        protected override bool TryGenerateBinaryOperator(ExpressionType op, out string result)
+        
+        protected override string GenerateOperator(SqlBinaryExpression e)
         {
-            if (_operatorMap.TryGetValue(op, out result))
-                return true;
-            return base.TryGenerateBinaryOperator(op, out result);
-        }
-
-        /// <summary>
-        ///     Generates SQL for a given binary operation type.
-        /// </summary>
-        /// <param name="op"> The operation. </param>
-        /// <returns>
-        ///     The binary operator.
-        /// </returns>
-        [Obsolete]
-        protected override string GenerateBinaryOperator(ExpressionType op)
-        {
-            string result;
-            if (TryGenerateBinaryOperator(op, out result))
-                return result;
-            return _operatorMap[op];
-        }
-
-
-        /// <summary>
-        ///     Generates an SQL operator for a given expression.
-        /// </summary>
-        /// <param name="expression"> The expression. </param>
-        /// <returns>
-        ///     The operator.
-        /// </returns>
-        protected override string GenerateOperator(Expression expression)
-        {
-            string result;
-            switch (expression)
+            return e.OperatorType switch
             {
-                case StringCompareExpression stringCompareExpression:
-                    if (_operatorMap.TryGetValue(stringCompareExpression.Operator, out result))
-                        return result;
-                    break;
-                default:
-                    if (_operatorMap.TryGetValue(expression.NodeType, out result))
-                        return result;
-                    break;
-            }
-
-            return base.GenerateOperator(expression);
+                ExpressionType.Add when e.Type == typeof(string) => " & ",
+                ExpressionType.And => " BAND ",
+                ExpressionType.Modulo => " MOD ",
+                ExpressionType.Or => " BOR ",
+                _ => base.GenerateOperator(e),
+            };
         }
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public override Expression VisitCrossJoinLateral(CrossJoinLateralExpression crossJoinLateralExpression)
+        
+        protected override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
         {
-            Check.NotNull(crossJoinLateralExpression, nameof(crossJoinLateralExpression));
-
             Sql.Append(", ");
-
-            Visit(crossJoinLateralExpression.TableExpression);
-
-            return crossJoinLateralExpression;
-        }
-
-        public override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
-        {
-            Check.NotNull(crossJoinExpression, nameof(crossJoinExpression));
-
-            Sql.Append(", ");
-
-            Visit(crossJoinExpression.TableExpression);
+            Visit(crossJoinExpression.Table);
 
             return crossJoinExpression;
         }
-
 
         /// <summary>Generates the TOP part of the SELECT statement,</summary>
         /// <param name="selectExpression"> The select expression. </param>
@@ -466,6 +315,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Sql.Append("+");
                 Visit(selectExpression.Offset);
             }
+
             Sql.Append(" ");
         }
 
@@ -475,110 +325,36 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         protected override void GenerateLimitOffset(SelectExpression selectExpression)
         {
+            // LIMIT is not natively supported by Jet.
+            // The System.Data.Jet tries to mitigate this by supporting a proprietary extension SKIP, but can easily
+            // fail, e.g. when the SKIP happens in a subquery.
+
             if (selectExpression.Offset == null)
-                return;
+               return;
 
-            if (!selectExpression.OrderBy.Any())
-                Sql.AppendLine().Append("ORDER BY 'a'");
+            // CHECK: Needed?
+            if (!selectExpression.Orderings.Any())
+                Sql.AppendLine()
+                    .Append("ORDER BY 0");
 
-            Sql.AppendLine().Append(" SKIP ");
+            Sql.AppendLine()
+               .Append("SKIP ");
             Visit(selectExpression.Offset);
         }
 
-
-        /// <summary>
-        ///     Visit a ConditionalExpression.
-        /// </summary>
-        /// <param name="conditionalExpression"> The conditional expression to visit. </param>
-        /// <returns>
-        ///     An Expression.
-        /// </returns>
-        protected override Expression VisitConditional(ConditionalExpression conditionalExpression)
-        {
-            Check.NotNull(conditionalExpression, nameof(conditionalExpression));
-
-            ConstantExpression constantIfTrue = conditionalExpression.IfTrue as ConstantExpression;
-            ConstantExpression constantIfFalse = conditionalExpression.IfFalse as ConstantExpression;
-
-            /*
-            Enabling this lines breaks
-            AsyncQueryTestBase.Where_bool_member_and_parameter_compared_to_binary_expression_nested
-            and other tests
-            if (
-                constantIfTrue != null && constantIfTrue.Type == typeof(bool) &&
-                constantIfFalse != null && constantIfFalse.Type == typeof(bool)
-                )
-            {
-                // Just return true or false
-                Visit(conditionalExpression.Test);
-                return conditionalExpression;
-            }
-            */
-
-            Sql.AppendLine("IIf(");
-
-            using (Sql.Indent())
-            {
-                Visit(conditionalExpression.Test);
-
-                Sql.Append(",");
-                Sql.AppendLine();
-
-                if (constantIfTrue != null && constantIfTrue.Type == typeof(bool))
-                {
-                    Sql.Append((bool)constantIfTrue.Value ? TypedTrueLiteral : TypedFalseLiteral);
-                }
-                else
-                {
-                    Visit(conditionalExpression.IfTrue);
-                }
-
-                Sql.AppendLine(",");
-
-                if (constantIfFalse != null && constantIfFalse.Type == typeof(bool))
-                {
-                    Sql.Append((bool)constantIfFalse.Value ? TypedTrueLiteral : TypedFalseLiteral);
-                }
-                else
-                {
-                    Visit(conditionalExpression.IfFalse);
-                }
-
-                Sql.AppendLine();
-            }
-
-            Sql.Append(")");
-
-            return conditionalExpression;
-        }
-
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public virtual Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
+        protected override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
         {
-            Check.NotNull(rowNumberExpression, nameof(rowNumberExpression));
-
-            Sql.Append("ROW_NUMBER() OVER(");
-            GenerateOrderBy(rowNumberExpression.Orderings);
-            Sql.Append(")");
-
-            return rowNumberExpression;
-        }
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
-        {
-            if (sqlFunctionExpression.FunctionName.StartsWith("@@", StringComparison.Ordinal))
+            if (sqlFunctionExpression.Name.StartsWith("@@", StringComparison.Ordinal))
             {
-                Sql.Append(sqlFunctionExpression.FunctionName);
+                Sql.Append(sqlFunctionExpression.Name);
                 return sqlFunctionExpression;
             }
-            else if (sqlFunctionExpression.FunctionName == "Pow")
+
+            if (sqlFunctionExpression.Name == "Pow")
             {
                 Visit(sqlFunctionExpression.Arguments[0]);
                 Sql.Append("^");
@@ -586,30 +362,53 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-
             return base.VisitSqlFunction(sqlFunctionExpression);
         }
-
-        protected override void GenerateProjection(Expression projection)
+        
+        protected override Expression VisitCase(CaseExpression caseExpression)
         {
-            var aliasedProjection = projection as AliasExpression;
-            var expressionToProcess = aliasedProjection?.Expression ?? projection;
-            var updatedExpression = ExplicitCastToBool(expressionToProcess);
+            using (Sql.Indent())
+            {
+                foreach (var whenClause in caseExpression.WhenClauses)
+                {
+                    Sql.Append("IIf(");
 
-            expressionToProcess = aliasedProjection != null
-                ? new AliasExpression(aliasedProjection.Alias, updatedExpression)
-                : updatedExpression;
+                    if (caseExpression.Operand != null)
+                    {
+                        Visit(caseExpression.Operand);
+                        Sql.Append(" = ");
+                    }
 
-            base.GenerateProjection(expressionToProcess);
+                    Visit(whenClause.Test);
+                    
+                    Sql.Append(", ");
+                    
+                    Visit(whenClause.Result);
+                    
+                    Sql.Append(", ");
+                }
+
+                if (caseExpression.ElseResult != null)
+                {
+                    Visit(caseExpression.ElseResult);
+                }
+                else
+                {
+                    Sql.Append("NULL");
+                }
+
+                Sql.Append(new string(')', caseExpression.WhenClauses.Count));
+            }
+
+            return caseExpression;
         }
 
-        private Expression ExplicitCastToBool(Expression expression)
+        public Expression VisitJetIsNull(IsNullSqlExpression isNullSqlExpression)
         {
-            return (expression as BinaryExpression)?.NodeType == ExpressionType.Coalesce
-                   && expression.Type.UnwrapNullableType() == typeof(bool)
-                ? new ExplicitCastExpression(expression, expression.Type)
-                : expression;
-        }
+            Visit(isNullSqlExpression.NullableExpression);
+            Sql.Append(" IS NULL");
 
+            return isNullSqlExpression;
+        }
     }
 }

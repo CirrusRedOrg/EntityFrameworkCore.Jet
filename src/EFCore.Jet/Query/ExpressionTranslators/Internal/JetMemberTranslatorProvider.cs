@@ -1,8 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Collections.Generic;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
@@ -10,24 +9,23 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetCompositeMemberTranslator : RelationalCompositeMemberTranslator
+    public class JetMemberTranslatorProvider : RelationalMemberTranslatorProvider
     {
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetCompositeMemberTranslator([NotNull] RelationalCompositeMemberTranslatorDependencies dependencies)
+        public JetMemberTranslatorProvider([NotNull] RelationalMemberTranslatorProviderDependencies dependencies)
             : base(dependencies)
         {
-            var jetTranslators = new List<IMemberTranslator>
+            var sqlExpressionFactory = (JetSqlExpressionFactory)dependencies.SqlExpressionFactory;
+            
+            // ReSharper disable once VirtualMemberCallInConstructor
+            AddTranslators(new IMemberTranslator[]
             {
-                new JetStringLengthTranslator(),
-                new JetDateTimeNowTranslator(),
-                new JetDateTimeDateComponentTranslator(),
-                new JetDateTimeDatePartComponentTranslator()
-            };
-
-            AddTranslators(jetTranslators);
+                new JetStringMemberTranslator(sqlExpressionFactory),
+                new JetDateTimeMemberTranslator(sqlExpressionFactory),
+            });
         }
     }
 }

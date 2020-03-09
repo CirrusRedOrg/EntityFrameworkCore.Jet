@@ -20,9 +20,6 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <None Remove="EFCore.Jet.csproj.DotSettings" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="..\..\build\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
@@ -97,10 +94,6 @@
     <PackageReference Include="Microsoft.Bcl.HashCode" Version="$(MicrosoftBclHashCodeVersion)" />
     <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="$(SystemComponentModelAnnotationsVersion)" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
   </ItemGroup>
 
   <ItemGroup>

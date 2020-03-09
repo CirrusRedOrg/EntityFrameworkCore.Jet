@@ -1,5 +1,4 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -59,13 +58,6 @@ namespace System
             => !type.IsAbstract
                && !type.IsInterface
                && (!type.IsGenericType || !type.IsGenericTypeDefinition);
-
-        public static bool IsGrouping(this Type type) => IsGrouping(type.GetTypeInfo());
-
-        private static bool IsGrouping(TypeInfo type)
-            => type.IsGenericType
-               && (type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
-                   || type.GetGenericTypeDefinition() == typeof(IAsyncGrouping<,>));
 
         public static Type UnwrapEnumType(this Type type)
         {

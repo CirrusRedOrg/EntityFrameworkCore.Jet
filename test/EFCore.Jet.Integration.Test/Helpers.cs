@@ -174,7 +174,12 @@ namespace EFCore.Jet.Integration.Test
 
         public static DbConnection GetSqlServerConnection()
         {
+#if NETFRAMEWORK
             DbConnection connection = new System.Data.SqlClient.SqlConnection("Data Source=(local);Initial Catalog=JetEfProviderComparativeTest;Integrated Security=true");
+#else
+            DbConnection connection = new Microsoft.Data.SqlClient.SqlConnection("Data Source=(local);Initial Catalog=JetEfProviderComparativeTest;Integrated Security=true");
+
+#endif
             return connection;
         }
 

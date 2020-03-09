@@ -52,7 +52,7 @@ namespace EFCore.Jet.Integration.Test.Model16_OwnCollection
 
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlCommand(
-                "UPDATE Blogs SET Name = 'Another Name' WHERE BlogId = " + firstBlog.BlogId);
+                "UPDATE Blogs SET Name = 'Another Name' WHERE BlogId = {0}", firstBlog.BlogId);
             firstBlog.Name = "Changed";
             Context.SaveChanges();
         }
@@ -63,7 +63,7 @@ namespace EFCore.Jet.Integration.Test.Model16_OwnCollection
         {
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlCommand(
-                "DELETE FROM Blogs WHERE BlogId = " + firstBlog.BlogId);
+                "DELETE FROM Blogs WHERE BlogId = {0}", firstBlog.BlogId);
             firstBlog.Name = "Changed";
             Context.SaveChanges();
         }
@@ -74,7 +74,7 @@ namespace EFCore.Jet.Integration.Test.Model16_OwnCollection
         {
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlCommand(
-                "UPDATE Blogs SET Name = 'Another Name2' WHERE BlogId = " + firstBlog.BlogId);
+                "UPDATE Blogs SET Name = 'Another Name2' WHERE BlogId ={0} ", firstBlog.BlogId);
             Context.Blogs.Remove(firstBlog);
             Context.SaveChanges();
         }
@@ -86,7 +86,7 @@ namespace EFCore.Jet.Integration.Test.Model16_OwnCollection
         {
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlCommand(
-                "DELETE FROM Blogs WHERE BlogId = " + firstBlog.BlogId);
+                "DELETE FROM Blogs WHERE BlogId = {0}", firstBlog.BlogId);
             Context.Blogs.Remove(firstBlog);
             Context.SaveChanges();
         }

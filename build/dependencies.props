@@ -10,9 +10,9 @@
     <MicrosoftExtensionsLoggingVersion>3.1.2</MicrosoftExtensionsLoggingVersion>
     <SystemDiagnosticsDiagnosticSourceVersion>4.7.0</SystemDiagnosticsDiagnosticSourceVersion>
     <MicrosoftBclAsyncInterfacesVersion>1.1.0</MicrosoftBclAsyncInterfacesVersion>
-    <MicrosoftBclHashCodeVersion>MicrosoftBclHashCodeVersion</MicrosoftBclHashCodeVersion>
+    <MicrosoftBclHashCodeVersion>1.1.0</MicrosoftBclHashCodeVersion>
     <SystemCollectionsImmutableVersion>1.7.0</SystemCollectionsImmutableVersion>
     <SystemComponentModelAnnotationsVersion>4.7.0</SystemComponentModelAnnotationsVersion>
-    <SystemDataOleDbVersion>4.7.0</SystemDataOleDbVersion>
+    <SystemDataOleDbVersion>5.0.0-preview.3.20160.5</SystemDataOleDbVersion>
   </PropertyGroup>
 </Project>

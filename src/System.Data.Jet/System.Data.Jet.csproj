@@ -1,72 +1,80 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Platforms>AnyCPU;x86;x64</Platforms>
-  </PropertyGroup>
-  <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\..\build\Key.snk</AssemblyOriginatorKeyFile>
-  </PropertyGroup>
-  <ItemGroup>
-    <None Remove="System.Data.Jet.csproj.DotSettings" />
-  </ItemGroup>
+    <PropertyGroup>
+        <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
+        <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
+    </PropertyGroup>
 
-<ItemGroup>
-    <Content Include="Properties\System.Data.Jet.rd.xml" />
-    <Content Include="Resources\JetProviderServices.ProviderManifest.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.CheckConstraints.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ConstraintColumns.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.Constraints.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ForeignKeyConstraints.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ForeignKeys.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.FunctionParameters.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.FunctionReturnTableColumns.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.Functions.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.IndexColumns.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.Indexes.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ProcedureParameters.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.Procedures.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.TableColumns.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.Tables.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ViewColumns.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ViewConstraintColumns.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ViewConstraints.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.ViewForeignKeys.xml" />
-    <Content Include="Resources\StoreSchemaDefinition.Views.xml" />
-    <Content Include="Resources\StoreSchemaDefinitionRetrieve_QueryHack1.txt" />
-    <Content Include="Resources\StoreSchemaDefinitionRetrieve_QueryHack2.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\JetProviderServices.StoreSchemaDefinition.ssdl" />
-    <EmbeddedResource Include="Resources\JetProviderServices.StoreSchemaMapping.msl" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\build\Key.snk">
-      <Link>Key.snk</Link>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <COMReference Include="ADODB.dll">
-      <Guid>b691e011-1797-432e-907a-4d8c69339129</Guid>
-      <VersionMajor>6</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <WrapperTool>tlbimp</WrapperTool>
-      <Lcid>0</Lcid>
-      <Isolated>false</Isolated>
-    </COMReference>
-    <COMReference Include="ADOX.dll">
-      <Guid>00000600-0000-0010-8000-00aa006d2ea4</Guid>
-      <VersionMajor>6</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <WrapperTool>tlbimp</WrapperTool>
-      <Lcid>0</Lcid>
-      <Isolated>false</Isolated>
-    </COMReference>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Data.OleDb" Version="5.0.0-preview.2.20120.8" />
-  </ItemGroup>
+    <Import Project="..\..\build\Dependencies.props" />
+    <Import Project="..\..\build\Development.props" Condition="Exists('..\..\build\Development.props')" />
+
+    <PropertyGroup>
+        <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
+        <LangVersion>8.0</LangVersion>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <Platforms>AnyCPU;x86;x64</Platforms>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>..\..\build\Key.snk</AssemblyOriginatorKeyFile>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <Content Include="Properties\System.Data.Jet.rd.xml" />
+        <Content Include="Resources\JetProviderServices.ProviderManifest.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.CheckConstraints.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ConstraintColumns.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.Constraints.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ForeignKeyConstraints.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ForeignKeys.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.FunctionParameters.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.FunctionReturnTableColumns.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.Functions.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.IndexColumns.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.Indexes.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ProcedureParameters.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.Procedures.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.TableColumns.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.Tables.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ViewColumns.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ViewConstraintColumns.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ViewConstraints.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.ViewForeignKeys.xml" />
+        <Content Include="Resources\StoreSchemaDefinition.Views.xml" />
+        <Content Include="Resources\StoreSchemaDefinitionRetrieve_QueryHack1.txt" />
+        <Content Include="Resources\StoreSchemaDefinitionRetrieve_QueryHack2.txt" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\JetProviderServices.StoreSchemaDefinition.ssdl" />
+        <EmbeddedResource Include="Resources\JetProviderServices.StoreSchemaMapping.msl" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <None Include="..\..\build\Key.snk">
+            <Link>Key.snk</Link>
+        </None>
+    </ItemGroup>
+    
+    <ItemGroup>
+        <COMReference Include="ADODB.dll">
+            <Guid>b691e011-1797-432e-907a-4d8c69339129</Guid>
+            <VersionMajor>6</VersionMajor>
+            <VersionMinor>0</VersionMinor>
+            <WrapperTool>tlbimp</WrapperTool>
+            <Lcid>0</Lcid>
+            <Isolated>false</Isolated>
+        </COMReference>
+        <COMReference Include="ADOX.dll">
+            <Guid>00000600-0000-0010-8000-00aa006d2ea4</Guid>
+            <VersionMajor>6</VersionMajor>
+            <VersionMinor>0</VersionMinor>
+            <WrapperTool>tlbimp</WrapperTool>
+            <Lcid>0</Lcid>
+            <Isolated>false</Isolated>
+        </COMReference>
+    </ItemGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
+    </ItemGroup>
 
 </Project>

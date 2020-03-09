@@ -5,7 +5,7 @@
     <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
   </PropertyGroup>
 
-  <Import Project="..\..\build\dependencies.props" />
+  <Import Project="..\..\build\Dependencies.props" />
   <Import Project="..\..\build\Development.props" Condition="Exists('..\..\build\Development.props')" />
 
   <PropertyGroup>
@@ -70,16 +70,16 @@
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
     <Reference Include="Microsoft.EntityFrameworkCore">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.EntityFrameworkCore.Relational">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
     </Reference>
     
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />

@@ -401,33 +401,30 @@ namespace System.Data.Jet
         }
 
         public void DropDatabase(bool throwOnError = true)
-        {
-            DropDatabase(_ConnectionString, throwOnError);
-        }
+            => DropDatabase(_ConnectionString, throwOnError);
 
         public static void DropDatabase(string connectionString, bool throwOnError = true)
         {
-            string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
+            var fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
+            
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new Exception("Cannot retrieve file name from connection string");
 
-            JetStoreDatabaseHandling.DeleteFile(fileName.Trim(), throwOnError);
+            JetStoreDatabaseHandling.DeleteFile(fileName, throwOnError);
         }
 
         public bool DatabaseExists()
-        {
-            return DatabaseExists(_ConnectionString);
-        }
+            => DatabaseExists(_ConnectionString);
 
         public static bool DatabaseExists(string connectionString)
         {
-            string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
-            fileName = fileName.Trim('"');
+            var fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString)
+                .Trim('"');
+            
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new Exception("Cannot retrieve file name from connection string");
+            
             return System.IO.File.Exists(fileName);
         }
-
-
     }
 }

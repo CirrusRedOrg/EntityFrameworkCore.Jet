@@ -229,9 +229,10 @@ namespace System.Data.Jet
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("ExecuteReader", ConnectionState.Open, Connection.State));
 
-
             _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+            
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            _WrappedCommand.Transaction = _Transaction?.WrappedTransaction ?? _Connection.ActiveTransaction?.WrappedTransaction;
 
             LogHelper.ShowCommandText("ExecuteDbDataReader", _WrappedCommand);
 
@@ -296,8 +297,9 @@ namespace System.Data.Jet
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteNonQuery), ConnectionState.Open, Connection.State));
 
             _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
 
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            _WrappedCommand.Transaction = _Transaction?.WrappedTransaction ?? _Connection.ActiveTransaction?.WrappedTransaction;
 
             if (_WrappedCommand.CommandType != CommandType.Text)
                 return _WrappedCommand.ExecuteNonQuery();
@@ -338,7 +340,9 @@ namespace System.Data.Jet
 
 
             _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            _WrappedCommand.Transaction = _Transaction?.WrappedTransaction ?? _Connection.ActiveTransaction?.WrappedTransaction;
 
             LogHelper.ShowCommandText("ExecuteScalar", _WrappedCommand);
 
@@ -613,7 +617,9 @@ namespace System.Data.Jet
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Prepare), ConnectionState.Open, Connection.State));
 
             _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            _WrappedCommand.Transaction = _Transaction?.WrappedTransaction ?? _Connection.ActiveTransaction?.WrappedTransaction;
 
             this._WrappedCommand.Prepare();
         }

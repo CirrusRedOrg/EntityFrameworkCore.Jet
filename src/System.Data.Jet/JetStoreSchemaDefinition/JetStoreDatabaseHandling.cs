@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace System.Data.Jet.JetStoreSchemaDefinition
@@ -10,6 +11,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         private static Regex _regExParseDropDatabaseCommandFromConnection;
         private static Regex _regExIsCreateOrDropDatabaseCommand;
         private static Regex _regExExtractFilenameFromConnectionString;
+
         static JetStoreDatabaseHandling()
         {
             _regExIsCreateOrDropDatabaseCommand = new Regex(
@@ -17,12 +19,12 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
 
             _regExParseCreateDatabaseCommand = new Regex(
-                @"^\s*create\s+database\s+(?<filename>.*?)\s*;*\s*$",
+                @"^\s*create\s+database\s+(?<filename>.*?)\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
 
             _regExParseDropDatabaseCommand = new Regex(
-                @"^\s*drop\s+database\s+(?<filename>.*?)\s*;*\s*$",
-                RegexOptions.IgnoreCase | RegexOptions.RightToLeft);
+                @"^\s*drop\s+database\s+(?<filename>.*?)\s*(?:;|$)",
+                RegexOptions.IgnoreCase);
 
             _regExParseCreateDatabaseCommandFromConnection = new Regex(
                 @"^\s*create\s+database\s+(?<connectionString>provider\s*=\s*.*?)\s*$",
@@ -33,7 +35,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
 
             _regExExtractFilenameFromConnectionString = new Regex(
-                @"provider\s*=\s*.*?;\s*data\s+source\s*=\s*(?<filename>.*?)\s*(?=;|$)",
+                @"provider\s*=\s*.*?;\s*data\s+source\s*=\s*(?<filename>.*?)\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
         }
 
@@ -46,14 +48,17 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             match = _regExParseCreateDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
-                AdoxWrapper.CreateEmptyDatabase(match.Groups["connectionString"].Value);
+                AdoxWrapper.CreateEmptyDatabase(
+                    match.Groups["connectionString"]
+                        .Value);
                 return true;
             }
 
             match = _regExParseCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                string fileName = match.Groups["filename"].Value;
+                string fileName = match.Groups["filename"]
+                    .Value;
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
                 AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString(fileName));
@@ -64,58 +69,52 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             if (match.Success)
             {
                 string fileName;
-                string connectionString = match.Groups["connectionString"].Value;
+                string connectionString = match.Groups["connectionString"]
+                    .Value;
                 fileName = ExtractFileNameFromConnectionString(connectionString);
 
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
 
-                DeleteFile(fileName.Trim());
+                DeleteFile(fileName);
                 return true;
             }
 
             match = _regExParseDropDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                string fileName = match.Groups["filename"].Value;
+                string fileName = match.Groups["filename"]
+                    .Value;
 
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
 
-                DeleteFile(fileName.Trim());
+                DeleteFile(fileName);
                 return true;
             }
 
             throw new Exception(commandText + " is not a valid database command");
-
         }
 
         public static string ExtractFileNameFromConnectionString(string connectionString)
         {
             string fileName;
-            Match match =_regExExtractFilenameFromConnectionString.Match(connectionString);
+            Match match = _regExExtractFilenameFromConnectionString.Match(connectionString);
             if (match.Success)
-                fileName = match.Groups["filename"].Value;
+                fileName = match.Groups["filename"]
+                    .Value;
             else
                 fileName = connectionString;
             return fileName;
         }
 
-        public static void DeleteFile(string fileName, bool throwOnError = true)
+        public static void DeleteFile(string fileName)
         {
-            if (throwOnError && !System.IO.File.Exists(fileName.Trim()))
-                throw new System.IO.FileNotFoundException("Database file not found", fileName.Trim());
+            if (!File.Exists(fileName))
+                return;
 
-            try
-            {
-                JetConnection.ClearAllPools();
-                System.IO.File.Delete(fileName.Trim());
-            }
-            catch
-            {
-                if (throwOnError)
-                    throw;
-            }
+            JetConnection.ClearAllPools();
+            File.Delete(fileName.Trim());
         }
     }
 }

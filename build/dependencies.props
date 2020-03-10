@@ -15,4 +15,12 @@
     <SystemComponentModelAnnotationsVersion>4.7.0</SystemComponentModelAnnotationsVersion>
     <SystemDataOleDbVersion>5.0.0-preview.3.20160.5</SystemDataOleDbVersion>
   </PropertyGroup>
+  <!-- System.Data.Jet.Test -->
+  <!-- System.Data.Jet.PerformanceTest -->
+  <PropertyGroup>
+    <MicrosoftNetTestSdk>16.5.0</MicrosoftNetTestSdk>
+    <MSTestTestAdapter>2.1.0</MSTestTestAdapter>
+    <MSTestTestFramework>2.1.0</MSTestTestFramework>
+    <CoverletCollector>1.2.0</CoverletCollector>
+  </PropertyGroup>
 </Project>

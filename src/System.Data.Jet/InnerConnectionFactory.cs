@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.Data.Jet.ConnectionPooling;
 using System.Data.OleDb;
 

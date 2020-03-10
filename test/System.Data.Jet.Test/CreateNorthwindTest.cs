@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -10,47 +9,48 @@ namespace System.Data.Jet.Test
     [TestClass]
     public class CreateNorthwindTest
     {
+        private const string StoreName = nameof(CreateNorthwindTest) + ".accdb";
+
         private string _scriptPath;
-
-        private const string DatabaseName = "NorthwindEF7.accdb";
-
         private DbConnection _connection;
 
-        [TestMethod]
-        public void CreateNorthwindTestRun()
-        {
-            JetConfiguration.ShowSqlStatements = false;
-            ExecuteScript();
-            JetConfiguration.ShowSqlStatements = true;
-        }
-
-
         [TestInitialize]
-        public void Initialize()
+        public void Setup()
         {
             // ReSharper disable once AssignNullToNotNullAttribute
-            _scriptPath = Path.Combine(Path.GetDirectoryName(this.GetType().Assembly.Location), "Northwind.sql");
-
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(DatabaseName), false);
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString(DatabaseName));
-
-            _connection = new JetConnection(JetConnection.GetConnectionString(DatabaseName));
-            _connection.Open();
+            _scriptPath = Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location), "Northwind.sql");
+            _connection = Helpers.CreateAndOpenDatabase(StoreName);
         }
 
-        public void ExecuteScript()
+        [TestCleanup]
+        public void TearDown()
         {
+            _connection.Dispose();
+        }
+
+        [TestMethod]
+        public void CreateE2ETestRun()
+        {
+            var showSqlStatements = JetConfiguration.ShowSqlStatements;
+            JetConfiguration.ShowSqlStatements = false;
+            ExecuteScript();
+            JetConfiguration.ShowSqlStatements = showSqlStatements;
+        }
+
+        private void ExecuteScript()
+        {
+            using var command = _connection.CreateCommand();
+
             var script = File.ReadAllText(_scriptPath);
             foreach (var batch in
-                new Regex("^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
-                    .Split(script).Where(b => !string.IsNullOrEmpty(b)).ToList())
+                new Regex(@"^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                    .Split(script)
+                    .Where(b => !string.IsNullOrEmpty(b)))
             {
-                DbCommand command = _connection.CreateCommand();
                 command.CommandText = batch;
                 try
                 {
                     command.ExecuteNonQuery();
-
                 }
                 catch (Exception e)
                 {
@@ -60,13 +60,5 @@ namespace System.Data.Jet.Test
                 }
             }
         }
-
-
-        [TestCleanup]
-        public void CleanUp()
-        {
-            _connection.Dispose();
-        }
-
     }
 }

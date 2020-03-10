@@ -9,12 +9,10 @@ namespace System.Data.Jet
     /// </summary>
     public static class JetConfiguration
     {
-
         /// <summary>
         /// The time span offset (Jet does not support timespans)
         /// </summary>
         public static DateTime TimeSpanOffset = new DateTime(1899, 12, 30);
-
 
         private static object _integerNullValue = Int32.MinValue;
 
@@ -36,9 +34,11 @@ namespace System.Data.Jet
             }
         }
 
-        // TODO: Change to "Microsoft.Jet.OLEDB.4.0".
-        public static string OleDbDefaultProvider = "Microsoft.ACE.OLEDB.15.0";
-
+        // "Microsoft.ACE.OLEDB.12.0" should have the least problems of all versions, as it supports 32 Bit and 64 Bit,
+        // does not throw an AccessViolationException when connecting through OLE DB without connection pooling enabled,
+        // has the highest backwards compatibility level of all recent releases and can freely be downloaded from
+        // Microsoft as "Microsoft Access Database Engine 2010 Redistributable".
+        public static string OleDbDefaultProvider = "Microsoft.ACE.OLEDB.12.0";
 
         // The SQL statement
         //
@@ -82,7 +82,6 @@ namespace System.Data.Jet
         /// </value>
         public static bool ShowSqlStatements = false;
 
-
         /// <summary>
         /// Gets or sets a value indicating whether the connection pooling should be used
         /// </summary>
@@ -90,6 +89,5 @@ namespace System.Data.Jet
         /// <c>true</c> to use the connection pooling; otherwise, <c>false</c>.
         /// </value>
         public static bool UseConnectionPooling = false;
-
     }
 }

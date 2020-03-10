@@ -1,5 +1,3 @@
-using System;
-using System.ComponentModel;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Data.OleDb;
@@ -14,7 +12,7 @@ namespace System.Data.Jet
 
         internal DbConnection InnerConnection { get; private set; }
 
-        internal DbTransaction ActiveTransaction { get; set; }
+        internal JetTransaction ActiveTransaction { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
@@ -71,16 +69,19 @@ namespace System.Data.Jet
             switch (isolationLevel)
             {
                 case IsolationLevel.Serializable:
-                    ActiveTransaction = new JetTransaction(InnerConnection.BeginTransaction(IsolationLevel.ReadCommitted), this);
+                    ActiveTransaction = CreateTransaction(IsolationLevel.ReadCommitted);
                     break;
                 default:
-                    ActiveTransaction = new JetTransaction(InnerConnection.BeginTransaction(isolationLevel), this);
+                    ActiveTransaction = CreateTransaction(isolationLevel);
                     break;
             }
 
             return ActiveTransaction;
 
         }
+
+        private JetTransaction CreateTransaction(IsolationLevel isolationLevel)
+            => new JetTransaction(this, isolationLevel);
 
         /// <summary>
         /// Changes the current database for an open connection.
@@ -376,41 +377,31 @@ namespace System.Data.Jet
         /// Clears all pools.
         /// </summary>
         public static void ClearAllPools()
-        {
-            InnerConnectionFactory.Instance.ClearAllPools();
-        }
+            => InnerConnectionFactory.Instance.ClearAllPools();
 
         public void CreateEmptyDatabase()
-        {
-            AdoxWrapper.CreateEmptyDatabase(_ConnectionString);
-        }
+            => AdoxWrapper.CreateEmptyDatabase(_ConnectionString);
 
         public static void CreateEmptyDatabase(string connectionString)
-        {
-            AdoxWrapper.CreateEmptyDatabase(connectionString);
-        }
+            => AdoxWrapper.CreateEmptyDatabase(connectionString);
 
         public static string GetConnectionString(string provider, string fileName)
-        {
-            return $"Provider={provider};Data Source={fileName}";
-        }
+            => $"Provider={provider};Data Source={fileName}";
 
         public static string GetConnectionString(string fileName)
-        {
-            return $"Provider={JetConfiguration.OleDbDefaultProvider};Data Source={fileName}";
-        }
+            => $"Provider={JetConfiguration.OleDbDefaultProvider};Data Source={fileName}";
 
-        public void DropDatabase(bool throwOnError = true)
-            => DropDatabase(_ConnectionString, throwOnError);
+        public void DropDatabase()
+            => DropDatabase(_ConnectionString);
 
-        public static void DropDatabase(string connectionString, bool throwOnError = true)
+        public static void DropDatabase(string connectionString)
         {
             var fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
             
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new Exception("Cannot retrieve file name from connection string");
 
-            JetStoreDatabaseHandling.DeleteFile(fileName, throwOnError);
+            JetStoreDatabaseHandling.DeleteFile(fileName);
         }
 
         public bool DatabaseExists()

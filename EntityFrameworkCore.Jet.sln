@@ -18,10 +18,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet", "src\EFCore.Je
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{A56C261D-351C-449B-8130-75F6FA76842C}"
 	ProjectSection(SolutionItems) = preProject
-		tools\CleanMSSQLLocalDB.cmd = tools\CleanMSSQLLocalDB.cmd
-		tools\DropAllDatabases.sql = tools\DropAllDatabases.sql
 		tools\Resources.tt = tools\Resources.tt
-		tools\ShrinkLocalDBModel.cmd = tools\ShrinkLocalDBModel.cmd
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Integration.Test", "test\EFCore.Jet.Integration.Test\EFCore.Jet.Integration.Test.csproj", "{50CA2970-B995-4D28-9F6C-F7CA4940F23A}"
@@ -37,8 +34,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Tests", "test\EFCore.Jet.Tests\EFCore.Jet.Tests.csproj", "{C38B58D7-F346-40A2-9849-D12CB9EC5C69}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Design.FunctionalTests", "test\EFCore.Jet.Design.FunctionalTest\EFCore.Jet.Design.FunctionalTests.csproj", "{543477FB-CF81-446D-AB02-1E41382DED5B}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Data.Jet.PerformanceTest", "test\System.Data.Jet.PerformanceTest\System.Data.Jet.PerformanceTest.csproj", "{8A3F688D-AA42-4070-9813-293D19E7F023}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build help", "build help", "{20B764C9-8664-4609-A743-8CF32BA6CA69}"
 	ProjectSection(SolutionItems) = preProject
@@ -148,18 +143,6 @@ Global
 		{543477FB-CF81-446D-AB02-1E41382DED5B}.Release|x64.Build.0 = Release|x64
 		{543477FB-CF81-446D-AB02-1E41382DED5B}.Release|x86.ActiveCfg = Release|Any CPU
 		{543477FB-CF81-446D-AB02-1E41382DED5B}.Release|x86.Build.0 = Release|Any CPU
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Debug|x64.ActiveCfg = Debug|x64
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Debug|x64.Build.0 = Debug|x64
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Debug|x86.ActiveCfg = Debug|x86
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Debug|x86.Build.0 = Debug|x86
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Release|x64.ActiveCfg = Release|x64
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Release|x64.Build.0 = Release|x64
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Release|x86.ActiveCfg = Release|Any CPU
-		{8A3F688D-AA42-4070-9813-293D19E7F023}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -172,7 +155,6 @@ Global
 		{3C88D49A-7EF2-42BA-A8D7-9DF7D358FD24} = {6A8DE399-1804-4113-A408-F23B7F5C9CAC}
 		{C38B58D7-F346-40A2-9849-D12CB9EC5C69} = {6A8DE399-1804-4113-A408-F23B7F5C9CAC}
 		{543477FB-CF81-446D-AB02-1E41382DED5B} = {6A8DE399-1804-4113-A408-F23B7F5C9CAC}
-		{8A3F688D-AA42-4070-9813-293D19E7F023} = {6A8DE399-1804-4113-A408-F23B7F5C9CAC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9359773D-6399-447E-9814-6CB41C2FB664}

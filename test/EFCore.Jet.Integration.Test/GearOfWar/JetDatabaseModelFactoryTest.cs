@@ -7,6 +7,7 @@ using EntityFrameworkCore.Jet.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -15,12 +16,10 @@ namespace EFCore.Jet.Integration.Test.GearOfWar
     [TestClass]
     public class JetDatabaseModelFactoryTest : TestBase<GearsOfWarContext>
     {
-
         [TestMethod]
         [ExpectedException(typeof(System.Data.OleDb.OleDbException), AllowDerivedTypes = true)]
         public void CreateAllSystemTablesAndThrowException()
         {
-
             // This method is used to create all system table of this model
             string sql = @" SELECT 
   (show tables)
@@ -40,15 +39,13 @@ namespace EFCore.Jet.Integration.Test.GearOfWar
 
 WHERE 1 = 2;
 ";
-            Context.Cities.FromSql(sql).ToList();
-
+            Context.Cities.FromSqlRaw(sql)
+                .Load();
         }
-
 
         [TestMethod]
         public void JetDatabaseModelFactoryTestRun()
         {
-
             List<string> tableNames = new List<string>();
 
             using (var connection = GetConnection())
@@ -67,10 +64,9 @@ WHERE 1 = 2;
             JetDatabaseModelFactory modelFactory = new JetDatabaseModelFactory(logger);
             using (var connection = GetConnection())
             {
-                var model = modelFactory.Create(connection, tableNames, new[] { "Jet" });
+                var model = modelFactory.Create(connection, new DatabaseModelFactoryOptions(tableNames));
                 ShowModel(model);
             }
-
         }
 
         private void ShowModel(DatabaseModel model)
@@ -82,14 +78,16 @@ WHERE 1 = 2;
                 {
                     ShowIndent(1, column.Name);
                 }
+
                 foreach (DatabaseIndex index in table.Indexes)
                 {
-                    ShowIndent(1,"{0} (Index)", index.Name);
+                    ShowIndent(1, "{0} (Index)", index.Name);
                     foreach (DatabaseColumn indexColumn in index.Columns)
                     {
                         ShowIndent(2, "{0}", indexColumn.Name);
                     }
                 }
+
                 foreach (DatabaseForeignKey foreignKey in table.ForeignKeys)
                 {
                     ShowIndent(1, "{0} (ForeignKey) {1} => {2}", foreignKey.Name, foreignKey.Table.Name, foreignKey.PrincipalTable.Name);
@@ -103,7 +101,6 @@ WHERE 1 = 2;
                         ShowIndent(2, "{0} => {1}", column.Name, principalColumn.Name);
                     }
                 }
-
             }
         }
 
@@ -116,7 +113,6 @@ WHERE 1 = 2;
         {
             Console.WriteLine(new string(' ', indent) + format, args);
         }
-
 
         protected override DbConnection GetConnection()
         {

@@ -11,14 +11,7 @@ namespace EFCore.Jet.Integration.Test.Model79_CantSaveDecimalValue
     {
         protected override DbConnection GetConnection()
         {
-            // ReSharper disable once CollectionNeverUpdated.Local
-
-            OleDbConnectionStringBuilder oleDbConnectionStringBuilder = new OleDbConnectionStringBuilder();
-            //oleDbConnectionStringBuilder.Provider = "Microsoft.Jet.OLEDB.4.0";
-            //oleDbConnectionStringBuilder.DataSource = @".\Empty.mdb";
-            oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.15.0";
-            oleDbConnectionStringBuilder.DataSource = Helpers.GetTestDirectory() + "\\BrandNewDatabase.accdb";
-            return new JetConnection(oleDbConnectionStringBuilder.ToString());
+            return Helpers.GetJetConnection();
         }
     }
 }

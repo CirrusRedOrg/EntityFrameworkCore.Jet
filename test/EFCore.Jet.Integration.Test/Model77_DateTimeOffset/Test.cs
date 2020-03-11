@@ -7,7 +7,6 @@ namespace EFCore.Jet.Integration.Test.Model77_DateTimeOffset
 {
     public abstract class Test
     {
-
         protected abstract DbConnection GetConnection();
 
         [TestMethod]
@@ -20,12 +19,14 @@ namespace EFCore.Jet.Integration.Test.Model77_DateTimeOffset
                     context.MyEntities.Add(new MyEntity() {DateTimeOffset = DateTime.Now});
                     context.SaveChanges();
                 }
+
                 using (var context = new Context(connection))
                 {
-                    Console.WriteLine(context.MyEntities.FirstOrDefault().DateTimeOffset);
+                    Console.WriteLine(
+                        context.MyEntities.FirstOrDefault()
+                            .DateTimeOffset);
                 }
             }
         }
-
     }
 }

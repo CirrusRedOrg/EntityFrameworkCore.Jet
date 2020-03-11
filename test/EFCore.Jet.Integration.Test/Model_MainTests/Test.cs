@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 // ReSharper disable ReturnValueOfPureMethodIsNotUsed
 
 namespace EFCore.Jet.Integration.Test.Model_MainTests
@@ -20,11 +21,16 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
         [TestMethod]
         public void Cast_Coalesce()
         {
-
-            Context.Entities.Select(_ => (double) _.Integer).ToList();
-            Context.Entities.Select(_ => _.Integer ?? 5).ToList();
-            Context.Entities.GroupBy(g => g.String).Select(_ => new {k = _.Key, avg = _.Average(q => q.Integer)}).ToList();
-            foreach (var result in Context.Entities.GroupBy(g => g.String).Select(_ => new {k = _.Key, avg = _.Average(q => (double) (q.Integer ?? 5))}).ToList())
+            Context.Entities.Select(_ => (double) _.Integer)
+                .ToList();
+            Context.Entities.Select(_ => _.Integer ?? 5)
+                .ToList();
+            Context.Entities.GroupBy(g => g.String)
+                .Select(_ => new {k = _.Key, avg = _.Average(q => q.Integer)})
+                .ToList();
+            foreach (var result in Context.Entities.GroupBy(g => g.String)
+                .Select(_ => new {k = _.Key, avg = _.Average(q => (double) (q.Integer ?? 5))})
+                .ToList())
             {
                 Console.WriteLine("{0} {1}", result.k, result.avg);
             }
@@ -40,13 +46,11 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
             Assert.IsTrue(Context.Entities.Any(c => c.String.StartsWith("A")));
         }
 
-
         [TestMethod]
         public void BigCount()
         {
             Assert.IsNotNull(Context.Entities.LongCount());
         }
-
 
         [TestMethod]
         public void SelectMany_cartesian_product_with_ordering()
@@ -73,7 +77,9 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
                 ) AS [t]
             ORDER BY [t].[String]
             */
-            Context.Entities.OrderBy(c => c.String).Take(1).Single();
+            Context.Entities.OrderBy(c => c.String)
+                .Take(1)
+                .Single();
         }
 
         [TestMethod]
@@ -83,13 +89,19 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
             var cs2 = Context.Entities;
             var cs3 = Context.Entities;
 
-            cs1.Join(cs2, o => o.String, i => i.String, (c1, c2) => new {c1, c2}).Join(cs3, o => o.c1.String, i => i.String, (c12, c3) => c3).ToList();
+            cs1.Join(cs2, o => o.String, i => i.String, (c1, c2) => new {c1, c2})
+                .Join(cs3, o => o.c1.String, i => i.String, (c12, c3) => c3)
+                .ToList();
         }
 
         [TestMethod]
         public void OrderBy_Skip_Count()
         {
-            Context.Entities.OrderBy(c => c.String).Skip(7).Count();
+            var count = Context.Entities.OrderBy(c => c.String)
+                .Skip(2)
+                .Count();
+            
+            Assert.AreEqual(1, count);
         }
         //OrderBy_LongSkipCount
 
@@ -116,8 +128,6 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
                 orderby Context.Entities.Any(c2 => c2.String == c.String)
                 select c).ToList();
         }
-
-
 
         [TestMethod]
         public void Select_nested_collection()
@@ -165,62 +175,76 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
                 {
                     CustomerId = c.Integer,
                     OrderIds
-                    = Context.Entities.Where(
-                            o => o.Integer == c.Integer
-                                 && o.Date.Value.Year == 1997)
-                        .Select(o => o.Integer)
-                        .OrderBy(o => o),
+                        = Context.Entities.Where(
+                                o => o.Integer == c.Integer
+                                     && o.Date.Value.Year == 1997)
+                            .Select(o => o.Integer)
+                            .OrderBy(o => o),
                     Customer = c
-
                 }).ToList();
         }
-
-
 
         [TestMethod]
         public void Skip()
         {
             var cs = Context.Entities;
-            cs.OrderBy(c => c.Integer).Skip(5).ToList();
-            cs.OrderBy(c => c.String).Skip(5).ToList();
+            cs.OrderBy(c => c.Integer)
+                .Skip(5)
+                .ToList();
+            cs.OrderBy(c => c.String)
+                .Skip(5)
+                .ToList();
         }
 
         [TestMethod]
         public void Skip_Distinct()
         {
             var cs = Context.Entities;
-            cs.OrderBy(c => c.Integer).Skip(5).Distinct().ToList();
+            cs.OrderBy(c => c.Integer)
+                .Skip(5)
+                .Distinct()
+                .ToList();
         }
 
         [TestMethod]
         public void Skip_Take_Distinct()
         {
             var cs = Context.Entities;
-            cs.OrderBy(c => c.Integer).Skip(5).Take(10).Distinct().ToList();
+            cs.OrderBy(c => c.Integer)
+                .Skip(5)
+                .Take(10)
+                .Distinct()
+                .ToList();
         }
-
 
         [TestMethod]
         public void Take_Skip_Distinct()
         {
             var cs = Context.Entities;
-            cs.OrderBy(c => c.String).Take(10).Skip(5).Distinct().ToList();
+            cs.OrderBy(c => c.String)
+                .Take(10)
+                .Skip(5)
+                .Distinct()
+                .ToList();
         }
 
         [TestMethod]
         public void Take_Skip()
         {
             var cs = Context.Entities;
-            cs.OrderBy(c => c.Integer).Take(10).Skip(5).ToList();
+            cs.OrderBy(c => c.Integer)
+                .Take(10)
+                .Skip(5)
+                .ToList();
         }
-
 
         [TestMethod]
         public void Where_chain()
         {
             Context.Entities
                 .Where(o => o.String == "QUICK")
-                .Where(o => o.Date > new DateTime(1998, 1, 1)).ToList();
+                .Where(o => o.Date > new DateTime(1998, 1, 1))
+                .ToList();
         }
 
         [TestMethod]
@@ -238,7 +262,9 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
         public void Anonymous_complex_orderby()
         {
             Context.Entities
-                .Select(_ => new {A = _.String + _.Integer.ToString()}).OrderBy(_ => _.A).ToList();
+                .Select(_ => new {A = _.String + _.Integer.ToString()})
+                .OrderBy(_ => _.A)
+                .ToList();
         }
 
         //[TestMethod]
@@ -249,7 +275,8 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
             var es = Context.Entities;
             (from e1 in es.Take(2)
                 join e2 in es.Take(2) on e1.Id equals GetEmployeeID(e2)
-                from e3 in es.Skip(6).Take(2)
+                from e3 in es.Skip(6)
+                    .Take(2)
                 select new {e1, e2, e3}).ToList();
         }
 
@@ -263,82 +290,112 @@ namespace EFCore.Jet.Integration.Test.Model_MainTests
         {
             var dates = new[] {new DateTime(1996, 07, 04), new DateTime(1996, 07, 16)};
             var es = Context.Entities;
-            es.Where(e => dates.Contains(e.Date.Value.Date)).ToList();
+            es.Where(e => dates.Contains(e.Date.Value.Date))
+                .ToList();
         }
 
         [TestMethod]
         public void Convert_ToByte()
         {
-
             var e = Context.Entities;
             // ReSharper disable ConditionIsAlwaysTrueOrFalse
-            e.Select(o => new {a = Convert.ToByte(Convert.ToByte(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte(Convert.ToDecimal(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte(Convert.ToDouble(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte((float) Convert.ToDouble(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte(Convert.ToInt16(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte(Convert.ToInt32(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte(Convert.ToInt64(o.Id % 1)) >= 0}).ToList();
-            e.Select(o => new {a = Convert.ToByte(Convert.ToString(o.Id % 1)) >= 0}).ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToByte(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToDecimal(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToDouble(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte((float) Convert.ToDouble(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToInt16(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToInt32(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToInt64(o.Id % 1)) >= 0})
+                .ToList();
+            e.Select(o => new {a = Convert.ToByte(Convert.ToString(o.Id % 1)) >= 0})
+                .ToList();
             // ReSharper restore ConditionIsAlwaysTrueOrFalse
         }
 
         [TestMethod]
         public void DatePart()
         {
-            Context.Entities.Select(_ => _.Date.HasValue ? (int?) _.Date.Value.Month : null).ToList();
+            Context.Entities.Select(
+                    _ => _.Date.HasValue
+                        ? (int?) _.Date.Value.Month
+                        : null)
+                .ToList();
         }
 
         [TestMethod]
         public void OrderBy_condition_comparison()
         {
-            Context.Entities.OrderBy(_ => _.Id > 2).ThenBy(_ => _.Date).ToList();
+            Context.Entities.OrderBy(_ => _.Id > 2)
+                .ThenBy(_ => _.Date)
+                .ToList();
         }
-
-
 
         [TestMethod]
         public void OrderBy_ternary_conditions()
         {
             var p = Context.Entities;
-            p.OrderBy(q => q.Id > 10 ? q.Integer > 40 : q.String == "aaa").ThenBy(q => q.Id).ToList();
+            p.OrderBy(
+                    q => q.Id > 10
+                        ? q.Integer > 40
+                        : q.String == "aaa")
+                .ThenBy(q => q.Id)
+                .ToList();
         }
 
         [TestMethod]
         public void OrderBy_ternary_conditions2()
         {
             var p = Context.Entities;
-            p.OrderBy(q => q.Id > 10 ? q.Integer : q.Id).ThenBy(q => q.Id).ToList();
+            p.OrderBy(
+                    q => q.Id > 10
+                        ? q.Integer
+                        : q.Id)
+                .ThenBy(q => q.Id)
+                .ToList();
         }
 
         [TestMethod]
         public void Substring()
         {
             var p = Context.Entities;
-            p.Select(_ => _.String.Substring(0, 1)).ToList();
-            p.Select(_ => _.String.Substring(0)).ToList();
+            p.Select(_ => _.String.Substring(0, 1))
+                .ToList();
+            p.Select(_ => _.String.Substring(0))
+                .ToList();
         }
 
         [TestMethod]
         public void Power()
         {
             var p = Context.Entities;
-            p.Select(_ => Math.Pow(_.Id,3)).First();
+            p.Select(_ => Math.Pow(_.Id, 3))
+                .First();
         }
 
         [TestMethod]
         public void Arcsin()
         {
             var p = Context.Entities;
-            Assert.AreEqual(Math.Asin(1/3d), p.Select(_ => new {a = Math.Asin(_.Id / 3d / _.Id)}).First().a);
+            Assert.AreEqual(
+                Math.Asin(1 / 3d), p.Select(_ => new {a = Math.Asin(_.Id / 3d / _.Id)})
+                    .First()
+                    .a);
         }
-
 
         [TestMethod]
         public void Arccos()
         {
             var p = Context.Entities;
-            Assert.AreEqual(Math.Acos(1 / 3d), p.Select(_ => new { a = Math.Acos(_.Id / 3d / _.Id) }).First().a);
+            Assert.AreEqual(
+                Math.Acos(1 / 3d), p.Select(_ => new {a = Math.Acos(_.Id / 3d / _.Id)})
+                    .First()
+                    .a);
         }
     }
 }

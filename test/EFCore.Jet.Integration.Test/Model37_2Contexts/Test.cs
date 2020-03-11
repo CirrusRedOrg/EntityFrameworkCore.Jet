@@ -8,7 +8,6 @@ namespace EFCore.Jet.Integration.Test.Model37_2Contexts
 {
     public abstract class Test
     {
-
         protected abstract DbConnection GetConnection();
 
         [TestMethod]
@@ -20,16 +19,19 @@ namespace EFCore.Jet.Integration.Test.Model37_2Contexts
                 {
                     Context.MyEntities.Count();
                 }
+
                 using (var Context = new Context2(connection))
                 {
                     Context.MyEntities.Count();
-                    Context.MyEntities.Where(_ => _.Description2.Contains("a")).Count();
-                }
-                using (var Context = new Context2(connection))
-                {
-                    Context.MyEntities.Where(_ => _.Description2.Contains("a")).Count();
+                    Context.MyEntities.Where(_ => _.Description2.Contains("a"))
+                        .Count();
                 }
 
+                using (var Context = new Context2(connection))
+                {
+                    Context.MyEntities.Where(_ => _.Description2.Contains("a"))
+                        .Count();
+                }
             }
         }
 
@@ -42,7 +44,8 @@ namespace EFCore.Jet.Integration.Test.Model37_2Contexts
             int Id { get; set; }
         }
 
-        public int SaveItem<T>(T item) where T : class, IMyEntity
+        public int SaveItem<T>(T item)
+            where T : class, IMyEntity
         {
             // Non generic dbsets are not supported.
             // The new implementation moved the Attach to the Context so we don't need the set anymore
@@ -55,11 +58,12 @@ namespace EFCore.Jet.Integration.Test.Model37_2Contexts
             */
 
             Context.Attach(item);
-            Context.Entry(item).State = item.Id == 0 ? EntityState.Added : EntityState.Modified;
+            Context.Entry(item)
+                .State = item.Id == 0
+                ? EntityState.Added
+                : EntityState.Modified;
             Context.SaveChanges();
             return item.Id;
-
         }
-
     }
 }

@@ -1,11 +1,10 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace EFCore.Jet.Integration.Test.Model37_2Contexts
+namespace EFCore.Jet.Integration.Test.Model78_MigrationUpdate
 {
     [TestClass]
-    public class Model37_2ContextsJetTest : Test
+    public class Model78_MigrationUpdate : Test
     {
         protected override DbConnection GetConnection()
         {

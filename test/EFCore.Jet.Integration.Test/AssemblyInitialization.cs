@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.Data.Jet;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -8,42 +7,23 @@ namespace EFCore.Jet.Integration.Test
     [TestClass]
     public class AssemblyInitialization
     {
-
         public static DbConnection Connection;
 
         [AssemblyInitialize]
-        static public void AssemblyInitialize(TestContext testContext)
+        public static void AssemblyInitialize(TestContext testContext)
         {
-
             // This is the only reason why we include the Provider
             JetConfiguration.ShowSqlStatements = true;
             JetConfiguration.UseConnectionPooling = false;
 
-            Connection = Helpers.GetJetConnection();
-
-#if NETFRAMEWORK
-            Helpers.DeleteSqlCeDatabase();
-            Helpers.CreateSqlCeDatabase();
-#elif NETCOREAPP
-            // SqlCe does not currently support .NET Core, so don't do anything for AssemblyInitialization
-#else
-            throw new PlatformNotSupportedException();
-#endif
+            Connection = Helpers.CreateAndOpenJetDatabase(Helpers.DefaultJetStoreName);
         }
-
 
         [AssemblyCleanup]
-        static public void AssemblyCleanup()
+        public static void AssemblyCleanup()
         {
-            if (Connection != null)
-                Connection.Dispose();
-
-            Helpers.DeleteSqlCeDatabase();
-
-
-            JetConnection.ClearAllPools();
+            Connection?.Dispose();
+            Helpers.DeleteJetDatabase(Helpers.DefaultJetStoreName);
         }
-
-
     }
 }

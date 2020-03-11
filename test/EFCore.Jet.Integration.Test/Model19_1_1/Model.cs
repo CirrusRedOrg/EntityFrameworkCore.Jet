@@ -18,5 +18,4 @@ namespace EFCore.Jet.Integration.Test.Model19_1_1
         public string Description { get; set; }
         public virtual ClassA ClassA { get; set; }
     }
-
 }

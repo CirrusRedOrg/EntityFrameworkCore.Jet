@@ -11,12 +11,21 @@ namespace EFCore.Jet.Integration.Test.Model64_Schema
         {
             {
                 Context.Items.AddRange(
-                    new[]
+                    new Item
                     {
-                        new Item() {Description = "Description1"},
-                        new Item() {Description = "Description2"},
-                        new Item() {Description = "Description3"},
-                        new Item() {Description = "Description4"},
+                        Description = "Description1"
+                    },
+                    new Item
+                    {
+                        Description = "Description2"
+                    },
+                    new Item
+                    {
+                        Description = "Description3"
+                    },
+                    new Item
+                    {
+                        Description = "Description4"
                     });
                 Context.SaveChanges();
             }
@@ -25,11 +34,12 @@ namespace EFCore.Jet.Integration.Test.Model64_Schema
             base.CreateContext();
 
             {
-                var connection = Helpers.GetJetConnection();
+                var connection = GetConnection();
                 connection.Open();
                 DbCommand command = connection.CreateCommand();
                 command.CommandText = "Select * from TableWithSchema";
-                command.ExecuteReader().Dispose();
+                command.ExecuteReader()
+                    .Dispose();
             }
         }
     }

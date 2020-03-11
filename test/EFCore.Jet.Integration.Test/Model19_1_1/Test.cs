@@ -6,8 +6,6 @@ namespace EFCore.Jet.Integration.Test.Model19_1_1
 {
     public abstract class Test : TestBase<Context>
     {
-
-
         [TestMethod]
         public void Model19_1_1Run()
         {
@@ -15,15 +13,14 @@ namespace EFCore.Jet.Integration.Test.Model19_1_1
                 ClassA classA;
                 ClassB classB;
 
-
                 // Very simple behaviour (as expected). You can see the queries after SaveChanges()
-                classA = new ClassA { Description = "B empty" };
+                classA = new ClassA {Description = "B empty"};
                 Context.As.Add(classA);
 
-                classA = new ClassA { Description = "B full", ClassB = new ClassB() { Description = "ClassB full" } };
+                classA = new ClassA {Description = "B full", ClassB = new ClassB() {Description = "ClassB full"}};
                 Context.As.Add(classA);
 
-                classB = new ClassB { Description = "B empty" };
+                classB = new ClassB {Description = "A empty"};
                 Context.Bs.Add(classB);
 
                 Context.SaveChanges();
@@ -50,13 +47,10 @@ namespace EFCore.Jet.Integration.Test.Model19_1_1
                     @p0 = B empty
                 */
 
-
-
-
                 // Here a new classB references an already referenced classA. But we don't want this!!!
                 // EF works like we want, the classA is detached from the old classB then attached to the
                 // new classB. Below you can see the queries
-                classB = new ClassB { Description = "B full with the wrong A", ClassA = classA };
+                classB = new ClassB {Description = "B full with the wrong A", ClassA = classA};
                 Context.Bs.Add(classB);
                 /*
                 update [ClassBs]

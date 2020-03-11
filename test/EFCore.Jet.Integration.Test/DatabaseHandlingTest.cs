@@ -1,6 +1,5 @@
-﻿using System;
+﻿using System.Data.Jet;
 using System.IO;
-using EntityFrameworkCore.Jet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -12,33 +11,32 @@ namespace EFCore.Jet.Integration.Test
         [TestMethod]
         public void EnsureDeleted_Github21()
         {
-            File.Delete(DatabaseHandlingTestContext.GetDbPath());
+            var storePath = DatabaseHandlingTestContext.GetStorePath();
+            
+            File.Delete(storePath);
 
             using (var ctx = new DatabaseHandlingTestContext())
             {
                 ctx.Database.EnsureCreated();
             }
 
-            Assert.IsTrue(File.Exists(DatabaseHandlingTestContext.GetDbPath()), "The db has not been created");
+            Assert.IsTrue(File.Exists(storePath), "The db has not been created");
 
             using (var ctx = new DatabaseHandlingTestContext())
             {
                 ctx.Database.EnsureDeleted();
             }
 
-            Assert.IsFalse(File.Exists(DatabaseHandlingTestContext.GetDbPath()), "The db has not been deleted");
-
+            Assert.IsFalse(File.Exists(storePath), "The db has not been deleted");
         }
+
         public class DatabaseHandlingTestContext : DbContext
         {
+            public static string GetStorePath() => Helpers.GetJetStorePath(nameof(DatabaseHandlingTest) + ".accdb");
+
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseJet($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={GetDbPath()};");
-            }
-
-            public static string GetDbPath()
-            {
-                return Path.Combine(Helpers.GetTestDirectory(), "db.mdb");
+                optionsBuilder.UseJet(JetConnection.GetConnectionString(GetStorePath()));
             }
         }
     }

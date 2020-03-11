@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using EFCore.Jet.Integration.Test.Model37_2Contexts_1;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -12,7 +11,7 @@ namespace EFCore.Jet.Integration.Test.Model37_2Contexts
         public Context1(DbConnection connection) :
             base(TestBase<Context1>.GetContextOptions(connection))
         {
-            RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator)this.Database.GetService<IDatabaseCreator>();
+            RelationalDatabaseCreator databaseCreator = (RelationalDatabaseCreator) Database.GetService<IDatabaseCreator>();
             try
             {
                 databaseCreator.CreateTables();
@@ -24,6 +23,5 @@ namespace EFCore.Jet.Integration.Test.Model37_2Contexts
         }
 
         public DbSet<MyEntity> MyEntities { get; set; }
-
     }
 }

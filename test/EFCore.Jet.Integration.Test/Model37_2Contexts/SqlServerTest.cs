@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EFCore.Jet.Integration.Test.Model37_2Contexts
 {
-    [TestClass]
+    //[TestClass]
     public class Model37_2ContextsSqlServerTest : Test
     {
         protected override DbConnection GetConnection()

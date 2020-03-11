@@ -2,9 +2,7 @@ using System;
 using System.Data.Common;
 using System.Data.Jet;
 using System.Data.SqlClient;
-using System.Data.SqlServerCe;
 using System.Reflection;
-using EntityFrameworkCore.Jet;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -14,9 +12,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EFCore.Jet.Integration.Test
 {
-    public abstract class TestBase<T> where T : DbContext
+    public abstract class TestBase<T>
+        where T : DbContext
     {
-
         protected DbConnection Connection { get; set; }
         protected T Context { get; set; }
 
@@ -39,7 +37,9 @@ namespace EFCore.Jet.Integration.Test
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("E R R O R - Seed - " + GetType().Name + " === Dump Begin ==============");
+                    Console.WriteLine(
+                        "E R R O R - Seed - " + GetType()
+                            .Name + " === Dump Begin ==============");
                     Console.WriteLine(e);
                     Console.WriteLine("= Dump End ============================================= ");
                     throw;
@@ -51,7 +51,8 @@ namespace EFCore.Jet.Integration.Test
         {
             try
             {
-                GetDatabaseCreatorService(context).CreateTables();
+                GetDatabaseCreatorService(context)
+                    .CreateTables();
                 return true;
             }
             catch (Exception ex)
@@ -65,7 +66,8 @@ namespace EFCore.Jet.Integration.Test
         {
             try
             {
-                GetDatabaseCreatorService(context).Create();
+                GetDatabaseCreatorService(context)
+                    .Create();
             }
             catch (Exception ex)
             {
@@ -77,7 +79,8 @@ namespace EFCore.Jet.Integration.Test
         {
             try
             {
-                GetDatabaseCreatorService(context).Delete();
+                GetDatabaseCreatorService(context)
+                    .Delete();
             }
             catch (Exception ex)
             {
@@ -106,7 +109,6 @@ namespace EFCore.Jet.Integration.Test
 
         public virtual void Seed()
         {
-            
         }
 
         [TestCleanup]
@@ -128,14 +130,13 @@ namespace EFCore.Jet.Integration.Test
             var options = GetContextOptions(Connection);
 
             ConstructorInfo constructorInfo =
-                typeof(T).GetConstructor(new Type[] { typeof(DbContextOptions<T>) }) ??
-                typeof(T).GetConstructor(new Type[] { typeof(DbContextOptions) });
+                typeof(T).GetConstructor(new Type[] {typeof(DbContextOptions<T>)}) ??
+                typeof(T).GetConstructor(new Type[] {typeof(DbContextOptions)});
 
             if (constructorInfo == null)
                 throw new InvalidOperationException("The Context does not have the expected constructor Context(DbContextOptions)");
-            Context = (T)constructorInfo.Invoke(new object[] { options });
+            Context = (T) constructorInfo.Invoke(new object[] {options});
         }
-
 
         protected virtual DbContextOptions GetContextOptions()
         {
@@ -146,33 +147,23 @@ namespace EFCore.Jet.Integration.Test
         {
             var optionsBuilder = new DbContextOptionsBuilder<T>().EnableSensitiveDataLogging();
 
-
-#if NETFRAMEWORK
-            if (dbConnection is SqlCeConnection)
-                return optionsBuilder.UseSqlCe(dbConnection).Options;
-#elif NETCOREAPP
-            if (dbConnection is SqlCeConnection)
-            {
-                Assert.Inconclusive("SqlCe does not currently support .NET Core");
-                return default;
-            }
-#else
-            if (dbConnection is SqlCeConnection)
-                throw new PlatformNotSupportedException();
-#endif
-            else if (dbConnection is JetConnection)
-                return optionsBuilder.UseJet(dbConnection).Options;
+            if (dbConnection is JetConnection)
+                return optionsBuilder.UseJet(dbConnection)
+                    .Options;
             else if (dbConnection is SqlConnection)
-                return optionsBuilder.UseSqlServer(dbConnection).Options;
+                return optionsBuilder.UseSqlServer(dbConnection)
+                    .Options;
             else if (dbConnection is SqliteConnection)
-                return optionsBuilder.UseSqlite(dbConnection).Options;
+                return optionsBuilder.UseSqlite(dbConnection)
+                    .Options;
             else
             {
-                throw new InvalidOperationException("Connection type " + dbConnection.GetType().Name + " not handled");
+                throw new InvalidOperationException(
+                    "Connection type " + dbConnection.GetType()
+                        .Name + " not handled");
             }
         }
 
         protected abstract DbConnection GetConnection();
-
     }
 }

@@ -1,12 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
+    <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
+    <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
+  </PropertyGroup>
+
+  <Import Project="..\..\build\Dependencies.props" />
+  <Import Project="..\..\build\Development.props" Condition="Exists('..\..\build\Development.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateProgramFile>false</GenerateProgramFile>
     
     <Platforms>AnyCPU;x86;x64</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);EF1001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -94,6 +106,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  
   <ItemGroup>
     <PackageReference Include="EntityFrameworkCore.SqlServerCompact40">
       <Version>2.2.0.5</Version>
@@ -104,17 +117,18 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer">
       <Version>3.1.2</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.SqlServer.Compact" Version="4.0.8876.1" />    
+    <!--<PackageReference Include="Microsoft.SqlServer.Compact" Version="4.0.8876.1" />-->    
     <PackageReference Include="SQLitePCLRaw.core">
       <Version>2.0.2</Version>
-    </PackageReference>
+    </PackageReference>    
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.1" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource">
       <Version>4.7.0</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
-    <PackageReference Include="MSTest.TestAdapter" Version="2.1.0" />
-    <PackageReference Include="MSTest.TestFramework" Version="2.1.0" />
-    <PackageReference Include="coverlet.collector" Version="1.2.0">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdk)" />
+    <PackageReference Include="MSTest.TestAdapter" Version="$(MSTestTestAdapter)" />
+    <PackageReference Include="MSTest.TestFramework" Version="$(MSTestTestFramework)" />
+    <PackageReference Include="coverlet.collector" Version="$(CoverletCollector)">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

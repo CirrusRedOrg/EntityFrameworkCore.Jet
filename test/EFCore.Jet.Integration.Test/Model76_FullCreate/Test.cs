@@ -8,7 +8,6 @@ namespace EFCore.Jet.Integration.Test.Model76_FullCreate
 {
     public abstract class Test
     {
-
         protected abstract DbConnection GetConnection();
 
         [TestMethod]
@@ -32,7 +31,8 @@ namespace EFCore.Jet.Integration.Test.Model76_FullCreate
             int Id { get; set; }
         }
 
-        public int SaveItem<T>(T item) where T : class, IMyEntity
+        public int SaveItem<T>(T item)
+            where T : class, IMyEntity
         {
             // Non generic dbsets are not supported.
             // The new implementation moved the Attach to the Context so we don't need the set anymore
@@ -45,11 +45,12 @@ namespace EFCore.Jet.Integration.Test.Model76_FullCreate
             */
 
             Context.Attach(item);
-            Context.Entry(item).State = item.Id == 0 ? EntityState.Added : EntityState.Modified;
+            Context.Entry(item)
+                .State = item.Id == 0
+                ? EntityState.Added
+                : EntityState.Modified;
             Context.SaveChanges();
             return item.Id;
-
         }
-
     }
 }

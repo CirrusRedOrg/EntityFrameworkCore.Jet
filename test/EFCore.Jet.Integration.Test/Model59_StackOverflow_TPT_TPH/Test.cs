@@ -8,11 +8,9 @@ namespace EFCore.Jet.Integration.Test.Model59_StackOverflow_TPT_TPH
         [TestMethod]
         public void Run()
         {
-            {
-                Context.DataCaptureActivities.Add(new DataCaptureActivity() {Description = "Description", ActivityType = ActivityType.A});
-                Context.DataCaptureActivities.Add(new DataCaptureActivity() { Description = "Description", ActivityType = ActivityType.B });
-                Context.SaveChanges();
-            }
+            Context.DataCaptureActivities.Add(new DataCaptureActivity() {Description = "Description", ActivityType = ActivityType.A});
+            Context.DataCaptureActivities.Add(new DataCaptureActivity() {Description = "Description", ActivityType = ActivityType.B});
+            Context.SaveChanges();
         }
     }
 }

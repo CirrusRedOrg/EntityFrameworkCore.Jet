@@ -53,15 +53,6 @@ namespace System.Data.Jet.Test
         }
 
         [TestMethod]
-        [Ignore("Indices cannot be directly renamed using ADOX.")]
-        public void RenameIndexAdox()
-        {
-            AdoxWrapper.RenameIndex(JetConnection.GetConnectionString(StoreName), "tableName", "indexName", "newIndexName");
-            ReOpenConnection();
-            CheckIndexExists("newIndexName");
-        }
-
-        [TestMethod]
         public void RenameTableQuery()
         {
             _connection.CreateCommand("rename table tableName to newTableName")

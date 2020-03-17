@@ -21,7 +21,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{A56C261D
 		tools\Resources.tt = tools\Resources.tt
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Integration.Test", "test\EFCore.Jet.Integration.Test\EFCore.Jet.Integration.Test.csproj", "{50CA2970-B995-4D28-9F6C-F7CA4940F23A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.IntegrationTests", "test\EFCore.Jet.IntegrationTests\EFCore.Jet.IntegrationTests.csproj", "{50CA2970-B995-4D28-9F6C-F7CA4940F23A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.FunctionalTests", "test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj", "{3C88D49A-7EF2-42BA-A8D7-9DF7D358FD24}"
 EndProject

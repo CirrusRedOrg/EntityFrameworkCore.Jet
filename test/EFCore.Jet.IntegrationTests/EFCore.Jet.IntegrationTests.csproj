@@ -1,0 +1,98 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
+    <RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
+    <RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="MigrationUpDownTest\**" />
+    <Compile Remove="Model11\**" />
+    <Compile Remove="Model21_CommandInterception\**" />
+    <Compile Remove="Model24_MultiTenantApp\**" />
+    <Compile Remove="Model38_OneEntity2Tables\**" />
+    <Compile Remove="Model40_HardMapping\**" />
+    <Compile Remove="Model42\**" />
+    <Compile Remove="Model49_Inheritance_EagerlyLoad\**" />
+    <Compile Remove="Model50_Interception\**" />
+    <Compile Remove="Model52_Requires_HasFalse_LogicalDelete\**" />
+    <Compile Remove="Model58_TruncateTime\**" />
+    <Compile Remove="Model60_StackOverflow_m2n_Person_Book\**" />
+    <Compile Remove="Model61_StackOverflow_Seed\**" />
+    <Compile Remove="Model62_InnerQueryBug_DbInitializerSeed\**" />
+    <Compile Remove="Model65_InMemoryObjects\**" />
+    <Compile Remove="Model67_DifferentProxies\**" />
+    <Compile Remove="Model71_MasterDetail\**" />
+    <EmbeddedResource Remove="MigrationUpDownTest\**" />
+    <EmbeddedResource Remove="Model11\**" />
+    <EmbeddedResource Remove="Model21_CommandInterception\**" />
+    <EmbeddedResource Remove="Model24_MultiTenantApp\**" />
+    <EmbeddedResource Remove="Model38_OneEntity2Tables\**" />
+    <EmbeddedResource Remove="Model40_HardMapping\**" />
+    <EmbeddedResource Remove="Model42\**" />
+    <EmbeddedResource Remove="Model49_Inheritance_EagerlyLoad\**" />
+    <EmbeddedResource Remove="Model50_Interception\**" />
+    <EmbeddedResource Remove="Model52_Requires_HasFalse_LogicalDelete\**" />
+    <EmbeddedResource Remove="Model58_TruncateTime\**" />
+    <EmbeddedResource Remove="Model60_StackOverflow_m2n_Person_Book\**" />
+    <EmbeddedResource Remove="Model61_StackOverflow_Seed\**" />
+    <EmbeddedResource Remove="Model62_InnerQueryBug_DbInitializerSeed\**" />
+    <EmbeddedResource Remove="Model65_InMemoryObjects\**" />
+    <EmbeddedResource Remove="Model67_DifferentProxies\**" />
+    <EmbeddedResource Remove="Model71_MasterDetail\**" />
+    <None Remove="MigrationUpDownTest\**" />
+    <None Remove="Model11\**" />
+    <None Remove="Model21_CommandInterception\**" />
+    <None Remove="Model24_MultiTenantApp\**" />
+    <None Remove="Model38_OneEntity2Tables\**" />
+    <None Remove="Model40_HardMapping\**" />
+    <None Remove="Model42\**" />
+    <None Remove="Model49_Inheritance_EagerlyLoad\**" />
+    <None Remove="Model50_Interception\**" />
+    <None Remove="Model52_Requires_HasFalse_LogicalDelete\**" />
+    <None Remove="Model58_TruncateTime\**" />
+    <None Remove="Model60_StackOverflow_m2n_Person_Book\**" />
+    <None Remove="Model61_StackOverflow_Seed\**" />
+    <None Remove="Model62_InnerQueryBug_DbInitializerSeed\**" />
+    <None Remove="Model65_InMemoryObjects\**" />
+    <None Remove="Model67_DifferentProxies\**" />
+    <None Remove="Model71_MasterDetail\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="BuiltInFunctionsTest.cs" />
+    <Compile Remove="CanonicalFunctionsTest1.cs" />
+    <Compile Remove="FunctionTest.cs" />
+    <Compile Remove="Model56_SkipTake\SqlCeTest.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="EFCore.Jet.Integration.Test.csproj.DotSettings" />
+    <None Remove="EFCore.Jet.Integration.Test.DotSettings" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdk)" />
+    <PackageReference Include="MSTest.TestAdapter" Version="$(MSTestTestAdapter)" />
+    <PackageReference Include="MSTest.TestFramework" Version="$(MSTestTestFramework)" />
+    <PackageReference Include="coverlet.collector" Version="$(CoverletCollector)">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
+    <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Properties" />
+  </ItemGroup>
+</Project>

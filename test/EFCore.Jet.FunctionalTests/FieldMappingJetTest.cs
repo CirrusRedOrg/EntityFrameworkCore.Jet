@@ -1,16 +1,14 @@
-﻿using System;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using Extensions.DependencyInjection;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.Extensions.DependencyInjection;
 
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class FieldMappingJetTest
-        : FieldMappingTestBase<FieldMappingJetTest.FieldMappingJetFixture>
+    public class FieldMappingJetTest : FieldMappingTestBase<FieldMappingJetTest.FieldMappingJetFixture>
     {
         public FieldMappingJetTest(FieldMappingJetFixture fixture)
             : base(fixture)
@@ -22,14 +20,6 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class FieldMappingJetFixture : FieldMappingFixtureBase
         {
-            public FieldMappingJetFixture()
-            {
-                new ServiceCollection()
-                    .AddEntityFrameworkJet()
-                    .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                    .BuildServiceProvider();
-            }
-
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
     }

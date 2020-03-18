@@ -51,6 +51,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />
   </ItemGroup>
 

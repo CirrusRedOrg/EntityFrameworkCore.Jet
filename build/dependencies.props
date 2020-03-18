@@ -1,5 +1,6 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
+    <MicrosoftEntityFrameworkCoreVersion>3.1.2</MicrosoftEntityFrameworkCoreVersion>
     <MicrosoftEntityFrameworkCoreRelationalVersion>3.1.2</MicrosoftEntityFrameworkCoreRelationalVersion>
     <MicrosoftExtensionsConfigurationJsonVersion>3.1.2</MicrosoftExtensionsConfigurationJsonVersion>
     <MicrosoftExtensionsDependencyInjection>3.1.2</MicrosoftExtensionsDependencyInjection>
@@ -13,7 +14,11 @@
     <MicrosoftBclHashCodeVersion>1.1.0</MicrosoftBclHashCodeVersion>
     <SystemCollectionsImmutableVersion>1.7.0</SystemCollectionsImmutableVersion>
     <SystemComponentModelAnnotationsVersion>4.7.0</SystemComponentModelAnnotationsVersion>
-    <SystemDataOleDbVersion>5.0.0-preview.3.20160.5</SystemDataOleDbVersion>
+    <SystemDataOleDbVersion>5.0.0-preview.3.20171.3</SystemDataOleDbVersion>
+  </PropertyGroup>
+  <!-- System.Data.Jet -->
+  <PropertyGroup>
+    <MicrosoftCSharp>4.7.0</MicrosoftCSharp>
   </PropertyGroup>
   <!-- System.Data.Jet.Test -->
   <!-- System.Data.Jet.PerformanceTest -->
@@ -22,5 +27,27 @@
     <MSTestTestAdapter>2.1.0</MSTestTestAdapter>
     <MSTestTestFramework>2.1.0</MSTestTestFramework>
     <CoverletCollector>1.2.0</CoverletCollector>
+  </PropertyGroup>
+  <!-- EFCore.Jet.FunctionalTests -->
+  <PropertyGroup>
+    <XunitCorePackageVersion>2.4.1</XunitCorePackageVersion>
+    <XunitAssertPackageVersion>2.4.1</XunitAssertPackageVersion>
+    <XunitRunnerVisualStudioPackageVersion>2.4.1</XunitRunnerVisualStudioPackageVersion>
+    <XunitRunnerConsolePackageVersion>2.4.1</XunitRunnerConsolePackageVersion>
+    <NetTopologySuiteVersion>2.0.0</NetTopologySuiteVersion>
+    <SystemComponentModelTypeConverterVersion>4.3.0</SystemComponentModelTypeConverterVersion>
+    <CastleCoreVersion>4.4.0</CastleCoreVersion>
+    <MicrosoftExtensionsConfigurationEnvironmentVariablesVersion>3.1.0</MicrosoftExtensionsConfigurationEnvironmentVariablesVersion>
+    <MicrosoftExtensionsConfigurationFileExtensionsVersion>3.1.2</MicrosoftExtensionsConfigurationFileExtensionsVersion>
+  </PropertyGroup>
+  <!-- EFCore.Jet.Tests -->
+  <PropertyGroup>
+    <MicrosoftEntityFrameworkCoreDesignVersion>3.1.0</MicrosoftEntityFrameworkCoreDesignVersion>
+    <MicrosoftEntityFrameworkCoreTestsVersion>3.1.0</MicrosoftEntityFrameworkCoreTestsVersion>
+    <MicrosoftEntityFrameworkCoreRelationalTestsVersion>3.1.0</MicrosoftEntityFrameworkCoreRelationalTestsVersion>
+    <MicrosoftEntityFrameworkCoreRelationalSpecificationTestsVersion>3.1.0</MicrosoftEntityFrameworkCoreRelationalSpecificationTestsVersion>
+    <MicrosoftCodeAnalysisCSharpPackageVersion>3.4.0</MicrosoftCodeAnalysisCSharpPackageVersion>
+    <MicrosoftExtensionsDependencyModelPackageVersion>3.1.0</MicrosoftExtensionsDependencyModelPackageVersion>
+    <MoqVersion>4.13.1</MoqVersion>
   </PropertyGroup>
 </Project>

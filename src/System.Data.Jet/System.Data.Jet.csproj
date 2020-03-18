@@ -1,20 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
-        <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
-    </PropertyGroup>
-
-    <Import Project="..\..\build\Dependencies.props" />
-    <Import Project="..\..\build\Development.props" Condition="Exists('..\..\build\Development.props')" />
-
-    <PropertyGroup>
         <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
-        <LangVersion>8.0</LangVersion>
-        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <Platforms>AnyCPU;x86;x64</Platforms>
-        <SignAssembly>true</SignAssembly>
-        <AssemblyOriginatorKeyFile>..\..\build\Key.snk</AssemblyOriginatorKeyFile>
+        <Description>Jet (Microsoft Access mdb or accdb files) data access library</Description>
     </PropertyGroup>
     
     <ItemGroup>
@@ -49,31 +38,7 @@
     </ItemGroup>
     
     <ItemGroup>
-        <None Include="..\..\build\Key.snk">
-            <Link>Key.snk</Link>
-        </None>
-    </ItemGroup>
-    
-    <ItemGroup>
-        <COMReference Include="ADODB.dll">
-            <Guid>b691e011-1797-432e-907a-4d8c69339129</Guid>
-            <VersionMajor>6</VersionMajor>
-            <VersionMinor>0</VersionMinor>
-            <WrapperTool>tlbimp</WrapperTool>
-            <Lcid>0</Lcid>
-            <Isolated>false</Isolated>
-        </COMReference>
-        <COMReference Include="ADOX.dll">
-            <Guid>00000600-0000-0010-8000-00aa006d2ea4</Guid>
-            <VersionMajor>6</VersionMajor>
-            <VersionMinor>0</VersionMinor>
-            <WrapperTool>tlbimp</WrapperTool>
-            <Lcid>0</Lcid>
-            <Isolated>false</Isolated>
-        </COMReference>
-    </ItemGroup>
-    
-    <ItemGroup>
+        <PackageReference Include="Microsoft.CSharp" Version="$(MicrosoftCSharp)" />
         <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
     </ItemGroup>
 

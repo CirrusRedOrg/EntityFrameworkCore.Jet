@@ -11,12 +11,13 @@ namespace System.Data.Jet
             if (string.IsNullOrWhiteSpace(newTableName))
                 throw new ArgumentNullException(nameof(newTableName));
 
-            ADOX.Catalog catalog = GetCatalogInstanceAndOpen("Cannot rename column", connectionString);
+            using var catalog = GetCatalogInstanceAndOpen("Cannot rename column", connectionString);
 
             try
             {
-                catalog.Tables[tableName]
-                    .Name = newTableName;
+                using var tables = catalog.Tables;
+                using var table = tables[tableName];
+                table.Name = newTableName;
             }
             catch (Exception e)
             {
@@ -24,7 +25,7 @@ namespace System.Data.Jet
             }
             finally
             {
-                ((ADODB.Connection) catalog.ActiveConnection).Close();
+                catalog.ActiveConnection.Close();
             }
         }
 
@@ -39,13 +40,14 @@ namespace System.Data.Jet
             if (string.IsNullOrWhiteSpace(newColumnName))
                 throw new ArgumentNullException(nameof(newColumnName));
 
-            ADOX.Catalog catalog = GetCatalogInstanceAndOpen("Cannot rename column", connectionString);
+            using var catalog = GetCatalogInstanceAndOpen("Cannot rename column", connectionString);
 
             try
             {
-                catalog.Tables[tableName]
-                    .Columns[columnName]
-                    .Name = newColumnName;
+                using var tables = catalog.Tables;
+                using var columns = tables[tableName].Columns;
+                using var column = columns[columnName];
+                column.Name = newColumnName;
             }
             catch (Exception e)
             {
@@ -53,68 +55,18 @@ namespace System.Data.Jet
             }
             finally
             {
-                ((ADODB.Connection) catalog.ActiveConnection).Close();
+                catalog.ActiveConnection.Close();
             }
         }
-
-        public static void RenameIndex(string connectionString, string tableName, string indexName, string newIndexName)
-        {
-            if (string.IsNullOrWhiteSpace(connectionString))
-                throw new ArgumentNullException(nameof(connectionString));
-            if (string.IsNullOrWhiteSpace(tableName))
-                throw new ArgumentNullException(nameof(tableName));
-            if (string.IsNullOrWhiteSpace(indexName))
-                throw new ArgumentNullException(nameof(indexName));
-            if (string.IsNullOrWhiteSpace(newIndexName))
-                throw new ArgumentNullException(nameof(newIndexName));
-
-            var catalog = GetCatalogInstanceAndOpen("Cannot rename index", connectionString);
-
-            try
-            {
-                ADOX.Table table;
-                ADOX.Index index;
-
-                try
-                {
-                    table = catalog.Tables[tableName];
-                }
-                catch (Exception e)
-                {
-                    throw new Exception("Cannot rename index. Cannot retrieve the table '" + tableName + "'", e);
-                }
-
-                try
-                {
-                    index = table.Indexes[indexName];
-                }
-                catch (Exception e)
-                {
-                    throw new Exception("Cannot rename index. Cannot retrieve the old index '" + indexName + "'", e);
-                }
-
-                try
-                {
-                    index.Name = newIndexName;
-                }
-                catch (Exception e)
-                {
-                    throw new Exception("Cannot rename index.", e);
-                }
-            }
-            finally
-            {
-                ((ADODB.Connection) catalog.ActiveConnection).Close();
-            }
-        }
-
+        
         public static void CreateEmptyDatabase(string connectionString)
         {
-            ADOX.Catalog catalog = GetCatalogInstance();
-
+            using var catalog = GetCatalogInstance();
+            
             try
             {
-                catalog.Create(connectionString);
+                catalog.Create(connectionString)
+                    .Dispose(); // Dispose the returned Connection object, because we don't use it here.
             }
             catch (Exception e)
             {
@@ -123,10 +75,9 @@ namespace System.Data.Jet
 
             try
             {
-                using (var connection = (new JetConnection(connectionString)))
-                {
-                    connection.Open();
-                    string sql = @"
+                using var connection = new JetConnection(connectionString);
+                connection.Open();
+                string sql = @"
 CREATE TABLE [MSysAccessStorage] (
     [DateCreate] DATETIME NULL,
     [DateUpdate] DATETIME NULL,
@@ -140,9 +91,8 @@ CREATE TABLE [MSysAccessStorage] (
 CREATE UNIQUE INDEX [ParentIdId] ON [MSysAccessStorage] ([ParentId], [Id]);
 CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);";
 
-                    connection.CreateCommand(sql)
-                        .ExecuteNonQuery();
-                }
+                using var command = connection.CreateCommand(sql);
+                command.ExecuteNonQuery();
             }
             catch (Exception e)
             {
@@ -151,8 +101,8 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
 
             try
             {
-                var x = (ADODB.Connection) catalog.ActiveConnection;
-                x.Close();
+                using var connection = catalog.ActiveConnection;
+                connection.Close();
             }
             catch (Exception e)
             {
@@ -160,23 +110,22 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
             }
         }
 
-        private static ADOX.Catalog GetCatalogInstance()
-        {
-            return new ADOX.Catalog();
-        }
+        private static dynamic GetCatalogInstance()
+            => new ComObject("ADOX.Catalog");
 
-        private static ADOX.Catalog GetCatalogInstanceAndOpen(string errorPrefix, string connectionString)
+        private static dynamic GetCatalogInstanceAndOpen(string errorPrefix, string connectionString)
         {
-            ADOX.Catalog catalog = GetCatalogInstance();
+            var catalog = GetCatalogInstance();
 
             try
             {
-                ADODB.Connection cnn = new ADODB.Connection();
+                using dynamic cnn = new ComObject("ADODB.Connection");
                 cnn.Open(connectionString);
                 catalog.ActiveConnection = cnn;
             }
             catch (Exception e)
             {
+                catalog.Dispose();
                 throw new Exception(errorPrefix + ". Cannot open database using the specified connection string.", e);
             }
 

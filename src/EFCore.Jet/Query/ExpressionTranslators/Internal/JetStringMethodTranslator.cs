@@ -75,7 +75,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 //        with LIKE first to narrow down the results and use INSTR only for whatever remains.
                 var charIndexExpression = _sqlExpressionFactory.GreaterThan(
                     _sqlExpressionFactory.Function(
-                        "Instr",
+                        "INSTR",
                         new[]
                         {
                             _sqlExpressionFactory.Constant(1),
@@ -115,37 +115,31 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (_trimWithNoParam.Equals(method) ||
                 _trimWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
             {
-                return _sqlExpressionFactory.Function("Trim", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, method.ReturnType);
             }
 
             // Jet LTRIM does not take arguments
             if (_trimStartWithNoParam.Equals(method) ||
                 _trimStartWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
             {
-                return _sqlExpressionFactory.Function("LTrim", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, method.ReturnType);
             }
 
             // Jet RTRIM does not take arguments
             if (_trimEndWithNoParam.Equals(method) ||
                 _trimEndWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
             {
-                return _sqlExpressionFactory.Function("RTrim", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, method.ReturnType);
             }
 
             if (_toLower.Equals(method))
             {
-                return _sqlExpressionFactory.Function("LCase", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LCASE", new[] {instance}, method.ReturnType);
             }
 
             if (_toUpper.Equals(method))
             {
-                return _sqlExpressionFactory.Function("UCase", new[] {instance}, method.ReturnType);
-            }
-
-            if (_trimEndWithNoParam.Equals(method) ||
-                _trimEndWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
-            {
-                return _sqlExpressionFactory.Function("RTrim", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("UCASE", new[] {instance}, method.ReturnType);
             }
 
             if (_trimEndWithNoParam.Equals(_substring) ||
@@ -169,7 +163,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     parameters.Add(arguments[1]);
 
                 return _sqlExpressionFactory.Function(
-                    "Mid",
+                    "MID",
                     parameters,
                     method.ReturnType);
             }
@@ -177,7 +171,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (_replace.Equals(method))
             {
                 return _sqlExpressionFactory.Function(
-                    "Replace",
+                    "REPLACE",
                     new[] {instance}.Concat(arguments),
                     method.ReturnType);
             }
@@ -185,10 +179,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (_isNullOrWhiteSpace.Equals(method))
             {
                 return _sqlExpressionFactory.OrElse(
-                    _sqlExpressionFactory.JetIsNull(arguments[0]),
+                    _sqlExpressionFactory.IsNull(arguments[0]),
                     _sqlExpressionFactory.Equal(
                         _sqlExpressionFactory.Function(
-                            "Trim",
+                            "TRIM",
                             new[] {arguments[0]},
                             typeof(string)),
                         _sqlExpressionFactory.Constant(string.Empty)));

@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
@@ -13,6 +14,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     {
         [NotNull] private readonly QuerySqlGeneratorDependencies _dependencies;
         [NotNull] private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        [NotNull] private readonly ITypeMappingSource _typeMappingSource;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -20,13 +22,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         public JetQuerySqlGeneratorFactory(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
-            [NotNull] ISqlExpressionFactory sqlExpressionFactory)
+            [NotNull] ISqlExpressionFactory sqlExpressionFactory,
+            [NotNull] ITypeMappingSource typeMappingSource)
         {
             _dependencies = dependencies;
             _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+            _typeMappingSource = typeMappingSource;
         }
 
         public virtual QuerySqlGenerator Create()
-            => new JetQuerySqlGenerator(_dependencies, _sqlExpressionFactory);
+            => new JetQuerySqlGenerator(_dependencies, _sqlExpressionFactory, _typeMappingSource);
     }
 }

@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                instance?.Type == typeof(string)
                 ? _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Function(
-                        "Len", new[] {instance}, returnType),
+                        "LEN", new[] {instance}, returnType),
                     typeof(int))
                 : null;
     }

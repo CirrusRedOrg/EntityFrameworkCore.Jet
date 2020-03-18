@@ -17,16 +17,19 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     {
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
 
+        // The value here is actually never used.
         private static readonly Dictionary<string, string> _functionName = new Dictionary<string, string>
         {
-            [nameof(Convert.ToByte)] = "CByte",
-            [nameof(Convert.ToDecimal)] = "CCur", // CDec does not work https://docs.microsoft.com/en-us/office/troubleshoot/access/cdec-function-error
-            [nameof(Convert.ToSingle)] = "CSng",
-            [nameof(Convert.ToDouble)] = "CDbl",
-            [nameof(Convert.ToInt16)] = "CInt",
-            [nameof(Convert.ToInt32)] = "CLng",
-            // [nameof(Convert.ToInt64)] = "CDec", // CDec does not work https://docs.microsoft.com/en-us/office/troubleshoot/access/cdec-function-error
-            [nameof(Convert.ToString)] = "CStr"
+            [nameof(Convert.ToBoolean)] = "CBOOL",
+            [nameof(Convert.ToByte)] = "CBYTE",
+            [nameof(Convert.ToInt16)] = "CINT",
+            [nameof(Convert.ToInt32)] = "CLNG",
+            // [nameof(Convert.ToInt64)] = "CDEC", // CDEC does not work https://docs.microsoft.com/en-us/office/troubleshoot/access/cdec-function-error
+            [nameof(Convert.ToDecimal)] = "CCUR", // CDEC does not work https://docs.microsoft.com/en-us/office/troubleshoot/access/cdec-function-error
+            [nameof(Convert.ToSingle)] = "CSNG",
+            [nameof(Convert.ToDouble)] = "CDBL",
+            [nameof(Convert.ToDateTime)] = "CDATE",
+            [nameof(Convert.ToString)] = "CSTR"
         };
 
         private static readonly List<Type> _supportedTypes = new List<Type>

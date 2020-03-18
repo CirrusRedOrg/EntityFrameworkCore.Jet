@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         {
             return _methodInfo.Equals(method)
                 ? _sqlExpressionFactory.Function(
-                    "NewGuid",
+                    "NEWGUID",
                     Array.Empty<SqlExpression>(),
                     method.ReturnType)
                 : null;

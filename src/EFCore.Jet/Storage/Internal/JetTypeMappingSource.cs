@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly ByteTypeMapping _tinyint = new ByteTypeMapping("tinyint", DbType.Byte);
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new IntTypeMapping("integer", DbType.Int32);
-        private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
+        // private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
 
         private readonly FloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("double");
@@ -164,7 +164,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {typeof(byte), _tinyint},
                     {typeof(short), _smallint},
                     {typeof(int), _integer},
-                    {typeof(long), _bigint}, // uses DECIMAL(28,0)
+                    // {typeof(long), _bigint}, // uses DECIMAL(28,0)
                     {typeof(float), _single},
                     {typeof(double), _double},
                     {typeof(decimal), _decimal}, // CHECK: Is this supported or do we need to use CURRENCY?

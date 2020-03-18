@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         };
 
         public JetDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+            => _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
 
         public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
         {
@@ -54,17 +54,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     return null;
                 }
 
-                return _sqlExpressionFactory.JetNullChecked(
-                    instance,
-                    _sqlExpressionFactory.Function(
-                        "DateAdd",
-                        new[]
-                        {
-                            new SqlConstantExpression(Expression.Constant(datePart), null),
-                            amountToAdd,
-                            instance
-                        },
-                        method.ReturnType));
+                return _sqlExpressionFactory.Function(
+                    "DATEADD",
+                    new[]
+                    {
+                        new SqlConstantExpression(Expression.Constant(datePart), null),
+                        amountToAdd,
+                        instance
+                    },
+                    method.ReturnType);
             }
 
             return null;

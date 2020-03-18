@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetStringTypeMapping(
-            [NotNull] string storeType,
+            [CanBeNull] string storeType = null,
             bool unicode = false,
             int? size = null,
             bool fixedLength = false,
@@ -29,13 +29,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             : this(
                 new RelationalTypeMappingParameters(
                     new CoreTypeMappingParameters(typeof(string)),
-                    storeType,
+                    storeType ?? GetStoreName(fixedLength),
                     storeTypePostfix ?? StoreTypePostfix.Size,
-                    (fixedLength ? System.Data.DbType.String : (DbType?)null),
+                    (fixedLength
+                        ? System.Data.DbType.String
+                        : (DbType?) null),
                     unicode,
                     size,
                     fixedLength))
-        { }
+        {
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -49,6 +52,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new JetStringTypeMapping(parameters);
+
+        private static string GetStoreName(bool fixedLength)
+            => fixedLength
+                ? "char"
+                : "varchar";
 
         private static int CalculateSize(int? size)
         {
@@ -86,7 +94,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     The generated string.
         /// </returns>
         protected override string GenerateNonNullSqlLiteral(object value)
-            => EscapeSqlLiteralWithLineBreaks((string)value);
+            => EscapeSqlLiteralWithLineBreaks((string) value);
 
         private string EscapeSqlLiteralWithLineBreaks(string value)
         {

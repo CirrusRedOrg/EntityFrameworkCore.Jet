@@ -27,6 +27,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     new JetConvertTranslator(sqlExpressionFactory),
                     new JetDateTimeMethodTranslator(sqlExpressionFactory),
+                    new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
+                    new JetIsDateFunctionTranslator(sqlExpressionFactory), 
                     new JetStringMethodTranslator(sqlExpressionFactory),
                     new JetMathTranslator(sqlExpressionFactory),
                     new JetNewGuidTranslator(sqlExpressionFactory),

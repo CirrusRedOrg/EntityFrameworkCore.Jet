@@ -10,15 +10,12 @@ namespace System.Data.Jet
     {
         private object _instance;
 #if DEBUG
-        private readonly Guid _trackingId;
+        private readonly Guid _trackingId = Guid.NewGuid();
 #endif
 
         public ComObject(object instance)
         {
             _instance = instance;
-#if DEBUG
-            _trackingId = Guid.NewGuid();
-#endif
         }
 
         public ComObject(string progid)
@@ -111,24 +108,17 @@ namespace System.Data.Jet
             return obj;
         }
         
-        private void ReleaseUnmanagedResources()
-        {
-            if (_instance != null)
-            {
-                Marshal.FinalReleaseComObject(_instance);
-                _instance = null;
-            }
-        }
-
         public void Dispose()
         {
-            ReleaseUnmanagedResources();
-            GC.SuppressFinalize(this);
-        }
+            // The RCW is a .NET object and cannot be released from the finalizer anymore,
+            // because it might not exist anymore.
+            if (_instance != null)
+            {
+                Marshal.ReleaseComObject(_instance);
+                _instance = null;
+            }
 
-        ~ComObject()
-        {
-            ReleaseUnmanagedResources();
+            GC.SuppressFinalize(this);
         }
     }
 }

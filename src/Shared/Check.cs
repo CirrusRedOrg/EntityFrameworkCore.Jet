@@ -15,9 +15,7 @@ namespace EntityFrameworkCore.Jet.Utilities
         [ContractAnnotation("value:null => halt")]
         public static T NotNull<T>([NoEnumeration] T value, [InvokerParameterName] [NotNull] string parameterName)
         {
-#pragma warning disable IDE0041 // Use 'is null' check
-            if (ReferenceEquals(value, null))
-#pragma warning restore IDE0041 // Use 'is null' check
+            if (value is null)
             {
                 NotEmpty(parameterName, nameof(parameterName));
 

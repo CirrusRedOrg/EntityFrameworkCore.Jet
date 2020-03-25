@@ -140,7 +140,6 @@ namespace System.Data.Jet
 
         public override Guid GetGuid(int ordinal)
         {
-            // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             object value = _wrappedDataReader.GetValue(ordinal);
             if (value is byte[])
                 return new Guid((byte[])value);
@@ -155,7 +154,6 @@ namespace System.Data.Jet
 
         public override int GetInt32(int ordinal)
         {
-            // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             object value = _wrappedDataReader.GetValue(ordinal);
             if (value is string)
             {
@@ -169,7 +167,15 @@ namespace System.Data.Jet
 
         public override long GetInt64(int ordinal)
         {
-            return Convert.ToInt64(_wrappedDataReader.GetValue(ordinal));
+            object value = _wrappedDataReader.GetValue(ordinal);
+            if (value is string)
+            {
+                byte[] buffer = Encoding.Unicode.GetBytes((string)value);
+                long longValue = BitConverter.ToInt64(buffer, 0);
+                return longValue;
+            }
+            else
+                return Convert.ToInt64(value);
         }
 
         public override string GetName(int ordinal)

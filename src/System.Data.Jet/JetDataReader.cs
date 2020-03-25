@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Data.Common;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace System.Data.Jet
 {
@@ -106,7 +104,15 @@ namespace System.Data.Jet
 
         public override double GetDouble(int ordinal)
         {
-            return Convert.ToDouble(_wrappedDataReader.GetValue(ordinal));
+            object value = _wrappedDataReader.GetValue(ordinal);
+            if (value is string)
+            {
+                byte[] buffer = Encoding.Unicode.GetBytes((string)value);
+                double doubleValue = BitConverter.ToDouble(buffer, 0);
+                return doubleValue;
+            }
+            else
+                return Convert.ToDouble(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override System.Collections.IEnumerator GetEnumerator()
@@ -121,7 +127,15 @@ namespace System.Data.Jet
 
         public override float GetFloat(int ordinal)
         {
-            return Convert.ToSingle(_wrappedDataReader.GetValue(ordinal));
+            object value = _wrappedDataReader.GetValue(ordinal);
+            if (value is string)
+            {
+                byte[] buffer = Encoding.Unicode.GetBytes((string)value);
+                float singleValue = BitConverter.ToSingle(buffer, 0);
+                return singleValue;
+            }
+            else
+                return Convert.ToSingle(_wrappedDataReader.GetValue(ordinal));
         }
 
         public override Guid GetGuid(int ordinal)
@@ -188,7 +202,7 @@ namespace System.Data.Jet
             if (typeof(T) == typeof(TimeSpan))
                 return (T)(object)GetTimeSpan(ordinal);
             else if (typeof(T) == typeof(DateTimeOffset))
-                return (T) (object) GetDateTimeOffset(ordinal);
+                return (T)(object)GetDateTimeOffset(ordinal);
             else
                 return base.GetFieldValue<T>(ordinal);
         }

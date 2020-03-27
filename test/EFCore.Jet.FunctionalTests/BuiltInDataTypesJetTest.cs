@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 Assert.Empty(results);
 
                 AssertSql(
-                    @"SELECT `m`.`Int`
+                    $@"SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
 WHERE `m`.`TimeSpanAsTime` = '00:01:02'");
             }
@@ -65,7 +65,7 @@ WHERE `m`.`TimeSpanAsTime` = '00:01:02'");
                     .FirstOrDefault();
 
                 AssertSql(
-                    @"SELECT TOP 1 CAST(DATALENGTH(`p`.`BytesAsImage`) AS int)
+                    $@"SELECT TOP 1 CAST(DATALENGTH(`p`.`BytesAsImage`) AS int)
 FROM `MappedDataTypesWithIdentity` AS `p`
 WHERE CAST(DATALENGTH(`p`.`BytesAsImage`) AS int) = 0");
             }
@@ -86,11 +86,11 @@ WHERE CAST(DATALENGTH(`p`.`BytesAsImage`) AS int) = 0");
 
                 Assert.Empty(results);
                 AssertSql(
-                    @"@__timeSpan_0='02:01:00' (Nullable = true)
+                    $@"@__timeSpan_0='02:01:00' (Nullable = true)
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
-WHERE `m`.`TimeSpanAsTime` = @__timeSpan_0");
+WHERE `m`.`TimeSpanAsTime` = {AssertSqlHelper.Parameter("@__timeSpan_0")}");
             }
         }
 
@@ -109,11 +109,11 @@ WHERE `m`.`TimeSpanAsTime` = @__timeSpan_0");
 
                 Assert.Empty(results);
                 AssertSql(
-                    @"@__timeSpan_1='02:01:00' (Nullable = true)
+                    $@"@__timeSpan_1='02:01:00' (Nullable = true)
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
-WHERE DATEDIFF(HOUR, `m`.`TimeSpanAsTime`, @__timeSpan_1) = 0");
+WHERE DATEDIFF(HOUR, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
             }
         }
 
@@ -132,11 +132,11 @@ WHERE DATEDIFF(HOUR, `m`.`TimeSpanAsTime`, @__timeSpan_1) = 0");
 
                 Assert.Empty(results);
                 AssertSql(
-                    @"@__timeSpan_1='02:01:00' (Nullable = true)
+                    $@"@__timeSpan_1='02:01:00' (Nullable = true)
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
-WHERE DATEDIFF(MINUTE, `m`.`TimeSpanAsTime`, @__timeSpan_1) = 0");
+WHERE DATEDIFF(MINUTE, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
             }
         }
 
@@ -155,11 +155,11 @@ WHERE DATEDIFF(MINUTE, `m`.`TimeSpanAsTime`, @__timeSpan_1) = 0");
 
                 Assert.Empty(results);
                 AssertSql(
-                    @"@__timeSpan_1='02:01:00' (Nullable = true)
+                    $@"@__timeSpan_1='02:01:00' (Nullable = true)
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
-WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, @__timeSpan_1) = 0");
+WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
             }
         }
 

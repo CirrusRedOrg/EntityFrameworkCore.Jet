@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -13,7 +14,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.KeylessEntity_simple(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
+                $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
         }
 
         [ConditionalTheory]
@@ -22,7 +23,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.KeylessEntity_where_simple(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
+                $@"SELECT `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
 FROM (
     SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`
 ) AS `c`
@@ -36,10 +37,10 @@ WHERE `c`.`City` = 'London'");
             // See issue#17804
             // when we have defining query and ToView, defining query wins
             //            AssertSql(
-            //                @"SELECT `a`.`CategoryName`, `a`.`ProductID`, `a`.`ProductName`
+            //                $@"SELECT `a`.`CategoryName`, `a`.`ProductID`, `a`.`ProductName`
             //FROM `Alphabetical list of products` AS `a`");
             AssertSql(
-                @"SELECT `p`.`ProductID`, `p`.`ProductName`, 'Food' AS `CategoryName`
+                $@"SELECT `p`.`ProductID`, `p`.`ProductName`, 'Food' AS `CategoryName`
 FROM `Products` AS `p`
 WHERE `p`.`Discontinued` <> True");
         }
@@ -49,15 +50,15 @@ WHERE `p`.`Discontinued` <> True");
             base.KeylessEntity_with_nav_defining_query();
 
             AssertSql(
-                @"@__ef_filter___searchTerm_0='A' (Size = 4000)
+                $@"@__ef_filter___searchTerm_0='A' (Size = 4000)
 @__ef_filter___searchTerm_1='A' (Size = 4000)
 
 SELECT `c`.`CompanyName`, (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `OrderCount`, @__ef_filter___searchTerm_0 AS `SearchTerm`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `OrderCount`, {AssertSqlHelper.Parameter("@__ef_filter___searchTerm_0")} AS `SearchTerm`
 FROM `Customers` AS `c`
-WHERE ((@__ef_filter___searchTerm_1 = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN(@__ef_filter___searchTerm_1)) = @__ef_filter___searchTerm_1))) AND ((
+WHERE (({AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")})) = {AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")}))) AND ((
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 0)");
@@ -68,7 +69,7 @@ WHERE ((@__ef_filter___searchTerm_1 = '') OR (`c`.`CompanyName` IS NOT NULL AND 
             await base.KeylessEntity_with_mixed_tracking(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`CustomerID`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`CustomerID`
 FROM `Customers` AS `c`
 INNER JOIN (
     select * from ""Orders""
@@ -80,7 +81,7 @@ INNER JOIN (
             await base.KeylessEntity_with_defining_query(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`CustomerID`
+                $@"SELECT `o`.`CustomerID`
 FROM (
     select * from ""Orders""
 ) AS `o`
@@ -92,7 +93,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'");
             await base.KeylessEntity_with_defining_query_and_correlated_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
     select * from ""Orders""
 ) AS `o`
@@ -107,7 +108,7 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`");
             await base.KeylessEntity_select_where_navigation(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`CustomerID`
+                $@"SELECT `o`.`CustomerID`
 FROM (
     select * from ""Orders""
 ) AS `o`
@@ -120,7 +121,7 @@ WHERE `c`.`City` = 'Seattle'");
             await base.KeylessEntity_select_where_navigation_multi_level(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`CustomerID`
+                $@"SELECT `o`.`CustomerID`
 FROM (
     select * from ""Orders""
 ) AS `o`
@@ -137,7 +138,7 @@ WHERE EXISTS (
             base.Auto_initialized_view_set();
 
             AssertSql(
-                @"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
+                $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
         }
     }
 }

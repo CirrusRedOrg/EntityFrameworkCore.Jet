@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit.Abstractions;
 
@@ -21,7 +22,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Simple_level1_include(isAsync);
 
             AssertSql(
-                @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`
+                $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`
 FROM `Level1` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`OneToOne_Required_PK_Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Level2_Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`Id` AS `Id0`
@@ -36,7 +37,7 @@ LEFT JOIN (
             await base.Simple_level1(isAsync);
 
             AssertSql(
-                @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`
+                $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`
 FROM `Level1` AS `l`");
         }
 
@@ -45,7 +46,7 @@ FROM `Level1` AS `l`");
             await base.Simple_level1_level2_include(isAsync);
 
             AssertSql(
-                @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t1`.`Id`, `t1`.`Level2_Optional_Id`, `t1`.`Level2_Required_Id`, `t1`.`Level3_Name`, `t1`.`OneToMany_Optional_Inverse3Id`, `t1`.`OneToMany_Required_Inverse3Id`, `t1`.`OneToOne_Optional_PK_Inverse3Id`
+                $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t1`.`Id`, `t1`.`Level2_Optional_Id`, `t1`.`Level2_Required_Id`, `t1`.`Level3_Name`, `t1`.`OneToMany_Optional_Inverse3Id`, `t1`.`OneToMany_Required_Inverse3Id`, `t1`.`OneToOne_Optional_PK_Inverse3Id`
 FROM `Level1` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`OneToOne_Required_PK_Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Level2_Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`Id` AS `Id0`
@@ -71,7 +72,7 @@ LEFT JOIN (
             await base.Simple_level1_level2_GroupBy_Count(isAsync);
 
             AssertSql(
-                @"SELECT COUNT(*)
+                $@"SELECT COUNT(*)
 FROM `Level1` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`OneToOne_Required_PK_Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Level2_Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`Id` AS `Id0`
@@ -98,7 +99,7 @@ GROUP BY `t1`.`Level3_Name`");
             await base.Simple_level1_level2_GroupBy_Having_Count(isAsync);
 
             AssertSql(
-                @"SELECT COUNT(*)
+                $@"SELECT COUNT(*)
 FROM `Level1` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`OneToOne_Required_PK_Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Level2_Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`Id` AS `Id0`
@@ -126,7 +127,7 @@ HAVING MIN(IIf(`t`.`Id` IS NULL, 0, `t`.`Id`)) > 0");
             await base.Simple_level1_level2_level3_include(isAsync);
 
             AssertSql(
-                @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t1`.`Id`, `t1`.`Level2_Optional_Id`, `t1`.`Level2_Required_Id`, `t1`.`Level3_Name`, `t1`.`OneToMany_Optional_Inverse3Id`, `t1`.`OneToMany_Required_Inverse3Id`, `t1`.`OneToOne_Optional_PK_Inverse3Id`, `t4`.`Id`, `t4`.`Level3_Optional_Id`, `t4`.`Level3_Required_Id`, `t4`.`Level4_Name`, `t4`.`OneToMany_Optional_Inverse4Id`, `t4`.`OneToMany_Required_Inverse4Id`, `t4`.`OneToOne_Optional_PK_Inverse4Id`
+                $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t1`.`Id`, `t1`.`Level2_Optional_Id`, `t1`.`Level2_Required_Id`, `t1`.`Level3_Name`, `t1`.`OneToMany_Optional_Inverse3Id`, `t1`.`OneToMany_Required_Inverse3Id`, `t1`.`OneToOne_Optional_PK_Inverse3Id`, `t4`.`Id`, `t4`.`Level3_Optional_Id`, `t4`.`Level3_Required_Id`, `t4`.`Level4_Name`, `t4`.`OneToMany_Optional_Inverse4Id`, `t4`.`OneToMany_Required_Inverse4Id`, `t4`.`OneToOne_Optional_PK_Inverse4Id`
 FROM `Level1` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`OneToOne_Required_PK_Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Level2_Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`Id` AS `Id0`
@@ -168,11 +169,11 @@ LEFT JOIN (
             await base.Nested_group_join_with_take(isAsync);
 
             AssertSql(
-                @"@__p_0='2'
+                $@"@__p_0='2'
 
 SELECT `t5`.`Level2_Name`
 FROM (
-    SELECT TOP @__p_0 `t1`.`Id`, `t1`.`OneToOne_Required_PK_Date`, `t1`.`Level1_Optional_Id`, `t1`.`Level1_Required_Id`, `t1`.`Level2_Name`, `t1`.`OneToMany_Optional_Inverse2Id`, `t1`.`OneToMany_Required_Inverse2Id`, `t1`.`OneToOne_Optional_PK_Inverse2Id`, `l`.`Id` AS `Id0`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `t1`.`Id`, `t1`.`OneToOne_Required_PK_Date`, `t1`.`Level1_Optional_Id`, `t1`.`Level1_Required_Id`, `t1`.`Level2_Name`, `t1`.`OneToMany_Optional_Inverse2Id`, `t1`.`OneToMany_Required_Inverse2Id`, `t1`.`OneToOne_Optional_PK_Inverse2Id`, `l`.`Id` AS `Id0`
     FROM `Level1` AS `l`
     LEFT JOIN (
         SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Name`, `t`.`Id` AS `Id0`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`
@@ -218,7 +219,7 @@ ORDER BY `t2`.`Id0`");
             await base.Explicit_GroupJoin_in_subquery_with_unrelated_projection2(isAsync);
 
             AssertSql(
-                @"SELECT `t2`.`Id`
+                $@"SELECT `t2`.`Id`
 FROM (
     SELECT DISTINCT `l`.`Id`, `l`.`Date`, `l`.`Name`
     FROM `Level1` AS `l`
@@ -248,7 +249,7 @@ FROM (
             await base.Result_operator_nav_prop_reference_optional_via_DefaultIfEmpty(isAsync);
 
             AssertSql(
-                @"SELECT SUM(CASE
+                $@"SELECT SUM(CASE
     WHEN `t1`.`Id` IS NULL THEN 0
     ELSE `t1`.`Level1_Required_Id`
 END)
@@ -277,7 +278,7 @@ LEFT JOIN (
             await base.SelectMany_with_Include1(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `l`.`Id`, `t`.`Id0`, `t1`.`Id`, `t1`.`Level2_Optional_Id`, `t1`.`Level2_Required_Id`, `t1`.`Level3_Name`, `t1`.`OneToMany_Optional_Inverse3Id`, `t1`.`OneToMany_Required_Inverse3Id`, `t1`.`OneToOne_Optional_PK_Inverse3Id`, `t1`.`Id0`, `t1`.`Id00`
+                $@"SELECT `t`.`Id`, `t`.`OneToOne_Required_PK_Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Level2_Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `l`.`Id`, `t`.`Id0`, `t1`.`Id`, `t1`.`Level2_Optional_Id`, `t1`.`Level2_Required_Id`, `t1`.`Level3_Name`, `t1`.`OneToMany_Optional_Inverse3Id`, `t1`.`OneToMany_Required_Inverse3Id`, `t1`.`OneToOne_Optional_PK_Inverse3Id`, `t1`.`Id0`, `t1`.`Id00`
 FROM `Level1` AS `l`
 INNER JOIN (
     SELECT `l0`.`Id`, `l0`.`OneToOne_Required_PK_Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Level2_Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`Id` AS `Id0`

@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Can_use_of_type_animal();
 
             AssertSql(
-                @"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+                $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)
 ORDER BY `a`.`Species`");
@@ -30,7 +30,7 @@ ORDER BY `a`.`Species`");
             base.Can_use_is_kiwi();
 
             AssertSql(
-                @"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+                $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND (`a`.`Discriminator` = 'Kiwi')");
         }
@@ -40,7 +40,7 @@ WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND (
             base.Can_use_is_kiwi_with_other_predicate();
 
             AssertSql(
-                @"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+                $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND ((`a`.`Discriminator` = 'Kiwi') AND (`a`.`CountryId` = 1))");
         }
@@ -50,7 +50,7 @@ WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND (
             base.Can_use_is_kiwi_in_projection();
 
             AssertSql(
-                @"SELECT IIF(`a`.`Discriminator` = 'Kiwi', 1, 0)
+                $@"SELECT IIF(`a`.`Discriminator` = 'Kiwi', 1, 0)
 FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)");
         }
@@ -60,7 +60,7 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)");
             base.Can_use_of_type_bird();
 
             AssertSql(
-                @"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+                $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`Species`");
@@ -71,7 +71,7 @@ ORDER BY `a`.`Species`");
             base.Can_use_of_type_bird_predicate();
 
             AssertSql(
-                @"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+                $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE ((`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND (`a`.`CountryId` = 1)) AND `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`Species`");
@@ -82,7 +82,7 @@ ORDER BY `a`.`Species`");
             base.Can_use_of_type_bird_with_projection();
 
             AssertSql(
-                @"SELECT `a`.`EagleId`
+                $@"SELECT `a`.`EagleId`
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND `a`.`Discriminator` IN ('Eagle', 'Kiwi')");
         }
@@ -92,7 +92,7 @@ WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND `
             base.Can_use_of_type_bird_first();
 
             AssertSql(
-                @"SELECT TOP 1 `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+                $@"SELECT TOP 1 `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`Species`");
@@ -103,7 +103,7 @@ ORDER BY `a`.`Species`");
             base.Can_use_of_type_kiwi();
 
             AssertSql(
-                @"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+                $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND (`a`.`Discriminator` = 'Kiwi')");
         }

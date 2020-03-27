@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             // TODO: `Name` shouldn't be selected multiple times and no joins are needed
             AssertSql(
-                @"SELECT `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `t0`.`Name`, `t0`.`Operator_Discriminator`, `t0`.`Operator_Name`, `t0`.`LicenseType`, `t3`.`Name`, `t3`.`Type`, `t5`.`Name`, `t5`.`Description`, `t5`.`Engine_Discriminator`, `t9`.`Name`, `t9`.`Capacity`, `t9`.`FuelTank_Discriminator`, `t9`.`FuelType`, `t9`.`GrainGeometry`
+                $@"SELECT `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `t0`.`Name`, `t0`.`Operator_Discriminator`, `t0`.`Operator_Name`, `t0`.`LicenseType`, `t3`.`Name`, `t3`.`Type`, `t5`.`Name`, `t5`.`Description`, `t5`.`Engine_Discriminator`, `t9`.`Name`, `t9`.`Capacity`, `t9`.`FuelTank_Discriminator`, `t9`.`FuelType`, `t9`.`GrainGeometry`
 FROM `Vehicles` AS `v`
 LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Discriminator`, `v0`.`Operator_Name`, `v0`.`LicenseType`, `t`.`Name` AS `Name0`
@@ -91,7 +91,7 @@ ORDER BY `v`.`Name`");
             base.Can_query_shared();
 
             AssertSql(
-                @"SELECT `v`.`Name`, `v`.`Operator_Discriminator`, `v`.`Operator_Name`, `v`.`LicenseType`
+                $@"SELECT `v`.`Name`, `v`.`Operator_Discriminator`, `v`.`Operator_Name`, `v`.`LicenseType`
 FROM `Vehicles` AS `v`
 INNER JOIN (
     SELECT `v0`.`Name`, `v0`.`Discriminator`, `v0`.`SeatingCapacity`
@@ -106,7 +106,7 @@ WHERE `v`.`Operator_Discriminator` IN ('Operator', 'LicensedOperator')");
             base.Can_query_shared_nonhierarchy();
 
             AssertSql(
-                @"SELECT `t0`.`Name`, `t0`.`Operator_Name`
+                $@"SELECT `t0`.`Name`, `t0`.`Operator_Name`
 FROM (
     SELECT `v`.`Name`, `v`.`Operator_Name`
     FROM `Vehicles` AS `v`
@@ -132,7 +132,7 @@ INNER JOIN (
             base.Can_query_shared_nonhierarchy_with_nonshared_dependent();
 
             AssertSql(
-                @"SELECT `t`.`Name`, `t`.`Operator_Name`
+                $@"SELECT `t`.`Name`, `t`.`Operator_Name`
 FROM (
     SELECT `v`.`Name`, `v`.`Operator_Name`
     FROM `Vehicles` AS `v`
@@ -154,7 +154,7 @@ INNER JOIN (
             base.Can_query_shared_derived_hierarchy();
 
             AssertSql(
-                @"SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelTank_Discriminator`, `v`.`FuelType`, `v`.`GrainGeometry`
+                $@"SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelTank_Discriminator`, `v`.`FuelType`, `v`.`GrainGeometry`
 FROM `Vehicles` AS `v`
 INNER JOIN (
     SELECT `v0`.`Name`, `v0`.`Discriminator`, `v0`.`SeatingCapacity`
@@ -182,7 +182,7 @@ INNER JOIN (
             base.Can_query_shared_derived_nonhierarchy();
 
             AssertSql(
-                @"SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelType`
+                $@"SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelType`
 FROM `Vehicles` AS `v`
 INNER JOIN (
     SELECT `v0`.`Name`, `v0`.`Discriminator`, `v0`.`SeatingCapacity`
@@ -210,7 +210,7 @@ INNER JOIN (
             base.Can_query_shared_derived_nonhierarchy_all_required();
 
             AssertSql(
-                @"SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelType`
+                $@"SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelType`
 FROM `Vehicles` AS `v`
 INNER JOIN (
     SELECT `v0`.`Name`, `v0`.`Discriminator`, `v0`.`SeatingCapacity`
@@ -238,14 +238,14 @@ INNER JOIN (
             base.Can_change_dependent_instance_non_derived();
 
             AssertSql(
-                @"@p3='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)
+                $@"@p3='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)
 @p0='LicensedOperator' (Nullable = false) (Size = 4000)
 @p1='repairman' (Size = 4000)
 @p2='Repair' (Size = 4000)
 
 SET NOCOUNT ON;
-UPDATE `Vehicles` SET `Operator_Discriminator` = @p0, `Operator_Name` = @p1, `LicenseType` = @p2
-WHERE `Name` = @p3;
+UPDATE `Vehicles` SET `Operator_Discriminator` = {AssertSqlHelper.Parameter("@p0")}, `Operator_Name` = {AssertSqlHelper.Parameter("@p1")}, `LicenseType` = {AssertSqlHelper.Parameter("@p2")}
+WHERE `Name` = {AssertSqlHelper.Parameter("@p3")};
 SELECT @@ROWCOUNT;");
         }
 
@@ -254,12 +254,12 @@ SELECT @@ROWCOUNT;");
             base.Can_change_principal_instance_non_derived();
 
             AssertSql(
-                @"@p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)
+                $@"@p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)
 @p0='2'
 
 SET NOCOUNT ON;
-UPDATE `Vehicles` SET `SeatingCapacity` = @p0
-WHERE `Name` = @p1;
+UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
 SELECT @@ROWCOUNT;");
         }
     }

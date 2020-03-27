@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Query_with_owned_entity_equality_operator(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t1`.`Id`, `t4`.`Id`, `t4`.`PersonAddress_Country_Name`, `t4`.`PersonAddress_Country_PlanetId`, `t6`.`Id`, `t9`.`Id`, `t9`.`BranchAddress_Country_Name`, `t9`.`BranchAddress_Country_PlanetId`, `t11`.`Id`, `t14`.`Id`, `t14`.`LeafAAddress_Country_Name`, `t14`.`LeafAAddress_Country_PlanetId`, `t`.`Id`, `o16`.`ClientId`, `o16`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t1`.`Id`, `t4`.`Id`, `t4`.`PersonAddress_Country_Name`, `t4`.`PersonAddress_Country_PlanetId`, `t6`.`Id`, `t9`.`Id`, `t9`.`BranchAddress_Country_Name`, `t9`.`BranchAddress_Country_PlanetId`, `t11`.`Id`, `t14`.`Id`, `t14`.`LeafAAddress_Country_Name`, `t14`.`LeafAAddress_Country_PlanetId`, `t`.`Id`, `o16`.`ClientId`, `o16`.`Id`
 FROM `OwnedPerson` AS `o`,
 (
     SELECT `o0`.`Id`, `o0`.`Discriminator`
@@ -108,7 +108,7 @@ ORDER BY `o`.`Id`, `t`.`Id`, `o16`.`ClientId`, `o16`.`Id`");
 
             // See issue #10067
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -212,7 +212,7 @@ ORDER BY `o`.`Id`, `o20`.`ClientId`, `o20`.`Id`");
             await base.No_ignored_include_warning_when_implicit_load(isAsync);
 
             AssertSql(
-                @"SELECT COUNT(*)
+                $@"SELECT COUNT(*)
 FROM `OwnedPerson` AS `o`
 WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
         }
@@ -222,7 +222,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.Query_for_branch_type_loads_all_owned_navs(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -303,7 +303,7 @@ ORDER BY `o`.`Id`, `o15`.`ClientId`, `o15`.`Id`");
             await base.Query_for_branch_type_loads_all_owned_navs_tracking(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -384,7 +384,7 @@ ORDER BY `o`.`Id`, `o15`.`ClientId`, `o15`.`Id`");
             await base.Query_for_leaf_type_loads_all_owned_navs(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -465,7 +465,7 @@ ORDER BY `o`.`Id`, `o15`.`ClientId`, `o15`.`Id`");
             await base.Query_when_group_by(isAsync);
 
             AssertSql(
-                @"SELECT `op`.`Id`, `op`.`Discriminator`, `t`.`Id`, `t0`.`Id`, `t0`.`LeafBAddress_Country_Name`, `t0`.`LeafBAddress_Country_PlanetId`, `t1`.`Id`, `t2`.`Id`, `t2`.`LeafAAddress_Country_Name`, `t2`.`LeafAAddress_Country_PlanetId`, `t3`.`Id`, `t4`.`Id`, `t4`.`BranchAddress_Country_Name`, `t4`.`BranchAddress_Country_PlanetId`, `t5`.`Id`, `t6`.`Id`, `t6`.`PersonAddress_Country_Name`, `t6`.`PersonAddress_Country_PlanetId`
+                $@"SELECT `op`.`Id`, `op`.`Discriminator`, `t`.`Id`, `t0`.`Id`, `t0`.`LeafBAddress_Country_Name`, `t0`.`LeafBAddress_Country_PlanetId`, `t1`.`Id`, `t2`.`Id`, `t2`.`LeafAAddress_Country_Name`, `t2`.`LeafAAddress_Country_PlanetId`, `t3`.`Id`, `t4`.`Id`, `t4`.`BranchAddress_Country_Name`, `t4`.`BranchAddress_Country_PlanetId`, `t5`.`Id`, `t6`.`Id`, `t6`.`PersonAddress_Country_Name`, `t6`.`PersonAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `op`
 LEFT JOIN (
     SELECT [op.LeafBAddress].*
@@ -510,7 +510,7 @@ LEFT JOIN (
 WHERE `op`.`Discriminator` IN ('LeafB', 'LeafA', 'Branch', 'OwnedPerson')
 ORDER BY `op`.`Id`",
                 //
-                @"SELECT [op.Orders].`Id`, [op.Orders].`ClientId`
+                $@"SELECT [op.Orders].`Id`, [op.Orders].`ClientId`
 FROM `Order` AS [op.Orders]
 INNER JOIN (
     SELECT DISTINCT `op0`.`Id`
@@ -565,11 +565,11 @@ ORDER BY `t15`.`Id`");
             await base.Query_when_subquery(isAsync);
 
             AssertSql(
-                @"@__p_0='5'
+                $@"@__p_0='5'
 
 SELECT `t0`.`Id`, `t0`.`Discriminator`, `t4`.`Id`, `t7`.`Id`, `t7`.`PersonAddress_Country_Name`, `t7`.`PersonAddress_Country_PlanetId`, `t9`.`Id`, `t12`.`Id`, `t12`.`BranchAddress_Country_Name`, `t12`.`BranchAddress_Country_PlanetId`, `t14`.`Id`, `t17`.`Id`, `t17`.`LeafBAddress_Country_Name`, `t17`.`LeafBAddress_Country_PlanetId`, `t19`.`Id`, `t22`.`Id`, `t22`.`LeafAAddress_Country_Name`, `t22`.`LeafAAddress_Country_PlanetId`, `o22`.`ClientId`, `o22`.`Id`
 FROM (
-    SELECT TOP @__p_0 `t`.`Id`, `t`.`Discriminator`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `t`.`Id`, `t`.`Discriminator`
     FROM (
         SELECT DISTINCT `o`.`Id`, `o`.`Discriminator`
         FROM `OwnedPerson` AS `o`
@@ -687,7 +687,7 @@ ORDER BY `t0`.`Id`, `o22`.`ClientId`, `o22`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_projecting_scalar(isAsync);
 
             AssertSql(
-                @"SELECT `t3`.`PersonAddress_Country_Name`
+                $@"SELECT `t3`.`PersonAddress_Country_Name`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -720,7 +720,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA') AND (`t
             await base.Navigation_rewrite_on_owned_reference_projecting_entity(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -824,7 +824,7 @@ ORDER BY `o`.`Id`, `o20`.`ClientId`, `o20`.`Id`");
             await base.Navigation_rewrite_on_owned_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`
+                $@"SELECT `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`
 WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA') AND ((
@@ -839,7 +839,7 @@ ORDER BY `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`");
             await base.Navigation_rewrite_on_owned_collection_with_composition(isAsync);
 
             AssertSql(
-                @"SELECT (
+                $@"SELECT (
     SELECT TOP 1 IIF(`o`.`Id` <> 42, 1, 0)
     FROM `Order` AS `o`
     WHERE `o0`.`Id` = `o`.`ClientId`
@@ -854,7 +854,7 @@ ORDER BY `o0`.`Id`");
             await base.Navigation_rewrite_on_owned_collection_with_composition_complex(isAsync);
 
             AssertSql(
-                @"SELECT (
+                $@"SELECT (
     SELECT TOP 1 `t4`.`PersonAddress_Country_Name`
     FROM `Order` AS `o`
     LEFT JOIN (
@@ -896,7 +896,7 @@ WHERE `o6`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.SelectMany_on_owned_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o0`.`ClientId`, `o0`.`Id`
+                $@"SELECT `o0`.`ClientId`, `o0`.`Id`
 FROM `OwnedPerson` AS `o`
 INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`
 WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
@@ -907,7 +907,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity(isAsync);
 
             AssertSql(
-                @"SELECT `p`.`Id`, `p`.`StarId`
+                $@"SELECT `p`.`Id`, `p`.`StarId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -941,7 +941,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.Filter_owned_entity_chained_with_regular_entity_followed_by_projecting_owned_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o5`.`ClientId`, `o5`.`Id`
+                $@"SELECT `o`.`Id`, `o5`.`ClientId`, `o5`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -977,7 +977,7 @@ ORDER BY `o`.`Id`, `o5`.`ClientId`, `o5`.`Id`");
             await base.Project_multiple_owned_navigations(isAsync);
 
             AssertSql(
-                @"SELECT `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `p`.`Id`, `p`.`StarId`, `o`.`Id`, `o5`.`ClientId`, `o5`.`Id`
+                $@"SELECT `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `p`.`Id`, `p`.`StarId`, `o`.`Id`, `o5`.`ClientId`, `o5`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1013,7 +1013,7 @@ ORDER BY `o`.`Id`, `o5`.`ClientId`, `o5`.`Id`");
             await base.Project_multiple_owned_navigations_with_expansion_on_owned_collections(isAsync);
 
             AssertSql(
-                @"SELECT (
+                $@"SELECT (
     SELECT COUNT(*)
     FROM `Order` AS `o`
     LEFT JOIN (
@@ -1081,7 +1081,7 @@ ORDER BY `o6`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_filter(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1186,7 +1186,7 @@ ORDER BY `o`.`Id`, `o20`.`ClientId`, `o20`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_property(isAsync);
 
             AssertSql(
-                @"SELECT `p`.`Id`
+                $@"SELECT `p`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1220,7 +1220,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
+                $@"SELECT `o`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1256,7 +1256,7 @@ ORDER BY `o`.`Id`, `m`.`Id`");
             await base.SelectMany_on_owned_reference_followed_by_regular_entity_and_collection(isAsync);
 
             AssertSql(
-                @"SELECT `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
+                $@"SELECT `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1291,7 +1291,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.SelectMany_on_owned_reference_with_entity_in_between_ending_in_owned_collection(isAsync);
 
             AssertSql(
-                @"SELECT `e`.`Id`, `e`.`Name`, `e`.`StarId`
+                $@"SELECT `e`.`Id`, `e`.`Name`, `e`.`StarId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1327,7 +1327,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_another_reference(isAsync);
 
             AssertSql(
-                @"SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
+                $@"SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1365,7 +1365,7 @@ ORDER BY `o`.`Id`, `e`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_another_reference_and_scalar(isAsync);
 
             AssertSql(
-                @"SELECT `s`.`Name`
+                $@"SELECT `s`.`Name`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1402,7 +1402,7 @@ WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')");
                 isAsync);
 
             AssertSql(
-                @"SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
+                $@"SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1439,7 +1439,7 @@ ORDER BY `o`.`Id`, `e`.`Id`");
             await base.Query_with_OfType_eagerly_loads_correct_owned_navigations(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafAAddress_Country_Name`, `t13`.`LeafAAddress_Country_PlanetId`, `o15`.`ClientId`, `o15`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`
@@ -1520,21 +1520,21 @@ ORDER BY `o`.`Id`, `o15`.`ClientId`, `o15`.`Id`");
             await base.Preserve_includes_when_applying_skip_take_after_anonymous_type_select(isAsync);
 
             AssertSql(
-                @"SELECT COUNT(*)
+                $@"SELECT COUNT(*)
 FROM `OwnedPerson` AS `o`
 WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')",
                 //
-                @"@__Count_0='4'
+                $@"@__Count_0='4'
 @__p_1='0'
 @__p_2='100'
 
 SELECT `t`.`Id`, `t`.`Discriminator`, `t3`.`Id`, `t6`.`Id`, `t6`.`PersonAddress_Country_Name`, `t6`.`PersonAddress_Country_PlanetId`, `t8`.`Id`, `t11`.`Id`, `t11`.`BranchAddress_Country_Name`, `t11`.`BranchAddress_Country_PlanetId`, `t13`.`Id`, `t16`.`Id`, `t16`.`LeafBAddress_Country_Name`, `t16`.`LeafBAddress_Country_PlanetId`, `t18`.`Id`, `t21`.`Id`, `t21`.`LeafAAddress_Country_Name`, `t21`.`LeafAAddress_Country_PlanetId`, `t`.`c`, `o22`.`ClientId`, `o22`.`Id`
 FROM (
-    SELECT `o`.`Id`, `o`.`Discriminator`, @__Count_0 AS `c`
+    SELECT `o`.`Id`, `o`.`Discriminator`, {AssertSqlHelper.Parameter("@__Count_0")} AS `c`
     FROM `OwnedPerson` AS `o`
     WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')
     ORDER BY `o`.`Id`
-    SKIP @__p_1 FETCH NEXT @__p_2 ROWS ONLY
+    SKIP {AssertSqlHelper.Parameter("@__p_1")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_2")} ROWS ONLY
 ) AS `t`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t0`.`Id` AS `Id0`
@@ -1646,7 +1646,7 @@ ORDER BY `t`.`Id`, `o22`.`ClientId`, `o22`.`Id`");
             await base.Unmapped_property_projection_loads_owned_navigations(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
+                $@"SELECT `o`.`Id`, `o`.`Discriminator`, `t0`.`Id`, `t3`.`Id`, `t3`.`PersonAddress_Country_Name`, `t3`.`PersonAddress_Country_PlanetId`, `t5`.`Id`, `t8`.`Id`, `t8`.`BranchAddress_Country_Name`, `t8`.`BranchAddress_Country_PlanetId`, `t10`.`Id`, `t13`.`Id`, `t13`.`LeafBAddress_Country_Name`, `t13`.`LeafBAddress_Country_PlanetId`, `t15`.`Id`, `t18`.`Id`, `t18`.`LeafAAddress_Country_Name`, `t18`.`LeafAAddress_Country_PlanetId`, `o20`.`ClientId`, `o20`.`Id`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`Id`, `t`.`Id` AS `Id0`

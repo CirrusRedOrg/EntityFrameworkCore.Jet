@@ -2,6 +2,7 @@
 
 using System;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -13,7 +14,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Union(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'Berlin'
 UNION
@@ -27,7 +28,7 @@ WHERE `c0`.`City` = 'London'");
             await base.Concat(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'Berlin'
 UNION ALL
@@ -41,7 +42,7 @@ WHERE `c0`.`City` = 'London'");
             await base.Intersect(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'London'
 INTERSECT
@@ -55,7 +56,7 @@ WHERE CHARINDEX('Thomas', `c0`.`ContactName`) > 0");
             await base.Except(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'London'
 EXCEPT
@@ -69,7 +70,7 @@ WHERE CHARINDEX('Thomas', `c0`.`ContactName`) > 0");
             await base.Union_OrderBy_Skip_Take(isAsync);
 
             AssertSql(
-                @"@__p_0='1'
+                $@"@__p_0='1'
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
@@ -82,7 +83,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `t`
 ORDER BY `t`.`ContactName`
-SKIP @__p_0 FETCH NEXT @__p_0 ROWS ONLY");
+SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_0")} ROWS ONLY");
         }
 
         public override async Task Union_Where(bool isAsync)
@@ -90,7 +91,7 @@ SKIP @__p_0 FETCH NEXT @__p_0 ROWS ONLY");
             await base.Union_Where(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -108,7 +109,7 @@ WHERE CHARINDEX('Thomas', `t`.`ContactName`) > 0");
             await base.Union_Skip_Take_OrderBy_ThenBy_Where(isAsync);
 
             AssertSql(
-                @"@__p_0='0'
+                $@"@__p_0='0'
 
 SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
 FROM (
@@ -123,7 +124,7 @@ FROM (
         WHERE `c0`.`City` = 'London'
     ) AS `t`
     ORDER BY `t`.`Region`, `t`.`City`
-    SKIP @__p_0
+    SKIP {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `t0`
 WHERE CHARINDEX('Thomas', `t0`.`ContactName`) > 0
 ORDER BY `t0`.`Region`, `t0`.`City`");
@@ -134,7 +135,7 @@ ORDER BY `t0`.`Region`, `t0`.`City`");
             await base.Union_Union(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'Berlin'
 UNION
@@ -152,7 +153,7 @@ WHERE `c1`.`City` = 'Mannheim'");
             await base.Union_Intersect(isAsync);
 
             AssertSql(
-                @"(
+                $@"(
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     WHERE `c`.`City` = 'Berlin'
@@ -173,15 +174,15 @@ WHERE CHARINDEX('Thomas', `c1`.`ContactName`) > 0");
             await base.Union_Take_Union_Take(isAsync);
 
             AssertSql(
-                @"@__p_0='1'
+                $@"@__p_0='1'
 
 SELECT `t2`.`CustomerID`, `t2`.`Address`, `t2`.`City`, `t2`.`CompanyName`, `t2`.`ContactName`, `t2`.`ContactTitle`, `t2`.`Country`, `t2`.`Fax`, `t2`.`Phone`, `t2`.`PostalCode`, `t2`.`Region`
 FROM (
-    SELECT TOP @__p_0 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
     FROM (
         SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
-            SELECT TOP @__p_0 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+            SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
             FROM (
                 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
                 FROM `Customers` AS `c`
@@ -207,7 +208,7 @@ ORDER BY `t2`.`CustomerID`");
             await base.Select_Union(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`Address`
+                $@"SELECT `c`.`Address`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'Berlin'
 UNION
@@ -221,7 +222,7 @@ WHERE `c0`.`City` = 'London'");
             await base.Union_Select(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`Address`
+                $@"SELECT `t`.`Address`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -239,7 +240,7 @@ WHERE CHARINDEX('Hanover', `t`.`Address`) > 0");
             await base.Union_Select_scalar(isAsync);
 
             AssertSql(
-                @"SELECT 1
+                $@"SELECT 1
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -254,7 +255,7 @@ FROM (
             await base.Union_with_anonymous_type_projection(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID` AS `Id`
+                $@"SELECT `t`.`CustomerID` AS `Id`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -271,7 +272,7 @@ FROM (
             await base.Select_Union_unrelated(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`ContactName`
+                $@"SELECT `t`.`ContactName`
 FROM (
     SELECT `c`.`ContactName`
     FROM `Customers` AS `c`
@@ -288,7 +289,7 @@ ORDER BY `t`.`ContactName`");
             await base.Select_Union_different_fields_in_anonymous_with_subquery(isAsync);
 
             AssertSql(
-                @"@__p_0='1'
+                $@"@__p_0='1'
 @__p_1='10'
 
 SELECT `t0`.`Foo`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
@@ -304,7 +305,7 @@ FROM (
         WHERE `c0`.`City` = 'London'
     ) AS `t`
     ORDER BY `t`.`Foo`
-    SKIP @__p_0 FETCH NEXT @__p_1 ROWS ONLY
+    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
 ) AS `t0`
 WHERE `t0`.`Foo` = 'Berlin'
 ORDER BY `t0`.`Foo`");
@@ -315,7 +316,7 @@ ORDER BY `t0`.`Foo`");
             await base.Union_Include(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -334,7 +335,7 @@ ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
             await base.Include_Union(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -353,7 +354,7 @@ ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
             await base.Select_Except_reference_projection(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 EXCEPT
@@ -368,7 +369,7 @@ WHERE `o0`.`CustomerID` = 'ALFKI'");
             await base.SubSelect_Union(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Orders`
@@ -386,7 +387,7 @@ FROM `Customers` AS `c0`");
             await base.GroupBy_Select_Union(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, COUNT(*) AS `Count`
+                $@"SELECT `c`.`CustomerID`, COUNT(*) AS `Count`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'Berlin'
 GROUP BY `c`.`CustomerID`
@@ -402,7 +403,7 @@ GROUP BY `c0`.`CustomerID`");
             await base.Union_over_columns_with_different_nullability(isAsync);
 
             AssertSql(
-                @"SELECT 'NonNullableConstant' AS `c`
+                $@"SELECT 'NonNullableConstant' AS `c`
 FROM `Customers` AS `c`
 UNION ALL
 SELECT NULL AS `c`
@@ -495,18 +496,18 @@ FROM `Orders` AS `o0`";
             await base.OrderBy_Take_Union(isAsync);
 
             AssertSql(
-                @"@__p_0='1'
+                $@"@__p_0='1'
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
-    SELECT TOP @__p_0 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`ContactName`
 ) AS `t`
 UNION
 SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
 FROM (
-    SELECT TOP @__p_0 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`ContactName`
 ) AS `t0`");

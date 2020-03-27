@@ -1,9 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Common;
 using System.IO;
 using System.Data.Jet;
-using System.Data.OleDb;
 using Microsoft.Extensions.Configuration;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
@@ -19,21 +19,24 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             .GetSection("Test:Jet");
 
         public static string DefaultConnection { get; } = Config["DefaultConnection"]
-            ?? JetConnection.GetConnectionString("Jet.accdb", JetConfiguration.DefaultProviderFactory);
+            ?? JetConnection.GetConnectionString("Jet.accdb", TestEnvironment.DataAccessProviderFactory);
 
         public static bool IsConfigured
         {
             get
             {
-                var dataAccessType = JetConnection.GetDataAccessType(TestEnvironment.DefaultConnection);
-                var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(dataAccessType);
+                var dataAccessType = JetConnection.GetDataAccessType(DefaultConnection);
+                var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessType);
                 var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
-                connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
+                connectionStringBuilder.ConnectionString = DefaultConnection;
                 
                 return !string.IsNullOrEmpty(connectionStringBuilder.GetDataSource());
             }
         }
 
+        public static DataAccessProvider DataAccessProvider { get; } = JetConnection.GetDataAccessType(DefaultConnection);
+        public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessType(DefaultConnection));
+        
         public static bool IsLocalDb { get; } = true;
 
         public static bool IsCI { get; } = Environment.GetEnvironmentVariable("PIPELINE_WORKSPACE") != null

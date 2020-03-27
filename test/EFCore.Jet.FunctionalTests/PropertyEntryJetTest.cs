@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Xunit.Abstractions;
 
@@ -18,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Property_entry_original_value_is_set();
 
             AssertSql(
-                @"SELECT TOP 1 `e`.`Id`, `e`.`EngineSupplierId`, `e`.`Name`, `t`.`Id`, `t`.`StorageLocation_Latitude`, `t`.`StorageLocation_Longitude`
+                $@"SELECT TOP 1 `e`.`Id`, `e`.`EngineSupplierId`, `e`.`Name`, `t`.`Id`, `t`.`StorageLocation_Latitude`, `t`.`StorageLocation_Longitude`
 FROM `Engines` AS `e`
 LEFT JOIN (
     SELECT `e0`.`Id`, `e0`.`StorageLocation_Latitude`, `e0`.`StorageLocation_Longitude`, `e1`.`Id` AS `Id0`
@@ -28,7 +29,7 @@ LEFT JOIN (
 ) AS `t` ON `e`.`Id` = `t`.`Id`
 ORDER BY `e`.`Id`",
                 //
-                @"@p1='1'
+                $@"@p1='1'
 @p2='1'
 @p0='FO 108X' (Size = 4000)
 @p3='ChangedEngine' (Size = 4000)
@@ -36,8 +37,8 @@ ORDER BY `e`.`Id`",
 @p5='-122.128101'
 
 SET NOCOUNT ON;
-UPDATE `Engines` SET `Name` = @p0
-WHERE `Id` = @p1 AND `EngineSupplierId` = @p2 AND `Name` = @p3 AND `StorageLocation_Latitude` = @p4 AND `StorageLocation_Longitude` = @p5;
+UPDATE `Engines` SET `Name` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `Id` = {AssertSqlHelper.Parameter("@p1")} AND `EngineSupplierId` = {AssertSqlHelper.Parameter("@p2")} AND `Name` = {AssertSqlHelper.Parameter("@p3")} AND `StorageLocation_Latitude` = {AssertSqlHelper.Parameter("@p4")} AND `StorageLocation_Longitude` = {AssertSqlHelper.Parameter("@p5")};
 SELECT @@ROWCOUNT;");
         }
 

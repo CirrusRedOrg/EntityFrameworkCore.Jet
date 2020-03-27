@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.All_customers();
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`CompanyName`
+                $@"SELECT `c`.`CustomerID`, `c`.`CompanyName`
 FROM `Customers` AS `c`");
         }
 
@@ -23,7 +23,7 @@ FROM `Customers` AS `c`");
             base.All_employees();
 
             AssertSql(
-                @"SELECT `e`.`EmployeeID`, `e`.`City`
+                $@"SELECT `e`.`EmployeeID`, `e`.`City`
 FROM `Employees` AS `e`");
         }
 
@@ -32,7 +32,7 @@ FROM `Employees` AS `e`");
             base.All_orders();
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ShipVia`
+                $@"SELECT `o`.`OrderID`, `o`.`ShipVia`
 FROM `Orders` AS `o`");
         }
 
@@ -41,7 +41,7 @@ FROM `Orders` AS `o`");
             base.Project_nullable_enum();
 
             AssertSql(
-                @"SELECT `o`.`ShipVia`
+                $@"SELECT `o`.`ShipVia`
 FROM `Orders` AS `o`");
         }
 

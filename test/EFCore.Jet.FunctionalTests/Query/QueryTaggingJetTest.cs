@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Single_query_tag();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -33,7 +33,7 @@ ORDER BY `c`.`CustomerID`");
             base.Single_query_multiple_tags();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 
 -- Enya
 
@@ -47,7 +47,7 @@ ORDER BY `c`.`CustomerID`");
             base.Tags_on_subquery();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 
 -- Laurel
 
@@ -66,7 +66,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             base.Duplicate_tags();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -78,7 +78,7 @@ ORDER BY `c`.`CustomerID`");
             base.Tag_on_include_query();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -95,7 +95,7 @@ ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
             base.Tag_on_scalar_query();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 
 SELECT TOP 1 `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -107,7 +107,7 @@ ORDER BY `o`.`OrderID`");
             base.Single_query_multiline_tag();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 -- AND
 -- Laurel
 
@@ -121,7 +121,7 @@ ORDER BY `c`.`CustomerID`");
             base.Single_query_multiple_multiline_tag();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 -- AND
 -- Laurel
 
@@ -140,7 +140,7 @@ ORDER BY `c`.`CustomerID`");
             base.Single_query_multiline_tag_with_empty_lines();
 
             AssertSql(
-                @"-- Yanni
+                $@"-- Yanni
 -- 
 -- AND
 -- 

@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                     Assert.Empty(results);
 
                     AssertSql(
-                        @"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
+                        $@"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
 FROM `Dates` AS `d`
 WHERE (((`d`.`DateTime2_2` = GETDATE()) OR (`d`.`DateTime2_7` = GETDATE())) OR (`d`.`DateTime` = GETDATE())) OR (`d`.`SmallDateTime` = GETDATE())");
                 }
@@ -104,7 +104,7 @@ WHERE (((`d`.`DateTime2_2` = GETDATE()) OR (`d`.`DateTime2_7` = GETDATE())) OR (
                     Assert.Single(results);
 
                     AssertSql(
-                        @"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
+                        $@"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
 FROM `Dates` AS `d`
 WHERE ((((`d`.`DateTime2_2` <> GETDATE()) OR GETDATE() IS NULL) AND ((`d`.`DateTime2_7` <> GETDATE()) OR GETDATE() IS NULL)) AND ((`d`.`DateTime` <> GETDATE()) OR GETDATE() IS NULL)) AND ((`d`.`SmallDateTime` <> GETDATE()) OR GETDATE() IS NULL)");
                 }
@@ -142,7 +142,7 @@ WHERE ((((`d`.`DateTime2_2` <> GETDATE()) OR GETDATE() IS NULL) AND ((`d`.`DateT
                     Assert.Single(results);
 
                     AssertSql(
-                        @"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
+                        $@"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
 FROM `Dates` AS `d`
 WHERE ((((((((((`d`.`SmallDateTime` = '1970-09-03T12:00:00') AND (`d`.`DateTime` = '1971-09-03T12:00:10.220')) AND (`d`.`DateTime2` = '1972-09-03T12:00:10.3330000')) AND (`d`.`DateTime2_0` = '1973-09-03T12:00:10')) AND (`d`.`DateTime2_1` = '1974-09-03T12:00:10.5')) AND (`d`.`DateTime2_2` = '1975-09-03T12:00:10.66')) AND (`d`.`DateTime2_3` = '1976-09-03T12:00:10.777')) AND (`d`.`DateTime2_4` = '1977-09-03T12:00:10.8880')) AND (`d`.`DateTime2_5` = '1978-09-03T12:00:10.99900')) AND (`d`.`DateTime2_6` = '1979-09-03T12:00:10.111000')) AND (`d`.`DateTime2_7` = '1980-09-03T12:00:10.2220000')");
                 }
@@ -195,7 +195,7 @@ WHERE ((((((((((`d`.`SmallDateTime` = '1970-09-03T12:00:00') AND (`d`.`DateTime`
                     Assert.Single(results);
 
                     AssertSql(
-                        @"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
+                        $@"SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
 FROM `Dates` AS `d`
 WHERE (((((((((`d`.`SmallDateTime` IN ('1970-09-03T12:00:00', '1971-09-03T12:00:10', '1972-09-03T12:00:10', '1973-09-03T12:00:10', '1974-09-03T12:00:10', '1975-09-03T12:00:10', '1976-09-03T12:00:10', '1977-09-03T12:00:10', '1978-09-03T12:00:10', '1979-09-03T12:00:10', '1980-09-03T12:00:10') AND `d`.`DateTime` IN ( #09/03/1970 12:00:00#, '1971-09-03T12:00:10.220', '1972-09-03T12:00:10.333', #09/03/1973 12:00:10#, '1974-09-03T12:00:10.500', '1975-09-03T12:00:10.660', '1976-09-03T12:00:10.777', '1977-09-03T12:00:10.888', '1978-09-03T12:00:10.999', '1979-09-03T12:00:10.111', '1980-09-03T12:00:10.222')) AND `d`.`DateTime2` IN ('1970-09-03T12:00:00.0000000', '1971-09-03T12:00:10.2200000', '1972-09-03T12:00:10.3330000', '1973-09-03T12:00:10.0000000', '1974-09-03T12:00:10.5000000', '1975-09-03T12:00:10.6600000', '1976-09-03T12:00:10.7770000', '1977-09-03T12:00:10.8880000', '1978-09-03T12:00:10.9990000', '1979-09-03T12:00:10.1110000', '1980-09-03T12:00:10.2220000')) AND `d`.`DateTime2_0` IN ('1970-09-03T12:00:00', '1971-09-03T12:00:10', '1972-09-03T12:00:10', '1973-09-03T12:00:10', '1974-09-03T12:00:10', '1975-09-03T12:00:10', '1976-09-03T12:00:10', '1977-09-03T12:00:10', '1978-09-03T12:00:10', '1979-09-03T12:00:10', '1980-09-03T12:00:10')) AND `d`.`DateTime2_1` IN ('1970-09-03T12:00:00.0', '1971-09-03T12:00:10.2', '1972-09-03T12:00:10.3', '1973-09-03T12:00:10.0', '1974-09-03T12:00:10.5', '1975-09-03T12:00:10.6', '1976-09-03T12:00:10.7', '1977-09-03T12:00:10.8', '1978-09-03T12:00:10.9', '1979-09-03T12:00:10.1', '1980-09-03T12:00:10.2')) AND `d`.`DateTime2_2` IN ('1970-09-03T12:00:00.00', '1971-09-03T12:00:10.22', '1972-09-03T12:00:10.33', '1973-09-03T12:00:10.00', '1974-09-03T12:00:10.50', '1975-09-03T12:00:10.66', '1976-09-03T12:00:10.77', '1977-09-03T12:00:10.88', '1978-09-03T12:00:10.99', '1979-09-03T12:00:10.11', '1980-09-03T12:00:10.22')) AND `d`.`DateTime2_3` IN ( #09/03/1970 12:00:00#, '1971-09-03T12:00:10.220', '1972-09-03T12:00:10.333', #09/03/1973 12:00:10#, '1974-09-03T12:00:10.500', '1975-09-03T12:00:10.660', '1976-09-03T12:00:10.777', '1977-09-03T12:00:10.888', '1978-09-03T12:00:10.999', '1979-09-03T12:00:10.111', '1980-09-03T12:00:10.222')) AND `d`.`DateTime2_4` IN ('1970-09-03T12:00:00.0000', '1971-09-03T12:00:10.2200', '1972-09-03T12:00:10.3330', '1973-09-03T12:00:10.0000', '1974-09-03T12:00:10.5000', '1975-09-03T12:00:10.6600', '1976-09-03T12:00:10.7770', '1977-09-03T12:00:10.8880', '1978-09-03T12:00:10.9990', '1979-09-03T12:00:10.1110', '1980-09-03T12:00:10.2220')) AND `d`.`DateTime2_5` IN ('1970-09-03T12:00:00.00000', '1971-09-03T12:00:10.22000', '1972-09-03T12:00:10.33300', '1973-09-03T12:00:10.00000', '1974-09-03T12:00:10.50000', '1975-09-03T12:00:10.66000', '1976-09-03T12:00:10.77700', '1977-09-03T12:00:10.88800', '1978-09-03T12:00:10.99900', '1979-09-03T12:00:10.11100', '1980-09-03T12:00:10.22200')) AND `d`.`DateTime2_6` IN ('1970-09-03T12:00:00.000000', '1971-09-03T12:00:10.220000', '1972-09-03T12:00:10.333000', '1973-09-03T12:00:10.000000', '1974-09-03T12:00:10.500000', '1975-09-03T12:00:10.660000', '1976-09-03T12:00:10.777000', '1977-09-03T12:00:10.888000', '1978-09-03T12:00:10.999000', '1979-09-03T12:00:10.111000', '1980-09-03T12:00:10.222000')) AND `d`.`DateTime2_7` IN ('1970-09-03T12:00:00.0000000', '1971-09-03T12:00:10.2200000', '1972-09-03T12:00:10.3330000', '1973-09-03T12:00:10.0000000', '1974-09-03T12:00:10.5000000', '1975-09-03T12:00:10.6600000', '1976-09-03T12:00:10.7770000', '1977-09-03T12:00:10.8880000', '1978-09-03T12:00:10.9990000', '1979-09-03T12:00:10.1110000', '1980-09-03T12:00:10.2220000')");
                 }
@@ -589,7 +589,7 @@ INSERT `Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (5, '4000'
                     Assert.Equal(3, result[1].Orders.Count);
 
                     AssertSql(
-                        @"SELECT `c`.`FirstName`, `c`.`LastName`, `o`.`Id`, `o`.`CustomerFirstName`, `o`.`CustomerLastName`, `o`.`Name`
+                        $@"SELECT `c`.`FirstName`, `c`.`LastName`, `o`.`Id`, `o`.`CustomerFirstName`, `o`.`CustomerLastName`, `o`.`Name`
 FROM `Customer` AS `c`
 LEFT JOIN `Order` AS `o` ON (`c`.`FirstName` = `o`.`CustomerFirstName`) AND (`c`.`LastName` = `o`.`CustomerLastName`)
 ORDER BY `c`.`FirstName`, `c`.`LastName`, `o`.`Id`");
@@ -615,7 +615,7 @@ ORDER BY `c`.`FirstName`, `c`.`LastName`, `o`.`Id`");
                     Assert.NotNull(result[4].Customer);
 
                     AssertSql(
-                        @"SELECT `o`.`Id`, `o`.`CustomerFirstName`, `o`.`CustomerLastName`, `o`.`Name`, `c`.`FirstName`, `c`.`LastName`
+                        $@"SELECT `o`.`Id`, `o`.`CustomerFirstName`, `o`.`CustomerLastName`, `o`.`Name`, `c`.`FirstName`, `c`.`LastName`
 FROM `Order` AS `o`
 LEFT JOIN `Customer` AS `c` ON (`o`.`CustomerFirstName` = `c`.`FirstName`) AND (`o`.`CustomerLastName` = `c`.`LastName`)");
                 }
@@ -995,7 +995,7 @@ Queen of the Andals and the Rhoynar and the First Men, Khaleesi of the Great Gra
 
                     // issue #16057
                     //                    AssertSql(
-                    //                        @"@__firstName_0='Foo' (Size = 450)
+                    //                        $@"@__firstName_0='Foo' (Size = 450)
                     //@__8__locals1_details_LastName_1='Bar' (Size = 450)
 
                     //SELECT `c`.`FirstName`, `c`.`LastName`
@@ -2112,7 +2112,7 @@ Queen of the Andals and the Rhoynar and the First Men, Khaleesi of the Great Gra
                     Assert.Single(query);
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+                        $@"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
 FROM `Entity` AS `e`
 WHERE (`e`.`Permission` BAND 17179869184) = 17179869184");
                 }
@@ -2131,7 +2131,7 @@ WHERE (`e`.`Permission` BAND 17179869184) = 17179869184");
                     Assert.Equal(3, query.Count);
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+                        $@"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
 FROM `Entity` AS `e`
 WHERE (`e`.`Permission` BAND `e`.`Permission`) = `e`.`Permission`");
                 }
@@ -2150,7 +2150,7 @@ WHERE (`e`.`Permission` BAND `e`.`Permission`) = `e`.`Permission`");
                     Assert.Equal(3, query.Count);
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+                        $@"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
 FROM `Entity` AS `e`
 WHERE (`e`.`PermissionByte` BAND `e`.`PermissionByte`) = `e`.`PermissionByte`");
                 }
@@ -2169,7 +2169,7 @@ WHERE (`e`.`PermissionByte` BAND `e`.`PermissionByte`) = `e`.`PermissionByte`");
                     Assert.Single(query);
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+                        $@"SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
 FROM `Entity` AS `e`
 WHERE (`e`.`PermissionShort` BAND 4) = 4");
                 }
@@ -2278,17 +2278,17 @@ WHERE (`e`.`PermissionShort` BAND 4) = 4");
                     Assert.Equal(2, context.Cache.Count);
 
                     AssertSql(
-                        @"@__id_0='1'
+                        $@"@__id_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0",
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}",
                         //
-                        @"@__id_0='2'
+                        $@"@__id_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0");
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}");
                 }
             }
         }
@@ -2315,17 +2315,17 @@ WHERE `e`.`Id` = @__id_0");
                     Assert.Equal(2, context.Cache.Count);
 
                     AssertSql(
-                        @"@__id_0='1'
+                        $@"@__id_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0",
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}",
                         //
-                        @"@__id_0='2'
+                        $@"@__id_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0");
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}");
                 }
             }
         }
@@ -2354,24 +2354,24 @@ WHERE `e`.`Id` = @__id_0");
                     Assert.Equal(2, context.Cache.Count);
 
                     AssertSql(
-                        @"@__id_0='1'
+                        $@"@__id_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Id` IN (
     SELECT `e0`.`Id`
     FROM `Entities` AS `e0`
-    WHERE `e0`.`Id` = @__id_0
+    WHERE `e0`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 )",
                         //
-                        @"@__id_0='2'
+                        $@"@__id_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Id` IN (
     SELECT `e0`.`Id`
     FROM `Entities` AS `e0`
-    WHERE `e0`.`Id` = @__id_0
+    WHERE `e0`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 )");
                 }
             }
@@ -2396,13 +2396,13 @@ WHERE `e`.`Id` IN (
                     Assert.Equal(3, context.Cache.Count);
 
                     AssertSql(
-                        @"@__name_0='A' (Size = 4000)
+                        $@"@__name_0='A' (Size = 4000)
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Name` = @__name_0",
+WHERE `e`.`Name` = {AssertSqlHelper.Parameter("@__name_0")}",
                         //
-                        @"SELECT `e`.`Id`, `e`.`Name`
+                        $@"SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Name` IS NULL");
                 }
@@ -2492,7 +2492,7 @@ WHERE `e`.`Name` IS NULL");
                     Assert.True(result[0].Cast.All(a => a.Details != null));
 
                     AssertSql(
-                        @"SELECT `m`.`Id`, `m`.`Title`, `t`.`Id`, `t`.`Details_Info`, `t1`.`Id`, `t1`.`Movie9202Id`, `t1`.`Name`, `t1`.`Id0`, `t1`.`Details_Info`
+                        $@"SELECT `m`.`Id`, `m`.`Title`, `t`.`Id`, `t`.`Details_Info`, `t1`.`Id`, `t1`.`Movie9202Id`, `t1`.`Name`, `t1`.`Id0`, `t1`.`Details_Info`
 FROM `Movies` AS `m`
 LEFT JOIN (
     SELECT `m0`.`Id`, `m0`.`Details_Info`, `m1`.`Id` AS `Id0`
@@ -2531,7 +2531,7 @@ ORDER BY `m`.`Id`, `t1`.`Id`");
                     Assert.True(result[0].Cast.All(a => a.Details != null));
 
                     AssertSql(
-                        @"SELECT `m`.`Id`, `m`.`Title`, `t`.`Id`, `t`.`Details_Info`, `t1`.`Id`, `t1`.`Movie9202Id`, `t1`.`Name`, `t1`.`Id0`, `t1`.`Details_Info`
+                        $@"SELECT `m`.`Id`, `m`.`Title`, `t`.`Id`, `t`.`Details_Info`, `t1`.`Id`, `t1`.`Movie9202Id`, `t1`.`Name`, `t1`.`Id0`, `t1`.`Details_Info`
 FROM `Movies` AS `m`
 LEFT JOIN (
     SELECT `m0`.`Id`, `m0`.`Details_Info`, `m1`.`Id` AS `Id0`
@@ -2638,7 +2638,7 @@ ORDER BY `m`.`Id`, `t1`.`Id`");
                     Assert.Equal(2, result);
 
                     AssertSql(
-                        @"SELECT TOP 2 `foo`.`AddOne`(`w`.`Val`)
+                        $@"SELECT TOP 2 `foo`.`AddOne`(`w`.`Val`)
 FROM `foo`.`Widgets` AS `w`
 WHERE `w`.`Val` = 1");
                 }
@@ -2657,7 +2657,7 @@ WHERE `w`.`Val` = 1");
                     Assert.Equal(3, result);
 
                     AssertSql(
-                        @"SELECT TOP 2 `AddTwo`(`w`.`Val`)
+                        $@"SELECT TOP 2 `AddTwo`(`w`.`Val`)
 FROM `foo`.`Widgets` AS `w`
 WHERE `w`.`Val` = 1");
                 }
@@ -2992,11 +2992,11 @@ BEGIN
                     Assert.Single(result);
 
                     AssertSql(
-                        @"@__p_0='2'
+                        $@"@__p_0='2'
 
 SELECT `t`.`Id`, `t`.`AddressId`, `t`.`CustomerDetailsId`, `t`.`Name`, `t`.`Id0`, `o`.`Id`, `o`.`CustomerId`, `o`.`Name`
 FROM (
-    SELECT TOP @__p_0 `c`.`Id`, `c`.`AddressId`, `c`.`CustomerDetailsId`, `c`.`Name`, `a`.`Id` AS `Id0`, IIF(`a`.`Id` > 0, 1, 0) AS `c`, CASE
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`Id`, `c`.`AddressId`, `c`.`CustomerDetailsId`, `c`.`Name`, `a`.`Id` AS `Id0`, IIF(`a`.`Id` > 0, 1, 0) AS `c`, CASE
         WHEN `c0`.`Id` IS NOT NULL THEN `c0`.`Name`
         ELSE ''
     END AS `c0`
@@ -3188,7 +3188,7 @@ ORDER BY `t`.`c`, `t`.`c0`, `t`.`Id`, `t`.`Id0`, `o`.`Id`");
                     Assert.Single(query.Where(t => t.Processing == false));
 
                     AssertSql(
-                        @"SELECT CASE
+                        $@"SELECT CASE
     WHEN `c0`.`Id` IS NOT NULL THEN IIF(`c0`.`Processed` <> True, 1, 0)
     ELSE NULL
 END AS `Processing`
@@ -3253,7 +3253,7 @@ LEFT JOIN `Configuration9468` AS `c0` ON `c`.`ConfigurationId` = `c0`.`Id`");
                     var query = context.Parents.Include(p => p.Children).OrderBy(p => p.Id).ToList();
 
                     AssertSql(
-                        @"SELECT `p`.`Id`, `p`.`Name`, `c`.`Id`, `c`.`Name`, `c`.`Parent10635Id`, `c`.`ParentId`
+                        $@"SELECT `p`.`Id`, `p`.`Name`, `c`.`Id`, `c`.`Name`, `c`.`Parent10635Id`, `c`.`ParentId`
 FROM `Parents` AS `p`
 LEFT JOIN `Children` AS `c` ON `p`.`Id` = `c`.`Parent10635Id`
 ORDER BY `p`.`Id`, `c`.`Id`");
@@ -3271,7 +3271,7 @@ ORDER BY `p`.`Id`, `c`.`Id`");
                     var query = context.Parents.OrderBy(p => p.Id).Select(p => p.Children.ToList()).ToList();
 
                     AssertSql(
-                        @"SELECT `p`.`Id`, `c`.`Id`, `c`.`Name`, `c`.`Parent10635Id`, `c`.`ParentId`
+                        $@"SELECT `p`.`Id`, `c`.`Id`, `c`.`Name`, `c`.`Parent10635Id`, `c`.`ParentId`
 FROM `Parents` AS `p`
 LEFT JOIN `Children` AS `c` ON `p`.`Id` = `c`.`Parent10635Id`
 ORDER BY `p`.`Id`, `c`.`Id`");
@@ -3359,7 +3359,7 @@ ORDER BY `p`.`Id`, `c`.`Id`");
                 Assert.Equal("Full1", result.User.Fullname);
 
                 AssertSql(
-                    @"@__p_0='?' (DbType = Int32)
+                    $@"@__p_0='?' (DbType = Int32)
 @__p_1='?' (DbType = Int32)
 
 SELECT `t0`.`Id`, `t0`.`Text`, `t0`.`Id0`, `t0`.`User_Email`, `t0`.`User_Fullname`
@@ -3373,7 +3373,7 @@ FROM (
     ) AS `t` ON `x`.`Id` = `t`.`Id`
     WHERE `x`.`Text` = 'Foo Bar'
 ) AS `t0`
-WHERE (`t0`.`__RowNumber__` > @__p_0) AND (`t0`.`__RowNumber__` <= (@__p_0 + @__p_1))");
+WHERE (`t0`.`__RowNumber__` > {AssertSqlHelper.Parameter("@__p_0")}) AND (`t0`.`__RowNumber__` <= ({AssertSqlHelper.Parameter("@__p_0")} + {AssertSqlHelper.Parameter("@__p_1")}))");
             }
         }
 
@@ -3395,7 +3395,7 @@ WHERE (`t0`.`__RowNumber__` > @__p_0) AND (`t0`.`__RowNumber__` <= (@__p_0 + @__
                     .EnableServiceProviderCaching(false)
                     .UseJet(
                         JetTestStore.CreateConnectionString("RowNumberPaging_Owned"),
-                        JetConfiguration.DefaultProviderFactory);
+                        TestEnvironment.DataAccessProviderFactory);
             }
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -3440,23 +3440,23 @@ WHERE (`t0`.`__RowNumber__` > @__p_0) AND (`t0`.`__RowNumber__` <= (@__p_0 + @__
                     Assert.Equal(2, context.Blogs.Count());
 
                     AssertSql(
-                        @"@__ef_filter__Tenant_0='0'
+                        $@"@__ef_filter__Tenant_0='0'
 
 SELECT `e`.`Id`, `e`.`SomeValue`
 FROM `Blogs` AS `e`
-WHERE `e`.`SomeValue` = @__ef_filter__Tenant_0",
+WHERE `e`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}",
                         //
-                        @"@__ef_filter__Tenant_0='1'
+                        $@"@__ef_filter__Tenant_0='1'
 
 SELECT `e`.`Id`, `e`.`SomeValue`
 FROM `Blogs` AS `e`
-WHERE `e`.`SomeValue` = @__ef_filter__Tenant_0",
+WHERE `e`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}",
                         //
-                        @"@__ef_filter__Tenant_0='2'
+                        $@"@__ef_filter__Tenant_0='2'
 
 SELECT COUNT(*)
 FROM `Blogs` AS `e`
-WHERE `e`.`SomeValue` = @__ef_filter__Tenant_0");
+WHERE `e`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}");
                 }
             }
         }
@@ -3527,7 +3527,7 @@ WHERE `e`.`SomeValue` = @__ef_filter__Tenant_0");
                     Assert.Equal(typeof(Derived1), derived1.GetType());
 
                     AssertSql(
-                        @"SELECT `b`.`Id`, `b`.`IsTwo`, `b`.`MoreStuffId`
+                        $@"SELECT `b`.`Id`, `b`.`IsTwo`, `b`.`MoreStuffId`
 FROM `Bases` AS `b`
 WHERE `b`.`IsTwo` IN (False, True)");
                 }
@@ -3610,7 +3610,7 @@ WHERE `b`.`IsTwo` IN (False, True)");
                         .ToList();
 
                     AssertSql(
-                        @"SELECT `t2`.`Name` AS `Key`, COUNT(*) + 5 AS `cnt`
+                        $@"SELECT `t2`.`Name` AS `Key`, COUNT(*) + 5 AS `cnt`
 FROM `Table` AS `t`
 LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Name`, `t1`.`Id` AS `Id0`
@@ -3645,7 +3645,7 @@ GROUP BY `t2`.`Name`");
                         .ToList();
 
                     AssertSql(
-                        @"SELECT `t2`.`Name` AS `MyKey`, COUNT(*) + 5 AS `cnt`
+                        $@"SELECT `t2`.`Name` AS `MyKey`, COUNT(*) + 5 AS `cnt`
 FROM `Table` AS `t`
 LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Name`, `t1`.`Id` AS `Id0`
@@ -3687,7 +3687,7 @@ GROUP BY `t2`.`Name`, `t5`.`MaumarEntity11818_Name`");
                         .ToList();
 
                     AssertSql(
-                        "");
+                        $@"");
                 }
             }
         }
@@ -3761,7 +3761,7 @@ GROUP BY `t2`.`Name`, `t5`.`MaumarEntity11818_Name`");
                     context.Factions.ToList();
 
                     AssertSql(
-                        @"SELECT `f`.`Id`, `f`.`Name`
+                        $@"SELECT `f`.`Id`, `f`.`Name`
 FROM `ConditionalFactions` AS `f`
 WHERE EXISTS (
     SELECT 1
@@ -3781,7 +3781,7 @@ WHERE EXISTS (
                     context.LeadersQuery.ToList();
 
                     AssertSql(
-                        @"SELECT `t`.`Name`
+                        $@"SELECT `t`.`Name`
 FROM (
     SELECT `l`.`Name`
     FROM `Leaders` AS `l`
@@ -4087,31 +4087,31 @@ WHERE (`t`.`Name` <> 'Bar') OR `t`.`Name` IS NULL");
                     Assert.Equal(prices.Average(e => e.NullableDecimalColumn), context.Prices.Average(e => e.NullableDecimalColumn));
 
                     AssertSql(
-                        @"SELECT AVG(`p`.`Price`)
+                        $@"SELECT AVG(`p`.`Price`)
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT AVG(IIf(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
+                        $@"SELECT AVG(IIf(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT AVG(IIf(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
+                        $@"SELECT AVG(IIf(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT AVG(IIf(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
+                        $@"SELECT AVG(IIf(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT AVG(IIf(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
+                        $@"SELECT AVG(IIf(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT IIf(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
+                        $@"SELECT IIf(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT IIf(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
+                        $@"SELECT IIf(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT AVG(`p`.`DoubleColumn`)
+                        $@"SELECT AVG(`p`.`DoubleColumn`)
 FROM `Prices` AS `p`",
                         //
-                        @"SELECT AVG(`p`.`NullableDoubleColumn`)
+                        $@"SELECT AVG(`p`.`NullableDoubleColumn`)
 FROM `Prices` AS `p`");
                 }
             }
@@ -4633,7 +4633,7 @@ FROM `Prices` AS `p`");
                     Assert.Single(findRecordsWithDateInList);
 
                     AssertSql(
-                        @"SELECT `r`.`Id`, `r`.`MyTime`
+                        $@"SELECT `r`.`Id`, `r`.`MyTime`
 FROM `ReproEntity` AS `r`
 WHERE `r`.`MyTime` IN ('2018-10-07T00:00:00')");
                 }
@@ -4698,13 +4698,13 @@ WHERE `r`.`MyTime` IN ('2018-10-07T00:00:00')");
                     Assert.Single(query);
 
                     AssertSql(
-                        @"@__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
+                        $@"@__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
 
 SELECT `t`.`Id`, `t`.`Type`
 FROM `Todos` AS `t`
 WHERE CASE
-    WHEN `t`.`Type` IN (0) THEN @__key_2
-    ELSE @__key_2
+    WHEN `t`.`Type` IN (0) THEN {AssertSqlHelper.Parameter("@__key_2")}
+    ELSE {AssertSqlHelper.Parameter("@__key_2")}
 END IN ('0a47bcb7-a1cb-4345-8944-c58f82d6aac7', '5f221fb9-66f4-442a-92c9-d97ed5989cc7')");
                 }
             }
@@ -4774,7 +4774,7 @@ END IN ('0a47bcb7-a1cb-4345-8944-c58f82d6aac7', '5f221fb9-66f4-442a-92c9-d97ed59
                     Assert.Equal(10, partners[0].Addresses[0].Turnovers.AmountIn);
 
                     AssertSql(
-                        @"SELECT `p`.`Id`, `t0`.`c`, `t0`.`Turnovers_AmountIn`, `t0`.`Id`
+                        $@"SELECT `p`.`Id`, `t0`.`c`, `t0`.`Turnovers_AmountIn`, `t0`.`Id`
 FROM `Partners` AS `p`
 LEFT JOIN (
     SELECT IIF(`t`.`Id` IS NULL, 1, 0) AS `c`, `t`.`Turnovers_AmountIn`, `a`.`Id`, `a`.`Partner13157Id`
@@ -4860,7 +4860,7 @@ ORDER BY `p`.`Id`, `t0`.`Id`");
                     Assert.Equal(4, query.Count);
 
                     AssertSql(
-                        "SELECT o.Amount From Orders AS o");
+                        $@"SELECT o.Amount From Orders AS o");
                 }
             }
         }
@@ -4928,11 +4928,11 @@ ORDER BY `p`.`Id`, `t0`.`Id`");
                     context.SaveChanges();
 
                     AssertSql(
-                        @"@p0='BaseEntity13079' (Nullable = false) (Size = 4000)
+                        $@"@p0='BaseEntity13079' (Nullable = false) (Size = 4000)
 
 SET NOCOUNT ON;
 INSERT INTO `BaseEntities` (`Discriminator`)
-VALUES (@p0);
+VALUES ({AssertSqlHelper.Parameter("@p0")});
 SELECT `Id`
 FROM `BaseEntities`
 WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
@@ -4998,7 +4998,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
                     var result = context.InventoryPools.Sum(p => (decimal)p.Quantity);
 
                     AssertSql(
-                        @"SELECT SUM(IIf(`i`.`Quantity` IS NULL, NULL, CCUR(`i`.`Quantity`)))
+                        $@"SELECT SUM(IIf(`i`.`Quantity` IS NULL, NULL, CCUR(`i`.`Quantity`)))
 FROM `InventoryPools` AS `i`");
                 }
             }
@@ -5049,7 +5049,7 @@ FROM `InventoryPools` AS `i`");
                     var result = context.Parents.Include(p => p.Child).FirstOrDefault();
 
                     AssertSql(
-                        @"SELECT TOP 1 `p`.`Id`, `p`.`ChildId`, `c`.`Id`, `c`.`ParentId`, `c`.`ULongRowVersion`
+                        $@"SELECT TOP 1 `p`.`Id`, `p`.`ChildId`, `c`.`Id`, `c`.`ParentId`, `c`.`ULongRowVersion`
 FROM `Parents` AS `p`
 LEFT JOIN `Children` AS `c` ON `p`.`ChildId` = `c`.`Id`");
                 }
@@ -5183,7 +5183,7 @@ LEFT JOIN `Children` AS `c` ON `p`.`ChildId` = `c`.`Id`");
                     Assert.True(context.Entry(Assert.IsType<DerivedType16233>(result[2])).Reference("Reference").IsLoaded);
 
                     AssertSql(
-                        @"SELECT `b`.`Id`, `b`.`Discriminator`, `r`.`Id`, `r`.`DerivedTypeId`
+                        $@"SELECT `b`.`Id`, `b`.`Discriminator`, `r`.`Id`, `r`.`DerivedTypeId`
 FROM `Bases` AS `b`
 LEFT JOIN `Reference16233` AS `r` ON `b`.`Id` = `r`.`DerivedTypeId`
 WHERE `b`.`Discriminator` IN ('BaseType16233', 'DerivedType16233')
@@ -5207,7 +5207,7 @@ ORDER BY `b`.`Id`");
                     Assert.Null(Assert.IsType<DerivedType16233>(result[2]).Reference);
 
                     AssertSql(
-                        @"SELECT `b`.`Id`, `b`.`Discriminator`, `r`.`Id`, `r`.`DerivedTypeId`
+                        $@"SELECT `b`.`Id`, `b`.`Discriminator`, `r`.`Id`, `r`.`DerivedTypeId`
 FROM `Bases` AS `b`
 LEFT JOIN `Reference16233` AS `r` ON `b`.`Id` = `r`.`DerivedTypeId`
 WHERE `b`.`Discriminator` IN ('BaseType16233', 'DerivedType16233')
@@ -5285,7 +5285,7 @@ ORDER BY `b`.`Id`");
                     var result = query.ToList();
                     Assert.Equal(2, result.Count);
                     AssertSql(
-                        @"SELECT `p`.`Id`, `p`.`Name`, CASE
+                        $@"SELECT `p`.`Id`, `p`.`Name`, CASE
     WHEN `c`.`Id` IS NULL THEN 'Other'
     ELSE `c`.`Name`
 END AS `CategoryName`, CASE
@@ -5422,7 +5422,7 @@ LEFT JOIN `Categories` AS `c` ON `p`.`CategoryId` = `c`.`Id`");
                     Assert.True(query.First().LongName == "Two L2");
 
                     AssertSql(
-                        @"SELECT `b`.`Id`, `b`.`BuilderId`, `b`.`Identity`, `b`.`LongName`, `b`.`MandatorId`, `b0`.`Id`, `b0`.`CityId`, `b0`.`Name`, `c`.`Id`, `c`.`Name`, `m`.`Id`, `m`.`Identity`, `m`.`Name`
+                        $@"SELECT `b`.`Id`, `b`.`BuilderId`, `b`.`Identity`, `b`.`LongName`, `b`.`MandatorId`, `b0`.`Id`, `b0`.`CityId`, `b0`.`Name`, `c`.`Id`, `c`.`Name`, `m`.`Id`, `m`.`Identity`, `m`.`Name`
 FROM `BuildingSet` AS `b`
 INNER JOIN `Builder` AS `b0` ON `b`.`BuilderId` = `b0`.`Id`
 INNER JOIN `City` AS `c` ON `b0`.`CityId` = `c`.`Id`
@@ -5689,7 +5689,7 @@ WHERE `c`.`Name` = 'Leeds'");
                     Assert.Equal(new[] { "First", "Second", "Third" }, list.Select(dto => dto.Title));
 
                     AssertSql(
-                        @"SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+                        $@"SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`
 FROM `Posts` AS `p`");
                 }
             }
@@ -5770,7 +5770,7 @@ FROM `Posts` AS `p`");
                     var result = query.ToList();
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `e`.`Name`
+                        $@"SELECT `e`.`Id`, `e`.`Name`
 FROM `EntitiesWithQueryFilterSelfReference` AS `e`
 WHERE EXISTS (
     SELECT 1
@@ -5790,7 +5790,7 @@ WHERE EXISTS (
                     var result = query.ToList();
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `e`.`Name`
+                        $@"SELECT `e`.`Id`, `e`.`Name`
 FROM `EntitiesReferencingEntityWithQueryFilterSelfReference` AS `e`
 WHERE EXISTS (
     SELECT 1
@@ -5899,7 +5899,7 @@ WHERE EXISTS (
                     var query = List17276(context.RemovableEntities);
 
                     AssertSql(
-                        @"SELECT `r`.`Id`, `r`.`IsRemoved`, `r`.`Removed`, `r`.`RemovedByUser`, `t`.`Id`, `t`.`OwnedEntity_OwnedValue`
+                        $@"SELECT `r`.`Id`, `r`.`IsRemoved`, `r`.`Removed`, `r`.`RemovedByUser`, `t`.`Id`, `t`.`OwnedEntity_OwnedValue`
 FROM `RemovableEntities` AS `r`
 LEFT JOIN (
     SELECT `r0`.`Id`, `r0`.`OwnedEntity_OwnedValue`, `r1`.`Id` AS `Id0`
@@ -5924,7 +5924,7 @@ WHERE `r`.`IsRemoved` <> True");
                         .ToList();
 
                     AssertSql(
-                        @"SELECT `p`.`Id`, `p`.`RemovableEntityId`
+                        $@"SELECT `p`.`Id`, `p`.`RemovableEntityId`
 FROM `Parents` AS `p`
 LEFT JOIN `RemovableEntities` AS `r` ON `p`.`RemovableEntityId` = `r`.`Id`
 WHERE `r`.`IsRemoved` = True");
@@ -5944,7 +5944,7 @@ WHERE `r`.`IsRemoved` = True");
                         .ToList();
 
                     AssertSql(
-                        @"SELECT `r`.`Id`, `r`.`IsRemoved`, `r`.`Removed`, `r`.`RemovedByUser`, `t`.`Id`, `t`.`OwnedEntity_OwnedValue`
+                        $@"SELECT `r`.`Id`, `r`.`IsRemoved`, `r`.`Removed`, `r`.`RemovedByUser`, `t`.`Id`, `t`.`OwnedEntity_OwnedValue`
 FROM `RemovableEntities` AS `r`
 LEFT JOIN (
     SELECT `r0`.`Id`, `r0`.`OwnedEntity_OwnedValue`, `r1`.`Id` AS `Id0`
@@ -5968,11 +5968,11 @@ WHERE `t`.`OwnedEntity_OwnedValue` = 'Abc'");
                     var entities = context.Set<Parent17276>().Where(specification.Criteria).ToList();
 
                     AssertSql(
-                        @"@__id_0='1'
+                        $@"@__id_0='1'
 
 SELECT `p`.`Id`, `p`.`RemovableEntityId`
 FROM `Parents` AS `p`
-WHERE `p`.`Id` = @__id_0");
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}");
                 }
             }
         }
@@ -6074,7 +6074,7 @@ WHERE `p`.`Id` = @__id_0");
                     var query = context.Foos.Where(f => f.String == new Bar6864(1337)).ToList();
 
                     AssertSql(
-                        @"SELECT `f`.`Id`, `f`.`String`
+                        $@"SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
 WHERE `f`.`String` = '1337'");
                 }
@@ -6093,11 +6093,11 @@ WHERE `f`.`String` = '1337'");
                     var query = context.Foos.Where(f => f.String == bar.Value).ToList();
 
                     AssertSql(
-                        @"@__bar_Value_0='1337' (Size = 4000)
+                        $@"@__bar_Value_0='1337' (Size = 4000)
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
-WHERE `f`.`String` = @__bar_Value_0");
+WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__bar_Value_0")}");
                 }
             }
         }
@@ -6114,11 +6114,11 @@ WHERE `f`.`String` = @__bar_Value_0");
                     var query = context.Foos.Where(f => f.String == bar.ToString()).ToList();
 
                     AssertSql(
-                        @"@__ToString_0='1337' (Size = 4000)
+                        $@"@__ToString_0='1337' (Size = 4000)
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
-WHERE `f`.`String` = @__ToString_0");
+WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__ToString_0")}");
                 }
             }
         }
@@ -6135,11 +6135,11 @@ WHERE `f`.`String` = @__ToString_0");
                     var query = context.Foos.Where(f => f.String == bar).ToList();
 
                     AssertSql(
-                        @"@__p_0='1337' (Size = 4000)
+                        $@"@__p_0='1337' (Size = 4000)
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
-WHERE `f`.`String` = @__p_0");
+WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__p_0")}");
                 }
             }
         }
@@ -6155,7 +6155,7 @@ WHERE `f`.`String` = @__p_0");
                     var query = context.Foos.Where(f => f.String == new Bar6864(1337).Clone()).ToList();
 
                     AssertSql(
-                        @"SELECT `f`.`Id`, `f`.`String`
+                        $@"SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
 WHERE `f`.`String` = '1337'");
                 }
@@ -6218,7 +6218,7 @@ WHERE `f`.`String` = '1337'");
                     var query = context.Set<TipoServicio9582>().Where(xx => xx.Nombre.Contains("lla")).ToList();
 
                     AssertSql(
-                        @"SELECT `t`.`Id`, `t`.`Nombre`
+                        $@"SELECT `t`.`Id`, `t`.`Nombre`
 FROM `TipoServicio9582` AS `t`
 WHERE CHARINDEX('lla', `t`.`Nombre`) > 0");
                 }
@@ -6281,7 +6281,7 @@ WHERE CHARINDEX('lla', `t`.`Nombre`) > 0");
                     var entities = context.Blogs.Select(b => context.ClientMethod(b)).ToList();
 
                     AssertSql(
-                        @"SELECT `b`.`Id`
+                        $@"SELECT `b`.`Id`
 FROM `Blogs` AS `b`");
                 }
             }
@@ -6351,7 +6351,7 @@ FROM `Blogs` AS `b`");
                         .FirstAsync<PersonView17644>();
 
                     AssertSql(
-                        @"SELECT TOP 1 `p`.`Name`, `p`.`Age`
+                        $@"SELECT TOP 1 `p`.`Name`, `p`.`Age`
 FROM `Persons` AS `p`
 WHERE `p`.`Age` >= 21");
                 }
@@ -6370,7 +6370,7 @@ WHERE `p`.`Age` >= 21");
                         .FirstOrDefaultAsync<PersonView17644>();
 
                     AssertSql(
-                        @"SELECT TOP 1 `p`.`Name`, `p`.`Age`
+                        $@"SELECT TOP 1 `p`.`Name`, `p`.`Age`
 FROM `Persons` AS `p`
 WHERE `p`.`Age` >= 21");
                 }
@@ -6389,7 +6389,7 @@ WHERE `p`.`Age` >= 21");
                         .SingleAsync<PersonView17644>();
 
                     AssertSql(
-                        @"SELECT TOP 2 `p`.`Name`, `p`.`Age`
+                        $@"SELECT TOP 2 `p`.`Name`, `p`.`Age`
 FROM `Persons` AS `p`
 WHERE `p`.`Age` >= 21");
                 }
@@ -6408,7 +6408,7 @@ WHERE `p`.`Age` >= 21");
                         .SingleOrDefaultAsync<PersonView17644>();
 
                     AssertSql(
-                        @"SELECT TOP 2 `p`.`Name`, `p`.`Age`
+                        $@"SELECT TOP 2 `p`.`Name`, `p`.`Age`
 FROM `Persons` AS `p`
 WHERE `p`.`Age` >= 21");
                 }
@@ -6428,7 +6428,7 @@ WHERE `p`.`Age` >= 21");
                         .LastAsync<PersonView17644>();
 
                     AssertSql(
-                        @"SELECT TOP 1 `p`.`Name`, `p`.`Age`
+                        $@"SELECT TOP 1 `p`.`Name`, `p`.`Age`
 FROM `Persons` AS `p`
 WHERE `p`.`Age` >= 21
 ORDER BY `p`.`Id` DESC");
@@ -6449,7 +6449,7 @@ ORDER BY `p`.`Id` DESC");
                         .LastOrDefaultAsync<PersonView17644>();
 
                     AssertSql(
-                        @"SELECT TOP 1 `p`.`Name`, `p`.`Age`
+                        $@"SELECT TOP 1 `p`.`Name`, `p`.`Age`
 FROM `Persons` AS `p`
 WHERE `p`.`Age` >= 21
 ORDER BY `p`.`Id` DESC");
@@ -6519,7 +6519,7 @@ ORDER BY `p`.`Id` DESC");
                     Assert.Equal(new[] { 1, 2 }, result.ThingIds);
 
                     AssertSql(
-                        @"SELECT `e`.`Id`, `t0`.`ThingId`, `t0`.`Id`
+                        $@"SELECT `e`.`Id`, `t0`.`ThingId`, `t0`.`Id`
 FROM `Entities` AS `e`
 OUTER APPLY (
     SELECT `s`.`ThingId`, `t`.`Id`
@@ -6623,7 +6623,7 @@ ORDER BY `e`.`Id`, `t0`.`Id`");
                     Assert.Equal(2, users.Count);
 
                     AssertSql(
-                        @"SELECT `u`.`Id` AS `UserId`, `t0`.`Id` AS `OrgId`
+                        $@"SELECT `u`.`Id` AS `UserId`, `t0`.`Id` AS `OrgId`
 FROM `Users` AS `u`,
 (
     SELECT `t`.`Id`
@@ -6791,7 +6791,7 @@ FROM `Users` AS `u`,
                                  select new { cs.Id, Points = a.ActivityType.Points.Where(p => p.CompetitionSeason == cs) }).ToList();
 
                     AssertSql(
-                        @"SELECT (
+                        $@"SELECT (
     SELECT TOP 1 `c`.`Id`
     FROM `CompetitionSeasons` AS `c`
     WHERE (`c`.`StartDate` <= `a`.`DateTime`) AND (`a`.`DateTime` < `c`.`EndDate`)), `a`.`Id`, `a0`.`Id`, `t`.`Id`, `t`.`ActivityTypeId`, `t`.`CompetitionSeasonId`, `t`.`Points`, `t`.`Id0`
@@ -6838,7 +6838,7 @@ ORDER BY `a`.`Id`, `a0`.`Id`, `t`.`Id`, `t`.`Id0`");
                             }).ToList();
 
                     AssertSql(
-                        @"SELECT `a0`.`Id`, `a0`.`ActivityTypeId`, `a0`.`DateTime`, `a0`.`Points`, (
+                        $@"SELECT `a0`.`Id`, `a0`.`ActivityTypeId`, `a0`.`DateTime`, `a0`.`Points`, (
     SELECT TOP 1 `c`.`Id`
     FROM `CompetitionSeasons` AS `c`
     WHERE (`c`.`StartDate` <= `a0`.`DateTime`) AND (`a0`.`DateTime` < `c`.`EndDate`)) AS `CompetitionSeasonId`, COALESCE(`a0`.`Points`, (
@@ -6952,7 +6952,7 @@ INNER JOIN `ActivityType12456` AS `a1` ON `a0`.`ActivityTypeId` = `a1`.`Id`");
                         .SingleAsync();
 
                     AssertSql(
-                        @"SELECT `t0`.`Id`, `t1`.`Id`, `t1`.`Id0`, `t1`.`Id1`, `t1`.`c`
+                        $@"SELECT `t0`.`Id`, `t1`.`Id`, `t1`.`Id0`, `t1`.`Id1`, `t1`.`c`
 FROM (
     SELECT TOP 2 `t`.`Id`
     FROM `Trades` AS `t`
@@ -7067,7 +7067,7 @@ ORDER BY `t0`.`Id`, `t1`.`Id`, `t1`.`Id0`");
                     }).Single(p => p.Id == 1);
 
             AssertSql(
-                @"SELECT TOP 2 `e`.`Id`, IIF(`t`.`Id` IS NULL, 1, 0), `t`.`Id`, `t`.`Public`, `e`.`RefEntityId`
+                $@"SELECT TOP 2 `e`.`Id`, IIF(`t`.`Id` IS NULL, 1, 0), `t`.`Id`, `t`.`Public`, `e`.`RefEntityId`
 FROM `Entities` AS `e`
 LEFT JOIN (
     SELECT `r`.`Id`, `r`.`Public`
@@ -7148,14 +7148,14 @@ WHERE `e`.`Id` = 1");
             Assert.Equal(1, query);
 
             AssertSql(
-                @"@__action_0='1'
+                $@"@__action_0='1'
 
 SELECT COUNT(*)
 FROM `Offers` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `OfferActions` AS `o0`
-    WHERE (`o`.`Id` = `o0`.`OfferId`) AND (`o0`.`Action` = @__action_0))");
+    WHERE (`o`.`Id` = `o0`.`OfferId`) AND (`o0`.`Action` = {AssertSqlHelper.Parameter("@__action_0")}))");
         }
 
         private JetTestStore CreateDatabase17794()
@@ -7250,11 +7250,11 @@ WHERE EXISTS (
             Assert.Equal(1, query.Id);
 
             AssertSql(
-                @"@__id_0='1'
+                $@"@__id_0='1'
 
 SELECT TOP 1 `m`.`Id`, `m`.`Name`, `m`.`NavigationEntityId`
 FROM `MockEntities` AS `m`
-WHERE `m`.`Id` = @__id_0");
+WHERE `m`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}");
         }
 
         [ConditionalFact]
@@ -7269,7 +7269,7 @@ WHERE `m`.`Id` = @__id_0");
             Assert.Equal(3, query);
 
             AssertSql(
-                @"SELECT COUNT(*)
+                $@"SELECT COUNT(*)
 FROM `MockEntities` AS `m`");
         }
 
@@ -7357,7 +7357,7 @@ FROM `MockEntities` AS `m`");
             var people = context.People.ToList();
 
             AssertSql(
-                @"SELECT `p`.`Id`, `p`.`UserDeleteId`
+                $@"SELECT `p`.`Id`, `p`.`UserDeleteId`
 FROM `People` AS `p`
 LEFT JOIN `User18759` AS `u` ON `p`.`UserDeleteId` = `u`.`Id`
 WHERE `u`.`Id` IS NOT NULL");

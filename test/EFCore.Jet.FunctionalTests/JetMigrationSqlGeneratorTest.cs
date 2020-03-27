@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.CreateTableOperation();
 
             AssertSql(
-                @"CREATE TABLE `People` (
+                $@"CREATE TABLE `People` (
     `Id` int NOT NULL,
     `EmployerId` int NULL,
     `SSN` char(11) NULL,
@@ -69,7 +69,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Employer ID comment', 'SCHEMA', '
                 });
 
             AssertSql(
-                @"CREATE TABLE `People` (
+                $@"CREATE TABLE `People` (
     `Id` int NOT NULL,
     `Name` nvarchar(max) NOT NULL
 );
@@ -110,7 +110,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
                 });
 
             AssertSql(
-                @"CREATE TABLE `People` (
+                $@"CREATE TABLE `People` (
     `Id` int NOT NULL,
     `Name` nvarchar(max) NOT NULL
 );
@@ -126,7 +126,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
             base.CreateTableOperation_no_key();
 
             AssertSql(
-                @"CREATE TABLE `Anonymous` (
+                $@"CREATE TABLE `Anonymous` (
     `Value` int NOT NULL
 );
 ");
@@ -137,7 +137,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
             base.CreateIndexOperation_with_filter_where_clause();
 
             AssertSql(
-                @"CREATE INDEX `IX_People_Name` ON `People` (`Name`) WHERE `Name` IS NOT NULL;
+                $@"CREATE INDEX `IX_People_Name` ON `People` (`Name`) WHERE `Name` IS NOT NULL;
 ");
         }
 
@@ -146,7 +146,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
             base.CreateIndexOperation_with_filter_where_clause_and_is_unique();
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) WHERE `Name` IS NOT NULL AND <> '';
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) WHERE `Name` IS NOT NULL AND <> '';
 ");
         }
 
@@ -162,7 +162,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
                 });
 
             AssertSql(
-                @"EXEC sp_addextendedproperty 'MS_Description', 'My Comment', 'SCHEMA', 'dbo', 'TABLE', 'People';
+                $@"EXEC sp_addextendedproperty 'MS_Description', 'My Comment', 'SCHEMA', 'dbo', 'TABLE', 'People';
 ");
         }
 
@@ -186,7 +186,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
                 });
 
             AssertSql(
-                @"EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People';
+                $@"EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People';
 EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', 'TABLE', 'People';
 ");
         }
@@ -210,7 +210,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People';
+                $@"EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People';
 ");
         }
 
@@ -227,7 +227,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `FullName` AS FirstName + ' ' + LastName;
+                $@"ALTER TABLE `People` ADD `FullName` AS FirstName + ' ' + LastName;
 ");
         }
 
@@ -246,7 +246,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Birthday` AS CURRENT_TIMESTAMP;
+                $@"ALTER TABLE `People` ADD `Birthday` AS CURRENT_TIMESTAMP;
 ");
         }
 
@@ -266,7 +266,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Id` int NOT NULL IDENTITY;
+                $@"ALTER TABLE `People` ADD `Id` int NOT NULL IDENTITY;
 ");
         }
 
@@ -287,7 +287,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Id` int NOT NULL IDENTITY;
+                $@"ALTER TABLE `People` ADD `Id` int NOT NULL IDENTITY;
 ");
         }
 
@@ -307,7 +307,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Id` int NOT NULL IDENTITY(100,5);
+                $@"ALTER TABLE `People` ADD `Id` int NOT NULL IDENTITY(100,5);
 ");
         }
 
@@ -316,7 +316,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_without_column_type();
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Alias` nvarchar(max) NOT NULL;
+                $@"ALTER TABLE `People` ADD `Alias` nvarchar(max) NOT NULL;
 ");
         }
 
@@ -325,7 +325,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_unicode_no_model();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` varchar(max) NULL;
+                $@"ALTER TABLE `Person` ADD `Name` varchar(max) NULL;
 ");
         }
 
@@ -334,7 +334,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_maxLength();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` nvarchar(30) NULL;
+                $@"ALTER TABLE `Person` ADD `Name` nvarchar(30) NULL;
 ");
         }
 
@@ -354,7 +354,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #01/01/2019 00:00:00#;
+                $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #01/01/2019 00:00:00#;
 ");
         }
 
@@ -374,7 +374,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Birthday` smalldatetime NOT NULL DEFAULT '2019-01-01T00:00:00';
+                $@"ALTER TABLE `People` ADD `Birthday` smalldatetime NOT NULL DEFAULT '2019-01-01T00:00:00';
 ");
         }
 
@@ -383,7 +383,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_maxLength_overridden();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` nvarchar(32) NULL;
+                $@"ALTER TABLE `Person` ADD `Name` nvarchar(32) NULL;
 ");
         }
 
@@ -392,7 +392,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_maxLength_on_derived();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` nvarchar(30) NULL;
+                $@"ALTER TABLE `Person` ADD `Name` nvarchar(30) NULL;
 ");
         }
 
@@ -401,7 +401,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_ansi();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` varchar(max) NULL;
+                $@"ALTER TABLE `Person` ADD `Name` varchar(max) NULL;
 ");
         }
 
@@ -410,7 +410,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_unicode_overridden();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` nvarchar(max) NULL;
+                $@"ALTER TABLE `Person` ADD `Name` nvarchar(max) NULL;
 ");
         }
 
@@ -419,7 +419,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
             base.AddColumnOperation_with_shared_column();
 
             AssertSql(
-                @"ALTER TABLE `Base` ADD `Foo` nvarchar(max) NULL;
+                $@"ALTER TABLE `Base` ADD `Foo` nvarchar(max) NULL;
 ");
         }
 
@@ -438,7 +438,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
+                $@"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
 ");
         }
 
@@ -456,7 +456,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
+                $@"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
 ");
         }
 
@@ -473,7 +473,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `FullName` nvarchar(max) NOT NULL;
+                $@"ALTER TABLE `People` ADD `FullName` nvarchar(max) NOT NULL;
 DECLARE @defaultSchema AS sysname;
 SET @defaultSchema = SCHEMA_NAME();
 EXEC sp_addextendedproperty 'MS_Description', 'My comment', 'SCHEMA', @defaultSchema, 'TABLE', 'People', 'COLUMN', 'FullName';
@@ -494,7 +494,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My comment', 'SCHEMA', @defaultSc
                 });
 
             AssertSql(
-                @"ALTER TABLE `my`.`People` ADD `FullName` nvarchar(max) NOT NULL;
+                $@"ALTER TABLE `my`.`People` ADD `FullName` nvarchar(max) NOT NULL;
 EXEC sp_addextendedproperty 'MS_Description', 'My comment', 'SCHEMA', 'my', 'TABLE', 'People', 'COLUMN', 'FullName';
 ");
         }
@@ -510,7 +510,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My comment', 'SCHEMA', 'my', 'TAB
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD PRIMARY KEY NONCLUSTERED (`Id`);
+                $@"ALTER TABLE `People` ADD PRIMARY KEY NONCLUSTERED (`Id`);
 ");
         }
 
@@ -519,7 +519,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My comment', 'SCHEMA', 'my', 'TAB
             base.AlterColumnOperation();
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -535,7 +535,7 @@ ALTER TABLE `People` ADD DEFAULT 7 FOR `LuckyNumber`;
             base.AlterColumnOperation_without_column_type();
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -558,7 +558,7 @@ ALTER TABLE `People` ALTER COLUMN `LuckyNumber` int NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -582,7 +582,7 @@ ALTER TABLE `People` ALTER COLUMN `Id` int NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -605,7 +605,7 @@ ALTER TABLE `People` ALTER COLUMN `Id` int NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -639,7 +639,7 @@ ALTER TABLE `People` ADD `FullName` AS `FirstName` + ' ' + `LastName`;
                 });
 
             AssertSql(
-                @"DROP INDEX `IX_Person_FullName` ON `Person`;
+                $@"DROP INDEX `IX_Person_FullName` ON `Person`;
 DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
@@ -677,7 +677,7 @@ CREATE INDEX `IX_Person_FullName` ON `Person` (`FullName`);
                 });
 
             AssertSql(
-                @"ALTER TABLE `Person` DROP INDEX `IX_Person_Name`;
+                $@"ALTER TABLE `Person` DROP INDEX `IX_Person_Name`;
 DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
@@ -712,7 +712,7 @@ ALTER TABLE `Person` ADD INDEX `IX_Person_Name` NONCLUSTERED (`Name`);
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -746,7 +746,7 @@ ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(450) NULL;
                 });
 
             AssertSql(
-                @"DROP INDEX `IX_Person_Name` ON `Person`;
+                $@"DROP INDEX `IX_Person_Name` ON `Person`;
 DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
@@ -785,7 +785,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
                 });
 
             AssertSql(
-                @"DROP INDEX `IX_Person_FirstName_LastName` ON `Person`;
+                $@"DROP INDEX `IX_Person_FirstName_LastName` ON `Person`;
 DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
@@ -822,7 +822,7 @@ CREATE INDEX `IX_Person_FirstName_LastName` ON `Person` (`FirstName`, `LastName`
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -855,7 +855,7 @@ ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -889,7 +889,7 @@ ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
                 });
 
             AssertSql(
-                @"DROP INDEX `IX_Person_FirstName_LastName` ON `Person`;
+                $@"DROP INDEX `IX_Person_FirstName_LastName` ON `Person`;
 DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
@@ -930,7 +930,7 @@ CREATE INDEX `IX_Person_FirstName_LastName` ON `Person` (`FirstName`, `LastName`
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -973,7 +973,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1001,7 +1001,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`) WITH (ONLINE = ON);
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1030,7 +1030,7 @@ ALTER TABLE `Person` ALTER COLUMN `Id` bigint NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1130,7 +1130,7 @@ ALTER TABLE `Person` ALTER COLUMN `Id` bigint NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1169,7 +1169,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment', 'SCHEMA', 'dbo', 'TA
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1208,7 +1208,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1226,7 +1226,7 @@ EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People
                 new JetCreateDatabaseOperation { Name = "Northwind" });
 
             AssertSql(
-                @"CREATE DATABASE `Northwind`;
+                $@"CREATE DATABASE `Northwind`;
 GO
 
 IF SERVERPROPERTY('EngineEdition') <> 5
@@ -1326,7 +1326,7 @@ END;
             base.CreateIndexOperation_nonunique();
 
             AssertSql(
-                @"CREATE INDEX `IX_People_Name` ON `People` (`Name`);
+                $@"CREATE INDEX `IX_People_Name` ON `People` (`Name`);
 ");
         }
 
@@ -1335,7 +1335,7 @@ END;
             base.CreateIndexOperation_unique();
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`FirstName`, `LastName`) WHERE `FirstName` IS NOT NULL AND `LastName` IS NOT NULL;
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`FirstName`, `LastName`) WHERE `FirstName` IS NOT NULL AND `LastName` IS NOT NULL;
 ");
         }
 
@@ -1354,7 +1354,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`FirstName`, `LastName`);
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`FirstName`, `LastName`);
 ");
         }
 
@@ -1370,7 +1370,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE CLUSTERED INDEX `IX_People_Name` ON `People` (`Name`);
+                $@"CREATE CLUSTERED INDEX `IX_People_Name` ON `People` (`Name`);
 ");
         }
 
@@ -1387,7 +1387,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE CLUSTERED INDEX `IX_People_Name` ON `People` (`Name`);
+                $@"CREATE UNIQUE CLUSTERED INDEX `IX_People_Name` ON `People` (`Name`);
 ");
         }
 
@@ -1404,7 +1404,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`);
+                $@"CREATE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`);
 ");
         }
 
@@ -1422,7 +1422,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL AND <> '';
+                $@"CREATE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL AND <> '';
 ");
         }
 
@@ -1440,7 +1440,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL;
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL;
 ");
         }
 
@@ -1459,7 +1459,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL AND <> '';
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL AND <> '';
 ");
         }
 
@@ -1478,7 +1478,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL AND <> '' WITH (ONLINE = ON);
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`) WHERE `Name` IS NOT NULL AND <> '' WITH (ONLINE = ON);
 ");
         }
 
@@ -1497,7 +1497,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`);
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) INCLUDE (`FirstName`, `LastName`);
 ");
         }
 
@@ -1515,7 +1515,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) WHERE `Name` IS NOT NULL;
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`) WHERE `Name` IS NOT NULL;
 ");
         }
 
@@ -1538,7 +1538,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`);
+                $@"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`Name`);
 ");
         }
 
@@ -1564,7 +1564,7 @@ END;
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD INDEX `IX_People_Name` (`Name`);
+                $@"ALTER TABLE `People` ADD INDEX `IX_People_Name` (`Name`);
 ");
         }
 
@@ -1590,7 +1590,7 @@ END;
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD INDEX `IX_People_Name` (`Name`);
+                $@"ALTER TABLE `People` ADD INDEX `IX_People_Name` (`Name`);
 ");
         }
 
@@ -1614,7 +1614,7 @@ END;
                 });
 
             AssertSql(
-                @"ALTER TABLE `People` ADD INDEX `IX_People_Name` UNIQUE NONCLUSTERED (`Name`);
+                $@"ALTER TABLE `People` ADD INDEX `IX_People_Name` UNIQUE NONCLUSTERED (`Name`);
 ");
         }
 
@@ -1625,7 +1625,7 @@ END;
                 new EnsureSchemaOperation { Name = "my" });
 
             AssertSql(
-                @"IF SCHEMA_ID('my') IS NULL EXEC('CREATE SCHEMA `my`;');
+                $@"IF SCHEMA_ID('my') IS NULL EXEC('CREATE SCHEMA `my`;');
 ");
         }
 
@@ -1635,7 +1635,7 @@ END;
             Generate(
                 new EnsureSchemaOperation { Name = "dbo" });
 
-            AssertSql("");
+            AssertSql($@"");
         }
 
         public override void DropColumnOperation()
@@ -1643,7 +1643,7 @@ END;
             base.DropColumnOperation();
 
             AssertSql(
-                @"DECLARE @var0 sysname;
+                $@"DECLARE @var0 sysname;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
@@ -1660,7 +1660,7 @@ ALTER TABLE `People` DROP COLUMN `LuckyNumber`;
                 new JetDropDatabaseOperation { Name = "Northwind" });
 
             AssertSql(
-                @"IF SERVERPROPERTY('EngineEdition') <> 5
+                $@"IF SERVERPROPERTY('EngineEdition') <> 5
 BEGIN
     ALTER DATABASE `Northwind` SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 END;
@@ -1675,7 +1675,7 @@ DROP DATABASE `Northwind`;
             base.DropIndexOperation();
 
             AssertSql(
-                @"DROP INDEX `IX_People_Name` ON `People`;
+                $@"DROP INDEX `IX_People_Name` ON `People`;
 ");
         }
 
@@ -1694,7 +1694,7 @@ DROP DATABASE `Northwind`;
                 new DropIndexOperation { Name = "IX_People_Name", Table = "People" });
 
             AssertSql(
-                @"ALTER TABLE `People` DROP INDEX `IX_People_Name`;
+                $@"ALTER TABLE `People` DROP INDEX `IX_People_Name`;
 ");
         }
 
@@ -1710,7 +1710,7 @@ DROP DATABASE `Northwind`;
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `my` TRANSFER `EntityFrameworkHiLoSequence`;
+                $@"ALTER SCHEMA `my` TRANSFER `EntityFrameworkHiLoSequence`;
 ");
         }
 
@@ -1728,7 +1728,7 @@ DROP DATABASE `Northwind`;
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `my` TRANSFER `EntityFrameworkHiLoSequence`;
+                $@"ALTER SCHEMA `my` TRANSFER `EntityFrameworkHiLoSequence`;
 ");
         }
 
@@ -1745,7 +1745,7 @@ DROP DATABASE `Northwind`;
                 });
 
             AssertSql(
-                @"DECLARE @defaultSchema sysname = SCHEMA_NAME();
+                $@"DECLARE @defaultSchema sysname = SCHEMA_NAME();
 EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequence`;');
 ");
         }
@@ -1762,7 +1762,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequenc
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `hr` TRANSFER `People`;
+                $@"ALTER SCHEMA `hr` TRANSFER `People`;
 ");
         }
 
@@ -1780,7 +1780,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequenc
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `hr` TRANSFER `People`;
+                $@"ALTER SCHEMA `hr` TRANSFER `People`;
 ");
         }
 
@@ -1797,7 +1797,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequenc
                 });
 
             AssertSql(
-                @"DECLARE @defaultSchema sysname = SCHEMA_NAME();
+                $@"DECLARE @defaultSchema sysname = SCHEMA_NAME();
 EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
 ");
         }
@@ -1815,7 +1815,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`People`.`Name`', 'FullName', 'COLUMN';
+                $@"EXEC sp_rename '`People`.`Name`', 'FullName', 'COLUMN';
 ");
         }
 
@@ -1832,7 +1832,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`People`.`IX_People_Name`', 'IX_People_FullName', 'INDEX';
+                $@"EXEC sp_rename '`People`.`IX_People_Name`', 'IX_People_FullName', 'INDEX';
 ");
         }
 
@@ -1863,7 +1863,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`EntityFrameworkHiLoSequence`', 'MySequence';
+                $@"EXEC sp_rename '`EntityFrameworkHiLoSequence`', 'MySequence';
 ");
         }
 
@@ -1881,7 +1881,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`EntityFrameworkHiLoSequence`', 'MySequence';
+                $@"EXEC sp_rename '`EntityFrameworkHiLoSequence`', 'MySequence';
 ");
         }
 
@@ -1891,7 +1891,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
             base.RenameTableOperation_legacy();
 
             AssertSql(
-                @"EXEC sp_rename '`People`', 'Person';
+                $@"EXEC sp_rename '`People`', 'Person';
 ");
         }
 
@@ -1901,7 +1901,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
             base.RenameTableOperation();
 
             AssertSql(
-                @"EXEC sp_rename '`People`', 'Person';
+                $@"EXEC sp_rename '`People`', 'Person';
 ");
         }
 
@@ -1912,7 +1912,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new SqlOperation { Sql = @"-- Multiline \" + EOL + "comment" });
 
             AssertSql(
-                @"-- Multiline comment
+                $@"-- Multiline comment
 ");
         }
 
@@ -1923,7 +1923,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new SqlOperation { Sql = "-- Ready set" + EOL + "GO" + EOL + "GO" });
 
             AssertSql(
-                @"-- Ready set
+                $@"-- Ready set
 ");
         }
 
@@ -1934,7 +1934,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new SqlOperation { Sql = "-- I" + EOL + "go" + EOL + "-- Too" });
 
             AssertSql(
-                @"-- I
+                $@"-- I
 GO
 
 -- Too
@@ -1948,7 +1948,7 @@ GO
                 new SqlOperation { Sql = "-- I" + EOL + "GO 2" });
 
             AssertSql(
-                @"-- I
+                $@"-- I
 GO
 
 -- I
@@ -1962,7 +1962,7 @@ GO
                 new SqlOperation { Sql = "-- I GO 2" });
 
             AssertSql(
-                @"-- I GO 2
+                $@"-- I GO 2
 ");
         }
 
@@ -1971,7 +1971,7 @@ GO
             base.InsertDataOperation();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM `sys`.`identity_columns` WHERE `name` IN ('Id', 'Full Name') AND `object_id` = OBJECT_ID('`People`'))
+                $@"IF EXISTS (SELECT * FROM `sys`.`identity_columns` WHERE `name` IN ('Id', 'Full Name') AND `object_id` = OBJECT_ID('`People`'))
     SET IDENTITY_INSERT `People` ON;
 INSERT INTO `People` (`Id`, `Full Name`)
 VALUES (0, NULL),
@@ -1990,7 +1990,7 @@ IF EXISTS (SELECT * FROM `sys`.`identity_columns` WHERE `name` IN ('Id', 'Full N
 
             // TODO remove rowcount
             AssertSql(
-                @"DELETE FROM `People`
+                $@"DELETE FROM `People`
 WHERE `Id` = 2;
 SELECT @@ROWCOUNT;
 
@@ -2007,7 +2007,7 @@ SELECT @@ROWCOUNT;
 
             // TODO remove rowcount
             AssertSql(
-                @"DELETE FROM `People`
+                $@"DELETE FROM `People`
 WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
 SELECT @@ROWCOUNT;
 
@@ -2024,7 +2024,7 @@ SELECT @@ROWCOUNT;
 
             // TODO remove rowcount
             AssertSql(
-                @"UPDATE `People` SET `Full Name` = 'Daenerys Stormborn'
+                $@"UPDATE `People` SET `Full Name` = 'Daenerys Stormborn'
 WHERE `Id` = 1;
 SELECT @@ROWCOUNT;
 
@@ -2041,7 +2041,7 @@ SELECT @@ROWCOUNT;
 
             // TODO remove rowcount
             AssertSql(
-                @"UPDATE `People` SET `First Name` = 'Hodor'
+                $@"UPDATE `People` SET `First Name` = 'Hodor'
 WHERE `Id` = 0 AND `Last Name` IS NULL;
 SELECT @@ROWCOUNT;
 
@@ -2058,7 +2058,7 @@ SELECT @@ROWCOUNT;
 
             // TODO remove rowcount
             AssertSql(
-                @"UPDATE `People` SET `First Name` = 'Daenerys', `Nickname` = 'Dany'
+                $@"UPDATE `People` SET `First Name` = 'Daenerys', `Nickname` = 'Dany'
 WHERE `Id` = 1;
 SELECT @@ROWCOUNT;
 

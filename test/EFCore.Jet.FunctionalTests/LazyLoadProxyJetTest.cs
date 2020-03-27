@@ -24,9 +24,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [Child] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `Child` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -38,9 +38,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -52,9 +52,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -66,9 +66,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [Single] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `Single` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -80,9 +80,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -94,9 +94,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707'
 
-//SELECT [e].[Id]
-//FROM [SinglePkToPk] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`
+//FROM `SinglePkToPk` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -122,9 +122,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='767' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [Child] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `Child` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -136,9 +136,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='787'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -150,9 +150,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='787'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -164,9 +164,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='767' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [Single] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `Single` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -222,9 +222,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='Root' (Size = 450)
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[AlternateId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`AlternateId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -236,9 +236,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='Root' (Size = 450)
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[AlternateId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`AlternateId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -250,9 +250,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='Root' (Size = 450)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [SingleAk] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `SingleAk` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -278,9 +278,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [ChildShadowFk] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `ChildShadowFk` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -292,9 +292,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -306,9 +306,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE [e].[Id] = @__p_0",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE `e`.`Id` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -320,9 +320,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //            Assert.Equal(
 //                @"@__p_0='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [SingleShadowFk] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `SingleShadowFk` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -349,9 +349,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //                @"@__p_0='Root' (Size = 450)
 //@__p_1='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentAlternateId], [e].[ParentId]
-//FROM [ChildCompositeKey] AS [e]
-//WHERE ([e].[ParentAlternateId] = @__p_0) AND ([e].[ParentId] = @__p_1)",
+//SELECT `e`.`Id`, `e`.`ParentAlternateId`, `e`.`ParentId`
+//FROM `ChildCompositeKey` AS `e`
+//WHERE (`e`.`ParentAlternateId` = @__p_0) AND (`e`.`ParentId` = @__p_1)",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -364,9 +364,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //                @"@__p_0='Root' (Size = 450)
 //@__p_1='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE ([e].[AlternateId] = @__p_0) AND ([e].[Id] = @__p_1)",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE (`e`.`AlternateId` = @__p_0) AND (`e`.`Id` = @__p_1)",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -379,9 +379,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //                @"@__p_0='Root' (Size = 450)
 //@__p_1='707'
 
-//SELECT [e].[Id], [e].[AlternateId]
-//FROM [Parent] AS [e]
-//WHERE ([e].[AlternateId] = @__p_0) AND ([e].[Id] = @__p_1)",
+//SELECT `e`.`Id`, `e`.`AlternateId`
+//FROM `Parent` AS `e`
+//WHERE (`e`.`AlternateId` = @__p_0) AND (`e`.`Id` = @__p_1)",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -394,9 +394,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //                @"@__p_0='Root' (Size = 450)
 //@__p_1='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentAlternateId], [e].[ParentId]
-//FROM [SingleCompositeKey] AS [e]
-//WHERE ([e].[ParentAlternateId] = @__p_0) AND ([e].[ParentId] = @__p_1)",
+//SELECT `e`.`Id`, `e`.`ParentAlternateId`, `e`.`ParentId`
+//FROM `SingleCompositeKey` AS `e`
+//WHERE (`e`.`ParentAlternateId` = @__p_0) AND (`e`.`ParentId` = @__p_1)",
 //                Sql,
 //                ignoreLineEndingDifferences: true);
         }
@@ -424,9 +424,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 //                Assert.Equal(
 //                    @"@__p_0='707' (Nullable = true)
 
-//SELECT [e].[Id], [e].[ParentId]
-//FROM [Child] AS [e]
-//WHERE [e].[ParentId] = @__p_0",
+//SELECT `e`.`Id`, `e`.`ParentId`
+//FROM `Child` AS `e`
+//WHERE `e`.`ParentId` = @__p_0",
 //                    Sql,
 //                    ignoreLineEndingDifferences: true);
             }
@@ -440,9 +440,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Assert.Equal(
                 @"@__p_0='707' (Nullable = true)
 
-            SELECT [e].[Id], [e].[ParentId]
-            FROM [Child] AS [e]
-            WHERE [e].[ParentId] = @__p_0",
+            SELECT `e`.`Id`, `e`.`ParentId`
+            FROM `Child` AS `e`
+            WHERE `e`.`ParentId` = @__p_0",
                 Sql,
                 ignoreLineEndingDifferences: true);
         }

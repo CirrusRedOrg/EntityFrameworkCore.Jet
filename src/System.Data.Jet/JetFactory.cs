@@ -54,8 +54,8 @@ namespace System.Data.Jet
                 throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateCommandBuilder)));
 
             var commandBuilder = InnerFactory.CreateCommandBuilder();
-            commandBuilder.QuotePrefix = "[";
-            commandBuilder.QuoteSuffix = "]";
+            commandBuilder.QuotePrefix = "`";
+            commandBuilder.QuoteSuffix = "`";
 
             return commandBuilder;
         }

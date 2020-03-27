@@ -470,14 +470,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         list = await new TestJetRetryingExecutionStrategy(context)
                             .ExecuteAsync(
                                 context, (c, ct) => c.Set<Product>().FromSqlRaw(
-                                    @"SELECT [ID], [name]
-                              FROM [Products]").ToListAsync(ct), null);
+                                    @"SELECT `ID`, `name`
+                              FROM `Products`").ToListAsync(ct), null);
                     }
                     else
                     {
                         list = await context.Set<Product>().FromSqlRaw(
-                            @"SELECT [ID], [name]
-                              FROM [Products]").ToListAsync();
+                            @"SELECT `ID`, `name`
+                              FROM `Products`").ToListAsync();
                     }
                 }
                 else
@@ -487,14 +487,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         list = new TestJetRetryingExecutionStrategy(context)
                             .Execute(
                                 context, c => c.Set<Product>().FromSqlRaw(
-                                    @"SELECT [ID], [name]
-                              FROM [Products]").ToList(), null);
+                                    @"SELECT `ID`, `name`
+                              FROM `Products`").ToList(), null);
                     }
                     else
                     {
                         list = context.Set<Product>().FromSqlRaw(
-                            @"SELECT [ID], [name]
-                              FROM [Products]").ToList();
+                            @"SELECT `ID`, `name`
+                              FROM `Products`").ToList();
                     }
                 }
 

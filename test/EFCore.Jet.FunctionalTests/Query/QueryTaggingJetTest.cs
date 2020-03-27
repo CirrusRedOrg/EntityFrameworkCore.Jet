@@ -23,9 +23,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql(
                 @"-- Yanni
 
-SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]");
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         public override void Single_query_multiple_tags()
@@ -37,9 +37,9 @@ ORDER BY [c].[CustomerID]");
 
 -- Enya
 
-SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]");
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         public override void Tags_on_subquery()
@@ -51,14 +51,14 @@ ORDER BY [c].[CustomerID]");
 
 -- Laurel
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c],
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`,
 (
-    SELECT TOP 5 [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    ORDER BY [o].[OrderID]
-) AS [t]
-WHERE [c].[CustomerID] = 'ALFKI'");
+    SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `t`
+WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
         public override void Duplicate_tags()
@@ -68,9 +68,9 @@ WHERE [c].[CustomerID] = 'ALFKI'");
             AssertSql(
                 @"-- Yanni
 
-SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]");
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         public override void Tag_on_include_query()
@@ -80,14 +80,14 @@ ORDER BY [c].[CustomerID]");
             AssertSql(
                 @"-- Yanni
 
-SELECT [t].[CustomerID], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
-    SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-    FROM [Customers] AS [c]
-    ORDER BY [c].[CustomerID]
-) AS [t]
-LEFT JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID]
-ORDER BY [t].[CustomerID], [o].[OrderID]");
+    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `t`
+LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
         }
 
         public override void Tag_on_scalar_query()
@@ -97,9 +97,9 @@ ORDER BY [t].[CustomerID], [o].[OrderID]");
             AssertSql(
                 @"-- Yanni
 
-SELECT TOP 1 [o].[OrderDate]
-FROM [Orders] AS [o]
-ORDER BY [o].[OrderID]");
+SELECT TOP 1 `o`.`OrderDate`
+FROM `Orders` AS `o`
+ORDER BY `o`.`OrderID`");
         }
 
         public override void Single_query_multiline_tag()
@@ -111,9 +111,9 @@ ORDER BY [o].[OrderID]");
 -- AND
 -- Laurel
 
-SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]");
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         public override void Single_query_multiple_multiline_tag()
@@ -130,9 +130,9 @@ ORDER BY [c].[CustomerID]");
 -- Multiline
 -- Tag
 
-SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]");
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         public override void Single_query_multiline_tag_with_empty_lines()
@@ -146,9 +146,9 @@ ORDER BY [c].[CustomerID]");
 -- 
 -- Laurel
 
-SELECT TOP 1 [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]");
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         private void AssertSql(params string[] expected)

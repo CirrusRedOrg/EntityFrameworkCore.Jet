@@ -122,7 +122,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             {
                 // Hack
                 string whereClause = GetAndFixWhereClause(commandText);
-                whereClause = whereClause.Replace("[Extent1]", "[#Tables]");
+                whereClause = whereClause.Replace("`Extent1`", "`#Tables`");
                 commandText = Properties.Resources.StoreSchemaDefinitionRetrieve_QueryHack1 + " " + whereClause;
             }
             else if (
@@ -134,7 +134,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             {
                 // Hack
                 string whereClause = GetAndFixWhereClause(commandText);
-                whereClause = whereClause.Replace("[Extent1]", "[#Views]");
+                whereClause = whereClause.Replace("`Extent1`", "`#Views`");
                 commandText = Properties.Resources.StoreSchemaDefinitionRetrieve_QueryHack2 + " " + whereClause;
             }
 

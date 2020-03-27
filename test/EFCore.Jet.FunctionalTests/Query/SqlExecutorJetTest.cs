@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             base.Executes_stored_procedure();
 
-            AssertSql("[dbo].[Ten Most Expensive Products]");
+            AssertSql("`dbo`.`Ten Most Expensive Products`");
         }
 
         public override void Executes_stored_procedure_with_parameter()
@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql(
                 @"@CustomerID='ALFKI' (Nullable = false) (Size = 5)
 
-[dbo].[CustOrderHist] @CustomerID");
+`dbo`.`CustOrderHist` @CustomerID");
         }
 
         public override void Executes_stored_procedure_with_generated_parameter()
@@ -44,7 +44,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql(
                 @"@p0='ALFKI' (Size = 4000)
 
-[dbo].[CustOrderHist] @CustomerID = @p0");
+`dbo`.`CustOrderHist` @CustomerID = @p0");
         }
 
         public override void Query_with_parameters()
@@ -140,9 +140,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @
         protected override DbParameter CreateDbParameter(string name, object value)
             => new OleDbParameter { ParameterName = name, Value = value };
 
-        protected override string TenMostExpensiveProductsSproc => "[dbo].[Ten Most Expensive Products]";
-        protected override string CustomerOrderHistorySproc => "[dbo].[CustOrderHist] @CustomerID";
-        protected override string CustomerOrderHistoryWithGeneratedParameterSproc => "[dbo].[CustOrderHist] @CustomerID = {0}";
+        protected override string TenMostExpensiveProductsSproc => "`dbo`.`Ten Most Expensive Products`";
+        protected override string CustomerOrderHistorySproc => "`dbo`.`CustOrderHist` @CustomerID";
+        protected override string CustomerOrderHistoryWithGeneratedParameterSproc => "`dbo`.`CustOrderHist` @CustomerID = {0}";
 
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

@@ -618,37 +618,37 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var script = context.Database.GenerateCreateScript();
                 Assert.Equal(
-                    "CREATE TABLE [Blogs] ("
+                    "CREATE TABLE `Blogs` ("
                     + _eol
-                    + "    [Key1] nvarchar(450) NOT NULL,"
+                    + "    `Key1` nvarchar(450) NOT NULL,"
                     + _eol
-                    + "    [Key2] varbinary(900) NOT NULL,"
+                    + "    `Key2` varbinary(900) NOT NULL,"
                     + _eol
-                    + "    [Cheese] nvarchar(max) NULL,"
+                    + "    `Cheese` nvarchar(max) NULL,"
                     + _eol
-                    + "    [ErMilan] int NOT NULL,"
+                    + "    `ErMilan` int NOT NULL,"
                     + _eol
-                    + "    [George] bit NOT NULL,"
+                    + "    `George` bit NOT NULL,"
                     + _eol
-                    + "    [TheGu] uniqueidentifier NOT NULL,"
+                    + "    `TheGu` uniqueidentifier NOT NULL,"
                     + _eol
-                    + "    [NotFigTime] datetime2 NOT NULL,"
+                    + "    `NotFigTime` datetime2 NOT NULL,"
                     + _eol
-                    + "    [ToEat] tinyint NOT NULL,"
+                    + "    `ToEat` tinyint NOT NULL,"
                     + _eol
-                    + "    [OrNothing] float NOT NULL,"
+                    + "    `OrNothing` float NOT NULL,"
                     + _eol
-                    + "    [Fuse] smallint NOT NULL,"
+                    + "    `Fuse` smallint NOT NULL,"
                     + _eol
-                    + "    [WayRound] bigint NOT NULL,"
+                    + "    `WayRound` bigint NOT NULL,"
                     + _eol
-                    + "    [On] real NOT NULL,"
+                    + "    `On` real NOT NULL,"
                     + _eol
-                    + "    [AndChew] varbinary(max) NULL,"
+                    + "    `AndChew` varbinary(max) NULL,"
                     + _eol
-                    + "    [AndRow] rowversion NULL,"
+                    + "    `AndRow` rowversion NULL,"
                     + _eol
-                    + "    CONSTRAINT [PK_Blogs] PRIMARY KEY ([Key1], [Key2])"
+                    + "    CONSTRAINT `PK_Blogs` PRIMARY KEY (`Key1`, `Key2`)"
                     + _eol
                     + ");"
                     + _eol

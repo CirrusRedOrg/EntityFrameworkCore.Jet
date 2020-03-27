@@ -79,7 +79,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 Assert.NotNull(customers);
                 Assert.Contains(
 #pragma warning disable CS0612 // Type or member is obsolete
-                    CoreResources.LogIgnoredInclude(new TestLogger<JetLoggingDefinitions>()).GenerateMessage("[c].Orders"),
+                    CoreResources.LogIgnoredInclude(new TestLogger<JetLoggingDefinitions>()).GenerateMessage("`c`.Orders"),
                     Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
 #pragma warning restore CS0612 // Type or member is obsolete
             }
@@ -98,11 +98,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 Assert.NotNull(customers);
 
                 Assert.Equal(
-                    "Compiling query model: " + _eol + "'(from Customer c in DbSet<Customer>" + _eol + @"select [c]).Include(""Orders"")'"
+                    "Compiling query model: " + _eol + "'(from Customer c in DbSet<Customer>" + _eol + @"select `c`).Include(""Orders"")'"
                     ,
                     Fixture.TestSqlLoggerFactory.Log[0].Message);
                 Assert.Equal(
-                    "Including navigation: '[c].Orders'"
+                    "Including navigation: '`c`.Orders'"
                     ,
                     Fixture.TestSqlLoggerFactory.Log[1].Message);
                 Assert.StartsWith(
@@ -110,7 +110,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                     + _eol
                     + "'from Customer c in DbSet<Customer>"
                     + _eol
-                    + @"order by EF.Property(?[c]?, ""CustomerID"") asc"
+                    + @"order by EF.Property(?`c`?, ""CustomerID"") asc"
                     + _eol
                     + "select Customer _Include("
                     ,
@@ -134,7 +134,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 #pragma warning disable CS0612 // Type or member is obsolete
                     CoreResources.LogIgnoredInclude(new TestLogger<JetLoggingDefinitions>()).GenerateMessage(
 #pragma warning restore CS0612 // Type or member is obsolete
-                        "{from Order o in [g] orderby [o].OrderID asc select [o] => FirstOrDefault()}.OrderDetails"),
+                        "{from Order o in `g` orderby `o`.OrderID asc select `o` => FirstOrDefault()}.OrderDetails"),
                     Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
             }
         }

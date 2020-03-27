@@ -88,18 +88,18 @@ namespace System.Data.Jet
                 connection.Open();
                 
                 string sql = @"
-CREATE TABLE [MSysAccessStorage] (
-    [DateCreate] DATETIME NULL,
-    [DateUpdate] DATETIME NULL,
-    [Id] COUNTER NOT NULL,
-    [Lv] IMAGE,
-    [Name] VARCHAR(128) NULL,
-    [ParentId] INT NULL,
-    [Type] INT NULL,
-    CONSTRAINT [Id] PRIMARY KEY ([Id])
+CREATE TABLE `MSysAccessStorage` (
+    `DateCreate` DATETIME NULL,
+    `DateUpdate` DATETIME NULL,
+    `Id` COUNTER NOT NULL,
+    `Lv` IMAGE,
+    `Name` VARCHAR(128) NULL,
+    `ParentId` INT NULL,
+    `Type` INT NULL,
+    CONSTRAINT `Id` PRIMARY KEY (`Id`)
 );
-CREATE UNIQUE INDEX [ParentIdId] ON [MSysAccessStorage] ([ParentId], [Id]);
-CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);";
+CREATE UNIQUE INDEX `ParentIdId` ON `MSysAccessStorage` (`ParentId`, `Id`);
+CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);";
 
                 using var command = connection.CreateCommand(sql);
                 command.ExecuteNonQuery();

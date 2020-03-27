@@ -29,8 +29,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             AssertSql(
                 @"SELECT COUNT(*)
-FROM [Customers] AS [c]
-WHERE [c].[ContactName] LIKE '%M%'");
+FROM `Customers` AS `c`
+WHERE `c`.`ContactName` LIKE '%M%'");
         }
 
         public override void Like_identity()
@@ -39,8 +39,8 @@ WHERE [c].[ContactName] LIKE '%M%'");
 
             AssertSql(
                 @"SELECT COUNT(*)
-FROM [Customers] AS [c]
-WHERE [c].[ContactName] LIKE [c].[ContactName]");
+FROM `Customers` AS `c`
+WHERE `c`.`ContactName` LIKE `c`.`ContactName`");
         }
 
         public override void Like_literal_with_escape()
@@ -49,8 +49,8 @@ WHERE [c].[ContactName] LIKE [c].[ContactName]");
 
             AssertSql(
                 @"SELECT COUNT(*)
-FROM [Customers] AS [c]
-WHERE [c].[ContactName] LIKE '!%' ESCAPE '!'");
+FROM `Customers` AS `c`
+WHERE `c`.`ContactName` LIKE '!%' ESCAPE '!'");
         }
 
         [ConditionalFact]
@@ -65,8 +65,8 @@ WHERE [c].[ContactName] LIKE '!%' ESCAPE '!'");
 
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(YEAR, [o].[OrderDate], GETDATE()) = 0");
+FROM `Orders` AS `o`
+WHERE DATEDIFF(YEAR, `o`.`OrderDate`, GETDATE()) = 0");
             }
         }
 
@@ -81,8 +81,8 @@ WHERE DATEDIFF(YEAR, [o].[OrderDate], GETDATE()) = 0");
                 Assert.Equal(0, count);
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(MONTH, [o].[OrderDate], GETDATE()) = 0");
+FROM `Orders` AS `o`
+WHERE DATEDIFF(MONTH, `o`.`OrderDate`, GETDATE()) = 0");
             }
         }
 
@@ -97,8 +97,8 @@ WHERE DATEDIFF(MONTH, [o].[OrderDate], GETDATE()) = 0");
                 Assert.Equal(0, count);
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(DAY, [o].[OrderDate], GETDATE()) = 0");
+FROM `Orders` AS `o`
+WHERE DATEDIFF(DAY, `o`.`OrderDate`, GETDATE()) = 0");
             }
         }
 
@@ -113,8 +113,8 @@ WHERE DATEDIFF(DAY, [o].[OrderDate], GETDATE()) = 0");
                 Assert.Equal(0, count);
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(HOUR, [o].[OrderDate], GETDATE()) = 0");
+FROM `Orders` AS `o`
+WHERE DATEDIFF(HOUR, `o`.`OrderDate`, GETDATE()) = 0");
             }
         }
 
@@ -129,8 +129,8 @@ WHERE DATEDIFF(HOUR, [o].[OrderDate], GETDATE()) = 0");
                 Assert.Equal(0, count);
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(MINUTE, [o].[OrderDate], GETDATE()) = 0");
+FROM `Orders` AS `o`
+WHERE DATEDIFF(MINUTE, `o`.`OrderDate`, GETDATE()) = 0");
             }
         }
 
@@ -145,8 +145,8 @@ WHERE DATEDIFF(MINUTE, [o].[OrderDate], GETDATE()) = 0");
                 Assert.Equal(0, count);
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(SECOND, [o].[OrderDate], GETDATE()) = 0");
+FROM `Orders` AS `o`
+WHERE DATEDIFF(SECOND, `o`.`OrderDate`, GETDATE()) = 0");
             }
         }
 
@@ -164,9 +164,9 @@ WHERE DATEDIFF(SECOND, [o].[OrderDate], GETDATE()) = 0");
                 Assert.False(actual);
 
                 AssertSql(
-                    @"SELECT TOP 1 CAST(ISDATE([o].[CustomerID]) AS bit)
-FROM [Orders] AS [o]
-WHERE CAST(ISDATE([o].[CustomerID]) AS bit) <> True");
+                    @"SELECT TOP 1 CAST(ISDATE(`o`.`CustomerID`) AS bit)
+FROM `Orders` AS `o`
+WHERE CAST(ISDATE(`o`.`CustomerID`) AS bit) <> True");
             }
         }
 
@@ -184,9 +184,9 @@ WHERE CAST(ISDATE([o].[CustomerID]) AS bit) <> True");
                 Assert.True(actual);
 
                 AssertSql(
-                    @"SELECT TOP 1 CAST(ISDATE(CONVERT(VARCHAR(100), [o].[OrderDate])) AS bit)
-FROM [Orders] AS [o]
-WHERE CAST(ISDATE(CONVERT(VARCHAR(100), [o].[OrderDate])) AS bit) = True");
+                    @"SELECT TOP 1 CAST(ISDATE(CONVERT(VARCHAR(100), `o`.`OrderDate`)) AS bit)
+FROM `Orders` AS `o`
+WHERE CAST(ISDATE(CONVERT(VARCHAR(100), `o`.`OrderDate`)) AS bit) = True");
             }
         }
 
@@ -201,8 +201,8 @@ WHERE CAST(ISDATE(CONVERT(VARCHAR(100), [o].[OrderDate])) AS bit) = True");
 
                 AssertSql(
                     @"SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE CAST(ISDATE([o].[CustomerID] + CAST([o].[OrderID] AS nchar(5))) AS bit) = True");
+FROM `Orders` AS `o`
+WHERE CAST(ISDATE(`o`.`CustomerID` + CAST(`o`.`OrderID` AS nchar(5))) AS bit) = True");
             }
         }
 

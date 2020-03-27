@@ -517,8 +517,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Throws_when_no_initial_catalog()
         {
-            var dataAccessType = JetConnection.GetDataAccessProviderType(TestEnvironment.DefaultConnection);
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessType);
+            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(TestEnvironment.DefaultConnection);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
             connectionStringBuilder.Remove("Initial Catalog");

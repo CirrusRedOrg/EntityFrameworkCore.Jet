@@ -1,6 +1,6 @@
 namespace System.Data.Jet
 {
-    public enum DataAccessType
+    public enum DataAccessProviderType
     {
         Odbc,
         OleDb,

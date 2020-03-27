@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.Internal
 
             // RowNumberPagingEnabled = jetOptions.RowNumberPaging ?? false;
             
-            DataAccessType = GetDataAccessTypeFromOptions(jetOptions);
+            DataAccessProviderType = GetDataAccessProviderTypeFromOptions(jetOptions);
             ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString;
         }
 
@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Jet.Internal
             }
             */
 
-            if (DataAccessType != GetDataAccessTypeFromOptions(jetOptions))
+            if (DataAccessProviderType != GetDataAccessProviderTypeFromOptions(jetOptions))
             {
                 throw new InvalidOperationException(
                     CoreStrings.SingletonOptionChanged(
@@ -57,9 +57,7 @@ namespace EntityFrameworkCore.Jet.Internal
             }
         }
         
-        private static DataAccessType GetDataAccessTypeFromOptions(JetOptionsExtension jetOptions)
-            => jetOptions.DataAccessProviderFactory
-        private static DataAccessProviderType GetDataAccessTypeFromOptions(JetOptionsExtension jetOptions)
+        private static DataAccessProviderType GetDataAccessProviderTypeFromOptions(JetOptionsExtension jetOptions)
         {
             if (jetOptions.DataAccessProviderFactory == null)
             {
@@ -67,12 +65,12 @@ namespace EntityFrameworkCore.Jet.Internal
             }
             
             if (jetOptions.DataAccessProviderFactory
-                   .GetType()
-                   .GetTypesInHierarchy()
+                .GetType()
+                .GetTypesInHierarchy()
                 .Any(
-                       t => string.Equals(
-                           t.FullName,
-                           "System.Data.OleDb.OleDbFactory",
+                    t => string.Equals(
+                        t.FullName,
+                        "System.Data.OleDb.OleDbFactory",
                         StringComparison.OrdinalIgnoreCase)))
             {
                 return DataAccessProviderType.OleDb;
@@ -108,7 +106,7 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual DataAccessType DataAccessType { get; private set; }
+        public virtual DataAccessProviderType DataAccessProviderType { get; private set; }
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

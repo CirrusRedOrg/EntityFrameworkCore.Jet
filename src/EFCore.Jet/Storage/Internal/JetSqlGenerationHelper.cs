@@ -92,13 +92,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         }
 
         public override string GenerateParameterNamePlaceholder(string name)
-            => _jetOptions.DataAccessType == DataAccessType.OleDb
+            => _jetOptions.DataAccessProviderType == DataAccessProviderType.OleDb
                 ? base.GenerateParameterNamePlaceholder(name)
                 : "?";
 
         public override void GenerateParameterNamePlaceholder(StringBuilder builder, string name)
         {
-            if (_jetOptions.DataAccessType == DataAccessType.OleDb)
+            if (_jetOptions.DataAccessProviderType == DataAccessProviderType.OleDb)
             {
                 base.GenerateParameterNamePlaceholder(builder, name);
             }

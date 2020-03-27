@@ -68,7 +68,9 @@ namespace System.Data.Jet
             
             try
             {
-                connectionString = JetConnection.GetConnectionString(fileName, DataAccessType.OleDb);
+                // ADOX is an ADO eXtension and ADO is build on top of OLE DB. We always need to use an OLE DB
+                // connection string for ADOX.
+                connectionString = JetConnection.GetConnectionString(fileName, DataAccessProviderType.OleDb);
                 
                 catalog.Create(connectionString)
                     .Dispose(); // Dispose the returned Connection object, because we don't use it here.

@@ -63,6 +63,7 @@
     <None Include="..\xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Remove="TestResults\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -80,6 +81,14 @@
       <Link>Northwind.sql</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="TestResults\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="TestResults\**" />
   </ItemGroup>
 
 </Project>

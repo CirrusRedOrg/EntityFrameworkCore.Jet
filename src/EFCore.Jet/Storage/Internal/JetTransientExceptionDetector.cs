@@ -2,7 +2,6 @@
 
 using System;
 using System.Data.Jet;
-using System.Data.OleDb;
 using JetBrains.Annotations;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -14,14 +13,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         public static bool ShouldRetryOn([NotNull] Exception ex)
         {
-            DataAccessType dataAccessType;
+            DataAccessProviderType dataAccessProviderType;
 
             var exceptionFullName = ex.GetType().FullName;
             
             if (exceptionFullName == "System.Data.OleDb.OleDbException")
-                dataAccessType = DataAccessType.OleDb;
+                dataAccessProviderType = DataAccessProviderType.OleDb;
             else if (exceptionFullName == "System.Data.Odbc.OdbcException")
-                dataAccessType = DataAccessType.Odbc;
+                dataAccessProviderType = DataAccessProviderType.Odbc;
             else
                 return false;
 
@@ -36,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     // If too many commands get executed in short succession, ACE/Jet can run out of table handles.
                     // This can happen despite proper disposal of OdbcCommand and OdbcDataReader objects.
                     // Waiting for a couple of milliseconds will give ACE/Jet enough time to catch up.
-                    case -1311 when dataAccessType == DataAccessType.Odbc:
+                    case -1311 when dataAccessProviderType == DataAccessProviderType.Odbc:
                         return true;
                 }
 

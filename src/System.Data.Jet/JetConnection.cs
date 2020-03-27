@@ -426,21 +426,21 @@ namespace System.Data.Jet
             => AdoxWrapper.CreateEmptyDatabase(fileName, dataAccessProviderFactory);
 
         public static string GetConnectionString(string fileName, DbProviderFactory dataAccessProviderFactory)
-            => GetConnectionString(fileName, GetDataAccessType(dataAccessProviderFactory));
+            => GetConnectionString(fileName, GetDataAccessProviderType(dataAccessProviderFactory));
 
-        public static string GetConnectionString(string fileName, DataAccessType dataAccessType)
+        public static string GetConnectionString(string fileName, DataAccessProviderType dataAccessProviderType)
             => GetConnectionString(
-                dataAccessType == DataAccessType.OleDb
+                dataAccessProviderType == DataAccessProviderType.OleDb
                     ? JetConfiguration.OleDbDefaultProvider
                     : JetConfiguration.OdbcDefaultProvider,
                 fileName,
-                dataAccessType);
+                dataAccessProviderType);
 
         public static string GetConnectionString(string provider, string fileName, DbProviderFactory dataAccessProviderFactory)
-            => GetConnectionString(provider, fileName, GetDataAccessType(dataAccessProviderFactory));
+            => GetConnectionString(provider, fileName, GetDataAccessProviderType(dataAccessProviderFactory));
         
-        public static string GetConnectionString(string provider, string fileName, DataAccessType dataAccessType)
-            => dataAccessType == DataAccessType.OleDb
+        public static string GetConnectionString(string provider, string fileName, DataAccessProviderType dataAccessProviderType)
+            => dataAccessProviderType == DataAccessProviderType.OleDb
                 ? $"Provider={provider};Data Source={fileName}"
                 : $"Driver={{{provider}}};DBQ={fileName}";
 
@@ -486,7 +486,7 @@ namespace System.Data.Jet
             return File.Exists(fileName);
         }
 
-        public static DataAccessType GetDataAccessType(string connectionString)
+        public static DataAccessProviderType GetDataAccessProviderType(string connectionString)
         {
             var isOleDb = Regex.IsMatch(connectionString, @"Provider\s*=\s*\w+", RegexOptions.IgnoreCase);
             var isOdbc = Regex.IsMatch(connectionString, @"Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase);
@@ -498,11 +498,11 @@ namespace System.Data.Jet
                 throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
 
             return isOleDb
-                ? DataAccessType.OleDb
-                : DataAccessType.Odbc;
+                ? DataAccessProviderType.OleDb
+                : DataAccessProviderType.Odbc;
         }
 
-        public static DataAccessType GetDataAccessType(DbProviderFactory providerFactory)
+        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory providerFactory)
         {
             var isOleDb = providerFactory
                 .GetType()
@@ -529,8 +529,8 @@ namespace System.Data.Jet
                 throw new ArgumentException($"The parameter is neither of type OdbcFactory nor OleDbFactory.", nameof(providerFactory));
 
             return isOleDb
-                ? DataAccessType.OleDb
-                : DataAccessType.Odbc;
+                ? DataAccessProviderType.OleDb
+                : DataAccessProviderType.Odbc;
         }
     }
 }

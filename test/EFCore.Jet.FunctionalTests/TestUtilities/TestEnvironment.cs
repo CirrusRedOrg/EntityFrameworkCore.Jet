@@ -25,8 +25,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         {
             get
             {
-                var dataAccessType = JetConnection.GetDataAccessType(DefaultConnection);
-                var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessType);
+                var dataAccessProviderType = JetConnection.GetDataAccessProviderType(DefaultConnection);
+                var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
                 var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
                 connectionStringBuilder.ConnectionString = DefaultConnection;
                 
@@ -34,8 +34,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
         }
 
-        public static DataAccessProvider DataAccessProvider { get; } = JetConnection.GetDataAccessType(DefaultConnection);
-        public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessType(DefaultConnection));
+        public static DataAccessProviderType DataAccessProviderType { get; } = JetConnection.GetDataAccessProviderType(DefaultConnection);
+        public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(DefaultConnection));
         
         public static bool IsLocalDb { get; } = true;
 

@@ -12,6 +12,6 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
     public interface IJetOptions : ISingletonOptions
     {
         string ConnectionString { get; }
-        DataAccessType DataAccessType { get; }
+        DataAccessProviderType DataAccessProviderType { get; }
     }
 }

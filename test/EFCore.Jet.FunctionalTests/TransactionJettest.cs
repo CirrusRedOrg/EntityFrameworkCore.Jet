@@ -1,15 +1,13 @@
-﻿using System.Threading.Tasks;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
 
-#pragma warning disable xUnit1003 // Theory methods must have test data
-
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class TransactionJetTest : TransactionTestBase<TransactionJetTest.TransactionJetFixture>
     {
@@ -18,30 +16,33 @@ namespace EntityFramework.Jet.FunctionalTests
         {
         }
 
+        protected override bool SnapshotSupported => true;
+
+        protected override bool AmbientTransactionsSupported => true;
+
         protected override DbContext CreateContextWithConnectionString()
         {
             var options = Fixture.AddOptions(
                     new DbContextOptionsBuilder()
-                        .UseJet(TestStore.ConnectionString, b => b.ApplyConfiguration().CommandTimeout(JetTestStore.CommandTimeout)))
+                        .UseJet(
+                            TestStore.ConnectionString,
+                            b => b.ApplyConfiguration().ExecutionStrategy(c => new JetExecutionStrategy(c))))
                 .UseInternalServiceProvider(Fixture.ServiceProvider);
 
             return new DbContext(options.Options);
         }
 
-        protected override bool SnapshotSupported => false;
-
-
-        [Theory(Skip = "Unsupported by JET")]
-        public override Task Can_use_open_connection_with_started_transaction(bool a) { return Task.CompletedTask; }
-        [Theory(Skip = "Unsupported by JET")]
-        public override Task QueryAsync_uses_explicit_transaction(bool a) { return Task.CompletedTask; }
-        [Theory(Skip = "Unsupported by JET")]
-        public override void Query_uses_explicit_transaction(bool a) { }
-
-
         public class TransactionJetFixture : TransactionFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+
+            protected override void Seed(PoolableDbContext context)
+            {
+                base.Seed(context);
+
+                context.Database.ExecuteSqlRaw("ALTER DATABASE [" + StoreName + "] SET ALLOW_SNAPSHOT_ISOLATION ON");
+                context.Database.ExecuteSqlRaw("ALTER DATABASE [" + StoreName + "] SET READ_COMMITTED_SNAPSHOT ON");
+            }
 
             public override void Reseed()
             {
@@ -57,14 +58,10 @@ namespace EntityFramework.Jet.FunctionalTests
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             {
                 new JetDbContextOptionsBuilder(
-                        base.AddOptions(builder)
-                            .ConfigureWarnings(
-                                w => w.Log(RelationalEventId.QueryClientEvaluationWarning)
-                                    .Log(CoreEventId.FirstWithoutOrderByAndFilterWarning)))
-                    .MaxBatchSize(1);
+                        base.AddOptions(builder))
+                    .ExecutionStrategy(c => new JetExecutionStrategy(c));
                 return builder;
             }
         }
-
     }
 }

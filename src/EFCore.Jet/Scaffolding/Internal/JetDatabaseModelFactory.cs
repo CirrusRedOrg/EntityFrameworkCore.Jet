@@ -8,7 +8,6 @@ using System.Data.Jet;
 using System.Diagnostics;
 using System.Linq;
 using EntityFrameworkCore.Jet.Internal;
-using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -16,7 +15,6 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
-using Microsoft.EntityFrameworkCore.Scaffolding.Metadata.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
@@ -25,43 +23,30 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetDatabaseModelFactory : IDatabaseModelFactory
+    public class JetDatabaseModelFactory : DatabaseModelFactory
     {
         private DbConnection _connection;
         private Version _serverVersion;
         private HashSet<string> _tablesToInclude;
-        private HashSet<string> _schemasToInclude;
-        private HashSet<string> _selectedSchemas;
         private HashSet<string> _selectedTables;
         private DatabaseModel _databaseModel;
         private Dictionary<string, DatabaseTable> _tables;
         private Dictionary<string, DatabaseColumn> _tableColumns;
 
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        private static string SchemaQualifiedKey([NotNull] string name, [CanBeNull] string schema = null) => "[" + (schema ?? "") + "].[" + name + "]";
-
-        private static string TableKey(DatabaseTable table) => SchemaQualifiedKey(table.Name, table.Schema);
-        private static string ColumnKey(DatabaseTable table, string columnName) => TableKey(table) + ".[" + columnName + "]";
-
-        private static readonly ISet<string> _dateTimePrecisionTypes = new HashSet<string> { "datetimeoffset", "datetime2", "time" };
-
-        // see https://msdn.microsoft.com/en-us/library/ff878091.aspx
-
-        private static readonly List<string> _schemaPatterns = new List<string>
-        {
-            "{schema}",
-            "[{schema}]"
-        };
+        private static string ObjectKey([NotNull] string name)
+            => "[" + name + "]";
+        
+        private static string TableKey(DatabaseTable table)
+            => TableKey(table.Name);
+        
+        private static string TableKey(String tableName)
+            => ObjectKey(tableName);
+        
+        private static string ColumnKey(DatabaseTable table, string columnName)
+            => TableKey(table) + "." + ObjectKey(columnName);
 
         private static readonly List<string> _tablePatterns = new List<string>
         {
-            "{schema}.{table}",
-            "[{schema}].[{table}]",
-            "{schema}.[{table}]",
-            "[{schema}].{table}",
             "{table}",
             "[{table}]"
         };
@@ -88,39 +73,37 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             _connection = null;
             _serverVersion = null;
             _selectedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _selectedSchemas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _tablesToInclude = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _schemasToInclude = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _databaseModel = new DatabaseModel();
             _tables = new Dictionary<string, DatabaseTable>();
             _tableColumns = new Dictionary<string, DatabaseColumn>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual DatabaseModel Create(string connectionString, IEnumerable<string> tables, IEnumerable<string> schemas)
+        public override DatabaseModel Create(string connectionString, DatabaseModelFactoryOptions options)
         {
             Check.NotEmpty(connectionString, nameof(connectionString));
-            Check.NotNull(tables, nameof(tables));
-            Check.NotNull(schemas, nameof(schemas));
+            Check.NotNull(options, nameof(options));
 
-            using (var connection = new JetConnection(connectionString))
-            {
-                return Create(connection, tables, schemas);
-            }
+            using var connection = new JetConnection(connectionString);
+            return Create(connection, options);
         }
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual DatabaseModel Create(DbConnection connection, IEnumerable<string> tables, IEnumerable<string> schemas)
+        public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
         {
             Check.NotNull(connection, nameof(connection));
-            Check.NotNull(tables, nameof(tables));
-            Check.NotNull(schemas, nameof(schemas));
+            Check.NotNull(options, nameof(options));
 
             ResetState();
 
@@ -131,23 +114,20 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             {
                 _connection.Open();
             }
+
             try
             {
-                foreach (var schema in schemas)
-                {
-                    _schemasToInclude.Add(schema);
-                }
-
-                foreach (var table in tables)
+                foreach (var table in options.Tables)
                 {
                     _tablesToInclude.Add(table);
                 }
 
+                _databaseModel.DefaultSchema = null;
                 _databaseModel.DatabaseName = _connection.Database;
 
+                // CHECK: Is this actually set?
                 Version.TryParse(_connection.ServerVersion, out _serverVersion);
 
-                GetDefaultSchema();
                 GetTables();
                 GetColumns();
                 GetPrimaryKeys();
@@ -170,30 +150,17 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private void CheckSelectionsMatched()
         {
-            foreach (var schema in _schemasToInclude.Except(_selectedSchemas, StringComparer.OrdinalIgnoreCase))
-            {
-                Logger.MissingSchemaWarning(schema);
-            }
-
             foreach (var table in _tablesToInclude.Except(_selectedTables, StringComparer.OrdinalIgnoreCase))
             {
                 Logger.MissingTableWarning(table);
             }
         }
 
-
-        private void GetDefaultSchema()
-        {
-            _databaseModel.DefaultSchema = "Jet";
-        }
-
-
-
         private void GetTables()
         {
             var command = _connection.CreateCommand();
-            command.CommandText =
-                $"SHOW TABLES WHERE Name <> '{HistoryRepository.DefaultTableName}'";
+            command.CommandText = $"SHOW TABLES WHERE Name <> '{HistoryRepository.DefaultTableName}'";
+
             using (var reader = command.ExecuteReader())
             {
                 while (reader.Read())
@@ -201,13 +168,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var table = new DatabaseTable
                     {
                         Database = _databaseModel,
-                        Schema = "Jet",
+                        Schema = null,
                         Name = reader.GetValueOrDefault<string>("Name")
                     };
 
-                    if (AllowsTable(table.Schema, table.Name))
+                    if (AllowsTable(table.Name))
                     {
-                        Logger.TableFound(DisplayName(table.Schema, table.Name));
+                        Logger.TableFound(table.Name);
                         _databaseModel.Tables.Add(table);
                         _tables[TableKey(table)] = table;
                     }
@@ -215,27 +182,16 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             }
         }
 
-        private bool AllowsTable(string schema, string table)
+        private bool AllowsTable(string table)
         {
-            if (_schemasToInclude.Count == 0
-                && _tablesToInclude.Count == 0)
+            if (_tablesToInclude.Count == 0)
             {
                 return true;
             }
 
-            foreach (var schemaPattern in _schemaPatterns)
-            {
-                var key = schemaPattern.Replace("{schema}", schema);
-                if (_schemasToInclude.Contains(key))
-                {
-                    _selectedSchemas.Add(schema);
-                    return true;
-                }
-            }
-
             foreach (var tablePattern in _tablePatterns)
             {
-                var key = tablePattern.Replace("{schema}", schema).Replace("{table}", table);
+                var key = tablePattern.Replace("{table}", table);
                 if (_tablesToInclude.Contains(key))
                 {
                     _selectedTables.Add(key);
@@ -260,41 +216,40 @@ ORDER BY
             {
                 while (reader.Read())
                 {
-                    var schemaName = "Jet";
                     var tableName = reader.GetValueOrDefault<string>("Table");
                     var columnName = reader.GetValueOrDefault<string>("Name");
                     var dataTypeName = reader.GetValueOrDefault<string>("TypeName");
-                    var dataTypeSchemaName = "Jet";
                     var ordinal = reader.GetValueOrDefault<int>("Ordinal");
                     var nullable = reader.GetValueOrDefault<bool>("IsNullable");
                     // ReSharper disable once UnusedVariable
-                    var primaryKeyOrdinal = reader.GetValueOrDefault<bool>("IsKey") ? (int?)reader.GetValueOrDefault<int>("Ordinal") : null;
+                    var primaryKeyOrdinal = reader.GetValueOrDefault<bool>("IsKey")
+                        ? (int?) reader.GetValueOrDefault<int>("Ordinal")
+                        : null;
                     var defaultValue = reader.GetValueOrDefault<string>("Default");
-                    var computedValue = (string)null;
                     var precision = reader.GetValueOrDefault<int?>("Precision");
                     var scale = reader.GetValueOrDefault<int?>("Scale");
                     var maxLength = reader.GetValueOrDefault<int?>("MaxLength");
                     var isIdentity = reader.GetValueOrDefault<bool>("IsIdentity");
 
                     Logger.ColumnFound(
-                        DisplayName(schemaName, tableName),
+                        tableName,
                         columnName,
                         ordinal,
-                        DisplayName(dataTypeSchemaName, dataTypeName),
-                        maxLength,
-                        precision,
-                        scale,
+                        dataTypeName,
+                        maxLength ?? -1,
+                        precision ?? 0,
+                        scale ?? 0,
                         nullable,
                         isIdentity,
                         defaultValue,
-                        computedValue);
+                        null);
 
-                    if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
+                    if (!_tables.TryGetValue(TableKey(tableName), out var table))
                         continue;
 
-                    string storeType;
-                    storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
+                    var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
 
+                    // CHECK: Jet behavior.
                     if (defaultValue == "(NULL)")
                     {
                         defaultValue = null;
@@ -307,17 +262,18 @@ ORDER BY
                         StoreType = storeType,
                         IsNullable = nullable,
                         DefaultValueSql = defaultValue,
-                        ComputedColumnSql = computedValue,
+                        ComputedColumnSql = null,
                         ValueGenerated = isIdentity
                             ? ValueGenerated.OnAdd
-                            : (storeType) == "rowversion"
+                            : storeType == "timestamp"
                                 ? ValueGenerated.OnAddOrUpdate
                                 : default(ValueGenerated?)
                     };
 
-                    if (storeType == "rowversion")
+                    if (storeType == "timestamp")
                     {
-                        column[ScaffoldingAnnotationNames.ConcurrencyToken] = true;
+                        // Note: annotation name must match `ScaffoldingAnnotationNames.ConcurrencyToken`
+                        column["ConcurrencyToken"] = true;
                     }
 
                     table.Columns.Add(column);
@@ -328,36 +284,28 @@ ORDER BY
 
         private string GetStoreType(string dataTypeName, int? precision, int? scale, int? maxLength)
         {
-            if (dataTypeName == "decimal"
-                || dataTypeName == "numeric")
+            if (string.Equals(dataTypeName, "decimal", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(dataTypeName, "numeric", StringComparison.OrdinalIgnoreCase))
             {
                 return $"{dataTypeName}({precision}, {scale.GetValueOrDefault(0)})";
             }
-            if (_dateTimePrecisionTypes.Contains(dataTypeName)
-                && scale != null)
+
+            if (maxLength.HasValue)
             {
-                return $"{dataTypeName}({scale})";
-            }
-            if (maxLength == -1)
-            {
-                if (string.Equals(dataTypeName, "varchar", StringComparison.InvariantCultureIgnoreCase))
-                    return "text";
-                else if (string.Equals(dataTypeName, "varbinary", StringComparison.InvariantCultureIgnoreCase))
-                    return "image";
-                else
+                if (maxLength == -1)
+                {
+                    if (string.Equals(dataTypeName, "varchar", StringComparison.OrdinalIgnoreCase))
+                        return "longchar";
+
+                    if (string.Equals(dataTypeName, "varbinary", StringComparison.OrdinalIgnoreCase))
+                        return "longbinary";
+
                     throw new InvalidOperationException("Unexpected type " + dataTypeName);
+                }
+
+                if (maxLength > 0)
+                    return $"{dataTypeName}({maxLength.Value})";
             }
-
-            if (dataTypeName == "timestamp")
-                return "rowversion";
-
-            if (dataTypeName == "bit")
-            {
-                return "bit";
-            }
-
-            if (maxLength.HasValue && maxLength > 0)
-                return $"{dataTypeName}({maxLength.Value})";
 
             return dataTypeName;
         }
@@ -378,10 +326,8 @@ ORDER BY
                 DatabasePrimaryKey primaryKey = null;
                 while (reader.Read())
                 {
-                    var schemaName = "Jet";
                     var tableName = reader.GetValueOrDefault<string>("TableName");
                     var indexName = reader.GetValueOrDefault<string>("ConstraintName");
-                    var typeDesc = reader.GetValueOrDefault<string>("ConstraintType");
                     var columnName = reader.GetValueOrDefault<string>("ColumnName");
                     // ReSharper disable once UnusedVariable
                     var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
@@ -390,27 +336,20 @@ ORDER BY
                     if (primaryKey == null
                         || primaryKey.Name != indexName
                         // ReSharper disable once PossibleNullReferenceException
-                        || primaryKey.Table.Name != tableName
-                        || primaryKey.Table.Schema != schemaName)
+                        || primaryKey.Table.Name != tableName)
                     {
-                        if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
+                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
                         {
                             continue;
                         }
 
-                        Logger.PrimaryKeyFound(
-                            indexName, DisplayName(schemaName, tableName));
+                        Logger.PrimaryKeyFound(indexName, tableName);
 
                         primaryKey = new DatabasePrimaryKey
                         {
                             Table = table,
                             Name = indexName
                         };
-
-                        if (typeDesc == "NONCLUSTERED")
-                        {
-                            primaryKey[JetAnnotationNames.Clustered] = false;
-                        }
 
                         Debug.Assert(table.PrimaryKey == null);
                         table.PrimaryKey = primaryKey;
@@ -440,10 +379,9 @@ ORDER BY
                 DatabaseUniqueConstraint uniqueConstraint = null;
                 while (reader.Read())
                 {
-                    var schemaName = "Jet";
+                    var schemaName = "Jet"; // TODO: Change to `null`.
                     var tableName = reader.GetValueOrDefault<string>("TableName");
                     var indexName = reader.GetValueOrDefault<string>("ConstraintName");
-                    var typeDesc = reader.GetValueOrDefault<string>("ConstraintType");
                     var columnName = reader.GetValueOrDefault<string>("ColumnName");
                     // ReSharper disable once UnusedVariable
                     var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
@@ -455,23 +393,18 @@ ORDER BY
                         || uniqueConstraint.Table.Name != tableName
                         || uniqueConstraint.Table.Schema != schemaName)
                     {
-                        if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
+                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
                         {
                             continue;
                         }
 
-                        Logger.UniqueConstraintFound(indexName, DisplayName(schemaName, tableName));
+                        Logger.UniqueConstraintFound(indexName, tableName);
 
                         uniqueConstraint = new DatabaseUniqueConstraint
                         {
                             Table = table,
                             Name = indexName
                         };
-
-                        if (typeDesc == "CLUSTERED")
-                        {
-                            uniqueConstraint[JetAnnotationNames.Clustered] = true;
-                        }
 
                         table.UniqueConstraints.Add(uniqueConstraint);
                     }
@@ -502,11 +435,10 @@ ORDER BY
                 DatabaseIndex index = null;
                 while (reader.Read())
                 {
-                    var schemaName = "Jet";
+                    var schemaName = "Jet"; // TODO: Change to `null`.
                     var tableName = reader.GetValueOrDefault<string>("Table");
                     var indexName = reader.GetValueOrDefault<string>("Index");
                     var isUnique = reader.GetValueOrDefault<bool>("IsUnique");
-                    var typeDesc = "NON CLUSTERED";
                     var columnName = reader.GetValueOrDefault<string>("Name");
                     // ReSharper disable once UnusedVariable
                     var indexOrdinal = reader.GetValueOrDefault<int>("Ordinal");
@@ -518,12 +450,12 @@ ORDER BY
                         || index.Table.Name != tableName
                         || index.Table.Schema != schemaName)
                     {
-                        if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
+                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
                         {
                             continue;
                         }
 
-                        Logger.IndexFound(indexName, DisplayName(schemaName, tableName), isUnique);
+                        Logger.IndexFound(indexName, tableName, isUnique);
 
                         index = new DatabaseIndex
                         {
@@ -532,11 +464,6 @@ ORDER BY
                             IsUnique = isUnique,
                             Filter = null
                         };
-
-                        if (typeDesc == "CLUSTERED")
-                        {
-                            index[JetAnnotationNames.Clustered] = true;
-                        }
 
                         table.Indexes.Add(index);
                     }
@@ -568,10 +495,10 @@ ORDER BY
                 DatabaseForeignKey foreignKey = null;
                 while (reader.Read())
                 {
-                    var schemaName = "Jet";
+                    var schemaName = "Jet"; // TODO: Change to `null`.
                     var tableName = reader.GetValueOrDefault<string>("FromTable");
                     var constraintName = reader.GetValueOrDefault<string>("ConstraintId");
-                    var principalTableSchemaName = "Jet";
+                    var principalTableSchemaName = "Jet"; // TODO: Change to `null`.
                     var principalTableName = reader.GetValueOrDefault<string>("ToTable");
                     var fromColumnName = reader.GetValueOrDefault<string>("FromColumn");
                     var toColumnName = reader.GetValueOrDefault<string>("ToColumn");
@@ -583,8 +510,8 @@ ORDER BY
 
                     Logger.ForeignKeyFound(
                         constraintName,
-                        DisplayName(schemaName, tableName),
-                        DisplayName(schemaName, principalTableName),
+                        tableName,
+                        principalTableName,
                         deleteAction);
 
                     if (foreignKey == null
@@ -596,7 +523,7 @@ ORDER BY
                         lastFkSchemaName = schemaName;
                         lastFkTableName = tableName;
 
-                        if (!_tables.TryGetValue(SchemaQualifiedKey(tableName, schemaName), out var table))
+                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
                         {
                             continue;
                         }
@@ -605,13 +532,13 @@ ORDER BY
                         if (!string.IsNullOrEmpty(principalTableSchemaName)
                             && !string.IsNullOrEmpty(principalTableName))
                         {
-                            _tables.TryGetValue(SchemaQualifiedKey(principalTableName, principalTableSchemaName), out principalTable);
+                            _tables.TryGetValue(TableKey(principalTableName), out principalTable);
                         }
 
                         if (principalTable == null)
                         {
                             Logger.ForeignKeyReferencesMissingPrincipalTableWarning(
-                                constraintName, DisplayName(schemaName, tableName), DisplayName(principalTableSchemaName, principalTableName));
+                                constraintName, tableName, principalTableName);
                         }
 
                         foreignKey = new DatabaseForeignKey
@@ -642,9 +569,6 @@ ORDER BY
                 }
             }
         }
-
-        private static string DisplayName(string schema, string name)
-            => (!string.IsNullOrEmpty(schema) ? schema + "." : "") + name;
 
         private static ReferentialAction? ConvertToReferentialAction(string onDeleteAction)
         {

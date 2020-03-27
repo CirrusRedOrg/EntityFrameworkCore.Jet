@@ -1,7 +1,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using Microsoft.EntityFrameworkCore.Query.ExpressionTranslators;
+using System.Collections.Generic;
+using System.Reflection;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
@@ -9,15 +12,22 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetNewGuidTranslator : SingleOverloadStaticMethodCallTranslator
+    public class JetNewGuidTranslator : IMethodCallTranslator
     {
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public JetNewGuidTranslator()
-            : base(typeof(Guid), nameof(Guid.NewGuid), "NewGuid")
+        private static readonly MethodInfo _methodInfo = typeof(Guid).GetRuntimeMethod(nameof(Guid.NewGuid), Array.Empty<Type>());
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+
+        public JetNewGuidTranslator(ISqlExpressionFactory sqlExpressionFactory)
+            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+
+        public virtual SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
         {
+            return _methodInfo.Equals(method)
+                ? _sqlExpressionFactory.Function(
+                    "NEWGUID",
+                    Array.Empty<SqlExpression>(),
+                    method.ReturnType)
+                : null;
         }
     }
 }

@@ -1,10 +1,13 @@
-﻿using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System.Data.Jet;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
     public class JetTestHelpers : TestHelpers
     {
@@ -18,6 +21,8 @@ namespace EntityFramework.Jet.FunctionalTests
             => services.AddEntityFrameworkJet();
 
         protected override void UseProviderOptions(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseJet(new System.Data.Jet.JetConnection(ConnectionStringBuilderHelper.GetJetConnectionString("DummyDatabase")));
+            => optionsBuilder.UseJet(new JetConnection("Database=DummyDatabase"));
+
+        public override LoggingDefinitions LoggingDefinitions { get; } = new JetLoggingDefinitions();
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
@@ -7,67 +6,67 @@ namespace System.Data.Jet.Test
     [TestClass]
     public class UpdateTest
     {
+        private const string StoreName = nameof(UpdateTest) + ".accdb";
+
+        private JetConnection _connection;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _connection = Helpers.CreateAndOpenDatabase(StoreName);
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            _connection?.Close();
+            Helpers.DeleteDatabase(StoreName);
+        }
+
         [TestMethod]
         public void UpdateTestRun()
         {
             var queries = Helpers.GetQueries(Properties.Resources.UpdateTestQueries);
             Assert.AreEqual(6, queries.Length);
 
-            using (var connection = Helpers.GetJetConnection())
+            DbDataReader reader;
+            for (var index = 0; index < queries.Length - 2; index++)
             {
-                connection.Open();
-                DbDataReader reader;
-                for (int index = 0; index < queries.Length - 2; index++)
-                {
-                    string query = queries[index];
-                    reader = Helpers.Execute(connection, query);
-                    if (reader != null)
-                        reader.Dispose();
-                }
-                reader = Helpers.Execute(connection, queries[4]);
-                reader.Read();
-                Assert.AreEqual(1, reader.GetInt32(0));
-                reader.Dispose();
-
-                Helpers.Execute(connection, queries[5]);
-                
-
+                var query = queries[index];
+                reader = Helpers.Execute(_connection, query);
+                reader?.Dispose();
             }
-        }
 
+            reader = Helpers.Execute(_connection, queries[4]);
+            reader.Read();
+            Assert.AreEqual(1, reader.GetInt32(0));
+            reader.Dispose();
+
+            Helpers.Execute(_connection, queries[5]);
+        }
 
         [TestMethod]
         public void UpdateTestWithTransactionsRun()
         {
-            JetConfiguration.ShowSqlStatements = true;
-
             var queries = Helpers.GetQueries(Properties.Resources.UpdateTestQueries);
             Assert.AreEqual(6, queries.Length);
 
-            using (var connection = Helpers.GetJetConnection())
+            DbDataReader reader;
+            for (var index = 0; index < queries.Length - 2; index++)
             {
-                connection.Open();
-                DbDataReader reader;
-                for (int index = 0; index < queries.Length - 2; index++)
-                {
-                    DbTransaction transaction = connection.BeginTransaction();
-                    string query = queries[index];
-                    reader = Helpers.Execute(connection, transaction, query);
-                    if (reader != null)
-                        reader.Dispose();
-                    transaction.Commit();
-                }
-                reader = Helpers.Execute(connection, queries[4]);
-                reader.Read();
-                Assert.AreEqual(1, reader.GetInt32(0));
-                reader.Dispose();
-
-                Helpers.Execute(connection, queries[5]);
-
-
+                var transaction = _connection.BeginTransaction();
+                var query = queries[index];
+                reader = Helpers.Execute(_connection, transaction, query);
+                reader?.Dispose();
+                transaction.Commit();
             }
+
+            reader = Helpers.Execute(_connection, queries[4]);
+            reader.Read();
+            Assert.AreEqual(1, reader.GetInt32(0));
+            reader.Dispose();
+
+            Helpers.Execute(_connection, queries[5]);
         }
-
-
     }
 }

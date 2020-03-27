@@ -1,6 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-namespace EntityFramework.Jet.FunctionalTests
+using Microsoft.EntityFrameworkCore;
+
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class DatabindingJetTest : DatabindingTestBase<F1JetFixture>
     {

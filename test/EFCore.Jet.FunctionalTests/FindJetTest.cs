@@ -1,17 +1,14 @@
-﻿using System;
+﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System.Threading.Tasks;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public abstract class FindJetTest :  FindTestBase<FindJetTest.FindJetFixture>
+    public abstract class FindJetTest : FindTestBase<FindJetTest.FindJetFixture>
     {
         protected FindJetTest(FindJetFixture fixture)
             : base(fixture)
@@ -29,7 +26,7 @@ namespace EntityFramework.Jet.FunctionalTests
             protected override TEntity Find<TEntity>(DbContext context, params object[] keyValues)
                 => context.Set<TEntity>().Find(keyValues);
 
-            protected override Task<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
+            protected override ValueTask<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
                 => context.Set<TEntity>().FindAsync(keyValues);
         }
 
@@ -43,7 +40,7 @@ namespace EntityFramework.Jet.FunctionalTests
             protected override TEntity Find<TEntity>(DbContext context, params object[] keyValues)
                 => context.Find<TEntity>(keyValues);
 
-            protected override Task<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
+            protected override ValueTask<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
                 => context.FindAsync<TEntity>(keyValues);
         }
 
@@ -57,11 +54,10 @@ namespace EntityFramework.Jet.FunctionalTests
             protected override TEntity Find<TEntity>(DbContext context, params object[] keyValues)
                 => (TEntity)context.Find(typeof(TEntity), keyValues);
 
-            protected override async Task<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
+            protected override async ValueTask<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
                 => (TEntity)await context.FindAsync(typeof(TEntity), keyValues);
         }
 
-        [Fact]
         public override void Find_int_key_tracked()
         {
             base.Find_int_key_tracked();
@@ -69,33 +65,61 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal("", Sql);
         }
 
-        [Fact]
         public override void Find_int_key_from_store()
         {
             base.Find_int_key_from_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='77'
+            AssertSql(
+                @"@__p_0='77'
 
-SELECT TOP 1 [e].[Id], [e].[Foo]
-FROM [IntKey] AS [e]
-WHERE [e].[Id] = @__get_Item_0", Sql);
+SELECT TOP 1 [i].[Id], [i].[Foo]
+FROM [IntKey] AS [i]
+WHERE [i].[Id] = @__p_0");
         }
 
-        [Fact]
         public override void Returns_null_for_int_key_not_in_store()
         {
             base.Returns_null_for_int_key_not_in_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='99'
+            AssertSql(
+                @"@__p_0='99'
 
-SELECT TOP 1 [e].[Id], [e].[Foo]
-FROM [IntKey] AS [e]
-WHERE [e].[Id] = @__get_Item_0", Sql);
+SELECT TOP 1 [i].[Id], [i].[Foo]
+FROM [IntKey] AS [i]
+WHERE [i].[Id] = @__p_0");
         }
 
-        [Fact]
+        public override void Find_nullable_int_key_tracked()
+        {
+            base.Find_int_key_tracked();
+
+            Assert.Equal("", Sql);
+        }
+
+        public override void Find_nullable_int_key_from_store()
+        {
+            base.Find_int_key_from_store();
+
+            AssertSql(
+                @"@__p_0='77'
+
+SELECT TOP 1 [i].[Id], [i].[Foo]
+FROM [IntKey] AS [i]
+WHERE [i].[Id] = @__p_0");
+        }
+
+        public override void Returns_null_for_nullable_int_key_not_in_store()
+        {
+            base.Returns_null_for_int_key_not_in_store();
+
+            AssertSql(
+                @"@__p_0='99'
+
+SELECT TOP 1 [i].[Id], [i].[Foo]
+FROM [IntKey] AS [i]
+WHERE [i].[Id] = @__p_0");
+        }
+
         public override void Find_string_key_tracked()
         {
             base.Find_string_key_tracked();
@@ -103,8 +127,30 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal("", Sql);
         }
 
+        public override void Find_string_key_from_store()
+        {
+            base.Find_string_key_from_store();
 
-        [Fact]
+            AssertSql(
+                @"@__p_0='Cat' (Size = 450)
+
+SELECT TOP 1 [s].[Id], [s].[Foo]
+FROM [StringKey] AS [s]
+WHERE [s].[Id] = @__p_0");
+        }
+
+        public override void Returns_null_for_string_key_not_in_store()
+        {
+            base.Returns_null_for_string_key_not_in_store();
+
+            AssertSql(
+                @"@__p_0='Fox' (Size = 450)
+
+SELECT TOP 1 [s].[Id], [s].[Foo]
+FROM [StringKey] AS [s]
+WHERE [s].[Id] = @__p_0");
+        }
+
         public override void Find_composite_key_tracked()
         {
             base.Find_composite_key_tracked();
@@ -112,8 +158,32 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal("", Sql);
         }
 
+        public override void Find_composite_key_from_store()
+        {
+            base.Find_composite_key_from_store();
 
-        [Fact]
+            AssertSql(
+                @"@__p_0='77'
+@__p_1='Dog' (Size = 450)
+
+SELECT TOP 1 [c].[Id1], [c].[Id2], [c].[Foo]
+FROM [CompositeKey] AS [c]
+WHERE ([c].[Id1] = @__p_0) AND ([c].[Id2] = @__p_1)");
+        }
+
+        public override void Returns_null_for_composite_key_not_in_store()
+        {
+            base.Returns_null_for_composite_key_not_in_store();
+
+            AssertSql(
+                @"@__p_0='77'
+@__p_1='Fox' (Size = 450)
+
+SELECT TOP 1 [c].[Id1], [c].[Id2], [c].[Foo]
+FROM [CompositeKey] AS [c]
+WHERE ([c].[Id1] = @__p_0) AND ([c].[Id2] = @__p_1)");
+        }
+
         public override void Find_base_type_tracked()
         {
             base.Find_base_type_tracked();
@@ -121,33 +191,30 @@ WHERE [e].[Id] = @__get_Item_0", Sql);
             Assert.Equal("", Sql);
         }
 
-        [Fact]
         public override void Find_base_type_from_store()
         {
             base.Find_base_type_from_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='77'
+            AssertSql(
+                @"@__p_0='77'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE [b].[Discriminator] IN ('BaseType', 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Returns_null_for_base_type_not_in_store()
         {
             base.Returns_null_for_base_type_not_in_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='99'
+            AssertSql(
+                @"@__p_0='99'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE [b].[Discriminator] IN ('BaseType', 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Find_derived_type_tracked()
         {
             base.Find_derived_type_tracked();
@@ -155,59 +222,54 @@ WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_
             Assert.Equal("", Sql);
         }
 
-        [Fact]
         public override void Find_derived_type_from_store()
         {
             base.Find_derived_type_from_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='78'
+            AssertSql(
+                @"@__p_0='78'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE ([b].[Discriminator] = 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Returns_null_for_derived_type_not_in_store()
         {
             base.Returns_null_for_derived_type_not_in_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='99'
+            AssertSql(
+                @"@__p_0='99'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE ([b].[Discriminator] = 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Find_base_type_using_derived_set_tracked()
         {
             base.Find_base_type_using_derived_set_tracked();
 
-            Assert.Equal(
-                @"@__get_Item_0='88'
+            AssertSql(
+                @"@__p_0='88'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE ([b].[Discriminator] = 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Find_base_type_using_derived_set_from_store()
         {
             base.Find_base_type_using_derived_set_from_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='77'
+            AssertSql(
+                @"@__p_0='77'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE ([b].[Discriminator] = 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Find_derived_type_using_base_set_tracked()
         {
             base.Find_derived_type_using_base_set_tracked();
@@ -215,20 +277,18 @@ WHERE ([e].[Discriminator] = 'DerivedType') AND ([e].[Id] = @__get_Item_0)", Sql
             Assert.Equal("", Sql);
         }
 
-        [Fact]
         public override void Find_derived_using_base_set_type_from_store()
         {
             base.Find_derived_using_base_set_type_from_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='78'
+            AssertSql(
+                @"@__p_0='78'
 
-SELECT TOP 1 [e].[Id], [e].[Discriminator], [e].[Foo], [e].[Boo]
-FROM [BaseType] AS [e]
-WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_Item_0)", Sql);
+SELECT TOP 1 [b].[Id], [b].[Discriminator], [b].[Foo], [b].[Boo]
+FROM [BaseType] AS [b]
+WHERE [b].[Discriminator] IN ('BaseType', 'DerivedType') AND ([b].[Id] = @__p_0)");
         }
 
-        [Fact]
         public override void Find_shadow_key_tracked()
         {
             base.Find_shadow_key_tracked();
@@ -236,60 +296,38 @@ WHERE [e].[Discriminator] IN ('DerivedType', 'BaseType') AND ([e].[Id] = @__get_
             Assert.Equal("", Sql);
         }
 
-        [Fact]
         public override void Find_shadow_key_from_store()
         {
             base.Find_shadow_key_from_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='77'
+            AssertSql(
+                @"@__p_0='77'
 
-SELECT TOP 1 [e].[Id], [e].[Foo]
-FROM [ShadowKey] AS [e]
-WHERE [e].[Id] = @__get_Item_0", Sql);
+SELECT TOP 1 [s].[Id], [s].[Foo]
+FROM [ShadowKey] AS [s]
+WHERE [s].[Id] = @__p_0");
         }
 
-        [Fact]
         public override void Returns_null_for_shadow_key_not_in_store()
         {
             base.Returns_null_for_shadow_key_not_in_store();
 
-            Assert.Equal(
-                @"@__get_Item_0='99'
+            AssertSql(
+                @"@__p_0='99'
 
-SELECT TOP 1 [e].[Id], [e].[Foo]
-FROM [ShadowKey] AS [e]
-WHERE [e].[Id] = @__get_Item_0", Sql);
+SELECT TOP 1 [s].[Id], [s].[Foo]
+FROM [ShadowKey] AS [s]
+WHERE [s].[Id] = @__p_0");
         }
 
-        private const string FileLineEnding = @"
-";
+        private string Sql => Fixture.TestSqlLoggerFactory.Sql;
 
-        private string Sql => Fixture.TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
         public class FindJetFixture : FindFixtureBase
         {
-            private const string DatabaseName = "FindTest";
-            // ReSharper disable once NotAccessedField.Local
-            private readonly DbContextOptions _options;
-
-            public TestSqlLoggerFactory TestSqlLoggerFactory { get; } = new TestSqlLoggerFactory();
-
-            public FindJetFixture()
-            {
-                var serviceProvider = new ServiceCollection()
-                    .AddEntityFrameworkJet()
-                    .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                    .AddSingleton<ILoggerFactory>(TestSqlLoggerFactory)
-                    .BuildServiceProvider();
-                    
-                _options = new DbContextOptionsBuilder()
-                    .UseJet(JetTestStore.CreateConnectionString(DatabaseName), b => b.ApplyConfiguration())
-                    .UseInternalServiceProvider(serviceProvider)
-                    .EnableSensitiveDataLogging()
-                    .Options;
-            }
-
+            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
         }
     }

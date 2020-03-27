@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using System.Text.RegularExpressions;
 
 namespace System.Data.Jet.JetStoreSchemaDefinition
 {
@@ -16,11 +11,6 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         private static Regex _renameTableColumnRegex = new Regex(
             $@"^\s*rename\s+column\s+{GetQuotedOrUnquotedNamePattern("tableName")}\.{GetQuotedOrUnquotedNamePattern("columnName")}\s+to\s+{GetQuotedOrUnquotedNamePattern("newColumnName")}\s*$",
             RegexOptions.IgnoreCase);
-
-        private static Regex _renameTableIndexRegex = new Regex(
-            $@"^\s*rename\s+index\s+{GetQuotedOrUnquotedNamePattern("tableName")}\.{GetQuotedOrUnquotedNamePattern("indexName")}\s+to\s+{GetQuotedOrUnquotedNamePattern("newIndexName")}\s*$",
-            RegexOptions.IgnoreCase);
-
 
         public static bool TryDatabaseOperation(string connectionString, string commandText)
         {
@@ -45,17 +35,6 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 AdoxWrapper.RenameColumn(connectionString, RemoveBrackets(tableName), RemoveBrackets(columnName), RemoveBrackets(newColumnName));
                 return true;
             }
-
-            match = _renameTableIndexRegex.Match(commandText);
-            if (match.Success)
-            {
-                string tableName = match.Groups["tableName"].Value;
-                string indexName = match.Groups["indexName"].Value;
-                string newIndexName = match.Groups["newIndexName"].Value;
-                AdoxWrapper.RenameIndex(connectionString, RemoveBrackets(tableName), RemoveBrackets(indexName), RemoveBrackets(newIndexName));
-                return true;
-            }
-
 
             return false;
         }

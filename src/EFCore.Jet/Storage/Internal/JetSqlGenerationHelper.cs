@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Text;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -27,18 +26,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override string BatchTerminator => "GO" + Environment.NewLine + Environment.NewLine;
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public override string EscapeIdentifier(string identifier)
         {
             Check.NotEmpty(identifier, nameof(identifier));
 
-            identifier = identifier.Replace(".", "#");
-            identifier = identifier.Replace("]", "]]");
+            identifier = identifier
+                .Replace(".", "#")
+                .Replace("]", "]]");
 
             return identifier;
         }
@@ -51,8 +45,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             Check.NotEmpty(identifier, nameof(identifier));
 
-            identifier = identifier.Replace(".", "#");
-            identifier = identifier.Replace("]", "]]");
+            identifier = identifier
+                .Replace(".", "#")
+                .Replace("]", "]]");
+            
             builder.Append(identifier);
         }
 
@@ -62,7 +58,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public override string DelimitIdentifier(string identifier)
         {
-            return $"[{EscapeIdentifier(Check.NotEmpty(identifier, nameof(identifier)))}]";
+            return $"[{EscapeIdentifier(TruncateIdentifier(Check.NotEmpty(identifier, nameof(identifier))))}]";
         }
 
         /// <summary>
@@ -74,7 +70,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             Check.NotEmpty(identifier, nameof(identifier));
 
             builder.Append('[');
-            EscapeIdentifier(builder, identifier);
+            EscapeIdentifier(builder, TruncateIdentifier(identifier));
             builder.Append(']');
         }
 
@@ -88,6 +84,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             // Schema is not supported in Jet
             return DelimitIdentifier(Check.NotEmpty(name, nameof(name)));
+        }
+        
+        public static string TruncateIdentifier(string identifier)
+        {
+            if (identifier.Length <= 64)
+                return identifier;
+
+            return identifier.Substring(0, 56) + identifier.ToLowerInvariant().GetHashCode().ToString("X8");
         }
     }
 }

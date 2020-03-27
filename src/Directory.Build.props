@@ -1,0 +1,12 @@
+<Project>
+  <Import Project="..\Directory.Build.props" />
+  
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);EF1001</NoWarn>
+    <IsPackable>True</IsPackable>
+    <IncludeSymbols>True</IncludeSymbols>
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\..\build\Key.snk</AssemblyOriginatorKeyFile>
+    <EmbedUntrackedSources>True</EmbedUntrackedSources>
+  </PropertyGroup>
+</Project>

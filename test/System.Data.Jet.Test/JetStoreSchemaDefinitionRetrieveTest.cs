@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
@@ -7,37 +6,28 @@ namespace System.Data.Jet.Test
     [TestClass]
     public class JetStoreSchemaDefinitionRetrieveTest
     {
+        private const string StoreName = nameof(JetStoreSchemaDefinitionRetrieveTest) + ".accdb";
 
-        DbConnection _connection;
+        private DbConnection _connection;
 
         [TestInitialize]
-        public void Initialize()
+        public void Setup()
         {
-            _connection = Helpers.GetJetConnection();
-            _connection.Open();
+            _connection = Helpers.CreateAndOpenDatabase(StoreName);
 
-
-            string sql = @"IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE NAME = 'TestMoney') THEN
+            const string sql = @"IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE NAME = 'TestMoney') THEN
 CREATE TABLE TestMoney ( MoneyCol money, DecimalCol decimal(19,0) );
 ";
-            var command = _connection.CreateCommand();
+
+            using var command = _connection.CreateCommand();
             command.CommandText = sql;
             command.ExecuteNonQuery();
-            command.Dispose();
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public void TearDown()
         {
-            string sql = @"
-DROP TABLE TestMoney;
-";
-            var command = _connection.CreateCommand();
-            command.CommandText = sql;
-            command.ExecuteNonQuery();
-            command.Dispose();
-
-            _connection.Dispose();
+            _connection?.Close();
         }
 
         [TestMethod]
@@ -85,7 +75,5 @@ DROP TABLE TestMoney;
         {
             Helpers.ShowDataReaderContent(_connection, "select * from show tables");
         }
-
-
     }
 }

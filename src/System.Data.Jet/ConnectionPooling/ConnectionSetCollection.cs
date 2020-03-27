@@ -14,7 +14,9 @@ namespace System.Data.Jet.ConnectionPooling
             return item.ConnectionString;
         }
 
-        public bool TryGetValue(string key, out ConnectionSet connectionSet)
+        // TryGetValue has been added in .NET Core 2.0.
+        #pragma warning disable 109
+        public new bool TryGetValue(string key, out ConnectionSet connectionSet)
         {
             try
             {
@@ -27,6 +29,6 @@ namespace System.Data.Jet.ConnectionPooling
                 return false;
             }
         }
-
+        #pragma warning restore 109
     }
 }

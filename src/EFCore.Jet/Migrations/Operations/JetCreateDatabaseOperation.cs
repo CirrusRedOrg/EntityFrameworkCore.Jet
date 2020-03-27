@@ -1,20 +1,18 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Data.Jet;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace EntityFrameworkCore.Jet.Migrations.Operations
 {
+    /// <summary>
+    ///     A Jet-specific <see cref="MigrationOperation" /> to create a database.
+    /// </summary>
     public class JetCreateDatabaseOperation : MigrationOperation
     {
         /// <summary>
-        /// Gets or sets the full file name with extension.
-        /// It supports standard .Net expansion
+        ///     The name of the database.
         /// </summary>
-        /// <value>
-        /// The file name.
-        /// </value>
         public virtual string Name { get; [param: NotNull] set; }
     }
 }

@@ -3,7 +3,7 @@ using System.Linq;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
+namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.TestCaseOrderers
 {
     public class AscendingTestCaseOrderer : ITestCaseOrderer
     {

@@ -107,7 +107,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         }
 
         public static DbConnection GetJetConnection(string storeName = null)
-            => new JetConnection(JetConnection.GetConnectionString(GetJetStorePath(storeName ?? GetStoreNameFromCallStack())));
+            => new JetConnection(JetConnection.GetConnectionString(GetJetStorePath(storeName ?? GetStoreNameFromCallStack()), JetConfiguration.DefaultProviderFactory), JetConfiguration.DefaultProviderFactory);
 
         private static string GetStoreNameFromCallStack(int frames = 1)
         {
@@ -129,16 +129,13 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         public static string CreateJetDatabase(string storeName = null)
         {
             DeleteJetDatabase(storeName);
-
-            var connectionString = JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack());
-            AdoxWrapper.CreateEmptyDatabase(connectionString);
-            return connectionString;
+            return JetConnection.CreateEmptyDatabase(storeName ?? GetStoreNameFromCallStack(), JetConfiguration.DefaultProviderFactory);
         }
 
         public static void DeleteJetDatabase(string storeName = null)
         {
             JetConnection.ClearAllPools();
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack()));
+            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack(), JetConfiguration.DefaultProviderFactory));
         }
     }
 }

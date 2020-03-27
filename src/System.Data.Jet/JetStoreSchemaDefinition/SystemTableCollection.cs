@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.ObjectModel;
-using System.Data.OleDb;
+﻿using System.Collections.ObjectModel;
+using System.Data.Common;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 
 namespace System.Data.Jet.JetStoreSchemaDefinition
@@ -34,7 +32,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 Debug.Assert(entityTypeAttribute.StartsWith("Self."));
                 string entityType = entityTypeAttribute.Substring(5);
                 MethodInfo getDataTableMethodInfo = typeof(JetStoreSchemaDefinitionRetrieve).GetMethod("Get" + name, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                Func<OleDbConnection, DataTable> getDataTableDelegate = (Func<OleDbConnection, DataTable>) getDataTableMethodInfo.CreateDelegate(typeof (Func<OleDbConnection, DataTable>));
+                Func<DbConnection, DataTable> getDataTableDelegate = (Func<DbConnection, DataTable>) getDataTableMethodInfo.CreateDelegate(typeof (Func<DbConnection, DataTable>));
                 SystemTable systemTable = new SystemTable()
                 {
                     Name = name,

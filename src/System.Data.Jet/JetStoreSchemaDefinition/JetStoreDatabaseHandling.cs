@@ -1,16 +1,21 @@
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace System.Data.Jet.JetStoreSchemaDefinition
 {
     static class JetStoreDatabaseHandling
     {
-        private static Regex _regExParseCreateDatabaseCommand;
-        private static Regex _regExParseCreateDatabaseCommandFromConnection;
-        private static Regex _regExParseDropDatabaseCommand;
-        private static Regex _regExParseDropDatabaseCommandFromConnection;
-        private static Regex _regExIsCreateOrDropDatabaseCommand;
-        private static Regex _regExExtractFilenameFromConnectionString;
+        private static readonly Regex _regExIsCreateOrDropDatabaseCommand;
+        private static readonly Regex _regExParseCreateDatabaseCommand;
+        private static readonly Regex _regExParseDropDatabaseCommand;
+
+        // TODO: Remove this obsolete block for .NET 5.
+        private static readonly Regex _regExParseObsoleteCreateDatabaseCommand;
+        private static readonly Regex _regExParseObsoleteDropDatabaseCommand;
+        private static readonly Regex _regExParseObsoleteCreateDatabaseCommandFromConnection;
+        private static readonly Regex _regExParseObsoleteDropDatabaseCommandFromConnection;
+        private static readonly Regex _regExExtractFilenameFromConnectionString;
 
         static JetStoreDatabaseHandling()
         {
@@ -18,54 +23,87 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 @"^\s*(?:create|drop)\s+database\s",
                 RegexOptions.IgnoreCase);
 
+            // CREATE DATABASE 'Joe''s Database.accdb';
             _regExParseCreateDatabaseCommand = new Regex(
+                @"^\s*create\s+database\s+'\s*(?<filename>(?:''|[^'])*)\s*'\s*(?:;|$)",
+                RegexOptions.IgnoreCase);
+
+            // DROP DATABASE 'Joe''s Database.accdb';
+            _regExParseDropDatabaseCommand = new Regex(
+                @"^\s*drop\s+database\s+'\s*(?<filename>(?:''|[^'])*)\s*'\s*(?:;|$)",
+                RegexOptions.IgnoreCase);
+
+            // CREATE DATABASE Joe's Database.accdb;
+            _regExParseObsoleteCreateDatabaseCommand = new Regex(
                 @"^\s*create\s+database\s+(?<filename>.*?)\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
 
-            _regExParseDropDatabaseCommand = new Regex(
+            // DROP DATABASE 'Joe's Database.accdb';
+            _regExParseObsoleteDropDatabaseCommand = new Regex(
                 @"^\s*drop\s+database\s+(?<filename>.*?)\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
 
-            _regExParseCreateDatabaseCommandFromConnection = new Regex(
-                @"^\s*create\s+database\s+(?<connectionString>provider\s*=\s*.*?)\s*$",
+            // CREATE DATABASE Provider=Microsoft.ACE.OLEDB.12.0;Data Source=Joe's Database.accdb';
+            _regExParseObsoleteCreateDatabaseCommandFromConnection = new Regex(
+                @"^\s*create\s+database\s+(?<connectionString>(provider)\s*=\s*.*?)\s*$",
                 RegexOptions.IgnoreCase);
 
-            _regExParseDropDatabaseCommandFromConnection = new Regex(
+            // DROP DATABASE Provider=Microsoft.ACE.OLEDB.12.0;Data Source=Joe's Database.accdb';
+            _regExParseObsoleteDropDatabaseCommandFromConnection = new Regex(
                 @"^\s*drop\s+database\s+(?<connectionString>provider\s*=\s*.*?)\s*$",
                 RegexOptions.IgnoreCase);
 
+            // Provider=Microsoft.ACE.OLEDB.12.0;Data Source=Joe's Database.accdb';
             _regExExtractFilenameFromConnectionString = new Regex(
-                @"provider\s*=\s*.*?;\s*data\s+source\s*=\s*(?<filename>.*?)\s*(?:;|$)",
+                @"(?:.*;)?\s*(?:data source|dbq)\s*=\s*(?<filename>.*?)\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
         }
 
-        public static bool TryDatabaseOperation(string commandText)
+        public static bool TryDatabaseOperation(JetCommand command)
         {
+            var commandText = command.CommandText;
+            var connectionDataAccessProviderFactory = ((JetConnection) command.Connection).DataAccessProviderFactory;
+
             Match match = _regExIsCreateOrDropDatabaseCommand.Match(commandText);
             if (!match.Success)
                 return false;
 
-            match = _regExParseCreateDatabaseCommandFromConnection.Match(commandText);
+            match = _regExParseCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                AdoxWrapper.CreateEmptyDatabase(
-                    match.Groups["connectionString"]
-                        .Value);
+                var fileName = ExpandFileName(
+                    UnescapeSingleQuotes(
+                        match.Groups["filename"]
+                            .Value));
+
+                if (string.IsNullOrWhiteSpace(fileName))
+                    throw new InvalidOperationException("CREATE DATABASE statement is missing the database file name.");
+
+                AdoxWrapper.CreateEmptyDatabase(fileName, connectionDataAccessProviderFactory);
                 return true;
             }
 
-            match = _regExParseCreateDatabaseCommand.Match(commandText);
+            match = _regExParseObsoleteCreateDatabaseCommandFromConnection.Match(commandText);
+            if (match.Success)
+            {
+                AdoxWrapper.CreateEmptyDatabase(
+                    ExtractFileNameFromConnectionString(match.Groups["connectionString"].Value),
+                    connectionDataAccessProviderFactory);
+                return true;
+            }
+
+            match = _regExParseObsoleteCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
                 string fileName = match.Groups["filename"]
                     .Value;
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
-                AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString(fileName));
+                AdoxWrapper.CreateEmptyDatabase(fileName, connectionDataAccessProviderFactory);
                 return true;
             }
 
-            match = _regExParseDropDatabaseCommandFromConnection.Match(commandText);
+            match = _regExParseObsoleteDropDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
                 string fileName;
@@ -81,6 +119,21 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             }
 
             match = _regExParseDropDatabaseCommand.Match(commandText);
+            if (match.Success)
+            {
+                var fileName = ExpandFileName(
+                    UnescapeSingleQuotes(
+                        match.Groups["filename"]
+                            .Value));
+
+                if (string.IsNullOrWhiteSpace(fileName))
+                    throw new InvalidOperationException("DROP DATABASE statement is missing the database file name.");
+
+                DeleteFile(fileName);
+                return true;
+            }
+
+            match = _regExParseObsoleteDropDatabaseCommand.Match(commandText);
             if (match.Success)
             {
                 string fileName = match.Groups["filename"]
@@ -114,7 +167,35 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 return;
 
             JetConnection.ClearAllPools();
-            File.Delete(fileName.Trim());
+
+            File.Delete(fileName);
+
+            if (string.Equals(Path.GetExtension(fileName), "accdb", StringComparison.OrdinalIgnoreCase))
+            {
+                File.Delete(Path.Combine(Path.GetDirectoryName(fileName), Path.GetFileNameWithoutExtension(fileName) + ".laccdb"));
+            }
+        }
+
+        private static string UnescapeSingleQuotes(string value)
+            => value.Replace("''", "'");
+
+        public static string ExpandFileName(string fileName)
+        {
+            if (fileName == null)
+                throw new ArgumentNullException(nameof(fileName));
+
+            if (fileName.StartsWith("|DataDirectory|", StringComparison.OrdinalIgnoreCase))
+            {
+                var dataDirectory = AppDomain.CurrentDomain.GetData("DataDirectory") as string;
+                if (string.IsNullOrEmpty(dataDirectory))
+                {
+                    dataDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                }
+
+                fileName = Path.Combine(dataDirectory, fileName.Substring("|DataDirectory|".Length));
+            }
+
+            return Path.GetFullPath(fileName);
         }
     }
 }

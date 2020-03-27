@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Jet;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -72,7 +73,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), b => b.ApplyConfiguration())
+                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(_serviceProvider);
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -128,7 +129,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), b => b.ApplyConfiguration())
+                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(_serviceProvider);
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)

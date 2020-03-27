@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Data.Jet;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -22,7 +23,7 @@ DROP DATABASE TransactionSuppressed");
         {
             var options = AddOptions(
                     new DbContextOptionsBuilder()
-                        .UseJet(TestStore.ConnectionString, b => b.ApplyConfiguration()))
+                        .UseJet(TestStore.ConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration()))
                 .UseInternalServiceProvider(ServiceProvider)
                 .Options;
             return new MigrationsContext(options);

@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseJet(JetConnection.GetConnectionString(GetStorePath()));
+                optionsBuilder.UseJet(JetConnection.GetConnectionString(GetStorePath(), JetConfiguration.DefaultProviderFactory), JetConfiguration.DefaultProviderFactory);
             }
         }
     }

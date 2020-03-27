@@ -1,6 +1,4 @@
-﻿using System;
-using System.Data;
-using System.Data.OleDb;
+﻿using System.Data.Common;
 
 namespace System.Data.Jet.JetStoreSchemaDefinition
 {
@@ -16,7 +14,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         public string DropStatement { get; set; }
         public string ClearStatement { get; set; }
         public string EntityType { get; set; }
-        public Func<OleDbConnection, DataTable> GetDataTable { get; set; }
+        public Func<DbConnection, DataTable> GetDataTable { get; set; }
 
         public ColumnCollection Columns { get; private set; }
 

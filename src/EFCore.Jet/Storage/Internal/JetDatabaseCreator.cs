@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Jet;
 using System.Data.OleDb;
 using System.Threading;
 using System.Threading.Tasks;
@@ -102,10 +103,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => _rawSqlCommandBuilder.Build(@"SHOW TABLES WHERE TYPE='USER'");
 
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
-        {
-            var builder = new OleDbConnectionStringBuilder(_relationalConnection.DbConnection.ConnectionString);
-            return Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = builder.DataSource}});
-        }
+            => Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = _relationalConnection.DbConnection.DataSource}});
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

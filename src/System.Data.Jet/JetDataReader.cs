@@ -8,21 +8,27 @@ namespace System.Data.Jet
 {
     class JetDataReader : DbDataReader
     {
+#if DEBUG
+        private static int _activeObjectsCount;
+#endif
+
         public JetDataReader(DbDataReader dataReader)
         {
+#if DEBUG
+            Interlocked.Increment(ref _activeObjectsCount);
+#endif
             _wrappedDataReader = dataReader;
         }
 
         public JetDataReader(DbDataReader dataReader, int topCount, int skipCount)
+            : this(dataReader)
         {
-            _wrappedDataReader = dataReader;
             _topCount = topCount;
             for (int i = 0; i < skipCount; i++)
             {
                 _wrappedDataReader.Read();
             }
         }
-
 
         private DbDataReader _wrappedDataReader;
         private readonly int _topCount = 0;
@@ -31,6 +37,9 @@ namespace System.Data.Jet
         public override void Close()
         {
             _wrappedDataReader.Close();
+#if DEBUG
+            Interlocked.Decrement(ref _activeObjectsCount);
+#endif
         }
 
         public override int Depth
@@ -51,7 +60,7 @@ namespace System.Data.Jet
             if (booleanObject is bool)
                 return _wrappedDataReader.GetBoolean(ordinal);
             else if (booleanObject is short)
-                return ((short)booleanObject) != 0;
+                return ((short) booleanObject) != 0;
             else
                 throw new InvalidOperationException(string.Format("Cannot convert {0} to boolean", booleanObject.GetType()));
         }
@@ -98,7 +107,6 @@ namespace System.Data.Jet
             return GetDateTime(ordinal);
         }
 
-
         public override decimal GetDecimal(int ordinal)
         {
             return Convert.ToDecimal(_wrappedDataReader.GetValue(ordinal));
@@ -129,7 +137,7 @@ namespace System.Data.Jet
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             object value = _wrappedDataReader.GetValue(ordinal);
             if (value is byte[])
-                return new Guid((byte[])value);
+                return new Guid((byte[]) value);
             else
                 return _wrappedDataReader.GetGuid(ordinal);
         }
@@ -145,7 +153,7 @@ namespace System.Data.Jet
             object value = _wrappedDataReader.GetValue(ordinal);
             if (value is string)
             {
-                byte[] buffer = Encoding.Unicode.GetBytes((string)value);
+                byte[] buffer = Encoding.Unicode.GetBytes((string) value);
                 int intValue = BitConverter.ToInt32(buffer, 0);
                 return intValue;
             }
@@ -186,7 +194,7 @@ namespace System.Data.Jet
         public override T GetFieldValue<T>(int ordinal)
         {
             if (typeof(T) == typeof(TimeSpan))
-                return (T)(object)GetTimeSpan(ordinal);
+                return (T) (object) GetTimeSpan(ordinal);
             else if (typeof(T) == typeof(DateTimeOffset))
                 return (T) (object) GetDateTimeOffset(ordinal);
             else
@@ -212,7 +220,7 @@ namespace System.Data.Jet
         {
             if (_wrappedDataReader.IsDBNull(ordinal))
                 return true;
-            if (JetConfiguration.IntegerNullValue != null && ((int)JetConfiguration.IntegerNullValue).Equals(_wrappedDataReader.GetValue(ordinal)))
+            if (JetConfiguration.IntegerNullValue != null && ((int) JetConfiguration.IntegerNullValue).Equals(_wrappedDataReader.GetValue(ordinal)))
                 return true;
             return false;
         }

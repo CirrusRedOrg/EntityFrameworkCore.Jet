@@ -3394,7 +3394,8 @@ WHERE ([t0].[__RowNumber__] > @__p_0) AND ([t0].[__RowNumber__] <= (@__p_0 + @__
                     .UseLoggerFactory(_loggerFactory)
                     .EnableServiceProviderCaching(false)
                     .UseJet(
-                        JetTestStore.CreateConnectionString("RowNumberPaging_Owned"));
+                        JetTestStore.CreateConnectionString("RowNumberPaging_Owned"),
+                        JetConfiguration.DefaultProviderFactory);
             }
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)

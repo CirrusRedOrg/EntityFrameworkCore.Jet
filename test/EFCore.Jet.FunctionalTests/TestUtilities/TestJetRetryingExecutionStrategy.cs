@@ -13,6 +13,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
     {
         private const bool ErrorNumberDebugMode = false;
 
+        // CHECK: ACE/Jet error codes using ODBC and OLE DB.
         private static readonly int[] _additionalErrorNumbers =
         {
             -1, // Physical connection is not usable
@@ -27,7 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 new DbContext(
                     new DbContextOptionsBuilder()
                         .EnableServiceProviderCaching(false)
-                        .UseJet(TestEnvironment.DefaultConnection).Options),
+                        .UseJet(TestEnvironment.DefaultConnection, JetConfiguration.DefaultProviderFactory).Options),
                 DefaultMaxRetryCount, DefaultMaxDelay, _additionalErrorNumbers)
         {
         }

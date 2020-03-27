@@ -39,7 +39,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void RenameTableAdox()
         {
-            AdoxWrapper.RenameTable(JetConnection.GetConnectionString(StoreName), "tableName", "newTableName");
+            AdoxWrapper.RenameTable(JetConnection.GetConnectionString(StoreName, JetConfiguration.DefaultProviderFactory), "tableName", "newTableName");
             ReOpenConnection();
             CheckTableExists("newTableName");
         }
@@ -47,7 +47,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void RenameColumnAdox()
         {
-            AdoxWrapper.RenameColumn(JetConnection.GetConnectionString(StoreName), "tableName", "columnName", "newColumnName");
+            AdoxWrapper.RenameColumn(JetConnection.GetConnectionString(StoreName, JetConfiguration.DefaultProviderFactory), "tableName", "columnName", "newColumnName");
             ReOpenConnection();
             CheckColumnExists("tableName", "newColumnName");
         }

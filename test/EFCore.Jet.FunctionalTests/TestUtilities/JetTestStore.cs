@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Data.Jet;
+using System.Data.Odbc;
 using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -68,7 +69,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
 
             ConnectionString = CreateConnectionString(Name);
-            Connection = new JetConnection(ConnectionString);
+
+            var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(JetConnection.GetDataAccessType(ConnectionString));
+            var connection = (JetConnection) JetFactory.Instance.CreateConnection();
+            connection.ConnectionString = ConnectionString;
+            connection.DataAccessProviderFactory = dataAccessProviderFactory;
+
+            Connection = connection;
         }
 
         public JetTestStore InitializeJet(
@@ -108,12 +115,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             if (JetConnection.DatabaseExists(connectionString))
             {
                 // Only reseed scripted databases during CI runs
-                /*if (_scriptPath != null &&
+                if (_scriptPath != null &&
                     _templatePath == null &&
                     !TestEnvironment.IsCI)
                 {
-                    return false;
-                }*/
+                    //return false;
+                }
 
                 // Delete the database to ensure it's recreated with the correct file path
                 DeleteDatabase();
@@ -125,7 +132,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
             else
             {
-                JetConnection.CreateEmptyDatabase(connectionString);
+                JetConnection.CreateEmptyDatabase(Name, JetConfiguration.DefaultProviderFactory);
             }
 
             return true;
@@ -137,20 +144,20 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public void ExecuteScript(string scriptPath)
         {
             var script = File.ReadAllText(scriptPath);
-            Execute(
-                Connection, command =>
-                {
-                    foreach (var batch in
-                        new Regex(";$", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
-                            .Split(script)
-                            .Where(b => !string.IsNullOrEmpty(b)))
-                    {
-                        command.CommandText = batch;
-                        command.ExecuteNonQuery();
-                    }
+            var batches = new Regex(@"\s*;\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                .Split(script)
+                .Where(b => !string.IsNullOrEmpty(b))
+                .ToList();
 
-                    return 0;
-                }, string.Empty);
+            ExecuteBatch(
+                Connection,
+                false,
+                batches,
+                (command, batch) =>
+                {
+                    command.CommandText = batch;
+                    command.ExecuteNonQuery();
+                });
         }
 
         public void DeleteDatabase()
@@ -237,6 +244,46 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                     parameters
                 },
                 state => ExecuteCommand(state.connection, state.execute, state.sql, state.useTransaction, state.parameters));
+
+        private static void ExecuteBatch<T>(
+            DbConnection connection, bool useTransaction, IEnumerable<T> items, Action<DbCommand, T> execute)
+        {
+            if (connection.State != ConnectionState.Closed)
+            {
+                connection.Close();
+            }
+
+            connection.Open();
+            try
+            {
+                using (var transaction = useTransaction
+                    ? connection.BeginTransaction()
+                    : null)
+                {
+                    foreach (var item in items)
+                    {
+                        new TestJetRetryingExecutionStrategy().Execute(
+                            () =>
+                            {
+                                using (var command = CreateCommand(connection))
+                                {
+                                    command.Transaction = transaction;
+                                    execute(command, item);
+                                }
+                            });
+                    }
+
+                    transaction?.Commit();
+                }
+            }
+            finally
+            {
+                if (connection.State != ConnectionState.Closed)
+                {
+                    connection.Close();
+                }
+            }
+        }
 
         private static T ExecuteCommand<T>(
             DbConnection connection, Func<DbCommand, T> execute, string sql, bool useTransaction, object[] parameters)
@@ -328,7 +375,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         private static DbCommand CreateCommand(
-            DbConnection connection, string commandText, IReadOnlyList<object> parameters = null)
+            DbConnection connection, string commandText = null, IReadOnlyList<object> parameters = null)
         {
             var command = (JetCommand) connection.CreateCommand();
 
@@ -339,7 +386,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             {
                 for (var i = 0; i < parameters.Count; i++)
                 {
-                    command.Parameters.AddWithValue("p" + i, parameters[i]);
+                    var parameter = command.CreateParameter();
+                    parameter.ParameterName = "p" + i;
+                    parameter.Value = parameters[i];
+
+                    command.Parameters.Add(parameter);
                 }
             }
 
@@ -351,19 +402,21 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             base.Dispose();
 
             // Clean up the database using a local file, as it might get deleted later
-            
+
             // Keep local file for debugging purposes.
             // DeleteDatabase();
         }
 
         public static string CreateConnectionString(string name)
         {
-            var builder = new OleDbConnectionStringBuilder(TestEnvironment.DefaultConnection)
-            {
-                DataSource = name
-            };
+            var defaultConnectionString = TestEnvironment.DefaultConnection;
+            var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(JetConnection.GetDataAccessType(defaultConnectionString));
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
 
-            return builder.ToString();
+            connectionStringBuilder.ConnectionString = defaultConnectionString;
+            connectionStringBuilder.SetDataSource(name);
+
+            return connectionStringBuilder.ToString();
         }
     }
 }

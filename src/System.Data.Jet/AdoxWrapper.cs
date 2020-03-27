@@ -1,3 +1,5 @@
+using System.Data.Common;
+
 namespace System.Data.Jet
 {
     public static class AdoxWrapper
@@ -59,12 +61,15 @@ namespace System.Data.Jet
             }
         }
         
-        public static void CreateEmptyDatabase(string connectionString)
+        public static string CreateEmptyDatabase(string fileName, DbProviderFactory dataAccessProviderFactory)
         {
+            string connectionString = null;
             using var catalog = GetCatalogInstance();
             
             try
             {
+                connectionString = JetConnection.GetConnectionString(fileName, DataAccessType.OleDb);
+                
                 catalog.Create(connectionString)
                     .Dispose(); // Dispose the returned Connection object, because we don't use it here.
             }
@@ -75,8 +80,13 @@ namespace System.Data.Jet
 
             try
             {
-                using var connection = new JetConnection(connectionString);
+                connectionString = JetConnection.GetConnectionString(fileName, dataAccessProviderFactory);
+
+                using var connection = (JetConnection)JetFactory.Instance.CreateConnection();
+                connection.ConnectionString = connectionString;
+                connection.DataAccessProviderFactory = dataAccessProviderFactory;
                 connection.Open();
+                
                 string sql = @"
 CREATE TABLE [MSysAccessStorage] (
     [DateCreate] DATETIME NULL,
@@ -108,6 +118,8 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
             {
                 Diagnostics.Debug.WriteLine("Cannot close active connection after create statement.\r\nThe exception is: {0}", e.Message);
             }
+
+            return connectionString;
         }
 
         private static dynamic GetCatalogInstance()

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Jet;
 using System.Linq;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -878,6 +879,7 @@ END");
                     .EnableServiceProviderCaching(false)
                     .UseJet(
                         JetTestStore.CreateConnectionString(_databaseName),
+                        JetConfiguration.DefaultProviderFactory,
                         b => b.ApplyConfiguration());
         }
     }

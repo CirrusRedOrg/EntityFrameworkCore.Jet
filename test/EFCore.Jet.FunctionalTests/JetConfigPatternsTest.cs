@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Jet;
 using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
@@ -41,6 +42,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         .EnableServiceProviderCaching(false)
                         .UseJet(
                             JetNorthwindTestStoreFactory.NorthwindConnectionString,
+                            JetConfiguration.DefaultProviderFactory,
                             b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -58,7 +60,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     using (var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
-                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
                             .Options))
                     {
                         Assert.Equal(91, await context.Customers.CountAsync());
@@ -109,7 +111,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                     => optionsBuilder.UseJet(
-                        JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
+                        JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -125,7 +127,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 {
                     using (var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
-                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
                             .UseInternalServiceProvider(
                                 new ServiceCollection()
                                     .AddEntityFrameworkJet()
@@ -256,7 +258,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-                    optionsBuilder.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    optionsBuilder.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -308,7 +310,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                     => optionsBuilder.UseJet(
-                        JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
+                        JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -326,7 +328,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddSingleton(
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
-                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
                             .Options).BuildServiceProvider();
 
                 using (JetTestStore.GetNorthwindStore())
@@ -375,7 +377,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     using (var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
-                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
                             .Options))
                     {
                         Assert.Equal(91, await context.Customers.CountAsync());
@@ -425,7 +427,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                     => optionsBuilder
                         .EnableServiceProviderCaching(false)
-                        .UseJet(_connectionString, b => b.ApplyConfiguration());
+                        .UseJet(_connectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -480,7 +482,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder
                     .UseInternalServiceProvider(_serviceProvider)
-                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
             }
         }
 

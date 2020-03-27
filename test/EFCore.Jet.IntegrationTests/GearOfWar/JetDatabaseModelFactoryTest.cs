@@ -116,7 +116,7 @@ WHERE 1 = 2;
 
         protected override DbConnection GetConnection()
         {
-            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb"));
+            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb", JetConfiguration.DefaultProviderFactory), JetConfiguration.DefaultProviderFactory);
         }
     }
 }

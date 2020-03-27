@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data.Common;
+using System.Data.Jet;
 using EntityFrameworkCore.Jet;
 using Microsoft.EntityFrameworkCore;
 

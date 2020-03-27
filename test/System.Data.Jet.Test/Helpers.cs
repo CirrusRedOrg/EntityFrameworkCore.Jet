@@ -211,15 +211,15 @@ namespace System.Data.Jet.Test
         {
             DeleteDatabase(storeName);
 
-            var connectionString = JetConnection.GetConnectionString(storeName);
-            AdoxWrapper.CreateEmptyDatabase(connectionString);
+            var connectionString = JetConnection.GetConnectionString(storeName, JetConfiguration.DefaultProviderFactory);
+            AdoxWrapper.CreateEmptyDatabase(connectionString, JetConfiguration.DefaultProviderFactory);
             return connectionString;
         }
 
         public static void DeleteDatabase(string storeName)
         {
             JetConnection.ClearAllPools();
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName));
+            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName, JetConfiguration.DefaultProviderFactory));
         }
     }
 }

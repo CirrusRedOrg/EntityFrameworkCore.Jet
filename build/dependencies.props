@@ -15,6 +15,7 @@
     <SystemCollectionsImmutableVersion>1.7.0</SystemCollectionsImmutableVersion>
     <SystemComponentModelAnnotationsVersion>4.7.0</SystemComponentModelAnnotationsVersion>
     <SystemDataOleDbVersion>5.0.0-preview.3.20171.3</SystemDataOleDbVersion>
+    <SystemDataOdbcVersion>5.0.0-preview.3.20171.3</SystemDataOdbcVersion>
   </PropertyGroup>
   <!-- System.Data.Jet -->
   <PropertyGroup>

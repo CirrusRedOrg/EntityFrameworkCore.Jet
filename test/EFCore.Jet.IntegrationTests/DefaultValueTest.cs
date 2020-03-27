@@ -37,7 +37,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         protected override DbConnection GetConnection()
         {
-            string connectionString = JetConnection.GetConnectionString("Chips.accdb");
+            string connectionString = JetConnection.GetConnectionString("Chips.accdb", JetConfiguration.DefaultProviderFactory);
             return new JetConnection(connectionString);
         }
     }

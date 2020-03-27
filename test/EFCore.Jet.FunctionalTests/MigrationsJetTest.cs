@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Data.Jet;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
@@ -1362,7 +1363,7 @@ namespace ModelSnapshot22
     public class BloggingContext : DbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0");
+            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0", JetConfiguration.DefaultProviderFactory);
 
         public DbSet<Blog> Blogs { get; set; }
 
@@ -1379,7 +1380,7 @@ namespace Identity30.Data
     public class ApplicationDbContext : IdentityDbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0");
+            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0", JetConfiguration.DefaultProviderFactory);
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

@@ -14,6 +14,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetStringTypeMapping : StringTypeMapping
     {
+        private readonly bool _keepLineBreakCharacters;
         private readonly int _maxSpecificSize;
 
         /// <summary>
@@ -25,7 +26,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             bool unicode = false,
             int? size = null,
             bool fixedLength = false,
-            StoreTypePostfix? storeTypePostfix = null)
+            StoreTypePostfix? storeTypePostfix = null,
+            bool keepLineBreakCharacters = false)
             : this(
                 new RelationalTypeMappingParameters(
                     new CoreTypeMappingParameters(typeof(string)),
@@ -36,7 +38,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         : (DbType?) null),
                     unicode,
                     size,
-                    fixedLength))
+                    fixedLength),
+                keepLineBreakCharacters)
         {
         }
 
@@ -44,14 +47,18 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        protected JetStringTypeMapping(RelationalTypeMappingParameters parameters)
+        protected JetStringTypeMapping(RelationalTypeMappingParameters parameters, bool keepLineBreakCharacters)
             : base(parameters)
         {
+            _keepLineBreakCharacters = keepLineBreakCharacters;
             _maxSpecificSize = CalculateSize(parameters.Size);
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetStringTypeMapping(parameters);
+            => new JetStringTypeMapping(parameters, _keepLineBreakCharacters);
+
+        public RelationalTypeMapping Clone(bool keepLineBreakCharacters)
+            => new JetStringTypeMapping(Parameters, keepLineBreakCharacters);
 
         private static string GetStoreName(bool fixedLength)
             => fixedLength
@@ -94,19 +101,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     The generated string.
         /// </returns>
         protected override string GenerateNonNullSqlLiteral(object value)
-            => EscapeSqlLiteralWithLineBreaks((string) value);
-
-        private string EscapeSqlLiteralWithLineBreaks(string value)
         {
+            var escaped = $"'{EscapeSqlLiteral((string)value)}'";
+            
             // BUG: EF Core indents idempotent scripts, which can lead to unexpected values for strings
             //      that contain line breaks.
             //      Tracked by: https://github.com/aspnet/EntityFrameworkCore/issues/15256
             //
             //      Convert line break characters to their CHR() representation as a workaround.
 
-            return $"'{EscapeSqlLiteral(value)}'"
-                .Replace("\r", "' & CHR(13) & '")
-                .Replace("\n", "' & CHR(10) & '");
+            return _keepLineBreakCharacters
+                ? escaped
+                : escaped
+                    .Replace("\r", "' & CHR(13) & '")
+                    .Replace("\n", "' & CHR(10) & '");
         }
     }
 }

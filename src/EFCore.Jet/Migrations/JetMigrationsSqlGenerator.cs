@@ -2,9 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.Jet;
-using System.Data.OleDb;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
@@ -19,7 +16,6 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.Extensions.DependencyInjection;
-using JetConnection = System.Data.Jet.JetConnection;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Migrations
@@ -38,9 +34,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
     public class JetMigrationsSqlGenerator : MigrationsSqlGenerator
     {
         private readonly IMigrationsAnnotationProvider _migrationsAnnotations;
-        [NotNull] private readonly IJetOptions _options;
+        private readonly IJetOptions _options;
 
         private IReadOnlyList<MigrationOperation> _operations;
+        private RelationalTypeMapping _stringTypeMapping;
+        private RelationalTypeMapping _keepBreakingCharactersStringTypeMapping;
 
         /// <summary>
         ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
@@ -56,6 +54,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         {
             _migrationsAnnotations = migrationsAnnotations;
             _options = options;
+            _stringTypeMapping = dependencies.TypeMappingSource.FindMapping(typeof(string));
+            _keepBreakingCharactersStringTypeMapping = ((JetStringTypeMapping) _stringTypeMapping).Clone(keepLineBreakCharacters: true);
         }
 
         // ReSharper disable once OptionalParameterHierarchyMismatch
@@ -126,7 +126,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 //     it, here because SQL Server can't have both IDENTITY and a DEFAULT constraint on the same column.
                 operation.DefaultValue = null;
             }
-            
+
             base.Generate(operation, model, builder, terminate: false);
 
             if (terminate)
@@ -187,7 +187,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 addColumnOperation.AddAnnotations(operation.GetAnnotations());
 
                 // TODO: Use a column rebuild instead
-                indexesToRebuild = GetIndexesToRebuild(property, operation).ToList();
+                indexesToRebuild = GetIndexesToRebuild(property, operation)
+                    .ToList();
                 DropIndexes(indexesToRebuild, builder);
                 Generate(dropColumnOperation, model, builder, terminate: false);
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
@@ -208,25 +209,26 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 }
 
                 var type = operation.ColumnType
-                    ?? GetColumnType(
-                        operation.Schema,
-                        operation.Table,
-                        operation.Name,
-                        operation,
-                        model);
+                           ?? GetColumnType(
+                               operation.Schema,
+                               operation.Table,
+                               operation.Name,
+                               operation,
+                               model);
                 var oldType = operation.OldColumn.ColumnType
-                    ?? GetColumnType(
-                        operation.Schema,
-                        operation.Table,
-                        operation.Name,
-                        operation.OldColumn,
-                        model);
+                              ?? GetColumnType(
+                                  operation.Schema,
+                                  operation.Table,
+                                  operation.Name,
+                                  operation.OldColumn,
+                                  model);
                 narrowed = type != oldType || !operation.IsNullable && operation.OldColumn.IsNullable;
             }
 
             if (narrowed)
             {
-                indexesToRebuild = GetIndexesToRebuild(property, operation).ToList();
+                indexesToRebuild = GetIndexesToRebuild(property, operation)
+                    .ToList();
                 DropIndexes(indexesToRebuild, builder);
             }
 
@@ -254,9 +256,10 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 OldColumn = operation.OldColumn
             };
             definitionOperation.AddAnnotations(
-                operation.GetAnnotations().Where(
-                    a => a.Name != JetAnnotationNames.ValueGenerationStrategy
-                        && a.Name != JetAnnotationNames.Identity));
+                operation.GetAnnotations()
+                    .Where(
+                        a => a.Name != JetAnnotationNames.ValueGenerationStrategy
+                             && a.Name != JetAnnotationNames.Identity));
 
             ColumnDefinition(
                 operation.Schema,
@@ -307,7 +310,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 }
             }
             */
-            
+
             if (narrowed)
             {
                 CreateIndexes(indexesToRebuild, builder);
@@ -368,7 +371,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand();
         }
-        
+
         /// <summary>
         ///     Builds commands for the given <see cref="CreateIndexOperation" /> by making calls on the given
         ///     <see cref="MigrationCommandListBuilder" />.
@@ -436,20 +439,18 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            var connectionStringBuilder = new OleDbConnectionStringBuilder(_options.ConnectionString);
-            var provider = string.IsNullOrEmpty(connectionStringBuilder.Provider)
-                ? JetConfiguration.OleDbDefaultProvider
-                : connectionStringBuilder.Provider;
-
             builder
                 .Append("CREATE DATABASE ")
-                .Append(JetConnection.GetConnectionString(provider, ExpandFileName(operation.Name)));
+                .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name));
 
             builder
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
         }
 
+        // TODO: The file name and data directory should be expanded when the CREATE/DROP DATABASE operation gets
+        // executed, not when it gets created.
+        /*
         private static string ExpandFileName(string fileName)
         {
             Check.NotNull(fileName, nameof(fileName));
@@ -467,6 +468,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             return Path.GetFullPath(fileName);
         }
+        */
 
         /// <summary>
         ///     Builds commands for the given <see cref="JetDropDatabaseOperation" />
@@ -485,7 +487,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             builder
                 .Append("DROP DATABASE ")
-                .Append(ExpandFileName(operation.Name))
+                //.Append(ExpandFileName(operation.Name))
+                .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
         }
@@ -632,7 +635,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             // TODO: Jet does not support batches and should never generate a "GO" in the first place.
             //       So this code should do nothing.
-            
+
             var batches = Regex.Split(
                 Regex.Replace(
                     operation.Sql,
@@ -763,7 +766,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 {
                     typeMapping = Dependencies.TypeMappingSource.GetMappingForValue(defaultValue);
                 }
-                
+
                 // Jet does not support defaults for hh:mm:ss in create table statement
                 bool isDateTimeValue =
                     defaultValue.GetType()
@@ -779,7 +782,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                             : typeMapping.GenerateSqlLiteral(defaultValue));
             }
         }
-        
+
         /// <summary>
         ///     Generates a SQL fragment for a foreign key constraint of an <see cref="AddForeignKeyOperation" />.
         /// </summary>
@@ -870,10 +873,14 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 yield break;
             }
 
-            var createIndexOperations = _operations.SkipWhile(o => o != currentOperation).Skip(1)
-                .OfType<CreateIndexOperation>().ToList();
+            var createIndexOperations = _operations.SkipWhile(o => o != currentOperation)
+                .Skip(1)
+                .OfType<CreateIndexOperation>()
+                .ToList();
             foreach (var index in property.DeclaringEntityType.GetIndexes()
-                .Concat(property.DeclaringEntityType.GetDerivedTypes().SelectMany(et => et.GetDeclaredIndexes())))
+                .Concat(
+                    property.DeclaringEntityType.GetDerivedTypes()
+                        .SelectMany(et => et.GetDeclaredIndexes())))
             {
                 var indexName = index.GetName();
                 if (createIndexOperations.Any(o => o.Name == indexName))
@@ -894,7 +901,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 }
             }
         }
-        
+
         /// <summary>
         ///     Generates SQL to drop the given indexes.
         /// </summary>
@@ -942,7 +949,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                     Name = index.GetName(),
                     Schema = index.DeclaringEntityType.GetSchema(),
                     Table = index.DeclaringEntityType.GetTableName(),
-                    Columns = index.Properties.Select(p => p.GetColumnName()).ToArray(),
+                    Columns = index.Properties.Select(p => p.GetColumnName())
+                        .ToArray(),
                     Filter = index.GetFilter()
                 };
                 operation.AddAnnotations(_migrationsAnnotations.For(index));
@@ -951,12 +959,12 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
             }
         }
-        
+
         private static bool IsIdentity(ColumnOperation operation)
             => operation[JetAnnotationNames.Identity] != null
                || operation[JetAnnotationNames.ValueGenerationStrategy] as JetValueGenerationStrategy?
                == JetValueGenerationStrategy.IdentityColumn;
-        
+
         #region Schemas not supported
 
         protected override void Generate(EnsureSchemaOperation operation, IModel model, MigrationCommandListBuilder builder)
@@ -1002,5 +1010,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         #endregion
+
+        private string DelimitValue<T>(T value)
+            => Dependencies.TypeMappingSource.FindMapping(typeof(T))
+                .GenerateSqlLiteral(value);
     }
 }

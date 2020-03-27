@@ -6,7 +6,7 @@ using System.Text;
 namespace System.Data.Jet
 {
     [Flags]
-    enum OleDbColumnFlag
+    enum DbColumnFlag
     {
         None = 0,
         IsBookMark = 1,

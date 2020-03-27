@@ -29,6 +29,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             base.ConfigureParameter(parameter);
 
+            // Check: Is this really necessary for Jet?
+            /*
             if (DbType == System.Data.DbType.Date ||
                 DbType == System.Data.DbType.DateTime ||
                 DbType == System.Data.DbType.DateTime2 ||
@@ -37,6 +39,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             {
                 ((OleDbParameter) parameter).OleDbType = OleDbType.DBTimeStamp;
             }
+            */
         }
 
         protected override string GenerateNonNullSqlLiteral(object value)

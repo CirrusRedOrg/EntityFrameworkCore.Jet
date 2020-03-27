@@ -19,11 +19,20 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             .GetSection("Test:Jet");
 
         public static string DefaultConnection { get; } = Config["DefaultConnection"]
-            ?? JetConnection.GetConnectionString("Jet.accdb");
+            ?? JetConnection.GetConnectionString("Jet.accdb", JetConfiguration.DefaultProviderFactory);
 
-        private static readonly string _dataSource = new OleDbConnectionStringBuilder(DefaultConnection).DataSource;
-
-        public static bool IsConfigured { get; } = !string.IsNullOrEmpty(_dataSource);
+        public static bool IsConfigured
+        {
+            get
+            {
+                var dataAccessType = JetConnection.GetDataAccessType(TestEnvironment.DefaultConnection);
+                var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(dataAccessType);
+                var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+                connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
+                
+                return !string.IsNullOrEmpty(connectionStringBuilder.GetDataSource());
+            }
+        }
 
         public static bool IsLocalDb { get; } = true;
 

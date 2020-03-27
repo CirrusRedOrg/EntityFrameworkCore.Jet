@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
     ///     <para>
     ///         Instances of this class are returned from a call to
     ///         <see
-    ///             cref="JetDbContextOptionsExtensions.UseJet(DbContextOptionsBuilder,string,System.Action{JetDbContextOptionsBuilder})" />
+    ///             cref="JetDbContextOptionsExtensions.UseJet(DbContextOptionsBuilder, JetConfiguration.DefaultProviderFactory,string,System.Action{JetDbContextOptionsBuilder})" />
     ///         and it is not designed to be directly constructed in your application code.
     ///     </para>
     /// </summary>

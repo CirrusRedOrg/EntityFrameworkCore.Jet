@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
-using System.Data.OleDb;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -9,20 +8,18 @@ using System.Text.RegularExpressions;
 namespace System.Data.Jet.JetStoreSchemaDefinition
 {
     /// <summary>
-    /// Retrieve metadata from oledb or from system tables
-    /// About oledb parameters see here
+    /// Retrieve metadata from Db or from system tables
+    /// About Db parameters see here
     /// http://msdn.microsoft.com/en-us/library/cc716722(v=vs.110).aspx
     /// </summary>
-    static class JetStoreSchemaDefinitionRetrieve
+    internal static class JetStoreSchemaDefinitionRetrieve
     {
-        static Regex _regExParseShowCommand;
+        private static readonly Regex _regExParseShowCommand;
+        private static readonly SystemTableCollection _systemTables;
 
-        static SystemTableCollection _systemTables;
-
-        static string _lastTableName;
-        static DataTable _lastStructureDataTable;
-        static object _lastStructureDataTableLock = new object();
-
+        private static string _lastTableName;
+        private static DataTable _lastStructureDataTable;
+        private static readonly object _lastStructureDataTableLock = new object();
 
         static JetStoreSchemaDefinitionRetrieve()
         {
@@ -32,12 +29,12 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
             _systemTables = new SystemTableCollection();
             _systemTables.Refresh();
-
         }
 
-        public static bool TryGetDataReaderFromShowCommand(DbCommand command, out DbDataReader dataReader)
+        public static bool TryGetDataReaderFromShowCommand(DbCommand command, DbProviderFactory providerFactory, out DbDataReader dataReader)
         {
-            if (command.CommandType == System.Data.CommandType.Text && command.CommandText.Trim().StartsWith("show ", StringComparison.InvariantCultureIgnoreCase))
+            if (command.CommandType == CommandType.Text && command.CommandText.Trim()
+                .StartsWith("show ", StringComparison.InvariantCultureIgnoreCase))
             {
                 dataReader = GetDbDataReaderFromSimpleStatement(command.Connection, command.CommandText);
                 lock (_lastStructureDataTableLock)
@@ -45,7 +42,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 return true;
             }
 
-            if (command.CommandType == System.Data.CommandType.Text && command.CommandText.IndexOf("show ",0, StringComparison.InvariantCultureIgnoreCase) != 0)
+            if (command.CommandType == CommandType.Text && command.CommandText.IndexOf("show ", 0, StringComparison.InvariantCultureIgnoreCase) != 0)
             {
                 bool isSchemaTable = false;
                 foreach (SystemTable table in _systemTables)
@@ -54,9 +51,10 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     if (isSchemaTable)
                         break;
                 }
+
                 if (isSchemaTable)
                 {
-                    dataReader = GetDbDataReaderFromComplexStatement(command.Connection, command);
+                    dataReader = GetDbDataReaderFromComplexStatement(command.Connection, command, providerFactory);
                     lock (_lastStructureDataTableLock)
                         _lastTableName = null;
                     return true;
@@ -69,9 +67,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             return false;
         }
 
-        private static DbDataReader GetDbDataReaderFromComplexStatement(DbConnection connection, DbCommand command)
+        private static DbDataReader GetDbDataReaderFromComplexStatement(DbConnection connection, DbCommand command, DbProviderFactory providerFactory)
         {
-
             string commandText = command.CommandText;
 
             ConnectionState oldConnectionState = connection.State;
@@ -106,7 +103,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     // ignored
                 }
 
-                DataTable dataTable = table.GetDataTable((OleDbConnection)connection);
+                DataTable dataTable = table.GetDataTable((DbConnection) connection);
 
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -141,10 +138,9 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 commandText = Properties.Resources.StoreSchemaDefinitionRetrieve_QueryHack2 + " " + whereClause;
             }
 
-
-
             command.CommandText = commandText;
-            OleDbDataAdapter dataAdapter = new OleDbDataAdapter((OleDbCommand)command);
+            var dataAdapter = providerFactory.CreateDataAdapter();
+            dataAdapter.SelectCommand = command;
             DataSet dataSet = new DataSet();
             dataAdapter.Fill(dataSet);
             DataTable resultDataTable = dataSet.Tables[0];
@@ -183,6 +179,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     values += JetSyntaxHelper.ToSqlStringSwitch(value);
                 }
             }
+
             return string.Format("INSERT INTO [{0}] ({1}) VALUES ({2})", tableName, columns, values);
         }
 
@@ -238,7 +235,6 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 connection.Close();
         }
 
-
         private static DbDataReader GetDbDataReaderFromSimpleStatement(DbConnection connection, string commandText)
         {
             // Command text format is
@@ -278,19 +274,21 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             //          viewconstraintcolumns | vcc
             //          viewforeignkeys | vfk
 
-
             Match match = _regExParseShowCommand.Match(commandText);
 
             if (!match.Success)
                 throw new Exception(string.Format("Unrecognized show statement '{0}'. show syntax is show <object> [where <condition>]", commandText));
 
-            string dbObject = match.Groups["object"].Value;
-            string condition = match.Groups["condition"].Value;
-            string order = match.Groups["order"].Value;
+            string dbObject = match.Groups["object"]
+                .Value;
+            string condition = match.Groups["condition"]
+                .Value;
+            string order = match.Groups["order"]
+                .Value;
 
             DataTable dataTable;
 
-            OleDbConnection oleDbConnection = (OleDbConnection)connection;
+            DbConnection DbConnection = (DbConnection) connection;
 
             ConnectionState oldConnectionState = connection.State;
 
@@ -303,7 +301,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             {
                 // ignored
             }
-            
+
             if (systemTable == null)
             {
                 try
@@ -316,15 +314,16 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     {
                         case "ix":
                         case "indexes":
-                            dataTable = GetIndexes(oleDbConnection);
+                            dataTable = GetIndexes(DbConnection);
                             break;
                         case "ixc":
                         case "indexcolumns":
-                            dataTable = GetIndexColumns(oleDbConnection);
+                            dataTable = GetIndexColumns(DbConnection);
                             break;
                         default:
                             throw new Exception(string.Format("Unknown system table {0}", dbObject));
                     }
+
                     return dataTable.CreateDataReader();
                 }
                 finally
@@ -342,14 +341,13 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
             try
             {
-                dataTable = systemTable.GetDataTable(oleDbConnection);
+                dataTable = systemTable.GetDataTable(DbConnection);
             }
             finally
             {
                 if (oldConnectionState != ConnectionState.Open)
                     connection.Close();
             }
-
 
             DataRow[] selectedRows;
             DataTable selectedDataTable = dataTable.Clone();
@@ -369,18 +367,17 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             return selectedDataTable.CreateDataReader();
         }
 
-
         #region Tables
 
-        public static DataTable GetTables(OleDbConnection connection)
+        public static DataTable GetTables(DbConnection connection)
         {
             bool includeSystemTables = false;
 
             DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Tables, typeof(DataTable));
 
-            DataTable schemaTable = connection.GetOleDbSchemaTable(
-              System.Data.OleDb.OleDbSchemaGuid.Tables,
-              new object[] { null, null, null, "TABLE" });
+            DataTable schemaTable = connection.GetSchema(
+              "Tables",
+              new [] { null, null, null, "TABLE" });
 
             foreach (System.Data.DataRow table in schemaTable.Rows)
             {
@@ -407,7 +404,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 tableName.StartsWith("#", StringComparison.InvariantCultureIgnoreCase);
         }
 
-        public static DataTable GetTableColumns(OleDbConnection connection)
+        public static DataTable GetTableColumns(DbConnection connection)
         {
             DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_TableColumns, typeof(DataTable));
             Dictionary<string, string> objectsToGet = GetTablesOrViewDictionary(connection, true);
@@ -419,23 +416,20 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         #endregion
 
-
         #region Indexes
 
-        public static DataTable GetIndexes(OleDbConnection connection)
+        private static DataTable GetIndexes(DbConnection connection)
         {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Indexes, typeof(DataTable));
+            DataTable dataTable = (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Indexes, typeof(DataTable));
 
-            DataTable schemaTable = connection.GetOleDbSchemaTable(
-              System.Data.OleDb.OleDbSchemaGuid.Indexes,
-              new object[] { });
+            DataTable schemaTable = connection.GetSchema("Indexes");
 
-            foreach (System.Data.DataRow table in schemaTable.Rows)
+            foreach (DataRow table in schemaTable.Rows)
                 if (
-                    Convert.ToInt32(table["ORDINAL_POSITION"]) == 1  // Only the first field of the index
-                    )
+                    Convert.ToInt32(table["ORDINAL_POSITION"]) == 1 // Only the first field of the index
+                )
                     dataTable.Rows.Add(
-                        (string)table["TABLE_NAME"] + "." + (string)table["INDEX_NAME"], // Id
+                        (string) table["TABLE_NAME"] + "." + (string) table["INDEX_NAME"], // Id
                         table["TABLE_NAME"], // ParentId
                         table["TABLE_NAME"], // Table
                         table["INDEX_NAME"], // Name
@@ -448,18 +442,16 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             return dataTable;
         }
 
-        public static DataTable GetIndexColumns(OleDbConnection connection)
+        private static DataTable GetIndexColumns(DbConnection connection)
         {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_IndexColumns, typeof(DataTable));
+            DataTable dataTable = (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_IndexColumns, typeof(DataTable));
 
-            DataTable schemaTable = connection.GetOleDbSchemaTable(
-              System.Data.OleDb.OleDbSchemaGuid.Indexes,
-              new object[] { });
+            DataTable schemaTable = connection.GetSchema("Indexes");
 
-            foreach (System.Data.DataRow table in schemaTable.Rows)
+            foreach (DataRow table in schemaTable.Rows)
                 dataTable.Rows.Add(
-                    (string)table["TABLE_NAME"] + "." + (string)table["INDEX_NAME"] + "." + (string)table["COLUMN_NAME"], // Id
-                    table["TABLE_NAME"] + "." + (string)table["INDEX_NAME"], // ParentId
+                    (string) table["TABLE_NAME"] + "." + (string) table["INDEX_NAME"] + "." + (string) table["COLUMN_NAME"], // Id
+                    table["TABLE_NAME"] + "." + (string) table["INDEX_NAME"], // ParentId
                     table["TABLE_NAME"] + "." + table["COLUMN_NAME"], // ColumnId
                     table["TABLE_NAME"], // Table
                     table["INDEX_NAME"], // Index
@@ -478,20 +470,19 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         #region Views
 
-        public static DataTable GetViews(OleDbConnection connection)
+        // CHECK: This method an all dependent methos can be removed because they are not used.
+        private static DataTable GetViews(DbConnection connection)
         {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Views, typeof(DataTable));
+            DataTable dataTable = (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Views, typeof(DataTable));
 
             DataTable schemaTable;
 
             schemaTable = connection.GetSchema("Views");
-            foreach (System.Data.DataRow table in schemaTable.Rows)
+            foreach (DataRow table in schemaTable.Rows)
                 dataTable.Rows.Add(table["TABLE_NAME"], "Jet", "Jet", table["TABLE_NAME"], table["VIEW_DEFINITION"], table["IS_UPDATABLE"]);
 
-            schemaTable = connection.GetOleDbSchemaTable(
-                System.Data.OleDb.OleDbSchemaGuid.Procedures,
-                null);
-            foreach (System.Data.DataRow table in schemaTable.Rows)
+            schemaTable = connection.GetSchema("Procedures");
+            foreach (DataRow table in schemaTable.Rows)
                 dataTable.Rows.Add(table["PROCEDURE_NAME"], "Jet", "Jet", table["PROCEDURE_NAME"], table["PROCEDURE_DEFINITION"], false);
 
             dataTable.AcceptChanges();
@@ -500,20 +491,18 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         }
 
         /// <summary>
-        /// Gets the views via OleDb schema table.
+        /// Gets the views via Db schema table.
         /// No definition can be retrieved
         /// </summary>
         /// <param name="connection">The connection.</param>
         /// <returns></returns>
-        public static DataTable GetViewsViaGetOleDbSchemaTable(OleDbConnection connection)
+        private static DataTable GetViewsViaGetDbSchemaTable(DbConnection connection)
         {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Views, typeof(DataTable));
+            DataTable dataTable = (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Views, typeof(DataTable));
 
-            DataTable schemaTable = connection.GetOleDbSchemaTable(
-              System.Data.OleDb.OleDbSchemaGuid.Tables,
-              new object[] { null, null, null, "VIEW" });
+            DataTable schemaTable = connection.GetSchema("Tables", new[] {null, null, null, "VIEW"});
 
-            foreach (System.Data.DataRow table in schemaTable.Rows)
+            foreach (DataRow table in schemaTable.Rows)
                 dataTable.Rows.Add(table["TABLE_NAME"], "Jet", "Jet", table["TABLE_NAME"], DBNull.Value, 0);
 
             dataTable.AcceptChanges();
@@ -521,9 +510,9 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             return dataTable;
         }
 
-        public static DataTable GetViewColumns(OleDbConnection connection)
+        private static DataTable GetViewColumns(DbConnection connection)
         {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewColumns, typeof(DataTable));
+            DataTable dataTable = (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewColumns, typeof(DataTable));
             Dictionary<string, string> objectsToGet = GetTablesOrViewDictionary(connection, false);
 
             GetTableOrViewColumns(connection, dataTable, objectsToGet);
@@ -531,414 +520,166 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             return dataTable;
         }
 
-
-        public static DataTable GetViewForeignKeys(OleDbConnection connection)
+        private static DataTable GetViewForeignKeys(DbConnection connection)
         {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewForeignKeys, typeof(DataTable));
+            return (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewForeignKeys, typeof(DataTable));
         }
 
-        public static DataTable GetViewConstraintColumns(OleDbConnection connection)
+        private static DataTable GetViewConstraintColumns(DbConnection connection)
         {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewConstraintColumns, typeof(DataTable));
+            return (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewConstraintColumns, typeof(DataTable));
         }
 
-        public static DataTable GetViewConstraints(OleDbConnection connection)
+        private static DataTable GetViewConstraints(DbConnection connection)
         {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewConstraints, typeof(DataTable));
+            return (DataTable) XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ViewConstraints, typeof(DataTable));
         }
 
-
-        #endregion
-
-        #region Constraints
-
-
-        public static DataTable GetConstraints(OleDbConnection connection)
-        {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Constraints, typeof(DataTable));
-
-            DataTable schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Check_Constraints, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                dataTable.Rows.Add(
-                    table["CONSTRAINT_NAME"], // Id
-                    DBNull.Value, // ParentId
-                    table["CONSTRAINT_NAME"], // Name
-                    "CHECK", // ConstraintType
-                    false,  // IsDeferrable
-                    false   // IsIntiallyDeferred
-                    );
-
-            schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                if (Convert.ToInt32(table["ORDINAL"]) == 1)
-                    dataTable.Rows.Add(
-                        table["FK_NAME"], // Id
-                        table["FK_TABLE_NAME"], // ParentId
-                        table["FK_NAME"], // Name
-                        CONSTRAINTTYPE_FOREIGNKEY, // ConstraintType
-                        table["DEFERRABILITY"],  // IsDeferrable
-                        false   // IsIntiallyDeferred
-                        );
-
-            schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Primary_Keys, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                if (Convert.ToInt32(table["ORDINAL"]) == 1)
-                    dataTable.Rows.Add(
-                        table["TABLE_NAME"] + "." + table["PK_NAME"], // Id
-                        table["TABLE_NAME"], // ParentId
-                        table["PK_NAME"], // Name
-                        CONSTRAINTTYPE_PRIMARYKEY, // ConstraintType
-                        false,  // IsDeferrable
-                        false   // IsIntiallyDeferred
-                        );
-
-            schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Indexes, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-            {
-                if (
-                    !IsSystemTable(table["TABLE_NAME"].ToString()) &&
-
-                    Convert.ToInt32(table["ORDINAL_POSITION"]) == 1 &&  // Only the first field of the index
-                    Convert.ToBoolean(table["PRIMARY_KEY"]) == false && // Not a primary key
-                    Convert.ToBoolean(table["UNIQUE"]) == true           // Unique constraint
-                )
-                    dataTable.Rows.Add(
-                        (string)table["TABLE_NAME"] + "." + (string)table["INDEX_NAME"], // Id
-                        table["TABLE_NAME"], // ParentId
-                        table["INDEX_NAME"], // Name
-                        CONSTRAINTTYPE_UNIQUE, // ConstraintType
-                        false,  // IsDeferrable
-                        false   // IsIntiallyDeferred
-                    );
-            }
-
-            dataTable.AcceptChanges();
-
-            return dataTable;
-        }
-
-
-
-        public static DataTable GetConstraintColumns(OleDbConnection connection)
-        {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ConstraintColumns, typeof(DataTable));
-
-
-            DataTable schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, new object[] { });
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                dataTable.Rows.Add(
-                    table["FK_NAME"], // ConstraintId
-                    table["FK_TABLE_NAME"] + "." + table["FK_COLUMN_NAME"], // ColumnId
-                    table["FK_NAME"], // ConstraintName
-                    CONSTRAINTTYPE_FOREIGNKEY, // ConstraintType
-                    table["FK_TABLE_NAME"], // TableName
-                    table["FK_COLUMN_NAME"], // ColumnName
-                    table["ORDINAL"] //ColumnOrdinal
-                    );
-
-            schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Primary_Keys, new object[] { });
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                dataTable.Rows.Add(
-                    table["TABLE_NAME"] + "." + table["PK_NAME"], // ConstraintId
-                    table["TABLE_NAME"] + "." + table["COLUMN_NAME"], // ColumnId
-                    table["PK_NAME"], // ConstraintName
-                    CONSTRAINTTYPE_PRIMARYKEY, //ConstraintType
-                    table["TABLE_NAME"], // TableName
-                    table["COLUMN_NAME"], // ColumnName
-                    table["ORDINAL"] //ColumnOrdinal
-                    );
-
-            schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Indexes, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                if (
-                    Convert.ToBoolean(table["PRIMARY_KEY"]) == false && // Not a primary key
-                    Convert.ToBoolean(table["UNIQUE"]) == true           // Unique constraint
-                    )
-                    dataTable.Rows.Add(
-                        table["TABLE_NAME"] + "." + table["INDEX_NAME"], // ConstraintId
-                        table["TABLE_NAME"] + "." + table["COLUMN_NAME"], // ColumnId
-                        table["INDEX_NAME"], // ConstraintName
-                        CONSTRAINTTYPE_UNIQUE, // ConstraintType
-                        table["TABLE_NAME"], // TableName
-                        table["COLUMN_NAME"], // ColumnName
-                        table["ORDINAL_POSITION"] //ColumnOrdinal
-                        );
-
-            dataTable.AcceptChanges();
-
-            return dataTable;
-        }
-
-
-        #endregion
-
-        #region CheckConstraints
-
-        public static DataTable GetCheckConstraints(OleDbConnection connection)
-        {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_CheckConstraints, typeof(DataTable));
-
-            DataTable schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Check_Constraints, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                dataTable.Rows.Add(
-                    table["CONSTRAINT_NAME"], // Id
-                    table["CHECK_CLAUSE"] // Expression
-                    );
-
-            dataTable.AcceptChanges();
-
-            return dataTable;
-        }
-
-        #endregion
-
-        #region Foreign Key Constraint
-
-
-        public static DataTable GetForeignKeyConstraints(OleDbConnection connection)
-        {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ForeignKeyConstraints, typeof(DataTable));
-
-            DataTable schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                if (Convert.ToInt32(table["ORDINAL"]) == 1)
-                    dataTable.Rows.Add(
-                        table["FK_NAME"], // Id
-                        table["PK_TABLE_NAME"], // ToTableId
-                        table["FK_TABLE_NAME"], // FromTableId
-                        table["UPDATE_RULE"], // Update rule
-                        table["DELETE_RULE"] // Delete rule
-                        );
-
-
-            dataTable.AcceptChanges();
-
-            return dataTable;
-        }
-
-        // GetForeignKeyConstraintColumns
-        public static DataTable GetForeignKeys(OleDbConnection connection)
-        {
-            DataTable dataTable = (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ForeignKeys, typeof(DataTable));
-
-            DataTable schemaTable = connection.GetOleDbSchemaTable(OleDbSchemaGuid.Foreign_Keys, new object[] { });
-
-            foreach (System.Data.DataRow table in schemaTable.Rows)
-                dataTable.Rows.Add(
-                    table["FK_NAME"] + "." + table["ORDINAL"], // Id
-                    table["ORDINAL"], // Ordinal
-                    table["FK_NAME"], // ConstraintId
-                    table["FK_TABLE_NAME"] + "." + table["FK_COLUMN_NAME"], // FromColumnId
-                    table["PK_TABLE_NAME"] + "." + table["PK_COLUMN_NAME"], // ToColumnId
-                    table["FK_TABLE_NAME"], // FromTable
-                    table["FK_COLUMN_NAME"], // FromColumn
-                    table["PK_TABLE_NAME"], // ToTable
-                    table["PK_COLUMN_NAME"], // ToColumn
-                    table["UPDATE_RULE"], // Update rule
-                    table["DELETE_RULE"] // Delete rule
-                    );
-
-
-            dataTable.AcceptChanges();
-
-            return dataTable;
-        }
-
-        #endregion
-
-        #region Procedures
-
-        public static DataTable GetProcedureParameters(OleDbConnection connection)
-        {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_ProcedureParameters, typeof(DataTable));
-        }
-
-        public static DataTable GetProcedures(OleDbConnection oleDbConnection)
-        {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Procedures, typeof(DataTable));
-        }
-
-        #endregion
-
-        #region Functions
-
-        public static DataTable GetFunctionReturnTableColumns(OleDbConnection connection)
-        {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_FunctionReturnTableColumns, typeof(DataTable));
-        }
-
-        public static DataTable GetFunctionParameters(OleDbConnection connection)
-        {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_FunctionParameters, typeof(DataTable));
-        }
-
-        public static DataTable GetFunctions(DbConnection connection)
-        {
-            return (DataTable)XmlObjectSerializer.GetObject(Properties.Resources.StoreSchemaDefinition_Functions, typeof(DataTable));
-        }
 
         #endregion
 
         #region General purpose methods
 
-        private static void GetTableOrViewColumns(OleDbConnection connection, DataTable dataTable, Dictionary<string, string> objectsToGet)
+        private static void GetTableOrViewColumns(DbConnection connection, DataTable dataTable, Dictionary<string, string> objectsToGet)
         {
+            DataTable schemaTable = connection.GetSchema("Columns");
 
-            DataTable schemaTable = connection.GetOleDbSchemaTable(
-              System.Data.OleDb.OleDbSchemaGuid.Columns,
-              new object[] { null, null, null, null });
-
-            foreach (System.Data.DataRow rowColumn in schemaTable.Rows)
+            foreach (DataRow rowColumn in schemaTable.Rows)
             {
-                if (objectsToGet.ContainsKey(rowColumn["TABLE_NAME"].ToString()))
+                if (objectsToGet.ContainsKey(
+                    rowColumn["TABLE_NAME"]
+                        .ToString()))
                 {
-
                     dataTable.Rows.Add(
                         rowColumn["TABLE_NAME"] + "." + rowColumn["COLUMN_NAME"], // Id
                         rowColumn["TABLE_NAME"], // ParentId
                         rowColumn["TABLE_NAME"], // Table
                         rowColumn["COLUMN_NAME"], // Name
-                        rowColumn["ORDINAL_POSITION"],  // Ordinal
-                        GetIsNullable(connection, rowColumn) ? 1 : 0, // It seems that sometimes IS_NULLABLE from OleDb is wrong - Convert.ToBoolean(rowColumn["IS_NULLABLE"]) ? 1 : 0, // IsNullable
+                        rowColumn["ORDINAL_POSITION"], // Ordinal
+                        GetIsNullable(connection, rowColumn)
+                            ? 1
+                            : 0, // It seems that sometimes IS_NULLABLE from Db is wrong - Convert.ToBoolean(rowColumn["IS_NULLABLE"]) ? 1 : 0, // IsNullable
                         ConvertToJetDataType(Convert.ToInt32(rowColumn["DATA_TYPE"]), Convert.ToInt32(rowColumn["COLUMN_FLAGS"])), // TypeName
                         rowColumn["CHARACTER_MAXIMUM_LENGTH"], // Max length
                         rowColumn["NUMERIC_PRECISION"], // Precision
                         rowColumn["DATETIME_PRECISION"], //DateTimePrecision
                         rowColumn["NUMERIC_SCALE"], // Scale
-
-                        rowColumn["COLLATION_CATALOG"],	//CollationCatalog
-                        rowColumn["COLLATION_SCHEMA"],	//CollationSchema
+                        rowColumn["COLLATION_CATALOG"], //CollationCatalog
+                        rowColumn["COLLATION_SCHEMA"], //CollationSchema
                         rowColumn["COLLATION_NAME"], //CollationName
-                        rowColumn["CHARACTER_SET_CATALOG"],	//CharacterSetCatalog
+                        rowColumn["CHARACTER_SET_CATALOG"], //CharacterSetCatalog
                         rowColumn["CHARACTER_SET_SCHEMA"], //CharacterSetSchema
                         rowColumn["CHARACTER_SET_NAME"], //CharacterSetName
-                        0,      //IsMultiSet
+                        0, //IsMultiSet
                         GetIsIdentity(connection, rowColumn), // IsIdentity
-                        Convert.ToBoolean(rowColumn["COLUMN_HASDEFAULT"]) ? 1 : 0, // IsStoreGenerated
+                        Convert.ToBoolean(rowColumn["COLUMN_HASDEFAULT"])
+                            ? 1
+                            : 0, // IsStoreGenerated
                         rowColumn["COLUMN_DEFAULT"], // Default
                         GetIsKey(connection, rowColumn) // IsKey
                     );
                 }
             }
+
             dataTable.AcceptChanges();
         }
 
-
-        private static Dictionary<string, string> GetTablesOrViewDictionary(OleDbConnection connection, bool getTables)
+        private static Dictionary<string, string> GetTablesOrViewDictionary(DbConnection connection, bool getTables)
         {
-            DataTable schemaTable = connection.GetOleDbSchemaTable(
-              System.Data.OleDb.OleDbSchemaGuid.Tables,
-              new object[] { null, null, null, getTables ? "TABLE" : "VIEW" });
+            DataTable schemaTable = connection.GetSchema(
+                "Tables", new[]
+                {
+                    null, null, null, getTables
+                        ? "TABLE"
+                        : "VIEW"
+                });
 
             Dictionary<string, string> list = new Dictionary<string, string>(schemaTable.Rows.Count, StringComparer.InvariantCultureIgnoreCase);
 
-            foreach (System.Data.DataRow table in schemaTable.Rows)
+            foreach (DataRow table in schemaTable.Rows)
             {
-                if (!IsSystemTable(table["TABLE_NAME"].ToString()))
-                    list.Add(table["TABLE_NAME"].ToString(), table["TABLE_NAME"].ToString());
+                if (!IsSystemTable(
+                    table["TABLE_NAME"]
+                        .ToString()))
+                    list.Add(
+                        table["TABLE_NAME"]
+                            .ToString(), table["TABLE_NAME"]
+                            .ToString());
             }
+
             return list;
         }
 
-
-        private static string ConvertToJetDataType(int intOleDbType, int intFlags)
+        private static string ConvertToJetDataType(int intDbType, int intFlags)
         {
+            DbColumnFlag flags = (DbColumnFlag) intFlags;
 
-            OleDbColumnFlag flags = (OleDbColumnFlag)intFlags;
-
-            switch (((OleDbType)intOleDbType))
+            switch ((DbType) intDbType)
             {
-                case OleDbType.BigInt:
-                    return "int";       // In Jet this is 32 bit while bigint is 64 bits
-                case OleDbType.Binary:
-                    if (flags.HasFlag(OleDbColumnFlag.IsLong))
-                        return "image";
-                    else if (flags.HasFlag(OleDbColumnFlag.IsFixedLength))
+                case DbType.AnsiString:
+                case DbType.String:
+                    if (flags.HasFlag(DbColumnFlag.IsLong))
+                        return "text";
+                    else
+                        return "varchar";
+                case DbType.AnsiStringFixedLength:
+                case DbType.StringFixedLength:
+                    return "char";
+                case DbType.Binary:
+                    if (flags.HasFlag(DbColumnFlag.IsLong))
+                        return "longbinary"; // consolidate
+                    else if (flags.HasFlag(DbColumnFlag.IsFixedLength))
                         return "binary";
                     else
                         return "varbinary";
-                case OleDbType.Boolean:
+                case DbType.Boolean:
                     return "bit";
-                case OleDbType.Char:
-                    return "char";
-                case OleDbType.Currency:
-                    return "decimal";
-                case OleDbType.DBDate:
-                case OleDbType.Date:
-                case OleDbType.DBTimeStamp:
-                case OleDbType.DBTime:
-                    return "datetime";
-                case OleDbType.Decimal:
-                case OleDbType.Numeric:
-                    return "decimal";
-                case OleDbType.Double:
-                    return "double";
-                case OleDbType.Integer:
-                    return "int";
-                case OleDbType.Single:
-                    return "single";
-                case OleDbType.SmallInt:
-                    return "smallint";
-                case OleDbType.TinyInt:
-                    return "smallint";  // Signed byte not handled by jet so we need 16 bits
-                case OleDbType.UnsignedTinyInt:
+                case DbType.Byte:
                     return "byte";
-                case OleDbType.LongVarBinary:
-                case OleDbType.VarBinary:
-                    return "varbinary";
-                case OleDbType.VarChar:
-                case OleDbType.LongVarChar:
-                    return "varchar";
-                case OleDbType.WChar:
-                    if (flags.HasFlag(OleDbColumnFlag.IsLong))
-                        return "text";
-                    else if (flags.HasFlag(OleDbColumnFlag.IsFixedLength))
-                        return "char";
-                    else
-                        return "varchar";
-                case OleDbType.Guid:
+                case DbType.Currency:
+                    return "currency";
+                case DbType.Date:
+                case DbType.DateTime:
+                case DbType.DateTime2:
+                case DbType.DateTimeOffset:
+                case DbType.Time:
+                    return "datetime";
+                case DbType.Decimal:
+                    return "decimal";
+                case DbType.Double:
+                    return "double";
+                case DbType.Guid:
                     return "guid";
-                case OleDbType.BSTR:
-                case OleDbType.Variant:
-                case OleDbType.VarWChar:
-                case OleDbType.VarNumeric:
-                case OleDbType.Error:
-                case OleDbType.Empty:
-                case OleDbType.Filetime:
-                case OleDbType.IDispatch:
-                case OleDbType.IUnknown:
-                case OleDbType.UnsignedBigInt:
-                case OleDbType.UnsignedInt:
-                case OleDbType.UnsignedSmallInt:
-                case OleDbType.PropVariant:
+                case DbType.Int16:
+                    return "smallint";
+                case DbType.Int32:
+                    return "integer";
+                case DbType.Single:
+                    return "single";
+                case DbType.Object:
+                case DbType.SByte:
+                case DbType.Int64:
+                case DbType.UInt16:
+                case DbType.UInt32:
+                case DbType.UInt64:
+                case DbType.VarNumeric:
+                case DbType.Xml:
                 default:
-                    throw new ArgumentException(string.Format("The data type {0} is not handled by Jet. Did you retrieve this from Jet?", ((OleDbType)intOleDbType)));
+                    throw new ArgumentException($"The data type {((DbType) intDbType)} is not handled by Jet.");
             }
         }
-
-
-        private const string CONSTRAINTTYPE_FOREIGNKEY = "FOREIGN KEY";
-        private const string CONSTRAINTTYPE_PRIMARYKEY = "PRIMARY KEY";
-        private const string CONSTRAINTTYPE_UNIQUE = "UNIQUE";
 
         private static bool GetIsIdentity(IDbConnection connection, DataRow rowColumn)
         {
             if (Convert.ToInt32(rowColumn["COLUMN_FLAGS"]) != 0x5a || Convert.ToInt32(rowColumn["DATA_TYPE"]) != 3)
                 return false;
 
-            DataRow fieldRow = GetFieldRow(connection, (string)rowColumn["TABLE_NAME"], (string)rowColumn["COLUMN_NAME"]);
+            DataRow fieldRow = GetFieldRow(connection, (string) rowColumn["TABLE_NAME"], (string) rowColumn["COLUMN_NAME"]);
 
             if (fieldRow == null)
                 return false;
 
-            return (bool)fieldRow["IsAutoIncrement"];
+            return (bool) fieldRow["IsAutoIncrement"];
 
             /*
              * This are all the types we can use
@@ -968,7 +709,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         private static bool GetIsNullable(IDbConnection connection, DataRow rowColumn)
         {
-            DataRow fieldRow = GetFieldRow(connection, (string)rowColumn["TABLE_NAME"], (string)rowColumn["COLUMN_NAME"]);
+            DataRow fieldRow = GetFieldRow(connection, (string) rowColumn["TABLE_NAME"], (string) rowColumn["COLUMN_NAME"]);
 
             if (fieldRow == null)
                 return Convert.ToBoolean(rowColumn["IS_NULLABLE"]);
@@ -981,12 +722,12 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             if (Convert.ToInt32(rowColumn["COLUMN_FLAGS"]) != 0x5a || Convert.ToInt32(rowColumn["DATA_TYPE"]) != 3)
                 return false;
 
-            DataRow fieldRow = GetFieldRow(connection, (string)rowColumn["TABLE_NAME"], (string)rowColumn["COLUMN_NAME"]);
+            DataRow fieldRow = GetFieldRow(connection, (string) rowColumn["TABLE_NAME"], (string) rowColumn["COLUMN_NAME"]);
 
             if (fieldRow == null)
                 return false;
 
-            return (bool)fieldRow["IsKey"];
+            return (bool) fieldRow["IsKey"];
 
             /*
              * This are all the types we can use
@@ -1016,7 +757,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         private static DataRow GetFieldRow(IDbConnection connection, string tableName, string columnName)
         {
-            lock(_lastStructureDataTableLock)
+            lock (_lastStructureDataTableLock)
             {
                 if (_lastTableName != tableName)
                 {
@@ -1025,12 +766,12 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
                 DataRow[] fieldRows = _lastStructureDataTable.Select(string.Format("ColumnName = '{0}'", columnName.Replace("'", "''")));
 
-                if (fieldRows.Length == 0) 
+                if (fieldRows.Length == 0)
                 {
                     // Structure changed since last refresh?
                     ReadLastStructureDataTable(connection, tableName);
                     fieldRows = _lastStructureDataTable.Select(string.Format("ColumnName = '{0}'", columnName.Replace("'", "''")));
-                    if (fieldRows.Length == 0)  // Second error
+                    if (fieldRows.Length == 0) // Second error
                     {
                         return null;
                     }
@@ -1077,8 +818,5 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         }
 
         #endregion
-
-
-
     }
 }

@@ -1,6 +1,7 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Jet;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -33,12 +34,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             => new ServiceCollection()
                 .AddDbContextPool<TContextService, TContext>(
                     ob =>
-                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString)
+                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory)
                             .EnableServiceProviderCaching(false),
                     poolSize)
                 .AddDbContextPool<ISecondContext, SecondContext>(
                     ob =>
-                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString)
+                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory)
                             .EnableServiceProviderCaching(false),
                     poolSize).BuildServiceProvider();
 
@@ -47,12 +48,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             => new ServiceCollection()
                 .AddDbContextPool<TContext>(
                     ob =>
-                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString)
+                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory)
                             .EnableServiceProviderCaching(false),
                     poolSize)
                 .AddDbContextPool<SecondContext>(
                     ob =>
-                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString)
+                        ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory)
                             .EnableServiceProviderCaching(false),
                     poolSize)
                 .BuildServiceProvider();
@@ -247,7 +248,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             var serviceProvider = new ServiceCollection()
                 .AddDbContext<DbContext>(
                     ob
-                        => ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString)
+                        => ob.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory)
                             .EnableServiceProviderCaching(false))
                 .BuildServiceProvider();
 

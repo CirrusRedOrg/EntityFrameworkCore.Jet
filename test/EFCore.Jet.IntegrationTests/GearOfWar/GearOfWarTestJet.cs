@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
     {
         protected override DbConnection GetConnection()
         {
-            return new JetConnection(JetConnection.GetConnectionString("GearOfWar.accdb", JetConfiguration.DefaultProviderFactory), JetConfiguration.DefaultProviderFactory);
+            return new JetConnection(JetConnection.GetConnectionString("GearOfWar.accdb", Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
         }
 
         [TestMethod]

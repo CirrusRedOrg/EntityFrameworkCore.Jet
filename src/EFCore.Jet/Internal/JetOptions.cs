@@ -59,16 +59,40 @@ namespace EntityFrameworkCore.Jet.Internal
         
         private static DataAccessType GetDataAccessTypeFromOptions(JetOptionsExtension jetOptions)
             => jetOptions.DataAccessProviderFactory
+        private static DataAccessProviderType GetDataAccessTypeFromOptions(JetOptionsExtension jetOptions)
+        {
+            if (jetOptions.DataAccessProviderFactory == null)
+            {
+                throw new InvalidOperationException(JetStrings.DataAccessProviderFactory);
+            }
+            
+            if (jetOptions.DataAccessProviderFactory
                    .GetType()
                    .GetTypesInHierarchy()
-                   .FirstOrDefault(
+                .Any(
                        t => string.Equals(
                            t.FullName,
                            "System.Data.OleDb.OleDbFactory",
-                           StringComparison.OrdinalIgnoreCase)) !=
-               null
-                ? DataAccessType.OleDb
-                : DataAccessType.Odbc;
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                return DataAccessProviderType.OleDb;
+            }
+
+            if (jetOptions.DataAccessProviderFactory
+                .GetType()
+                .GetTypesInHierarchy()
+                .Any(
+                    t => string.Equals(
+                        t.FullName,
+                        "System.Data.Odbc.OdbcFactory",
+                        StringComparison.OrdinalIgnoreCase)))
+
+            {
+                return DataAccessProviderType.Odbc;
+            }
+            
+            throw new InvalidOperationException("The JetConnection.DataAccessProviderFactory property needs to be set to an object of type OdbcFactory or OleDbFactory.");
+        }
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

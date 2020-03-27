@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model05_WithIndex
 
         protected override DbConnection GetConnection()
         {
-            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb", JetConfiguration.DefaultProviderFactory), JetConfiguration.DefaultProviderFactory);
+            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb", Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
         }
     }
 }

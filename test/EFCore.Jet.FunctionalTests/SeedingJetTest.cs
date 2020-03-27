@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                => optionsBuilder.UseJet(JetTestStore.CreateConnectionString($"Seeds{TestId}"), JetConfiguration.DefaultProviderFactory);
+                => optionsBuilder.UseJet(JetTestStore.CreateConnectionString($"Seeds{TestId}"), TestEnvironment.DataAccessProviderFactory);
         }
     }
 }

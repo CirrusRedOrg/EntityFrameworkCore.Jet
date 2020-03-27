@@ -1,7 +1,4 @@
-﻿using System;
-using System.Data.Common;
-using System.Data.Odbc;
-using System.Data.OleDb;
+﻿using System.Data.Common;
 
 // ReSharper disable InconsistentNaming
 
@@ -37,17 +34,13 @@ namespace System.Data.Jet
             }
         }
 
-        // "Microsoft.ACE.OLEDB.12.0" should have the least problems of all versions, as it supports 32 Bit and 64 Bit,
+        // "Microsoft.ACE.OLEDB.12.0" should have the fewest problems of all versions, as it supports 32 Bit and 64 Bit,
         // does not throw an AccessViolationException when connecting through OLE DB without connection pooling enabled,
         // has the highest backwards compatibility level of all recent releases and can freely be downloaded from
         // Microsoft as "Microsoft Access Database Engine 2010 Redistributable".
         public static string OleDbDefaultProvider = "Microsoft.ACE.OLEDB.12.0";
         public static string OdbcDefaultProvider = "Microsoft Access Driver (*.mdb, *.accdb)";
         
-        public static DbProviderFactory DefaultProviderFactory = OdbcFactory.Instance;
-        
-        // public static DbProviderFactory ProviderFactory { get; set; } = OleDbFactory.Instance;
-
         // The SQL statement
         //
         // (SELECT COUNT(*) FROM MSysRelationships)

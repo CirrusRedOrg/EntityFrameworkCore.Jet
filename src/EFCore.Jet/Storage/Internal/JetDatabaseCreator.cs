@@ -2,8 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.Jet;
-using System.Data.OleDb;
 using System.Threading;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Internal;

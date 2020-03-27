@@ -517,8 +517,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Throws_when_no_initial_catalog()
         {
-            var dataAccessType = JetConnection.GetDataAccessType(TestEnvironment.DefaultConnection);
-            var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(dataAccessType);
+            var dataAccessType = JetConnection.GetDataAccessProviderType(TestEnvironment.DefaultConnection);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessType);
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
             connectionStringBuilder.Remove("Initial Catalog");
@@ -791,7 +791,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 optionsBuilder
-                    .UseJet(_connectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
+                    .UseJet(_connectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(CreateServiceProvider());
             }
 

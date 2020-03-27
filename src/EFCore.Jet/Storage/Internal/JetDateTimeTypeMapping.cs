@@ -3,7 +3,6 @@
 using System;
 using System.Data;
 using System.Data.Common;
-using System.Data.OleDb;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -35,7 +34,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             // Check: Is this really necessary for Jet?
             /*
-
             if (DbType == System.Data.DbType.Date ||
                 DbType == System.Data.DbType.DateTime ||
                 DbType == System.Data.DbType.DateTime2 ||

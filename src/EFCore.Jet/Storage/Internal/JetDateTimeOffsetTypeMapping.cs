@@ -1,9 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Data;
 using System.Data.Common;
-using System.Data.OleDb;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -35,6 +33,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             base.ConfigureParameter(parameter);
 
+            // Check: Is this really necessary for Jet?
+            /*
             if (DbType == System.Data.DbType.Date ||
                 DbType == System.Data.DbType.DateTime ||
                 DbType == System.Data.DbType.DateTime2 ||
@@ -43,6 +43,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             {
                 ((OleDbParameter) parameter).OleDbType = OleDbType.DBTimeStamp;
             }
+            */
 
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)

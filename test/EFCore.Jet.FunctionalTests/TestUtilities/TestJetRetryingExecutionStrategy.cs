@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 new DbContext(
                     new DbContextOptionsBuilder()
                         .EnableServiceProviderCaching(false)
-                        .UseJet(TestEnvironment.DefaultConnection, JetConfiguration.DefaultProviderFactory).Options),
+                        .UseJet(TestEnvironment.DefaultConnection, TestEnvironment.DataAccessProviderFactory).Options),
                 DefaultMaxRetryCount, DefaultMaxDelay, _additionalErrorNumbers)
         {
         }

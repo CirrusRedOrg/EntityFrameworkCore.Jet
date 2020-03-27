@@ -82,6 +82,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />
+    <PackageReference Include="System.Data.Odbc" Version="$(SystemDataOdbcVersion)" />
+    <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdk)" />
     <PackageReference Include="MSTest.TestAdapter" Version="$(MSTestTestAdapter)" />
     <PackageReference Include="MSTest.TestFramework" Version="$(MSTestTestFramework)" />

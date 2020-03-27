@@ -1,6 +1,4 @@
-using System;
 using System.Data.Common;
-using System.Data.OleDb;
 using System.Reflection;
 
 namespace System.Data.Jet
@@ -19,7 +17,7 @@ namespace System.Data.Jet
         internal JetFactory(JetConnection connection, DbProviderFactory innerFactory)
         {
             if (innerFactory is JetFactory)
-                throw new ArgumentException("JetProviderFactory can not use a JetProviderFactory as its underlying provider factory. Supported provider factories are OdbcFactory and OleDbFactory.");
+                throw new ArgumentException("JetProviderFactory cannot use a JetProviderFactory as its underlying provider factory. Supported provider factories are OdbcFactory and OleDbFactory.");
 
             Connection = connection;
             InnerFactory = innerFactory;
@@ -113,9 +111,9 @@ namespace System.Data.Jet
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateDataAdapter)))
                 : InnerFactory.CreateParameter();
 
-        public virtual DbProviderFactory CreateDataAccessProviderFactory(DataAccessType dataAccessType)
+        public virtual DbProviderFactory GetDataAccessProviderFactory(DataAccessProviderType dataAccessProviderType)
         {
-            if (dataAccessType == DataAccessType.OleDb)
+            if (dataAccessProviderType == DataAccessProviderType.OleDb)
             {
                 try
                 {
@@ -125,7 +123,7 @@ namespace System.Data.Jet
                 }
                 catch (Exception e)
                 {
-                    throw new TypeLoadException("To use OLE DB in conjunction with Jet, please use the \"EntityFrameworkCore.Jet.OleDb\" NuGet package.", e);
+                    throw new TypeLoadException("To use OLE DB in conjunction with Jet, please reference the \"System.Data.OleDb\" NuGet package.", e);
                 }
             }
             else
@@ -138,7 +136,7 @@ namespace System.Data.Jet
                 }
                 catch (Exception e)
                 {
-                    throw new TypeLoadException("To use ODBC in conjunction with Jet, please use the \"EntityFrameworkCore.Jet.Odbc\" NuGet package.", e);
+                    throw new TypeLoadException("To use ODBC in conjunction with Jet, please reference the \"System.Data.Odbc\" NuGet package.", e);
                 }
             }
         }

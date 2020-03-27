@@ -1,5 +1,6 @@
 using System;
 using System.Data.Jet;
+using System.Data.OleDb;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -30,7 +31,7 @@ namespace JetProviderExceptionTests
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 optionsBuilder
-                    .UseJet("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=Northwind.accdb", JetConfiguration.DefaultProviderFactory)
+                    .UseJet("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=Northwind.accdb", OleDbFactory.Instance)
                     .UseLoggerFactory(
                         LoggerFactory.Create(
                             b => b

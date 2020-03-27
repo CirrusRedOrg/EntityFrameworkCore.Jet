@@ -242,6 +242,6 @@
     <value>The '{methodName}' method is not supported because the query has switched to client-evaluation. Inspect the log to determine which query expressions are triggering client-evaluation.</value>
   </data>
   <data name="DataAccessProviderFactory" xml:space="preserve">
-    <value>The JetConnection has been configured without specifying a DataAccessProviderFactory. This property needs to be set to either OdbcFactory or OleDbFactory.</value>
+    <value>The JetConnection has been configured without specifying a DataAccessProviderFactory. This property needs to be set to an object of type OdbcFactory or OleDbFactory.</value>
   </data>
 </root>

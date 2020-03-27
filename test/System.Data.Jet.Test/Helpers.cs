@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Data.Common;
+using System.Data.Odbc;
 using System.Data.OleDb;
 using System.Text.RegularExpressions;
 
@@ -91,8 +92,8 @@ namespace System.Data.Jet.Test
 
         private static string GetTestDirectory()
         {
-            return System.IO.Path.GetDirectoryName(
-                System.Reflection.Assembly.GetExecutingAssembly()
+            return IO.Path.GetDirectoryName(
+                Reflection.Assembly.GetExecutingAssembly()
                     .GetName()
                     .CodeBase.Replace("file:///", ""));
         }
@@ -183,7 +184,12 @@ namespace System.Data.Jet.Test
                         parameterValue = DBNull.Value;
                     else
                         parameterValue = Convert.ChangeType(sparameterValue, Type.GetType("System." + parameterType));
-                    command.Parameters.Add(new OleDbParameter(parameterName, parameterValue));
+
+                    var parameter = command.CreateParameter();
+                    parameter.ParameterName = parameterName;
+                    parameter.Value = parameterValue;
+                    
+                    command.Parameters.Add(parameter);
                 }
             }
 
@@ -211,15 +217,17 @@ namespace System.Data.Jet.Test
         {
             DeleteDatabase(storeName);
 
-            var connectionString = JetConnection.GetConnectionString(storeName, JetConfiguration.DefaultProviderFactory);
-            AdoxWrapper.CreateEmptyDatabase(connectionString, JetConfiguration.DefaultProviderFactory);
+            var connectionString = JetConnection.GetConnectionString(storeName, DataAccessProviderFactory);
+            AdoxWrapper.CreateEmptyDatabase(connectionString, DataAccessProviderFactory);
             return connectionString;
         }
 
         public static void DeleteDatabase(string storeName)
         {
             JetConnection.ClearAllPools();
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName, JetConfiguration.DefaultProviderFactory));
+            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName, DataAccessProviderFactory));
         }
+
+        public static DbProviderFactory DataAccessProviderFactory { get; set; } = OdbcFactory.Instance;
     }
 }

@@ -53,7 +53,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
                     .EnableServiceProviderCaching(false)
-                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
+                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
         }
 
         [ConditionalFact]
@@ -111,7 +111,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         private class StringInConfigContext : NorthwindContextBase
         {
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                => optionsBuilder.UseJet("Database=Crunchie", JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
+                => optionsBuilder.UseJet("Database=Crunchie", TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
         }
 
         [ConditionalFact]
@@ -257,7 +257,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 optionsBuilder
                     .EnableServiceProviderCaching(false)
-                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration());
+                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
 
                 Assert.NotSame(_options, optionsBuilder.Options);
             }
@@ -277,7 +277,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 = new ServiceCollection()
                     .AddSingleton<IConfiguration>(configBuilder.Build())
                     .AddDbContext<UseConfigurationContext>(
-                        b => b.UseJet(connectionString, JetConfiguration.DefaultProviderFactory).EnableServiceProviderCaching(false))
+                        b => b.UseJet(connectionString, TestEnvironment.DataAccessProviderFactory).EnableServiceProviderCaching(false))
                     .BuildServiceProvider();
 
             using (JetTestStore.GetNorthwindStore())

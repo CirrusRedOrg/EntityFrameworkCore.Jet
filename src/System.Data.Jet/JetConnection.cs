@@ -1,10 +1,8 @@
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
-using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Transactions;
 
 namespace System.Data.Jet
 {
@@ -233,7 +231,7 @@ namespace System.Data.Jet
         /// Enlists in the specified transaction.
         /// </summary>
         /// <param name="transaction">A reference to an existing <see cref="T:System.Transactions.Transaction" /> in which to enlist.</param>
-        public override void EnlistTransaction(Transaction transaction)
+        public override void EnlistTransaction(System.Transactions.Transaction transaction)
         {
             if (InnerConnection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
@@ -407,18 +405,6 @@ namespace System.Data.Jet
         }
 
         /// <summary>
-        /// Performs an explicit conversion from <see cref="JetConnection"/> to <see cref="DbConnection"/>.
-        /// </summary>
-        /// <param name="connection">The connection.</param>
-        /// <returns>
-        /// The result of the conversion.
-        /// </returns>
-        public static explicit operator OleDbConnection(JetConnection connection)
-        {
-            return (OleDbConnection) connection.InnerConnection;
-        }
-
-        /// <summary>
         /// Clears the pool.
         /// </summary>
         /// <param name="connection">The connection.</param>
@@ -506,10 +492,10 @@ namespace System.Data.Jet
             var isOdbc = Regex.IsMatch(connectionString, @"Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase);
 
             if (isOdbc && isOleDb)
-                throw new InvalidOperationException("The connection string appears to be ODBC and OLE DB. Only one distinct style is supported.");
+                throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
 
             if (!isOdbc && !isOleDb)
-                throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB.", nameof(connectionString));
+                throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
 
             return isOleDb
                 ? DataAccessType.OleDb

@@ -102,7 +102,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration())
+                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(_serviceProvider);
         }
 

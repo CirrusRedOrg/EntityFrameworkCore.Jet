@@ -23,7 +23,7 @@ DROP DATABASE TransactionSuppressed");
         {
             var options = AddOptions(
                     new DbContextOptionsBuilder()
-                        .UseJet(TestStore.ConnectionString, JetConfiguration.DefaultProviderFactory, b => b.ApplyConfiguration()))
+                        .UseJet(TestStore.ConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration()))
                 .UseInternalServiceProvider(ServiceProvider)
                 .Options;
             return new MigrationsContext(options);

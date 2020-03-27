@@ -23,7 +23,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void CreateAndDropDatabaseFromConnection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, JetConfiguration.DefaultProviderFactory));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.CreateEmptyDatabase();
 
             Assert.IsTrue(File.Exists(StoreName));

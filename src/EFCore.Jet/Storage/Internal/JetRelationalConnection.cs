@@ -3,8 +3,6 @@
 using System;
 using System.Data.Common;
 using System.Data.Jet;
-using System.Data.Odbc;
-using System.Data.OleDb;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
@@ -60,7 +58,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public virtual IJetRelationalConnection CreateEmptyConnection()
         {
             var connection = (JetConnection) JetFactory.Instance.CreateConnection();
-            connection.DataAccessProviderFactory = OleDbFactory.Instance;
+            connection.DataAccessProviderFactory = _jetOptionsExtension.DataAccessProviderFactory;
             connection.IsEmpty = true;
 
             var contextOptions = new DbContextOptionsBuilder()

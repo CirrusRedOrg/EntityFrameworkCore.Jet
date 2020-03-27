@@ -170,7 +170,7 @@ namespace EntityFrameworkCore.Jet.Internal
                 methodName);
 
         /// <summary>
-        ///     The JetConnection has been configured without specifying a DataAccessProviderFactory. This property needs to be set to either OdbcFactory or OleDbFactory.
+        ///     The JetConnection has been configured without specifying a DataAccessProviderFactory. This property needs to be set to an object of type OdbcFactory or OleDbFactory.
         /// </summary>
         public static string DataAccessProviderFactory
             => GetString("DataAccessProviderFactory");

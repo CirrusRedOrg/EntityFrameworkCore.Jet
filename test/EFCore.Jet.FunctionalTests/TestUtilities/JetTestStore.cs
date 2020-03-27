@@ -70,7 +70,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
             ConnectionString = CreateConnectionString(Name);
 
-            var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(JetConnection.GetDataAccessType(ConnectionString));
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(ConnectionString));
             var connection = (JetConnection) JetFactory.Instance.CreateConnection();
             connection.ConnectionString = ConnectionString;
             connection.DataAccessProviderFactory = dataAccessProviderFactory;
@@ -132,7 +132,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
             else
             {
-                JetConnection.CreateEmptyDatabase(Name, JetConfiguration.DefaultProviderFactory);
+                JetConnection.CreateEmptyDatabase(Name, TestEnvironment.DataAccessProviderFactory);
             }
 
             return true;
@@ -410,7 +410,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public static string CreateConnectionString(string name)
         {
             var defaultConnectionString = TestEnvironment.DefaultConnection;
-            var dataAccessProviderFactory = JetFactory.Instance.CreateDataAccessProviderFactory(JetConnection.GetDataAccessType(defaultConnectionString));
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(defaultConnectionString));
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
 
             connectionStringBuilder.ConnectionString = defaultConnectionString;

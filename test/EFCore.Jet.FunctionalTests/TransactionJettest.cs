@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     new DbContextOptionsBuilder()
                         .UseJet(
                             TestStore.ConnectionString,
-                            JetConfiguration.DefaultProviderFactory,
+                            TestEnvironment.DataAccessProviderFactory,
                             b => b.ApplyConfiguration().ExecutionStrategy(c => new JetExecutionStrategy(c))))
                 .UseInternalServiceProvider(Fixture.ServiceProvider);
 

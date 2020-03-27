@@ -2,6 +2,7 @@
 
 using System;
 using System.Data.Jet;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
@@ -19,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Action<RelationalDbContextOptionsBuilder<JetDbContextOptionsBuilder, JetOptionsExtension>> relationalAction)
             => new DbContextOptionsBuilder()
                 .UseInternalServiceProvider(services.AddEntityFrameworkJet().BuildServiceProvider())
-                .UseJet("Data Source=LoggingJetTest.db", JetConfiguration.DefaultProviderFactory, relationalAction);
+                .UseJet("Data Source=LoggingJetTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
 
         protected override string ProviderName => "EntityFrameworkCore.Jet";
     }

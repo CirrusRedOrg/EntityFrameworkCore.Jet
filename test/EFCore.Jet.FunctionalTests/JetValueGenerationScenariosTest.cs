@@ -879,7 +879,7 @@ END");
                     .EnableServiceProviderCaching(false)
                     .UseJet(
                         JetTestStore.CreateConnectionString(_databaseName),
-                        JetConfiguration.DefaultProviderFactory,
+                        TestEnvironment.DataAccessProviderFactory,
                         b => b.ApplyConfiguration());
         }
     }

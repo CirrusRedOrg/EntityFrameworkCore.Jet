@@ -283,26 +283,26 @@ WHERE (((((((((`d`.`SmallDateTime` IN ('1970-09-03T12:00:00', '1971-09-03T12:00:
             {
                 testStore.ExecuteNonQuery(
                     @"
-CREATE TABLE `dbo`.`Customers`(
+CREATE TABLE `Customers`(
     `CustomerID` `int` NOT NULL PRIMARY KEY,
     `CustomerName` `varchar`(120) NULL,
     `PostcodeID` `int` NULL);
 
-CREATE TABLE `dbo`.`Postcodes`(
+CREATE TABLE `Postcodes`(
     `PostcodeID` `int` NOT NULL PRIMARY KEY,
     `PostcodeValue` `varchar`(100) NOT NULL,
     `TownName` `varchar`(255) NOT NULL);
 
-INSERT `dbo`.`Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (1, 'Sam Tippet', 5);
-INSERT `dbo`.`Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (2, 'William Greig', 2);
-INSERT `dbo`.`Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (3, 'Steve Jones', 3);
-INSERT `dbo`.`Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (4, 'Jim Warren', NULL);
-INSERT `dbo`.`Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (5, 'Andrew Smith', 5);
+INSERT `Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (1, 'Sam Tippet', 5);
+INSERT `Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (2, 'William Greig', 2);
+INSERT `Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (3, 'Steve Jones', 3);
+INSERT `Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (4, 'Jim Warren', NULL);
+INSERT `Customers` (`CustomerID`, `CustomerName`, `PostcodeID`) VALUES (5, 'Andrew Smith', 5);
 
-INSERT `dbo`.`Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (2, '1000', 'Town 1');
-INSERT `dbo`.`Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (3, '2000', 'Town 2');
-INSERT `dbo`.`Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (4, '3000', 'Town 3');
-INSERT `dbo`.`Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (5, '4000', 'Town 4');
+INSERT `Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (2, '1000', 'Town 1');
+INSERT `Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (3, '2000', 'Town 2');
+INSERT `Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (4, '3000', 'Town 3');
+INSERT `Postcodes` (`PostcodeID`, `PostcodeValue`, `TownName`) VALUES (5, '4000', 'Town 4');
 ");
 
                 using (var context = new Bug6091Context(Fixture.CreateOptions(testStore)))
@@ -2657,7 +2657,7 @@ WHERE `w`.`Val` = 1");
                     Assert.Equal(3, result);
 
                     AssertSql(
-                        @"SELECT TOP 2 `dbo`.`AddTwo`(`w`.`Val`)
+                        @"SELECT TOP 2 `AddTwo`(`w`.`Val`)
 FROM `foo`.`Widgets` AS `w`
 WHERE `w`.`Val` = 1");
                 }
@@ -2685,7 +2685,7 @@ WHERE `w`.`Val` = 1");
                                                             END");
 
                     context.Database.ExecuteSqlRaw(
-                        @"CREATE FUNCTION dbo.AddTwo (@num int)
+                        @"CREATE FUNCTION AddTwo (@num int)
                                                             RETURNS int
                                                                 AS
                                                             BEGIN
@@ -2761,7 +2761,7 @@ WHERE `w`.`Val` = 1");
                     Assert.Equal(0, valueParam.Value);
 
                     var blogs = context.Blogs.FromSqlRaw(
-                            "`dbo`.`GetPersonAndVoteCount`  @id, @Value out",
+                            "`GetPersonAndVoteCount`  @id, @Value out",
                             new OleDbParameter { ParameterName = "id", Value = 1 },
                             valueParam)
                         .ToList();
@@ -2779,7 +2779,7 @@ WHERE `w`.`Val` = 1");
                 context =>
                 {
                     context.Database.ExecuteSqlRaw(
-                        @"CREATE PROCEDURE `dbo`.`GetPersonAndVoteCount`
+                        @"CREATE PROCEDURE `GetPersonAndVoteCount`
  (
     @id int,
     @Value int OUTPUT
@@ -2787,10 +2787,10 @@ WHERE `w`.`Val` = 1");
 AS
 BEGIN
     SELECT @Value = SomeValue
-    FROM dbo.Blogs
+    FROM Blogs
     WHERE Id = @id;
     SELECT *
-    FROM dbo.Blogs
+    FROM Blogs
     WHERE Id = @id;
     END");
 

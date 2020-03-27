@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.CreateTableOperation();
 
             AssertSql(
-                @"CREATE TABLE `dbo`.`People` (
+                @"CREATE TABLE `People` (
     `Id` int NOT NULL,
     `EmployerId` int NULL,
     `SSN` char(11) NULL,
@@ -354,7 +354,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `dbo`.`People` ADD `Birthday` datetime NOT NULL DEFAULT #01/01/2019 00:00:00#;
+                @"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #01/01/2019 00:00:00#;
 ");
         }
 
@@ -374,7 +374,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                @"ALTER TABLE `dbo`.`People` ADD `Birthday` smalldatetime NOT NULL DEFAULT '2019-01-01T00:00:00';
+                @"ALTER TABLE `People` ADD `Birthday` smalldatetime NOT NULL DEFAULT '2019-01-01T00:00:00';
 ");
         }
 
@@ -523,10 +523,10 @@ EXEC sp_addextendedproperty 'MS_Description', 'My comment', 'SCHEMA', 'my', 'TAB
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
-WHERE (`d`.`parent_object_id` = OBJECT_ID('`dbo`.`People`') AND `c`.`name` = 'LuckyNumber');
-IF @var0 IS NOT NULL EXEC('ALTER TABLE `dbo`.`People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `dbo`.`People` ALTER COLUMN `LuckyNumber` int NOT NULL;
-ALTER TABLE `dbo`.`People` ADD DEFAULT 7 FOR `LuckyNumber`;
+WHERE (`d`.`parent_object_id` = OBJECT_ID('`People`') AND `c`.`name` = 'LuckyNumber');
+IF @var0 IS NOT NULL EXEC('ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` ALTER COLUMN `LuckyNumber` int NOT NULL;
+ALTER TABLE `People` ADD DEFAULT 7 FOR `LuckyNumber`;
 ");
         }
 
@@ -1134,9 +1134,9 @@ ALTER TABLE `Person` ALTER COLUMN `Id` bigint NOT NULL;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
-WHERE (`d`.`parent_object_id` = OBJECT_ID('`dbo`.`People`') AND `c`.`name` = 'LuckyNumber');
-IF @var0 IS NOT NULL EXEC('ALTER TABLE `dbo`.`People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `dbo`.`People` ALTER COLUMN `LuckyNumber` int NOT NULL;
+WHERE (`d`.`parent_object_id` = OBJECT_ID('`People`') AND `c`.`name` = 'LuckyNumber');
+IF @var0 IS NOT NULL EXEC('ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` ALTER COLUMN `LuckyNumber` int NOT NULL;
 EXEC sp_addextendedproperty 'MS_Description', 'My Comment', 'SCHEMA', 'dbo', 'TABLE', 'People', 'COLUMN', 'LuckyNumber';
 ");
         }
@@ -1173,9 +1173,9 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment', 'SCHEMA', 'dbo', 'TA
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
-WHERE (`d`.`parent_object_id` = OBJECT_ID('`dbo`.`People`') AND `c`.`name` = 'Name');
-IF @var0 IS NOT NULL EXEC('ALTER TABLE `dbo`.`People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `dbo`.`People` ALTER COLUMN `Name` nvarchar(max) NOT NULL;
+WHERE (`d`.`parent_object_id` = OBJECT_ID('`People`') AND `c`.`name` = 'Name');
+IF @var0 IS NOT NULL EXEC('ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` ALTER COLUMN `Name` nvarchar(max) NOT NULL;
 EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People', 'COLUMN', 'Name';
 EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', 'TABLE', 'People', 'COLUMN', 'Name';
 ");
@@ -1212,9 +1212,9 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
-WHERE (`d`.`parent_object_id` = OBJECT_ID('`dbo`.`People`') AND `c`.`name` = 'Name');
-IF @var0 IS NOT NULL EXEC('ALTER TABLE `dbo`.`People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `dbo`.`People` ALTER COLUMN `Name` nvarchar(max) NOT NULL;
+WHERE (`d`.`parent_object_id` = OBJECT_ID('`People`') AND `c`.`name` = 'Name');
+IF @var0 IS NOT NULL EXEC('ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` ALTER COLUMN `Name` nvarchar(max) NOT NULL;
 EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', 'dbo', 'TABLE', 'People', 'COLUMN', 'Name';
 ");
         }
@@ -1335,7 +1335,7 @@ END;
             base.CreateIndexOperation_unique();
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `dbo`.`People` (`FirstName`, `LastName`) WHERE `FirstName` IS NOT NULL AND `LastName` IS NOT NULL;
+                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`FirstName`, `LastName`) WHERE `FirstName` IS NOT NULL AND `LastName` IS NOT NULL;
 ");
         }
 
@@ -1354,7 +1354,7 @@ END;
                 });
 
             AssertSql(
-                @"CREATE UNIQUE INDEX `IX_People_Name` ON `dbo`.`People` (`FirstName`, `LastName`);
+                @"CREATE UNIQUE INDEX `IX_People_Name` ON `People` (`FirstName`, `LastName`);
 ");
         }
 
@@ -1564,7 +1564,7 @@ END;
                 });
 
             AssertSql(
-                @"ALTER TABLE `dbo`.`People` ADD INDEX `IX_People_Name` (`Name`);
+                @"ALTER TABLE `People` ADD INDEX `IX_People_Name` (`Name`);
 ");
         }
 
@@ -1647,9 +1647,9 @@ END;
 SELECT @var0 = `d`.`name`
 FROM `sys`.`default_constraints` `d`
 INNER JOIN `sys`.`columns` `c` ON `d`.`parent_column_id` = `c`.`column_id` AND `d`.`parent_object_id` = `c`.`object_id`
-WHERE (`d`.`parent_object_id` = OBJECT_ID('`dbo`.`People`') AND `c`.`name` = 'LuckyNumber');
-IF @var0 IS NOT NULL EXEC('ALTER TABLE `dbo`.`People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `dbo`.`People` DROP COLUMN `LuckyNumber`;
+WHERE (`d`.`parent_object_id` = OBJECT_ID('`People`') AND `c`.`name` = 'LuckyNumber');
+IF @var0 IS NOT NULL EXEC('ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` DROP COLUMN `LuckyNumber`;
 ");
         }
 
@@ -1675,7 +1675,7 @@ DROP DATABASE `Northwind`;
             base.DropIndexOperation();
 
             AssertSql(
-                @"DROP INDEX `IX_People_Name` ON `dbo`.`People`;
+                @"DROP INDEX `IX_People_Name` ON `People`;
 ");
         }
 
@@ -1710,7 +1710,7 @@ DROP DATABASE `Northwind`;
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `my` TRANSFER `dbo`.`EntityFrameworkHiLoSequence`;
+                @"ALTER SCHEMA `my` TRANSFER `EntityFrameworkHiLoSequence`;
 ");
         }
 
@@ -1728,7 +1728,7 @@ DROP DATABASE `Northwind`;
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `my` TRANSFER `dbo`.`EntityFrameworkHiLoSequence`;
+                @"ALTER SCHEMA `my` TRANSFER `EntityFrameworkHiLoSequence`;
 ");
         }
 
@@ -1746,7 +1746,7 @@ DROP DATABASE `Northwind`;
 
             AssertSql(
                 @"DECLARE @defaultSchema sysname = SCHEMA_NAME();
-EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`EntityFrameworkHiLoSequence`;');
+EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequence`;');
 ");
         }
 
@@ -1762,7 +1762,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`EntityFrameworkHiLoS
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `hr` TRANSFER `dbo`.`People`;
+                @"ALTER SCHEMA `hr` TRANSFER `People`;
 ");
         }
 
@@ -1780,7 +1780,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`EntityFrameworkHiLoS
                 });
 
             AssertSql(
-                @"ALTER SCHEMA `hr` TRANSFER `dbo`.`People`;
+                @"ALTER SCHEMA `hr` TRANSFER `People`;
 ");
         }
 
@@ -1798,7 +1798,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`EntityFrameworkHiLoS
 
             AssertSql(
                 @"DECLARE @defaultSchema sysname = SCHEMA_NAME();
-EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
+EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
 ");
         }
 
@@ -1815,7 +1815,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`dbo`.`People`.`Name`', 'FullName', 'COLUMN';
+                @"EXEC sp_rename '`People`.`Name`', 'FullName', 'COLUMN';
 ");
         }
 
@@ -1832,7 +1832,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`dbo`.`People`.`IX_People_Name`', 'IX_People_FullName', 'INDEX';
+                @"EXEC sp_rename '`People`.`IX_People_Name`', 'IX_People_FullName', 'INDEX';
 ");
         }
 
@@ -1863,7 +1863,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`dbo`.`EntityFrameworkHiLoSequence`', 'MySequence';
+                @"EXEC sp_rename '`EntityFrameworkHiLoSequence`', 'MySequence';
 ");
         }
 
@@ -1881,7 +1881,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
                 });
 
             AssertSql(
-                @"EXEC sp_rename '`dbo`.`EntityFrameworkHiLoSequence`', 'MySequence';
+                @"EXEC sp_rename '`EntityFrameworkHiLoSequence`', 'MySequence';
 ");
         }
 
@@ -1891,7 +1891,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
             base.RenameTableOperation_legacy();
 
             AssertSql(
-                @"EXEC sp_rename '`dbo`.`People`', 'Person';
+                @"EXEC sp_rename '`People`', 'Person';
 ");
         }
 
@@ -1901,7 +1901,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `dbo`.`People`;');
             base.RenameTableOperation();
 
             AssertSql(
-                @"EXEC sp_rename '`dbo`.`People`', 'Person';
+                @"EXEC sp_rename '`People`', 'Person';
 ");
         }
 

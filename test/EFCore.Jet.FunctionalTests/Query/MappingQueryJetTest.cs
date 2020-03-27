@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             AssertSql(
                 @"SELECT `c`.`CustomerID`, `c`.`CompanyName`
-FROM `dbo`.`Customers` AS `c`");
+FROM `Customers` AS `c`");
         }
 
         public override void All_employees()
@@ -24,7 +24,7 @@ FROM `dbo`.`Customers` AS `c`");
 
             AssertSql(
                 @"SELECT `e`.`EmployeeID`, `e`.`City`
-FROM `dbo`.`Employees` AS `e`");
+FROM `Employees` AS `e`");
         }
 
         public override void All_orders()
@@ -33,7 +33,7 @@ FROM `dbo`.`Employees` AS `e`");
 
             AssertSql(
                 @"SELECT `o`.`OrderID`, `o`.`ShipVia`
-FROM `dbo`.`Orders` AS `o`");
+FROM `Orders` AS `o`");
         }
 
         public override void Project_nullable_enum()
@@ -42,7 +42,7 @@ FROM `dbo`.`Orders` AS `o`");
 
             AssertSql(
                 @"SELECT `o`.`ShipVia`
-FROM `dbo`.`Orders` AS `o`");
+FROM `Orders` AS `o`");
         }
 
         public MappingQueryJetTest(MappingQueryJetFixture fixture)

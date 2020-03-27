@@ -10,6 +10,7 @@ namespace System.Data.Jet
     {
         private ConnectionState _state;
         private string _connectionString;
+        private bool _frozen;
 
         internal DbConnection InnerConnection { get; private set; }
 
@@ -175,6 +176,10 @@ namespace System.Data.Jet
             {
                 if (State != ConnectionState.Closed)
                     throw new InvalidOperationException(Messages.CannotChangePropertyValueInThisConnectionState(nameof(ConnectionString), State));
+                
+                if (_frozen)
+                    throw new InvalidOperationException($"Cannot modify \"{nameof(ConnectionString)}\" property after the connection has been frozen.");
+                
                 _connectionString = value;
             }
         }
@@ -298,10 +303,14 @@ namespace System.Data.Jet
                 return;
             if (string.IsNullOrWhiteSpace(_connectionString))
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(ConnectionString)));
-            if (JetFactory == null)
-                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(DataAccessProviderFactory)));
             if (State != ConnectionState.Closed)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Open), ConnectionState.Closed, State));
+
+            if (JetFactory == null)
+            {
+                var dataAccessProviderType = GetDataAccessProviderType(ConnectionString);
+                DataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            }
 
             try
             {
@@ -402,6 +411,12 @@ namespace System.Data.Jet
             if (InnerConnection != null)
                 clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_connectionString, JetFactory.InnerFactory);
             return clone;
+        }
+
+        public void Freeze()
+        {
+            if (!string.IsNullOrWhiteSpace(ConnectionString))
+                _frozen = true;
         }
 
         /// <summary>

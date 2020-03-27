@@ -56,7 +56,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkJet()
                 .AddDbContext<DbContext>((p, o) => o
-                    .UseJetWithoutPredefinedDataAccessProviderFactory<DbContext>(
+                    .UseJetWithoutPredefinedDataAccessProvider(
                         JetConnection.GetConnectionString("Jet.accdb", DataAccessProviderType.Odbc))
                     .UseInternalServiceProvider(p))
                 .BuildServiceProvider();

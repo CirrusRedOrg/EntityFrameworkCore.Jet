@@ -5,7 +5,7 @@ namespace System.Data.Jet
 {
     class InnerConnectionFactory : IDisposable
     {
-        public static InnerConnectionFactory Instance = new InnerConnectionFactory();
+        public static readonly InnerConnectionFactory Instance = new InnerConnectionFactory();
 
         private InnerConnectionFactory()
         {

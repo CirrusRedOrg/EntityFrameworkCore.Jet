@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Data.Jet.JetStoreSchemaDefinition;
 
 namespace System.Data.Jet
 {
@@ -61,8 +62,10 @@ namespace System.Data.Jet
             }
         }
         
-        public static string CreateEmptyDatabase(string fileName, DbProviderFactory dataAccessProviderFactory)
+        public static string CreateEmptyDatabase(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
         {
+            var fileName = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
+            
             string connectionString = null;
             using var catalog = GetCatalogInstance();
             
@@ -77,7 +80,7 @@ namespace System.Data.Jet
             }
             catch (Exception e)
             {
-                throw new Exception("Cannot create database using the specified connection string: " + connectionString, e);
+                throw new Exception($"Cannot create database \"{fileName}\" using ADOX with the following connection string: " + connectionString, e);
             }
 
             try
@@ -108,7 +111,7 @@ CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);"
             }
             catch (Exception e)
             {
-                throw new Exception("Cannot create database using the specified connection string.", e);
+                throw new Exception($"Cannot setup the newly created database \"{fileName}\" using {Enum.GetName(typeof(DataAccessProviderType), JetConnection.GetDataAccessProviderType(dataAccessProviderFactory))} with the following connection string: " + connectionString, e);
             }
 
             try

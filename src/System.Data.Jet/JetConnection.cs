@@ -80,7 +80,7 @@ namespace System.Data.Jet
         /// <exception cref="InvalidOperationException">This property can only be set as long as the connection is closed.</exception>
         public DbProviderFactory DataAccessProviderFactory
         {
-            get => JetFactory.InnerFactory;
+            get => JetFactory?.InnerFactory;
             set
             {
                 if (value == null)

@@ -29,7 +29,7 @@ namespace System.Data.Jet
             }
             else if (IsOdbc(builder))
             {
-                builder["driver"] = Regex.Replace(value.Trim(), @"^(?<!\{).*(?!\})$", @"{$1}", RegexOptions.IgnoreCase);
+                builder["driver"] = Regex.Replace(value.Trim(), @"^(?<!\{)(.*)(?!\})$", @"{$1}", RegexOptions.IgnoreCase);
             }
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");

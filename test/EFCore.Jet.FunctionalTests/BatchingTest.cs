@@ -272,7 +272,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.Database.EnsureCreatedResiliently();
                 context.Database.ExecuteSqlRaw(
                     @"
-ALTER TABLE dbo.Owners
+ALTER TABLE Owners
     ALTER COLUMN Name nvarchar(MAX);");
             }
 

@@ -1,6 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Data.Jet;
 using System.Text;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
@@ -13,13 +15,18 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetSqlGenerationHelper : RelationalSqlGenerationHelper
     {
+        private readonly IJetOptions _jetOptions;
+
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetSqlGenerationHelper([NotNull] RelationalSqlGenerationHelperDependencies dependencies)
+        public JetSqlGenerationHelper(
+            [NotNull] RelationalSqlGenerationHelperDependencies dependencies,
+            [NotNull] IJetOptions jetOptions)
             : base(dependencies)
         {
+            _jetOptions = jetOptions;
         }
 
         /// <summary>
@@ -31,8 +38,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             Check.NotEmpty(identifier, nameof(identifier));
 
             identifier = identifier
-                .Replace(".", "#")
-                .Replace("]", "]]");
+                .Replace(".", "#");
 
             return identifier;
         }
@@ -46,8 +52,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             Check.NotEmpty(identifier, nameof(identifier));
 
             identifier = identifier
-                .Replace(".", "#")
-                .Replace("]", "]]");
+                .Replace(".", "#");
             
             builder.Append(identifier);
         }
@@ -58,7 +63,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public override string DelimitIdentifier(string identifier)
         {
-            return $"[{EscapeIdentifier(TruncateIdentifier(Check.NotEmpty(identifier, nameof(identifier))))}]";
+            return $"`{EscapeIdentifier(TruncateIdentifier(Check.NotEmpty(identifier, nameof(identifier))))}`";
         }
 
         /// <summary>
@@ -69,9 +74,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             Check.NotEmpty(identifier, nameof(identifier));
 
-            builder.Append('[');
+            builder.Append('`');
             EscapeIdentifier(builder, TruncateIdentifier(identifier));
-            builder.Append(']');
+            builder.Append('`');
         }
 
         public override void DelimitIdentifier(StringBuilder builder, string name, string schema)
@@ -84,6 +89,23 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             // Schema is not supported in Jet
             return DelimitIdentifier(Check.NotEmpty(name, nameof(name)));
+        }
+
+        public override string GenerateParameterNamePlaceholder(string name)
+            => _jetOptions.DataAccessProviderType == DataAccessProviderType.OleDb
+                ? base.GenerateParameterNamePlaceholder(name)
+                : "?";
+
+        public override void GenerateParameterNamePlaceholder(StringBuilder builder, string name)
+        {
+            if (_jetOptions.DataAccessProviderType == DataAccessProviderType.OleDb)
+            {
+                base.GenerateParameterNamePlaceholder(builder, name);
+            }
+            else
+            {
+                builder.Append("?");
+            }
         }
         
         public static string TruncateIdentifier(string identifier)

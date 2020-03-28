@@ -1,3 +1,5 @@
+using System.Data.Common;
+
 namespace System.Data.Jet
 {
     public static class AdoxWrapper
@@ -59,12 +61,17 @@ namespace System.Data.Jet
             }
         }
         
-        public static void CreateEmptyDatabase(string connectionString)
+        public static string CreateEmptyDatabase(string fileName, DbProviderFactory dataAccessProviderFactory)
         {
+            string connectionString = null;
             using var catalog = GetCatalogInstance();
             
             try
             {
+                // ADOX is an ADO eXtension and ADO is build on top of OLE DB. We always need to use an OLE DB
+                // connection string for ADOX.
+                connectionString = JetConnection.GetConnectionString(fileName, DataAccessProviderType.OleDb);
+                
                 catalog.Create(connectionString)
                     .Dispose(); // Dispose the returned Connection object, because we don't use it here.
             }
@@ -75,21 +82,26 @@ namespace System.Data.Jet
 
             try
             {
-                using var connection = new JetConnection(connectionString);
+                connectionString = JetConnection.GetConnectionString(fileName, dataAccessProviderFactory);
+
+                using var connection = (JetConnection)JetFactory.Instance.CreateConnection();
+                connection.ConnectionString = connectionString;
+                connection.DataAccessProviderFactory = dataAccessProviderFactory;
                 connection.Open();
+                
                 string sql = @"
-CREATE TABLE [MSysAccessStorage] (
-    [DateCreate] DATETIME NULL,
-    [DateUpdate] DATETIME NULL,
-    [Id] COUNTER NOT NULL,
-    [Lv] IMAGE,
-    [Name] VARCHAR(128) NULL,
-    [ParentId] INT NULL,
-    [Type] INT NULL,
-    CONSTRAINT [Id] PRIMARY KEY ([Id])
+CREATE TABLE `MSysAccessStorage` (
+    `DateCreate` DATETIME NULL,
+    `DateUpdate` DATETIME NULL,
+    `Id` COUNTER NOT NULL,
+    `Lv` IMAGE,
+    `Name` VARCHAR(128) NULL,
+    `ParentId` INT NULL,
+    `Type` INT NULL,
+    CONSTRAINT `Id` PRIMARY KEY (`Id`)
 );
-CREATE UNIQUE INDEX [ParentIdId] ON [MSysAccessStorage] ([ParentId], [Id]);
-CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);";
+CREATE UNIQUE INDEX `ParentIdId` ON `MSysAccessStorage` (`ParentId`, `Id`);
+CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);";
 
                 using var command = connection.CreateCommand(sql);
                 command.ExecuteNonQuery();
@@ -108,6 +120,8 @@ CREATE UNIQUE INDEX [ParentIdName] ON [MSysAccessStorage] ([ParentId], [Name]);"
             {
                 Diagnostics.Debug.WriteLine("Cannot close active connection after create statement.\r\nThe exception is: {0}", e.Message);
             }
+
+            return connectionString;
         }
 
         private static dynamic GetCatalogInstance()

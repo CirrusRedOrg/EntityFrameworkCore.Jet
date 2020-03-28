@@ -39,7 +39,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteReader_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
                 using var command = connection.CreateCommand("select * from MSysAccessStorage");
@@ -56,7 +56,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteNonQuery_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
                 using var command = connection.CreateCommand("select * from MSysAccessStorage");
@@ -73,7 +73,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteScalar_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
                 using var command = connection.CreateCommand("select * from MSysAccessStorage");
@@ -90,7 +90,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Prepare_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
                 using var command = connection.CreateCommand("select * from MSysAccessStorage");
@@ -106,7 +106,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void GetDataReader_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             var dataReader = connection.CreateCommand("select * from MSysAccessStorage")
@@ -120,7 +120,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void GetTransaction_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             using var transaction = connection.BeginTransaction();
         }
 
@@ -128,7 +128,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Change_Database_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.ChangeDatabase("abcd");
         }
 
@@ -136,7 +136,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Change_Database_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.ChangeDatabase("abcd");
         }
@@ -144,7 +144,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Change_ConnectionString_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.ConnectionString = DummyStoreName;
         }
 
@@ -152,7 +152,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Change_ConnectionString_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.ConnectionString = DummyStoreName;
         }
@@ -160,7 +160,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_ConnectionString_From_Closed0_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             Assert.AreEqual(connectionString, connection.ConnectionString);
         }
@@ -168,7 +168,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_ConnectionString_From_Closed1_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             connection.Close();
             Assert.AreEqual(connectionString, connection.ConnectionString);
@@ -177,7 +177,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_ConnectionString_From_Open_Closed_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             connection.Open();
             connection.Close();
@@ -187,7 +187,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_ConnectionString_From_Disposed_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             connection.Dispose();
             Assert.AreEqual(String.Empty, connection.ConnectionString);
@@ -196,7 +196,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_ConnectionString_From_Open_Disposed_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             connection.Open();
             connection.Dispose();
@@ -206,7 +206,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_ConnectionString_From_Open_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             connection.Open();
             Assert.AreEqual(connectionString, connection.ConnectionString);
@@ -215,14 +215,14 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_Database_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.IsTrue(connection.Database == string.Empty);
         }
 
         [TestMethod]
         public void Read_Database_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             Assert.IsTrue(connection.Database == string.Empty);
         }
@@ -231,14 +231,14 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Read_ServerVersion_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.IsTrue(connection.ServerVersion == string.Empty);
         }
 
         [TestMethod]
         public void Read_ServerVersion_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             Console.WriteLine(connection.ServerVersion);
         }
@@ -246,7 +246,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_Database_From_Disposed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Dispose();
             Assert.IsTrue(connection.Database == string.Empty);
         }
@@ -254,8 +254,14 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_DataSource_From_Closed_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
-            var fileName = new OleDbConnectionStringBuilder(connectionString).DataSource;
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            
+            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(connectionString);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = connectionString;
+           
+            var fileName = connectionStringBuilder.GetDataSource();
             using var connection = new JetConnection(connectionString);
             Assert.AreEqual(fileName, connection.DataSource);
         }
@@ -263,8 +269,14 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_DataSource_From_Open_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
-            var fileName = new OleDbConnectionStringBuilder(connectionString).DataSource;
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            
+            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(connectionString);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = connectionString;
+
+            var fileName = connectionStringBuilder.GetDataSource();
             using var connection = new JetConnection(connectionString);
             connection.Open();
             Assert.AreEqual(fileName, connection.DataSource);
@@ -273,7 +285,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_DataSource_From_Disposed_Connection()
         {
-            var connectionString = JetConnection.GetConnectionString(StoreName);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             using var connection = new JetConnection(connectionString);
             connection.Dispose();
             Assert.AreEqual(string.Empty, connection.DataSource);
@@ -283,7 +295,7 @@ namespace System.Data.Jet.Test
         public void DisposeSeveralTimes()
         {
             var stateChangeCount = 0;
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.StateChange += (sender, args) =>
             {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
@@ -301,7 +313,7 @@ namespace System.Data.Jet.Test
         public void DisposeWithoutOpen()
         {
             var stateChangeCount = 0;
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.StateChange += (sender, args) =>
             {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
@@ -315,7 +327,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_Connection_String_After_Dispose()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.IsFalse(string.IsNullOrEmpty(connection.ConnectionString));
             connection.Dispose();
             Assert.IsTrue(string.IsNullOrEmpty(connection.ConnectionString));
@@ -325,7 +337,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void OpenSeveralTimes()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.Open();
         }
@@ -334,7 +346,7 @@ namespace System.Data.Jet.Test
         public void CloseSeveralTimes()
         {
             var stateChangeCount = 0;
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.StateChange += (sender, args) =>
             {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
@@ -349,7 +361,7 @@ namespace System.Data.Jet.Test
         public void OpenCloseSeveralTimes()
         {
             var stateChangeCount = 0;
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.StateChange += (sender, args) =>
             {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
@@ -366,7 +378,7 @@ namespace System.Data.Jet.Test
         {
             var stateChangeCount = 0;
 
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.StateChange += (sender, args) =>
             {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
@@ -390,7 +402,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void GetSchema_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.GetSchema();
             connection.Close();
@@ -400,14 +412,14 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void GetSchema_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.GetSchema();
         }
 
         [TestMethod]
         public void Transaction_Execute_Close_Open_Execute()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction = connection.BeginTransaction();
@@ -430,7 +442,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Transaction_Execute_Commit_Close_Open_Execute()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction = connection.BeginTransaction();
@@ -454,7 +466,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Transaction_Execute_Close_Open()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction = connection.BeginTransaction();
@@ -478,7 +490,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Close_Open_Commit()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction = connection.BeginTransaction();
@@ -503,7 +515,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Transaction_Execute_Close_Open_Transaction()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction1 = connection.BeginTransaction();
@@ -529,7 +541,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Transaction()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var firstTransaction = connection.BeginTransaction();
@@ -551,7 +563,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Transaction_Commit_Transaction()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var firstTransaction = connection.BeginTransaction();
@@ -580,7 +592,7 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Transaction_Rollback_Transaction()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var firstTransaction = connection.BeginTransaction();
@@ -610,7 +622,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Commit_Execute_Transaction()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction = connection.BeginTransaction();
@@ -634,7 +646,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Commit_Commit()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             
             using var transaction = connection.BeginTransaction();

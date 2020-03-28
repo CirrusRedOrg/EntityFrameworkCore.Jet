@@ -105,13 +105,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 .AddEntityFrameworkJet()
                 .BuildServiceProvider(validateScopes: true);
 
-            var connStrBuilder = new OleDbConnectionStringBuilder(TestEnvironment.DefaultConnection)
-            {
-                DataSource = "StateManagerBug.accdb"
-            };
+            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(TestEnvironment.DefaultConnection);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
+            connectionStringBuilder.SetDataSource("StateManagerBug.accdb");
 
             _options = new DbContextOptionsBuilder()
-                .UseJet(connStrBuilder.ConnectionString, b => b.ApplyConfiguration())
+                .UseJet(connectionStringBuilder.ConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                 .UseInternalServiceProvider(serviceProvider)
                 .Options;
         }

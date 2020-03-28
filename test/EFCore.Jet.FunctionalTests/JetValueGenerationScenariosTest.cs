@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Jet;
 using System.Linq;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -329,7 +330,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     context.Database.ExecuteSqlRaw
                     (
                         @"CREATE FUNCTION
-[dbo].[GetFullName](@First NVARCHAR(MAX), @Second NVARCHAR(MAX))
+`GetFullName`(@First NVARCHAR(MAX), @Second NVARCHAR(MAX))
 RETURNS NVARCHAR(MAX) WITH SCHEMABINDING AS BEGIN RETURN @First + @Second END");
 
                     context.GetService<IRelationalDatabaseCreator>().CreateTables();
@@ -371,7 +372,7 @@ RETURNS NVARCHAR(MAX) WITH SCHEMABINDING AS BEGIN RETURN @First + @Second END");
             {
                 modelBuilder.Entity<FullNameBlog>()
                     .Property(e => e.FullName)
-                    .HasComputedColumnSql("[dbo].[GetFullName]([FirstName], [LastName])")
+                    .HasComputedColumnSql("`GetFullName`(`FirstName`, `LastName`)")
                     .Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Throw);
             }
         }
@@ -386,18 +387,18 @@ RETURNS NVARCHAR(MAX) WITH SCHEMABINDING AS BEGIN RETURN @First + @Second END");
                 {
                     context.GetService<IRelationalDatabaseCreator>().CreateTables();
 
-                    context.Database.ExecuteSqlRaw("ALTER TABLE dbo.FullNameBlogs DROP COLUMN FullName;");
+                    context.Database.ExecuteSqlRaw("ALTER TABLE FullNameBlogs DROP COLUMN FullName;");
 
                     context.Database.ExecuteSqlRaw(
-                        @"CREATE FUNCTION [dbo].[GetFullName](@Id int)
+                        @"CREATE FUNCTION `GetFullName`(@Id int)
 RETURNS NVARCHAR(MAX) WITH SCHEMABINDING AS
 BEGIN
     DECLARE @FullName NVARCHAR(MAX);
-    SELECT @FullName = [FirstName] + [LastName] FROM [dbo].[FullNameBlogs] WHERE [Id] = @Id;
+    SELECT @FullName = `FirstName` + `LastName` FROM `FullNameBlogs` WHERE `Id` = @Id;
     RETURN @FullName
 END");
 
-                    context.Database.ExecuteSqlRaw("ALTER TABLE dbo.FullNameBlogs ADD FullName AS [dbo].[GetFullName]([Id]); ");
+                    context.Database.ExecuteSqlRaw("ALTER TABLE FullNameBlogs ADD FullName AS `GetFullName`(`Id`); ");
                 }
 
                 try
@@ -442,8 +443,8 @@ END");
                 {
                     using (var context = new BlogContextComputedColumn(testStore.Name))
                     {
-                        context.Database.ExecuteSqlRaw("ALTER TABLE dbo.FullNameBlogs DROP COLUMN FullName;");
-                        context.Database.ExecuteSqlRaw("DROP FUNCTION [dbo].[GetFullName];");
+                        context.Database.ExecuteSqlRaw("ALTER TABLE FullNameBlogs DROP COLUMN FullName;");
+                        context.Database.ExecuteSqlRaw("DROP FUNCTION `GetFullName`;");
                     }
                 }
             }
@@ -878,6 +879,7 @@ END");
                     .EnableServiceProviderCaching(false)
                     .UseJet(
                         JetTestStore.CreateConnectionString(_databaseName),
+                        TestEnvironment.DataAccessProviderFactory,
                         b => b.ApplyConfiguration());
         }
     }

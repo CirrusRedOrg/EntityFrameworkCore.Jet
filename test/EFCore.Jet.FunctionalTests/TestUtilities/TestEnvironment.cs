@@ -1,9 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Common;
 using System.IO;
 using System.Data.Jet;
-using System.Data.OleDb;
 using Microsoft.Extensions.Configuration;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
@@ -19,12 +19,24 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             .GetSection("Test:Jet");
 
         public static string DefaultConnection { get; } = Config["DefaultConnection"]
-            ?? JetConnection.GetConnectionString("Jet.accdb");
+            ?? JetConnection.GetConnectionString("Jet.accdb", TestEnvironment.DataAccessProviderFactory);
 
-        private static readonly string _dataSource = new OleDbConnectionStringBuilder(DefaultConnection).DataSource;
+        public static bool IsConfigured
+        {
+            get
+            {
+                var dataAccessProviderType = JetConnection.GetDataAccessProviderType(DefaultConnection);
+                var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+                var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+                connectionStringBuilder.ConnectionString = DefaultConnection;
+                
+                return !string.IsNullOrEmpty(connectionStringBuilder.GetDataSource());
+            }
+        }
 
-        public static bool IsConfigured { get; } = !string.IsNullOrEmpty(_dataSource);
-
+        public static DataAccessProviderType DataAccessProviderType { get; } = JetConnection.GetDataAccessProviderType(DefaultConnection);
+        public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(DefaultConnection));
+        
         public static bool IsLocalDb { get; } = true;
 
         public static bool IsCI { get; } = Environment.GetEnvironmentVariable("PIPELINE_WORKSPACE") != null

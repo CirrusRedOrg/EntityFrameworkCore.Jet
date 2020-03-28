@@ -15,6 +15,8 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsConfigurationEnvironmentVariablesVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MicrosoftExtensionsConfigurationFileExtensionsVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />
+    <PackageReference Include="System.Data.Odbc" Version="$(SystemDataOdbcVersion)" />
+    <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
@@ -61,6 +63,7 @@
     <None Include="..\xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Remove="TestResults\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -71,9 +74,21 @@
     <None Update="config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Northwind.sql">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Northwind.sql">
+      <Link>Northwind.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="TestResults\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="TestResults\**" />
   </ItemGroup>
 
 </Project>

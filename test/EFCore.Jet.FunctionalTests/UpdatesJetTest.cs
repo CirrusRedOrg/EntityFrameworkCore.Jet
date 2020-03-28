@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestModels.UpdatesModel;
 using Xunit;
@@ -23,31 +24,31 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Save_replaced_principal();
 
             AssertSql(
-                @"SELECT TOP 2 [c].[Id], [c].[Name], [c].[PrincipalId]
-FROM [Categories] AS [c]",
+                $@"SELECT TOP 2 `c`.`Id`, `c`.`Name`, `c`.`PrincipalId`
+FROM `Categories` AS `c`",
                 //
-                @"@__category_PrincipalId_0='778' (Nullable = true)
+                $@"@__category_PrincipalId_0='778' (Nullable = true)
 
-SELECT [p].[Id], [p].[DependentId], [p].[Name], [p].[Price]
-FROM [Products] AS [p]
-WHERE [p].[DependentId] = @__category_PrincipalId_0",
+SELECT `p`.`Id`, `p`.`DependentId`, `p`.`Name`, `p`.`Price`
+FROM `Products` AS `p`
+WHERE `p`.`DependentId` = {AssertSqlHelper.Parameter("@__category_PrincipalId_0")}",
                 //
-                @"@p1='78'
+                $@"@p1='78'
 @p0='New Category' (Size = 4000)
 
 SET NOCOUNT ON;
-UPDATE [Categories] SET [Name] = @p0
-WHERE [Id] = @p1;
+UPDATE `Categories` SET `Name` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `Id` = {AssertSqlHelper.Parameter("@p1")};
 SELECT @@ROWCOUNT;",
                 //
-                @"SELECT TOP 2 [c].[Id], [c].[Name], [c].[PrincipalId]
-FROM [Categories] AS [c]",
+                $@"SELECT TOP 2 `c`.`Id`, `c`.`Name`, `c`.`PrincipalId`
+FROM `Categories` AS `c`",
                 //
-                @"@__category_PrincipalId_0='778' (Nullable = true)
+                $@"@__category_PrincipalId_0='778' (Nullable = true)
 
-SELECT [p].[Id], [p].[DependentId], [p].[Name], [p].[Price]
-FROM [Products] AS [p]
-WHERE [p].[DependentId] = @__category_PrincipalId_0");
+SELECT `p`.`Id`, `p`.`DependentId`, `p`.`Name`, `p`.`Price`
+FROM `Products` AS `p`
+WHERE `p`.`DependentId` = {AssertSqlHelper.Parameter("@__category_PrincipalId_0")}");
         }
 
         public override void Identifiers_are_generated_correctly()

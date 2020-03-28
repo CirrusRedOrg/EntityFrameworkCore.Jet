@@ -57,9 +57,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
         {
             Test(
                 @"
-CREATE TABLE [dbo].[Everest] ( id int );
+CREATE TABLE `Everest` ( id int );
 
-CREATE TABLE [dbo].[Denali] ( id int );",
+CREATE TABLE `Denali` ( id int );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -78,9 +78,9 @@ CREATE TABLE [dbo].[Denali] ( id int );",
                         });
                 },
                 @"
-DROP TABLE [dbo].[Everest];
+DROP TABLE `Everest`;
 
-DROP TABLE [dbo].[Denali];");
+DROP TABLE `Denali`;");
         }
 
         #endregion
@@ -92,9 +92,9 @@ DROP TABLE [dbo].[Denali];");
         {
             Test(
                 @"
-CREATE TABLE [db2].[K2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE `db2`.`K2` ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B));",
+CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B));",
                 Enumerable.Empty<string>(),
                 new[] { "db2" },
                 dbModel =>
@@ -107,9 +107,9 @@ CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B));",
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [dbo].[Kilimanjaro];
+DROP TABLE `Kilimanjaro`;
 
-DROP TABLE [db2].[K2];");
+DROP TABLE `db2`.`K2`;");
         }
 
         [ConditionalFact]
@@ -117,9 +117,9 @@ DROP TABLE [db2].[K2];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[K2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE `K2` ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B), FOREIGN KEY (B) REFERENCES K2 (A) );",
+CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B), FOREIGN KEY (B) REFERENCES K2 (A) );",
                 new[] { "K2" },
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -132,9 +132,9 @@ CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B), FOREIGN KEY (B
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [dbo].[Kilimanjaro];
+DROP TABLE `Kilimanjaro`;
 
-DROP TABLE [dbo].[K2];");
+DROP TABLE `K2`;");
         }
 
         [ConditionalFact]
@@ -142,9 +142,9 @@ DROP TABLE [dbo].[K2];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[K.2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE [K.2] ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
+CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
                 new[] { "[K.2]" },
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -157,9 +157,9 @@ CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [dbo].[Kilimanjaro];
+DROP TABLE `Kilimanjaro`;
 
-DROP TABLE [dbo].[K.2];");
+DROP TABLE [K.2];");
         }
 
         [ConditionalFact]
@@ -167,12 +167,12 @@ DROP TABLE [dbo].[K.2];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[K2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE `K2` ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [db2].[K2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE `db2`.`K2` ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "dbo.K2" },
+CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
+                new[] { "K2" },
                 Enumerable.Empty<string>(),
                 dbModel =>
                 {
@@ -184,11 +184,11 @@ CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [dbo].[Kilimanjaro];
+DROP TABLE `Kilimanjaro`;
 
-DROP TABLE [dbo].[K2];
+DROP TABLE `K2`;
 
-DROP TABLE [db2].[K2];");
+DROP TABLE `db2`.`K2`;");
         }
 
         [ConditionalFact]
@@ -196,11 +196,11 @@ DROP TABLE [db2].[K2];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[K.2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE [K.2] ( Id int, A varchar, UNIQUE (A ) );
 
 CREATE TABLE [db.2].[K.2] ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [db.2].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
+CREATE TABLE [db.2].`Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
                 new[] { "[db.2].[K.2]" },
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -213,9 +213,9 @@ CREATE TABLE [db.2].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [db.2].[Kilimanjaro];
+DROP TABLE [db.2].`Kilimanjaro`;
 
-DROP TABLE [dbo].[K.2];
+DROP TABLE [K.2];
 
 DROP TABLE [db.2].[K.2];");
         }
@@ -225,12 +225,12 @@ DROP TABLE [db.2].[K.2];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[K.2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE [K.2] ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [db2].[K.2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE `db2`.[K.2] ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "dbo.[K.2]" },
+CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
+                new[] { "[K.2]" },
                 Enumerable.Empty<string>(),
                 dbModel =>
                 {
@@ -242,11 +242,11 @@ CREATE TABLE [dbo].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [dbo].[Kilimanjaro];
+DROP TABLE `Kilimanjaro`;
 
-DROP TABLE [dbo].[K.2];
+DROP TABLE [K.2];
 
-DROP TABLE [db2].[K.2];");
+DROP TABLE `db2`.[K.2];");
         }
 
         [ConditionalFact]
@@ -254,11 +254,11 @@ DROP TABLE [db2].[K.2];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[K2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE `K2` ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [db.2].[K2] ( Id int, A varchar, UNIQUE (A ) );
+CREATE TABLE [db.2].`K2` ( Id int, A varchar, UNIQUE (A ) );
 
-CREATE TABLE [db.2].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
+CREATE TABLE [db.2].`Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
                 new[] { "[db.2].K2" },
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -271,11 +271,11 @@ CREATE TABLE [db.2].[Kilimanjaro] ( Id int, B varchar, UNIQUE (B) );",
                     Assert.Empty(table.ForeignKeys);
                 },
                 @"
-DROP TABLE [db.2].[Kilimanjaro];
+DROP TABLE [db.2].`Kilimanjaro`;
 
-DROP TABLE [dbo].[K2];
+DROP TABLE `K2`;
 
-DROP TABLE [db.2].[K2];");
+DROP TABLE [db.2].`K2`;");
         }
 
         [ConditionalFact]
@@ -283,25 +283,25 @@ DROP TABLE [db.2].[K2];");
         {
             Test(
                 @"
-CREATE SEQUENCE [dbo].[Sequence];
-CREATE SEQUENCE [db2].[Sequence];
+CREATE SEQUENCE `Sequence`;
+CREATE SEQUENCE `db2`.`Sequence`;
 
-CREATE TABLE [db.2].[QuotedTableName] ( Id int PRIMARY KEY );
+CREATE TABLE [db.2].`QuotedTableName` ( Id int PRIMARY KEY );
 CREATE TABLE [db.2].[Table.With.Dot] ( Id int PRIMARY KEY );
-CREATE TABLE [db.2].[SimpleTableName] ( Id int PRIMARY KEY );
-CREATE TABLE [db.2].[JustTableName] ( Id int PRIMARY KEY );
+CREATE TABLE [db.2].`SimpleTableName` ( Id int PRIMARY KEY );
+CREATE TABLE [db.2].`JustTableName` ( Id int PRIMARY KEY );
 
-CREATE TABLE [dbo].[QuotedTableName] ( Id int PRIMARY KEY );
-CREATE TABLE [dbo].[Table.With.Dot] ( Id int PRIMARY KEY );
-CREATE TABLE [dbo].[SimpleTableName] ( Id int PRIMARY KEY );
-CREATE TABLE [dbo].[JustTableName] ( Id int PRIMARY KEY );
+CREATE TABLE `QuotedTableName` ( Id int PRIMARY KEY );
+CREATE TABLE [Table.With.Dot] ( Id int PRIMARY KEY );
+CREATE TABLE `SimpleTableName` ( Id int PRIMARY KEY );
+CREATE TABLE `JustTableName` ( Id int PRIMARY KEY );
 
-CREATE TABLE [db2].[QuotedTableName] ( Id int PRIMARY KEY );
-CREATE TABLE [db2].[Table.With.Dot] ( Id int PRIMARY KEY );
-CREATE TABLE [db2].[SimpleTableName] ( Id int PRIMARY KEY );
-CREATE TABLE [db2].[JustTableName] ( Id int PRIMARY KEY );
+CREATE TABLE `db2`.`QuotedTableName` ( Id int PRIMARY KEY );
+CREATE TABLE `db2`.[Table.With.Dot] ( Id int PRIMARY KEY );
+CREATE TABLE `db2`.`SimpleTableName` ( Id int PRIMARY KEY );
+CREATE TABLE `db2`.`JustTableName` ( Id int PRIMARY KEY );
 
-CREATE TABLE [db2].[PrincipalTable] (
+CREATE TABLE `db2`.`PrincipalTable` (
     Id int PRIMARY KEY,
     UC1 nvarchar(450),
     UC2 int,
@@ -310,17 +310,17 @@ CREATE TABLE [db2].[PrincipalTable] (
     CONSTRAINT UX UNIQUE (UC1, UC2),
 )
 
-CREATE INDEX IX_COMPOSITE ON [db2].[PrincipalTable] ( Index2, Index1 );
+CREATE INDEX IX_COMPOSITE ON `db2`.`PrincipalTable` ( Index2, Index1 );
 
-CREATE TABLE [db2].[DependentTable] (
+CREATE TABLE `db2`.`DependentTable` (
     Id int PRIMARY KEY,
     ForeignKeyId1 nvarchar(450),
     ForeignKeyId2 int,
-    FOREIGN KEY (ForeignKeyId1, ForeignKeyId2) REFERENCES [db2].[PrincipalTable](UC1, UC2) ON DELETE CASCADE,
+    FOREIGN KEY (ForeignKeyId1, ForeignKeyId2) REFERENCES `db2`.`PrincipalTable`(UC1, UC2) ON DELETE CASCADE,
 );",
                 new[]
                 {
-                    "[db.2].[QuotedTableName]", "[db.2].SimpleTableName", "dbo.[Table.With.Dot]", "dbo.SimpleTableName", "JustTableName"
+                    "[db.2].`QuotedTableName`", "[db.2].SimpleTableName", "[Table.With.Dot]", "SimpleTableName", "JustTableName"
                 },
                 new[] { "db2" },
                 dbModel =>
@@ -355,25 +355,25 @@ CREATE TABLE [db2].[DependentTable] (
                     Assert.Single(dependentTable.ForeignKeys);
                 },
                 @"
-DROP SEQUENCE [dbo].[Sequence];
-DROP SEQUENCE [db2].[Sequence];
+DROP SEQUENCE `Sequence`;
+DROP SEQUENCE `db2`.`Sequence`;
 
-DROP TABLE [db.2].[QuotedTableName];
+DROP TABLE [db.2].`QuotedTableName`;
 DROP TABLE [db.2].[Table.With.Dot];
-DROP TABLE [db.2].[SimpleTableName];
-DROP TABLE [db.2].[JustTableName];
+DROP TABLE [db.2].`SimpleTableName`;
+DROP TABLE [db.2].`JustTableName`;
 
-DROP TABLE [dbo].[QuotedTableName];
-DROP TABLE [dbo].[Table.With.Dot];
-DROP TABLE [dbo].[SimpleTableName];
-DROP TABLE [dbo].[JustTableName];
+DROP TABLE `QuotedTableName`;
+DROP TABLE [Table.With.Dot];
+DROP TABLE `SimpleTableName`;
+DROP TABLE `JustTableName`;
 
-DROP TABLE [db2].[QuotedTableName];
-DROP TABLE [db2].[Table.With.Dot];
-DROP TABLE [db2].[SimpleTableName];
-DROP TABLE [db2].[JustTableName];
-DROP TABLE [db2].[DependentTable];
-DROP TABLE [db2].[PrincipalTable];");
+DROP TABLE `db2`.`QuotedTableName`;
+DROP TABLE `db2`.[Table.With.Dot];
+DROP TABLE `db2`.`SimpleTableName`;
+DROP TABLE `db2`.`JustTableName`;
+DROP TABLE `db2`.`DependentTable`;
+DROP TABLE `db2`.`PrincipalTable`;");
         }
 
         #endregion
@@ -385,7 +385,7 @@ DROP TABLE [db2].[PrincipalTable];");
         {
             Test(
                 @"
-CREATE TABLE [dbo].[Blogs] (
+CREATE TABLE `Blogs` (
     Id int,
     Name nvarchar(100) NOT NULL,
 );
@@ -420,7 +420,7 @@ On multiple lines.", c.Table.Comment);
                     Assert.Single(table.Columns.Where(c => c.Comment == "Blog.Id column comment."));
                     Assert.Single(table.Columns.Where(c => c.Comment != null));
                 },
-                "DROP TABLE [dbo].[Blogs]");
+                "DROP TABLE `Blogs`");
         }
 
         [ConditionalFact]
@@ -428,7 +428,7 @@ On multiple lines.", c.Table.Comment);
         {
             Test(
                 @"
-CREATE VIEW [dbo].[BlogsView]
+CREATE VIEW `BlogsView`
  AS
 SELECT
  100 AS Id,
@@ -451,7 +451,7 @@ SELECT
                     Assert.Single(table.Columns.Where(c => c.Name == "Id"));
                     Assert.Single(table.Columns.Where(c => c.Name == "Name"));
                 },
-                "DROP VIEW [dbo].[BlogsView];");
+                "DROP VIEW `BlogsView`;");
         }
 
         [ConditionalFact]
@@ -602,14 +602,14 @@ DROP TABLE PrincipalTable;");
         {
             Fixture.TestStore.ExecuteNonQuery(
                 @"
-CREATE TYPE dbo.TestTypeAlias FROM nvarchar(max);
+CREATE TYPE TestTypeAlias FROM nvarchar(max);
 CREATE TYPE db2.TestTypeAlias FROM int;");
 
             Test(
                 @"
 CREATE TABLE TypeAlias (
     Id int,
-    typeAliasColumn dbo.TestTypeAlias NULL
+    typeAliasColumn TestTypeAlias NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -622,7 +622,7 @@ CREATE TABLE TypeAlias (
                 },
                 @"
 DROP TABLE TypeAlias;
-DROP TYPE dbo.TestTypeAlias;
+DROP TYPE TestTypeAlias;
 DROP TYPE db2.TestTypeAlias;");
         }
 
@@ -1104,7 +1104,7 @@ CREATE TABLE DefaultComputedValues (
                     Assert.Equal("(getdate())", columns.Single(c => c.Name == "ComputedValue").ComputedColumnSql);
 
                     Assert.Null(columns.Single(c => c.Name == "SumOfAAndB").DefaultValueSql);
-                    Assert.Equal("([A]+[B])", columns.Single(c => c.Name == "SumOfAAndB").ComputedColumnSql);
+                    Assert.Equal("(`A`+`B`)", columns.Single(c => c.Name == "SumOfAAndB").ComputedColumnSql);
                 },
                 "DROP TABLE DefaultComputedValues;");
         }
@@ -1563,7 +1563,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON FilteredIndexTable ( Id2 ) WHERE Id2 > 10;",
                     Assert.Equal("dbo", index.Table.Schema);
                     Assert.Equal("FilteredIndexTable", index.Table.Name);
                     Assert.Equal("IX_UNIQUE", index.Name);
-                    Assert.Equal("([Id2]>(10))", index.Filter);
+                    Assert.Equal("(`Id2`>(10))", index.Filter);
                     Assert.Equal(
                         new List<string> { "Id2" }, index.Columns.Select(ic => ic.Name).ToList());
                 },
@@ -1860,7 +1860,7 @@ CREATE TABLE DependentTable (
                     Assert.Equal(
                         JetResources.LogPrincipalTableNotInSelectionSet(new TestLogger<JetLoggingDefinitions>())
                             .GenerateMessage(
-                                "MYFK", "dbo.DependentTable", "dbo.PrincipalTable"), Message);
+                                "MYFK", "DependentTable", "PrincipalTable"), Message);
                 },
                 @"
 DROP TABLE DependentTable;
@@ -1885,7 +1885,7 @@ CREATE TABLE PrincipalTable (
                     Assert.Equal(LogLevel.Debug, level);
                     Assert.Equal(
                         JetResources.LogReflexiveConstraintIgnored(new TestLogger<JetLoggingDefinitions>())
-                            .GenerateMessage("MYFK", "dbo.PrincipalTable"), message);
+                            .GenerateMessage("MYFK", "PrincipalTable"), message);
 
                     var table = Assert.Single(dbModel.Tables);
                     Assert.Empty(table.ForeignKeys);

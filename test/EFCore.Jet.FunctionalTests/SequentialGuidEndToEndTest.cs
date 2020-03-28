@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Jet;
 using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
@@ -101,7 +102,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), b => b.ApplyConfiguration())
+                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(_serviceProvider);
         }
 

@@ -17,8 +17,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model78_MigrationUpdate
                 using (var context = new Context(connection))
                 {
                     string sql = @"
-UPDATE [Students_78] SET [StudentName] = '2'
-WHERE [StudentId] = 1;
+UPDATE `Students_78` SET `StudentName` = '2'
+WHERE `StudentId` = 1;
 SELECT @@ROWCOUNT; ";
                     context.Database.ExecuteSqlRaw(sql);
                 }

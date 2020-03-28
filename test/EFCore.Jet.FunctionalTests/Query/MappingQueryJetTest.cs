@@ -14,8 +14,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.All_customers();
 
             AssertSql(
-                @"SELECT [c].[CustomerID], [c].[CompanyName]
-FROM [dbo].[Customers] AS [c]");
+                $@"SELECT `c`.`CustomerID`, `c`.`CompanyName`
+FROM `Customers` AS `c`");
         }
 
         public override void All_employees()
@@ -23,8 +23,8 @@ FROM [dbo].[Customers] AS [c]");
             base.All_employees();
 
             AssertSql(
-                @"SELECT [e].[EmployeeID], [e].[City]
-FROM [dbo].[Employees] AS [e]");
+                $@"SELECT `e`.`EmployeeID`, `e`.`City`
+FROM `Employees` AS `e`");
         }
 
         public override void All_orders()
@@ -32,8 +32,8 @@ FROM [dbo].[Employees] AS [e]");
             base.All_orders();
 
             AssertSql(
-                @"SELECT [o].[OrderID], [o].[ShipVia]
-FROM [dbo].[Orders] AS [o]");
+                $@"SELECT `o`.`OrderID`, `o`.`ShipVia`
+FROM `Orders` AS `o`");
         }
 
         public override void Project_nullable_enum()
@@ -41,8 +41,8 @@ FROM [dbo].[Orders] AS [o]");
             base.Project_nullable_enum();
 
             AssertSql(
-                @"SELECT [o].[ShipVia]
-FROM [dbo].[Orders] AS [o]");
+                $@"SELECT `o`.`ShipVia`
+FROM `Orders` AS `o`");
         }
 
         public MappingQueryJetTest(MappingQueryJetFixture fixture)

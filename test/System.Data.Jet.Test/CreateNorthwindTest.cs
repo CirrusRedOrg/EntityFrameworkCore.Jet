@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
@@ -42,21 +43,35 @@ namespace System.Data.Jet.Test
             using var command = _connection.CreateCommand();
 
             var script = File.ReadAllText(_scriptPath);
-            foreach (var batch in
-                new Regex(@"^GO", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
-                    .Split(script)
-                    .Where(b => !string.IsNullOrEmpty(b)))
+            var batches = new Regex(@"\s*;\s*", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                .Split(script)
+                .Where(b => !string.IsNullOrEmpty(b))
+                .ToList();
+
+            var retryWaitTime = TimeSpan.FromMilliseconds(250);
+            const int maxRetryCount = 6;
+            var retryCount = 0;
+            
+            foreach (var batch in batches)
             {
                 command.CommandText = batch;
+                
                 try
                 {
                     command.ExecuteNonQuery();
+                    retryCount = 0;
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.Message);
-                    Console.WriteLine(batch);
-                    throw;
+                    if (retryCount >= maxRetryCount)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(batch);
+                        throw;
+                    }
+
+                    retryCount++;
+                    Thread.Sleep(retryWaitTime);
                 }
             }
         }

@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
     public class JetDatabaseModelFactoryTest : TestBase<GearsOfWarContext>
     {
         [TestMethod]
-        [ExpectedException(typeof(System.Data.OleDb.OleDbException), AllowDerivedTypes = true)]
+        [ExpectedException(typeof(DbException), AllowDerivedTypes = true)]
         public void CreateAllSystemTablesAndThrowException()
         {
             // This method is used to create all system table of this model
@@ -116,7 +116,7 @@ WHERE 1 = 2;
 
         protected override DbConnection GetConnection()
         {
-            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb"));
+            return new JetConnection(JetConnection.GetConnectionString("SystemTables.accdb", Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
         }
     }
 }

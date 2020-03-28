@@ -2,6 +2,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Data.Jet;
+using System.Data.Odbc;
 using System.Diagnostics;
 using System.IO;
 
@@ -107,7 +108,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         }
 
         public static DbConnection GetJetConnection(string storeName = null)
-            => new JetConnection(JetConnection.GetConnectionString(GetJetStorePath(storeName ?? GetStoreNameFromCallStack())));
+            => new JetConnection(JetConnection.GetConnectionString(GetJetStorePath(storeName ?? GetStoreNameFromCallStack()), Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
 
         private static string GetStoreNameFromCallStack(int frames = 1)
         {
@@ -129,16 +130,15 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         public static string CreateJetDatabase(string storeName = null)
         {
             DeleteJetDatabase(storeName);
-
-            var connectionString = JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack());
-            AdoxWrapper.CreateEmptyDatabase(connectionString);
-            return connectionString;
+            return JetConnection.CreateEmptyDatabase(storeName ?? GetStoreNameFromCallStack(), Helpers.DataAccessProviderFactory);
         }
 
         public static void DeleteJetDatabase(string storeName = null)
         {
             JetConnection.ClearAllPools();
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack()));
+            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack(), Helpers.DataAccessProviderFactory));
         }
+ 
+        public static DbProviderFactory DataAccessProviderFactory { get; set; } = OdbcFactory.Instance;
     }
 }

@@ -37,6 +37,7 @@
       </DefiningQuery>
     </EntitySet>
 
+    <!--
     <EntitySet Name="SFunctions" EntityType="Self.Function">
       <DefiningQuery>
           SHOW FUNCTIONS
@@ -114,7 +115,8 @@
         SHOW VIEWFOREIGNKEYS
       </DefiningQuery>
     </EntitySet>
-
+    -->
+    
     <AssociationSet Name="STableTableColumns" Association="Self.TableTableColumn" >
       <End Role="Parent" EntitySet="STables"/>
       <End Role="Column" EntitySet="STableColumns"/>

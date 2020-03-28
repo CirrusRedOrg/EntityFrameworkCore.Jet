@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.OleDb;
+using System.Diagnostics;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -108,10 +108,16 @@ namespace Microsoft.EntityFrameworkCore
         /// </returns>
         protected override bool ShouldRetryOn(Exception exception)
         {
-            if (_additionalErrorNumbers != null
-                && exception is OleDbException OleDbException)
+            var exceptionFullName = exception.GetType().FullName;
+            
+            if (exceptionFullName != "System.Data.OleDb.OleDbException" &&
+                exceptionFullName != "System.Data.Odbc.OdbcException")
+                return false;
+
+            if (_additionalErrorNumbers != null)
             {
-                foreach (OleDbError err in OleDbException.Errors)
+                dynamic sqlException = exception;
+                foreach (var err in sqlException.Errors)
                 {
                     if (_additionalErrorNumbers.Contains(err.NativeError))
                     {
@@ -138,6 +144,9 @@ namespace Microsoft.EntityFrameworkCore
             {
                 return null;
             }
+
+            // TODO: Remove
+            Debug.WriteLine("DELAY: " + (int)baseDelay.GetValueOrDefault().TotalMilliseconds);
 
             return baseDelay;
         }

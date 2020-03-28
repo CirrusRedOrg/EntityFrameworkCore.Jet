@@ -12,19 +12,15 @@
     <None Include="Resources\CheckIfTableExistsTestQueries.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Northwind.sql">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="E2E.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Content Include="NorthwindNotRunningQueries.sql" />
     <None Include="Resources\InsertTestQueries.txt" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Data.Odbc" Version="$(SystemDataOdbcVersion)" />
+    <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdk)" />
     <PackageReference Include="MSTest.TestAdapter" Version="$(MSTestTestAdapter)" />
     <PackageReference Include="MSTest.TestFramework" Version="$(MSTestTestFramework)" />
@@ -36,5 +32,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\System.Data.Jet\System.Data.Jet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Northwind.sql">
+      <Link>Northwind.sql</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

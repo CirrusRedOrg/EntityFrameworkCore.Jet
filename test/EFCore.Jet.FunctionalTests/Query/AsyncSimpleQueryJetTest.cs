@@ -127,7 +127,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                     {
                         // Outer query is buffered by default
                         await context.Database.ExecuteSqlRawAsync(
-                            "[dbo].[CustOrderHist] @CustomerID = {0}",
+                            "`CustOrderHist` @CustomerID = {0}",
                             asyncEnumerator.Current.CustomerID);
                     }
                 }

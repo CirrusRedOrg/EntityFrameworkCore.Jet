@@ -39,7 +39,10 @@
     
     <ItemGroup>
         <PackageReference Include="Microsoft.CSharp" Version="$(MicrosoftCSharp)" />
-        <PackageReference Include="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
+        <Reference Include="System.Transactions" Pack="false" />
     </ItemGroup>
 
 </Project>

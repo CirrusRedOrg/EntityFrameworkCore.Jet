@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Data.Jet;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -26,6 +27,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     new DbContextOptionsBuilder()
                         .UseJet(
                             TestStore.ConnectionString,
+                            TestEnvironment.DataAccessProviderFactory,
                             b => b.ApplyConfiguration().ExecutionStrategy(c => new JetExecutionStrategy(c))))
                 .UseInternalServiceProvider(Fixture.ServiceProvider);
 

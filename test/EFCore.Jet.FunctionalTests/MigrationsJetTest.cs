@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Data.Jet;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
@@ -34,12 +35,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Can_generate_migration_from_initial_database_to_initial();
 
             Assert.Equal(
-                @"IF OBJECT_ID('[__EFMigrationsHistory]') IS NULL
+                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
 BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` nvarchar(150) NOT NULL,
+        `ProductVersion` nvarchar(32) NOT NULL,
+        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
 END;
 
@@ -55,12 +56,12 @@ GO
             base.Can_generate_no_migration_script();
 
             Assert.Equal(
-                @"IF OBJECT_ID('[__EFMigrationsHistory]') IS NULL
+                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
 BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` nvarchar(150) NOT NULL,
+        `ProductVersion` nvarchar(32) NOT NULL,
+        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
 END;
 
@@ -76,35 +77,35 @@ GO
             base.Can_generate_up_scripts();
 
             Assert.Equal(
-                @"IF OBJECT_ID('[__EFMigrationsHistory]') IS NULL
+                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
 BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` nvarchar(150) NOT NULL,
+        `ProductVersion` nvarchar(32) NOT NULL,
+        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
 END;
 
 GO
 
-CREATE TABLE [Table1] (
-    [Id] int NOT NULL,
-    [Foo] int NOT NULL,
-    CONSTRAINT [PK_Table1] PRIMARY KEY ([Id])
+CREATE TABLE `Table1` (
+    `Id` int NOT NULL,
+    `Foo` int NOT NULL,
+    CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
 );
 
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000001_Migration1', '7.0.0-test');
 
 GO
 
-EXEC sp_rename '[Table1].[Foo]', 'Bar', 'COLUMN';
+EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
 
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
 GO
@@ -117,7 +118,7 @@ DROP DATABASE TransactionSuppressed;
 
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000003_Migration3', '7.0.0-test');
 
 GO
@@ -132,11 +133,11 @@ GO
             base.Can_generate_one_up_script();
 
             Assert.Equal(
-                @"EXEC sp_rename '[Table1].[Foo]', 'Bar', 'COLUMN';
+                @"EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
 
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
 GO
@@ -151,11 +152,11 @@ GO
             base.Can_generate_up_script_using_names();
 
             Assert.Equal(
-                @"EXEC sp_rename '[Table1].[Foo]', 'Bar', 'COLUMN';
+                @"EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
 
 GO
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
 GO
@@ -170,68 +171,68 @@ GO
             base.Can_generate_idempotent_up_scripts();
 
             Assert.Equal(
-                @"IF OBJECT_ID('[__EFMigrationsHistory]') IS NULL
+                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
 BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` nvarchar(150) NOT NULL,
+        `ProductVersion` nvarchar(32) NOT NULL,
+        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000001_Migration1')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
 BEGIN
-    CREATE TABLE [Table1] (
-        [Id] int NOT NULL,
-        [Foo] int NOT NULL,
-        CONSTRAINT [PK_Table1] PRIMARY KEY ([Id])
+    CREATE TABLE `Table1` (
+        `Id` int NOT NULL,
+        `Foo` int NOT NULL,
+        CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
     );
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000001_Migration1')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
 BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
     VALUES ('00000000000001_Migration1', '7.0.0-test');
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000002_Migration2')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
 BEGIN
-    EXEC sp_rename '[Table1].[Foo]', 'Bar', 'COLUMN';
+    EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000002_Migration2')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
 BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
     VALUES ('00000000000002_Migration2', '7.0.0-test');
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000003_Migration3')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000003_Migration3')
 BEGIN
     CREATE DATABASE TransactionSuppressed;
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000003_Migration3')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000003_Migration3')
 BEGIN
     DROP DATABASE TransactionSuppressed;
 END;
 
 GO
 
-IF NOT EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000003_Migration3')
+IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000003_Migration3')
 BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
     VALUES ('00000000000003_Migration3', '7.0.0-test');
 END;
 
@@ -247,21 +248,21 @@ GO
             base.Can_generate_down_scripts();
 
             Assert.Equal(
-                @"EXEC sp_rename '[Table1].[Bar]', 'Foo', 'COLUMN';
+                @"EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
 
 GO
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = '00000000000002_Migration2';
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000002_Migration2';
 
 GO
 
-DROP TABLE [Table1];
+DROP TABLE `Table1`;
 
 GO
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = '00000000000001_Migration1';
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000001_Migration1';
 
 GO
 
@@ -275,32 +276,32 @@ GO
             base.Can_generate_idempotent_down_scripts();
 
             Assert.Equal(
-                @"IF EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000002_Migration2')
+                @"IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
 BEGIN
-    EXEC sp_rename '[Table1].[Bar]', 'Foo', 'COLUMN';
+    EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
 END;
 
 GO
 
-IF EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000002_Migration2')
+IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
 BEGIN
-    DELETE FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = '00000000000002_Migration2';
+    DELETE FROM `__EFMigrationsHistory`
+    WHERE `MigrationId` = '00000000000002_Migration2';
 END;
 
 GO
 
-IF EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000001_Migration1')
+IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
 BEGIN
-    DROP TABLE [Table1];
+    DROP TABLE `Table1`;
 END;
 
 GO
 
-IF EXISTS(SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '00000000000001_Migration1')
+IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
 BEGIN
-    DELETE FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = '00000000000001_Migration1';
+    DELETE FROM `__EFMigrationsHistory`
+    WHERE `MigrationId` = '00000000000001_Migration1';
 END;
 
 GO
@@ -315,12 +316,12 @@ GO
             base.Can_generate_one_down_script();
 
             Assert.Equal(
-                @"EXEC sp_rename '[Table1].[Bar]', 'Foo', 'COLUMN';
+                @"EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
 
 GO
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = '00000000000002_Migration2';
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000002_Migration2';
 
 GO
 
@@ -334,12 +335,12 @@ GO
             base.Can_generate_down_script_using_names();
 
             Assert.Equal(
-                @"EXEC sp_rename '[Table1].[Bar]', 'Foo', 'COLUMN';
+                @"EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
 
 GO
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = '00000000000002_Migration2';
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000002_Migration2';
 
 GO
 
@@ -605,7 +606,7 @@ Foos
                         b.HasIndex("NormalizedName")
                             .IsUnique()
                             .HasName("RoleNameIndex")
-                            .HasFilter("[NormalizedName] IS NOT NULL");
+                            .HasFilter("`NormalizedName` IS NOT NULL");
 
                         b.ToTable("AspNetRoles");
                     });
@@ -678,7 +679,7 @@ Foos
                         b.HasIndex("NormalizedUserName")
                             .IsUnique()
                             .HasName("UserNameIndex")
-                            .HasFilter("[NormalizedUserName] IS NOT NULL");
+                            .HasFilter("`NormalizedUserName` IS NOT NULL");
 
                         b.ToTable("AspNetUsers");
                     });
@@ -848,7 +849,7 @@ Foos
                         b.HasIndex("NormalizedName")
                             .IsUnique()
                             .HasName("RoleNameIndex")
-                            .HasFilter("[NormalizedName] IS NOT NULL");
+                            .HasFilter("`NormalizedName` IS NOT NULL");
 
                         b.ToTable("AspNetRoles");
                     });
@@ -921,7 +922,7 @@ Foos
                         b.HasIndex("NormalizedUserName")
                             .IsUnique()
                             .HasName("UserNameIndex")
-                            .HasFilter("[NormalizedUserName] IS NOT NULL");
+                            .HasFilter("`NormalizedUserName` IS NOT NULL");
 
                         b.ToTable("AspNetUsers");
                     });
@@ -1094,7 +1095,7 @@ Foos
                         b.HasIndex("NormalizedName")
                             .IsUnique()
                             .HasName("RoleNameIndex")
-                            .HasFilter("[NormalizedName] IS NOT NULL");
+                            .HasFilter("`NormalizedName` IS NOT NULL");
 
                         b.ToTable("AspNetRoles");
                     });
@@ -1185,7 +1186,7 @@ Foos
                         b.HasIndex("NormalizedUserName")
                             .IsUnique()
                             .HasName("UserNameIndex")
-                            .HasFilter("[NormalizedUserName] IS NOT NULL");
+                            .HasFilter("`NormalizedUserName` IS NOT NULL");
 
                         b.ToTable("AspNetUsers");
                     });
@@ -1362,7 +1363,7 @@ namespace ModelSnapshot22
     public class BloggingContext : DbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0");
+            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0", TestEnvironment.DataAccessProviderFactory);
 
         public DbSet<Blog> Blogs { get; set; }
 
@@ -1379,7 +1380,7 @@ namespace Identity30.Data
     public class ApplicationDbContext : IdentityDbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0");
+            => optionsBuilder.UseJet(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0", TestEnvironment.DataAccessProviderFactory);
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

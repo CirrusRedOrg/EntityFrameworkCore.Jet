@@ -4,6 +4,7 @@ using System.Data.Common;
 using System.Threading.Tasks;
 using System.Data.Jet;
 using System.Data.OleDb;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
@@ -24,7 +25,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             base.Executes_stored_procedure();
 
-            AssertSql("[dbo].[Ten Most Expensive Products]");
+            AssertSql($@"`Ten Most Expensive Products`");
         }
 
         public override void Executes_stored_procedure_with_parameter()
@@ -32,9 +33,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Executes_stored_procedure_with_parameter();
 
             AssertSql(
-                @"@CustomerID='ALFKI' (Nullable = false) (Size = 5)
+                $@"@CustomerID='ALFKI' (Nullable = false) (Size = 5)
 
-[dbo].[CustOrderHist] @CustomerID");
+`CustOrderHist` @CustomerID");
         }
 
         public override void Executes_stored_procedure_with_generated_parameter()
@@ -42,9 +43,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Executes_stored_procedure_with_generated_parameter();
 
             AssertSql(
-                @"@p0='ALFKI' (Size = 4000)
+                $@"@p0='ALFKI' (Size = 4000)
 
-[dbo].[CustOrderHist] @CustomerID = @p0");
+`CustOrderHist` @CustomerID = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override void Query_with_parameters()
@@ -52,10 +53,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Query_with_parameters();
 
             AssertSql(
-                @"@p0='London' (Size = 4000)
+                $@"@p0='London' (Size = 4000)
 @p1='Sales Representative' (Size = 4000)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @p1");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
 
         public override void Query_with_dbParameter_with_name()
@@ -63,9 +64,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @
             base.Query_with_dbParameter_with_name();
 
             AssertSql(
-                @"@city='London' (Nullable = false) (Size = 6)
+                $@"@city='London' (Nullable = false) (Size = 6)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @city");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
 
         public override void Query_with_positional_dbParameter_with_name()
@@ -73,9 +74,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @city");
             base.Query_with_positional_dbParameter_with_name();
 
             AssertSql(
-                @"@city='London' (Nullable = false) (Size = 6)
+                $@"@city='London' (Nullable = false) (Size = 6)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @city");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
 
         public override void Query_with_positional_dbParameter_without_name()
@@ -83,9 +84,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @city");
             base.Query_with_positional_dbParameter_without_name();
 
             AssertSql(
-                @"@p0='London' (Nullable = false) (Size = 6)
+                $@"@p0='London' (Nullable = false) (Size = 6)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override void Query_with_dbParameters_mixed()
@@ -93,15 +94,15 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0");
             base.Query_with_dbParameters_mixed();
 
             AssertSql(
-                @"@p0='London' (Size = 4000)
+                $@"@p0='London' (Size = 4000)
 @contactTitle='Sales Representative' (Nullable = false) (Size = 20)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @contactTitle",
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@contactTitle")}",
                 //
-                @"@city='London' (Nullable = false) (Size = 6)
+                $@"@city='London' (Nullable = false) (Size = 6)
 @p0='Sales Representative' (Size = 4000)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @city AND ""ContactTitle"" = @p0");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override void Query_with_parameters_interpolated()
@@ -109,10 +110,10 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @city AND ""ContactTitle"" =
             base.Query_with_parameters_interpolated();
 
             AssertSql(
-                @"@p0='London' (Size = 4000)
+                $@"@p0='London' (Size = 4000)
 @p1='Sales Representative' (Size = 4000)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @p1");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
 
         public override async Task Query_with_parameters_async()
@@ -120,10 +121,10 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @
             await base.Query_with_parameters_async();
 
             AssertSql(
-                @"@p0='London' (Size = 4000)
+                $@"@p0='London' (Size = 4000)
 @p1='Sales Representative' (Size = 4000)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @p1");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
 
         public override async Task Query_with_parameters_interpolated_async()
@@ -131,18 +132,18 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @
             await base.Query_with_parameters_interpolated_async();
 
             AssertSql(
-                @"@p0='London' (Size = 4000)
+                $@"@p0='London' (Size = 4000)
 @p1='Sales Representative' (Size = 4000)
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = @p0 AND ""ContactTitle"" = @p1");
+SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
 
         protected override DbParameter CreateDbParameter(string name, object value)
             => new OleDbParameter { ParameterName = name, Value = value };
 
-        protected override string TenMostExpensiveProductsSproc => "[dbo].[Ten Most Expensive Products]";
-        protected override string CustomerOrderHistorySproc => "[dbo].[CustOrderHist] @CustomerID";
-        protected override string CustomerOrderHistoryWithGeneratedParameterSproc => "[dbo].[CustOrderHist] @CustomerID = {0}";
+        protected override string TenMostExpensiveProductsSproc => "`Ten Most Expensive Products`";
+        protected override string CustomerOrderHistorySproc => "`CustOrderHist` @CustomerID";
+        protected override string CustomerOrderHistoryWithGeneratedParameterSproc => "`CustOrderHist` @CustomerID = {0}";
 
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

@@ -351,6 +351,16 @@ namespace System.Data.Jet
                 connectionStringBuilder.SetProvider(provider);
                 connectionString = connectionStringBuilder.ToString();
             }
+            
+            // Enable ExtendedAnsiSQL when using ODBC to support ODBC 4.0 statements (like CREATE VIEW).
+            if (dataAccessProviderType == DataAccessProviderType.Odbc)
+            {
+                if (!connectionStringBuilder.ContainsKey("ExtendedAnsiSQL"))
+                {
+                    connectionStringBuilder["ExtendedAnsiSQL"] = 1;
+                    connectionString = connectionStringBuilder.ToString();
+                }
+            }
 
             DataAccessProviderFactory ??= dataAccessProviderFactory;
 

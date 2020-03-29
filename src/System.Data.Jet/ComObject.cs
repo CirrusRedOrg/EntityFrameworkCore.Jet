@@ -110,7 +110,7 @@ namespace System.Data.Jet
         
         public void Dispose()
         {
-            // The RCW is a .NET object and cannot be released from the finalizer anymore,
+            // The RCW is a .NET object and cannot be released from the finalizer,
             // because it might not exist anymore.
             if (_instance != null)
             {

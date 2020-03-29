@@ -24,6 +24,8 @@ namespace System.Data.Jet
             }
             catch (Exception e)
             {
+                // TODO: Try interating over the _Tables collection instead of using Item["TableName"].
+                
                 throw new Exception("Cannot rename table", e);
             }
             finally
@@ -48,7 +50,8 @@ namespace System.Data.Jet
             try
             {
                 using var tables = catalog.Tables;
-                using var columns = tables[tableName].Columns;
+                using var table = tables[tableName];
+                using var columns = table.Columns;
                 using var column = columns[columnName];
                 column.Name = newColumnName;
             }
@@ -92,8 +95,7 @@ namespace System.Data.Jet
                 connection.DataAccessProviderFactory = dataAccessProviderFactory;
                 connection.Open();
                 
-                string sql = @"
-CREATE TABLE `MSysAccessStorage` (
+                var sql = @"CREATE TABLE `MSysAccessStorage` (
     `DateCreate` DATETIME NULL,
     `DateUpdate` DATETIME NULL,
     `Id` COUNTER NOT NULL,
@@ -136,9 +138,9 @@ CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);"
 
             try
             {
-                using dynamic cnn = new ComObject("ADODB.Connection");
-                cnn.Open(connectionString);
-                catalog.ActiveConnection = cnn;
+                using dynamic connection = new ComObject("ADODB.Connection");
+                connection.Open(connectionString);
+                catalog.ActiveConnection = connection;
             }
             catch (Exception e)
             {

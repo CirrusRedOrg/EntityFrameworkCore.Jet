@@ -489,6 +489,9 @@ namespace System.Data.Jet
         public void CreateEmptyDatabase()
             => CreateEmptyDatabase(DataSource, DataAccessProviderFactory);
 
+        // TODO: Use the `CREATE_DB` connection string option instead of calling ADOX when using ODBC, to create
+        //       a new database file.
+        //       Alternatively, use DAO in conjunction with ODBC.
         public static string CreateEmptyDatabase(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
             => AdoxWrapper.CreateEmptyDatabase(fileNameOrConnectionString, dataAccessProviderFactory);
 

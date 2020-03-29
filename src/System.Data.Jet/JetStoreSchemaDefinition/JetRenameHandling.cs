@@ -22,7 +22,10 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             {
                 string tableName = match.Groups["tableName"].Value;
                 string newTableName = match.Groups["newTableName"].Value;
+                
+                // TODO: Only use ADOX in an OLE DB context. Use DAO in an ODBC context.
                 AdoxWrapper.RenameTable(connectionString, RemoveBrackets(tableName), RemoveBrackets(newTableName));
+                
                 return true;
             }
 

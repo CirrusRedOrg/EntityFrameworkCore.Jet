@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         private Dictionary<string, DatabaseColumn> _tableColumns;
 
         private static string ObjectKey([NotNull] string name)
-            => "[" + name + "]";
+            => "`" + name + "`";
         
         private static string TableKey(DatabaseTable table)
             => TableKey(table.Name);
@@ -48,6 +48,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         private static readonly List<string> _tablePatterns = new List<string>
         {
             "{table}",
+            "`{table}`",
             "[{table}]"
         };
 

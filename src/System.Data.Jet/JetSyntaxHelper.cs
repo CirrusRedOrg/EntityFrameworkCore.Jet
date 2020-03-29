@@ -15,7 +15,7 @@ namespace System.Data.Jet
         public static string ToSqlString(string value)
         {
             // In Jet everything's unicode
-            return "'" + value.Replace("'", "''") + "'";
+            return $"'{value.Replace("'", "''")}'";
         }
 
         public static string ToSqlString(int value)
@@ -84,9 +84,9 @@ namespace System.Data.Jet
         internal static string QuoteIdentifier(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentNullException("name");
+                throw new ArgumentNullException(nameof(name));
 
-            return "[" + name.Replace("]", "]]") + "]";
+            return $"`{name}`";
         }
 
         /// <summary>

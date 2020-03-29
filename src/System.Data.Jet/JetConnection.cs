@@ -417,8 +417,7 @@ namespace System.Data.Jet
 
             try
             {
-                var sqlFormat = "select count(*) from [{0}] where 1=2";
-                CreateCommand(string.Format(sqlFormat, tableName))
+                CreateCommand($"select count(*) from `{tableName}` where 1=2")
                     .ExecuteNonQuery();
                 tableExists = true;
             }

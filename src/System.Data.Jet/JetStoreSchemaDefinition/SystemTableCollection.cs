@@ -71,11 +71,11 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
             foreach (SystemTable table in this)
             {
-                table.DropStatement = string.Format("DROP TABLE [{0}]", table.TableName);
-                table.ClearStatement = string.Format("DELETE FROM [{0}]", table.TableName);
+                table.DropStatement = string.Format("DROP TABLE `{0}`", table.TableName);
+                table.ClearStatement = string.Format("DELETE FROM `{0}`", table.TableName);
                 
                 StringBuilder createStatementStringBuilder = new StringBuilder();
-                createStatementStringBuilder.AppendFormat("CREATE TABLE [{0}]\r\n", table.TableName);
+                createStatementStringBuilder.AppendFormat("CREATE TABLE `{0}`\r\n", table.TableName);
                 createStatementStringBuilder.Append("(");
                 bool first = true;
                 foreach (Column column in table.Columns)
@@ -85,7 +85,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                     else
                         createStatementStringBuilder.Append(",");
                     createStatementStringBuilder.AppendLine();
-                    createStatementStringBuilder.AppendFormat("    [{0}] {1}{2} {3}", 
+                    createStatementStringBuilder.AppendFormat("    `{0}` {1}{2} {3}", 
                         column.Name, 
                         column.Type, 
                         column.MaxLength == null ? "" : string.Format("({0})", column.MaxLength), 

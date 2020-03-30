@@ -1,12 +1,10 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace System.Data.Jet
 {
-    class JetDataReader : DbDataReader
+    internal class JetDataReader : DbDataReader
     {
 #if DEBUG
         private static int _activeObjectsCount;
@@ -24,15 +22,15 @@ namespace System.Data.Jet
             : this(dataReader)
         {
             _topCount = topCount;
-            for (int i = 0; i < skipCount; i++)
+            for (var i = 0; i < skipCount; i++)
             {
                 _wrappedDataReader.Read();
             }
         }
 
-        private DbDataReader _wrappedDataReader;
-        private readonly int _topCount = 0;
-        private int _readCount = 0;
+        private readonly DbDataReader _wrappedDataReader;
+        private readonly int _topCount;
+        private int _readCount;
 
         public override void Close()
         {
@@ -43,64 +41,81 @@ namespace System.Data.Jet
         }
 
         public override int Depth
-        {
-            get { return _wrappedDataReader.Depth; }
-        }
+            => _wrappedDataReader.Depth;
 
         public override int FieldCount
-        {
-            get { return _wrappedDataReader.FieldCount; }
-        }
+            => _wrappedDataReader.FieldCount;
 
         public override bool GetBoolean(int ordinal)
         {
-            object booleanObject = _wrappedDataReader.GetValue(ordinal);
-            if (booleanObject == null)
-                throw new InvalidOperationException("Cannot cast null to boolean");
-            if (booleanObject is bool)
-                return _wrappedDataReader.GetBoolean(ordinal);
-            else if (booleanObject is short)
-                return ((short) booleanObject) != 0;
-            else
-                throw new InvalidOperationException(string.Format("Cannot convert {0} to boolean", booleanObject.GetType()));
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (value is bool boolValue)
+                return boolValue;
+
+            if (value is sbyte sbyteValue)
+                return sbyteValue != 0;
+            if (value is byte byteValue)
+                return byteValue != 0;
+            if (value is short shortValue)
+                return shortValue != 0;
+            if (value is ushort ushortValue)
+                return ushortValue != 0;
+            if (value is int intValue)
+                return intValue != 0;
+            if (value is uint uintValue)
+                return uintValue != 0;
+            if (value is long longValue)
+                return longValue != 0;
+            if (value is ulong ulongValue)
+                return ulongValue != 0;
+            if (value is decimal decimalValue)
+                return decimalValue != 0;
+            
+            return (bool) value;
         }
 
         public override byte GetByte(int ordinal)
         {
-            return Convert.ToByte(_wrappedDataReader.GetValue(ordinal));
+            var value = GetValue(ordinal);
+            if (value is byte byteValue)
+                return byteValue;
+
+            if (value is sbyte sbyteValue)
+                return checked((byte) sbyteValue);
+            if (value is short shortValue)
+                return checked((byte) shortValue);
+            if (value is ushort ushortValue)
+                return checked((byte) ushortValue);
+            if (value is int intValue)
+                return checked((byte) intValue);
+            if (value is uint uintValue)
+                return checked((byte) uintValue);
+            if (value is long longValue)
+                return checked((byte) longValue);
+            if (value is ulong ulongValue)
+                return checked((byte) ulongValue);
+            if (value is decimal decimalValue)
+                return (byte) decimalValue;
+            return (byte) value;
         }
 
         public override long GetBytes(int ordinal, long dataOffset, byte[] buffer, int bufferOffset, int length)
-        {
-            return _wrappedDataReader.GetBytes(ordinal, dataOffset, buffer, bufferOffset, length);
-        }
+            => _wrappedDataReader.GetBytes(ordinal, dataOffset, buffer, bufferOffset, length);
 
         public override char GetChar(int ordinal)
-        {
-            return _wrappedDataReader.GetChar(ordinal);
-        }
+            => _wrappedDataReader.GetChar(ordinal);
 
         public override long GetChars(int ordinal, long dataOffset, char[] buffer, int bufferOffset, int length)
-        {
-            return _wrappedDataReader.GetChars(ordinal, dataOffset, buffer, bufferOffset, length);
-        }
+            => _wrappedDataReader.GetChars(ordinal, dataOffset, buffer, bufferOffset, length);
 
         public override string GetDataTypeName(int ordinal)
-        {
-            return _wrappedDataReader.GetDataTypeName(ordinal);
-        }
+            => _wrappedDataReader.GetDataTypeName(ordinal);
 
         public override DateTime GetDateTime(int ordinal)
-        {
-            return _wrappedDataReader.GetDateTime(ordinal);
-        }
+            => _wrappedDataReader.GetDateTime(ordinal);
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
-        {
-            TimeSpan timeSpan = GetDateTime(ordinal) - JetConfiguration.TimeSpanOffset;
-
-            return timeSpan;
-        }
+            => GetDateTime(ordinal) - JetConfiguration.TimeSpanOffset;
 
         public virtual DateTimeOffset GetDateTimeOffset(int ordinal)
         {
@@ -135,7 +150,7 @@ namespace System.Data.Jet
         public override Guid GetGuid(int ordinal)
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
-            object value = _wrappedDataReader.GetValue(ordinal);
+            var value = _wrappedDataReader.GetValue(ordinal);
             if (value is byte[])
                 return new Guid((byte[]) value);
             else
@@ -150,11 +165,11 @@ namespace System.Data.Jet
         public override int GetInt32(int ordinal)
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
-            object value = _wrappedDataReader.GetValue(ordinal);
+            var value = _wrappedDataReader.GetValue(ordinal);
             if (value is string)
             {
-                byte[] buffer = Encoding.Unicode.GetBytes((string) value);
-                int intValue = BitConverter.ToInt32(buffer, 0);
+                var buffer = Encoding.Unicode.GetBytes((string) value);
+                var intValue = BitConverter.ToInt32(buffer, 0);
                 return intValue;
             }
             else
@@ -207,14 +222,10 @@ namespace System.Data.Jet
         }
 
         public override bool HasRows
-        {
-            get { return _wrappedDataReader.HasRows; }
-        }
+            => _wrappedDataReader.HasRows;
 
         public override bool IsClosed
-        {
-            get { return _wrappedDataReader.IsClosed; }
-        }
+            => _wrappedDataReader.IsClosed;
 
         public override bool IsDBNull(int ordinal)
         {
@@ -240,18 +251,12 @@ namespace System.Data.Jet
         }
 
         public override int RecordsAffected
-        {
-            get { return _wrappedDataReader.RecordsAffected; }
-        }
+            => _wrappedDataReader.RecordsAffected;
 
         public override object this[string name]
-        {
-            get { return _wrappedDataReader[name]; }
-        }
+            => _wrappedDataReader[name];
 
         public override object this[int ordinal]
-        {
-            get { return _wrappedDataReader[ordinal]; }
-        }
+            => _wrappedDataReader[ordinal];
     }
 }

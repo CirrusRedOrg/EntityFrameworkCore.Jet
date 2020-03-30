@@ -1,8 +1,4 @@
-﻿using System.Data.Common;
-
-// ReSharper disable InconsistentNaming
-
-namespace System.Data.Jet
+﻿namespace System.Data.Jet
 {
     /// <summary>
     /// Jet configuration
@@ -12,10 +8,11 @@ namespace System.Data.Jet
         /// <summary>
         /// The time span offset (Jet does not support timespans)
         /// </summary>
-        public static DateTime TimeSpanOffset = new DateTime(1899, 12, 30);
+        public static DateTime TimeSpanOffset { get; set; } = new DateTime(1899, 12, 30);
 
         private static object _integerNullValue = Int32.MinValue;
 
+        // CHECK: Replace with Nullable<Int32>
         /// <summary>
         /// Gets or sets the integer null value returned by queries. This should solve a Jet issue
         /// that if I do a UNION ALL of null, int and null the Jet raises an error
@@ -25,7 +22,7 @@ namespace System.Data.Jet
         /// </value>
         public static object IntegerNullValue
         {
-            get { return _integerNullValue; }
+            get => _integerNullValue;
             set
             {
                 if (!(value is int) && value != null)
@@ -33,13 +30,8 @@ namespace System.Data.Jet
                 _integerNullValue = value;
             }
         }
-
-        // "Microsoft.ACE.OLEDB.12.0" should have the fewest problems of all versions, as it supports 32 Bit and 64 Bit,
-        // does not throw an AccessViolationException when connecting through OLE DB without connection pooling enabled,
-        // has the highest backwards compatibility level of all recent releases and can freely be downloaded from
-        // Microsoft as "Microsoft Access Database Engine 2010 Redistributable".
-        public static string OleDbDefaultProvider = "Microsoft.ACE.OLEDB.12.0";
-        public static string OdbcDefaultProvider = "Microsoft Access Driver (*.mdb, *.accdb)";
+        
+        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.OleDb; 
         
         // The SQL statement
         //
@@ -63,7 +55,7 @@ namespace System.Data.Jet
         /// <summary>
         /// The DUAL table or query
         /// </summary>
-        public static string DUAL = DUALForAccdb;
+        public static string DUAL { get; set; } = DUALForAccdb;
 
         /// <summary>
         /// The dual table for accdb
@@ -81,7 +73,7 @@ namespace System.Data.Jet
         /// <value>
         ///   <c>true</c> to show SQL statements; otherwise, <c>false</c>.
         /// </value>
-        public static bool ShowSqlStatements = false;
+        public static bool ShowSqlStatements { get; set; } = false;
 
         /// <summary>
         /// Gets or sets a value indicating whether the connection pooling should be used
@@ -89,6 +81,6 @@ namespace System.Data.Jet
         /// <value>
         /// <c>true</c> to use the connection pooling; otherwise, <c>false</c>.
         /// </value>
-        public static bool UseConnectionPooling = false;
+        public static bool UseConnectionPooling { get; set; } = false;
     }
 }

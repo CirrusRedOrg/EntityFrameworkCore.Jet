@@ -1,7 +1,7 @@
 {
     "Test": {
       "Jet": {
-        "DefaultConnection": "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=Jet.accdb;ExtendedAnsiSQL=1"
+        "DefaultConnection": "DBQ=Jet.accdb"
       }
     }
 }

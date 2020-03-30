@@ -364,6 +364,12 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
+            // CHECK: Rename table operations require extensions like ADOX or DAO.
+            //       A native way to do this would be to:
+            //           1. CREATE TABLE `destination table`
+            //           2. INSERT INTO ... SELECT ... FROM
+            //           3. DROP TABLE `source table`
+            //           4. Recrete indices and references.
             builder.Append("RENAME TABLE ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
                 .Append(" TO ")

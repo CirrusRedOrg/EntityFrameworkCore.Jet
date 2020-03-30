@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Data.Jet.JetStoreSchemaDefinition;
 
 namespace System.Data.Jet
 {
@@ -23,6 +24,8 @@ namespace System.Data.Jet
             }
             catch (Exception e)
             {
+                // TODO: Try interating over the _Tables collection instead of using Item["TableName"].
+                
                 throw new Exception("Cannot rename table", e);
             }
             finally
@@ -47,7 +50,8 @@ namespace System.Data.Jet
             try
             {
                 using var tables = catalog.Tables;
-                using var columns = tables[tableName].Columns;
+                using var table = tables[tableName];
+                using var columns = table.Columns;
                 using var column = columns[columnName];
                 column.Name = newColumnName;
             }
@@ -61,8 +65,10 @@ namespace System.Data.Jet
             }
         }
         
-        public static string CreateEmptyDatabase(string fileName, DbProviderFactory dataAccessProviderFactory)
+        public static string CreateEmptyDatabase(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
         {
+            var fileName = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
+            
             string connectionString = null;
             using var catalog = GetCatalogInstance();
             
@@ -77,7 +83,7 @@ namespace System.Data.Jet
             }
             catch (Exception e)
             {
-                throw new Exception("Cannot create database using the specified connection string: " + connectionString, e);
+                throw new Exception($"Cannot create database \"{fileName}\" using ADOX with the following connection string: " + connectionString, e);
             }
 
             try
@@ -89,8 +95,7 @@ namespace System.Data.Jet
                 connection.DataAccessProviderFactory = dataAccessProviderFactory;
                 connection.Open();
                 
-                string sql = @"
-CREATE TABLE `MSysAccessStorage` (
+                var sql = @"CREATE TABLE `MSysAccessStorage` (
     `DateCreate` DATETIME NULL,
     `DateUpdate` DATETIME NULL,
     `Id` COUNTER NOT NULL,
@@ -108,7 +113,7 @@ CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);"
             }
             catch (Exception e)
             {
-                throw new Exception("Cannot create database using the specified connection string.", e);
+                throw new Exception($"Cannot setup the newly created database \"{fileName}\" using {Enum.GetName(typeof(DataAccessProviderType), JetConnection.GetDataAccessProviderType(dataAccessProviderFactory))} with the following connection string: " + connectionString, e);
             }
 
             try
@@ -133,9 +138,9 @@ CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);"
 
             try
             {
-                using dynamic cnn = new ComObject("ADODB.Connection");
-                cnn.Open(connectionString);
-                catalog.ActiveConnection = cnn;
+                using dynamic connection = new ComObject("ADODB.Connection");
+                connection.Open(connectionString);
+                catalog.ActiveConnection = connection;
             }
             catch (Exception e)
             {

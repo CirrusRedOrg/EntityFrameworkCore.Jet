@@ -39,6 +39,7 @@
     
     <ItemGroup>
         <PackageReference Include="Microsoft.CSharp" Version="$(MicrosoftCSharp)" />
+        <PackageReference Include="Microsoft.Win32.Registry" Version="$(MicrosoftWin32Registry)" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">

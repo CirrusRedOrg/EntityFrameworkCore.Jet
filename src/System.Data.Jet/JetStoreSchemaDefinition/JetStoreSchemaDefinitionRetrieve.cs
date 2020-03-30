@@ -85,8 +85,8 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 if (showStatementPosition == -1)
                     continue;
 
-                commandText = commandText.ReplaceCaseInsensitive("\\(\\s*show " + table.Name + "\\s*\\)", "[" + table.TableName + "]");
-                commandText = commandText.ReplaceCaseInsensitive("show " + table.Name, "[" + table.TableName + "]");
+                commandText = commandText.ReplaceCaseInsensitive("\\(\\s*show " + table.Name + "\\s*\\)", "`" + table.TableName + "`");
+                commandText = commandText.ReplaceCaseInsensitive("show " + table.Name, "`" + table.TableName + "`");
                 tablesToCreate.Add(table);
             }
 
@@ -174,13 +174,13 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                         values += ", ";
                     }
 
-                    columns += string.Format("[{0}]", column.ColumnName);
+                    columns += string.Format("`{0}`", column.ColumnName);
                     object value = row[column];
                     values += JetSyntaxHelper.ToSqlStringSwitch(value);
                 }
             }
 
-            return string.Format("INSERT INTO [{0}] ({1}) VALUES ({2})", tableName, columns, values);
+            return string.Format("INSERT INTO `{0}` ({1}) VALUES ({2})", tableName, columns, values);
         }
 
         [DebuggerStepThrough]

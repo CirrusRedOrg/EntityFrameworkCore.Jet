@@ -37,9 +37,9 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                     {
                         new CaseWhenClause(
                             sqlExpression,
-                            _sqlExpressionFactory.ApplyDefaultTypeMapping(_sqlExpressionFactory.Constant(/*true*/ 1)))
+                            _sqlExpressionFactory.ApplyDefaultTypeMapping(_sqlExpressionFactory.Constant(true)))
                     },
-                    _sqlExpressionFactory.Constant(/*false*/ 0))
+                    _sqlExpressionFactory.Constant(false))
                 : sqlExpression;
         }
 
@@ -268,10 +268,10 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             _isSearchCondition = parentSearchCondition;
             var newFunction = sqlFunctionExpression.Update(instance, arguments);
 
-            var condition = string.Equals(sqlFunctionExpression.Name, "FREETEXT")
-                || string.Equals(sqlFunctionExpression.Name, "CONTAINS");
+            // var condition = string.Equals(sqlFunctionExpression.Name, "FREETEXT")
+            //    || string.Equals(sqlFunctionExpression.Name, "CONTAINS");
 
-            return ApplyConversion(newFunction, condition);
+            return ApplyConversion(newFunction, /* condition */ false);
         }
 
         protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)

@@ -224,18 +224,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitOrdering(OrderingExpression orderingExpression)
         {
-            // Instead of the following, we are using SearchConditionConvertingExpressionVisitor.
-            
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values
             // before the False values, which is the opposite of what .NET and other DBMS do, which are using 1 as True.
-            /*
+            
             if (orderingExpression.Expression.TypeMapping == _boolTypeMapping)
             {
                 orderingExpression = new OrderingExpression(
                     orderingExpression.Expression,
                     !orderingExpression.IsAscending);
             }
-            */
+            
             return base.VisitOrdering(orderingExpression);
         }
 

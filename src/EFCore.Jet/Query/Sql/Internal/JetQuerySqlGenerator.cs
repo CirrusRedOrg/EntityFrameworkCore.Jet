@@ -337,21 +337,20 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// <param name="selectExpression"> The select expression. </param>
         protected override void GenerateTop(SelectExpression selectExpression)
         {
-            Check.NotNull(selectExpression, "selectExpression");
-            if (selectExpression.Limit == null)
-                return;
+            Check.NotNull(selectExpression, nameof(selectExpression));
 
-            Sql.Append("TOP ");
-            if (selectExpression.Offset == null)
-                Visit(selectExpression.Limit);
-            else
+            if (selectExpression.Offset != null)
             {
-                Visit(selectExpression.Limit);
-                Sql.Append("+");
-                Visit(selectExpression.Offset);
+                // Jet does not support skipping rows. Use client evaluation instead.
+                throw new InvalidOperationException(CoreStrings.TranslationFailed(selectExpression.Offset));
             }
 
-            Sql.Append(" ");
+            if (selectExpression.Limit != null)
+            {
+                Sql.Append("TOP ");
+                Visit(selectExpression.Limit);
+                Sql.Append(" ");
+            }
         }
 
         /// <summary>
@@ -360,21 +359,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         protected override void GenerateLimitOffset(SelectExpression selectExpression)
         {
-            // LIMIT is not natively supported by Jet.
-            // The System.Data.Jet tries to mitigate this by supporting a proprietary extension SKIP, but can easily
-            // fail, e.g. when the SKIP happens in a subquery.
-
-            if (selectExpression.Offset == null)
-                return;
-
-            // CHECK: Needed?
-            if (!selectExpression.Orderings.Any())
-                Sql.AppendLine()
-                    .Append("ORDER BY 0");
-
-            Sql.AppendLine()
-                .Append("SKIP ");
-            Visit(selectExpression.Offset);
+            // This has already been applied by GenerateTop().
         }
 
         /// <summary>

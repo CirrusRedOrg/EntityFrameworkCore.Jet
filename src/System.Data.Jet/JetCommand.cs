@@ -18,7 +18,7 @@ namespace System.Data.Jet
         private Guid? _lastGuid;
         private int? _rowCount;
 
-        private static readonly Regex _skipRegularExpression = new Regex(@"\bskip\s(?<stringSkipCount>@.*)\b", RegexOptions.IgnoreCase);
+        private static readonly Regex _topRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:\d+|(?:@\w+)|\?)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
 
@@ -306,24 +306,15 @@ namespace System.Data.Jet
 
         private JetDataReader InternalExecuteDbDataReader(string commandText, CommandBehavior behavior)
         {
-            ParseSkipTop(commandText, out var topCount, out var skipCount, out var newCommandText);
+            var newCommandText = ApplyTopParameters(commandText);
+            
             SortParameters(newCommandText, InnerCommand.Parameters);
             FixParameters(InnerCommand.Parameters);
 
             var command = (DbCommand) ((ICloneable) InnerCommand).Clone();
             command.CommandText = newCommandText;
 
-            JetDataReader dataReader;
-
-            if (skipCount != 0)
-                dataReader = new JetDataReader(
-                    command.ExecuteReader(behavior), topCount == -1
-                        ? 0
-                        : topCount - skipCount, skipCount);
-            else if (topCount >= 0)
-                dataReader = new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
-            else
-                dataReader = new JetDataReader(command.ExecuteReader(behavior));
+            var dataReader = new JetDataReader(command.ExecuteReader(behavior));
 
             _rowCount = dataReader.RecordsAffected;
 
@@ -332,11 +323,10 @@ namespace System.Data.Jet
 
         private int InternalExecuteNonQuery(string commandText)
         {
-            // ReSharper disable NotAccessedVariable
-            // ReSharper restore NotAccessedVariable
             if (!CheckExists(commandText, out var newCommandText))
                 return 0;
-            ParseSkipTop(newCommandText, out var topCount, out var skipCount, out newCommandText);
+            
+            newCommandText = ApplyTopParameters(newCommandText);
 
             SortParameters(newCommandText, InnerCommand.Parameters);
             FixParameters(InnerCommand.Parameters);
@@ -487,71 +477,147 @@ namespace System.Data.Jet
             return commandText;
         }
 
-        private void ParseSkipTop(string commandText, out int topCount, out int skipCount, out string newCommandText)
+        private string ApplyTopParameters(string commandText)
         {
-            newCommandText = commandText;
-
-            #region TOP clause
-
-            topCount = -1;
-            skipCount = 0;
-
-            var indexOfTop = newCommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
-            while (indexOfTop != -1)
+            // We inline all TOP clause parameters of all SELECT statements, because Jet does not support parameters
+            // in TOP clauses.
+            var lastCommandText = commandText;
+            var parameters = InnerCommand.Parameters.Cast<DbParameter>().ToList();
+            
+            while ((commandText = _topRegularExpression.Replace(
+                commandText,
+                match => (IsParameter(match.Value)
+                        ? Convert.ToInt32(GetOrExtractParameter(commandText, match.Value, match.Index, parameters).Value)
+                        : int.Parse(match.Value))
+                    .ToString(), 1)) != lastCommandText)
             {
-                var indexOfTopEnd = newCommandText.IndexOf(" ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
-                var stringTopCount = newCommandText.Substring(indexOfTop + 5, indexOfTopEnd - indexOfTop - 5)
-                    .Trim();
-                var stringTopCountElements = stringTopCount.Split('+');
-                int topCount0;
-                int topCount1;
+                lastCommandText = commandText;
+            }
+            
+            InnerCommand.Parameters.Clear();
+            InnerCommand.Parameters.AddRange(parameters.ToArray());
 
-                if (stringTopCountElements[0]
-                    .StartsWith("@"))
-                    topCount0 = Convert.ToInt32(
-                        InnerCommand.Parameters[stringTopCountElements[0]]
-                            .Value);
-                else if (!int.TryParse(stringTopCountElements[0], out topCount0))
-                    throw new Exception("Invalid TOP clause parameter");
+            return commandText;
+        }
 
-                if (stringTopCountElements.Length == 1)
-                    topCount1 = 0;
-                else if (stringTopCountElements[1]
-                    .StartsWith("@"))
-                    topCount1 = Convert.ToInt32(
-                        InnerCommand.Parameters[stringTopCountElements[1]]
-                            .Value);
-                else if (!int.TryParse(stringTopCountElements[1], out topCount1))
-                    throw new Exception("Invalid TOP clause parameter");
+        protected virtual bool IsParameter(string fragment)
+            => fragment.StartsWith("@") ||
+               fragment.Equals("?");
 
-                var localTopCount = topCount0 + topCount1;
-                newCommandText = newCommandText.Remove(indexOfTop + 5, stringTopCount.Length)
-                    .Insert(indexOfTop + 5, localTopCount.ToString());
-                if (indexOfTop <= 12)
-                    topCount = localTopCount;
-                indexOfTop = newCommandText.IndexOf(" top ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
+        protected virtual DbParameter GetOrExtractParameter(string commandText, string name, int count, List<DbParameter> parameters)
+        {
+            if (name.Equals("?"))
+            {
+                var index = GetOdbcParameterCount(commandText.Substring(0, count));
+                var parameter = InnerCommand.Parameters[index];
+                
+                parameters.RemoveAt(index);
+                
+                return parameter;
             }
 
-            #endregion
+            return InnerCommand.Parameters[name];
+        }
 
-            #region SKIP clause
+        private static int GetOdbcParameterCount(string sqlFragment)
+        {
+            var parameterCount = 0;
+            
+            // We use '\0' as the default state and char.
+            var state = '\0';
+            var lastChar = '\0';
 
-            var matchSkipRegularExpression = _skipRegularExpression.Match(newCommandText);
-            if (matchSkipRegularExpression.Success)
+            // State machine to count ODBC parameter occurrences.
+            foreach (var c in sqlFragment)
             {
-                var stringSkipCount = matchSkipRegularExpression.Groups["stringSkipCount"]
-                    .Value;
+                if (state == '\'')
+                {
+                    // We are currently inside a string, or closed the string in the last iteration but didn't
+                    // know that at the time, because it still could have been the beginning of an escape sequence.
 
-                if (stringSkipCount.StartsWith("@"))
-                    skipCount = Convert.ToInt32(
-                        InnerCommand.Parameters[stringSkipCount]
-                            .Value);
-                else if (!int.TryParse(stringSkipCount, out skipCount))
-                    throw new Exception("Invalid SKIP clause parameter");
-                newCommandText = newCommandText.Remove(matchSkipRegularExpression.Index, matchSkipRegularExpression.Length);
+                    if (c == '\'')
+                    {
+                        // We either end the string, begin an escape sequence or end an escape sequence.
+                        if (lastChar == '\'')
+                        {
+                            // This is the end of an escape sequence.
+                            // We continue being in a string.
+                            lastChar = '\0';
+                        }
+                        else
+                        {
+                            // This is either the beginning of an escape sequence, or the end of the string.
+                            // We will know the in the next iteration.
+                            lastChar = '\'';
+                        }
+                    }
+                    else if (lastChar == '\'')
+                    {
+                        // The last iteration was the end of as string.
+                        // Reset the current state and continue processing the current char.
+                        state = '\0';
+                        lastChar = '\0';
+                    }
+                }
+
+                if (state == '"')
+                {
+                    // We are currently inside a string, or closed the string in the last iteration but didn't
+                    // know that at the time, because it still could have been the beginning of an escape sequence.
+
+                    if (c == '"')
+                    {
+                        // We either end the string, begin an escape sequence or end an escape sequence.
+                        if (lastChar == '"')
+                        {
+                            // This is the end of an escape sequence.
+                            // We continue being in a string.
+                            lastChar = '\0';
+                        }
+                        else
+                        {
+                            // This is either the beginning of an escape sequence, or the end of the string.
+                            // We will know the in the next iteration.
+                            lastChar = '"';
+                        }
+                    }
+                    else if (lastChar == '"')
+                    {
+                        // The last iteration was the end of as string.
+                        // Reset the current state and continue processing the current char.
+                        state = '\0';
+                        lastChar = '\0';
+                    }
+                }
+
+                if (state == '\0')
+                {
+                    if (c == '"')
+                    {
+                        state = '"';
+                    }
+                    else if (c == '\'')
+                    {
+                        state = '\'';
+                    }
+                    else if (c == '`')
+                    {
+                        state = '`';
+                    }
+                    else if (c == '?')
+                    {
+                        parameterCount++;
+                    }
+                }
+
+                if (state == '`' &&
+                    c == '`')
+                {
+                    state = '\0';
+                }
             }
 
-            #endregion
+            return parameterCount;
         }
 
         /// <summary>

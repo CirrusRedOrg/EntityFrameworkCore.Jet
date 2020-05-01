@@ -38,7 +38,7 @@ WHERE IsDate(`c`.`FirstName`) = False");
             base.Scalar_Function_With_Translator_Translates_Static();
 
             AssertSql(
-                $@"@__customerId_0='3'
+                $@"{AssertSqlHelper.Declaration("@__customerId_0='3'")}
 
 SELECT TOP 2 len(`c`.`LastName`)
 FROM `Customers` AS `c`
@@ -50,7 +50,7 @@ WHERE `c`.`Id` = {AssertSqlHelper.Parameter("@__customerId_0")}");
             base.Scalar_Function_Constant_Parameter_Static();
 
             AssertSql(
-                $@"@__customerId_0='1'
+                $@"{AssertSqlHelper.Declaration("@__customerId_0='1'")}
 
 SELECT `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_0")})
 FROM `Customers` AS `c`");
@@ -81,7 +81,7 @@ WHERE `c`.`Id` = 1");
             base.Scalar_Function_Anonymous_Type_Select_Parameter_Static();
 
             AssertSql(
-                $@"@__customerId_0='1'
+                $@"{AssertSqlHelper.Declaration("@__customerId_0='1'")}
 
 SELECT TOP 2 `c`.`LastName`, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_0")}) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -93,8 +93,9 @@ WHERE `c`.`Id` = {AssertSqlHelper.Parameter("@__customerId_0")}");
             base.Scalar_Function_Anonymous_Type_Select_Nested_Static();
 
             AssertSql(
-                $@"@__starCount_1='3'
-@__customerId_0='3'
+                $@"{AssertSqlHelper.Declaration("@__starCount_1='3'")}
+
+{AssertSqlHelper.Declaration("@__customerId_0='3'")}
 
 SELECT TOP 2 `c`.`LastName`, `StarValue`({AssertSqlHelper.Parameter("@__starCount_1")}, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_0")})) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -116,7 +117,7 @@ WHERE `IsTopCustomer`(`c`.`Id`) = True");
             base.Scalar_Function_Where_Not_Correlated_Static();
 
             AssertSql(
-                $@"@__startDate_0='2000-04-01T00:00:00' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__startDate_0='2000-04-01T00:00:00' (Nullable = true)")}
 
 SELECT TOP 2 `c`.`Id`
 FROM `Customers` AS `c`
@@ -128,7 +129,7 @@ WHERE `GetCustomerWithMostOrdersAfterDate`({AssertSqlHelper.Parameter("@__startD
             base.Scalar_Function_Where_Parameter_Static();
 
             AssertSql(
-                $@"@__period_0='0'
+                $@"{AssertSqlHelper.Declaration("@__period_0='0'")}
 
 SELECT TOP 2 `c`.`Id`
 FROM `Customers` AS `c`
@@ -170,7 +171,7 @@ WHERE `c`.`Id` = 2");
             base.Scalar_Function_Let_Not_Parameter_Static();
 
             AssertSql(
-                $@"@__customerId_0='2'
+                $@"{AssertSqlHelper.Declaration("@__customerId_0='2'")}
 
 SELECT TOP 2 `c`.`LastName`, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_0")}) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -182,8 +183,9 @@ WHERE `c`.`Id` = {AssertSqlHelper.Parameter("@__customerId_0")}");
             base.Scalar_Function_Let_Nested_Static();
 
             AssertSql(
-                $@"@__starCount_0='3'
-@__customerId_1='1'
+                $@"{AssertSqlHelper.Declaration("@__starCount_0='3'")}
+
+{AssertSqlHelper.Declaration("@__customerId_1='1'")}
 
 SELECT TOP 2 `c`.`LastName`, `StarValue`({AssertSqlHelper.Parameter("@__starCount_0")}, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_1")})) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -260,7 +262,7 @@ WHERE IsDate(`c`.`FirstName`) = False");
             base.Scalar_Function_With_Translator_Translates_Instance();
 
             AssertSql(
-                $@"@__customerId_0='3'
+                $@"{AssertSqlHelper.Declaration("@__customerId_0='3'")}
 
 SELECT TOP 2 len(`c`.`LastName`)
 FROM `Customers` AS `c`
@@ -272,7 +274,7 @@ WHERE `c`.`Id` = {AssertSqlHelper.Parameter("@__customerId_0")}");
             base.Scalar_Function_Constant_Parameter_Instance();
 
             AssertSql(
-                $@"@__customerId_1='1'
+                $@"{AssertSqlHelper.Declaration("@__customerId_1='1'")}
 
 SELECT `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_1")})
 FROM `Customers` AS `c`");
@@ -303,7 +305,7 @@ WHERE `c`.`Id` = 1");
             base.Scalar_Function_Anonymous_Type_Select_Parameter_Instance();
 
             AssertSql(
-                $@"@__customerId_0='1'
+                $@"{AssertSqlHelper.Declaration("@__customerId_0='1'")}
 
 SELECT TOP 2 `c`.`LastName`, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_0")}) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -315,8 +317,9 @@ WHERE `c`.`Id` = {AssertSqlHelper.Parameter("@__customerId_0")}");
             base.Scalar_Function_Anonymous_Type_Select_Nested_Instance();
 
             AssertSql(
-                $@"@__starCount_2='3'
-@__customerId_0='3'
+                $@"{AssertSqlHelper.Declaration("@__starCount_2='3'")}
+
+{AssertSqlHelper.Declaration("@__customerId_0='3'")}
 
 SELECT TOP 2 `c`.`LastName`, `StarValue`({AssertSqlHelper.Parameter("@__starCount_2")}, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_0")})) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -338,7 +341,7 @@ WHERE `IsTopCustomer`(`c`.`Id`) = True");
             base.Scalar_Function_Where_Not_Correlated_Instance();
 
             AssertSql(
-                $@"@__startDate_1='2000-04-01T00:00:00' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__startDate_1='2000-04-01T00:00:00' (Nullable = true)")}
 
 SELECT TOP 2 `c`.`Id`
 FROM `Customers` AS `c`
@@ -350,7 +353,7 @@ WHERE `GetCustomerWithMostOrdersAfterDate`({AssertSqlHelper.Parameter("@__startD
             base.Scalar_Function_Where_Parameter_Instance();
 
             AssertSql(
-                $@"@__period_1='0'
+                $@"{AssertSqlHelper.Declaration("@__period_1='0'")}
 
 SELECT TOP 2 `c`.`Id`
 FROM `Customers` AS `c`
@@ -392,7 +395,7 @@ WHERE `c`.`Id` = 2");
             base.Scalar_Function_Let_Not_Parameter_Instance();
 
             AssertSql(
-                $@"@__customerId_1='2'
+                $@"{AssertSqlHelper.Declaration("@__customerId_1='2'")}
 
 SELECT TOP 2 `c`.`LastName`, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_1")}) AS `OrderCount`
 FROM `Customers` AS `c`
@@ -404,8 +407,9 @@ WHERE `c`.`Id` = {AssertSqlHelper.Parameter("@__customerId_1")}");
             base.Scalar_Function_Let_Nested_Instance();
 
             AssertSql(
-                $@"@__starCount_1='3'
-@__customerId_2='1'
+                $@"{AssertSqlHelper.Declaration("@__starCount_1='3'")}
+
+{AssertSqlHelper.Declaration("@__customerId_2='1'")}
 
 SELECT TOP 2 `c`.`LastName`, `StarValue`({AssertSqlHelper.Parameter("@__starCount_1")}, `CustomerOrderCount`({AssertSqlHelper.Parameter("@__customerId_2")})) AS `OrderCount`
 FROM `Customers` AS `c`

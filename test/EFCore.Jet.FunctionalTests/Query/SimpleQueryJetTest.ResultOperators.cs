@@ -17,13 +17,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Select_All();
 
             AssertSql(
-                $@"SELECT CASE
-    WHEN NOT EXISTS (
+                @"SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE (`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL) THEN True
-    ELSE False
-END");
+        WHERE (`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
         }
 
         public override async Task Sum_with_no_arg(bool isAsync)
@@ -223,7 +221,7 @@ FROM `Customers` AS `c`");
         {
             await base.Average_over_nested_subquery_is_client_eval(isAsync);
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -234,7 +232,7 @@ ORDER BY `c`.`CustomerID`");
         {
             await base.Average_over_max_subquery_is_client_eval(isAsync);
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -323,7 +321,7 @@ FROM `Customers` AS `c`");
             await base.Min_over_nested_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -335,7 +333,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Min_over_max_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -388,7 +386,7 @@ FROM `Customers` AS `c`");
             await base.Max_over_nested_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -400,7 +398,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Max_over_sum_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -582,7 +580,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_CustomerID='ALFKI' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
 
 SELECT TOP 1 `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
@@ -594,7 +592,7 @@ WHERE `od`.`OrderID` = COALESCE((
 ), 0)
 ORDER BY `od`.`ProductID`",
                 //
-                $@"@_outer_CustomerID='ANATR' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ANATR' (Size = 5)")}
 
 SELECT TOP 1 `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
@@ -958,7 +956,7 @@ WHERE True = True");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__p_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__p_0='ALFKI' (Size = 4000)")}
 
 //SELECT CASE
 //    WHEN @__p_0 IN (
@@ -1039,7 +1037,7 @@ WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')");
             await base.OrderBy_Take_Last_gives_correct_result(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
 
 SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
@@ -1055,7 +1053,7 @@ ORDER BY `t`.`CustomerID` DESC");
             await base.OrderBy_Skip_Last_gives_correct_result(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
 
 SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
@@ -1076,7 +1074,7 @@ ORDER BY `t`.`CustomerID` DESC");
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` = 10248",
                 //
-                $@"@__entity_equality_p_0_OrderID='10248' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__entity_equality_p_0_OrderID='10248' (Nullable = true)")}
 
 SELECT CASE
     WHEN {AssertSqlHelper.Parameter("@__entity_equality_p_0_OrderID")} IN (
@@ -1094,7 +1092,7 @@ END");
             await base.List_Contains_over_entityType_should_rewrite_to_identity_equality(isAsync);
 
             AssertSql(
-                $@"@__entity_equality_someOrder_0_OrderID='10248' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__entity_equality_someOrder_0_OrderID='10248' (Nullable = true)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`

@@ -336,7 +336,7 @@ SELECT * FROM ""Employees"" WHERE ""ReportsTo"" = {AssertSqlHelper.Parameter("@p
 
             AssertSql(
                 $@"p0='London' (Size = 4000)
-@__contactTitle_1='Sales Representative' (Size = 4000)
+{AssertSqlHelper.Declaration("@__contactTitle_1='Sales Representative' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (
@@ -450,7 +450,7 @@ WHERE (`c`.`ContactName` = `c`.`CompanyName`) OR (`c`.`ContactName` IS NULL AND 
             base.FromSqlRaw_with_dbParameter();
 
             AssertSql(
-                $@"@city='London' (Nullable = false) (Size = 6)
+                $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
 SELECT * FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
@@ -470,11 +470,12 @@ SELECT * FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")
 
             AssertSql(
                 $@"p0='London' (Size = 4000)
-@title='Sales Representative' (Nullable = false) (Size = 20)
+{AssertSqlHelper.Declaration("@title='Sales Representative' (Nullable = false) (Size = 20)")}
 
 SELECT * FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@title")}",
                 //
-                $@"@city='London' (Nullable = false) (Size = 6)
+                $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
+
 p1='Sales Representative' (Size = 4000)
 
 SELECT * FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
@@ -485,11 +486,11 @@ SELECT * FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")
             base.FromSqlRaw_with_db_parameters_called_multiple_times();
 
             AssertSql(
-                $@"@id='ALFKI' (Nullable = false) (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@id='ALFKI' (Nullable = false) (Size = 5)")}
 
 SELECT * FROM ""Customers"" WHERE ""CustomerID"" = {AssertSqlHelper.Parameter("@id")}",
                 //
-                $@"@id='ALFKI' (Nullable = false) (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@id='ALFKI' (Nullable = false) (Size = 5)")}
 
 SELECT * FROM ""Customers"" WHERE ""CustomerID"" = {AssertSqlHelper.Parameter("@id")}");
         }
@@ -531,7 +532,7 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`");
             base.FromSqlInterpolated_with_inlined_db_parameter();
 
             AssertSql(
-                $@"@somename='ALFKI' (Nullable = false) (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@somename='ALFKI' (Nullable = false) (Size = 5)")}
 
 SELECT * FROM ""Customers"" WHERE ""CustomerID"" = {AssertSqlHelper.Parameter("@somename")}");
         }
@@ -565,7 +566,7 @@ SELECT * FROM ""Customers"" WHERE ""CustomerID"" = {AssertSqlHelper.Parameter("@
                 Assert.Equal(46, actual.Length);
 
                 AssertSql(
-                    $@"@city='London' (Nullable = false) (Size = 6)
+                    $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -629,7 +630,7 @@ WHERE `o`.`CustomerID` IN (
                 Assert.Equal(46, actual.Length);
 
                 AssertSql(
-                    $@"@city='London' (Nullable = false) (Size = 6)
+                    $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -680,7 +681,7 @@ WHERE `o`.`CustomerID` IN (
 
                 AssertSql(
                     $@"p0='London' (Size = 4000)
-@title='Sales Representative' (Nullable = false) (Size = 20)
+{AssertSqlHelper.Declaration("@title='Sales Representative' (Nullable = false) (Size = 20)")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -691,7 +692,8 @@ WHERE `o`.`CustomerID` IN (
     ) AS `c`
 )",
                     //
-                    $@"@city='London' (Nullable = false) (Size = 6)
+                    $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
+
 p1='Sales Representative' (Size = 4000)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -714,7 +716,8 @@ WHERE `o`.`CustomerID` IN (
 
 SELECT * FROM ""Orders"" WHERE ""OrderID"" >= {AssertSqlHelper.Parameter("@p0")}",
                 //
-                $@"@__max_0='10400'
+                $@"{AssertSqlHelper.Declaration("@__max_0='10400'")}
+
 p0='10300'
 
 SELECT `o`.`OrderID`
@@ -726,7 +729,8 @@ WHERE (`o`.`OrderID` <= {AssertSqlHelper.Parameter("@__max_0")}) AND `o`.`OrderI
     ) AS `o0`
 )",
                 //
-                $@"@__max_0='10400'
+                $@"{AssertSqlHelper.Declaration("@__max_0='10400'")}
+
 p0='10300'
 
 SELECT `o`.`OrderID`

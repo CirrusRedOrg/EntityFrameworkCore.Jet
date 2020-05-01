@@ -91,7 +91,7 @@ ORDER BY `t`.`CompanyName` DESC, `t`.`CustomerID`, `o`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='10'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -112,7 +112,7 @@ ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='10'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -131,8 +131,9 @@ ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='10'
-@__p_1='5'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
+
+{AssertSqlHelper.Declaration("@__p_1='5'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -303,7 +304,7 @@ ORDER BY `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`");
             base.Include_collection_order_by_non_key_with_take(useString);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -322,7 +323,7 @@ ORDER BY `t`.`ContactTitle`, `t`.`CustomerID`, `o`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='10'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -525,7 +526,7 @@ ORDER BY `c`.`CustomerID`, `t`.`CustomerID`, `o`.`OrderID`");
             base.Include_collection_on_additional_from_clause(useString);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `t`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -545,7 +546,7 @@ ORDER BY `t`.`CustomerID`, `c0`.`CustomerID`, `o`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
@@ -572,8 +573,9 @@ ORDER BY `t`.`CustomerID`, `t0`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_1='1'
-@__p_0='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
+
+{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`, `t1`.`CustomerID0`, `t1`.`Address0`, `t1`.`City0`, `t1`.`CompanyName0`, `t1`.`ContactName0`, `t1`.`ContactTitle0`, `t1`.`Country0`, `t1`.`Fax0`, `t1`.`Phone0`, `t1`.`PostalCode0`, `t1`.`Region0`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
@@ -671,7 +673,7 @@ ORDER BY `t1`.`CustomerID`, `t1`.`OrderID`");
             base.Include_collection_on_additional_from_clause2(useString);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
@@ -690,8 +692,9 @@ ORDER BY `t`.`CustomerID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='1'
-@__p_1='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
+
+{AssertSqlHelper.Declaration("@__p_1='2'")}
 
 SELECT `o0`.`CustomerID`
 FROM (
@@ -713,8 +716,9 @@ ORDER BY `t`.`OrderID`, `t`.`ProductID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_1='1'
-@__p_0='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
+
+{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`, `t1`.`CustomerID0`, `t1`.`Address0`, `t1`.`City0`, `t1`.`CompanyName0`, `t1`.`ContactName0`, `t1`.`ContactTitle0`, `t1`.`Country0`, `t1`.`Fax0`, `t1`.`Phone0`, `t1`.`PostalCode0`, `t1`.`Region0`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -765,7 +769,7 @@ INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
@@ -792,7 +796,7 @@ ORDER BY `t`.`CustomerID`, `t`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
 FROM (
@@ -818,7 +822,7 @@ ORDER BY `t`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='2'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (
@@ -935,7 +939,7 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
             base.Include_collection_as_no_tracking2(useString);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -979,7 +983,7 @@ ORDER BY `c`.`CustomerID`");
             base.Include_with_take(useString);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -998,7 +1002,7 @@ ORDER BY `t`.`City` DESC, `t`.`CustomerID`, `o`.`OrderID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='80'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -1017,7 +1021,7 @@ ORDER BY `t`.`ContactName`, `t`.`CustomerID`, `o`.`OrderID`");
             base.Include_collection_with_multiple_conditional_order_by(useString);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
@@ -1124,7 +1128,7 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`");
             base.Include_collection_OrderBy_empty_list_contains(useString);
 
             AssertSql(
-                $@"@__p_1='1'
+                $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -1132,7 +1136,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY (SELECT 1), `c`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}",
                 //
-                $@"@__p_1='1'
+                $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
 SELECT [c.Orders].`OrderID`, [c.Orders].`CustomerID`, [c.Orders].`EmployeeID`, [c.Orders].`OrderDate`
 FROM `Orders` AS [c.Orders]
@@ -1151,7 +1155,7 @@ ORDER BY `t`.`c`, `t`.`CustomerID`");
             base.Include_collection_OrderBy_empty_list_does_not_contains(useString);
 
             AssertSql(
-                $@"@__p_1='1'
+                $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -1159,7 +1163,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY (SELECT 1), `c`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}",
                 //
-                $@"@__p_1='1'
+                $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
 SELECT [c.Orders].`OrderID`, [c.Orders].`CustomerID`, [c.Orders].`EmployeeID`, [c.Orders].`OrderDate`
 FROM `Orders` AS [c.Orders]
@@ -1178,7 +1182,7 @@ ORDER BY `t`.`c`, `t`.`CustomerID`");
             base.Include_collection_OrderBy_list_contains(useString);
 
             AssertSql(
-                $@"@__p_1='1'
+                $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -1197,7 +1201,7 @@ ORDER BY `t`.`c`, `t`.`CustomerID`, `o`.`OrderID`");
             base.Include_collection_OrderBy_list_does_not_contains(useString);
 
             AssertSql(
-                $@"@__p_1='1'
+                $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (

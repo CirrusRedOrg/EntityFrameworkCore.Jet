@@ -33,7 +33,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Executes_stored_procedure_with_parameter();
 
             AssertSql(
-                $@"@CustomerID='ALFKI' (Nullable = false) (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@CustomerID='ALFKI' (Nullable = false) (Size = 5)")}
 
 `CustOrderHist` @CustomerID");
         }
@@ -43,7 +43,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Executes_stored_procedure_with_generated_parameter();
 
             AssertSql(
-                $@"@p0='ALFKI' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='ALFKI' (Size = 4000)")}
 
 `CustOrderHist` @CustomerID = {AssertSqlHelper.Parameter("@p0")}");
         }
@@ -53,8 +53,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Query_with_parameters();
 
             AssertSql(
-                $@"@p0='London' (Size = 4000)
-@p1='Sales Representative' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
@@ -64,7 +65,7 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_dbParameter_with_name();
 
             AssertSql(
-                $@"@city='London' (Nullable = false) (Size = 6)
+                $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
@@ -74,7 +75,7 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_positional_dbParameter_with_name();
 
             AssertSql(
-                $@"@city='London' (Nullable = false) (Size = 6)
+                $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
@@ -84,7 +85,7 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_positional_dbParameter_without_name();
 
             AssertSql(
-                $@"@p0='London' (Nullable = false) (Size = 6)
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Nullable = false) (Size = 6)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")}");
         }
@@ -94,13 +95,15 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_dbParameters_mixed();
 
             AssertSql(
-                $@"@p0='London' (Size = 4000)
-@contactTitle='Sales Representative' (Nullable = false) (Size = 20)
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@contactTitle='Sales Representative' (Nullable = false) (Size = 20)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@contactTitle")}",
                 //
-                $@"@city='London' (Nullable = false) (Size = 6)
-@p0='Sales Representative' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
+
+{AssertSqlHelper.Declaration("@p0='Sales Representative' (Size = 4000)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p0")}");
         }
@@ -110,8 +113,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_parameters_interpolated();
 
             AssertSql(
-                $@"@p0='London' (Size = 4000)
-@p1='Sales Representative' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
@@ -121,8 +125,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             await base.Query_with_parameters_async();
 
             AssertSql(
-                $@"@p0='London' (Size = 4000)
-@p1='Sales Representative' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
@@ -132,8 +137,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             await base.Query_with_parameters_interpolated_async();
 
             AssertSql(
-                $@"@p0='London' (Size = 4000)
-@p1='Sales Representative' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }

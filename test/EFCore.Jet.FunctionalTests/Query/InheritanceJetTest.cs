@@ -371,13 +371,18 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`Discriminator` = 'Kiwi'
 FROM `Country` AS `c`
 WHERE `c`.`Id` = 1",
                 //
-                $@"@p0='Apteryx owenii' (Nullable = false) (Size = 100)
-@p1='1'
-@p2='Kiwi' (Nullable = false) (Size = 4000)
-@p3='Little spotted kiwi' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='Apteryx owenii' (Nullable = false) (Size = 100)")}
+
+{AssertSqlHelper.Declaration("@p1='1'")}
+
+{AssertSqlHelper.Declaration("@p2='Kiwi' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p3='Little spotted kiwi' (Size = 4000)")}
+
 @p4=NULL (Size = 100)
-@p5='True'
-@p6='0' (Size = 1)
+{AssertSqlHelper.Declaration("@p5='True'")}
+
+{AssertSqlHelper.Declaration("@p6='0' (Size = 1)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Animal` (`Species`, `CountryId`, `Discriminator`, `Name`, `EagleId`, `IsFlightless`, `FoundOn`)
@@ -387,8 +392,9 @@ VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, 
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%owenii')",
                 //
-                $@"@p1='Apteryx owenii' (Nullable = false) (Size = 100)
-@p0='Aquila chrysaetos canadensis' (Size = 100)
+                $@"{AssertSqlHelper.Declaration("@p1='Apteryx owenii' (Nullable = false) (Size = 100)")}
+
+{AssertSqlHelper.Declaration("@p0='Aquila chrysaetos canadensis' (Size = 100)")}
 
 SET NOCOUNT ON;
 UPDATE `Animal` SET `EagleId` = {AssertSqlHelper.Parameter("@p0")}
@@ -399,7 +405,7 @@ SELECT @@ROWCOUNT;",
 FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%owenii')",
                 //
-                $@"@p0='Apteryx owenii' (Nullable = false) (Size = 100)
+                $@"{AssertSqlHelper.Declaration("@p0='Apteryx owenii' (Nullable = false) (Size = 100)")}
 
 SET NOCOUNT ON;
 DELETE FROM `Animal`
@@ -472,7 +478,7 @@ WHERE (`t`.`FoundOn` = 0) AND `t`.`FoundOn` IS NOT NULL");
             base.Subquery_OfType();
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT DISTINCT `t`.`Species`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`FoundOn`
 FROM (

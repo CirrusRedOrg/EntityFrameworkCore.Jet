@@ -393,7 +393,7 @@ WHERE `w`.`AmmunitionType` IS NULL");
             await base.Where_nullable_enum_with_non_nullable_parameter(isAsync);
 
             AssertSql(
-                $@"@__ammunitionType_0='1'
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='1'")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
@@ -405,7 +405,7 @@ WHERE `w`.`AmmunitionType` = {AssertSqlHelper.Parameter("@__ammunitionType_0")}"
             await base.Where_nullable_enum_with_nullable_parameter(isAsync);
 
             AssertSql(
-                $@"@__ammunitionType_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='1' (Nullable = true)")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
@@ -473,7 +473,7 @@ WHERE (`w`.`AmmunitionType` BAND NULL) > 0");
             await base.Where_bitwise_and_nullable_enum_with_non_nullable_parameter(isAsync);
 
             AssertSql(
-                $@"@__ammunitionType_0='1'
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='1'")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
@@ -485,7 +485,7 @@ WHERE (`w`.`AmmunitionType` BAND {AssertSqlHelper.Parameter("@__ammunitionType_0
             await base.Where_bitwise_and_nullable_enum_with_nullable_parameter(isAsync);
 
             AssertSql(
-                $@"@__ammunitionType_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='1' (Nullable = true)")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
@@ -667,7 +667,7 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (((`g`.`Rank` BAND (
             await base.Where_enum_has_flag_with_non_nullable_parameter(isAsync);
 
             AssertSql(
-                $@"@__parameter_0='1'
+                $@"{AssertSqlHelper.Declaration("@__parameter_0='1'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -679,7 +679,7 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND ((`g`.`Rank` BAND {AssertSq
             await base.Where_has_flag_with_nullable_parameter(isAsync);
 
             AssertSql(
-                $@"@__parameter_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__parameter_0='1' (Nullable = true)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -737,7 +737,7 @@ WHERE `w`.`IsAutomatic` = True");
             await base.Select_comparison_with_null(isAsync);
 
             AssertSql(
-                $@"@__ammunitionType_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='1' (Nullable = true)")}
 
 SELECT `w`.`Id`, IIF((`w`.`AmmunitionType` = {AssertSqlHelper.Parameter("@__ammunitionType_0")}) AND `w`.`AmmunitionType` IS NOT NULL, 1, 0) AS `Cartridge`
 FROM `Weapons` AS `w`
@@ -753,7 +753,7 @@ WHERE `w`.`AmmunitionType` IS NULL");
             await base.Select_null_parameter(isAsync);
 
             AssertSql(
-                $@"@__ammunitionType_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='1' (Nullable = true)")}
 
 SELECT `w`.`Id`, {AssertSqlHelper.Parameter("@__ammunitionType_0")} AS `AmmoType`
 FROM `Weapons` AS `w`",
@@ -763,7 +763,7 @@ FROM `Weapons` AS `w`",
 SELECT `w`.`Id`, {AssertSqlHelper.Parameter("@__ammunitionType_0")} AS `AmmoType`
 FROM `Weapons` AS `w`",
                 //
-                $@"@__ammunitionType_0='2' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__ammunitionType_0='2' (Nullable = true)")}
 
 SELECT `w`.`Id`, {AssertSqlHelper.Parameter("@__ammunitionType_0")} AS `AmmoType`
 FROM `Weapons` AS `w`",
@@ -1522,25 +1522,25 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND ((`g`.`HasSoulPatch` = True
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND (`g`.`HasSoulPatch` = 1)",
                 //
-                $@"@_outer_FullName6='Damon Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName6='Damon Baird' (Size = 450)")}
 
 SELECT `w6`.`Id`, `w6`.`AmmunitionType`, `w6`.`IsAutomatic`, `w6`.`Name`, `w6`.`OwnerFullName`, `w6`.`SynergyWithId`
 FROM `Weapons` AS `w6`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName6")} = `w6`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName5='Damon Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName5='Damon Baird' (Size = 450)")}
 
 SELECT `w5`.`Id`, `w5`.`AmmunitionType`, `w5`.`IsAutomatic`, `w5`.`Name`, `w5`.`OwnerFullName`, `w5`.`SynergyWithId`
 FROM `Weapons` AS `w5`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName5")} = `w5`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName6='Marcus Fenix' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName6='Marcus Fenix' (Size = 450)")}
 
 SELECT `w6`.`Id`, `w6`.`AmmunitionType`, `w6`.`IsAutomatic`, `w6`.`Name`, `w6`.`OwnerFullName`, `w6`.`SynergyWithId`
 FROM `Weapons` AS `w6`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName6")} = `w6`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName5='Marcus Fenix' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName5='Marcus Fenix' (Size = 450)")}
 
 SELECT `w5`.`Id`, `w5`.`AmmunitionType`, `w5`.`IsAutomatic`, `w5`.`Name`, `w5`.`OwnerFullName`, `w5`.`SynergyWithId`
 FROM `Weapons` AS `w5`
@@ -1799,7 +1799,7 @@ WHERE 'Unknown' = `c`.`Location`");
             await base.Non_unicode_parameter_is_used_for_non_unicode_column(isAsync);
 
             AssertSql(
-                $@"@__value_0='Unknown' (Size = 100) (DbType = AnsiString)
+                $@"{AssertSqlHelper.Declaration("@__value_0='Unknown' (Size = 100) (DbType = AnsiString)")}
 
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
@@ -2372,7 +2372,7 @@ LEFT JOIN (
 WHERE (`t`.`Note` <> 'K.I.A.') OR `t`.`Note` IS NULL
 ORDER BY `t`.`Note`",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2380,7 +2380,7 @@ WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`
 SKIP {AssertSqlHelper.Parameter("@_outer_SquadId")}",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2388,7 +2388,7 @@ WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`
 SKIP {AssertSqlHelper.Parameter("@_outer_SquadId")}",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2396,7 +2396,7 @@ WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`
 SKIP {AssertSqlHelper.Parameter("@_outer_SquadId")}",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2404,7 +2404,7 @@ WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`
 SKIP {AssertSqlHelper.Parameter("@_outer_SquadId")}",
                 //
-                $@"@_outer_SquadId='2'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='2'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2428,35 +2428,35 @@ LEFT JOIN (
 WHERE (`t`.`Note` <> 'K.I.A.') OR `t`.`Note` IS NULL
 ORDER BY `t`.`Note`",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@_outer_SquadId")} `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@_outer_SquadId")} `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@_outer_SquadId")} `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`",
                 //
-                $@"@_outer_SquadId='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='1'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@_outer_SquadId")} `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`",
                 //
-                $@"@_outer_SquadId='2'
+                $@"{AssertSqlHelper.Declaration("@_outer_SquadId='2'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@_outer_SquadId")} `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2506,19 +2506,19 @@ ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Nickname`, `t`.`SquadId`");
 FROM `Tags` AS `t`
 ORDER BY `t`.`Note`",
                 //
-                $@"@_outer_GearNickName='Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_GearNickName='Baird' (Size = 450)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND (`g`.`Nickname` = {AssertSqlHelper.Parameter("@_outer_GearNickName")})",
                 //
-                $@"@_outer_GearNickName='Cole Train' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_GearNickName='Cole Train' (Size = 450)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND (`g`.`Nickname` = {AssertSqlHelper.Parameter("@_outer_GearNickName")})",
                 //
-                $@"@_outer_GearNickName='Dom' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_GearNickName='Dom' (Size = 450)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -2528,13 +2528,13 @@ WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND (`g`.`Nickname` = {AssertSq
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND `g`.`Nickname` IS NULL",
                 //
-                $@"@_outer_GearNickName='Marcus' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_GearNickName='Marcus' (Size = 450)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND (`g`.`Nickname` = {AssertSqlHelper.Parameter("@_outer_GearNickName")})",
                 //
-                $@"@_outer_GearNickName='Paduk' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_GearNickName='Paduk' (Size = 450)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -3085,7 +3085,7 @@ ORDER BY `g`.`FullName`");
             await base.Subquery_with_result_operator_is_not_lifted(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`FullName`
 FROM (
@@ -3102,7 +3102,7 @@ ORDER BY `t`.`Rank`");
             await base.Skip_with_orderby_followed_by_orderBy_is_pushed_down(isAsync);
 
             AssertSql(
-                $@"@__p_0='1'
+                $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
 
 SELECT `t`.`FullName`
 FROM (
@@ -3120,7 +3120,7 @@ ORDER BY `t`.`Rank`");
             await base.Take_without_orderby_followed_by_orderBy_is_pushed_down1(isAsync);
 
             AssertSql(
-                $@"@__p_0='999'
+                $@"{AssertSqlHelper.Declaration("@__p_0='999'")}
 
 SELECT `t`.`FullName`
 FROM (
@@ -3136,7 +3136,7 @@ ORDER BY `t`.`Rank`");
             await base.Take_without_orderby_followed_by_orderBy_is_pushed_down2(isAsync);
 
             AssertSql(
-                $@"@__p_0='999'
+                $@"{AssertSqlHelper.Declaration("@__p_0='999'")}
 
 SELECT `t`.`FullName`
 FROM (
@@ -3152,7 +3152,7 @@ ORDER BY `t`.`Rank`");
             await base.Take_without_orderby_followed_by_orderBy_is_pushed_down3(isAsync);
 
             AssertSql(
-                $@"@__p_0='999'
+                $@"{AssertSqlHelper.Declaration("@__p_0='999'")}
 
 SELECT `t`.`FullName`
 FROM (
@@ -3181,31 +3181,31 @@ FROM `Weapons` AS `w`");
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')",
                 //
-                $@"@_outer_FullName1='Damon Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Damon Baird' (Size = 450)")}
 
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w0`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName1")} = `w0`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName1='Augustus Cole' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Augustus Cole' (Size = 450)")}
 
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w0`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName1")} = `w0`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName1='Dominic Santiago' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Dominic Santiago' (Size = 450)")}
 
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w0`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName1")} = `w0`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName1='Marcus Fenix' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Marcus Fenix' (Size = 450)")}
 
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w0`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName1")} = `w0`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName1='Garron Paduk' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Garron Paduk' (Size = 450)")}
 
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w0`
@@ -3215,13 +3215,13 @@ WHERE {AssertSqlHelper.Parameter("@_outer_FullName1")} = `w0`.`OwnerFullName`",
 FROM `Gears` AS `o`
 WHERE (`o`.`Discriminator` = 'Officer') AND (`o`.`HasSoulPatch` = 1)",
                 //
-                $@"@_outer_FullName='Damon Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName='Damon Baird' (Size = 450)")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
 WHERE {AssertSqlHelper.Parameter("@_outer_FullName")} = `w`.`OwnerFullName`",
                 //
-                $@"@_outer_FullName='Marcus Fenix' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName='Marcus Fenix' (Size = 450)")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
@@ -4619,7 +4619,7 @@ ORDER BY `g`.`Nickname`, `s`.`Id` DESC, `g`.`SquadId`, `t`.`Id`, `t0`.`Nickname`
 FROM `Squads` AS `s`
 ORDER BY `s`.`Name`",
                 //
-                $@"@_outer_Id='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_Id='1'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -4627,7 +4627,7 @@ WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND ({AssertSqlHelper.Parameter
 ORDER BY `g`.`Nickname`
 SKIP 1",
                 //
-                $@"@_outer_Id='2'
+                $@"{AssertSqlHelper.Declaration("@_outer_Id='2'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -4645,14 +4645,14 @@ SKIP 1");
 FROM `Squads` AS `s`
 ORDER BY `s`.`Name`",
                 //
-                $@"@_outer_Id='1'
+                $@"{AssertSqlHelper.Declaration("@_outer_Id='1'")}
 
 SELECT TOP 2 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear') AND ({AssertSqlHelper.Parameter("@_outer_Id")} = `g`.`SquadId`)
 ORDER BY `g`.`Nickname`",
                 //
-                $@"@_outer_Id='2'
+                $@"{AssertSqlHelper.Declaration("@_outer_Id='2'")}
 
 SELECT TOP 2 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -5011,14 +5011,14 @@ ORDER BY `t`.`Rank`, `t`.`HasSoulPatch`, `t`.`Nickname`, `t`.`FullName`");
             base.Include_with_group_by_order_by_take();
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`, `g`.`FullName`",
                 //
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT [g.Weapons].`Id`, [g.Weapons].`AmmunitionType`, [g.Weapons].`IsAutomatic`, [g.Weapons].`Name`, [g.Weapons].`OwnerFullName`, [g.Weapons].`SynergyWithId`
 FROM `Weapons` AS [g.Weapons]
@@ -5093,7 +5093,7 @@ WHERE `l`.`Discriminator` IN ('LocustLeader', 'LocustCommander') AND ((`t`.`Erad
             await base.Include_on_derived_type_with_order_by_and_paging(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t1`.`Name`, `t1`.`Discriminator`, `t1`.`LocustHordeId`, `t1`.`ThreatLevel`, `t1`.`DefeatedByNickname`, `t1`.`DefeatedBySquadId`, `t1`.`HighCommandId`, `t2`.`Nickname`, `t2`.`SquadId`, `t2`.`AssignedCityName`, `t2`.`CityOfBirthName`, `t2`.`Discriminator`, `t2`.`FullName`, `t2`.`HasSoulPatch`, `t2`.`LeaderNickname`, `t2`.`LeaderSquadId`, `t2`.`Rank`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
@@ -5200,7 +5200,7 @@ FROM `Gears` AS `o`
 WHERE `o`.`Discriminator` = 'Officer'
 ORDER BY `o`.`Nickname`",
                 //
-                $@"@_outer_FullName1='Damon Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Damon Baird' (Size = 450)")}
 
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`
 FROM `Tags` AS `t`
@@ -5210,7 +5210,7 @@ LEFT JOIN (
     WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ) AS `t0` ON {AssertSqlHelper.Parameter("@_outer_FullName1")} = `t0`.`FullName`",
                 //
-                $@"@_outer_FullName1='Marcus Fenix' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName1='Marcus Fenix' (Size = 450)")}
 
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`
 FROM `Tags` AS `t`
@@ -5553,7 +5553,7 @@ FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Officer', 'Gear')
 ORDER BY `g`.`Nickname`",
                 //
-                $@"@_outer_FullName='Damon Baird' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@_outer_FullName='Damon Baird' (Size = 450)")}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
@@ -6654,13 +6654,13 @@ WHERE `t`.`Id` = 'df36f493-463f-4123-83f9-6b135deeb7ba'");
             await base.Filter_with_new_Guid_closure(isAsync);
 
             AssertSql(
-                $@"@__p_0='df36f493-463f-4123-83f9-6b135deeb7bd'
+                $@"{AssertSqlHelper.Declaration("@__p_0='df36f493-463f-4123-83f9-6b135deeb7bd'")}
 
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`
 FROM `Tags` AS `t`
 WHERE `t`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}",
                 //
-                $@"@__p_0='b39a6fba-9026-4d69-828e-fd7068673e57'
+                $@"{AssertSqlHelper.Declaration("@__p_0='b39a6fba-9026-4d69-828e-fd7068673e57'")}
 
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`
 FROM `Tags` AS `t`
@@ -6826,8 +6826,9 @@ WHERE (
             await base.DateTimeOffset_Contains_Less_than_Greater_than(isAsync);
 
             AssertSql(
-                $@"@__start_0='1902-01-01T10:00:00.1234567+01:30'
-@__end_1='1902-01-03T10:00:00.1234567+01:30'
+                $@"{AssertSqlHelper.Declaration("@__start_0='1902-01-01T10:00:00.1234567+01:30'")}
+
+{AssertSqlHelper.Declaration("@__end_1='1902-01-03T10:00:00.1234567+01:30'")}
 
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
 FROM `Missions` AS `m`
@@ -6936,7 +6937,7 @@ ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`");
             await base.SelectMany_Where_DefaultIfEmpty_with_navigation_in_the_collection_selector(isAsync);
 
             AssertSql(
-                $@"@__isAutomatic_0='True'
+                $@"{AssertSqlHelper.Declaration("@__isAutomatic_0='True'")}
 
 SELECT `g`.`Nickname`, `g`.`FullName`, IIF(`t`.`Id` IS NOT NULL, 1, 0) AS `Collection`
 FROM `Gears` AS `g`
@@ -7159,7 +7160,7 @@ WHERE EXISTS (
             await base.Query_reusing_parameter_doesnt_declare_duplicate_parameter(isAsync);
 
             AssertSql(
-                $@"@__prm_Inner_Nickname_0='Marcus' (Size = 450)
+                $@"{AssertSqlHelper.Declaration("@__prm_Inner_Nickname_0='Marcus' (Size = 450)")}
 
 SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`
 FROM (
@@ -7175,7 +7176,7 @@ ORDER BY `t`.`FullName`");
             await base.Query_reusing_parameter_doesnt_declare_duplicate_parameter_complex(isAsync);
 
             AssertSql(
-                $@"@__entity_equality_prm_Inner_Squad_0_Id='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__entity_equality_prm_Inner_Squad_0_Id='1' (Nullable = true)")}
 
 SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`
 FROM (
@@ -7328,7 +7329,7 @@ HAVING False = True");
             await base.Select_null_parameter_is_not_null(isAsync);
 
             AssertSql(
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT {AssertSqlHelper.Parameter("@__p_0")}
 FROM `Gears` AS `g`
@@ -7340,7 +7341,7 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer')");
             await base.Where_null_parameter_is_not_null(isAsync);
 
             AssertSql(
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -7360,7 +7361,7 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND ({AssertSqlHelper.Parameter
             await base.Where_with_enum_flags_parameter(isAsync);
 
             AssertSql(
-                $@"@__rank_0='0' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__rank_0='0' (Nullable = true)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -7372,7 +7373,7 @@ SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthNa
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND `g`.`Rank` BAND {AssertSqlHelper.Parameter("@__rank_0")} IS NULL",
                 //
-                $@"@__rank_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__rank_0='1' (Nullable = true)")}
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`

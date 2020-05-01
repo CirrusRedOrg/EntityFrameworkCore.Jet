@@ -29,12 +29,17 @@ LEFT JOIN (
 ) AS `t` ON `e`.`Id` = `t`.`Id`
 ORDER BY `e`.`Id`",
                 //
-                $@"@p1='1'
-@p2='1'
-@p0='FO 108X' (Size = 4000)
-@p3='ChangedEngine' (Size = 4000)
-@p4='47.64491'
-@p5='-122.128101'
+                $@"{AssertSqlHelper.Declaration("@p1='1'")}
+
+{AssertSqlHelper.Declaration("@p2='1'")}
+
+{AssertSqlHelper.Declaration("@p0='FO 108X' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p3='ChangedEngine' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='47.64491'")}
+
+{AssertSqlHelper.Declaration("@p5='-122.128101'")}
 
 SET NOCOUNT ON;
 UPDATE `Engines` SET `Name` = {AssertSqlHelper.Parameter("@p0")}

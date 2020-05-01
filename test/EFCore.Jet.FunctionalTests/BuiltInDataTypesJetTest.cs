@@ -86,7 +86,7 @@ WHERE CAST(DATALENGTH(`p`.`BytesAsImage`) AS int) = 0");
 
                 Assert.Empty(results);
                 AssertSql(
-                    $@"@__timeSpan_0='02:01:00' (Nullable = true)
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_0='02:01:00' (Nullable = true)")}
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
@@ -109,7 +109,7 @@ WHERE `m`.`TimeSpanAsTime` = {AssertSqlHelper.Parameter("@__timeSpan_0")}");
 
                 Assert.Empty(results);
                 AssertSql(
-                    $@"@__timeSpan_1='02:01:00' (Nullable = true)
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
@@ -132,7 +132,7 @@ WHERE DATEDIFF(HOUR, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSp
 
                 Assert.Empty(results);
                 AssertSql(
-                    $@"@__timeSpan_1='02:01:00' (Nullable = true)
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
@@ -155,7 +155,7 @@ WHERE DATEDIFF(MINUTE, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
                 Assert.Empty(results);
                 AssertSql(
-                    $@"@__timeSpan_1='02:01:00' (Nullable = true)
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
 
 SELECT `m`.`Int`
 FROM `MappedNullableDataTypes` AS `m`
@@ -595,62 +595,62 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='True'
-@p2='80' (Size = 1)
-@p3='0x5D5E5F60' (Nullable = false) (Size = 8000)
-@p4='0x61626364' (Nullable = false) (Size = 8000)
-@p5='0x595A5B5C' (Nullable = false) (Size = 8000)
-@p6='B' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p7='C' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p8='73'
-@p9='E' (Nullable = false) (Size = 1)
-@p10='F' (Nullable = false) (Size = 1)
-@p11='H' (Nullable = false) (Size = 1)
-@p12='D' (Nullable = false) (Size = 1)
-@p13='G' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p14='A' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p15='2015-01-02T10:11:12' (DbType = Date)
-@p16='2019-01-02T14:11:12' (DbType = DateTime)
-@p17='2017-01-02T12:11:12'
-@p18='2018-01-02T13:11:12' (DbType = DateTime)
-@p19='2016-01-02T11:11:12.0000000+00:00'
-@p20='101.1'
-@p21='102.2'
-@p22='81.1'
-@p23='103.3'
-@p24='82.2'
-@p25='85.5'
-@p26='83.3'
-@p27='Value4' (Nullable = false) (Size = 20)
-@p28='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p29='84.4'
-@p30='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p31='78'
-@p32='-128'
-@p33='128' (Size = 1)
-@p34='79'
-@p35='887876'
-@p36='Bang!' (Nullable = false) (Size = 5)
-@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p39='help' (Nullable = false) (Size = 4000)
-@p40='anyone!' (Nullable = false) (Size = 4000)
-@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)
-@p42='"
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='True'")}
+{AssertSqlHelper.Declaration("@p2='80' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p3='0x5D5E5F60' (Nullable = false) (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p4='0x61626364' (Nullable = false) (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p5='0x595A5B5C' (Nullable = false) (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p6='B' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p7='C' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p8='73'")}
+{AssertSqlHelper.Declaration("@p9='E' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p10='F' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p11='H' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p12='D' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p13='G' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p14='A' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p15='2015-01-02T10:11:12' (DbType = Date)")}
+{AssertSqlHelper.Declaration("@p16='2019-01-02T14:11:12' (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p17='2017-01-02T12:11:12'")}
+{AssertSqlHelper.Declaration("@p18='2018-01-02T13:11:12' (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p19='2016-01-02T11:11:12.0000000+00:00'")}
+{AssertSqlHelper.Declaration("@p20='101.1'")}
+{AssertSqlHelper.Declaration("@p21='102.2'")}
+{AssertSqlHelper.Declaration("@p22='81.1'")}
+{AssertSqlHelper.Declaration("@p23='103.3'")}
+{AssertSqlHelper.Declaration("@p24='82.2'")}
+{AssertSqlHelper.Declaration("@p25='85.5'")}
+{AssertSqlHelper.Declaration("@p26='83.3'")}
+{AssertSqlHelper.Declaration("@p27='Value4' (Nullable = false) (Size = 20)")}
+{AssertSqlHelper.Declaration("@p28='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p29='84.4'")}
+{AssertSqlHelper.Declaration("@p30='a8f9f951-145f-4545-ac60-b92ff57ada47'")}
+{AssertSqlHelper.Declaration("@p31='78'")}
+{AssertSqlHelper.Declaration("@p32='-128'")}
+{AssertSqlHelper.Declaration("@p33='128' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p34='79'")}
+{AssertSqlHelper.Declaration("@p35='887876'")}
+{AssertSqlHelper.Declaration("@p36='Bang!' (Nullable = false) (Size = 5)")}
+{AssertSqlHelper.Declaration("@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p39='help' (Nullable = false) (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p40='anyone!' (Nullable = false) (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)")}
+{AssertSqlHelper.Declaration(@"@p42='"
                 + entity.StringAsNvarcharMax
-                + @"' (Nullable = false) (Size = -1)
-@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p44='"
+                + @"' (Nullable = false) (Size = -1)")}
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p44='"
                 + entity.StringAsVarcharMax
-                + @"' (Nullable = false) (Size = -1) (DbType = AnsiString)
-@p45='11:15:12'
-@p46='65535'
-@p47='-1'
-@p48='4294967295'
-@p49='-1'
-@p50='-1'
-@p51='18446744073709551615'",
+                + @"' (Nullable = false) (Size = -1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p45='11:15:12'")}
+{AssertSqlHelper.Declaration("@p46='65535'")}
+{AssertSqlHelper.Declaration("@p47='-1'")}
+{AssertSqlHelper.Declaration("@p48='4294967295'")}
+{AssertSqlHelper.Declaration("@p49='-1'")}
+{AssertSqlHelper.Declaration("@p50='-1'")}
+{AssertSqlHelper.Declaration("@p51='18446744073709551615'")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -789,58 +789,58 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='True' (Nullable = true)
-@p2='80' (Nullable = true) (Size = 1)
-@p3='0x5D5E5F60' (Size = 8000)
-@p4='0x61626364' (Size = 8000)
-@p5='0x595A5B5C' (Size = 8000)
-@p6='B' (Size = 1) (DbType = AnsiString)
-@p7='C' (Size = 1) (DbType = AnsiString)
-@p8='73' (Nullable = true)
-@p9='E' (Size = 1)
-@p10='F' (Size = 1)
-@p11='H' (Size = 1)
-@p12='D' (Size = 1)
-@p13='G' (Size = 1) (DbType = AnsiString)
-@p14='A' (Size = 1) (DbType = AnsiString)
-@p15='2015-01-02T10:11:12' (Nullable = true) (DbType = Date)
-@p16='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)
-@p17='2017-01-02T12:11:12' (Nullable = true)
-@p18='2018-01-02T13:11:12' (Nullable = true) (DbType = DateTime)
-@p19='2016-01-02T11:11:12.0000000+00:00' (Nullable = true)
-@p20='101.1' (Nullable = true)
-@p21='102.2' (Nullable = true)
-@p22='81.1' (Nullable = true)
-@p23='103.3' (Nullable = true)
-@p24='82.2' (Nullable = true)
-@p25='85.5' (Nullable = true)
-@p26='83.3' (Nullable = true)
-@p27='Value4' (Size = 20)
-@p28='Value2' (Size = 8000) (DbType = AnsiString)
-@p29='84.4' (Nullable = true)
-@p30='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p31='78' (Nullable = true)
-@p32='-128' (Nullable = true)
-@p33='128' (Nullable = true) (Size = 1)
-@p34='79' (Nullable = true)
-@p35='887876' (Nullable = true)
-@p36='Bang!' (Size = 5)
-@p37='Your' (Size = 8000) (DbType = AnsiString)
-@p38='strong' (Size = 8000) (DbType = AnsiString)
-@p39='help' (Size = 4000)
-@p40='anyone!' (Size = 4000)
-@p41='Gumball Rules OK!' (Size = 4000)
-@p42='don't' (Size = 4000)
-@p43='Gumball Rules!' (Size = 8000) (DbType = AnsiString)
-@p44='C' (Size = 8000) (DbType = AnsiString)
-@p45='11:15:12' (Nullable = true)
-@p46='65535' (Nullable = true)
-@p47='-1' (Nullable = true)
-@p48='4294967295' (Nullable = true)
-@p49='-1' (Nullable = true)
-@p50='-1' (Nullable = true)
-@p51='18446744073709551615' (Nullable = true)",
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='True' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p2='80' (Nullable = true) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p3='0x5D5E5F60' (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p4='0x61626364' (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p5='0x595A5B5C' (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p6='B' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p7='C' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p8='73' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p9='E' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p10='F' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p11='H' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p12='D' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p13='G' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p14='A' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p15='2015-01-02T10:11:12' (Nullable = true) (DbType = Date)")}
+{AssertSqlHelper.Declaration("@p16='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p17='2017-01-02T12:11:12' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p18='2018-01-02T13:11:12' (Nullable = true) (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p19='2016-01-02T11:11:12.0000000+00:00' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p20='101.1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p21='102.2' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p22='81.1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p23='103.3' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p24='82.2' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p25='85.5' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p26='83.3' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p27='Value4' (Size = 20)")}
+{AssertSqlHelper.Declaration("@p28='Value2' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p29='84.4' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p30='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p31='78' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p32='-128' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p33='128' (Nullable = true) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p34='79' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p35='887876' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p36='Bang!' (Size = 5)")}
+{AssertSqlHelper.Declaration("@p37='Your' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p38='strong' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p39='help' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p40='anyone!' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p42='don't' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p44='C' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p45='11:15:12' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p46='65535' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p47='-1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p48='4294967295' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p49='-1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p50='-1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p51='18446744073709551615' (Nullable = true)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -975,7 +975,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='78'
+               $@"{AssertSqlHelper.Declaration("@p0='78'")}
 @p1=NULL
 @p2=NULL (DbType = Byte)
 @p3=NULL (Size = 8000) (DbType = Binary)
@@ -1104,26 +1104,26 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='0x0A0B0C' (Size = 3)
-@p2='0x0C0D0E' (Size = 3)
-@p3='0x0B0C0D' (Size = 3)
-@p4='B' (Size = 3) (DbType = AnsiString)
-@p5='C' (Size = 3) (DbType = AnsiString)
-@p6='E' (Size = 3)
-@p7='F' (Size = 3)
-@p8='D' (Size = 3)
-@p9='A' (Size = 3) (DbType = AnsiString)
-@p10='Wor' (Size = 3) (DbType = AnsiString)
-@p11='Thr' (Size = 3) (DbType = AnsiString)
-@p12='Lon' (Size = 3) (DbType = AnsiString)
-@p13='Let' (Size = 3) (DbType = AnsiString)
-@p14='The' (Size = 3)
-@p15='Squ' (Size = 3)
-@p16='Col' (Size = 3)
-@p17='Won' (Size = 3)
-@p18='Int' (Size = 3)
-@p19='Tha' (Size = 3) (DbType = AnsiString)",
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='0x0A0B0C' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p2='0x0C0D0E' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p3='0x0B0C0D' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p4='B' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p5='C' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p6='E' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p7='F' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p8='D' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p9='A' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p10='Wor' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p11='Thr' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p12='Lon' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p13='Let' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p14='The' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p15='Squ' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p16='Col' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p17='Won' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p18='Int' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p19='Tha' (Size = 3) (DbType = AnsiString)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1194,7 +1194,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='78'
+               $@"{AssertSqlHelper.Declaration("@p0='78'")}
 @p1=NULL (Size = 3) (DbType = Binary)
 @p2=NULL (Size = 3) (DbType = Binary)
 @p3=NULL (Size = 3) (DbType = Binary)
@@ -1259,17 +1259,16 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='2017-01-02T12:11:12' (Size = 3)
-@p2='2016-01-02T11:11:12.0000000+00:00' (Size = 3)
-@p3='102.2' (Size = 3)
-@p4='101.1' (Size = 3)
-@p5='103.3' (Size = 3)
-@p6='85.55000305175781' (Size = 25)
-@p7='85.5' (Size = 3)
-@p8='83.33000183105469' (Size = 25)
-@p9='83.3' (Size = 3)",
-                parameters,
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='2017-01-02T12:11:12' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p2='2016-01-02T11:11:12.0000000+00:00' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p3='102.2' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p4='101.1' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p5='103.3' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p6='85.55000305175781' (Size = 25)")}
+{AssertSqlHelper.Declaration("@p7='85.5' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p8='83.33000183105469' (Size = 25)")}
+{AssertSqlHelper.Declaration("@p9='83.3' (Size = 3)")}",parameters,
                 ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
@@ -1319,11 +1318,13 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='102.2'
-@p2='101.1'
-@p3='103.3'",
-                parameters,
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='102.2'")}
+
+{AssertSqlHelper.Declaration("@p2='101.1'")}
+
+{AssertSqlHelper.Declaration("@p3='103.3'")}",
+parameters,
                 ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
@@ -1361,59 +1362,109 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='True'
-@p1='80' (Size = 1)
-@p2='0x5D5E5F60' (Nullable = false) (Size = 8000)
-@p3='0x61626364' (Nullable = false) (Size = 8000)
-@p4='0x595A5B5C' (Nullable = false) (Size = 8000)
-@p5='B' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p6='C' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p7='73'
-@p8='E' (Nullable = false) (Size = 1)
-@p9='F' (Nullable = false) (Size = 1)
-@p10='H' (Nullable = false) (Size = 1)
-@p11='D' (Nullable = false) (Size = 1)
-@p12='G' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p13='A' (Nullable = false) (Size = 1) (DbType = AnsiString)
-@p14='2015-01-02T10:11:12' (DbType = Date)
-@p15='2019-01-02T14:11:12' (DbType = DateTime)
-@p16='2017-01-02T12:11:12'
-@p17='2018-01-02T13:11:12' (DbType = DateTime)
-@p18='2016-01-02T11:11:12.0000000+00:00'
-@p19='101.1'
-@p20='102.2'
-@p21='81.1'
-@p22='103.3'
-@p23='82.2'
-@p24='85.5'
-@p25='83.3'
-@p26='Value4' (Nullable = false) (Size = 20)
-@p27='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p28='84.4'
-@p29='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p30='77'
-@p31='78'
-@p32='-128'
-@p33='128' (Size = 1)
-@p34='79'
-@p35='887876'
-@p36='Bang!' (Nullable = false) (Size = 5)
-@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p39='help' (Nullable = false) (Size = 4000)
-@p40='anyone!' (Nullable = false) (Size = 4000)
-@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)
-@p42='don't' (Nullable = false) (Size = 4000)
-@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p44='C' (Nullable = false) (Size = 8000) (DbType = AnsiString)
-@p45='11:15:12'
-@p46='65535'
-@p47='-1'
-@p48='4294967295'
-@p49='-1'
-@p50='-1'
-@p51='18446744073709551615'",
-                parameters,
+               $@"{AssertSqlHelper.Declaration("@p0='True'")}
+{AssertSqlHelper.Declaration("@p1='80' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p2='0x5D5E5F60' (Nullable = false) (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p3='0x61626364' (Nullable = false) (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p4='0x595A5B5C' (Nullable = false) (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p5='B' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p6='C' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p7='73'")}
+
+{AssertSqlHelper.Declaration("@p8='E' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p9='F' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p10='H' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p11='D' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p12='G' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p13='A' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p14='2015-01-02T10:11:12' (DbType = Date)")}
+
+{AssertSqlHelper.Declaration("@p15='2019-01-02T14:11:12' (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p16='2017-01-02T12:11:12'")}
+
+{AssertSqlHelper.Declaration("@p17='2018-01-02T13:11:12' (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p18='2016-01-02T11:11:12.0000000+00:00'")}
+
+{AssertSqlHelper.Declaration("@p19='101.1'")}
+
+{AssertSqlHelper.Declaration("@p20='102.2'")}
+
+{AssertSqlHelper.Declaration("@p21='81.1'")}
+
+{AssertSqlHelper.Declaration("@p22='103.3'")}
+
+{AssertSqlHelper.Declaration("@p23='82.2'")}
+
+{AssertSqlHelper.Declaration("@p24='85.5'")}
+
+{AssertSqlHelper.Declaration("@p25='83.3'")}
+
+{AssertSqlHelper.Declaration("@p26='Value4' (Nullable = false) (Size = 20)")}
+
+{AssertSqlHelper.Declaration("@p27='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p28='84.4'")}
+
+{AssertSqlHelper.Declaration("@p29='a8f9f951-145f-4545-ac60-b92ff57ada47'")}
+
+{AssertSqlHelper.Declaration("@p30='77'")}
+
+{AssertSqlHelper.Declaration("@p31='78'")}
+
+{AssertSqlHelper.Declaration("@p32='-128'")}
+
+{AssertSqlHelper.Declaration("@p33='128' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p34='79'")}
+
+{AssertSqlHelper.Declaration("@p35='887876'")}
+
+{AssertSqlHelper.Declaration("@p36='Bang!' (Nullable = false) (Size = 5)")}
+
+{AssertSqlHelper.Declaration("@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p39='help' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p40='anyone!' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p42='don't' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p44='C' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p45='11:15:12'")}
+
+{AssertSqlHelper.Declaration("@p46='65535'")}
+
+{AssertSqlHelper.Declaration("@p47='-1'")}
+
+{AssertSqlHelper.Declaration("@p48='4294967295'")}
+
+{AssertSqlHelper.Declaration("@p49='-1'")}
+
+{AssertSqlHelper.Declaration("@p50='-1'")}
+
+{AssertSqlHelper.Declaration("@p51='18446744073709551615'")}",
+parameters,
                 ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
@@ -1547,58 +1598,108 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='True' (Nullable = true)
-@p1='80' (Nullable = true) (Size = 1)
-@p2='0x61626364' (Size = 8000)
-@p3='0x595A5B5C' (Size = 8000)
-@p4='0x5D5E5F60' (Size = 8000)
-@p5='B' (Size = 1) (DbType = AnsiString)
-@p6='C' (Size = 1) (DbType = AnsiString)
-@p7='73' (Nullable = true)
-@p8='E' (Size = 1)
-@p9='F' (Size = 1)
-@p10='H' (Size = 1)
-@p11='D' (Size = 1)
-@p12='G' (Size = 1) (DbType = AnsiString)
-@p13='A' (Size = 1) (DbType = AnsiString)
-@p14='2015-01-02T10:11:12' (Nullable = true) (DbType = Date)
-@p15='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)
-@p16='2017-01-02T12:11:12' (Nullable = true)
-@p17='2018-01-02T13:11:12' (Nullable = true) (DbType = DateTime)
-@p18='2016-01-02T11:11:12.0000000+00:00' (Nullable = true)
-@p19='101.1' (Nullable = true)
-@p20='102.2' (Nullable = true)
-@p21='81.1' (Nullable = true)
-@p22='103.3' (Nullable = true)
-@p23='82.2' (Nullable = true)
-@p24='85.5' (Nullable = true)
-@p25='83.3' (Nullable = true)
-@p26='Value4' (Size = 20)
-@p27='Value2' (Size = 8000) (DbType = AnsiString)
-@p28='84.4' (Nullable = true)
-@p29='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p30='77' (Nullable = true)
-@p31='78' (Nullable = true)
-@p32='-128' (Nullable = true)
-@p33='128' (Nullable = true) (Size = 1)
-@p34='79' (Nullable = true)
-@p35='887876' (Nullable = true)
-@p36='Bang!' (Size = 5)
-@p37='Your' (Size = 8000) (DbType = AnsiString)
-@p38='strong' (Size = 8000) (DbType = AnsiString)
-@p39='help' (Size = 4000)
-@p40='anyone!' (Size = 4000)
-@p41='Gumball Rules OK!' (Size = 4000)
-@p42='don't' (Size = 4000)
-@p43='Gumball Rules!' (Size = 8000) (DbType = AnsiString)
-@p44='C' (Size = 8000) (DbType = AnsiString)
-@p45='11:15:12' (Nullable = true)
-@p46='65535' (Nullable = true)
-@p47='4294967295' (Nullable = true)
-@p48='-1' (Nullable = true)
-@p49='-1' (Nullable = true)
-@p50='18446744073709551615' (Nullable = true)
-@p51='-1' (Nullable = true)",
+               $@"{AssertSqlHelper.Declaration("@p0='True' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p1='80' (Nullable = true) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p2='0x61626364' (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p3='0x595A5B5C' (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p4='0x5D5E5F60' (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p5='B' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p6='C' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p7='73' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p8='E' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p9='F' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p10='H' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p11='D' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p12='G' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p13='A' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p14='2015-01-02T10:11:12' (Nullable = true) (DbType = Date)")}
+
+{AssertSqlHelper.Declaration("@p15='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p16='2017-01-02T12:11:12' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p17='2018-01-02T13:11:12' (Nullable = true) (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p18='2016-01-02T11:11:12.0000000+00:00' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p19='101.1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p20='102.2' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p21='81.1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p22='103.3' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p23='82.2' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p24='85.5' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p25='83.3' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p26='Value4' (Size = 20)")}
+
+{AssertSqlHelper.Declaration("@p27='Value2' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p28='84.4' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p29='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p30='77' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p31='78' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p32='-128' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p33='128' (Nullable = true) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p34='79' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p35='887876' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p36='Bang!' (Size = 5)")}
+
+{AssertSqlHelper.Declaration("@p37='Your' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p38='strong' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p39='help' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p40='anyone!' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p42='don't' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p44='C' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p45='11:15:12' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p46='65535' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p47='4294967295' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p48='-1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p49='-1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p50='18446744073709551615' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p51='-1' (Nullable = true)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1733,7 +1834,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0=NULL
+               $@"@p0=NULL
 @p1=NULL (DbType = Byte)
 @p2=NULL (Size = 8000) (DbType = Binary)
 @p3=NULL (Size = 8000) (DbType = Binary)
@@ -1763,7 +1864,8 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 @p27=NULL (Size = 8000) (DbType = AnsiString)
 @p28=NULL
 @p29=NULL (DbType = Guid)
-@p30='78' (Nullable = true)
+{AssertSqlHelper.Declaration("@p30='78' (Nullable = true)")}
+
 @p31=NULL (DbType = Int64)
 @p32=NULL (DbType = Int16)
 @p33=NULL (DbType = Byte)
@@ -1864,26 +1966,44 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='0x0A0B0C' (Size = 3)
-@p1='0x0C0D0E' (Size = 3)
-@p2='0x0B0C0D' (Size = 3)
-@p3='B' (Size = 3) (DbType = AnsiString)
-@p4='C' (Size = 3) (DbType = AnsiString)
-@p5='E' (Size = 3)
-@p6='F' (Size = 3)
-@p7='D' (Size = 3)
-@p8='A' (Size = 3) (DbType = AnsiString)
-@p9='77'
-@p10='Wor' (Size = 3) (DbType = AnsiString)
-@p11='Thr' (Size = 3) (DbType = AnsiString)
-@p12='Lon' (Size = 3) (DbType = AnsiString)
-@p13='Let' (Size = 3) (DbType = AnsiString)
-@p14='The' (Size = 3)
-@p15='Squ' (Size = 3)
-@p16='Col' (Size = 3)
-@p17='Won' (Size = 3)
-@p18='Int' (Size = 3)
-@p19='Tha' (Size = 3) (DbType = AnsiString)",
+               $@"{AssertSqlHelper.Declaration("@p0='0x0A0B0C' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p1='0x0C0D0E' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p2='0x0B0C0D' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p3='B' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p4='C' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p5='E' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p6='F' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p7='D' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p8='A' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p9='77'")}
+
+{AssertSqlHelper.Declaration("@p10='Wor' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p11='Thr' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p12='Lon' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p13='Let' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p14='The' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p15='Squ' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p16='Col' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p17='Won' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p18='Int' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p19='Tha' (Size = 3) (DbType = AnsiString)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1954,7 +2074,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0=NULL (Size = 3) (DbType = Binary)
+               $@"@p0=NULL (Size = 3) (DbType = Binary)
 @p1=NULL (Size = 3) (DbType = Binary)
 @p2=NULL (Size = 3) (DbType = Binary)
 @p3=NULL (Size = 3) (DbType = AnsiString)
@@ -1963,7 +2083,8 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 @p6=NULL (Size = 3)
 @p7=NULL (Size = 3)
 @p8=NULL (Size = 3) (DbType = AnsiString)
-@p9='78'
+{AssertSqlHelper.Declaration("@p9='78'")}
+
 @p10=NULL (Size = 3) (DbType = AnsiString)
 @p11=NULL (Size = 3) (DbType = AnsiString)
 @p12=NULL (Size = 3) (DbType = AnsiString)
@@ -2019,16 +2140,24 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='2017-01-02T12:11:12' (Size = 3)
-@p1='2016-01-02T11:11:12.0000000+00:00' (Size = 3)
-@p2='102.2' (Size = 3)
-@p3='101.1' (Size = 3)
-@p4='103.3' (Size = 3)
-@p5='85.55000305175781' (Size = 25)
-@p6='85.5' (Size = 3)
-@p7='83.33000183105469' (Size = 25)
-@p8='83.3' (Size = 3)
-@p9='77'",
+               $@"{AssertSqlHelper.Declaration("@p0='2017-01-02T12:11:12' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p1='2016-01-02T11:11:12.0000000+00:00' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p2='102.2' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p3='101.1' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p4='103.3' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p5='85.55000305175781' (Size = 25)")}
+
+{AssertSqlHelper.Declaration("@p6='85.5' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p7='83.33000183105469' (Size = 25)")}
+
+{AssertSqlHelper.Declaration("@p8='83.3' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p9='77'")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -2080,10 +2209,12 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='102.2'
-@p1='101.1'
-@p2='103.3'
-@p3='77'",
+               $@"{AssertSqlHelper.Declaration("@p0='102.2'")}
+{AssertSqlHelper.Declaration("@p1='101.1'")}
+
+{AssertSqlHelper.Declaration("@p2='103.3'")}
+
+{AssertSqlHelper.Declaration("@p3='77'")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 

@@ -995,8 +995,9 @@ Queen of the Andals and the Rhoynar and the First Men, Khaleesi of the Great Gra
 
                     // issue #16057
                     //                    AssertSql(
-                    //                        $@"@__firstName_0='Foo' (Size = 450)
-                    //@__8__locals1_details_LastName_1='Bar' (Size = 450)
+                    //                        $@"{AssertSqlHelper.Declaration("@__firstName_0='Foo' (Size = 450)")}
+
+//@__8__locals1_details_LastName_1='Bar' (Size = 450)
 
                     //SELECT `c`.`FirstName`, `c`.`LastName`
                     //FROM `Customer` AS `c`
@@ -2278,13 +2279,13 @@ WHERE (`e`.`PermissionShort` BAND 4) = 4");
                     Assert.Equal(2, context.Cache.Count);
 
                     AssertSql(
-                        $@"@__id_0='1'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='1'")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}",
                         //
-                        $@"@__id_0='2'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='2'")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -2315,13 +2316,13 @@ WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}");
                     Assert.Equal(2, context.Cache.Count);
 
                     AssertSql(
-                        $@"@__id_0='1'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='1'")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}",
                         //
-                        $@"@__id_0='2'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='2'")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -2354,7 +2355,7 @@ WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}");
                     Assert.Equal(2, context.Cache.Count);
 
                     AssertSql(
-                        $@"@__id_0='1'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='1'")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -2364,7 +2365,7 @@ WHERE `e`.`Id` IN (
     WHERE `e0`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 )",
                         //
-                        $@"@__id_0='2'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='2'")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -2396,7 +2397,7 @@ WHERE `e`.`Id` IN (
                     Assert.Equal(3, context.Cache.Count);
 
                     AssertSql(
-                        $@"@__name_0='A' (Size = 4000)
+                        $@"{AssertSqlHelper.Declaration("@__name_0='A' (Size = 4000)")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -2992,7 +2993,7 @@ BEGIN
                     Assert.Single(result);
 
                     AssertSql(
-                        $@"@__p_0='2'
+                        $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`Id`, `t`.`AddressId`, `t`.`CustomerDetailsId`, `t`.`Name`, `t`.`Id0`, `o`.`Id`, `o`.`CustomerId`, `o`.`Name`
 FROM (
@@ -3359,8 +3360,9 @@ ORDER BY `p`.`Id`, `c`.`Id`");
                 Assert.Equal("Full1", result.User.Fullname);
 
                 AssertSql(
-                    $@"@__p_0='?' (DbType = Int32)
-@__p_1='?' (DbType = Int32)
+                    $@"{AssertSqlHelper.Declaration("@__p_0='?' (DbType = Int32)")}
+
+{AssertSqlHelper.Declaration("@__p_1='?' (DbType = Int32)")}
 
 SELECT `t0`.`Id`, `t0`.`Text`, `t0`.`Id0`, `t0`.`User_Email`, `t0`.`User_Fullname`
 FROM (
@@ -3440,19 +3442,19 @@ WHERE (`t0`.`__RowNumber__` > {AssertSqlHelper.Parameter("@__p_0")}) AND (`t0`.`
                     Assert.Equal(2, context.Blogs.Count());
 
                     AssertSql(
-                        $@"@__ef_filter__Tenant_0='0'
+                        $@"{AssertSqlHelper.Declaration("@__ef_filter__Tenant_0='0'")}
 
 SELECT `e`.`Id`, `e`.`SomeValue`
 FROM `Blogs` AS `e`
 WHERE `e`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}",
                         //
-                        $@"@__ef_filter__Tenant_0='1'
+                        $@"{AssertSqlHelper.Declaration("@__ef_filter__Tenant_0='1'")}
 
 SELECT `e`.`Id`, `e`.`SomeValue`
 FROM `Blogs` AS `e`
 WHERE `e`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}",
                         //
-                        $@"@__ef_filter__Tenant_0='2'
+                        $@"{AssertSqlHelper.Declaration("@__ef_filter__Tenant_0='2'")}
 
 SELECT COUNT(*)
 FROM `Blogs` AS `e`
@@ -4698,7 +4700,7 @@ WHERE `r`.`MyTime` IN ('2018-10-07T00:00:00')");
                     Assert.Single(query);
 
                     AssertSql(
-                        $@"@__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
+                        $@"{AssertSqlHelper.Declaration("@__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'")}
 
 SELECT `t`.`Id`, `t`.`Type`
 FROM `Todos` AS `t`
@@ -4928,7 +4930,7 @@ ORDER BY `p`.`Id`, `t0`.`Id`");
                     context.SaveChanges();
 
                     AssertSql(
-                        $@"@p0='BaseEntity13079' (Nullable = false) (Size = 4000)
+                        $@"{AssertSqlHelper.Declaration("@p0='BaseEntity13079' (Nullable = false) (Size = 4000)")}
 
 SET NOCOUNT ON;
 INSERT INTO `BaseEntities` (`Discriminator`)
@@ -5968,7 +5970,7 @@ WHERE `t`.`OwnedEntity_OwnedValue` = 'Abc'");
                     var entities = context.Set<Parent17276>().Where(specification.Criteria).ToList();
 
                     AssertSql(
-                        $@"@__id_0='1'
+                        $@"{AssertSqlHelper.Declaration("@__id_0='1'")}
 
 SELECT `p`.`Id`, `p`.`RemovableEntityId`
 FROM `Parents` AS `p`
@@ -6093,7 +6095,7 @@ WHERE `f`.`String` = '1337'");
                     var query = context.Foos.Where(f => f.String == bar.Value).ToList();
 
                     AssertSql(
-                        $@"@__bar_Value_0='1337' (Size = 4000)
+                        $@"{AssertSqlHelper.Declaration("@__bar_Value_0='1337' (Size = 4000)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -6114,7 +6116,7 @@ WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__bar_Value_0")}");
                     var query = context.Foos.Where(f => f.String == bar.ToString()).ToList();
 
                     AssertSql(
-                        $@"@__ToString_0='1337' (Size = 4000)
+                        $@"{AssertSqlHelper.Declaration("@__ToString_0='1337' (Size = 4000)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -6135,7 +6137,7 @@ WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__ToString_0")}");
                     var query = context.Foos.Where(f => f.String == bar).ToList();
 
                     AssertSql(
-                        $@"@__p_0='1337' (Size = 4000)
+                        $@"{AssertSqlHelper.Declaration("@__p_0='1337' (Size = 4000)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -7148,7 +7150,7 @@ WHERE `e`.`Id` = 1");
             Assert.Equal(1, query);
 
             AssertSql(
-                $@"@__action_0='1'
+                $@"{AssertSqlHelper.Declaration("@__action_0='1'")}
 
 SELECT COUNT(*)
 FROM `Offers` AS `o`
@@ -7250,7 +7252,7 @@ WHERE EXISTS (
             Assert.Equal(1, query.Id);
 
             AssertSql(
-                $@"@__id_0='1'
+                $@"{AssertSqlHelper.Declaration("@__id_0='1'")}
 
 SELECT TOP 1 `m`.`Id`, `m`.`Name`, `m`.`NavigationEntityId`
 FROM `MockEntities` AS `m`

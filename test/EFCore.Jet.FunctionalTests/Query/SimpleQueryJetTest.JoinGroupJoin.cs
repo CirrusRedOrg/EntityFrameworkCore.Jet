@@ -2,6 +2,7 @@
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -43,7 +44,7 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`,
             await base.Client_Join_select_many(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
 FROM (
@@ -52,7 +53,7 @@ FROM (
     ORDER BY `e0`.`EmployeeID`
 ) AS `t0`",
                 //
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`EmployeeID`, `t`.`City`, `t`.`Country`, `t`.`FirstName`, `t`.`ReportsTo`, `t`.`Title`
 FROM (
@@ -107,7 +108,7 @@ WHERE `t`.`CustomerID` = 'ALFKI'");
             await base.Join_customers_orders_with_subquery_with_take(isAsync);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `c`.`ContactName`, `t`.`OrderID`
 FROM `Customers` AS `c`
@@ -138,7 +139,7 @@ WHERE `t`.`CustomerID` = 'ALFKI'");
             await base.Join_customers_orders_with_subquery_anonymous_property_method_with_take(isAsync);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM `Customers` AS `c`
@@ -170,7 +171,7 @@ WHERE `t`.`CustomerID` = 'ALFKI'");
             await base.Join_customers_orders_with_subquery_predicate_with_take(isAsync);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `c`.`ContactName`, `t`.`OrderID`
 FROM `Customers` AS `c`
@@ -226,8 +227,8 @@ FROM `Customers` AS `c`");
 
             AssertSql(
                 $@"SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
-FROM `Customers` AS `c`
-INNER JOIN `Customers` AS `c0` ON `c`.`CustomerID` = `c0`.`CustomerID`
+FROM (`Customers` AS `c`
+INNER JOIN `Customers` AS `c0` ON `c`.`CustomerID` = `c0`.`CustomerID`)
 INNER JOIN `Customers` AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`");
         }
 
@@ -257,7 +258,7 @@ ORDER BY `c`.`CustomerID`");
             await base.GroupJoin_customers_orders_count_preserves_ordering(isAsync);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -338,7 +339,7 @@ ORDER BY `c`.`City`");
             await base.GroupJoin_simple_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='4'
+                $@"{AssertSqlHelper.Declaration("@__p_0='4'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM `Customers` AS `c`
@@ -385,7 +386,7 @@ LEFT JOIN `Orders` AS `o` ON `e`.`EmployeeID` = `o`.`EmployeeID`");
             await base.GroupJoin_DefaultIfEmpty3(isAsync);
 
             AssertSql(
-                $@"@__p_0='1'
+                $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
@@ -564,7 +565,7 @@ ORDER BY `c`.`CustomerID` DESC");
             await base.GroupJoin_Subquery_with_Take_Then_SelectMany_Where(isAsync);
 
             AssertSql(
-                $@"@__p_0='100'
+                $@"{AssertSqlHelper.Declaration("@__p_0='100'")}
 
 SELECT `c`.`CustomerID`, `t0`.`OrderID`
 FROM `Customers` AS `c`
@@ -577,6 +578,12 @@ INNER JOIN (
     ) AS `t`
     WHERE `t`.`CustomerID` IS NOT NULL AND (`t`.`CustomerID` LIKE 'A' & '%')
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`");
+        }
+
+        [ConditionalTheory(Skip = "Can be supported after rearranging CROSS JOIN/JOIN expressions.")]
+        public override Task GroupJoin_subquery_projection_outer_mixed(bool isAsync)
+        {
+            return base.GroupJoin_subquery_projection_outer_mixed(isAsync);
         }
     }
 }

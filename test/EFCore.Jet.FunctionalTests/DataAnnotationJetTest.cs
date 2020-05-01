@@ -182,20 +182,26 @@ LEFT JOIN (
 ) AS `t0` ON `s`.`UniqueNo` = `t0`.`UniqueNo`
 WHERE `s`.`UniqueNo` = 1",
                 //
-                $@"@p2='1'
-@p0='ModifiedData' (Nullable = false) (Size = 4000)
-@p1='00000000-0000-0000-0003-000000000001'
-@p3='00000001-0000-0000-0000-000000000001'
+                $@"{AssertSqlHelper.Declaration("@p2='1'")}
+
+{AssertSqlHelper.Declaration("@p0='ModifiedData' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0003-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
 
 SET NOCOUNT ON;
 UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
 WHERE `UniqueNo` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
 SELECT @@ROWCOUNT;",
                 //
-                $@"@p2='1'
-@p0='ChangedData' (Nullable = false) (Size = 4000)
-@p1='00000000-0000-0000-0002-000000000001'
-@p3='00000001-0000-0000-0000-000000000001'
+                $@"{AssertSqlHelper.Declaration("@p2='1'")}
+
+{AssertSqlHelper.Declaration("@p0='ChangedData' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0002-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
 
 SET NOCOUNT ON;
 UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
@@ -209,10 +215,13 @@ SELECT @@ROWCOUNT;");
 
             AssertSql(
                 $@"@p0=NULL (Size = 10)
-@p1='Third' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000003'
-@p3='Third Additional Name' (Size = 4000)
-@p4='Third Name' (Size = 4000)
+{AssertSqlHelper.Declaration("@p1='Third' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000003'")}
+
+{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='Third Name' (Size = 4000)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
@@ -227,11 +236,15 @@ WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();");
             base.MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
             AssertSql(
-                $@"@p0='Short' (Size = 10)
-@p1='ValidString' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000001'
-@p3='Third Additional Name' (Size = 4000)
-@p4='Third Name' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='Short' (Size = 10)")}
+
+{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='Third Name' (Size = 4000)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
@@ -240,11 +253,15 @@ SELECT `UniqueNo`
 FROM `Sample`
 WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();",
                 //
-                $@"@p0='VeryVeryVeryVeryVeryVeryLongString' (Size = -1)
-@p1='ValidString' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000002'
-@p3='Third Additional Name' (Size = 4000)
-@p4='Third Name' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p0='VeryVeryVeryVeryVeryVeryLongString' (Size = -1)")}
+
+{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
+
+{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='Third Name' (Size = 4000)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
@@ -260,7 +277,7 @@ WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();");
 
             AssertSql(
                 $@"@p0=NULL (DbType = Int32)
-@p1='1'
+{AssertSqlHelper.Declaration("@p1='1'")}
 
 SET NOCOUNT ON;
 INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
@@ -286,10 +303,13 @@ WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
 
             AssertSql(
                 $@"@p0=NULL (Size = 10)
-@p1='ValidString' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000001'
-@p3='Two' (Size = 4000)
-@p4='One' (Size = 4000)
+{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='Two' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='One' (Size = 4000)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
@@ -300,9 +320,11 @@ WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();",
                 //
                 $@"@p0=NULL (Size = 10)
 @p1=NULL (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000002'
-@p3='Two' (Size = 4000)
-@p4='One' (Size = 4000)
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
+
+{AssertSqlHelper.Declaration("@p3='Two' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='One' (Size = 4000)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
@@ -317,7 +339,7 @@ WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();");
             base.StringLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
             AssertSql(
-                $@"@p0='ValidString' (Size = 16)
+                $@"{AssertSqlHelper.Declaration("@p0='ValidString' (Size = 16)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Two` (`Data`)
@@ -326,7 +348,7 @@ SELECT `Id`, `Timestamp`
 FROM `Two`
 WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();",
                 //
-                $@"@p0='ValidButLongString' (Size = -1)
+                $@"{AssertSqlHelper.Declaration("@p0='ValidButLongString' (Size = -1)")}
 
 SET NOCOUNT ON;
 INSERT INTO `Two` (`Data`)

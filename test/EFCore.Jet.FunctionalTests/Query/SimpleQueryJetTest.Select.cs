@@ -2,6 +2,7 @@
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -30,7 +31,7 @@ FROM `Orders` AS `o`");
             await base.Projection_when_arithmetic_mixed(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT CAST(`t0`.`EmployeeID` AS bigint) + CAST(`t`.`OrderID` AS bigint) AS `Add`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, 42 AS `Literal`, `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
 FROM (
@@ -123,7 +124,7 @@ WHERE `e`.`EmployeeID` = 1");
             await base.Select_bool_closure_with_order_parameter_with_cast_to_nullable(isAsync);
 
             AssertSql(
-                $@"@__boolean_0='False'
+                $@"{AssertSqlHelper.Declaration("@__boolean_0='False'")}
 
 SELECT {AssertSqlHelper.Parameter("@__boolean_0")}
 FROM `Customers` AS `c`");
@@ -215,7 +216,7 @@ FROM `Customers` AS `c`");
             await base.Select_local(isAsync);
 
             AssertSql(
-                $@"@__x_0='10'
+                $@"{AssertSqlHelper.Declaration("@__x_0='10'")}
 
 SELECT {AssertSqlHelper.Parameter("@__x_0")}
 FROM `Customers` AS `c`");
@@ -226,7 +227,7 @@ FROM `Customers` AS `c`");
             await base.Select_scalar_primitive_after_take(isAsync);
 
             AssertSql(
-                $@"@__p_0='9'
+                $@"{AssertSqlHelper.Declaration("@__p_0='9'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `e`.`EmployeeID`
 FROM `Employees` AS `e`");
@@ -262,42 +263,42 @@ FROM `Customers` AS `c`
 WHERE `c`.`City` = 'London'
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_CustomerID='AROUT' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='AROUT' (Size = 5)")}
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 WHERE (`o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}) AND (DATEPART('yyyy', `o`.`OrderDate`) = 1997)
 ORDER BY `o`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='BSBEV' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='BSBEV' (Size = 5)")}
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 WHERE (`o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}) AND (DATEPART('yyyy', `o`.`OrderDate`) = 1997)
 ORDER BY `o`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='CONSH' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='CONSH' (Size = 5)")}
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 WHERE (`o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}) AND (DATEPART('yyyy', `o`.`OrderDate`) = 1997)
 ORDER BY `o`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='EASTC' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='EASTC' (Size = 5)")}
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 WHERE (`o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}) AND (DATEPART('yyyy', `o`.`OrderDate`) = 1997)
 ORDER BY `o`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='NORTS' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='NORTS' (Size = 5)")}
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 WHERE (`o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}) AND (DATEPART('yyyy', `o`.`OrderDate`) = 1997)
 ORDER BY `o`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='SEVES' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='SEVES' (Size = 5)")}
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
@@ -564,7 +565,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'");
             await base.Projection_in_a_subquery_should_be_liftable(isAsync);
 
             AssertSql(
-                $@"@__p_0='1'
+                $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
@@ -582,6 +583,7 @@ FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10300");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(isAsync);
@@ -599,6 +601,7 @@ WHERE `o`.`OrderID` < 10300");
 FROM `Customers` AS `c`");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(isAsync);
@@ -613,6 +616,7 @@ FROM `Customers` AS `c`");
 FROM `Customers` AS `c`");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault(isAsync);
@@ -625,6 +629,7 @@ FROM `Customers` AS `c`");
 FROM `Customers` AS `c`");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task
             Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault_followed_by_projecting_length(bool isAsync)
         {
@@ -642,6 +647,7 @@ FROM `Customers` AS `c`");
 FROM `Customers` AS `c`");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(isAsync);
@@ -660,12 +666,13 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(isAsync);
 
             AssertSql(
-                $@"@__i_0='1'
+                $@"{AssertSqlHelper.Declaration("@__i_0='1'")}
 
 SELECT (
     SELECT TOP 1 `t`.`CustomerID`
@@ -679,6 +686,7 @@ SELECT (
 FROM `Customers` AS `c`");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(isAsync);
@@ -708,6 +716,7 @@ FROM `Customers` AS `c`");
                 $@"");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(isAsync);
@@ -725,6 +734,7 @@ FROM `Customers` AS `c`");
 FROM `Customers` AS `c`");
         }
 
+        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(isAsync);

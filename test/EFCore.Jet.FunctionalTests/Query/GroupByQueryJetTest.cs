@@ -573,7 +573,7 @@ FROM `Orders` AS `o`");
             await base.GroupBy_param_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                $@"{AssertSqlHelper.Declaration("@__a_0='2'")}
 
 SELECT SUM(`o`.`OrderID`) AS `Sum`, MIN(`o`.`OrderID`) AS `Min`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`, MAX(`o`.`OrderID`) AS `Max`, AVG(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`))) AS `Avg`
 FROM `Orders` AS `o`");
@@ -611,7 +611,7 @@ FROM `Orders` AS `o`");
             await base.GroupBy_param_with_element_selector_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                $@"{AssertSqlHelper.Declaration("@__a_0='2'")}
 
 SELECT SUM(`o`.`OrderID`) AS `Sum`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`
 FROM `Orders` AS `o`");
@@ -841,7 +841,7 @@ GROUP BY `o`.`CustomerID`");
             await base.OrderBy_Skip_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"@__p_0='80'
+                $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
 
 SELECT AVG(IIf(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`)))
 FROM (
@@ -858,7 +858,7 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"@__p_0='500'
+                $@"{AssertSqlHelper.Declaration("@__p_0='500'")}
 
 SELECT MIN(`t`.`OrderID`)
 FROM (
@@ -874,8 +874,9 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Skip_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"@__p_0='80'
-@__p_1='500'
+                $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
+
+{AssertSqlHelper.Declaration("@__p_1='500'")}
 
 SELECT MAX(`t`.`OrderID`)
 FROM (
@@ -951,9 +952,11 @@ GROUP BY `o0`.`CustomerID`");
             await base.Join_complex_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"@__p_0='100'
-@__p_1='10'
-@__p_2='50'
+                $@"{AssertSqlHelper.Declaration("@__p_0='100'")}
+
+{AssertSqlHelper.Declaration("@__p_1='10'")}
+
+{AssertSqlHelper.Declaration("@__p_2='50'")}
 
 SELECT `t0`.`CustomerID` AS `Key`, AVG(IIf(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`))) AS `Count`
 FROM (
@@ -1044,9 +1047,11 @@ GROUP BY `c`.`Country`");
             await base.GroupJoin_complex_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
-@__p_1='50'
-@__p_2='100'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
+
+{AssertSqlHelper.Declaration("@__p_1='50'")}
+
+{AssertSqlHelper.Declaration("@__p_2='100'")}
 
 SELECT `t0`.`CustomerID` AS `Key`, AVG(IIf(`t0`.`OrderID` IS NULL, NULL, CDBL(`t0`.`OrderID`))) AS `Count`
 FROM (
@@ -1183,8 +1188,9 @@ WHERE `o`.`CustomerID` IN (
             await base.GroupBy_aggregate_Pushdown(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
-@__p_1='4'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
+
+{AssertSqlHelper.Declaration("@__p_1='4'")}
 
 SELECT `t`.`CustomerID`
 FROM (
@@ -1203,8 +1209,9 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")}");
             await base.GroupBy_aggregate_Pushdown_followed_by_projecting_Length(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
-@__p_1='4'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
+
+{AssertSqlHelper.Declaration("@__p_1='4'")}
 
 SELECT CAST(LEN(`t`.`CustomerID`) AS int)
 FROM (
@@ -1223,8 +1230,9 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")}");
             await base.GroupBy_aggregate_Pushdown_followed_by_projecting_constant(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
-@__p_1='4'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
+
+{AssertSqlHelper.Declaration("@__p_1='4'")}
 
 SELECT 5
 FROM (
@@ -1441,28 +1449,28 @@ ORDER BY `t`.`CustomerID`");
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'",
                 //
-                $@"@_outer_CustomerID='ALFKI' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
 
 SELECT `o1`.`OrderID`
 FROM `Orders` AS `o1`
 WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
 ORDER BY `o1`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='ANATR' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ANATR' (Size = 5)")}
 
 SELECT `o1`.`OrderID`
 FROM `Orders` AS `o1`
 WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
 ORDER BY `o1`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='ANTON' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ANTON' (Size = 5)")}
 
 SELECT `o1`.`OrderID`
 FROM `Orders` AS `o1`
 WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
 ORDER BY `o1`.`OrderID`",
                 //
-                $@"@_outer_CustomerID='AROUT' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='AROUT' (Size = 5)")}
 
 SELECT `o1`.`OrderID`
 FROM `Orders` AS `o1`
@@ -1733,7 +1741,7 @@ ORDER BY `o0`.`CustomerID`");
             await base.OrderBy_Skip_GroupBy(isAsync);
 
             AssertSql(
-                $@"@__p_0='800'
+                $@"{AssertSqlHelper.Declaration("@__p_0='800'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM (
@@ -1750,7 +1758,7 @@ ORDER BY `t`.`CustomerID`");
             await base.OrderBy_Take_GroupBy(isAsync);
 
             AssertSql(
-                $@"@__p_0='50'
+                $@"{AssertSqlHelper.Declaration("@__p_0='50'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM (
@@ -1766,8 +1774,9 @@ ORDER BY `t`.`CustomerID`");
             await base.OrderBy_Skip_Take_GroupBy(isAsync);
 
             AssertSql(
-                $@"@__p_0='450'
-@__p_1='50'
+                $@"{AssertSqlHelper.Declaration("@__p_0='450'")}
+
+{AssertSqlHelper.Declaration("@__p_1='50'")}
 
 SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM (
@@ -1895,8 +1904,9 @@ ORDER BY `o`.`OrderID`");
             await base.Join_GroupBy_entity_ToList(isAsync);
 
             AssertSql(
-                $@"@__p_0='5'
-@__p_1='50'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
+
+{AssertSqlHelper.Declaration("@__p_1='50'")}
 
 SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`, `t2`.`OrderID`, `t2`.`CustomerID`, `t2`.`EmployeeID`, `t2`.`OrderDate`
 FROM (
@@ -2105,7 +2115,7 @@ GROUP BY `c`.`Country`");
             await base.GroupBy_with_order_by_skip_and_another_order_by(isAsync);
 
             AssertSql(
-                $@"@__p_0='80'
+                $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
 
 SELECT SUM(`t`.`OrderID`)
 FROM (

@@ -212,37 +212,37 @@ WHERE CHARINDEX('M', `c`.`ContactName`) > 0");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` > @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` < @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` <= @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` <= @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` >= @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
@@ -379,37 +379,37 @@ WHERE CHARINDEX('M', `c`.`ContactName`) > 0");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` > @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` < @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` <= @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` <= @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` >= @__customer_CustomerID_0",
 //                //
-//                $@"@__customer_CustomerID_0='ALFKI' (Size = 4000)
+//                $@"{AssertSqlHelper.Declaration("@__customer_CustomerID_0='ALFKI' (Size = 4000)")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
@@ -484,37 +484,37 @@ WHERE CHARINDEX('M', `c`.`ContactName`) > 0");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__myDatetime_0='1998-05-04T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderDate` = @__myDatetime_0",
 //                //
-//                $@"@__myDatetime_0='1998-05-04T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderDate` <> @__myDatetime_0",
 //                //
-//                $@"@__myDatetime_0='1998-05-04T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderDate` > @__myDatetime_0",
 //                //
-//                $@"@__myDatetime_0='1998-05-04T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderDate` <= @__myDatetime_0",
 //                //
-//                $@"@__myDatetime_0='1998-05-04T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderDate` > @__myDatetime_0",
 //                //
-//                $@"@__myDatetime_0='1998-05-04T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
@@ -527,37 +527,37 @@ WHERE CHARINDEX('M', `c`.`ContactName`) > 0");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__orderId_0='10250'
+//                $@"{AssertSqlHelper.Declaration("@__orderId_0='10250'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderID` = @__orderId_0",
 //                //
-//                $@"@__orderId_0='10250'
+//                $@"{AssertSqlHelper.Declaration("@__orderId_0='10250'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderID` <> @__orderId_0",
 //                //
-//                $@"@__orderId_0='10250'
+//                $@"{AssertSqlHelper.Declaration("@__orderId_0='10250'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderID` > @__orderId_0",
 //                //
-//                $@"@__orderId_0='10250'
+//                $@"{AssertSqlHelper.Declaration("@__orderId_0='10250'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderID` <= @__orderId_0",
 //                //
-//                $@"@__orderId_0='10250'
+//                $@"{AssertSqlHelper.Declaration("@__orderId_0='10250'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
 //WHERE `c`.`OrderID` > @__orderId_0",
 //                //
-//                $@"@__orderId_0='10250'
+//                $@"{AssertSqlHelper.Declaration("@__orderId_0='10250'")}
 
 //SELECT `c`.`OrderID`, `c`.`CustomerID`, `c`.`EmployeeID`, `c`.`OrderDate`
 //FROM `Orders` AS `c`
@@ -1296,7 +1296,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Substring_with_closure(isAsync);
 
             AssertSql(
-                $@"@__start_0='2'
+                $@"{AssertSqlHelper.Declaration("@__start_0='2'")}
 
 SELECT SUBSTRING(`c`.`ContactName`, {AssertSqlHelper.Parameter("@__start_0")} + 1, 3)
 FROM `Customers` AS `c`
@@ -1460,7 +1460,7 @@ WHERE `c`.`CustomerID` = 'ANATR'");
             await base.Static_equals_nullable_datetime_compared_to_non_nullable(isAsync);
 
             AssertSql(
-                $@"@__arg_0='1996-07-04T00:00:00'
+                $@"{AssertSqlHelper.Declaration("@__arg_0='1996-07-04T00:00:00'")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`

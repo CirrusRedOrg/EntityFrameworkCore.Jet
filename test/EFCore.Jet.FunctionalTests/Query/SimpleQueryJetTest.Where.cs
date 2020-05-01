@@ -35,7 +35,7 @@ WHERE EXISTS (
             await base.Where_simple_closure(isAsync);
 
             AssertSql(
-                $@"@__city_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -47,7 +47,7 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_0")}");
             await base.Where_indexer_closure(isAsync);
 
             AssertSql(
-                $@"@__p_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__p_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -59,7 +59,7 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Where_dictionary_key_access_closure(isAsync);
 
             AssertSql(
-                $@"@__get_Item_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__get_Item_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -71,7 +71,7 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__get_Item_0")}");
             await base.Where_tuple_item_closure(isAsync);
 
             AssertSql(
-                $@"@__predicateTuple_Item2_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__predicateTuple_Item2_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -83,7 +83,7 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__predicateTuple_Item2_0")}");
             await base.Where_named_tuple_item_closure(isAsync);
 
             AssertSql(
-                $@"@__predicateTuple_Item2_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__predicateTuple_Item2_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -95,7 +95,7 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__predicateTuple_Item2_0")}");
             await base.Where_simple_closure_constant(isAsync);
 
             AssertSql(
-                $@"@__predicate_0='True'
+                $@"{AssertSqlHelper.Declaration("@__predicate_0='True'")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -107,13 +107,13 @@ WHERE {AssertSqlHelper.Parameter("@__predicate_0")} = True");
             await base.Where_simple_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__city_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_0")}",
                 //
-                $@"@__city_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -125,13 +125,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_0")}");
             await base.Where_method_call_nullable_type_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__p_0='2' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='2' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE CAST(`e`.`ReportsTo` AS bigint) = {AssertSqlHelper.Parameter("@__p_0")}",
                 //
-                $@"@__p_0='5' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='5' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -143,13 +143,13 @@ WHERE CAST(`e`.`ReportsTo` AS bigint) = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Where_method_call_nullable_type_reverse_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__p_0='1' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='1' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE CAST(`e`.`EmployeeID` AS bigint) > {AssertSqlHelper.Parameter("@__p_0")}",
                 //
-                $@"@__p_0='5' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='5' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -161,13 +161,13 @@ WHERE CAST(`e`.`EmployeeID` AS bigint) > {AssertSqlHelper.Parameter("@__p_0")}")
             await base.Where_method_call_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__GetCity_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__GetCity_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__GetCity_0")}",
                 //
-                $@"@__GetCity_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__GetCity_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -179,13 +179,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__GetCity_0")}");
             await base.Where_field_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__city_InstanceFieldValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_InstanceFieldValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_InstanceFieldValue_0")}",
                 //
-                $@"@__city_InstanceFieldValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_InstanceFieldValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -197,13 +197,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_InstanceFieldValue_0")}")
             await base.Where_property_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__city_InstancePropertyValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_InstancePropertyValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_InstancePropertyValue_0")}",
                 //
-                $@"@__city_InstancePropertyValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_InstancePropertyValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -215,13 +215,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_InstancePropertyValue_0")
             await base.Where_static_field_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__StaticFieldValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__StaticFieldValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__StaticFieldValue_0")}",
                 //
-                $@"@__StaticFieldValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__StaticFieldValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -233,13 +233,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__StaticFieldValue_0")}");
             await base.Where_static_property_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__StaticPropertyValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__StaticPropertyValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__StaticPropertyValue_0")}",
                 //
-                $@"@__StaticPropertyValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__StaticPropertyValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -251,13 +251,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__StaticPropertyValue_0")}");
             await base.Where_nested_field_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__city_Nested_InstanceFieldValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_Nested_InstanceFieldValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_Nested_InstanceFieldValue_0")}",
                 //
-                $@"@__city_Nested_InstanceFieldValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_Nested_InstanceFieldValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -269,13 +269,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_Nested_InstanceFieldValue
             await base.Where_nested_property_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__city_Nested_InstancePropertyValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_Nested_InstancePropertyValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_Nested_InstancePropertyValue_0")}",
                 //
-                $@"@__city_Nested_InstancePropertyValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__city_Nested_InstancePropertyValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -287,13 +287,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_Nested_InstancePropertyVa
             await base.Where_new_instance_field_access_query_cache(isAsync);
 
             AssertSql(
-                $@"@__InstanceFieldValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__InstanceFieldValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__InstanceFieldValue_0")}",
                 //
-                $@"@__InstanceFieldValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__InstanceFieldValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -305,13 +305,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__InstanceFieldValue_0")}");
             await base.Where_new_instance_field_access_closure_via_query_cache(isAsync);
 
             AssertSql(
-                $@"@__InstanceFieldValue_0='London' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__InstanceFieldValue_0='London' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__InstanceFieldValue_0")}",
                 //
-                $@"@__InstanceFieldValue_0='Seattle' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__InstanceFieldValue_0='Seattle' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -323,13 +323,13 @@ WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__InstanceFieldValue_0")}");
             await base.Where_simple_closure_via_query_cache_nullable_type(isAsync);
 
             AssertSql(
-                $@"@__p_0='2' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='2' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE CAST(`e`.`ReportsTo` AS bigint) = {AssertSqlHelper.Parameter("@__p_0")}",
                 //
-                $@"@__p_0='5' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='5' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -349,13 +349,13 @@ WHERE `e`.`ReportsTo` IS NULL");
 FROM `Employees` AS `e`
 WHERE `e`.`ReportsTo` IS NULL",
                 //
-                $@"@__p_0='5' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='5' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE CAST(`e`.`ReportsTo` AS bigint) = {AssertSqlHelper.Parameter("@__p_0")}",
                 //
-                $@"@__p_0='2' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__p_0='2' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -367,7 +367,7 @@ WHERE CAST(`e`.`ReportsTo` AS bigint) = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Where_subquery_closure_via_query_cache();
 
             AssertSql(
-                $@"@__customerID_0='ALFKI' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@__customerID_0='ALFKI' (Size = 5)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -376,7 +376,7 @@ WHERE EXISTS (
     FROM `Orders` AS `o`
     WHERE (`o`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID_0")}) AND (`o`.`CustomerID` = `c`.`CustomerID`))",
                 //
-                $@"@__customerID_0='ANATR' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@__customerID_0='ANATR' (Size = 5)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -503,7 +503,7 @@ WHERE False = True");
             await base.Where_equals_using_int_overload_on_mismatched_types(isAsync);
 
             AssertSql(
-                $@"@__p_0='1'
+                $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -563,13 +563,13 @@ WHERE False = True");
             await base.Where_equals_on_mismatched_types_int_nullable_int(isAsync);
 
             AssertSql(
-                $@"@__intPrm_0='2'
+                $@"{AssertSqlHelper.Declaration("@__intPrm_0='2'")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE `e`.`ReportsTo` = {AssertSqlHelper.Parameter("@__intPrm_0")}",
                 //
-                $@"@__intPrm_0='2'
+                $@"{AssertSqlHelper.Declaration("@__intPrm_0='2'")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -581,13 +581,13 @@ WHERE {AssertSqlHelper.Parameter("@__intPrm_0")} = `e`.`ReportsTo`");
             await base.Where_equals_on_matched_nullable_int_types(isAsync);
 
             AssertSql(
-                $@"@__nullableIntPrm_0='2' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__nullableIntPrm_0='2' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE {AssertSqlHelper.Parameter("@__nullableIntPrm_0")} = `e`.`ReportsTo`",
                 //
-                $@"@__nullableIntPrm_0='2' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__nullableIntPrm_0='2' (Nullable = true)")}
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -680,7 +680,7 @@ WHERE SUBSTRING(`c`.`City`, 1 + 1, 2) = 'ea'");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__myDatetime_0='2015-04-10T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
@@ -693,7 +693,7 @@ WHERE SUBSTRING(`c`.`City`, 1 + 1, 2) = 'ea'");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__myDatetime_0='2015-04-10T00:00:00'
+//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
 
 //SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
@@ -715,7 +715,7 @@ WHERE (CONVERT(date, GETDATE()) = CONVERT(date, GETDATE())) OR CONVERT(date, GET
             await base.Where_datetime_date_component(isAsync);
 
             AssertSql(
-                $@"@__myDatetime_0='1998-05-04T00:00:00' (DbType = DateTime)
+                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00' (DbType = DateTime)")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -983,7 +983,7 @@ WHERE ((`c`.`City` = 'London') AND (`c`.`Country` = 'UK')) AND ((`e`.`City` = 'L
             await base.Where_primitive(isAsync);
 
             AssertSql(
-                $@"@__p_0='9'
+                $@"{AssertSqlHelper.Declaration("@__p_0='9'")}
 
 SELECT `t`.`EmployeeID`
 FROM (
@@ -1118,7 +1118,7 @@ WHERE `p`.`Discontinued` <> IIF(`p`.`ProductID` > 50, 1, 0)");
             await base.Where_bool_parameter(isAsync);
 
             AssertSql(
-                $@"@__prm_0='True'
+                $@"{AssertSqlHelper.Declaration("@__prm_0='True'")}
 
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
@@ -1130,7 +1130,7 @@ WHERE {AssertSqlHelper.Parameter("@__prm_0")} = True");
             await base.Where_bool_parameter_compared_to_binary_expression(isAsync);
 
             AssertSql(
-                $@"@__prm_0='True'
+                $@"{AssertSqlHelper.Declaration("@__prm_0='True'")}
 
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
@@ -1142,7 +1142,7 @@ WHERE IIF(`p`.`ProductID` > 50, 1, 0) <> {AssertSqlHelper.Parameter("@__prm_0")}
             await base.Where_bool_member_and_parameter_compared_to_binary_expression_nested(isAsync);
 
             AssertSql(
-                $@"@__prm_0='True'
+                $@"{AssertSqlHelper.Declaration("@__prm_0='True'")}
 
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
@@ -1257,7 +1257,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Where_concat_string_int_comparison1(isAsync);
 
             AssertSql(
-                $@"@__i_0='10'
+                $@"{AssertSqlHelper.Declaration("@__i_0='10'")}
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1269,7 +1269,7 @@ WHERE (`c`.`CustomerID` + CAST({AssertSqlHelper.Parameter("@__i_0")} AS nchar(5)
             await base.Where_concat_string_int_comparison2(isAsync);
 
             AssertSql(
-                $@"@__i_0='10'
+                $@"{AssertSqlHelper.Declaration("@__i_0='10'")}
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1281,8 +1281,9 @@ WHERE (CAST({AssertSqlHelper.Parameter("@__i_0")} AS nchar(5)) + `c`.`CustomerID
             await base.Where_concat_string_int_comparison3(isAsync);
 
             AssertSql(
-                $@"@__p_0='30'
-@__j_1='21'
+                $@"{AssertSqlHelper.Declaration("@__p_0='30'")}
+
+{AssertSqlHelper.Declaration("@__j_1='21'")}
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1304,7 +1305,7 @@ WHERE ((CAST(`o`.`OrderID` AS nchar(5)) + `o`.`CustomerID`) = `o`.`CustomerID`) 
             await base.Where_concat_string_string_comparison(isAsync);
 
             AssertSql(
-                $@"@__i_0='A' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@__i_0='A' (Size = 5)")}
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1316,7 +1317,7 @@ WHERE ({AssertSqlHelper.Parameter("@__i_0")} + `c`.`CustomerID`) = `c`.`CompanyN
             await base.Where_string_concat_method_comparison(isAsync);
 
             AssertSql(
-                $@"@__i_0='A' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@__i_0='A' (Size = 5)")}
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1339,7 +1340,7 @@ WHERE `p`.`UnitsInStock` >= 20");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__flag_0='False'
+//                $@"{AssertSqlHelper.Declaration("@__flag_0='False'")}
 
 //SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 //FROM `Products` AS `p`
@@ -1352,7 +1353,8 @@ WHERE `p`.`UnitsInStock` >= 20");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__productId_0='15'
+//                $@"{AssertSqlHelper.Declaration("@__productId_0='15'")}
+
 //@__flag_1='True'
 
 //SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
@@ -1366,7 +1368,7 @@ WHERE `p`.`UnitsInStock` >= 20");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__flag_0='True'
+//                $@"{AssertSqlHelper.Declaration("@__flag_0='True'")}
 
 //SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 //FROM `Products` AS `p`
@@ -1379,7 +1381,7 @@ WHERE `p`.`UnitsInStock` >= 20");
 
             // issue #15994
 //            AssertSql(
-//                $@"@__flag_0='False'
+//                $@"{AssertSqlHelper.Declaration("@__flag_0='False'")}
 
 //SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 //FROM `Products` AS `p`
@@ -1400,9 +1402,11 @@ FROM `Customers` AS `c`");
             await base.Ternary_should_not_evaluate_both_sides(isAsync);
 
             AssertSql(
-                $@"@__p_0='none' (Size = 4000)
-@__p_1='none' (Size = 4000)
-@__p_2='none' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__p_0='none' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@__p_1='none' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@__p_2='none' (Size = 4000)")}
 
 SELECT `c`.`CustomerID`, {AssertSqlHelper.Parameter("@__p_0")} AS `Data1`, {AssertSqlHelper.Parameter("@__p_1")} AS `Data2`, {AssertSqlHelper.Parameter("@__p_2")} AS `Data3`
 FROM `Customers` AS `c`");
@@ -1543,7 +1547,7 @@ WHERE `o0`.`OrderID` IN (10643, 10692, 10702, 10835, 10952, 11011)");
             await base.Where_array_index(isAsync);
 
             AssertSql(
-                $@"@__p_0='ALFKI' (Size = 5)
+                $@"{AssertSqlHelper.Declaration("@__p_0='ALFKI' (Size = 5)")}
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -1648,7 +1652,7 @@ FROM `Orders` AS `o`");
             await base.TypeBinary_short_circuit(isAsync);
 
             AssertSql(
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -1673,13 +1677,13 @@ END = True");
             await base.Enclosing_class_settable_member_generates_parameter(isAsync);
 
             AssertSql(
-                $@"@__SettableProperty_0='4'
+                $@"{AssertSqlHelper.Declaration("@__SettableProperty_0='4'")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` = {AssertSqlHelper.Parameter("@__SettableProperty_0")}",
                 //
-                $@"@__SettableProperty_0='10'
+                $@"{AssertSqlHelper.Declaration("@__SettableProperty_0='10'")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -1691,7 +1695,7 @@ WHERE `o`.`OrderID` = {AssertSqlHelper.Parameter("@__SettableProperty_0")}");
             await base.Enclosing_class_readonly_member_generates_parameter(isAsync);
 
             AssertSql(
-                $@"@__ReadOnlyProperty_0='5'
+                $@"{AssertSqlHelper.Declaration("@__ReadOnlyProperty_0='5'")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`

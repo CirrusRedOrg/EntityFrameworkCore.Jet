@@ -106,16 +106,27 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 Sql.Append(
                     new string(
-                        '(', Math.Max(
-                            0, selectExpression
+                        '(',
+                        Math.Max(
+                            0,
+                            selectExpression
                                 .Tables
                                 .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) - maxTablesWithoutBrackets)));
 
                 for (var index = 0; index < selectExpression.Tables.Count; index++)
                 {
                     var tableExpression = selectExpression.Tables[index];
+
+                    var isApplyExpression = tableExpression is CrossApplyExpression ||
+                                            tableExpression is OuterApplyExpression;
+                    
                     var isCrossExpression = tableExpression is CrossJoinExpression ||
                                             tableExpression is CrossApplyExpression;
+
+                    if (isApplyExpression)
+                    {
+                        throw new InvalidOperationException("Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                    }
 
                     if (index > 0)
                     {
@@ -123,17 +134,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         {
                             Sql.Append(",");
                         }
+                        else if (index >= maxTablesWithoutBrackets &&
+                                 index < selectExpression.Tables.Count - 1)
+                        {
+                            Sql.Append(")");
+                        }
 
                         Sql.AppendLine();
                     }
 
                     Visit(tableExpression);
-
-                    if (!isCrossExpression &&
-                        index >= maxTablesWithoutBrackets)
-                    {
-                        Sql.Append(")");
-                    }
                 }
             }
             else

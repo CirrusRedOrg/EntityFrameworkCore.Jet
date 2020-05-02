@@ -5,11 +5,13 @@ using System.Collections.Generic;
 using System.Data.Jet;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -349,8 +351,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (selectExpression.Offset != null)
             {
-                // Jet does not support skipping rows. Use client evaluation instead.
-                throw new InvalidOperationException(CoreStrings.TranslationFailed(selectExpression.Offset));
+                throw new InvalidOperationException("Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
             }
 
             if (selectExpression.Limit != null)
@@ -430,5 +431,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return caseExpression;
         }
+
+        protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
+            => throw new InvalidOperationException(CoreStrings.TranslationFailed(rowNumberExpression));
     }
 }

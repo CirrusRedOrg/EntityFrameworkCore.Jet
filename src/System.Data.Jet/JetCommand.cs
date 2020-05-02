@@ -18,7 +18,8 @@ namespace System.Data.Jet
         private Guid? _lastGuid;
         private int? _rowCount;
 
-        private static readonly Regex _topRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:\d+|(?:@\w+)|\?)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
+        private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
 
@@ -176,6 +177,8 @@ namespace System.Data.Jet
             // OLE DB forces us to use an existing active transaction, if one is available.
             InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
 
+            ExpandParameters();
+            
             LogHelper.ShowCommandText("ExecuteDbDataReader", InnerCommand);
 
             if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(InnerCommand, _connection.JetFactory.InnerFactory, out var dataReader))
@@ -185,19 +188,17 @@ namespace System.Data.Jet
             if (InnerCommand.CommandType != CommandType.Text)
                 return new JetDataReader(InnerCommand.ExecuteReader(behavior));
 
-            var commandTextList = SplitCommands(InnerCommand.CommandText);
-
-            dataReader = null;
-            foreach (var t in commandTextList)
+            if ((dataReader = TryGetDataReaderForSelectRowCount(InnerCommand.CommandText)) == null)
             {
-                var commandText = t;
-                if ((dataReader = TryGetDataReaderForSelectRowCount(commandText)) != null)
-                    continue;
+                InnerCommand.CommandText = ParseIdentity(InnerCommand.CommandText);
+                InnerCommand.CommandText = ParseGuid(InnerCommand.CommandText);
 
-                commandText = ParseIdentity(commandText);
-                commandText = ParseGuid(commandText);
+                InlineTopParameters();
+                FixParameters();
 
-                dataReader = InternalExecuteDbDataReader(commandText, behavior);
+                dataReader = new JetDataReader(InnerCommand.ExecuteReader(behavior));
+
+                _rowCount = dataReader.RecordsAffected;
             }
 
             return dataReader;
@@ -205,8 +206,7 @@ namespace System.Data.Jet
 
         private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
         {
-            if (_selectRowCountRegularExpression.Match(commandText)
-                .Success)
+            if (_selectRowCountRegularExpression.Match(commandText).Success)
             {
                 if (_rowCount == null)
                     throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
@@ -227,6 +227,8 @@ namespace System.Data.Jet
         {
             if (Connection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+            
+            ExpandParameters();
 
             LogHelper.ShowCommandText("ExecuteNonQuery", InnerCommand);
 
@@ -245,29 +247,30 @@ namespace System.Data.Jet
 
             if (InnerCommand.CommandType != CommandType.Text)
                 return InnerCommand.ExecuteNonQuery();
-
-            var commandTextList = SplitCommands(InnerCommand.CommandText);
-
-            var returnValue = -1;
-            foreach (var t in commandTextList)
+            
+            if (_selectRowCountRegularExpression.Match(InnerCommand.CommandText)
+                .Success)
             {
-                var commandText = t;
-                if (_selectRowCountRegularExpression.Match(commandText)
-                    .Success)
-                {
-                    if (_rowCount == null)
-                        throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
-                    returnValue = _rowCount.Value;
-                    continue;
-                }
-
-                commandText = ParseIdentity(commandText);
-                commandText = ParseGuid(commandText);
-
-                returnValue = InternalExecuteNonQuery(commandText);
+                // TODO: Fix exception message.
+                if (_rowCount == null)
+                    throw new InvalidOperationException("Invalid " + InnerCommand.CommandText + ". Run a DataReader before.");
+                return _rowCount.Value;
             }
 
-            return returnValue;
+            InnerCommand.CommandText = ParseIdentity(InnerCommand.CommandText);
+            InnerCommand.CommandText = ParseGuid(InnerCommand.CommandText);
+
+            if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
+                return 0;
+
+            InnerCommand.CommandText = newCommandText;
+            
+            InlineTopParameters();
+            FixParameters();
+
+            _rowCount = InnerCommand.ExecuteNonQuery();
+
+            return _rowCount.Value;
         }
 
         /// <summary>
@@ -287,6 +290,8 @@ namespace System.Data.Jet
             // OLE DB forces us to use an existing active transaction, if one is available.
             InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
 
+            ExpandParameters();
+            
             LogHelper.ShowCommandText("ExecuteScalar", InnerCommand);
 
             if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(InnerCommand, _connection.JetFactory.InnerFactory, out var dataReader))
@@ -301,42 +306,10 @@ namespace System.Data.Jet
                 return DBNull.Value;
             }
 
+            InlineTopParameters();
+            FixParameters();
+
             return InnerCommand.ExecuteScalar();
-        }
-
-        private JetDataReader InternalExecuteDbDataReader(string commandText, CommandBehavior behavior)
-        {
-            var newCommandText = ApplyTopParameters(commandText);
-            
-            SortParameters(newCommandText, InnerCommand.Parameters);
-            FixParameters(InnerCommand.Parameters);
-
-            var command = (DbCommand) ((ICloneable) InnerCommand).Clone();
-            command.CommandText = newCommandText;
-
-            var dataReader = new JetDataReader(command.ExecuteReader(behavior));
-
-            _rowCount = dataReader.RecordsAffected;
-
-            return dataReader;
-        }
-
-        private int InternalExecuteNonQuery(string commandText)
-        {
-            if (!CheckExists(commandText, out var newCommandText))
-                return 0;
-            
-            newCommandText = ApplyTopParameters(newCommandText);
-
-            SortParameters(newCommandText, InnerCommand.Parameters);
-            FixParameters(InnerCommand.Parameters);
-
-            var command = (DbCommand) ((ICloneable) InnerCommand).Clone();
-            command.CommandText = newCommandText;
-
-            _rowCount = command.ExecuteNonQuery();
-
-            return _rowCount.Value;
         }
 
         private bool CheckExists(string commandText, out string newCommandText)
@@ -368,10 +341,13 @@ namespace System.Data.Jet
             return hasRows;
         }
 
-        private void FixParameters(DbParameterCollection parameters)
+        private void FixParameters()
         {
+            var parameters = InnerCommand.Parameters;
+            
             if (parameters.Count == 0)
                 return;
+            
             foreach (DbParameter parameter in parameters)
             {
                 if (parameter.Value is TimeSpan ts)
@@ -384,65 +360,9 @@ namespace System.Data.Jet
             }
         }
 
-        private void SortParameters(string query, DbParameterCollection parameters)
-        {
-            if (parameters.Count == 0)
-                return;
-
-            var parameterArray = parameters.Cast<DbParameter>()
-                .OrderBy(p => p, new ParameterPositionComparer(query))
-                .ToArray();
-
-            parameters.Clear();
-            parameters.AddRange(parameterArray);
-        }
-
-        private class ParameterPositionComparer : IComparer<DbParameter>
-        {
-            private readonly string _query;
-
-            public ParameterPositionComparer(string query)
-            {
-                _query = query;
-            }
-
-            public int Compare(DbParameter x, DbParameter y)
-            {
-                if (x == null)
-                    throw new ArgumentNullException(nameof(x));
-                if (y == null)
-                    throw new ArgumentNullException(nameof(y));
-
-                var xPosition = _query.IndexOf(x.ParameterName, StringComparison.Ordinal);
-                var yPosition = _query.IndexOf(y.ParameterName, StringComparison.Ordinal);
-                if (xPosition == -1)
-                    xPosition = int.MaxValue;
-                if (yPosition == -1)
-                    yPosition = int.MaxValue;
-                return xPosition.CompareTo(yPosition);
-            }
-        }
-
-        private string[] SplitCommands(string command)
-        {
-            var commandParts =
-                command.Replace("\r\n", "\n")
-                    .Replace("\r", "\n")
-                    .Split(new[] {";\n"}, StringSplitOptions.None);
-            var commands = new List<string>(commandParts.Length);
-            foreach (var commandPart in commandParts)
-            {
-                if (!string.IsNullOrWhiteSpace(
-                    commandPart.Replace("\n", "")
-                        .Replace(";", "")))
-                    commands.Add(commandPart);
-            }
-
-            return commands.ToArray();
-        }
-
         private string ParseIdentity(string commandText)
         {
+            // TODO: Fix the following code, that does work only for common scenarios. Use state machine instead.
             if (commandText.ToLower()
                 .Contains("@@identity"))
             {
@@ -460,6 +380,7 @@ namespace System.Data.Jet
 
         private string ParseGuid(string commandText)
         {
+            // TODO: Fix the following code, that does work only for common scenarios. Use state machine instead.
             while (commandText.ToLower()
                 .Contains("newguid()"))
             {
@@ -477,59 +398,160 @@ namespace System.Data.Jet
             return commandText;
         }
 
-        private string ApplyTopParameters(string commandText)
+        private void InlineTopParameters()
         {
             // We inline all TOP clause parameters of all SELECT statements, because Jet does not support parameters
             // in TOP clauses.
-            var lastCommandText = commandText;
             var parameters = InnerCommand.Parameters.Cast<DbParameter>().ToList();
-            
-            while ((commandText = _topRegularExpression.Replace(
-                commandText,
-                match => (IsParameter(match.Value)
-                        ? Convert.ToInt32(GetOrExtractParameter(commandText, match.Value, match.Index, parameters).Value)
-                        : int.Parse(match.Value))
-                    .ToString(), 1)) != lastCommandText)
-            {
-                lastCommandText = commandText;
-            }
-            
-            InnerCommand.Parameters.Clear();
-            InnerCommand.Parameters.AddRange(parameters.ToArray());
 
-            return commandText;
+            if (parameters.Count > 0)
+            {
+                var lastCommandText = InnerCommand.CommandText;
+                var commandText = lastCommandText;
+
+                while ((commandText = _topParameterRegularExpression.Replace(
+                    lastCommandText,
+                    match => Convert.ToInt32(ExtractParameter(commandText, match.Value, match.Index, parameters).Value).ToString(),
+                    1)) != lastCommandText)
+                {
+                    lastCommandText = commandText;
+                }
+
+                InnerCommand.CommandText = commandText;
+
+                InnerCommand.Parameters.Clear();
+                InnerCommand.Parameters.AddRange(parameters.ToArray());
+            }
         }
 
         protected virtual bool IsParameter(string fragment)
             => fragment.StartsWith("@") ||
                fragment.Equals("?");
 
-        protected virtual DbParameter GetOrExtractParameter(string commandText, string name, int count, List<DbParameter> parameters)
+        protected virtual DbParameter ExtractParameter(string commandText, string name, int count, List<DbParameter> parameters)
         {
-            if (name.Equals("?"))
-            {
-                var index = GetOdbcParameterCount(commandText.Substring(0, count));
-                var parameter = InnerCommand.Parameters[index];
-                
-                parameters.RemoveAt(index);
-                
-                return parameter;
-            }
-
-            return InnerCommand.Parameters[name];
+            var indices = GetParameterIndices(commandText.Substring(0, count));
+            var parameter = InnerCommand.Parameters[indices.Count];
+            
+            parameters.RemoveAt(indices.Count);
+            
+            return parameter;
         }
 
-        private static int GetOdbcParameterCount(string sqlFragment)
+        protected virtual void ExpandParameters()
         {
-            var parameterCount = 0;
+            if (_createProcedureExpression.IsMatch(InnerCommand.CommandText))
+            {
+                return;
+            }
+            
+            var indices = GetParameterIndices(InnerCommand.CommandText);
+
+            if (indices.Count <= 0)
+            {
+                return;
+            }
+
+            var placeholders = GetParameterPlaceholders(InnerCommand.CommandText, indices);
+            
+            if (placeholders.All(t => t.Name.StartsWith("@")))
+            {
+                MatchParametersAndPlaceholders(placeholders);
+
+                if (JetConnection.GetDataAccessProviderType(_connection.DataAccessProviderFactory) == DataAccessProviderType.Odbc)
+                {
+                    foreach (var placeholder in placeholders.Reverse())
+                    {
+                        InnerCommand.CommandText = InnerCommand.CommandText
+                            .Remove(placeholder.Index, placeholder.Name.Length)
+                            .Insert(placeholder.Index, "?");
+                    }
+                }
+                
+                InnerCommand.Parameters.Clear();
+                InnerCommand.Parameters.AddRange(placeholders.Select(p => p.Parameter).ToArray());
+            }
+            else if (placeholders.All(t => t.Name == "?"))
+            {
+                throw new InvalidOperationException("Parameter placeholder count does not match parameter count.");
+            }
+            else
+            {
+                throw new InvalidOperationException("Inconsistent parameter placeholder naming used.");
+            }
+        }
+
+        protected virtual void MatchParametersAndPlaceholders(IReadOnlyList<ParameterPlaceholder> placeholders)
+        {
+            var unusedParameters = InnerCommand.Parameters
+                .Cast<DbParameter>()
+                .ToList();
+
+            foreach (var placeholder in placeholders)
+            {
+                var parameter = unusedParameters
+                    .FirstOrDefault(p => placeholder.Name.Equals(p.ParameterName, StringComparison.Ordinal));
+
+                if (parameter != null)
+                {
+                    placeholder.Parameter = parameter;
+                    unusedParameters.Remove(parameter);
+                }
+                else
+                {
+                    parameter = placeholders
+                        .FirstOrDefault(p => placeholder.Name.Equals(p.Name, StringComparison.Ordinal))
+                        ?.Parameter;
+
+                    if (parameter == null)
+                    {
+                        throw new InvalidOperationException($"Cannot find parameter with same name as parameter placeholder \"{placeholder.Name}\".");
+                    }
+
+                    var newParameter = (DbParameter) (parameter as ICloneable)?.Clone();
+
+                    if (newParameter == null)
+                    {
+                        throw new InvalidOperationException($"Cannot clone parameter \"{parameter.ParameterName}\".");
+                    }
+
+                    placeholder.Parameter = newParameter;
+                }
+            }
+        }
+
+        protected virtual IReadOnlyList<ParameterPlaceholder> GetParameterPlaceholders(string commandText, IEnumerable<int> indices)
+        {
+            var placeholders = new List<ParameterPlaceholder>();
+            
+            foreach (var index in indices)
+            {
+                var match = Regex.Match(commandText.Substring(index), @"^(?:\?|@\w+)");
+
+                if (!match.Success)
+                {
+                    throw new InvalidOperationException("Invalid parameter placeholder found.");
+                }
+                
+                placeholders.Add(new ParameterPlaceholder{ Index = index, Name = match.Value });
+            }
+
+            return placeholders.AsReadOnly();
+        }
+
+        protected virtual IReadOnlyList<int> GetParameterIndices(string sqlFragment)
+        {
+            var parameterIndices = new List<int>();
             
             // We use '\0' as the default state and char.
             var state = '\0';
             var lastChar = '\0';
 
             // State machine to count ODBC parameter occurrences.
-            foreach (var c in sqlFragment)
+            for (var i = 0; i < sqlFragment.Length; i++)
             {
+                var c = sqlFragment[i];
+                
                 if (state == '\'')
                 {
                     // We are currently inside a string, or closed the string in the last iteration but didn't
@@ -604,9 +626,10 @@ namespace System.Data.Jet
                     {
                         state = '`';
                     }
-                    else if (c == '?')
+                    else if (c == '?' ||
+                             c == '@')
                     {
-                        parameterCount++;
+                        parameterIndices.Add(i);
                     }
                 }
 
@@ -617,7 +640,7 @@ namespace System.Data.Jet
                 }
             }
 
-            return parameterCount;
+            return parameterIndices.AsReadOnly();
         }
 
         /// <summary>
@@ -657,5 +680,12 @@ namespace System.Data.Jet
         /// <returns>The created object</returns>
         object ICloneable.Clone()
             => new JetCommand(this);
+        
+        protected class ParameterPlaceholder
+        {
+            public int Index { get; set; }
+            public string Name { get; set; }
+            public DbParameter Parameter { get; set; }
+        }
     }
 }

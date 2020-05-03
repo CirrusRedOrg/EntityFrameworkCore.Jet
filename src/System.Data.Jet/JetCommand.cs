@@ -16,7 +16,6 @@ namespace System.Data.Jet
         private JetTransaction _transaction;
 
         private Guid? _lastGuid;
-        private int? _rowCount;
 
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
         private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
@@ -213,7 +212,7 @@ namespace System.Data.Jet
 
                 dataReader = new JetDataReader(InnerCommand.ExecuteReader(behavior));
 
-                _rowCount = dataReader.RecordsAffected;
+                _connection.RowCount = dataReader.RecordsAffected;
             }
 
             return dataReader;
@@ -261,11 +260,7 @@ namespace System.Data.Jet
             if (_selectRowCountRegularExpression.Match(InnerCommand.CommandText)
                 .Success)
             {
-                // TODO: Fix exception message.
-                if (_rowCount == null)
-                    throw new InvalidOperationException("Invalid " + InnerCommand.CommandText + ". Run a DataReader before.");
-
-                return _rowCount.Value;
+                return _connection.RowCount;
             }
 
             InnerCommand.CommandText = ParseIdentity(InnerCommand.CommandText);
@@ -279,9 +274,7 @@ namespace System.Data.Jet
             InlineTopParameters();
             FixParameters();
 
-            _rowCount = InnerCommand.ExecuteNonQuery();
-
-            return _rowCount.Value;
+            return _connection.RowCount = InnerCommand.ExecuteNonQuery();
         }
 
         /// <summary>
@@ -401,12 +394,9 @@ namespace System.Data.Jet
             if (_selectRowCountRegularExpression.Match(commandText)
                 .Success)
             {
-                if (_rowCount == null)
-                    throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
-
                 var dataTable = new DataTable("Rowcount");
                 dataTable.Columns.Add("ROWCOUNT", typeof(int));
-                dataTable.Rows.Add(_rowCount.Value);
+                dataTable.Rows.Add(_connection.RowCount);
                 return new DataTableReader(dataTable);
             }
 

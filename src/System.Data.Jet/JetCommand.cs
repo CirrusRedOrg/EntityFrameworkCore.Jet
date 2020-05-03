@@ -16,8 +16,6 @@ namespace System.Data.Jet
         private readonly JetConnection _connection;
         private JetTransaction _transaction;
 
-        private Guid? _lastGuid;
-
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
         private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
@@ -455,7 +453,6 @@ namespace System.Data.Jet
             
             commandText = FixupIdentity(commandText);
             commandText = FixupRowCount(commandText);
-            commandText = FixupGuid(commandText);
 
             InnerCommand.CommandText = commandText;
         }
@@ -477,26 +474,6 @@ namespace System.Data.Jet
 
         protected virtual string FixupRowCount(string commandText)
             => FixupGlobalVariablePlaceholder(commandText, "@@rowcount", (outerCommand, placeholder) => outerCommand._connection.RowCount);
-
-        protected virtual string FixupGuid(string commandText)
-        {
-            // TODO: Fix the following code, that does work only for common scenarios. Use state machine instead.
-            while (commandText.ToLower()
-                .Contains("newguid()"))
-            {
-                _lastGuid = Guid.NewGuid();
-                commandText = Regex.Replace(commandText, @"newguid\(\)", $"{{{_lastGuid}}}", RegexOptions.IgnoreCase);
-            }
-
-            if (commandText.ToLower()
-                .Contains("@@guid"))
-            {
-                LogHelper.ShowInfo("@@guid = {{{0}}}", _lastGuid);
-                commandText = Regex.Replace(commandText, "@@guid", $"{{{_lastGuid}}}", RegexOptions.IgnoreCase);
-            }
-
-            return commandText;
-        }
 
         protected virtual string FixupGlobalVariablePlaceholder<T>(string commandText, string placeholder, Func<JetCommand, string, T> valueFactory)
             where T : struct

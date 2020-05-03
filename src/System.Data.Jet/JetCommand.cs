@@ -210,6 +210,7 @@ namespace System.Data.Jet
             {
                 if (_rowCount == null)
                     throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
+                
                 var dataTable = new DataTable("Rowcount");
                 dataTable.Columns.Add("ROWCOUNT", typeof(int));
                 dataTable.Rows.Add(_rowCount.Value);
@@ -540,108 +541,8 @@ namespace System.Data.Jet
         }
 
         protected virtual IReadOnlyList<int> GetParameterIndices(string sqlFragment)
-        {
-            var parameterIndices = new List<int>();
-            
-            // We use '\0' as the default state and char.
-            var state = '\0';
-            var lastChar = '\0';
-
-            // State machine to count ODBC parameter occurrences.
-            for (var i = 0; i < sqlFragment.Length; i++)
-            {
-                var c = sqlFragment[i];
-                
-                if (state == '\'')
-                {
-                    // We are currently inside a string, or closed the string in the last iteration but didn't
-                    // know that at the time, because it still could have been the beginning of an escape sequence.
-
-                    if (c == '\'')
-                    {
-                        // We either end the string, begin an escape sequence or end an escape sequence.
-                        if (lastChar == '\'')
-                        {
-                            // This is the end of an escape sequence.
-                            // We continue being in a string.
-                            lastChar = '\0';
-                        }
-                        else
-                        {
-                            // This is either the beginning of an escape sequence, or the end of the string.
-                            // We will know the in the next iteration.
-                            lastChar = '\'';
-                        }
-                    }
-                    else if (lastChar == '\'')
-                    {
-                        // The last iteration was the end of as string.
-                        // Reset the current state and continue processing the current char.
-                        state = '\0';
-                        lastChar = '\0';
-                    }
-                }
-
-                if (state == '"')
-                {
-                    // We are currently inside a string, or closed the string in the last iteration but didn't
-                    // know that at the time, because it still could have been the beginning of an escape sequence.
-
-                    if (c == '"')
-                    {
-                        // We either end the string, begin an escape sequence or end an escape sequence.
-                        if (lastChar == '"')
-                        {
-                            // This is the end of an escape sequence.
-                            // We continue being in a string.
-                            lastChar = '\0';
-                        }
-                        else
-                        {
-                            // This is either the beginning of an escape sequence, or the end of the string.
-                            // We will know the in the next iteration.
-                            lastChar = '"';
-                        }
-                    }
-                    else if (lastChar == '"')
-                    {
-                        // The last iteration was the end of as string.
-                        // Reset the current state and continue processing the current char.
-                        state = '\0';
-                        lastChar = '\0';
-                    }
-                }
-
-                if (state == '\0')
-                {
-                    if (c == '"')
-                    {
-                        state = '"';
-                    }
-                    else if (c == '\'')
-                    {
-                        state = '\'';
-                    }
-                    else if (c == '`')
-                    {
-                        state = '`';
-                    }
-                    else if (c == '?' ||
-                             c == '@')
-                    {
-                        parameterIndices.Add(i);
-                    }
-                }
-
-                if (state == '`' &&
-                    c == '`')
-                {
-                    state = '\0';
-                }
-            }
-
-            return parameterIndices.AsReadOnly();
-        }
+            => new JetCommandParser(sqlFragment)
+                .GetStateIndices(new[] {'@', '?'});
 
         /// <summary>
         /// Creates a prepared (or compiled) version of the command on the data source

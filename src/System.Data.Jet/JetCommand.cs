@@ -30,7 +30,8 @@ namespace System.Data.Jet
 #endif
             _connection = source._connection;
             _transaction = source._transaction;
-            InnerCommand = source.InnerCommand;
+
+            InnerCommand = (DbCommand) ((ICloneable) source.InnerCommand).Clone();
         }
 
         /// <summary>
@@ -63,7 +64,7 @@ namespace System.Data.Jet
 #endif
         }
 
-        internal DbCommand InnerCommand { get; }
+        protected DbCommand InnerCommand { get; }
 
         /// <summary>
         /// Attempts to Cancels the command execution
@@ -172,17 +173,31 @@ namespace System.Data.Jet
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("ExecuteReader", ConnectionState.Open, Connection.State));
 
+            ExpandParameters();
+
+            var commands = SplitCommands();
+
+            for (var i = 0; i < commands.Count - 1; i++)
+            {
+                commands[i]
+                    .ExecuteNonQueryCore();
+            }
+
+            return commands[commands.Count - 1]
+                .ExecuteDbDataReaderCore(behavior);
+        }
+
+        protected virtual DbDataReader ExecuteDbDataReaderCore(CommandBehavior behavior)
+        {
             InnerCommand.Connection = _connection.InnerConnection;
 
             // OLE DB forces us to use an existing active transaction, if one is available.
             InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
 
-            ExpandParameters();
-            
             LogHelper.ShowCommandText("ExecuteDbDataReader", InnerCommand);
 
             if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(InnerCommand, _connection.JetFactory.InnerFactory, out var dataReader))
-                // Retrieve of store schema definition
+                // Retrieve from store schema definition.
                 return dataReader;
 
             if (InnerCommand.CommandType != CommandType.Text)
@@ -204,22 +219,6 @@ namespace System.Data.Jet
             return dataReader;
         }
 
-        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
-        {
-            if (_selectRowCountRegularExpression.Match(commandText).Success)
-            {
-                if (_rowCount == null)
-                    throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
-                
-                var dataTable = new DataTable("Rowcount");
-                dataTable.Columns.Add("ROWCOUNT", typeof(int));
-                dataTable.Rows.Add(_rowCount.Value);
-                return new DataTableReader(dataTable);
-            }
-
-            return null;
-        }
-
         /// <summary>
         /// Executes the non query.
         /// </summary>
@@ -228,13 +227,23 @@ namespace System.Data.Jet
         {
             if (Connection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
-            
+
             ExpandParameters();
+
+            return SplitCommands()
+                .Aggregate(0, (_, command) => command.ExecuteNonQueryCore());
+        }
+
+        protected virtual int ExecuteNonQueryCore()
+        {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
 
             LogHelper.ShowCommandText("ExecuteNonQuery", InnerCommand);
 
             if (JetStoreDatabaseHandling.TryDatabaseOperation(this))
                 return 1;
+
             if (JetRenameHandling.TryDatabaseOperation(Connection.ConnectionString, InnerCommand.CommandText))
                 return 1;
 
@@ -248,13 +257,14 @@ namespace System.Data.Jet
 
             if (InnerCommand.CommandType != CommandType.Text)
                 return InnerCommand.ExecuteNonQuery();
-            
+
             if (_selectRowCountRegularExpression.Match(InnerCommand.CommandText)
                 .Success)
             {
                 // TODO: Fix exception message.
                 if (_rowCount == null)
                     throw new InvalidOperationException("Invalid " + InnerCommand.CommandText + ". Run a DataReader before.");
+
                 return _rowCount.Value;
             }
 
@@ -265,7 +275,7 @@ namespace System.Data.Jet
                 return 0;
 
             InnerCommand.CommandText = newCommandText;
-            
+
             InlineTopParameters();
             FixParameters();
 
@@ -286,18 +296,38 @@ namespace System.Data.Jet
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteScalar), ConnectionState.Open, Connection.State));
 
+            ExpandParameters();
+
+            var commands = SplitCommands();
+
+            for (var i = 0; i < commands.Count - 1; i++)
+            {
+                commands[i]
+                    .ExecuteNonQueryCore();
+            }
+
+            return commands[commands.Count - 1]
+                .ExecuteScalarCore();
+        }
+
+        protected virtual object ExecuteScalarCore()
+        {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
+            if (Connection.State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteScalar), ConnectionState.Open, Connection.State));
+
             InnerCommand.Connection = _connection.InnerConnection;
 
             // OLE DB forces us to use an existing active transaction, if one is available.
             InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
 
-            ExpandParameters();
-            
             LogHelper.ShowCommandText("ExecuteScalar", InnerCommand);
 
             if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(InnerCommand, _connection.JetFactory.InnerFactory, out var dataReader))
             {
-                // Retrieve of store schema definition
+                // Retrieve from store schema definition.
                 if (dataReader.HasRows)
                 {
                     dataReader.Read();
@@ -311,6 +341,76 @@ namespace System.Data.Jet
             FixParameters();
 
             return InnerCommand.ExecuteScalar();
+        }
+
+        protected virtual IReadOnlyList<JetCommand> SplitCommands()
+        {
+            // At this point, all parameters have already been expanded.
+            
+            var parser = new JetCommandParser(CommandText);
+            var commandDelimiters = parser.GetStateIndices(';');
+            var currentCommandStart = 0;
+            var usedParameterCount = 0;
+            var commands = new List<JetCommand>();
+
+            if (commandDelimiters.Count > 0)
+            {
+                foreach (var commandDelimiter in commandDelimiters)
+                {
+                    var commandText = CommandText.Substring(currentCommandStart, commandDelimiter - currentCommandStart)
+                        .Trim();
+
+                    if (!string.IsNullOrEmpty(commandText))
+                    {
+                        var command = (JetCommand) ((ICloneable) this).Clone();
+                        command.CommandText = commandText;
+
+                        for (var i = 0; i < usedParameterCount; i++)
+                        {
+                            command.Parameters.RemoveAt(0);
+                        }
+                        
+                        var parameterIndices = parser.GetStateIndices(
+                            new[] {'@', '?'},
+                            currentCommandStart,
+                            commandDelimiter - currentCommandStart);
+
+                        while (command.Parameters.Count > parameterIndices.Count)
+                        {
+                            command.Parameters.RemoveAt(parameterIndices.Count);
+                        }
+
+                        usedParameterCount += parameterIndices.Count;
+
+                        commands.Add(command);
+                    }
+
+                    currentCommandStart = commandDelimiter + 1;
+                }
+            }
+            else
+            {
+                commands.Add(this);
+            }
+
+            return commands.AsReadOnly();
+        }
+
+        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
+        {
+            if (_selectRowCountRegularExpression.Match(commandText)
+                .Success)
+            {
+                if (_rowCount == null)
+                    throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
+
+                var dataTable = new DataTable("Rowcount");
+                dataTable.Columns.Add("ROWCOUNT", typeof(int));
+                dataTable.Rows.Add(_rowCount.Value);
+                return new DataTableReader(dataTable);
+            }
+
+            return null;
         }
 
         private bool CheckExists(string commandText, out string newCommandText)
@@ -345,10 +445,10 @@ namespace System.Data.Jet
         private void FixParameters()
         {
             var parameters = InnerCommand.Parameters;
-            
+
             if (parameters.Count == 0)
                 return;
-            
+
             foreach (DbParameter parameter in parameters)
             {
                 if (parameter.Value is TimeSpan ts)
@@ -403,7 +503,8 @@ namespace System.Data.Jet
         {
             // We inline all TOP clause parameters of all SELECT statements, because Jet does not support parameters
             // in TOP clauses.
-            var parameters = InnerCommand.Parameters.Cast<DbParameter>().ToList();
+            var parameters = InnerCommand.Parameters.Cast<DbParameter>()
+                .ToList();
 
             if (parameters.Count > 0)
             {
@@ -412,7 +513,10 @@ namespace System.Data.Jet
 
                 while ((commandText = _topParameterRegularExpression.Replace(
                     lastCommandText,
-                    match => Convert.ToInt32(ExtractParameter(commandText, match.Value, match.Index, parameters).Value).ToString(),
+                    match => Convert.ToInt32(
+                            ExtractParameter(commandText, match.Index, parameters)
+                                .Value)
+                        .ToString(),
                     1)) != lastCommandText)
                 {
                     lastCommandText = commandText;
@@ -429,13 +533,13 @@ namespace System.Data.Jet
             => fragment.StartsWith("@") ||
                fragment.Equals("?");
 
-        protected virtual DbParameter ExtractParameter(string commandText, string name, int count, List<DbParameter> parameters)
+        protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
             var indices = GetParameterIndices(commandText.Substring(0, count));
             var parameter = InnerCommand.Parameters[indices.Count];
-            
+
             parameters.RemoveAt(indices.Count);
-            
+
             return parameter;
         }
 
@@ -445,7 +549,7 @@ namespace System.Data.Jet
             {
                 return;
             }
-            
+
             var indices = GetParameterIndices(InnerCommand.CommandText);
 
             if (indices.Count <= 0)
@@ -454,7 +558,7 @@ namespace System.Data.Jet
             }
 
             var placeholders = GetParameterPlaceholders(InnerCommand.CommandText, indices);
-            
+
             if (placeholders.All(t => t.Name.StartsWith("@")))
             {
                 MatchParametersAndPlaceholders(placeholders);
@@ -468,9 +572,11 @@ namespace System.Data.Jet
                             .Insert(placeholder.Index, "?");
                     }
                 }
-                
+
                 InnerCommand.Parameters.Clear();
-                InnerCommand.Parameters.AddRange(placeholders.Select(p => p.Parameter).ToArray());
+                InnerCommand.Parameters.AddRange(
+                    placeholders.Select(p => p.Parameter)
+                        .ToArray());
             }
             else if (placeholders.All(t => t.Name == "?"))
             {
@@ -524,7 +630,7 @@ namespace System.Data.Jet
         protected virtual IReadOnlyList<ParameterPlaceholder> GetParameterPlaceholders(string commandText, IEnumerable<int> indices)
         {
             var placeholders = new List<ParameterPlaceholder>();
-            
+
             foreach (var index in indices)
             {
                 var match = Regex.Match(commandText.Substring(index), @"^(?:\?|@\w+)");
@@ -533,8 +639,8 @@ namespace System.Data.Jet
                 {
                     throw new InvalidOperationException("Invalid parameter placeholder found.");
                 }
-                
-                placeholders.Add(new ParameterPlaceholder{ Index = index, Name = match.Value });
+
+                placeholders.Add(new ParameterPlaceholder {Index = index, Name = match.Value});
             }
 
             return placeholders.AsReadOnly();
@@ -581,7 +687,7 @@ namespace System.Data.Jet
         /// <returns>The created object</returns>
         object ICloneable.Clone()
             => new JetCommand(this);
-        
+
         protected class ParameterPlaceholder
         {
             public int Index { get; set; }

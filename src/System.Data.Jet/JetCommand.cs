@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -204,9 +205,7 @@ namespace System.Data.Jet
 
             if ((dataReader = TryGetDataReaderForSelectRowCount(InnerCommand.CommandText)) == null)
             {
-                InnerCommand.CommandText = ParseIdentity(InnerCommand.CommandText);
-                InnerCommand.CommandText = ParseGuid(InnerCommand.CommandText);
-
+                FixupGlobalVariables();
                 InlineTopParameters();
                 FixParameters();
 
@@ -263,9 +262,8 @@ namespace System.Data.Jet
                 return _connection.RowCount;
             }
 
-            InnerCommand.CommandText = ParseIdentity(InnerCommand.CommandText);
-            InnerCommand.CommandText = ParseGuid(InnerCommand.CommandText);
-
+            FixupGlobalVariables();
+                
             if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
                 return 0;
 
@@ -451,25 +449,36 @@ namespace System.Data.Jet
             }
         }
 
-        private string ParseIdentity(string commandText)
+        protected virtual void FixupGlobalVariables()
         {
-            // TODO: Fix the following code, that does work only for common scenarios. Use state machine instead.
-            if (commandText.ToLower()
-                .Contains("@@identity"))
-            {
-                DbCommand command;
-                command = (DbCommand) ((ICloneable) InnerCommand).Clone();
-                command.CommandText = "Select @@identity";
-                var identity = command.ExecuteScalar();
-                var iIdentity = Convert.ToInt32(identity);
-                LogHelper.ShowInfo("@@identity = {0}", iIdentity);
-                return Regex.Replace(commandText, "@@identity", iIdentity.ToString(Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
-            }
+            var commandText = InnerCommand.CommandText;
+            
+            commandText = FixupIdentity(commandText);
+            commandText = FixupRowCount(commandText);
+            commandText = FixupGuid(commandText);
 
-            return commandText;
+            InnerCommand.CommandText = commandText;
         }
+        
+        protected virtual string FixupIdentity(string commandText)
+            => FixupGlobalVariablePlaceholder(
+                commandText, "@@identity", (outerCommand, placeholder) =>
+                {
+                    var command = (DbCommand) ((ICloneable) outerCommand.InnerCommand).Clone();
+                    command.CommandText = $"SELECT {placeholder}";
+                    command.Parameters.Clear();
 
-        private string ParseGuid(string commandText)
+                    var identityValue = Convert.ToInt32(command.ExecuteScalar());
+
+                    LogHelper.ShowInfo($"{placeholder} = {identityValue}");
+
+                    return identityValue;
+                });
+
+        protected virtual string FixupRowCount(string commandText)
+            => FixupGlobalVariablePlaceholder(commandText, "@@rowcount", (outerCommand, placeholder) => outerCommand._connection.RowCount);
+
+        protected virtual string FixupGuid(string commandText)
         {
             // TODO: Fix the following code, that does work only for common scenarios. Use state machine instead.
             while (commandText.ToLower()
@@ -487,6 +496,26 @@ namespace System.Data.Jet
             }
 
             return commandText;
+        }
+
+        protected virtual string FixupGlobalVariablePlaceholder<T>(string commandText, string placeholder, Func<JetCommand, string, T> valueFactory)
+            where T : struct
+        {
+            var parser = new JetCommandParser(commandText);
+            var globalVariableIndices = parser.GetStateIndices('$');
+            var placeholderValue = new Lazy<T>(() => valueFactory(this, placeholder));
+            var newCommandText = new StringBuilder(commandText);
+
+            foreach (var globalVariableIndex in globalVariableIndices)
+            {
+                if (commandText.IndexOf(placeholder, globalVariableIndex, placeholder.Length, StringComparison.OrdinalIgnoreCase) > -1)
+                {
+                    newCommandText.Remove(globalVariableIndex, placeholder.Length);
+                    newCommandText.Insert(globalVariableIndex, placeholderValue.Value);
+                }
+            }
+            
+            return newCommandText.ToString();
         }
 
         private void InlineTopParameters()
@@ -518,11 +547,7 @@ namespace System.Data.Jet
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
         }
-
-        protected virtual bool IsParameter(string fragment)
-            => fragment.StartsWith("@") ||
-               fragment.Equals("?");
-
+        
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
             var indices = GetParameterIndices(commandText.Substring(0, count));

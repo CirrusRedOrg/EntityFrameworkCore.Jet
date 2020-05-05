@@ -27,6 +27,7 @@ namespace EntityFrameworkCore.Jet.Internal
             // RowNumberPagingEnabled = jetOptions.RowNumberPaging ?? false;
             
             DataAccessProviderType = GetDataAccessProviderTypeFromOptions(jetOptions);
+            UseOuterSelectSkipEmulationViaDataReader = jetOptions.UseOuterSelectSkipEmulationViaDataReader;
             ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString;
         }
 
@@ -53,6 +54,14 @@ namespace EntityFrameworkCore.Jet.Internal
                 throw new InvalidOperationException(
                     CoreStrings.SingletonOptionChanged(
                         nameof(JetOptionsExtension.DataAccessProviderFactory),
+                        nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
+            }
+
+            if (UseOuterSelectSkipEmulationViaDataReader != jetOptions.UseOuterSelectSkipEmulationViaDataReader)
+            {
+                throw new InvalidOperationException(
+                    CoreStrings.SingletonOptionChanged(
+                        nameof(JetOptionsExtension.UseOuterSelectSkipEmulationViaDataReader),
                         nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
             }
         }
@@ -107,6 +116,14 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual DataAccessProviderType DataAccessProviderType { get; private set; }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual bool UseOuterSelectSkipEmulationViaDataReader { get; private set; }
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

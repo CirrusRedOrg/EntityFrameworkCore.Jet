@@ -41,6 +41,20 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         //    => WithOption(e => e.WithRowNumberPaging(useRowNumberForPaging));
 
         /// <summary>
+        ///     Jet/ACE doesn't natively support row skipping. When this option is enabled, row skipping will be
+        ///     emulated in the most outer SELECT statement, by letting the JetDataReader ignore as many returned rows
+        ///     as should have been skipped by the database.
+        ///     This will only work when `JetCommand.ExecuteDataReader()` is beeing used to execute the `JetCommand`.
+        ///     It is recommanded to not use this option, but to switch to client evaluation instead, by inserting a
+        ///     call to either `AsEnumerable()`, `AsAsyncEnumerable()`, `ToList()`, or `ToListAsync()` and only then
+        ///     to use `Skip()`. This will work in all cases and independent of the specific `JetCommand.Execute()`
+        ///     method called. 
+        /// </summary>
+        [Obsolete("This method exists for backward compatibility reasons only. Switch to client evaluation instead.")]
+        public virtual JetDbContextOptionsBuilder UseOuterSelectSkipEmulationViaDataReader(bool enabled = true)
+            => WithOption(e => e.WithUseOuterSelectSkipEmulationViaDataReader(enabled));
+
+        /// <summary>
         ///     Configures the context to use the default retrying <see cref="IExecutionStrategy" />.
         /// </summary>
         public virtual JetDbContextOptionsBuilder EnableRetryOnFailure()

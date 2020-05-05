@@ -15,9 +15,13 @@ namespace System.Data.Jet
 #endif
         private readonly JetConnection _connection;
         private JetTransaction _transaction;
+        
+        private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
         private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
 
@@ -204,10 +208,12 @@ namespace System.Data.Jet
             if ((dataReader = TryGetDataReaderForSelectRowCount(InnerCommand.CommandText)) == null)
             {
                 FixupGlobalVariables();
+                PrepareOuterSelectSkipEmulationViaDataReader();
                 InlineTopParameters();
+                ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader();
                 FixParameters();
 
-                dataReader = new JetDataReader(InnerCommand.ExecuteReader(behavior));
+                dataReader = new JetDataReader(InnerCommand.ExecuteReader(behavior), _outerSelectSkipEmulationViaDataReaderSkipCount);
 
                 _connection.RowCount = dataReader.RecordsAffected;
             }
@@ -525,6 +531,64 @@ namespace System.Data.Jet
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
         }
+        
+        private void ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader()
+        {
+            // We modify the TOP clause parameter of the outer most SELECT statement if a SKIP clause was also
+            // specified, because Jet does not support skipping records at all, but we can optionally emulate skipping
+            // behavior for the outer most SELECT statement by controlling how the records are being fetched in
+            // JetDataReader.
+
+            if (_outerSelectSkipEmulationViaDataReaderSkipCount > 0)
+            {
+                InnerCommand.CommandText = _outerSelectTopValueRegularExpression.Replace(
+                    InnerCommand.CommandText,
+                    match => (int.Parse(match.Value) + _outerSelectSkipEmulationViaDataReaderSkipCount).ToString());
+            }
+        }
+
+        private void PrepareOuterSelectSkipEmulationViaDataReader()
+        {
+            // We inline the SKIP clause parameter of the outer most SELECT statement, because Jet does not support
+            // skipping records at all, but we can optionally emulate skipping behavior for the outer most SELECT
+            // statement by controlling how the records are being fetched in JetDataReader.
+
+            var match = _outerSelectSkipValueOrParameterRegularExpression.Match(InnerCommand.CommandText);
+
+            if (!match.Success)
+            {
+                return;
+            }
+
+            var skipValueOrParameter = match.Groups["SkipValueOrParameter"];
+
+            if (IsParameter(skipValueOrParameter.Value))
+            {
+                var parameters = InnerCommand.Parameters.Cast<DbParameter>()
+                    .ToList();
+
+                if (parameters.Count <= 0)
+                {
+                    throw new InvalidOperationException($@"Cannot find ""{skipValueOrParameter.Value}"" parameter for SKIP clause.");
+                }
+
+                var parameter = ExtractParameter(InnerCommand.CommandText, match.Index, parameters);
+                _outerSelectSkipEmulationViaDataReaderSkipCount = Convert.ToInt32(parameter.Value);
+                
+                InnerCommand.Parameters.Clear();
+                InnerCommand.Parameters.AddRange(parameters.ToArray());
+            }
+            else
+            {
+                _outerSelectSkipEmulationViaDataReaderSkipCount = int.Parse(skipValueOrParameter.Value);
+            }
+
+            InnerCommand.CommandText = InnerCommand.CommandText.Remove(match.Index, match.Length);
+        }
+        
+        protected virtual bool IsParameter(string fragment)
+            => fragment.Equals("?") ||
+               fragment.Length >= 2 && fragment[0] == '@' && fragment[1] != '@';
         
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {

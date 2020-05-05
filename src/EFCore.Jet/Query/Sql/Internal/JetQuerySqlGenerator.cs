@@ -5,13 +5,12 @@ using System.Collections.Generic;
 using System.Data.Jet;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -37,6 +36,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         };
 
         private readonly ITypeMappingSource _typeMappingSource;
+        private readonly IJetOptions _options;
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         private CoreTypeMapping _boolTypeMapping;
@@ -48,11 +48,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         public JetQuerySqlGenerator(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
             ISqlExpressionFactory sqlExpressionFactory,
-            ITypeMappingSource typeMappingSource)
+            ITypeMappingSource typeMappingSource,
+            IJetOptions options)
             : base(dependencies)
         {
             _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
             _typeMappingSource = typeMappingSource;
+            _options = options;
             _sqlGenerationHelper = dependencies.SqlGenerationHelper;
             _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool));
         }
@@ -351,7 +353,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (selectExpression.Offset != null)
             {
-                throw new InvalidOperationException("Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                if (_options.UseOuterSelectSkipEmulationViaDataReader)
+                {
+                    Sql.Append("SKIP ");
+                    Visit(selectExpression.Offset);
+                    Sql.Append(" ");
+                }
+                else
+                {
+                    throw new InvalidOperationException("Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                }
             }
 
             if (selectExpression.Limit != null)

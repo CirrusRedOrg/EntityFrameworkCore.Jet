@@ -17,6 +17,16 @@ namespace System.Data.Jet
 #endif
             _wrappedDataReader = dataReader;
         }
+        
+        public JetDataReader(DbDataReader dataReader, int skipCount)
+            : this(dataReader)
+        {
+            var i = 0;
+            while (i < skipCount && _wrappedDataReader.Read())
+            {
+                i++;
+            }
+        }
 
         private readonly DbDataReader _wrappedDataReader;
 

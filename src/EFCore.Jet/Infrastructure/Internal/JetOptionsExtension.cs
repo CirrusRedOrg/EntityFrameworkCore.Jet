@@ -22,6 +22,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 
         // private bool? _rowNumberPaging;
         private DbProviderFactory _dataAccessProviderFactory;
+        private bool _useOuterSelectSkipEmulationViaDataReader;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -46,6 +47,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         {
             // _rowNumberPaging = copyFrom._rowNumberPaging;
             _dataAccessProviderFactory = copyFrom._dataAccessProviderFactory;
+            _useOuterSelectSkipEmulationViaDataReader = copyFrom._useOuterSelectSkipEmulationViaDataReader;
         }
 
         /// <summary>
@@ -120,6 +122,29 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        public virtual bool UseOuterSelectSkipEmulationViaDataReader => _useOuterSelectSkipEmulationViaDataReader;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual JetOptionsExtension WithUseOuterSelectSkipEmulationViaDataReader(bool enabled)
+        {
+            var clone = (JetOptionsExtension) Clone();
+
+            clone._useOuterSelectSkipEmulationViaDataReader = enabled;
+
+            return clone;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public override void ApplyServices(IServiceCollection services)
             => services.AddEntityFrameworkJet();
 
@@ -160,6 +185,11 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                             builder.Append("DataAccessProviderFactory ");
                         }
 
+                        if (Extension._useOuterSelectSkipEmulationViaDataReader)
+                        {
+                            builder.Append("UseOuterSelectSkipEmulationViaDataReader ");
+                        }
+
                         _logFragment = builder.ToString();
                     }
 
@@ -172,7 +202,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                 if (_serviceProviderHash == null)
                 {
                     _serviceProviderHash = (base.GetServiceProviderHashCode() * 397) ^
-                                           (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L) /* ^
+                                           (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L) ^
+                                           (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) /* ^
                                            (Extension._rowNumberPaging?.GetHashCode() ?? 0L)*/;
                 }
 
@@ -185,8 +216,12 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                 debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseRowNumberForPaging)]
                     = (Extension._rowNumberPaging?.GetHashCode() ?? 0L).ToString(CultureInfo.InvariantCulture);
                 */
-                debugInfo["Jet:" + nameof(JetOptionsExtension.DataAccessProviderFactory)]
+                debugInfo["Jet:" + nameof(DataAccessProviderFactory)]
                     = (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L).ToString(CultureInfo.InvariantCulture);
+#pragma warning disable 618
+                debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseOuterSelectSkipEmulationViaDataReader)]
+#pragma warning restore 618
+                    = Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
     }

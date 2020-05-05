@@ -13,5 +13,6 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
     {
         string ConnectionString { get; }
         DataAccessProviderType DataAccessProviderType { get; }
+        bool UseOuterSelectSkipEmulationViaDataReader { get; }
     }
 }

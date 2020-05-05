@@ -326,6 +326,7 @@ namespace System.Data.Jet
                 return DBNull.Value;
             }
 
+            FixupGlobalVariables();
             InlineTopParameters();
             FixParameters();
 

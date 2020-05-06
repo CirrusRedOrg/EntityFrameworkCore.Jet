@@ -1292,8 +1292,9 @@ WHERE (
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='0'
-@__p_1='10'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='0'")}
+
+{AssertSqlHelper.Declaration("@__p_1='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`
 FROM (
@@ -1316,8 +1317,9 @@ ORDER BY `t`.`Name`, `t`.`Id`, `l1`.`Id`, `l2`.`Id`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='0'
-@__p_1='10'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='0'")}
+
+{AssertSqlHelper.Declaration("@__p_1='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`
 FROM (
@@ -1341,8 +1343,9 @@ ORDER BY `t`.`Name`, `t`.`Id`, `l2`.`Id`, `l3`.`Id`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"@__p_0='0'
-@__p_1='10'
+                    $@"{AssertSqlHelper.Declaration("@__p_0='0'")}
+
+{AssertSqlHelper.Declaration("@__p_1='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`
 FROM (
@@ -1574,7 +1577,7 @@ ORDER BY `l0`.`Id`");
             await base.Order_by_key_of_projected_navigation_doesnt_get_optimized_into_FK_access_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `l1`.`Name`
 FROM (
@@ -1593,7 +1596,7 @@ ORDER BY `t`.`Id`");
             await base.Order_by_key_of_anonymous_type_projected_navigation_doesnt_get_optimized_into_FK_access_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l0`.`Name`
 FROM `LevelThree` AS `l`
@@ -1606,7 +1609,7 @@ ORDER BY `l0`.`Id`");
             await base.Optional_navigation_take_optional_navigation(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `l1`.`Name`
 FROM (
@@ -1624,7 +1627,7 @@ ORDER BY `t`.`Id`");
             await base.Projection_select_correct_table_from_subquery_when_materialization_is_not_required(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l`.`Name`
 FROM `LevelTwo` AS `l`
@@ -1638,7 +1641,7 @@ ORDER BY `l`.`Id`");
             await base.Projection_select_correct_table_with_anonymous_projection_in_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l`.`Name`
 FROM `LevelTwo` AS `l`
@@ -1654,7 +1657,7 @@ ORDER BY `l0`.`Id`");
             await base.Projection_select_correct_table_in_subquery_when_materialization_is_not_required_in_multiple_joins(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l0`.`Name`
 FROM `LevelTwo` AS `l`
@@ -1669,7 +1672,7 @@ ORDER BY `l0`.`Id`");
             await base.Where_predicate_on_optional_reference_navigation(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l`.`Name`
 FROM `LevelOne` AS `l`
@@ -2507,7 +2510,7 @@ ORDER BY `l1_outer`.`Id`");
             await base.GroupJoin_on_a_subquery_containing_another_GroupJoin_projecting_outer(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `l1`.`Name`
 FROM (
@@ -2528,7 +2531,7 @@ ORDER BY `t`.`Id`");
                 $@"SELECT `l2_outer`.`Level1_Optional_Id`, `l2_outer`.`Name`
 FROM `LevelTwo` AS `l2_outer`",
                 //
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l10`.`Id`, `l10`.`Date`, `l10`.`Name`, `l10`.`OneToMany_Optional_Self_Inverse1Id`, `l10`.`OneToMany_Required_Self_Inverse1Id`, `l10`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l10`
@@ -2541,7 +2544,7 @@ ORDER BY `l10`.`Id`");
             await base.GroupJoin_on_a_subquery_containing_another_GroupJoin_projecting_inner(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `l1`.`Name`
 FROM (
@@ -2560,7 +2563,7 @@ ORDER BY `t`.`Id0`");
             await base.GroupJoin_on_a_subquery_containing_another_GroupJoin_with_orderby_on_inner_sequence_projecting_inner(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `l1`.`Name`
 FROM (
@@ -2581,7 +2584,7 @@ ORDER BY `t0`.`Id0`");
             await base.GroupJoin_on_left_side_being_a_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t`.`Id`, `l1`.`Name` AS `Brand`
 FROM (
@@ -2599,7 +2602,7 @@ ORDER BY `t`.`Name0`, `t`.`Id`");
             await base.GroupJoin_on_right_side_being_a_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `l`.`Id`, `t`.`Name`
 FROM `LevelTwo` AS `l`
@@ -2755,7 +2758,7 @@ ORDER BY `l1`.`Id`");
             await base.Optional_navigation_in_subquery_with_unrelated_projection(isAsync);
 
             AssertSql(
-                $@"@__p_0='15'
+                $@"{AssertSqlHelper.Declaration("@__p_0='15'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l`.`Id`
 FROM `LevelOne` AS `l`
@@ -2769,7 +2772,7 @@ ORDER BY `l`.`Id`");
             await base.Explicit_GroupJoin_in_subquery_with_unrelated_projection(isAsync);
 
             AssertSql(
-                $@"@__p_0='15'
+                $@"{AssertSqlHelper.Declaration("@__p_0='15'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `l`.`Id`
 FROM `LevelOne` AS `l`
@@ -2808,7 +2811,7 @@ WHERE (`l0`.`Name` <> 'Foo') OR `l0`.`Name` IS NULL");
             await base.Explicit_GroupJoin_in_subquery_with_unrelated_projection4(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `t`.`Id`
 FROM (
@@ -2855,8 +2858,9 @@ WHERE (
             await base.Where_on_multilevel_reference_in_subquery_with_outer_projection(isAsync);
 
             AssertSql(
-                $@"@__p_0='0'
-@__p_1='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='0'")}
+
+{AssertSqlHelper.Declaration("@__p_1='10'")}
 
 SELECT `l`.`Name`
 FROM `LevelThree` AS `l`
@@ -2892,7 +2896,7 @@ INNER JOIN `LevelTwo` AS `l0` ON ((`l`.`OneToMany_Optional_Self_Inverse1Id` = `l
             await base.Navigation_filter_navigation_grouping_ordering_by_group_key(isAsync);
 
             AssertSql(
-                $@"@__level1Id_0='1'
+                $@"{AssertSqlHelper.Declaration("@__level1Id_0='1'")}
 
 SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, [l2.OneToMany_Required_Self_Inverse2].`Name`
 FROM `LevelTwo` AS `l2`
@@ -2906,7 +2910,7 @@ ORDER BY [l2.OneToMany_Required_Self_Inverse2].`Name`");
             await base.Nested_group_join_with_take(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `l1`.`Name`
 FROM (
@@ -3838,7 +3842,7 @@ LEFT JOIN `LevelTwo` AS `l0` ON `t`.`Id` = `l0`.`Level1_Optional_Id`");
             await base.Include18_1_1(isAsync);
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`
 FROM (
@@ -3872,7 +3876,7 @@ LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`");
 
             // issue #15783
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`
 FROM (
@@ -3892,7 +3896,7 @@ ORDER BY `t`.`Name0`");
 
             // issue #15783
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`
 FROM (
@@ -3912,7 +3916,7 @@ ORDER BY `t`.`Name0`");
 
             // issue #15783
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`
 FROM (
@@ -3960,7 +3964,7 @@ LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`");
             base.Include18();
 
             AssertSql(
-                $@"@__p_0='10'
+                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
 SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `t`.`Id0`, `t`.`Date0`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Name0`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Optional_Self_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToMany_Required_Self_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t`.`OneToOne_Optional_Self2Id`
 FROM (
@@ -4386,7 +4390,7 @@ FROM (
             await base.Lift_projection_mapping_when_pushing_down_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='25'
+                $@"{AssertSqlHelper.Declaration("@__p_0='25'")}
 
 SELECT `t`.`Id`, `t1`.`Id`, `t1`.`c`, `l1`.`Id`
 FROM (

@@ -59,13 +59,13 @@ WHERE CHARINDEX(NULL, `f`.`FirstName`) <= 0");
             await base.String_contains_on_argument_with_wildcard_parameter(isAsync);
 
             AssertSql(
-                $@"@__prm1_0='%B' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm1_0='%B' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm1_0")} = '') OR (CHARINDEX({AssertSqlHelper.Parameter("@__prm1_0")}, `f`.`FirstName`) > 0)",
                 //
-                $@"@__prm2_0='a_' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm2_0='a_' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -77,25 +77,25 @@ SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE CHARINDEX({AssertSqlHelper.Parameter("@__prm3_0")}, `f`.`FirstName`) > 0",
                 //
-                $@"@__prm4_0='' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm4_0='' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm4_0")} = '') OR (CHARINDEX({AssertSqlHelper.Parameter("@__prm4_0")}, `f`.`FirstName`) > 0)",
                 //
-                $@"@__prm5_0='_Ba_' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm5_0='_Ba_' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm5_0")} = '') OR (CHARINDEX({AssertSqlHelper.Parameter("@__prm5_0")}, `f`.`FirstName`) > 0)",
                 //
-                $@"@__prm6_0='%B%a%r' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm6_0='%B%a%r' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm6_0")} <> '') AND (CHARINDEX({AssertSqlHelper.Parameter("@__prm6_0")}, `f`.`FirstName`) <= 0)",
                 //
-                $@"@__prm7_0='' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm7_0='' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -172,13 +172,13 @@ WHERE False = True");
             await base.String_starts_with_on_argument_with_wildcard_parameter(isAsync);
 
             AssertSql(
-                $@"@__prm1_0='%B' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm1_0='%B' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm1_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm1_0")})) = {AssertSqlHelper.Parameter("@__prm1_0")}))",
                 //
-                $@"@__prm2_0='a_' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm2_0='a_' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -188,25 +188,25 @@ WHERE ({AssertSqlHelper.Parameter("@__prm2_0")} = '') OR (`f`.`FirstName` IS NOT
 FROM `FunkyCustomers` AS `f`
 WHERE False = True",
                 //
-                $@"@__prm4_0='' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm4_0='' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm4_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm4_0")})) = {AssertSqlHelper.Parameter("@__prm4_0")}))",
                 //
-                $@"@__prm5_0='_Ba_' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm5_0='_Ba_' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm5_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm5_0")})) = {AssertSqlHelper.Parameter("@__prm5_0")}))",
                 //
-                $@"@__prm6_0='%B%a%r' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm6_0='%B%a%r' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm6_0")} <> '') AND (`f`.`FirstName` IS NOT NULL AND ((LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm6_0")})) <> {AssertSqlHelper.Parameter("@__prm6_0")}) OR LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm6_0")})) IS NULL))",
                 //
-                $@"@__prm7_0='' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm7_0='' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -234,19 +234,19 @@ WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'B\[%' ESCAPE '\')",
 FROM `FunkyCustomers` AS `f`
 WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'B\[\[a^%' ESCAPE '\')",
                 //
-                $@"@__prm1_0='[' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm1_0='[' (Size = 4000)")}
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm1_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm1_0")})) = {AssertSqlHelper.Parameter("@__prm1_0")}))",
                 //
-                $@"@__prm2_0='B[' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm2_0='B[' (Size = 4000)")}
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm2_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm2_0")})) = {AssertSqlHelper.Parameter("@__prm2_0")}))",
                 //
-                $@"@__prm3_0='B[[a^' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm3_0='B[[a^' (Size = 4000)")}
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
@@ -321,13 +321,13 @@ WHERE False = True");
             await base.String_ends_with_on_argument_with_wildcard_parameter(isAsync);
 
             AssertSql(
-                $@"@__prm1_0='%B' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm1_0='%B' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm1_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (RIGHT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm1_0")})) = {AssertSqlHelper.Parameter("@__prm1_0")}))",
                 //
-                $@"@__prm2_0='a_' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm2_0='a_' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -337,25 +337,25 @@ WHERE ({AssertSqlHelper.Parameter("@__prm2_0")} = '') OR (`f`.`FirstName` IS NOT
 FROM `FunkyCustomers` AS `f`
 WHERE False = True",
                 //
-                $@"@__prm4_0='' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm4_0='' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm4_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (RIGHT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm4_0")})) = {AssertSqlHelper.Parameter("@__prm4_0")}))",
                 //
-                $@"@__prm5_0='_Ba_' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm5_0='_Ba_' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm5_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (RIGHT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm5_0")})) = {AssertSqlHelper.Parameter("@__prm5_0")}))",
                 //
-                $@"@__prm6_0='%B%a%r' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm6_0='%B%a%r' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE ({AssertSqlHelper.Parameter("@__prm6_0")} <> '') AND (`f`.`FirstName` IS NOT NULL AND ((RIGHT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm6_0")})) <> {AssertSqlHelper.Parameter("@__prm6_0")}) OR RIGHT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm6_0")})) IS NULL))",
                 //
-                $@"@__prm7_0='' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm7_0='' (Size = 4000)")}
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`

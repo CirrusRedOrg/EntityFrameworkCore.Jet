@@ -1,3 +1,27 @@
+"`SELECT (SELECT TOP 1) FROM` is not supported by Jet."
+---
+"Can be supported after rearranging CROSS JOIN/JOIN expressions."
+
+Currently, the following SQL is generated:
+
+SELECT
+FROM (`Orders` AS `o`,
+`Orders` AS `o0`)
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+
+However, the following SQL is needed for Access to understand the query:
+
+SELECT
+FROM Orders AS o
+LEFT JOIN Customers AS c ON o.CustomerID = c.CustomerID,
+Orders AS o0
+LEFT JOIN Customers AS c0 ON o0.CustomerID = c0.CustomerID
+
+The same is true for INNER JOINs as well.
+---
+
+
 [Fact(Skip = "Probably unsupported by JET")]
 [Fact(Skip = "Unsupported by JET")]
 [Fact(Skip = "Unsupported by JET: subqueries supported only in FROM clause")]

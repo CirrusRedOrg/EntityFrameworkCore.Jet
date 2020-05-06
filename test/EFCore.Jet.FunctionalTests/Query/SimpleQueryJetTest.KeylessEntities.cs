@@ -50,8 +50,9 @@ WHERE `p`.`Discontinued` <> True");
             base.KeylessEntity_with_nav_defining_query();
 
             AssertSql(
-                $@"@__ef_filter___searchTerm_0='A' (Size = 4000)
-@__ef_filter___searchTerm_1='A' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__ef_filter___searchTerm_0='A' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@__ef_filter___searchTerm_1='A' (Size = 4000)")}
 
 SELECT `c`.`CompanyName`, (
     SELECT COUNT(*)

@@ -583,7 +583,7 @@ WHERE `e`.`NullableStringA` IS NULL");
             base.Compare_nullable_with_non_null_parameter_not_equal();
 
             AssertSql(
-                $@"@__prm_0='Foo' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm_0='Foo' (Size = 4000)")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -673,7 +673,7 @@ WHERE (`e`.`NullableStringA` = 'Foo') OR `e`.`NullableStringA` IS NULL");
             base.Where_multiple_ands_with_nullable_parameter_and_constant();
 
             AssertSql(
-                $@"@__prm3_2='Blah' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm3_2='Blah' (Size = 4000)")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -685,7 +685,7 @@ WHERE ((((`e`.`NullableStringA` <> 'Foo') OR `e`.`NullableStringA` IS NULL) AND 
             base.Where_multiple_ands_with_nullable_parameter_and_constant_not_optimized();
 
             AssertSql(
-                $@"@__prm3_2='Blah' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@__prm3_2='Blah' (Size = 4000)")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -974,13 +974,13 @@ WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`");
             base.Where_comparison_null_constant_and_null_parameter();
 
             AssertSql(
-                $@"@__p_0='True'
+                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
                 //
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -992,13 +992,13 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
             base.Where_comparison_null_constant_and_nonnull_parameter();
 
             AssertSql(
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
                 //
-                $@"@__p_0='True'
+                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -1010,13 +1010,13 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
             base.Where_comparison_nonnull_constant_and_null_parameter();
 
             AssertSql(
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
                 //
-                $@"@__p_0='True'
+                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -1052,13 +1052,13 @@ WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
             base.Switching_parameter_value_to_null_produces_different_cache_entry();
 
             AssertSql(
-                $@"@__p_0='True'
+                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
                 //
-                $@"@__p_0='False'
+                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`

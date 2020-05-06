@@ -238,10 +238,13 @@ INNER JOIN (
             base.Can_change_dependent_instance_non_derived();
 
             AssertSql(
-                $@"@p3='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)
-@p0='LicensedOperator' (Nullable = false) (Size = 4000)
-@p1='repairman' (Size = 4000)
-@p2='Repair' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p3='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)")}
+
+{AssertSqlHelper.Declaration("@p0='LicensedOperator' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='repairman' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='Repair' (Size = 4000)")}
 
 SET NOCOUNT ON;
 UPDATE `Vehicles` SET `Operator_Discriminator` = {AssertSqlHelper.Parameter("@p0")}, `Operator_Name` = {AssertSqlHelper.Parameter("@p1")}, `LicenseType` = {AssertSqlHelper.Parameter("@p2")}
@@ -254,8 +257,9 @@ SELECT @@ROWCOUNT;");
             base.Can_change_principal_instance_non_derived();
 
             AssertSql(
-                $@"@p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)
-@p0='2'
+                $@"{AssertSqlHelper.Declaration("@p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 450)")}
+
+{AssertSqlHelper.Declaration("@p0='2'")}
 
 SET NOCOUNT ON;
 UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}

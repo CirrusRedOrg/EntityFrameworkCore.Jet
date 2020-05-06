@@ -95,7 +95,7 @@ WHERE CHARINDEX('Sea', `c`.`City`) > 0");
             await base.Select_Where_Navigation_Deep(isAsync);
 
             AssertSql(
-                $@"@__p_0='1'
+                $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
@@ -110,7 +110,7 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`");
             await base.Take_Select_Navigation(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
 FROM (
@@ -134,7 +134,7 @@ ORDER BY `t`.`CustomerID`");
             await base.Select_collection_FirstOrDefault_project_single_column1(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} (
     SELECT TOP 1 `o`.`CustomerID`
@@ -150,7 +150,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Select_collection_FirstOrDefault_project_single_column2(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} (
     SELECT TOP 1 `o`.`CustomerID`
@@ -166,7 +166,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Select_collection_FirstOrDefault_project_anonymous_type(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
 FROM (
@@ -191,7 +191,7 @@ ORDER BY `t`.`CustomerID`");
             await base.Select_collection_FirstOrDefault_project_anonymous_type_client_eval(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
 FROM (
@@ -216,7 +216,7 @@ ORDER BY `t`.`CustomerID`");
             await base.Select_collection_FirstOrDefault_project_entity(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
 FROM (
@@ -240,7 +240,7 @@ ORDER BY `t`.`CustomerID`");
             await base.Skip_Select_Navigation(isAsync);
 
             AssertSql(
-                $@"@__p_0='20'
+                $@"{AssertSqlHelper.Declaration("@__p_0='20'")}
 
 SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
 FROM (
@@ -982,7 +982,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Project_single_scalar_value_subquery_in_query_with_optional_navigation_works(isAsync);
 
             AssertSql(
-                $@"@__p_0='3'
+                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
 SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o0`.`OrderID`, (
     SELECT TOP 1 `o`.`OrderID`
@@ -1061,37 +1061,37 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_OrderID='10643'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10643'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10692'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10692'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10702'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10702'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10835'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10835'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10952'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10952'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='11011'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='11011'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
@@ -1109,37 +1109,37 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_OrderID='10643'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10643'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10692'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10692'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10702'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10702'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10835'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10835'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10952'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10952'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='11011'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='11011'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
@@ -1161,49 +1161,49 @@ LEFT JOIN (
 WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_OrderID='10643'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10643'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10692'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10692'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10702'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10702'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10835'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10835'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10952'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10952'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='11011'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='11011'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10365'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10365'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10507'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10507'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
@@ -1221,37 +1221,37 @@ LEFT JOIN `Orders` AS `oo` ON `c`.`CustomerID` = `oo`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_OrderID='10643'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10643'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10692'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10692'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10702'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10702'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10835'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10835'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10952'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10952'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `od`.`OrderID`",
                 //
-                $@"@_outer_OrderID='11011'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='11011'")}
 
 SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
 FROM `Order Details` AS `od`
@@ -1269,42 +1269,42 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`CustomerID`",
                 //
-                $@"@_outer_OrderID='10643'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10643'")}
 
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, [o.Product].`ProductID`, [o.Product].`Discontinued`, [o.Product].`ProductName`, [o.Product].`SupplierID`, [o.Product].`UnitPrice`, [o.Product].`UnitsInStock`
 FROM `Order Details` AS `o0`
 INNER JOIN `Products` AS [o.Product] ON `o0`.`ProductID` = [o.Product].`ProductID`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `o0`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10692'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10692'")}
 
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, [o.Product].`ProductID`, [o.Product].`Discontinued`, [o.Product].`ProductName`, [o.Product].`SupplierID`, [o.Product].`UnitPrice`, [o.Product].`UnitsInStock`
 FROM `Order Details` AS `o0`
 INNER JOIN `Products` AS [o.Product] ON `o0`.`ProductID` = [o.Product].`ProductID`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `o0`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10702'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10702'")}
 
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, [o.Product].`ProductID`, [o.Product].`Discontinued`, [o.Product].`ProductName`, [o.Product].`SupplierID`, [o.Product].`UnitPrice`, [o.Product].`UnitsInStock`
 FROM `Order Details` AS `o0`
 INNER JOIN `Products` AS [o.Product] ON `o0`.`ProductID` = [o.Product].`ProductID`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `o0`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10835'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10835'")}
 
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, [o.Product].`ProductID`, [o.Product].`Discontinued`, [o.Product].`ProductName`, [o.Product].`SupplierID`, [o.Product].`UnitPrice`, [o.Product].`UnitsInStock`
 FROM `Order Details` AS `o0`
 INNER JOIN `Products` AS [o.Product] ON `o0`.`ProductID` = [o.Product].`ProductID`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `o0`.`OrderID`",
                 //
-                $@"@_outer_OrderID='10952'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='10952'")}
 
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, [o.Product].`ProductID`, [o.Product].`Discontinued`, [o.Product].`ProductName`, [o.Product].`SupplierID`, [o.Product].`UnitPrice`, [o.Product].`UnitsInStock`
 FROM `Order Details` AS `o0`
 INNER JOIN `Products` AS [o.Product] ON `o0`.`ProductID` = [o.Product].`ProductID`
 WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `o0`.`OrderID`",
                 //
-                $@"@_outer_OrderID='11011'
+                $@"{AssertSqlHelper.Declaration("@_outer_OrderID='11011'")}
 
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, [o.Product].`ProductID`, [o.Product].`Discontinued`, [o.Product].`ProductName`, [o.Product].`SupplierID`, [o.Product].`UnitPrice`, [o.Product].`UnitsInStock`
 FROM `Order Details` AS `o0`

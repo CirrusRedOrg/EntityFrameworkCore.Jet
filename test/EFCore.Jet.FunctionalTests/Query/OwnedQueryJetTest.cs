@@ -565,7 +565,7 @@ ORDER BY `t15`.`Id`");
             await base.Query_when_subquery(isAsync);
 
             AssertSql(
-                $@"@__p_0='5'
+                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
 SELECT `t0`.`Id`, `t0`.`Discriminator`, `t4`.`Id`, `t7`.`Id`, `t7`.`PersonAddress_Country_Name`, `t7`.`PersonAddress_Country_PlanetId`, `t9`.`Id`, `t12`.`Id`, `t12`.`BranchAddress_Country_Name`, `t12`.`BranchAddress_Country_PlanetId`, `t14`.`Id`, `t17`.`Id`, `t17`.`LeafBAddress_Country_Name`, `t17`.`LeafBAddress_Country_PlanetId`, `t19`.`Id`, `t22`.`Id`, `t22`.`LeafAAddress_Country_Name`, `t22`.`LeafAAddress_Country_PlanetId`, `o22`.`ClientId`, `o22`.`Id`
 FROM (
@@ -1524,9 +1524,11 @@ ORDER BY `o`.`Id`, `o15`.`ClientId`, `o15`.`Id`");
 FROM `OwnedPerson` AS `o`
 WHERE `o`.`Discriminator` IN ('OwnedPerson', 'Branch', 'LeafB', 'LeafA')",
                 //
-                $@"@__Count_0='4'
-@__p_1='0'
-@__p_2='100'
+                $@"{AssertSqlHelper.Declaration("@__Count_0='4'")}
+
+{AssertSqlHelper.Declaration("@__p_1='0'")}
+
+{AssertSqlHelper.Declaration("@__p_2='100'")}
 
 SELECT `t`.`Id`, `t`.`Discriminator`, `t3`.`Id`, `t6`.`Id`, `t6`.`PersonAddress_Country_Name`, `t6`.`PersonAddress_Country_PlanetId`, `t8`.`Id`, `t11`.`Id`, `t11`.`BranchAddress_Country_Name`, `t11`.`BranchAddress_Country_PlanetId`, `t13`.`Id`, `t16`.`Id`, `t16`.`LeafBAddress_Country_Name`, `t16`.`LeafBAddress_Country_PlanetId`, `t18`.`Id`, `t21`.`Id`, `t21`.`LeafAAddress_Country_Name`, `t21`.`LeafAAddress_Country_PlanetId`, `t`.`c`, `o22`.`ClientId`, `o22`.`Id`
 FROM (

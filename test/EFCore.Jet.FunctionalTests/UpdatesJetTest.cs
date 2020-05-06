@@ -27,14 +27,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 $@"SELECT TOP 2 `c`.`Id`, `c`.`Name`, `c`.`PrincipalId`
 FROM `Categories` AS `c`",
                 //
-                $@"@__category_PrincipalId_0='778' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__category_PrincipalId_0='778' (Nullable = true)")}
 
 SELECT `p`.`Id`, `p`.`DependentId`, `p`.`Name`, `p`.`Price`
 FROM `Products` AS `p`
 WHERE `p`.`DependentId` = {AssertSqlHelper.Parameter("@__category_PrincipalId_0")}",
                 //
-                $@"@p1='78'
-@p0='New Category' (Size = 4000)
+                $@"{AssertSqlHelper.Declaration("@p1='78'")}
+
+{AssertSqlHelper.Declaration("@p0='New Category' (Size = 4000)")}
 
 SET NOCOUNT ON;
 UPDATE `Categories` SET `Name` = {AssertSqlHelper.Parameter("@p0")}
@@ -44,7 +45,7 @@ SELECT @@ROWCOUNT;",
                 $@"SELECT TOP 2 `c`.`Id`, `c`.`Name`, `c`.`PrincipalId`
 FROM `Categories` AS `c`",
                 //
-                $@"@__category_PrincipalId_0='778' (Nullable = true)
+                $@"{AssertSqlHelper.Declaration("@__category_PrincipalId_0='778' (Nullable = true)")}
 
 SELECT `p`.`Id`, `p`.`DependentId`, `p`.`Name`, `p`.`Price`
 FROM `Products` AS `p`

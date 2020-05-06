@@ -169,7 +169,7 @@ LEFT JOIN (
             await base.Nested_group_join_with_take(isAsync);
 
             AssertSql(
-                $@"@__p_0='2'
+                $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
 
 SELECT `t5`.`Level2_Name`
 FROM (

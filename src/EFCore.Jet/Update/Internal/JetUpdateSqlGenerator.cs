@@ -1,8 +1,11 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Globalization;
 using System.Text;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Update.Internal
 {
@@ -49,23 +52,9 @@ namespace EntityFrameworkCore.Jet.Update.Internal
         /// </summary>
         protected override void AppendRowsAffectedWhereCondition(StringBuilder commandStringBuilder, int expectedRowsAffected)
         {
-            // TODO: Implement translation of @@ROWCOUNT related queries into System.Data.Jet.
-            //       Every the AffectedRecords of every NonQueryExecution needs to be saved per connection,
-            //       so it can be replaced in later queries if needed.
-            //       Other executions should set this saved value just to 0.
-            
-            // Jet does not support ROWCOUNT
-            // Here we really hope that ROWCOUNT is not required
-            // Actually, RecordsAffected is handled by JetModificationCommandBatch
-            commandStringBuilder
-                .Append("1 = 1");
-
-            /*
-
             commandStringBuilder
                 .Append("@@ROWCOUNT = ")
                 .Append(expectedRowsAffected.ToString(CultureInfo.InvariantCulture));
-            */
         }
 
         /// <summary>

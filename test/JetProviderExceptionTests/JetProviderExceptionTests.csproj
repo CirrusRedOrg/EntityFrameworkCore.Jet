@@ -11,8 +11,8 @@
         <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MicrosoftExtensionsConfigurationFileExtensionsVersion)" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />
 
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.2" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.1.2" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsLoggingVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="$(MicrosoftExtensionsLoggingVersion)" />
         <PackageReference Include="System.Data.Odbc" Version="5.0.0-preview.3.20171.3" />
         <PackageReference Include="System.Data.OleDb" Version="5.0.0-preview.3.20171.3" />
     </ItemGroup>

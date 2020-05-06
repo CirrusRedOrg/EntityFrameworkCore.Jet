@@ -33,17 +33,17 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
         public static bool TryGetDataReaderFromShowCommand(DbCommand command, DbProviderFactory providerFactory, out DbDataReader dataReader)
         {
-            if (command.CommandType == CommandType.Text && command.CommandText.Trim()
-                .StartsWith("show ", StringComparison.InvariantCultureIgnoreCase))
+            if (command.CommandType == CommandType.Text &&
+                command.CommandText.IndexOf("show ", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                dataReader = GetDbDataReaderFromSimpleStatement(command.Connection, command.CommandText);
-                lock (_lastStructureDataTableLock)
-                    _lastTableName = null;
-                return true;
-            }
+                if (command.CommandText.Trim().StartsWith("show ", StringComparison.OrdinalIgnoreCase))
+                {
+                    dataReader = GetDbDataReaderFromSimpleStatement(command.Connection, command.CommandText);
+                    lock (_lastStructureDataTableLock)
+                        _lastTableName = null;
+                    return true;
+                }
 
-            if (command.CommandType == CommandType.Text && command.CommandText.IndexOf("show ", 0, StringComparison.InvariantCultureIgnoreCase) != 0)
-            {
                 bool isSchemaTable = false;
                 foreach (SystemTable table in _systemTables)
                 {
@@ -63,6 +63,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
 
             lock (_lastStructureDataTableLock)
                 _lastTableName = null;
+            
             dataReader = null;
             return false;
         }

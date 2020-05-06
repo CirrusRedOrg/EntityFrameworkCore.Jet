@@ -1,3 +1,4 @@
+using System;
 using System.Data.Jet;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
@@ -18,5 +19,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             => dataAccessProviderType == DataAccessProviderType.Odbc
                 ? "?"
                 : name;
+
+        public static string Declaration(string fullDeclaration)
+            => Declaration(fullDeclaration, DataAccessProviderType);
+
+        public static string Declaration(string fullDeclaration, DataAccessProviderType dataAccessProviderType)
+            => dataAccessProviderType == DataAccessProviderType.Odbc
+                ? string.Empty
+                : fullDeclaration;
     }
 }

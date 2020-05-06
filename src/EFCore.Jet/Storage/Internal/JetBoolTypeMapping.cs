@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override string GenerateNonNullSqlLiteral(object value)
             => (bool) value
-                ? "True"
-                : "False";
+                ? "TRUE"
+                : "FALSE";
     }
 }

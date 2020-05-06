@@ -95,7 +95,7 @@ namespace System.Data.Jet
                 connection.DataAccessProviderFactory = dataAccessProviderFactory;
                 connection.Open();
                 
-                var sql = @"CREATE TABLE `MSysAccessStorage` (
+                var script = @"CREATE TABLE `MSysAccessStorage` (
     `DateCreate` DATETIME NULL,
     `DateUpdate` DATETIME NULL,
     `Id` COUNTER NOT NULL,
@@ -108,8 +108,11 @@ namespace System.Data.Jet
 CREATE UNIQUE INDEX `ParentIdId` ON `MSysAccessStorage` (`ParentId`, `Id`);
 CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);";
 
-                using var command = connection.CreateCommand(sql);
-                command.ExecuteNonQuery();
+                foreach (var commandText in script.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    using var command = connection.CreateCommand(commandText);
+                    command.ExecuteNonQuery();
+                }
             }
             catch (Exception e)
             {

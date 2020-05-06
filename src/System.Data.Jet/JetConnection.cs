@@ -18,6 +18,8 @@ namespace System.Data.Jet
         internal DbConnection InnerConnection { get; private set; }
 
         internal JetTransaction ActiveTransaction { get; set; }
+        
+        internal int RowCount { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
@@ -371,6 +373,7 @@ namespace System.Data.Jet
                     JetFactory.InnerFactory);
                 InnerConnection.StateChange += WrappedConnection_StateChange;
 
+                RowCount = 0;
                 _state = ConnectionState.Open;
                 OnStateChange(new StateChangeEventArgs(ConnectionState.Closed, ConnectionState.Open));
             }

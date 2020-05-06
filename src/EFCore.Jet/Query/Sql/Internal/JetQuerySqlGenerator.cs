@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data.Jet;
 using System.Linq;
 using System.Linq.Expressions;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
@@ -35,6 +36,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         };
 
         private readonly ITypeMappingSource _typeMappingSource;
+        private readonly IJetOptions _options;
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         private CoreTypeMapping _boolTypeMapping;
@@ -46,11 +48,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         public JetQuerySqlGenerator(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
             ISqlExpressionFactory sqlExpressionFactory,
-            ITypeMappingSource typeMappingSource)
+            ITypeMappingSource typeMappingSource,
+            IJetOptions options)
             : base(dependencies)
         {
             _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
             _typeMappingSource = typeMappingSource;
+            _options = options;
             _sqlGenerationHelper = dependencies.SqlGenerationHelper;
             _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool));
         }
@@ -106,16 +110,27 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 Sql.Append(
                     new string(
-                        '(', Math.Max(
-                            0, selectExpression
+                        '(',
+                        Math.Max(
+                            0,
+                            selectExpression
                                 .Tables
                                 .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) - maxTablesWithoutBrackets)));
 
                 for (var index = 0; index < selectExpression.Tables.Count; index++)
                 {
                     var tableExpression = selectExpression.Tables[index];
+
+                    var isApplyExpression = tableExpression is CrossApplyExpression ||
+                                            tableExpression is OuterApplyExpression;
+                    
                     var isCrossExpression = tableExpression is CrossJoinExpression ||
                                             tableExpression is CrossApplyExpression;
+
+                    if (isApplyExpression)
+                    {
+                        throw new InvalidOperationException("Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                    }
 
                     if (index > 0)
                     {
@@ -123,17 +138,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         {
                             Sql.Append(",");
                         }
+                        else if (index >= maxTablesWithoutBrackets &&
+                                 index < selectExpression.Tables.Count - 1)
+                        {
+                            Sql.Append(")");
+                        }
 
                         Sql.AppendLine();
                     }
 
                     Visit(tableExpression);
-
-                    if (!isCrossExpression &&
-                        index >= maxTablesWithoutBrackets)
-                    {
-                        Sql.Append(")");
-                    }
                 }
             }
             else
@@ -224,18 +238,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitOrdering(OrderingExpression orderingExpression)
         {
-            // Instead of the following, we are using SearchConditionConvertingExpressionVisitor.
-            
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values
             // before the False values, which is the opposite of what .NET and other DBMS do, which are using 1 as True.
-            /*
+            
             if (orderingExpression.Expression.TypeMapping == _boolTypeMapping)
             {
                 orderingExpression = new OrderingExpression(
                     orderingExpression.Expression,
                     !orderingExpression.IsAscending);
             }
-            */
+            
             return base.VisitOrdering(orderingExpression);
         }
 
@@ -337,21 +349,28 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// <param name="selectExpression"> The select expression. </param>
         protected override void GenerateTop(SelectExpression selectExpression)
         {
-            Check.NotNull(selectExpression, "selectExpression");
-            if (selectExpression.Limit == null)
-                return;
+            Check.NotNull(selectExpression, nameof(selectExpression));
 
-            Sql.Append("TOP ");
-            if (selectExpression.Offset == null)
-                Visit(selectExpression.Limit);
-            else
+            if (selectExpression.Offset != null)
             {
-                Visit(selectExpression.Limit);
-                Sql.Append("+");
-                Visit(selectExpression.Offset);
+                if (_options.UseOuterSelectSkipEmulationViaDataReader)
+                {
+                    Sql.Append("SKIP ");
+                    Visit(selectExpression.Offset);
+                    Sql.Append(" ");
+                }
+                else
+                {
+                    throw new InvalidOperationException("Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                }
             }
 
-            Sql.Append(" ");
+            if (selectExpression.Limit != null)
+            {
+                Sql.Append("TOP ");
+                Visit(selectExpression.Limit);
+                Sql.Append(" ");
+            }
         }
 
         /// <summary>
@@ -360,21 +379,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         protected override void GenerateLimitOffset(SelectExpression selectExpression)
         {
-            // LIMIT is not natively supported by Jet.
-            // The System.Data.Jet tries to mitigate this by supporting a proprietary extension SKIP, but can easily
-            // fail, e.g. when the SKIP happens in a subquery.
-
-            if (selectExpression.Offset == null)
-                return;
-
-            // CHECK: Needed?
-            if (!selectExpression.Orderings.Any())
-                Sql.AppendLine()
-                    .Append("ORDER BY 0");
-
-            Sql.AppendLine()
-                .Append("SKIP ");
-            Visit(selectExpression.Offset);
+            // This has already been applied by GenerateTop().
         }
 
         /// <summary>
@@ -437,5 +442,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return caseExpression;
         }
+
+        protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
+            => throw new InvalidOperationException(CoreStrings.TranslationFailed(rowNumberExpression));
     }
 }

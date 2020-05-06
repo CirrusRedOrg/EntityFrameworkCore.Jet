@@ -17,20 +17,18 @@ namespace System.Data.Jet
 #endif
             _wrappedDataReader = dataReader;
         }
-
-        public JetDataReader(DbDataReader dataReader, int topCount, int skipCount)
+        
+        public JetDataReader(DbDataReader dataReader, int skipCount)
             : this(dataReader)
         {
-            _topCount = topCount;
-            for (var i = 0; i < skipCount; i++)
+            var i = 0;
+            while (i < skipCount && _wrappedDataReader.Read())
             {
-                _wrappedDataReader.Read();
+                i++;
             }
         }
 
         private readonly DbDataReader _wrappedDataReader;
-        private readonly int _topCount;
-        private int _readCount;
 
         public override void Close()
         {
@@ -118,34 +116,22 @@ namespace System.Data.Jet
             => GetDateTime(ordinal) - JetConfiguration.TimeSpanOffset;
 
         public virtual DateTimeOffset GetDateTimeOffset(int ordinal)
-        {
-            return GetDateTime(ordinal);
-        }
+            => GetDateTime(ordinal);
 
         public override decimal GetDecimal(int ordinal)
-        {
-            return Convert.ToDecimal(_wrappedDataReader.GetValue(ordinal));
-        }
+            => Convert.ToDecimal(_wrappedDataReader.GetValue(ordinal));
 
         public override double GetDouble(int ordinal)
-        {
-            return Convert.ToDouble(_wrappedDataReader.GetValue(ordinal));
-        }
+            => Convert.ToDouble(_wrappedDataReader.GetValue(ordinal));
 
         public override System.Collections.IEnumerator GetEnumerator()
-        {
-            return _wrappedDataReader.GetEnumerator();
-        }
+            => _wrappedDataReader.GetEnumerator();
 
         public override Type GetFieldType(int ordinal)
-        {
-            return _wrappedDataReader.GetFieldType(ordinal);
-        }
+            => _wrappedDataReader.GetFieldType(ordinal);
 
         public override float GetFloat(int ordinal)
-        {
-            return Convert.ToSingle(_wrappedDataReader.GetValue(ordinal));
-        }
+            => Convert.ToSingle(_wrappedDataReader.GetValue(ordinal));
 
         public override Guid GetGuid(int ordinal)
         {
@@ -158,9 +144,7 @@ namespace System.Data.Jet
         }
 
         public override short GetInt16(int ordinal)
-        {
-            return Convert.ToInt16(_wrappedDataReader.GetValue(ordinal));
-        }
+            => Convert.ToInt16(_wrappedDataReader.GetValue(ordinal));
 
         public override int GetInt32(int ordinal)
         {
@@ -177,34 +161,22 @@ namespace System.Data.Jet
         }
 
         public override long GetInt64(int ordinal)
-        {
-            return Convert.ToInt64(_wrappedDataReader.GetValue(ordinal));
-        }
+            => Convert.ToInt64(_wrappedDataReader.GetValue(ordinal));
 
         public override string GetName(int ordinal)
-        {
-            return _wrappedDataReader.GetName(ordinal);
-        }
+            => _wrappedDataReader.GetName(ordinal);
 
         public override int GetOrdinal(string name)
-        {
-            return _wrappedDataReader.GetOrdinal(name);
-        }
+            => _wrappedDataReader.GetOrdinal(name);
 
-        public override System.Data.DataTable GetSchemaTable()
-        {
-            return _wrappedDataReader.GetSchemaTable();
-        }
+        public override DataTable GetSchemaTable()
+            => _wrappedDataReader.GetSchemaTable();
 
         public override string GetString(int ordinal)
-        {
-            return _wrappedDataReader.GetString(ordinal);
-        }
+            => _wrappedDataReader.GetString(ordinal);
 
         public override object GetValue(int ordinal)
-        {
-            return _wrappedDataReader.GetValue(ordinal);
-        }
+            => _wrappedDataReader.GetValue(ordinal);
 
         public override T GetFieldValue<T>(int ordinal)
         {
@@ -217,9 +189,7 @@ namespace System.Data.Jet
         }
 
         public override int GetValues(object[] values)
-        {
-            return _wrappedDataReader.GetValues(values);
-        }
+            => _wrappedDataReader.GetValues(values);
 
         public override bool HasRows
             => _wrappedDataReader.HasRows;
@@ -237,18 +207,10 @@ namespace System.Data.Jet
         }
 
         public override bool NextResult()
-        {
-            return _wrappedDataReader.NextResult();
-        }
+            => _wrappedDataReader.NextResult();
 
         public override bool Read()
-        {
-            _readCount++;
-            if (_topCount != 0 && _readCount > _topCount)
-                return false;
-
-            return _wrappedDataReader.Read();
-        }
+            => _wrappedDataReader.Read();
 
         public override int RecordsAffected
             => _wrappedDataReader.RecordsAffected;

@@ -138,8 +138,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         {
                             Sql.Append(",");
                         }
-                        else if (index >= maxTablesWithoutBrackets &&
-                                 index < selectExpression.Tables.Count - 1)
+                        else if (index >= maxTablesWithoutBrackets)
                         {
                             Sql.Append(")");
                         }

@@ -36,6 +36,7 @@ ProjectSection(SolutionItems) = preProject
 	build\Key.snk = build\Key.snk
 	build\Development.props = build\Development.props
 	build\Development.props.sample = build\Development.props.sample
+	global.json = global.json
 EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{76210BB4-A506-4838-8BBF-57DA18C8FA03}"

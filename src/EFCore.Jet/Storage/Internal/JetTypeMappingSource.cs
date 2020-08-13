@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly IntTypeMapping _counter = new IntTypeMapping("counter", DbType.Int32);
         
-        private readonly ByteTypeMapping _tinyint = new ByteTypeMapping("tinyint", DbType.Byte);
+        private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new IntTypeMapping("integer", DbType.Int32);
         // private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
 
-        private readonly GuidTypeMapping _uniqueidentifier = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
+        private readonly GuidTypeMapping _guid = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
         private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8);
 
         private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
@@ -94,9 +94,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"identity", _counter},
                     {"autoincrement", _counter},
                     
-                    {"tinyint", _tinyint},
-                    {"byte", _tinyint},
-                    {"integer1", _tinyint},
+                    {"byte", _byte},
+                    {"tinyint", _byte},
+                    {"integer1", _byte},
 
                     {"smallint", _smallint},
                     {"short", _smallint},
@@ -149,8 +149,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"note", _unboundedUnicodeString},
                     {"ntext", _unboundedUnicodeString},
 
-                    {"uniqueidentifier", _uniqueidentifier},
-                    {"guid", _uniqueidentifier},
+                    {"guid", _guid},
+                    {"uniqueidentifier", _guid},
 
                     {"timestamp", _rowversion},
                 };
@@ -161,7 +161,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 = new Dictionary<Type, RelationalTypeMapping>
                 {
                     {typeof(bool), _bool},
-                    {typeof(byte), _tinyint},
+                    {typeof(byte), _byte},
+                    {typeof(sbyte), _smallint},
                     {typeof(short), _smallint},
                     {typeof(int), _integer},
                     // {typeof(long), _bigint}, // uses DECIMAL(28,0)
@@ -171,7 +172,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {typeof(DateTime), _datetime},
                     {typeof(DateTimeOffset), _datetimeoffset},
                     {typeof(TimeSpan), _time},
-                    {typeof(Guid), _uniqueidentifier},
+                    {typeof(Guid), _guid},
                 };
 
             // These are disallowed only if specified without any kind of length specified in parenthesis.

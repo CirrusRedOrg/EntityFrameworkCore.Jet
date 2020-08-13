@@ -66,7 +66,7 @@ namespace System.Data.Jet
 #endif
         }
 
-        protected DbCommand InnerCommand { get; }
+        internal DbCommand InnerCommand { get; }
 
         /// <summary>
         /// Attempts to Cancels the command execution
@@ -198,7 +198,7 @@ namespace System.Data.Jet
 
             LogHelper.ShowCommandText("ExecuteDbDataReader", InnerCommand);
 
-            if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(InnerCommand, _connection.JetFactory.InnerFactory, out var dataReader))
+            if (JetInformationSchema.TryGetDataReaderFromInformationSchemaCommand(this, out var dataReader))
                 // Retrieve from store schema definition.
                 return dataReader;
 
@@ -243,7 +243,7 @@ namespace System.Data.Jet
 
             LogHelper.ShowCommandText("ExecuteNonQuery", InnerCommand);
 
-            if (JetStoreDatabaseHandling.TryDatabaseOperation(this))
+            if (JetStoreDatabaseHandling.ProcessDatabaseOperation(this))
                 return 1;
 
             if (JetRenameHandling.TryDatabaseOperation(Connection.ConnectionString, InnerCommand.CommandText))
@@ -320,7 +320,7 @@ namespace System.Data.Jet
 
             LogHelper.ShowCommandText("ExecuteScalar", InnerCommand);
 
-            if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(InnerCommand, _connection.JetFactory.InnerFactory, out var dataReader))
+            if (JetInformationSchema.TryGetDataReaderFromInformationSchemaCommand(this, out var dataReader))
             {
                 // Retrieve from store schema definition.
                 if (dataReader.HasRows)

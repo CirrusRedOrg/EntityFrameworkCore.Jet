@@ -2,7 +2,10 @@
 using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.OleDb;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace System.Data.Jet.Test
 {
@@ -20,41 +23,44 @@ namespace System.Data.Jet.Test
             return count;
         }
 
-        public static void ShowDataReaderContent(DbConnection dbConnection, string sqlStatement)
+        public static string GetDataReaderContent(DbConnection dbConnection, string sqlStatement)
         {
-            var command = dbConnection.CreateCommand();
+            const string delimiter = " | ";
+            
+            using var command = dbConnection.CreateCommand();
             command.CommandText = sqlStatement;
-            var dataReader = command.ExecuteReader();
-
-            var first = true;
+            
+            using var dataReader = command.ExecuteReader();
+            var content = new StringBuilder();
 
             for (var i = 0; i < dataReader.FieldCount; i++)
             {
-                if (first)
-                    first = false;
-                else
-                    Console.Write("\t");
-
-                Console.Write(dataReader.GetName(i));
+                content.Append($"`{dataReader.GetName(i)}`");
+                content.Append(delimiter);
             }
-
-            Console.WriteLine();
+            content.Remove(content.Length - delimiter.Length, delimiter.Length);
+            content.AppendLine();
+            
+            for (var i = 0; i < dataReader.FieldCount; i++)
+            {
+                content.Append("---");
+                content.Append(delimiter);
+            }
+            content.Remove(content.Length - delimiter.Length, delimiter.Length);
+            content.AppendLine();
 
             while (dataReader.Read())
             {
-                first = true;
                 for (var i = 0; i < dataReader.FieldCount; i++)
                 {
-                    if (first)
-                        first = false;
-                    else
-                        Console.Write("\t");
-
-                    Console.Write("{0}", dataReader.GetValue(i));
+                    content.Append(dataReader.GetValue(i));
+                    content.Append(delimiter);
                 }
-
-                Console.WriteLine();
+                content.Remove(content.Length - delimiter.Length, delimiter.Length);
+                content.AppendLine();
             }
+
+            return content.ToString().TrimEnd();
         }
 
         public static void ShowDataTableContent(DataTable dataTable)
@@ -206,28 +212,86 @@ namespace System.Data.Jet.Test
                 throw new Exception("Unknown execution method " + executionMethod);
         }
 
+        public static void ExecuteScript(DbConnection connection, string script)
+        {
+            using var command = connection.CreateCommand();
+
+            var batches = new Regex(@"\s*;\s*", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                .Split(script)
+                .Where(b => !string.IsNullOrEmpty(b))
+                .ToList();
+
+            var retryWaitTime = TimeSpan.FromMilliseconds(250);
+            const int maxRetryCount = 6;
+            var retryCount = 0;
+            
+            foreach (var batch in batches)
+            {
+                command.CommandText = batch;
+                
+                try
+                {
+                    command.ExecuteNonQuery();
+                    retryCount = 0;
+                }
+                catch (Exception e)
+                {
+                    if (retryCount >= maxRetryCount)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(batch);
+                        throw;
+                    }
+
+                    retryCount++;
+                    Thread.Sleep(retryWaitTime);
+                }
+            }
+        }
+
         public static JetConnection CreateAndOpenDatabase(string storeName)
         {
-            var connection = new JetConnection(CreateDatabase(storeName));
+            CreateDatabase(storeName);
+            var connection = new JetConnection(storeName);
             connection.Open();
             return connection;
         }
 
-        public static string CreateDatabase(string storeName)
+        public static void CreateDatabase(
+            string storeName,
+            DatabaseVersion version = DatabaseVersion.Newest,
+            CollatingOrder collatingOrder = CollatingOrder.General,
+            string databasePassword = null)
         {
             DeleteDatabase(storeName);
-
-            var connectionString = JetConnection.GetConnectionString(storeName, DataAccessProviderFactory);
-            AdoxWrapper.CreateEmptyDatabase(connectionString, DataAccessProviderFactory);
-            return connectionString;
+            JetConnection.CreateDatabase(storeName, version, collatingOrder, databasePassword);
         }
 
         public static void DeleteDatabase(string storeName)
         {
             JetConnection.ClearAllPools();
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName, DataAccessProviderFactory));
+            JetConnection.DropDatabase(storeName);
         }
 
-        public static DbProviderFactory DataAccessProviderFactory { get; set; } = OdbcFactory.Instance;
+        public static JetConnection OpenDatabase(string storeName, DbProviderFactory dataAccessProviderFactory = null)
+        {
+            var connection = new JetConnection(storeName, dataAccessProviderFactory ?? DataAccessProviderFactory);
+
+            try
+            {
+                connection.Open();
+                return connection;
+            }
+            catch
+            {
+                connection.Dispose();
+                throw;
+            }
+        }
+
+        public static JetConnection OpenDatabase(string storeName, DataAccessProviderType providerType)
+            => OpenDatabase(storeName, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
+
+        public static DbProviderFactory DataAccessProviderFactory { get; set; } = OleDbFactory.Instance; //OdbcFactory.Instance;
     }
 }

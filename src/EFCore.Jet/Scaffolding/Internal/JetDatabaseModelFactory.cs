@@ -25,14 +25,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     /// </summary>
     public class JetDatabaseModelFactory : DatabaseModelFactory
     {
-        private DbConnection _connection;
-        private Version _serverVersion;
-        private HashSet<string> _tablesToInclude;
-        private HashSet<string> _selectedTables;
-        private DatabaseModel _databaseModel;
-        private Dictionary<string, DatabaseTable> _tables;
-        private Dictionary<string, DatabaseColumn> _tableColumns;
-
         private static string ObjectKey([NotNull] string name)
             => "`" + name + "`";
         
@@ -68,18 +60,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public virtual IDiagnosticsLogger<DbLoggerCategory.Scaffolding> Logger { get; }
-
-        private void ResetState()
-        {
-            _connection = null;
-            _serverVersion = null;
-            _selectedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _tablesToInclude = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _databaseModel = new DatabaseModel();
-            _tables = new Dictionary<string, DatabaseTable>();
-            _tableColumns = new Dictionary<string, DatabaseColumn>(StringComparer.OrdinalIgnoreCase);
-        }
-
+        
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -101,184 +82,145 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
+        public override DatabaseModel Create(
+            DbConnection connection,
+            DatabaseModelFactoryOptions options)
         {
             Check.NotNull(connection, nameof(connection));
             Check.NotNull(options, nameof(options));
 
-            ResetState();
+            var databaseModel = new DatabaseModel();
 
-            _connection = connection;
-
-            var connectionStartedOpen = _connection.State == ConnectionState.Open;
+            var connectionStartedOpen = connection.State == ConnectionState.Open;
             if (!connectionStartedOpen)
             {
-                _connection.Open();
+                connection.Open();
             }
 
             try
             {
-                foreach (var table in options.Tables)
+                var tableList = options.Tables.ToList();
+                var tableFilter = GenerateTableFilter(tableList);
+                
+                foreach (var table in GetTables(connection, tableFilter))
                 {
-                    _tablesToInclude.Add(table);
+                    table.Database = databaseModel;
+                    databaseModel.Tables.Add(table);
                 }
+                
+                // GetTables();
+                // GetColumns();
+                // GetPrimaryKeys();
+                // GetUniqueConstraints();
+                // GetIndexes();
+                // GetForeignKeys();
 
-                _databaseModel.DefaultSchema = null;
-                _databaseModel.DatabaseName = _connection.Database;
-
-                // CHECK: Is this actually set?
-                Version.TryParse(_connection.ServerVersion, out _serverVersion);
-
-                GetTables();
-                GetColumns();
-                GetPrimaryKeys();
-                GetUniqueConstraints();
-                GetIndexes();
-                GetForeignKeys();
-
-                CheckSelectionsMatched();
-
-                return _databaseModel;
+                return databaseModel;
             }
             finally
             {
                 if (!connectionStartedOpen)
                 {
-                    _connection.Close();
+                    connection.Close();
                 }
             }
         }
-
-        private void CheckSelectionsMatched()
+        
+        private IReadOnlyList<DatabaseTable> GetTables(
+            DbConnection connection,
+            Func<string, string, bool> filter)
         {
-            foreach (var table in _tablesToInclude.Except(_selectedTables, StringComparer.OrdinalIgnoreCase))
-            {
-                Logger.MissingTableWarning(table);
-            }
-        }
+            var tables = new List<DatabaseTable>();
 
-        private void GetTables()
-        {
-            var command = _connection.CreateCommand();
-            command.CommandText = $"SHOW TABLES WHERE Name <> '{HistoryRepository.DefaultTableName}'";
-
-            using (var reader = command.ExecuteReader())
+            using (var command = connection.CreateCommand())
             {
+                command.CommandText = $"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE Name <> '{HistoryRepository.DefaultTableName}' AND TABLE_TYPE <> 'SYSTEM TABLE'";
+
+                using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
-                    var table = new DatabaseTable
-                    {
-                        Database = _databaseModel,
-                        Schema = null,
-                        Name = reader.GetValueOrDefault<string>("Name")
-                    };
+                    var name = reader.GetValueOrDefault<string>("TABLE_NAME");
+                    var type = reader.GetValueOrDefault<string>("TABLE_TYPE");
 
-                    if (AllowsTable(table.Name))
+                    var table = string.Equals(type, "BASE TABLE", StringComparison.OrdinalIgnoreCase)
+                        ? new DatabaseTable()
+                        : new DatabaseView();
+
+                    table.Name = name;
+
+                    var isValidByFilter = filter?.Invoke(table.Schema, table.Name) ?? true;
+                    if (isValidByFilter)
                     {
-                        Logger.TableFound(table.Name);
-                        _databaseModel.Tables.Add(table);
-                        _tables[TableKey(table)] = table;
+                        tables.Add(table);
                     }
                 }
             }
+            
+            GetColumns(connection, tables);
+            //GetPrimaryKeys(connection, tables);
+            //GetIndexes(connection, tables, filter);
+            //GetForeignKeys();
+
+            return tables;
         }
-
-        private bool AllowsTable(string table)
+        
+        private void GetColumns(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
-            if (_tablesToInclude.Count == 0)
+            foreach (var table in tables)
             {
-                return true;
-            }
-
-            foreach (var tablePattern in _tablePatterns)
-            {
-                var key = tablePattern.Replace("{table}", table);
-                if (_tablesToInclude.Contains(key))
+                using (var command = connection.CreateCommand())
                 {
-                    _selectedTables.Add(key);
-                    return true;
-                }
-            }
+                    command.CommandText = $@"SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` WHERE TABLE_NAME = '{table.Name}' ORDER BY ORDINAL_POSITION";
 
-            return false;
-        }
-
-        private void GetColumns()
-        {
-            var command = _connection.CreateCommand();
-            command.CommandText = @"
-SHOW TABLECOLUMNS
-WHERE 
-    Table <> '" + HistoryRepository.DefaultTableName + @"'
-ORDER BY 
-    Table, Ordinal";
-
-            using (var reader = command.ExecuteReader())
-            {
-                while (reader.Read())
-                {
-                    var tableName = reader.GetValueOrDefault<string>("Table");
-                    var columnName = reader.GetValueOrDefault<string>("Name");
-                    var dataTypeName = reader.GetValueOrDefault<string>("TypeName");
-                    var ordinal = reader.GetValueOrDefault<int>("Ordinal");
-                    var nullable = reader.GetValueOrDefault<bool>("IsNullable");
-                    // ReSharper disable once UnusedVariable
-                    var primaryKeyOrdinal = reader.GetValueOrDefault<bool>("IsKey")
-                        ? (int?) reader.GetValueOrDefault<int>("Ordinal")
-                        : null;
-                    var defaultValue = reader.GetValueOrDefault<string>("Default");
-                    var precision = reader.GetValueOrDefault<int?>("Precision");
-                    var scale = reader.GetValueOrDefault<int?>("Scale");
-                    var maxLength = reader.GetValueOrDefault<int?>("MaxLength");
-                    var isIdentity = reader.GetValueOrDefault<bool>("IsIdentity");
-
-                    Logger.ColumnFound(
-                        tableName,
-                        columnName,
-                        ordinal,
-                        dataTypeName,
-                        maxLength ?? -1,
-                        precision ?? 0,
-                        scale ?? 0,
-                        nullable,
-                        isIdentity,
-                        defaultValue,
-                        null);
-
-                    if (!_tables.TryGetValue(TableKey(tableName), out var table))
-                        continue;
-
-                    var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
-
-                    // CHECK: Jet behavior.
-                    if (defaultValue == "(NULL)")
+                    using (var reader = command.ExecuteReader())
                     {
-                        defaultValue = null;
+                        while (reader.Read())
+                        {
+                            var columnName = reader.GetValueOrDefault<string>("Name");
+                            var dataTypeName = reader.GetValueOrDefault<string>("TypeName");
+                            var nullable = reader.GetValueOrDefault<bool>("IsNullable");
+                            // ReSharper disable once UnusedVariable
+                            var primaryKeyOrdinal = reader.GetValueOrDefault<bool>("IsKey")
+                                ? (int?) reader.GetValueOrDefault<int>("Ordinal")
+                                : null;
+                            var defaultValue = reader.GetValueOrDefault<string>("Default");
+                            var precision = reader.GetValueOrDefault<int?>("Precision");
+                            var scale = reader.GetValueOrDefault<int?>("Scale");
+                            var maxLength = reader.GetValueOrDefault<int?>("MaxLength");
+                            var isIdentity = reader.GetValueOrDefault<bool>("IsIdentity");
+                            
+                            var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
+
+                            // CHECK: Jet behavior.
+                            if (defaultValue == "(NULL)")
+                            {
+                                defaultValue = null;
+                            }
+
+                            var column = new DatabaseColumn
+                            {
+                                Table = table,
+                                Name = columnName,
+                                StoreType = storeType,
+                                IsNullable = nullable,
+                                DefaultValueSql = defaultValue,
+                                ComputedColumnSql = null,
+                                ValueGenerated = isIdentity
+                                    ? ValueGenerated.OnAdd
+                                    : storeType == "timestamp"
+                                        ? ValueGenerated.OnAddOrUpdate
+                                        : default(ValueGenerated?)
+                            };
+
+                            if (storeType == "timestamp")
+                            {
+                                // Note: annotation name must match `ScaffoldingAnnotationNames.ConcurrencyToken`
+                                column["ConcurrencyToken"] = true;
+                            }
+
+                            table.Columns.Add(column);
+                        }
                     }
-
-                    var column = new DatabaseColumn
-                    {
-                        Table = table,
-                        Name = columnName,
-                        StoreType = storeType,
-                        IsNullable = nullable,
-                        DefaultValueSql = defaultValue,
-                        ComputedColumnSql = null,
-                        ValueGenerated = isIdentity
-                            ? ValueGenerated.OnAdd
-                            : storeType == "timestamp"
-                                ? ValueGenerated.OnAddOrUpdate
-                                : default(ValueGenerated?)
-                    };
-
-                    if (storeType == "timestamp")
-                    {
-                        // Note: annotation name must match `ScaffoldingAnnotationNames.ConcurrencyToken`
-                        column["ConcurrencyToken"] = true;
-                    }
-
-                    table.Columns.Add(column);
-                    _tableColumns.Add(ColumnKey(table, column.Name), column);
                 }
             }
         }
@@ -311,6 +253,7 @@ ORDER BY
             return dataTypeName;
         }
 
+        /*
         private void GetPrimaryKeys()
         {
             var command = _connection.CreateCommand();
@@ -363,7 +306,9 @@ ORDER BY
                 }
             }
         }
+        */
 
+        /*
         private void GetUniqueConstraints()
         {
             var command = _connection.CreateCommand();
@@ -417,7 +362,9 @@ ORDER BY
                 }
             }
         }
+        */
 
+        /*
         private void GetIndexes()
         {
             var command = _connection.CreateCommand();
@@ -476,7 +423,9 @@ ORDER BY
                 }
             }
         }
+        */
 
+        /*
         private void GetForeignKeys()
         {
             var command = _connection.CreateCommand();
@@ -570,6 +519,7 @@ ORDER BY
                 }
             }
         }
+        */
 
         private static ReferentialAction? ConvertToReferentialAction(string onDeleteAction)
         {
@@ -594,5 +544,8 @@ ORDER BY
                     return null;
             }
         }
+        
+        protected virtual Func<string, string, bool> GenerateTableFilter(IReadOnlyList<string> tables)
+            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string, string, bool>)null;
     }
 }

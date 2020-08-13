@@ -65,7 +65,7 @@ namespace System.Data.Jet
             }
         }
         
-        public static string CreateEmptyDatabase(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+        public static string CreateEmptyDatabase(string fileNameOrConnectionString/*, DbProviderFactory dataAccessProviderFactory*/)
         {
             var fileName = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
             
@@ -77,17 +77,22 @@ namespace System.Data.Jet
                 // ADOX is an ADO eXtension and ADO is build on top of OLE DB. We always need to use an OLE DB
                 // connection string for ADOX.
                 connectionString = JetConnection.GetConnectionString(fileName, DataAccessProviderType.OleDb);
-                
-                catalog.Create(connectionString)
-                    .Dispose(); // Dispose the returned Connection object, because we don't use it here.
+
+                using var connection = catalog.Create(connectionString);
+                //.Dispose(); // Dispose the returned Connection object, because we don't use it here.
+                int recordsAffected;
+                connection.Execute("CREATE TABLE `#Dual` (`ID` COUNTER CONSTRAINT `PrimaryKey` PRIMARY KEY)", out recordsAffected, /*adCmdText*/ 0x1 | /*adExecuteNoRecords*/ 0x80);
+                connection.Execute("INSERT INTO `#Dual` (`ID`) VALUES (1)", out recordsAffected, /*adCmdText*/ 0x1 | /*adExecuteNoRecords*/ 0x80);
+                connection.Execute("ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)", out recordsAffected, /*adCmdText*/ 0x1 | /*adExecuteNoRecords*/ 0x80);
             }
             catch (Exception e)
             {
                 throw new Exception($"Cannot create database \"{fileName}\" using ADOX with the following connection string: " + connectionString, e);
             }
 
-            try
-            {
+            // try
+            // {
+                /*
                 connectionString = JetConnection.GetConnectionString(fileName, dataAccessProviderFactory);
 
                 using var connection = (JetConnection)JetFactory.Instance.CreateConnection();
@@ -112,22 +117,24 @@ CREATE UNIQUE INDEX `ParentIdName` ON `MSysAccessStorage` (`ParentId`, `Name`);"
                 {
                     using var command = connection.CreateCommand(commandText);
                     command.ExecuteNonQuery();
-                }
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"Cannot setup the newly created database \"{fileName}\" using {Enum.GetName(typeof(DataAccessProviderType), JetConnection.GetDataAccessProviderType(dataAccessProviderFactory))} with the following connection string: " + connectionString, e);
-            }
-
-            try
-            {
-                using var connection = catalog.ActiveConnection;
-                connection.Close();
-            }
-            catch (Exception e)
-            {
-                Diagnostics.Debug.WriteLine("Cannot close active connection after create statement.\r\nThe exception is: {0}", e.Message);
-            }
+                }*/
+            //     
+            //     
+            // }
+            // catch (Exception e)
+            // {
+            //     throw new Exception($"Cannot setup the newly created database \"{fileName}\" using {Enum.GetName(typeof(DataAccessProviderType), JetConnection.GetDataAccessProviderType(dataAccessProviderFactory))} with the following connection string: " + connectionString, e);
+            // }
+            //
+            // try
+            // {
+            //     using var connection = catalog.ActiveConnection;
+            //     connection.Close();
+            // }
+            // catch (Exception e)
+            // {
+            //     Diagnostics.Debug.WriteLine("Cannot close active connection after create statement.\r\nThe exception is: {0}", e.Message);
+            // }
 
             return connectionString;
         }

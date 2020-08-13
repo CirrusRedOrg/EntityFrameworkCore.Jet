@@ -14,6 +14,7 @@
     <MicrosoftBclHashCodeVersion>1.1.0</MicrosoftBclHashCodeVersion>
     <SystemCollectionsImmutableVersion>1.7.0</SystemCollectionsImmutableVersion>
     <SystemComponentModelAnnotationsVersion>4.7.0</SystemComponentModelAnnotationsVersion>
+    <SystemValueTuple>4.5.0</SystemValueTuple>
     <MicrosoftWin32Registry>4.7.0</MicrosoftWin32Registry>
     <SystemDataOleDbVersion>5.0.0-preview.3.20178.1</SystemDataOleDbVersion>
     <SystemDataOdbcVersion>5.0.0-preview.3.20178.1</SystemDataOdbcVersion>

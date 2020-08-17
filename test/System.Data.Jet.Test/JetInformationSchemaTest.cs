@@ -12,11 +12,11 @@ namespace System.Data.Jet.Test
         [ClassInitialize]
         public static void TestFixtureSetup(TestContext context)
         {
-            using var connection = Helpers.CreateAndOpenDatabase(StoreName);
-
-            var scriptPath = Path.Combine(Path.GetDirectoryName(typeof(JetInformationSchemaTest).Assembly.Location) ?? string.Empty, "Northwind.sql");
-            var script = File.ReadAllText(scriptPath);
-            Helpers.ExecuteScript(connection, script);
+            // using var connection = Helpers.CreateAndOpenDatabase(StoreName);
+            //
+            // var scriptPath = Path.Combine(Path.GetDirectoryName(typeof(JetInformationSchemaTest).Assembly.Location) ?? string.Empty, "Northwind.sql");
+            // var script = File.ReadAllText(scriptPath);
+            // Helpers.ExecuteScript(connection, script);
         }
 
         [ClassCleanup]
@@ -51,11 +51,18 @@ Customers | BASE TABLE |  |
 Employees | BASE TABLE |  | 
 EmployeeTerritories | BASE TABLE |  | 
 Invoices | VIEW |  | 
+MSysAccessStorage | SYSTEM TABLE |  | 
 MSysACEs | SYSTEM TABLE |  | 
 MSysComplexColumns | SYSTEM TABLE |  | 
+MSysNameMap | SYSTEM TABLE |  | 
+MSysNavPaneGroupCategories | SYSTEM TABLE |  | 
+MSysNavPaneGroups | SYSTEM TABLE |  | 
+MSysNavPaneGroupToObjects | SYSTEM TABLE |  | 
+MSysNavPaneObjectIDs | SYSTEM TABLE |  | 
 MSysObjects | SYSTEM TABLE |  | 
 MSysQueries | SYSTEM TABLE |  | 
 MSysRelationships | SYSTEM TABLE |  | 
+MSysResources | SYSTEM TABLE |  | 
 Order Details | BASE TABLE |  | 
 Order Details Extended | VIEW |  | 
 Order Subtotals | VIEW |  | 
@@ -91,33 +98,33 @@ ORDER BY TABLE_NAME,
          COLUMN_NAME");
             
             AssertDataReaderContent(result, @"
-`TABLE_NAME` | `COLUMN_NAME` | `ORDINAL_POSITION` | `IS_NULLABLE` | `DATA_TYPE` | `CHARACTER_MAXIMUM_LENGTH` | `NUMERIC_PRECISION` | `NUMERIC_SCALE` | `COLUMN_DEFAULT` | `VALIDATION_RULE` | `VALIDATION_TEXT` | `IDENTITY_SEED` | `IDENTITY_INCREMENT`
+`TABLE_NAME` | `COLUMN_NAME` | `ORDINAL_POSITION` | `DATA_TYPE` | `IS_NULLABLE` | `CHARACTER_MAXIMUM_LENGTH` | `NUMERIC_PRECISION` | `NUMERIC_SCALE` | `COLUMN_DEFAULT` | `VALIDATION_RULE` | `VALIDATION_TEXT` | `IDENTITY_SEED` | `IDENTITY_INCREMENT`
 --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
-Categories | CategoryID | 0 | False | counter |  |  |  |  |  |  | 9 | 1
-Categories | CategoryName | 1 | False | varchar | 15 |  |  |  |  |  |  | 
-Categories | Description | 2 | True | longchar |  |  |  |  |  |  |  | 
-Categories | Picture | 3 | True | longbinary |  |  |  |  |  |  |  | 
-Order Details Extended | Discount | 5 | False | single |  |  |  |  |  |  |  | 
-Order Details Extended | ExtendedPrice | 6 | True | currency |  |  |  |  |  |  |  | 
-Order Details Extended | OrderID | 0 | False | integer |  |  |  |  |  |  |  | 
-Order Details Extended | ProductID | 1 | False | integer |  |  |  |  |  |  |  | 
-Order Details Extended | ProductName | 2 | False | varchar | 40 |  |  |  |  |  |  | 
-Order Details Extended | Quantity | 4 | False | smallint |  |  |  |  |  |  |  | 
-Order Details Extended | UnitPrice | 3 | False | currency |  |  |  |  |  |  |  | 
-Orders | CustomerID | 1 | True | char | 5 |  |  |  |  |  |  | 
-Orders | EmployeeID | 2 | True | integer |  |  |  |  |  |  |  | 
-Orders | Freight | 7 | True | decimal |  | 18 | 2 | 0 |  |  |  | 
-Orders | OrderDate | 3 | True | datetime |  |  |  |  |  |  |  | 
-Orders | OrderID | 0 | False | counter |  |  |  |  |  |  | 11078 | 1
-Orders | RequiredDate | 4 | True | datetime |  |  |  |  |  |  |  | 
-Orders | ShipAddress | 9 | True | varchar | 60 |  |  |  |  |  |  | 
-Orders | ShipCity | 10 | True | varchar | 15 |  |  |  |  |  |  | 
-Orders | ShipCountry | 13 | True | varchar | 15 |  |  |  |  |  |  | 
-Orders | ShipName | 8 | True | varchar | 40 |  |  |  |  |  |  | 
-Orders | ShippedDate | 5 | True | datetime |  |  |  |  |  |  |  | 
-Orders | ShipPostalCode | 12 | True | varchar | 10 |  |  |  |  |  |  | 
-Orders | ShipRegion | 11 | True | varchar | 15 |  |  |  |  |  |  | 
-Orders | ShipVia | 6 | True | integer |  |  |  |  |  |  |  |");
+Categories | CategoryID | 0 | counter | False |  |  |  |  |  |  | 9 | 1
+Categories | CategoryName | 1 | varchar | False | 15 |  |  |  |  |  |  | 
+Categories | Description | 2 | longchar | True |  |  |  |  |  |  |  | 
+Categories | Picture | 3 | longbinary | True |  |  |  |  |  |  |  | 
+Order Details Extended | Discount | 5 | single | False |  |  |  |  |  |  |  | 
+Order Details Extended | ExtendedPrice | 6 | currency | True |  |  |  |  |  |  |  | 
+Order Details Extended | OrderID | 0 | integer | False |  |  |  |  |  |  |  | 
+Order Details Extended | ProductID | 1 | integer | False |  |  |  |  |  |  |  | 
+Order Details Extended | ProductName | 2 | varchar | False | 40 |  |  |  |  |  |  | 
+Order Details Extended | Quantity | 4 | smallint | False |  |  |  |  |  |  |  | 
+Order Details Extended | UnitPrice | 3 | currency | False |  |  |  |  |  |  |  | 
+Orders | CustomerID | 1 | char | True | 5 |  |  |  |  |  |  | 
+Orders | EmployeeID | 2 | integer | True |  |  |  |  |  |  |  | 
+Orders | Freight | 7 | decimal | True |  | 18 | 2 | 0 |  |  |  | 
+Orders | OrderDate | 3 | datetime | True |  |  |  |  |  |  |  | 
+Orders | OrderID | 0 | counter | False |  |  |  |  |  |  | 11078 | 1
+Orders | RequiredDate | 4 | datetime | True |  |  |  |  |  |  |  | 
+Orders | ShipAddress | 9 | varchar | True | 60 |  |  |  |  |  |  | 
+Orders | ShipCity | 10 | varchar | True | 15 |  |  |  |  |  |  | 
+Orders | ShipCountry | 13 | varchar | True | 15 |  |  |  |  |  |  | 
+Orders | ShipName | 8 | varchar | True | 40 |  |  |  |  |  |  | 
+Orders | ShippedDate | 5 | datetime | True |  |  |  |  |  |  |  | 
+Orders | ShipPostalCode | 12 | varchar | True | 10 |  |  |  |  |  |  | 
+Orders | ShipRegion | 11 | varchar | True | 15 |  |  |  |  |  |  | 
+Orders | ShipVia | 6 | integer | True |  |  |  |  |  |  |  |");
         }
 
         [DataTestMethod]

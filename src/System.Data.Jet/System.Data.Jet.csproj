@@ -8,33 +8,6 @@
     
     <ItemGroup>
         <Content Include="Properties\System.Data.Jet.rd.xml" />
-        <Content Include="Resources\JetProviderServices.ProviderManifest.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.CheckConstraints.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ConstraintColumns.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.Constraints.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ForeignKeyConstraints.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ForeignKeys.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.FunctionParameters.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.FunctionReturnTableColumns.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.Functions.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.IndexColumns.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.Indexes.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ProcedureParameters.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.Procedures.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.TableColumns.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.Tables.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ViewColumns.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ViewConstraintColumns.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ViewConstraints.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.ViewForeignKeys.xml" />
-        <Content Include="Resources\StoreSchemaDefinition.Views.xml" />
-        <Content Include="Resources\StoreSchemaDefinitionRetrieve_QueryHack1.txt" />
-        <Content Include="Resources\StoreSchemaDefinitionRetrieve_QueryHack2.txt" />
-    </ItemGroup>
-    
-    <ItemGroup>
-        <EmbeddedResource Include="Resources\JetProviderServices.StoreSchemaDefinition.ssdl" />
-        <EmbeddedResource Include="Resources\JetProviderServices.StoreSchemaMapping.msl" />
     </ItemGroup>
     
     <ItemGroup>

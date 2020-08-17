@@ -58,7 +58,7 @@ FROM `Orders` AS `o`");
         {
             protected override ITestStoreFactory TestStoreFactory => JetNorthwindTestStoreFactory.Instance;
 
-            protected override string DatabaseSchema { get; } = "dbo";
+            protected override string DatabaseSchema { get; } = null;
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
@@ -69,7 +69,7 @@ FROM `Orders` AS `o`");
                     {
                         e.Property(c => c.CompanyName2).Metadata.SetColumnName("CompanyName");
                         e.Metadata.SetTableName("Customers");
-                        e.Metadata.SetSchema("dbo");
+                        e.Metadata.SetSchema(null);
                     });
 
                 modelBuilder.Entity<MappedEmployee>()

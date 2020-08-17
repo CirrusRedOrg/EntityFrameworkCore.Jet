@@ -7,6 +7,7 @@ using System.Data.Common;
 using System.Data.Jet;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
@@ -39,11 +40,14 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private static readonly List<string> _tablePatterns = new List<string>
         {
-            "{table}",
-            "`{table}`",
-            "[{table}]"
+            @"(?<=^`).*(?=`$)",
+            @"(?<=^\[).*(?=\]$)$",
         };
+        
+        private static readonly Regex _defaultDateTimeValue = new Regex(@"\(*(?:#0?1/0?1/0?100#)|(?:#0?0:0?0:0?0#)|(?:(['""])(0?0:0?0:0?0)|0?100-0?1-0?1(?: \2)\1)\)*");
 
+        private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
+        
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -52,15 +56,9 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         {
             Check.NotNull(logger, nameof(logger));
 
-            Logger = logger;
+            _logger = logger;
         }
 
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public virtual IDiagnosticsLogger<DbLoggerCategory.Scaffolding> Logger { get; }
-        
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -100,7 +98,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             try
             {
                 var tableList = options.Tables.ToList();
-                var tableFilter = GenerateTableFilter(tableList);
+                var tableFilter = GenerateTableFilter(tableList.Select(Parse).ToList());
                 
                 foreach (var table in GetTables(connection, tableFilter))
                 {
@@ -108,13 +106,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     databaseModel.Tables.Add(table);
                 }
                 
-                // GetTables();
-                // GetColumns();
-                // GetPrimaryKeys();
-                // GetUniqueConstraints();
-                // GetIndexes();
-                // GetForeignKeys();
-
                 return databaseModel;
             }
             finally
@@ -125,7 +116,21 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 }
             }
         }
-        
+
+        private static string Parse(string tableName)
+        {
+            foreach (var tablePattern in _tablePatterns)
+            {
+                var match = Regex.Match(tableName, tablePattern);
+                if (match.Success)
+                {
+                    return match.Value;
+                }
+            }
+
+            return tableName;
+        }
+
         private IReadOnlyList<DatabaseTable> GetTables(
             DbConnection connection,
             Func<string, string, bool> filter)
@@ -134,13 +139,17 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = $"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE Name <> '{HistoryRepository.DefaultTableName}' AND TABLE_TYPE <> 'SYSTEM TABLE'";
+                command.CommandText = $@"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_NAME <> '{HistoryRepository.DefaultTableName}' AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')";
 
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
                     var name = reader.GetValueOrDefault<string>("TABLE_NAME");
                     var type = reader.GetValueOrDefault<string>("TABLE_TYPE");
+                    var validationRule = reader.GetValueOrDefault<string>("VALIDATION_RULE");
+                    var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
+                    
+                    _logger.TableFound(name);
 
                     var table = string.Equals(type, "BASE TABLE", StringComparison.OrdinalIgnoreCase)
                         ? new DatabaseTable()
@@ -157,375 +166,383 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             }
             
             GetColumns(connection, tables);
-            //GetPrimaryKeys(connection, tables);
-            //GetIndexes(connection, tables, filter);
-            //GetForeignKeys();
+            GetIndexes(connection, tables);
+            GetRelations(connection, tables);
 
             return tables;
         }
         
         private void GetColumns(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
-            foreach (var table in tables)
+            using var command = connection.CreateCommand();
+            command.CommandText = $@"SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` ORDER BY TABLE_NAME, ORDINAL_POSITION";
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                using (var command = connection.CreateCommand())
+                var tableName = reader.GetValueOrDefault<string>("TABLE_NAME");
+                var table = tables.FirstOrDefault(t => string.Equals(t.Name, tableName)) ??
+                            tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
+                if (table != null)
                 {
-                    command.CommandText = $@"SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` WHERE TABLE_NAME = '{table.Name}' ORDER BY ORDINAL_POSITION";
+                    var columnName = reader.GetValueOrDefault<string>("COLUMN_NAME");
+                    var dataTypeName = reader.GetValueOrDefault<string>("DATA_TYPE");
+                    var ordinal = reader.GetValueOrDefault<int>("ORDINAL_POSITION");
+                    var nullable = reader.GetValueOrDefault<bool>("IS_NULLABLE");
+                    var maxLength = reader.GetValueOrDefault<int>("CHARACTER_MAXIMUM_LENGTH");
+                    var precision = reader.GetValueOrDefault<int>("NUMERIC_PRECISION");
+                    var scale = reader.GetValueOrDefault<int>("NUMERIC_SCALE");
+                    var defaultValue = reader.GetValueOrDefault<string>("COLUMN_DEFAULT");
+                    var validationRule = reader.GetValueOrDefault<string>("VALIDATION_RULE");
+                    var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
+                    var identitySeed = reader.GetValueOrDefault<int?>("IDENTITY_SEED");
+                    var identityIncrement = reader.GetValueOrDefault<int?>("IDENTITY_INCREMENT");
+                    var computedValue = (string) null; // TODO: Implement support for expressions
+                                                       // (DAO Field2 (though not mentioned)).
+                                                       // Might have no equivalent in ADOX.
 
-                    using (var reader = command.ExecuteReader())
+                    _logger.ColumnFound(
+                        tableName,
+                        columnName,
+                        ordinal,
+                        dataTypeName,
+                        maxLength,
+                        precision,
+                        scale,
+                        nullable,
+                        identitySeed.HasValue,
+                        defaultValue,
+                        computedValue);
+                    
+                    var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
+                    defaultValue = FilterClrDefaults(dataTypeName, nullable, defaultValue);
+                    
+                    var column = new DatabaseColumn
                     {
-                        while (reader.Read())
-                        {
-                            var columnName = reader.GetValueOrDefault<string>("Name");
-                            var dataTypeName = reader.GetValueOrDefault<string>("TypeName");
-                            var nullable = reader.GetValueOrDefault<bool>("IsNullable");
-                            // ReSharper disable once UnusedVariable
-                            var primaryKeyOrdinal = reader.GetValueOrDefault<bool>("IsKey")
-                                ? (int?) reader.GetValueOrDefault<int>("Ordinal")
-                                : null;
-                            var defaultValue = reader.GetValueOrDefault<string>("Default");
-                            var precision = reader.GetValueOrDefault<int?>("Precision");
-                            var scale = reader.GetValueOrDefault<int?>("Scale");
-                            var maxLength = reader.GetValueOrDefault<int?>("MaxLength");
-                            var isIdentity = reader.GetValueOrDefault<bool>("IsIdentity");
-                            
-                            var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
+                        Table = table,
+                        Name = columnName,
+                        StoreType = storeType,
+                        IsNullable = nullable,
+                        DefaultValueSql = defaultValue,
+                        ComputedColumnSql = null,
+                        ValueGenerated = identitySeed.HasValue
+                            ? ValueGenerated.OnAdd
+                            : storeType == "timestamp"
+                                ? ValueGenerated.OnAddOrUpdate
+                                : default(ValueGenerated?)
+                    };
 
-                            // CHECK: Jet behavior.
-                            if (defaultValue == "(NULL)")
-                            {
-                                defaultValue = null;
-                            }
-
-                            var column = new DatabaseColumn
-                            {
-                                Table = table,
-                                Name = columnName,
-                                StoreType = storeType,
-                                IsNullable = nullable,
-                                DefaultValueSql = defaultValue,
-                                ComputedColumnSql = null,
-                                ValueGenerated = isIdentity
-                                    ? ValueGenerated.OnAdd
-                                    : storeType == "timestamp"
-                                        ? ValueGenerated.OnAddOrUpdate
-                                        : default(ValueGenerated?)
-                            };
-
-                            if (storeType == "timestamp")
-                            {
-                                // Note: annotation name must match `ScaffoldingAnnotationNames.ConcurrencyToken`
-                                column["ConcurrencyToken"] = true;
-                            }
-
-                            table.Columns.Add(column);
-                        }
+                    if (storeType == "timestamp")
+                    {
+                        // Note: annotation name must match `ScaffoldingAnnotationNames.ConcurrencyToken`
+                        column["ConcurrencyToken"] = true;
                     }
+
+                    table.Columns.Add(column);
                 }
             }
         }
-
-        private string GetStoreType(string dataTypeName, int? precision, int? scale, int? maxLength)
+        
+        private static string FilterClrDefaults(string dataTypeName, bool nullable, string defaultValue)
         {
-            if (string.Equals(dataTypeName, "decimal", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(dataTypeName, "numeric", StringComparison.OrdinalIgnoreCase))
+            if (defaultValue == null)
             {
-                return $"{dataTypeName}({precision}, {scale.GetValueOrDefault(0)})";
+                return null;
             }
 
-            if (maxLength.HasValue)
+            if (nullable)
             {
-                if (maxLength == -1)
+                return defaultValue;
+            }
+
+            if (defaultValue == "0")
+            {
+                if (dataTypeName == "smallint"
+                    || dataTypeName == "integer"
+                    || dataTypeName == "single"
+                    || dataTypeName == "double"
+                    || dataTypeName == "currency"
+                    || dataTypeName == "bit"
+                    || dataTypeName == "decimal"
+                    || dataTypeName == "byte")
                 {
-                    if (string.Equals(dataTypeName, "varchar", StringComparison.OrdinalIgnoreCase))
-                        return "longchar";
-
-                    if (string.Equals(dataTypeName, "varbinary", StringComparison.OrdinalIgnoreCase))
-                        return "longbinary";
-
-                    throw new InvalidOperationException("Unexpected type " + dataTypeName);
+                    return null;
                 }
+            }
+            else if (defaultValue == "0.0")
+            {
+                if (dataTypeName == "decimal"
+                    || dataTypeName == "double"
+                    || dataTypeName == "single"
+                    || dataTypeName == "currency")
+                {
+                    return null;
+                }
+            }
+            else if ((dataTypeName == "datetime" && _defaultDateTimeValue.IsMatch(defaultValue)) ||
+                     (dataTypeName == "guid" && defaultValue == "'00000000-0000-0000-0000-000000000000'"))
+            {
+                return null;
+            }
 
-                if (maxLength > 0)
-                    return $"{dataTypeName}({maxLength.Value})";
+            return defaultValue;
+        }
+
+        private string GetStoreType(string dataTypeName, int precision, int scale, int maxLength)
+        {
+            if (precision > 0 &&
+                string.Equals(dataTypeName, "decimal", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{dataTypeName}({precision}, {scale})";
+            }
+
+            if (maxLength > 0)
+            {
+                return $"{dataTypeName}({maxLength})";
+            }
+
+            if (string.Equals(dataTypeName, "varchar", StringComparison.OrdinalIgnoreCase))
+            {
+                return "longchar";
+            }
+
+            if (string.Equals(dataTypeName, "varbinary", StringComparison.OrdinalIgnoreCase))
+            {
+                return "longbinary";
             }
 
             return dataTypeName;
         }
 
-        /*
-        private void GetPrimaryKeys()
+        private void GetIndexes(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
-            var command = _connection.CreateCommand();
-            command.CommandText =
-                "SHOW " +
-                "   CONSTRAINTCOLUMNS " +
-                "WHERE " +
-                "   ConstraintType = 'PRIMARY KEY' AND TableName <> '" + HistoryRepository.DefaultTableName + "' " +
-                "ORDER BY " +
-                "   TableName, ConstraintName, ColumnOrdinal";
-
-            using (var reader = command.ExecuteReader())
+            var indexTable = new DataTable();
+            using (var command = connection.CreateCommand())
             {
-                DatabasePrimaryKey primaryKey = null;
-                while (reader.Read())
+                command.CommandText = $@"SELECT * FROM `INFORMATION_SCHEMA.INDEXES` ORDER BY TABLE_NAME, INDEX_NAME";
+
+                using var reader = command.ExecuteReader();
+                indexTable.Load(reader);
+            }
+
+            var indexColumnsTable = new DataTable();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT * FROM `INFORMATION_SCHEMA.INDEX_COLUMNS` ORDER BY TABLE_NAME, INDEX_NAME, ORDINAL_POSITION";
+                using var reader = command.ExecuteReader();
+                indexColumnsTable.Load(reader);
+            }
+
+            var groupedIndexColumns = indexColumnsTable.Rows.Cast<DataRow>()
+                .GroupBy(r => (TableName: r.GetValueOrDefault<string>("TABLE_NAME"), IndexName: r.GetValueOrDefault<string>("INDEX_NAME")))
+                .ToList();
+
+            foreach (DataRow indexRow in indexTable.Rows)
+            {
+                var tableName = indexRow.GetValueOrDefault<string>("TABLE_NAME");
+                var indexName = indexRow.GetValueOrDefault<string>("INDEX_NAME");
+                var indexType = indexRow.GetValueOrDefault<string>("INDEX_TYPE");
+                var nullable = indexRow.GetValueOrDefault<bool>("IS_NULLABLE");
+                var ignoresNulls = indexRow.GetValueOrDefault<bool>("IGNORES_NULLS");
+
+                var table = tables.FirstOrDefault(t => string.Equals(t.Name, tableName)) ??
+                            tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
+                if (table != null)
                 {
-                    var tableName = reader.GetValueOrDefault<string>("TableName");
-                    var indexName = reader.GetValueOrDefault<string>("ConstraintName");
-                    var columnName = reader.GetValueOrDefault<string>("ColumnName");
-                    // ReSharper disable once UnusedVariable
-                    var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
-
-                    Debug.Assert(primaryKey == null || primaryKey.Table != null);
-                    if (primaryKey == null
-                        || primaryKey.Name != indexName
-                        // ReSharper disable once PossibleNullReferenceException
-                        || primaryKey.Table.Name != tableName)
+                    var indexColumns = groupedIndexColumns.FirstOrDefault(g => g.Key == (tableName, indexName));
+                    if (indexColumns?.Any() ?? false)
                     {
-                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
+                        object indexOrKey = null;
+                        
+                        if (indexType == "PRIMARY")
                         {
-                            continue;
+                            var primaryKey = new DatabasePrimaryKey
+                            {
+                                Table = table,
+                                Name = indexName,
+                            };
+
+                            _logger.PrimaryKeyFound(indexName, tableName);
+
+                            table.PrimaryKey = primaryKey;
+                            indexOrKey = primaryKey;
                         }
-
-                        Logger.PrimaryKeyFound(indexName, tableName);
-
-                        primaryKey = new DatabasePrimaryKey
+                        else if (indexType == "UNIQUE" &&
+                                 !nullable)
                         {
-                            Table = table,
-                            Name = indexName
-                        };
+                            var uniqueConstraint = new DatabaseUniqueConstraint
+                            {
+                                Table = table,
+                                Name = indexName,
+                            };
 
-                        Debug.Assert(table.PrimaryKey == null);
-                        table.PrimaryKey = primaryKey;
-                    }
+                            _logger.UniqueConstraintFound(indexName, tableName);
 
-                    if (_tableColumns.TryGetValue(ColumnKey(primaryKey.Table, columnName), out var column))
-                    {
-                        primaryKey.Columns.Add(column);
+                            table.UniqueConstraints.Add(uniqueConstraint);
+                            indexOrKey = uniqueConstraint;
+                        }
+                        else
+                        {
+                            var index = new DatabaseIndex
+                            {
+                                Table = table,
+                                Name = indexName,
+                                IsUnique = indexType == "UNIQUE",
+                            };
+
+                            _logger.IndexFound(indexName, tableName, index.IsUnique);
+
+                            table.Indexes.Add(index);
+                            indexOrKey = index;
+                        }
+                        
+                        foreach (var indexColumn in indexColumns)
+                        {
+                            var columnName = indexColumn.GetValueOrDefault<string>("COLUMN_NAME");
+                            var descending = indexColumn.GetValueOrDefault<bool>("IS_DESCENDING");
+
+                            var column = table.Columns.FirstOrDefault(c => c.Name == columnName) ??
+                                         table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
+                            if (column != null)
+                            {
+                                switch (indexOrKey)
+                                {
+                                    case DatabasePrimaryKey primaryKey:
+                                        primaryKey.Columns.Add(column);
+                                        break;
+                                    
+                                    case DatabaseUniqueConstraint uniqueConstraint:
+                                        uniqueConstraint.Columns.Add(column);
+                                        break;
+                                    
+                                    case DatabaseIndex index:
+                                        index.Columns.Add(column);
+                                        break;
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-        */
-
-        /*
-        private void GetUniqueConstraints()
+        
+        private void GetRelations(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
-            var command = _connection.CreateCommand();
-            command.CommandText =
-                "SHOW " +
-                "   CONSTRAINTCOLUMNS " +
-                "WHERE " +
-                "   ConstraintType = 'UNIQUE' AND TableName <> '" + HistoryRepository.DefaultTableName + "' " +
-                "ORDER BY " +
-                "   TableName, ConstraintName, ColumnOrdinal";
-
-            using (var reader = command.ExecuteReader())
+            var relationTable = new DataTable();
+            using (var command = connection.CreateCommand())
             {
-                DatabaseUniqueConstraint uniqueConstraint = null;
-                while (reader.Read())
-                {
-                    var schemaName = "Jet"; // TODO: Change to `null`.
-                    var tableName = reader.GetValueOrDefault<string>("TableName");
-                    var indexName = reader.GetValueOrDefault<string>("ConstraintName");
-                    var columnName = reader.GetValueOrDefault<string>("ColumnName");
-                    // ReSharper disable once UnusedVariable
-                    var indexOrdinal = reader.GetValueOrDefault<int>("ColumnOrdinal");
+                command.CommandText = $@"SELECT * FROM `INFORMATION_SCHEMA.RELATIONS` ORDER BY RELATION_NAME, REFERENCING_TABLE_NAME, PRINCIPAL_TABLE_NAME";
 
-                    Debug.Assert(uniqueConstraint == null || uniqueConstraint.Table != null);
-                    if (uniqueConstraint == null
-                        || uniqueConstraint.Name != indexName
-                        // ReSharper disable once PossibleNullReferenceException
-                        || uniqueConstraint.Table.Name != tableName
-                        || uniqueConstraint.Table.Schema != schemaName)
-                    {
-                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
-                        {
-                            continue;
-                        }
-
-                        Logger.UniqueConstraintFound(indexName, tableName);
-
-                        uniqueConstraint = new DatabaseUniqueConstraint
-                        {
-                            Table = table,
-                            Name = indexName
-                        };
-
-                        table.UniqueConstraints.Add(uniqueConstraint);
-                    }
-
-                    if (_tableColumns.TryGetValue(ColumnKey(uniqueConstraint.Table, columnName), out var column))
-                    {
-                        uniqueConstraint.Columns.Add(column);
-                    }
-                }
+                using var reader = command.ExecuteReader();
+                relationTable.Load(reader);
             }
-        }
-        */
 
-        /*
-        private void GetIndexes()
-        {
-            var command = _connection.CreateCommand();
-            command.CommandText =
-                "SHOW " +
-                "   IndexColumns " +
-                "WHERE " +
-                "   IsPrimary = False AND " +
-                "   IsUnique = False AND " +
-                "   Table <> '" + HistoryRepository.DefaultTableName + "' " +
-                "ORDER BY " +
-                "   Table, Index, Ordinal";
-
-            using (var reader = command.ExecuteReader())
+            var relationColumnsTable = new DataTable();
+            using (var command = connection.CreateCommand())
             {
-                DatabaseIndex index = null;
-                while (reader.Read())
-                {
-                    var schemaName = "Jet"; // TODO: Change to `null`.
-                    var tableName = reader.GetValueOrDefault<string>("Table");
-                    var indexName = reader.GetValueOrDefault<string>("Index");
-                    var isUnique = reader.GetValueOrDefault<bool>("IsUnique");
-                    var columnName = reader.GetValueOrDefault<string>("Name");
-                    // ReSharper disable once UnusedVariable
-                    var indexOrdinal = reader.GetValueOrDefault<int>("Ordinal");
-
-                    Debug.Assert(index == null || index.Table != null);
-                    if (index == null
-                        || index.Name != indexName
-                        // ReSharper disable once PossibleNullReferenceException
-                        || index.Table.Name != tableName
-                        || index.Table.Schema != schemaName)
-                    {
-                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
-                        {
-                            continue;
-                        }
-
-                        Logger.IndexFound(indexName, tableName, isUnique);
-
-                        index = new DatabaseIndex
-                        {
-                            Table = table,
-                            Name = indexName,
-                            IsUnique = isUnique,
-                            Filter = null
-                        };
-
-                        table.Indexes.Add(index);
-                    }
-
-                    if (_tableColumns.TryGetValue(ColumnKey(index.Table, columnName), out var column))
-                    {
-                        index.Columns.Add(column);
-                    }
-                }
+                command.CommandText = "SELECT * FROM `INFORMATION_SCHEMA.RELATION_COLUMNS` ORDER BY RELATION_NAME, REFERENCING_COLUMN_NAME, PRINCIPAL_COLUMN_NAME";
+                using var reader = command.ExecuteReader();
+                relationColumnsTable.Load(reader);
             }
-        }
-        */
 
-        /*
-        private void GetForeignKeys()
-        {
-            var command = _connection.CreateCommand();
-            command.CommandText =
-                "SHOW " +
-                "    ForeignKeys " +
-                "ORDER BY " +
-                "    ToTable, " +
-                "    ConstraintId, " +
-                "    Ordinal";
+            var groupedRelationColumns = relationColumnsTable.Rows.Cast<DataRow>()
+                .GroupBy(r => r.GetValueOrDefault<string>("RELATION_NAME"))
+                .ToList();
 
-            using (var reader = command.ExecuteReader())
+            foreach (DataRow relationRow in relationTable.Rows)
             {
-                var lastFkName = string.Empty;
-                var lastFkSchemaName = string.Empty;
-                var lastFkTableName = string.Empty;
-                DatabaseForeignKey foreignKey = null;
-                while (reader.Read())
+                var relationName = relationRow.GetValueOrDefault<string>("RELATION_NAME");
+                var referencingTableName = relationRow.GetValueOrDefault<string>("REFERENCING_TABLE_NAME");
+                var principalTableName = relationRow.GetValueOrDefault<string>("PRINCIPAL_TABLE_NAME");
+                var relationType = relationRow.GetValueOrDefault<string>("RELATION_TYPE");
+                var onDelete = relationRow.GetValueOrDefault<string>("ON_DELETE");
+                var onUpdate = relationRow.GetValueOrDefault<string>("ON_UPDATE");
+                var enforced = relationRow.GetValueOrDefault<bool>("IS_ENFORCED", true);
+                var inherited = relationRow.GetValueOrDefault<bool>("IS_INHERITED", true);
+
+                var referencingTable = tables.FirstOrDefault(t => string.Equals(t.Name, referencingTableName)) ??
+                            tables.FirstOrDefault(t => string.Equals(t.Name, referencingTableName, StringComparison.OrdinalIgnoreCase));
+                if (referencingTable != null)
                 {
-                    var schemaName = "Jet"; // TODO: Change to `null`.
-                    var tableName = reader.GetValueOrDefault<string>("FromTable");
-                    var constraintName = reader.GetValueOrDefault<string>("ConstraintId");
-                    var principalTableSchemaName = "Jet"; // TODO: Change to `null`.
-                    var principalTableName = reader.GetValueOrDefault<string>("ToTable");
-                    var fromColumnName = reader.GetValueOrDefault<string>("FromColumn");
-                    var toColumnName = reader.GetValueOrDefault<string>("ToColumn");
-                    // ReSharper disable once UnusedVariable
-                    var updateAction = reader.GetValueOrDefault<string>("UpdateRule");
-                    var deleteAction = reader.GetValueOrDefault<string>("DeleteRule");
-                    // ReSharper disable once UnusedVariable
-                    var ordinal = reader.GetValueOrDefault<int>("Ordinal");
-
-                    Logger.ForeignKeyFound(
-                        constraintName,
-                        tableName,
-                        principalTableName,
-                        deleteAction);
-
-                    if (foreignKey == null
-                        || lastFkSchemaName != schemaName
-                        || lastFkTableName != tableName
-                        || lastFkName != constraintName)
+                    var relationColumns = groupedRelationColumns.FirstOrDefault(g => g.Key == relationName);
+                    if (relationColumns?.Any() ?? false)
                     {
-                        lastFkName = constraintName;
-                        lastFkSchemaName = schemaName;
-                        lastFkTableName = tableName;
-
-                        if (!_tables.TryGetValue(TableKey(tableName), out var table))
-                        {
-                            continue;
-                        }
-
-                        DatabaseTable principalTable = null;
-                        if (!string.IsNullOrEmpty(principalTableSchemaName)
-                            && !string.IsNullOrEmpty(principalTableName))
-                        {
-                            _tables.TryGetValue(TableKey(principalTableName), out principalTable);
-                        }
-
+                        _logger.ForeignKeyFound(
+                            relationName,
+                            referencingTableName,
+                            principalTableName,
+                            onDelete);
+                        
+                        var principalTable = tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName)) ??
+                                             tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName, StringComparison.OrdinalIgnoreCase));
                         if (principalTable == null)
                         {
-                            Logger.ForeignKeyReferencesMissingPrincipalTableWarning(
-                                constraintName, tableName, principalTableName);
+                            _logger.ForeignKeyReferencesMissingPrincipalTableWarning(
+                                relationName,
+                                referencingTableName,
+                                principalTableName);
+                            continue;
                         }
-
-                        foreignKey = new DatabaseForeignKey
+                        
+                        var foreignKey = new DatabaseForeignKey
                         {
-                            Name = constraintName,
-                            Table = table,
+                            Name = relationName,
+                            Table = referencingTable,
                             PrincipalTable = principalTable,
-                            OnDelete = ConvertToReferentialAction(deleteAction)
+                            OnDelete = ConvertToReferentialAction(onDelete),
                         };
 
-                        table.ForeignKeys.Add(foreignKey);
-                    }
-
-                    if (_tableColumns.TryGetValue(
-                        ColumnKey(foreignKey.Table, fromColumnName), out var fromColumn))
-                    {
-                        foreignKey.Columns.Add(fromColumn);
-                    }
-
-                    if (foreignKey.PrincipalTable != null)
-                    {
-                        if (_tableColumns.TryGetValue(
-                            ColumnKey(foreignKey.PrincipalTable, toColumnName), out var toColumn))
+                        var invalid = false;
+                        foreach (var relationColumn in relationColumns)
                         {
-                            foreignKey.PrincipalColumns.Add(toColumn);
+                            var referencingColumnName = relationColumn.GetValueOrDefault<string>("REFERENCING_COLUMN_NAME");
+                            var referencingColumn = referencingTable.Columns.FirstOrDefault(c => c.Name == referencingColumnName) ??
+                                                    referencingTable.Columns.FirstOrDefault(c => string.Equals(c.Name, referencingColumnName, StringComparison.OrdinalIgnoreCase));
+                            Debug.Assert(referencingColumn != null, "referencingColumn is null.");
+
+                            var principalColumnName = relationColumn.GetValueOrDefault<string>("PRINCIPAL_COLUMN_NAME");
+                            var principalColumn = principalTable.Columns.FirstOrDefault(c => c.Name == principalColumnName) ??
+                                                  principalTable.Columns.FirstOrDefault(c => string.Equals(c.Name, principalColumnName, StringComparison.OrdinalIgnoreCase));
+                            if (principalColumn == null)
+                            {
+                                invalid = true;
+                                _logger.ForeignKeyPrincipalColumnMissingWarning(
+                                    relationName,
+                                    referencingTableName,
+                                    principalColumnName,
+                                    principalTableName);
+                                break;
+                            }
+
+                            foreignKey.Columns.Add(referencingColumn);
+                            foreignKey.PrincipalColumns.Add(principalColumn);
+                        }
+
+                        if (invalid)
+                        {
+                            continue;
+                        }
+                        
+                        if (foreignKey.Columns.SequenceEqual(foreignKey.PrincipalColumns))
+                        {
+                            _logger.ReflexiveConstraintIgnored(
+                                foreignKey.Name,
+                                referencingTableName);
+                        }
+                        else
+                        {
+                            referencingTable.ForeignKeys.Add(foreignKey);
                         }
                     }
                 }
             }
         }
-        */
 
         private static ReferentialAction? ConvertToReferentialAction(string onDeleteAction)
         {
             switch (onDeleteAction.ToUpperInvariant())
             {
-                case "RESTRICT":
+                case "RESTRICT": // TODO: does not exist in Jet
                     return ReferentialAction.Restrict;
 
                 case "CASCADE":

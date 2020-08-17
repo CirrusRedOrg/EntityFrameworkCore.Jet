@@ -24,5 +24,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             => optionsBuilder.UseJet(new JetConnection("Database=DummyDatabase"));
 
         public override LoggingDefinitions LoggingDefinitions { get; } = new JetLoggingDefinitions();
+
+        public string GetStoreName(string storeNameWithoutSuffix) => $"{storeNameWithoutSuffix}.accdb";
     }
 }

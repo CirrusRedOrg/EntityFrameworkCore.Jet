@@ -162,7 +162,11 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
                         type == QueryDefTypeEnum.dbQCrosstab ||
                         type == QueryDefTypeEnum.dbQSQLPassThrough)
                     {
-                        dataTable.Rows.Add(tableName, "VIEW");
+                        dataTable.Rows.Add(
+                            tableName,
+                            "VIEW",
+                            null,
+                            null);
                     }
                 }
             }
@@ -200,19 +204,19 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
 
             var objectDefsCollection = new[]
             {
-                _database.TableDefs,
-                _database.QueryDefs,
+                (Collection: _database.TableDefs, Tables: true),
+                (Collection: _database.QueryDefs, Tables: false),
             };
 
             try
             {
                 foreach (var objectDefs in objectDefsCollection)
                 {
-                    var objectDefCount = objectDefs.Count;
+                    var objectDefCount = objectDefs.Collection.Count;
 
                     for (var i = 0; i < objectDefCount; i++)
                     {
-                        using var objectDef = objectDefs[i];
+                        using var objectDef = objectDefs.Collection[i];
                         var tableName = (string) objectDef.Name;
 
                         using var fields = objectDef.Fields;
@@ -259,7 +263,7 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
                             validationText = string.IsNullOrEmpty(validationText)
                                 ? null
                                 : validationText;
-
+                            
                             dataTable.Rows.Add(
                                 tableName,
                                 columnName,
@@ -282,7 +286,7 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
             {
                 foreach (var objectDefs in objectDefsCollection)
                 {
-                    objectDefs.Dispose();
+                    objectDefs.Collection.Dispose();
                 }
             }
 

@@ -151,6 +151,7 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
                         tableType == "TABLE" ||
                         tableType == "LINK" ||
                         tableType == "SYSTEM TABLE" ||
+                        tableType == "ACCESS TABLE" ||
                         tableType == "VIEW" ||
                         tableType == "TEMPORARY TABLE");
 
@@ -282,7 +283,7 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
                     validationText = string.IsNullOrEmpty(validationText)
                         ? null
                         : validationText;
-                    
+
                     dataTable.Rows.Add(
                         tableName,
                         columnName,

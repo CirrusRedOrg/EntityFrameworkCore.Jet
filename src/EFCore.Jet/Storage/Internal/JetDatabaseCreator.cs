@@ -98,7 +98,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 }, cancellationToken);
 
         private IRelationalCommand CreateHasTablesCommand()
-            => _rawSqlCommandBuilder.Build(@"SHOW TABLES WHERE TYPE='USER'");
+            => _rawSqlCommandBuilder.Build(@"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')");
 
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
             => Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = _relationalConnection.DbConnection.DataSource}});

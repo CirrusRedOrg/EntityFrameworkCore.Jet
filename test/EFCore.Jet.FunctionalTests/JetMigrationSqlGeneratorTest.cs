@@ -157,7 +157,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
                 new AlterTableOperation
                 {
                     Name = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Comment = "My Comment"
                 });
 
@@ -179,7 +179,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'Name comment', 'SCHEMA', @default
                         }),
                 new AlterTableOperation
                 {
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "People",
                     Comment = "My Comment 2",
                     OldTable = new TableOperation { Comment = "My Comment" }
@@ -204,7 +204,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                         }),
                 new AlterTableOperation
                 {
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "People",
                     OldTable = new TableOperation { Comment = "My Comment" }
                 });
@@ -345,7 +345,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 new AddColumnOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "Birthday",
                     ClrType = typeof(DateTime),
                     ColumnType = "datetime",
@@ -365,7 +365,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 new AddColumnOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "Birthday",
                     ClrType = typeof(DateTime),
                     ColumnType = "smalldatetime",
@@ -1121,7 +1121,7 @@ ALTER TABLE `Person` ALTER COLUMN `Id` bigint NOT NULL;
                 new AlterColumnOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "LuckyNumber",
                     ClrType = typeof(int),
                     ColumnType = "int",
@@ -1155,7 +1155,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment', 'SCHEMA', 'dbo', 'TA
                 new AlterColumnOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "Name",
                     ClrType = typeof(string),
                     IsNullable = false,
@@ -1195,7 +1195,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 new AlterColumnOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "Name",
                     ClrType = typeof(string),
                     IsNullable = false,
@@ -1348,7 +1348,7 @@ END;
                 {
                     Name = "IX_People_Name",
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Columns = new[] { "FirstName", "LastName" },
                     IsUnique = true
                 });
@@ -1557,7 +1557,7 @@ END;
                 new CreateIndexOperation
                 {
                     Name = "IX_People_Name",
-                    Schema = "dbo",
+                    Schema = null,
                     Table = "People",
                     Columns = new[] { "Name" },
                     IsUnique = true
@@ -1633,7 +1633,7 @@ END;
         public virtual void CreateSchemaOperation_dbo()
         {
             Generate(
-                new EnsureSchemaOperation { Name = "dbo" });
+                new EnsureSchemaOperation { Name = null });
 
             AssertSql($@"");
         }
@@ -1705,7 +1705,7 @@ DROP DATABASE `Northwind`;
                 new RenameSequenceOperation
                 {
                     Name = "EntityFrameworkHiLoSequence",
-                    Schema = "dbo",
+                    Schema = null,
                     NewSchema = "my"
                 });
 
@@ -1722,7 +1722,7 @@ DROP DATABASE `Northwind`;
                 new RenameSequenceOperation
                 {
                     Name = "EntityFrameworkHiLoSequence",
-                    Schema = "dbo",
+                    Schema = null,
                     NewName = "EntityFrameworkHiLoSequence",
                     NewSchema = "my"
                 });
@@ -1740,7 +1740,7 @@ DROP DATABASE `Northwind`;
                 new RenameSequenceOperation
                 {
                     Name = "EntityFrameworkHiLoSequence",
-                    Schema = "dbo",
+                    Schema = null,
                     NewName = "EntityFrameworkHiLoSequence"
                 });
 
@@ -1757,7 +1757,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequenc
                 new RenameTableOperation
                 {
                     Name = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     NewSchema = "hr"
                 });
 
@@ -1774,7 +1774,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequenc
                 new RenameTableOperation
                 {
                     Name = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     NewName = "People",
                     NewSchema = "hr"
                 });
@@ -1792,7 +1792,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `EntityFrameworkHiLoSequenc
                 new RenameTableOperation
                 {
                     Name = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     NewName = "People"
                 });
 
@@ -1809,7 +1809,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new RenameColumnOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "Name",
                     NewName = "FullName"
                 });
@@ -1826,7 +1826,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new RenameIndexOperation
                 {
                     Table = "People",
-                    Schema = "dbo",
+                    Schema = null,
                     Name = "IX_People_Name",
                     NewName = "IX_People_FullName"
                 });
@@ -1858,7 +1858,7 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new RenameSequenceOperation
                 {
                     Name = "EntityFrameworkHiLoSequence",
-                    Schema = "dbo",
+                    Schema = null,
                     NewName = "MySequence"
                 });
 
@@ -1875,9 +1875,9 @@ EXEC('ALTER SCHEMA [' + @defaultSchema + '] TRANSFER `People`;');
                 new RenameSequenceOperation
                 {
                     Name = "EntityFrameworkHiLoSequence",
-                    Schema = "dbo",
+                    Schema = null,
                     NewName = "MySequence",
-                    NewSchema = "dbo"
+                    NewSchema = null
                 });
 
             AssertSql(

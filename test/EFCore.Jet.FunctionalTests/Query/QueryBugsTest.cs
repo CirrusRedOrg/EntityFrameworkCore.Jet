@@ -2730,7 +2730,7 @@ WHERE `w`.`Val` = 1");
                 modelBuilder.Entity<Widget9214>().ToTable("Widgets", "foo");
 
                 modelBuilder.HasDbFunction(typeof(MyContext9214).GetMethod(nameof(AddOne)));
-                modelBuilder.HasDbFunction(typeof(MyContext9214).GetMethod(nameof(AddTwo))).HasSchema("dbo");
+                modelBuilder.HasDbFunction(typeof(MyContext9214).GetMethod(nameof(AddTwo))).HasSchema(null);
             }
         }
 

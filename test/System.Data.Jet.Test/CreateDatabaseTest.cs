@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
@@ -23,8 +24,8 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void CreateAndDropDatabaseFromConnection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
-            connection.CreateEmptyDatabase();
+            using var connection = new JetConnection(StoreName, Helpers.DataAccessProviderFactory);
+            connection.CreateDatabase();
 
             Assert.IsTrue(File.Exists(StoreName));
             

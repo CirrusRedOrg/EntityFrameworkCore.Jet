@@ -122,21 +122,25 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
         public static JetConnection CreateAndOpenJetDatabase(string storeName = null)
         {
-            var connection = new JetConnection(CreateJetDatabase(storeName ?? GetStoreNameFromCallStack()));
+            var connection = new JetConnection(CreateJetDatabase(storeName));
             connection.Open();
             return connection;
         }
 
         public static string CreateJetDatabase(string storeName = null)
         {
+            storeName ??= GetStoreNameFromCallStack();
+                
             DeleteJetDatabase(storeName);
-            return JetConnection.CreateEmptyDatabase(storeName ?? GetStoreNameFromCallStack(), Helpers.DataAccessProviderFactory);
+            JetConnection.CreateDatabase(storeName);
+            
+            return storeName;
         }
 
         public static void DeleteJetDatabase(string storeName = null)
         {
             JetConnection.ClearAllPools();
-            JetConnection.DropDatabase(JetConnection.GetConnectionString(storeName ?? GetStoreNameFromCallStack(), Helpers.DataAccessProviderFactory));
+            JetConnection.DropDatabase(storeName ?? GetStoreNameFromCallStack());
         }
  
         public static DbProviderFactory DataAccessProviderFactory { get; set; } = OdbcFactory.Instance;

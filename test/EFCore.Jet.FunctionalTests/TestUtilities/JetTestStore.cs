@@ -8,11 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Data.Jet;
-using System.Data.Odbc;
-using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -132,7 +129,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
             else
             {
-                JetConnection.CreateEmptyDatabase(Name, TestEnvironment.DataAccessProviderFactory);
+                JetConnection.CreateDatabase(Name);
             }
 
             return true;

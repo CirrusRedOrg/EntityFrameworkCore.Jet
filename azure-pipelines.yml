@@ -1,0 +1,31 @@
+trigger:
+  branches:
+    include:
+    - '*'
+  tags:
+    include:
+    - '*'
+
+variables:
+  buildConfiguration: 'Release'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  - job: Windows
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - pwsh: |
+        Invoke-WebRequest "https://download.microsoft.com/download/0/6/A/06AD225D-42E3-4A58-A35C-71CCF694C9C6/AccessDatabaseEngine_X64.exe" -OutFile "AccessDatabaseEngine_2010_X64.exe"
+        .\AccessDatabaseEngine_2010_X64.exe /passive
+      displayName: Install Access Database Engine
+    - pwsh: |
+        dotnet build --configuration $(buildConfiguration)
+      displayName: Build Solution
+    - pwsh: |
+        dotnet test .\test\System.Data.Jet.Test -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+      displayName: 'Run Tests: System.Data.Jet.Test'
+    - pwsh: |
+        dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+      displayName: 'Run Tests: EFCore.Jet.FunctionalTests'

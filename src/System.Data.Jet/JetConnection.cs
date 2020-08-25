@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -20,7 +19,10 @@ namespace System.Data.Jet
         internal JetTransaction ActiveTransaction { get; set; }
         
         internal int RowCount { get; set; }
-
+        
+        internal string ActiveConnectionString { get; private set; }
+        internal string FileNameOrConnectionString => ConnectionString;
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
@@ -157,6 +159,8 @@ namespace System.Data.Jet
                 ActiveTransaction = null;
             }
 
+            ActiveConnectionString = null;
+
             if (InnerConnection != null)
             {
                 InnerConnection.StateChange -= WrappedConnection_StateChange;
@@ -221,14 +225,7 @@ namespace System.Data.Jet
         /// Gets the name of the file to open.
         /// </summary>
         public override string DataSource
-        {
-            get
-            {
-                var connectionStringBuilder = JetFactory.InnerFactory.CreateConnectionStringBuilder();
-                connectionStringBuilder.ConnectionString = _connectionString;
-                return connectionStringBuilder.GetDataSource();
-            }
-        }
+            => JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(_connectionString);
 
         /// <summary>
         /// Releases the unmanaged resources used by the <see cref="T:System.ComponentModel.Component" /> and optionally releases the managed resources.
@@ -318,37 +315,56 @@ namespace System.Data.Jet
             if (State != ConnectionState.Closed)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Open), ConnectionState.Closed, State));
 
-            var connectionString = ConnectionString;
-            var dataAccessProviderFactory = DataAccessProviderFactory;
-            var dataAccessProviderType = dataAccessProviderFactory == null
-                ? JetConfiguration.DefaultDataAccessProviderType
-                : GetDataAccessProviderType(dataAccessProviderFactory);
+            var fileNameOrConnectionString = ConnectionString;
+            var dataAccessProviderType = DataAccessProviderFactory != null
+                ? (DataAccessProviderType?)GetDataAccessProviderType(DataAccessProviderFactory)
+                : null;
 
-            dataAccessProviderFactory ??= JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
-
-            // If the connection string is just a file path, we need to construct a valid connection string from it
-            // by using the default data access provider type (ODBC or OLE DB) and retrieving its most recent
-            // ACE/Jet provider.
-            if (IsFileName(connectionString))
+            string connectionString;
+            
+            if (IsConnectionString(fileNameOrConnectionString))
             {
-                var fileName = connectionString;
-                connectionString = GetConnectionString(fileName, dataAccessProviderType);
+                // If the connection string is an actual connection string an not just a file path, then we should
+                // be able to deduct the provider from its style.
+                dataAccessProviderType ??= GetDataAccessProviderType(fileNameOrConnectionString);
+                connectionString = fileNameOrConnectionString;
+            }
+            else
+            {
+                dataAccessProviderType ??= JetConfiguration.DefaultDataAccessProviderType;
+
+                if (IsFileName(fileNameOrConnectionString))
+                {
+                    // If the connection string is just a file path, we need to construct a valid connection string from it
+                    // by using the default data access provider type (ODBC or OLE DB) and retrieving its most recent
+                    // ACE/Jet provider.
+                    var fileName = fileNameOrConnectionString;
+                    connectionString = GetConnectionString(fileName, dataAccessProviderType.Value);
+                }
+                else
+                {
+                    // Who knows what got passed to us. We assume it is some kind of fancy connection string
+                    // and just use it as is.
+                    connectionString = fileNameOrConnectionString;
+                }
             }
 
+            DataAccessProviderFactory ??= JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
+            
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.
-            // We need to retrieving the data access provider type's most recent ACE/Jet provider in that case.
-            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
+            var connectionStringBuilder = DataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = connectionString;
 
             if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider()))
             {
-                var provider = GetMostRecentCompatibleProviders(dataAccessProviderType)
+                var provider = GetMostRecentCompatibleProviders(dataAccessProviderType.Value)
                     .FirstOrDefault()
                     .Key;
 
                 if (provider == null)
-                    throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {connectionString}");
+                    throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
                     
                 connectionStringBuilder.SetProvider(provider);
                 connectionString = connectionStringBuilder.ToString();
@@ -364,14 +380,15 @@ namespace System.Data.Jet
                 }
             }
 
-            DataAccessProviderFactory ??= dataAccessProviderFactory;
-
+            connectionString = ExpandDatabaseFilePath(connectionString);
+            
             try
             {
                 InnerConnection = InnerConnectionFactory.Instance.OpenConnection(
-                    ExpandDatabaseFilePath(connectionString),
+                    connectionString,
                     JetFactory.InnerFactory);
                 InnerConnection.StateChange += WrappedConnection_StateChange;
+                ActiveConnectionString = connectionString;
 
                 RowCount = 0;
                 _state = ConnectionState.Open;
@@ -488,23 +505,35 @@ namespace System.Data.Jet
         public static void ClearAllPools()
             => InnerConnectionFactory.Instance.ClearAllPools();
 
-        public void CreateEmptyDatabase()
-            => CreateEmptyDatabase(DataSource, DataAccessProviderFactory);
+        public void CreateDatabase(
+            DatabaseVersion version = DatabaseVersion.Newest,
+            CollatingOrder collatingOrder = CollatingOrder.General,
+            string databasePassword = null)
+            => CreateDatabase(DataSource, version, collatingOrder, databasePassword, SchemaProviderType);
 
-        // TODO: Use the `CREATE_DB` connection string option instead of calling ADOX when using ODBC, to create
-        //       a new database file.
-        //       Alternatively, use DAO in conjunction with ODBC.
-        public static string CreateEmptyDatabase(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
-            => AdoxWrapper.CreateEmptyDatabase(fileNameOrConnectionString, dataAccessProviderFactory);
+        public static void CreateDatabase(
+            string fileNameOrConnectionString,
+            DatabaseVersion version = DatabaseVersion.Newest,
+            CollatingOrder collatingOrder = CollatingOrder.General,
+            string databasePassword = null,
+            SchemaProviderType schemaProviderType = SchemaProviderType.Precise)
+        {
+            var databaseCreator = JetDatabaseCreator.CreateInstance(schemaProviderType);
+            
+            databaseCreator.CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
+            databaseCreator.CreateDualTable(fileNameOrConnectionString, databasePassword);
+        }
 
-        public static string GetConnectionString(string fileName, DbProviderFactory dataAccessProviderFactory)
-            => GetConnectionString(fileName, GetDataAccessProviderType(dataAccessProviderFactory));
+        public static string GetConnectionString(string fileNameOrConnectioString, DbProviderFactory dataAccessProviderFactory)
+            => GetConnectionString(fileNameOrConnectioString, GetDataAccessProviderType(dataAccessProviderFactory));
 
-        public static string GetConnectionString(string fileName, DataAccessProviderType dataAccessProviderType)
-            => GetConnectionString(
-                GetMostRecentCompatibleProviders(dataAccessProviderType).First().Key,
-                fileName,
-                dataAccessProviderType);
+        public static string GetConnectionString(string fileNameOrConnectioString, DataAccessProviderType dataAccessProviderType)
+            => IsConnectionString(fileNameOrConnectioString)
+                ? fileNameOrConnectioString
+                : GetConnectionString(
+                    GetMostRecentCompatibleProviders(dataAccessProviderType).First().Key,
+                    fileNameOrConnectioString,
+                    dataAccessProviderType);
 
         public static string GetConnectionString(string provider, string fileName, DbProviderFactory dataAccessProviderFactory)
             => GetConnectionString(provider, fileName, GetDataAccessProviderType(dataAccessProviderFactory));
@@ -513,7 +542,7 @@ namespace System.Data.Jet
             => dataAccessProviderType == DataAccessProviderType.OleDb
                 ? $"Provider={provider};Data Source={fileName}"
                 : $"Driver={{{provider}}};DBQ={fileName}";
-
+        
         private string ExpandDatabaseFilePath(string connectionString)
         {
             var connectionStringBuilder = JetFactory.InnerFactory.CreateConnectionStringBuilder();
@@ -538,6 +567,8 @@ namespace System.Data.Jet
 
         public bool DatabaseExists()
             => DatabaseExists(_connectionString);
+        
+        public SchemaProviderType SchemaProviderType { get; set; }
 
         public static bool DatabaseExists(string fileNameOrConnectionString)
         {

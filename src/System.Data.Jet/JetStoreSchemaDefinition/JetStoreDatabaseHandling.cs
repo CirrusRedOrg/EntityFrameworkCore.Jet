@@ -77,12 +77,11 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
         }
 
-        public static bool TryDatabaseOperation(JetCommand command)
+        public static bool ProcessDatabaseOperation(JetCommand command)
         {
             var commandText = command.CommandText;
-            var connectionDataAccessProviderFactory = ((JetConnection) command.Connection).DataAccessProviderFactory;
 
-            Match match = _regExIsCreateOrDropDatabaseCommand.Match(commandText);
+            var match = _regExIsCreateOrDropDatabaseCommand.Match(commandText);
             if (!match.Success)
                 return false;
 
@@ -97,37 +96,39 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new InvalidOperationException("CREATE DATABASE statement is missing the database file name.");
 
-                AdoxWrapper.CreateEmptyDatabase(fileName, connectionDataAccessProviderFactory);
+                var databaseCreator = new DaoDatabaseCreator();
+                databaseCreator.CreateDatabase(fileName);
                 return true;
             }
 
             match = _regExParseObsoleteCreateDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
-                AdoxWrapper.CreateEmptyDatabase(
-                    ExtractFileNameFromConnectionString(match.Groups["connectionString"].Value),
-                    connectionDataAccessProviderFactory);
+                var databaseCreator = new DaoDatabaseCreator();
+                databaseCreator.CreateDatabase(ExtractFileNameFromConnectionString(match.Groups["connectionString"].Value));
+
                 return true;
             }
 
             match = _regExParseObsoleteCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                string fileName = match.Groups["filename"]
+                var fileName = match.Groups["filename"]
                     .Value;
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
-                AdoxWrapper.CreateEmptyDatabase(fileName, connectionDataAccessProviderFactory);
+                
+                var databaseCreator = new DaoDatabaseCreator();
+                databaseCreator.CreateDatabase(fileName);
                 return true;
             }
 
             match = _regExParseObsoleteDropDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
-                string fileName;
-                string connectionString = match.Groups["connectionString"]
+                var connectionString = match.Groups["connectionString"]
                     .Value;
-                fileName = ExtractFileNameFromConnectionString(connectionString);
+                var fileName = ExtractFileNameFromConnectionString(connectionString);
 
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new Exception("Missing file name");
@@ -154,7 +155,7 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
             match = _regExParseObsoleteDropDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                string fileName = match.Groups["filename"]
+                var fileName = match.Groups["filename"]
                     .Value;
 
                 if (string.IsNullOrWhiteSpace(fileName))

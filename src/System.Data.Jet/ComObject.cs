@@ -13,8 +13,49 @@ namespace System.Data.Jet
         private readonly Guid _trackingId = Guid.NewGuid();
 #endif
 
+        public static ComObject CreateFirstFrom(params string[] progids)
+        {
+            foreach (var progid in progids)
+            {
+                var type = Type.GetTypeFromProgID(progid, false);
+                if (type != null)
+                {
+                    var instance = Activator.CreateInstance(type);
+                    if (instance != null)
+                    {
+                        return new ComObject(instance);
+                    }
+                }
+            }
+            
+            throw new TypeLoadException("Could not create an instance using any of the supplied ProgIDs.");
+        }
+        
+        public static ComObject CreateFirstFrom(params Guid[] clsids)
+        {
+            foreach (var clsid in clsids)
+            {
+                var type = Type.GetTypeFromCLSID(clsid, false);
+                if (type != null)
+                {
+                    var instance = Activator.CreateInstance(type);
+                    if (instance != null)
+                    {
+                        return new ComObject(instance);
+                    }
+                }
+            }
+            
+            throw new TypeLoadException("Could not create an instance using any of the supplied CLSIDs.");
+        }
+
         public ComObject(object instance)
         {
+            if (instance is ComObject)
+            {
+                throw new ArgumentException("The object is already a ComObject.", nameof(instance));
+            }
+            
             _instance = instance;
         }
 
@@ -98,16 +139,11 @@ namespace System.Data.Jet
 
         // See https://github.com/dotnet/runtime/issues/12587#issuecomment-578431424
         private static object WrapIfRequired(object obj)
-        {
-            if (obj != null && !obj.GetType()
-                .IsPrimitive)
-            {
-                return new ComObject(obj);
-            }
+            => obj != null &&
+               obj.GetType().IsCOMObject
+                ? new ComObject(obj)
+                : obj;
 
-            return obj;
-        }
-        
         public void Dispose()
         {
             // The RCW is a .NET object and cannot be released from the finalizer,

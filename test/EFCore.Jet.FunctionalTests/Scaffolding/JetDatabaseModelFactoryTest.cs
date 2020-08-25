@@ -37,20 +37,20 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
 
         #region Model
 
-        [ConditionalFact]
-        public void Set_default_schema()
-        {
-            Test(
-                "SELECT 1",
-                Enumerable.Empty<string>(),
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var defaultSchema = Fixture.TestStore.ExecuteScalar<string>("SELECT SCHEMA_NAME()");
-                    Assert.Equal(defaultSchema, dbModel.DefaultSchema);
-                },
-                null);
-        }
+        // [ConditionalFact]
+        // public void Set_default_schema()
+        // {
+        //     Test(
+        //         "SELECT 1",
+        //         Enumerable.Empty<string>(),
+        //         Enumerable.Empty<string>(),
+        //         dbModel =>
+        //         {
+        //             var defaultSchema = Fixture.TestStore.ExecuteScalar<string>("SELECT SCHEMA_NAME()");
+        //             Assert.Equal(defaultSchema, dbModel.DefaultSchema);
+        //         },
+        //         null);
+        // }
 
         [ConditionalFact]
         public void Create_tables()
@@ -68,12 +68,12 @@ CREATE TABLE `Denali` ( id int );",
                         dbModel.Tables.OrderBy(t => t.Name),
                         d =>
                         {
-                            Assert.Equal("dbo", d.Schema);
+                            Assert.Equal(null, d.Schema);
                             Assert.Equal("Denali", d.Name);
                         },
                         e =>
                         {
-                            Assert.Equal("dbo", e.Schema);
+                            Assert.Equal(null, e.Schema);
                             Assert.Equal("Everest", e.Name);
                         });
                 },
@@ -86,294 +86,31 @@ DROP TABLE `Denali`;");
         #endregion
 
         #region FilteringSchemaTable
-
+        
         [ConditionalFact]
-        public void Filter_schemas()
+        public void Table_filtering_validation()
         {
             Test(
                 @"
-CREATE TABLE `db2`.`K2` ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B));",
-                Enumerable.Empty<string>(),
-                new[] { "db2" },
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE `Kilimanjaro`;
-
-DROP TABLE `db2`.`K2`;");
-        }
-
-        [ConditionalFact]
-        public void Filter_tables()
-        {
-            Test(
-                @"
-CREATE TABLE `K2` ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B), FOREIGN KEY (B) REFERENCES K2 (A) );",
-                new[] { "K2" },
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE `Kilimanjaro`;
-
-DROP TABLE `K2`;");
-        }
-
-        [ConditionalFact]
-        public void Filter_tables_with_qualified_name()
-        {
-            Test(
-                @"
-CREATE TABLE [K.2] ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "[K.2]" },
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K.2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE `Kilimanjaro`;
-
-DROP TABLE [K.2];");
-        }
-
-        [ConditionalFact]
-        public void Filter_tables_with_schema_qualified_name1()
-        {
-            Test(
-                @"
-CREATE TABLE `K2` ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `db2`.`K2` ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "K2" },
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE `Kilimanjaro`;
-
-DROP TABLE `K2`;
-
-DROP TABLE `db2`.`K2`;");
-        }
-
-        [ConditionalFact]
-        public void Filter_tables_with_schema_qualified_name2()
-        {
-            Test(
-                @"
-CREATE TABLE [K.2] ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE [db.2].[K.2] ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE [db.2].`Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "[db.2].[K.2]" },
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K.2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE [db.2].`Kilimanjaro`;
-
-DROP TABLE [K.2];
-
-DROP TABLE [db.2].[K.2];");
-        }
-
-        [ConditionalFact]
-        public void Filter_tables_with_schema_qualified_name3()
-        {
-            Test(
-                @"
-CREATE TABLE [K.2] ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `db2`.[K.2] ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE `Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "[K.2]" },
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K.2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE `Kilimanjaro`;
-
-DROP TABLE [K.2];
-
-DROP TABLE `db2`.[K.2];");
-        }
-
-        [ConditionalFact]
-        public void Filter_tables_with_schema_qualified_name4()
-        {
-            Test(
-                @"
-CREATE TABLE `K2` ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE [db.2].`K2` ( Id int, A varchar, UNIQUE (A ) );
-
-CREATE TABLE [db.2].`Kilimanjaro` ( Id int, B varchar, UNIQUE (B) );",
-                new[] { "[db.2].K2" },
-                Enumerable.Empty<string>(),
-                dbModel =>
-                {
-                    var table = Assert.Single(dbModel.Tables);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("K2", table.Name);
-                    Assert.Equal(2, table.Columns.Count);
-                    Assert.Equal(1, table.UniqueConstraints.Count);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                @"
-DROP TABLE [db.2].`Kilimanjaro`;
-
-DROP TABLE `K2`;
-
-DROP TABLE [db.2].`K2`;");
-        }
-
-        [ConditionalFact]
-        public void Complex_filtering_validation()
-        {
-            Test(
-                @"
-CREATE SEQUENCE `Sequence`;
-CREATE SEQUENCE `db2`.`Sequence`;
-
-CREATE TABLE [db.2].`QuotedTableName` ( Id int PRIMARY KEY );
-CREATE TABLE [db.2].[Table.With.Dot] ( Id int PRIMARY KEY );
-CREATE TABLE [db.2].`SimpleTableName` ( Id int PRIMARY KEY );
-CREATE TABLE [db.2].`JustTableName` ( Id int PRIMARY KEY );
-
 CREATE TABLE `QuotedTableName` ( Id int PRIMARY KEY );
-CREATE TABLE [Table.With.Dot] ( Id int PRIMARY KEY );
 CREATE TABLE `SimpleTableName` ( Id int PRIMARY KEY );
 CREATE TABLE `JustTableName` ( Id int PRIMARY KEY );
-
-CREATE TABLE `db2`.`QuotedTableName` ( Id int PRIMARY KEY );
-CREATE TABLE `db2`.[Table.With.Dot] ( Id int PRIMARY KEY );
-CREATE TABLE `db2`.`SimpleTableName` ( Id int PRIMARY KEY );
-CREATE TABLE `db2`.`JustTableName` ( Id int PRIMARY KEY );
-
-CREATE TABLE `db2`.`PrincipalTable` (
-    Id int PRIMARY KEY,
-    UC1 nvarchar(450),
-    UC2 int,
-    Index1 bit,
-    Index2 bigint
-    CONSTRAINT UX UNIQUE (UC1, UC2),
-)
-
-CREATE INDEX IX_COMPOSITE ON `db2`.`PrincipalTable` ( Index2, Index1 );
-
-CREATE TABLE `db2`.`DependentTable` (
-    Id int PRIMARY KEY,
-    ForeignKeyId1 nvarchar(450),
-    ForeignKeyId2 int,
-    FOREIGN KEY (ForeignKeyId1, ForeignKeyId2) REFERENCES `db2`.`PrincipalTable`(UC1, UC2) ON DELETE CASCADE,
-);",
+",
                 new[]
                 {
-                    "[db.2].`QuotedTableName`", "[db.2].SimpleTableName", "[Table.With.Dot]", "SimpleTableName", "JustTableName"
+                    "`QuotedTableName`", "SimpleTableName"
                 },
-                new[] { "db2" },
+                null,
                 dbModel =>
                 {
-                    var sequence = Assert.Single(dbModel.Sequences);
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("db2", sequence.Schema);
-
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db.2" && t.Name == "QuotedTableName"));
-                    Assert.Empty(dbModel.Tables.Where(t => t.Schema == "db.2" && t.Name == "Table.With.Dot"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db.2" && t.Name == "SimpleTableName"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db.2" && t.Name == "JustTableName"));
-
-                    Assert.Empty(dbModel.Tables.Where(t => t.Schema == "dbo" && t.Name == "QuotedTableName"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "dbo" && t.Name == "Table.With.Dot"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "dbo" && t.Name == "SimpleTableName"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "dbo" && t.Name == "JustTableName"));
-
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db2" && t.Name == "QuotedTableName"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db2" && t.Name == "Table.With.Dot"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db2" && t.Name == "SimpleTableName"));
-                    Assert.Single(dbModel.Tables.Where(t => t.Schema == "db2" && t.Name == "JustTableName"));
-
-                    var principalTable = Assert.Single(dbModel.Tables.Where(t => t.Schema == "db2" && t.Name == "PrincipalTable"));
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.NotNull(principalTable.PrimaryKey);
-                    Assert.Single(principalTable.UniqueConstraints);
-                    Assert.Single(principalTable.Indexes);
-
-                    var dependentTable = Assert.Single(dbModel.Tables.Where(t => t.Schema == "db2" && t.Name == "DependentTable"));
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Single(dependentTable.ForeignKeys);
+                    Assert.Single(dbModel.Tables.Where(t => t.Schema == null && t.Name == "QuotedTableName"));
+                    Assert.Single(dbModel.Tables.Where(t => t.Schema == null && t.Name == "SimpleTableName"));
+                    Assert.Empty(dbModel.Tables.Where(t => t.Schema == null && t.Name == "JustTableName"));
                 },
                 @"
-DROP SEQUENCE `Sequence`;
-DROP SEQUENCE `db2`.`Sequence`;
-
-DROP TABLE [db.2].`QuotedTableName`;
-DROP TABLE [db.2].[Table.With.Dot];
-DROP TABLE [db.2].`SimpleTableName`;
-DROP TABLE [db.2].`JustTableName`;
-
 DROP TABLE `QuotedTableName`;
-DROP TABLE [Table.With.Dot];
 DROP TABLE `SimpleTableName`;
-DROP TABLE `JustTableName`;
-
-DROP TABLE `db2`.`QuotedTableName`;
-DROP TABLE `db2`.[Table.With.Dot];
-DROP TABLE `db2`.`SimpleTableName`;
-DROP TABLE `db2`.`JustTableName`;
-DROP TABLE `db2`.`DependentTable`;
-DROP TABLE `db2`.`PrincipalTable`;");
+DROP TABLE `JustTableName`;");
         }
 
         #endregion
@@ -387,17 +124,8 @@ DROP TABLE `db2`.`PrincipalTable`;");
                 @"
 CREATE TABLE `Blogs` (
     Id int,
-    Name nvarchar(100) NOT NULL,
-);
-EXECUTE sys.sp_addextendedproperty @name = 'MS_Description', @value = 'Blog table comment.
-On multiple lines.',
-    @level0type = 'SCHEMA', @level0name = 'dbo', 
-    @level1type = 'TABLE', @level1name = 'Blogs';
-EXECUTE sys.sp_addextendedproperty @name = 'MS_Description', @value = 'Blog.Id column comment.',
-    @level0type = 'SCHEMA', @level0name = 'dbo', 
-    @level1type = 'TABLE', @level1name = 'Blogs',
-    @level2type = 'COLUMN', @level2name = 'Id';
-",
+    Name varchar(100) NOT NULL
+);",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -408,7 +136,7 @@ EXECUTE sys.sp_addextendedproperty @name = 'MS_Description', @value = 'Blog.Id c
                     Assert.All(
                         table.Columns, c =>
                         {
-                            Assert.Equal("dbo", c.Table.Schema);
+                            Assert.Equal(null, c.Table.Schema);
                             Assert.Equal("Blogs", c.Table.Name);
                             Assert.Equal(
                                 @"Blog table comment.
@@ -432,7 +160,7 @@ CREATE VIEW `BlogsView`
  AS
 SELECT
  100 AS Id,
- CAST('' AS nvarchar(100)) AS Name;",
+ CAST('' AS varchar(100)) AS Name;",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
                 dbModel =>
@@ -444,7 +172,7 @@ SELECT
                     Assert.All(
                         table.Columns, c =>
                         {
-                            Assert.Equal("dbo", c.Table.Schema);
+                            Assert.Equal(null, c.Table.Schema);
                             Assert.Equal("BlogsView", c.Table.Name);
                         });
 
@@ -468,7 +196,7 @@ CREATE TABLE PrimaryKeyTable (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal("dbo", pk.Table.Schema);
+                    Assert.Equal(null, pk.Table.Schema);
                     Assert.Equal("PrimaryKeyTable", pk.Table.Name);
                     Assert.StartsWith("PK__PrimaryK", pk.Name);
                     Assert.Equal(
@@ -485,7 +213,7 @@ CREATE TABLE PrimaryKeyTable (
 CREATE TABLE UniqueConstraint (
     Id int,
     Name int Unique,
-    IndexProperty int,
+    IndexProperty int
 );
 
 CREATE INDEX IX_INDEX on UniqueConstraint ( IndexProperty );",
@@ -496,7 +224,7 @@ CREATE INDEX IX_INDEX on UniqueConstraint ( IndexProperty );",
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", uniqueConstraint.Table.Schema);
+                    Assert.Equal(null, uniqueConstraint.Table.Schema);
                     Assert.Equal("UniqueConstraint", uniqueConstraint.Table.Name);
                     Assert.StartsWith("UQ__UniqueCo", uniqueConstraint.Name);
                     Assert.Equal(
@@ -513,7 +241,7 @@ CREATE INDEX IX_INDEX on UniqueConstraint ( IndexProperty );",
 CREATE TABLE IndexTable (
     Id int,
     Name int,
-    IndexProperty int,
+    IndexProperty int
 );
 
 CREATE INDEX IX_NAME on IndexTable ( Name );
@@ -528,7 +256,7 @@ CREATE INDEX IX_INDEX on IndexTable ( IndexProperty );",
                     Assert.All(
                         table.Indexes, c =>
                         {
-                            Assert.Equal("dbo", c.Table.Schema);
+                            Assert.Equal(null, c.Table.Schema);
                             Assert.Equal("IndexTable", c.Table.Name);
                         });
 
@@ -544,18 +272,18 @@ CREATE INDEX IX_INDEX on IndexTable ( IndexProperty );",
             Test(
                 @"
 CREATE TABLE PrincipalTable (
-    Id int PRIMARY KEY,
+    Id int PRIMARY KEY
 );
 
 CREATE TABLE FirstDependent (
     Id int PRIMARY KEY,
     ForeignKeyId int,
-    FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE,
+    FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE
 );
 
 CREATE TABLE SecondDependent (
     Id int PRIMARY KEY,
-    FOREIGN KEY (Id) REFERENCES PrincipalTable(Id) ON DELETE NO ACTION,
+    FOREIGN KEY (Id) REFERENCES PrincipalTable(Id) ON DELETE NO ACTION
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -564,9 +292,9 @@ CREATE TABLE SecondDependent (
                     var firstFk = Assert.Single(dbModel.Tables.Single(t => t.Name == "FirstDependent").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", firstFk.Table.Schema);
+                    Assert.Equal(null, firstFk.Table.Schema);
                     Assert.Equal("FirstDependent", firstFk.Table.Name);
-                    Assert.Equal("dbo", firstFk.PrincipalTable.Schema);
+                    Assert.Equal(null, firstFk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", firstFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, firstFk.Columns.Select(ic => ic.Name).ToList());
@@ -577,9 +305,9 @@ CREATE TABLE SecondDependent (
                     var secondFk = Assert.Single(dbModel.Tables.Single(t => t.Name == "SecondDependent").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", secondFk.Table.Schema);
+                    Assert.Equal(null, secondFk.Table.Schema);
                     Assert.Equal("SecondDependent", secondFk.Table.Name);
-                    Assert.Equal("dbo", secondFk.PrincipalTable.Schema);
+                    Assert.Equal(null, secondFk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", secondFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "Id" }, secondFk.Columns.Select(ic => ic.Name).ToList());
@@ -602,7 +330,7 @@ DROP TABLE PrincipalTable;");
         {
             Fixture.TestStore.ExecuteNonQuery(
                 @"
-CREATE TYPE TestTypeAlias FROM nvarchar(max);
+CREATE TYPE TestTypeAlias FROM varchar(255);
 CREATE TYPE db2.TestTypeAlias FROM int;");
 
             Test(
@@ -618,7 +346,7 @@ CREATE TABLE TypeAlias (
                     var column = Assert.Single(dbModel.Tables.Single().Columns.Where(c => c.Name == "typeAliasColumn"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("nvarchar(max)", column.StoreType);
+                    Assert.Equal("varchar(255)", column.StoreType);
                 },
                 @"
 DROP TABLE TypeAlias;
@@ -642,7 +370,7 @@ CREATE TABLE TypeAlias (
                     var column = Assert.Single(dbModel.Tables.Single().Columns.Where(c => c.Name == "typeAliasColumn"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("nvarchar(128)", column.StoreType);
+                    Assert.Equal("varchar(128)", column.StoreType);
                     Assert.False(column.IsNullable);
                 },
                 @"
@@ -662,7 +390,7 @@ CREATE TABLE NumericColumns (
     numericColumn numeric NOT NULL,
     numeric152Column numeric(15, 2) NOT NULL,
     numericDefaultColumn numeric(18, 2) NOT NULL,
-    numericDefaultPrecisionColumn numeric(38, 5) NOT NULL,
+    numericDefaultPrecisionColumn numeric(38, 5) NOT NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -689,7 +417,7 @@ CREATE TABLE NumericColumns (
 CREATE TABLE MaxColumns (
     Id int,
     varcharMaxColumn varchar(max) NULL,
-    nvarcharMaxColumn nvarchar(max) NULL,
+    varcharMaxColumn varchar(255) NULL,
     varbinaryMaxColumn varbinary(max) NULL,
     binaryVaryingMaxColumn binary varying(max) NULL,
     charVaryingMaxColumn char varying(max) NULL,
@@ -704,12 +432,12 @@ CREATE TABLE MaxColumns (
                     var columns = dbModel.Tables.Single().Columns;
 
                     Assert.Equal("varchar(max)", columns.Single(c => c.Name == "varcharMaxColumn").StoreType);
-                    Assert.Equal("nvarchar(max)", columns.Single(c => c.Name == "nvarcharMaxColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "varcharMaxColumn").StoreType);
                     Assert.Equal("varbinary(max)", columns.Single(c => c.Name == "varbinaryMaxColumn").StoreType);
                     Assert.Equal("varbinary(max)", columns.Single(c => c.Name == "binaryVaryingMaxColumn").StoreType);
                     Assert.Equal("varchar(max)", columns.Single(c => c.Name == "charVaryingMaxColumn").StoreType);
-                    Assert.Equal("nvarchar(max)", columns.Single(c => c.Name == "nationalCharVaryingMaxColumn").StoreType);
-                    Assert.Equal("nvarchar(max)", columns.Single(c => c.Name == "nationalCharacterVaryingMaxColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "nationalCharVaryingMaxColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "nationalCharacterVaryingMaxColumn").StoreType);
                 },
                 "DROP TABLE MaxColumns;");
         }
@@ -724,7 +452,7 @@ CREATE TABLE LengthColumns (
     char10Column char(10) NULL,
     varchar66Column varchar(66) NULL,
     nchar99Column nchar(99) NULL,
-    nvarchar100Column nvarchar(100) NULL,
+    varchar100Column varchar(100) NULL,
     binary111Column binary(111) NULL,
     varbinary123Column varbinary(123) NULL,
     binaryVarying133Column binary varying(133) NULL,
@@ -733,7 +461,7 @@ CREATE TABLE LengthColumns (
     characterVarying166Column character varying(166) NULL,
     nationalCharacter171Column national character(171) NULL,
     nationalCharVarying177Column national char varying(177) NULL,
-    nationalCharacterVarying188Column national char varying(188) NULL,
+    nationalCharacterVarying188Column national char varying(188) NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -744,7 +472,7 @@ CREATE TABLE LengthColumns (
                     Assert.Equal("char(10)", columns.Single(c => c.Name == "char10Column").StoreType);
                     Assert.Equal("varchar(66)", columns.Single(c => c.Name == "varchar66Column").StoreType);
                     Assert.Equal("nchar(99)", columns.Single(c => c.Name == "nchar99Column").StoreType);
-                    Assert.Equal("nvarchar(100)", columns.Single(c => c.Name == "nvarchar100Column").StoreType);
+                    Assert.Equal("varchar(100)", columns.Single(c => c.Name == "varchar100Column").StoreType);
                     Assert.Equal("binary(111)", columns.Single(c => c.Name == "binary111Column").StoreType);
                     Assert.Equal("varbinary(123)", columns.Single(c => c.Name == "varbinary123Column").StoreType);
                     Assert.Equal("varbinary(133)", columns.Single(c => c.Name == "binaryVarying133Column").StoreType);
@@ -752,8 +480,8 @@ CREATE TABLE LengthColumns (
                     Assert.Equal("char(155)", columns.Single(c => c.Name == "character155Column").StoreType);
                     Assert.Equal("varchar(166)", columns.Single(c => c.Name == "characterVarying166Column").StoreType);
                     Assert.Equal("nchar(171)", columns.Single(c => c.Name == "nationalCharacter171Column").StoreType);
-                    Assert.Equal("nvarchar(177)", columns.Single(c => c.Name == "nationalCharVarying177Column").StoreType);
-                    Assert.Equal("nvarchar(188)", columns.Single(c => c.Name == "nationalCharacterVarying188Column").StoreType);
+                    Assert.Equal("varchar(177)", columns.Single(c => c.Name == "nationalCharVarying177Column").StoreType);
+                    Assert.Equal("varchar(188)", columns.Single(c => c.Name == "nationalCharacterVarying188Column").StoreType);
                 },
                 "DROP TABLE LengthColumns;");
         }
@@ -853,7 +581,7 @@ CREATE TABLE DefaultRequiredLengthVarcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNcharColumns (
     Id int,
-    nationalCharColumn national char(4000),
+    nationalCharColumn national char(4000)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -873,7 +601,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNcharColumns (
     Id int,
-    nationalCharacterColumn national character(4000),
+    nationalCharacterColumn national character(4000)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -893,7 +621,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNcharColumns (
     Id int,
-    ncharColumn nchar(4000),
+    ncharColumn nchar(4000)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -913,9 +641,9 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNvarcharColumns (
     Id int,
-    nationalCharVaryingColumn national char varying(4000),
-    nationalCharacterVaryingColumn national character varying(4000),
-    nvarcharColumn nvarchar(4000)
+    nationalCharVaryingColumn national char varying(255),
+    nationalCharacterVaryingColumn national character varying(255),
+    varcharColumn varchar(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -923,9 +651,9 @@ CREATE TABLE DefaultRequiredLengthNvarcharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("nvarchar(4000)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
-                    Assert.Equal("nvarchar(4000)", columns.Single(c => c.Name == "nationalCharacterVaryingColumn").StoreType);
-                    Assert.Equal("nvarchar(4000)", columns.Single(c => c.Name == "nvarcharColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "nationalCharacterVaryingColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "varcharColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthNvarcharColumns;");
         }
@@ -939,7 +667,7 @@ CREATE TABLE LengthColumns (
     Id int,
     time4Column time(4) NULL,
     datetime24Column datetime2(4) NULL,
-    datetimeoffset5Column datetimeoffset(5) NULL,
+    datetimeoffset5Column datetimeoffset(5) NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -972,9 +700,9 @@ CREATE TABLE OneLengthColumns (
     nationalCharacterVaryingColumn national char varying NULL,
     nationalCharVaryingColumn national char varying NULL,
     ncharColumn nchar NULL,
-    nvarcharColumn nvarchar NULL,
-    varbinaryColumn varbinary NULL,
     varcharColumn varchar NULL,
+    varbinaryColumn varbinary NULL,
+    varcharColumn varchar NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -990,10 +718,10 @@ CREATE TABLE OneLengthColumns (
                     Assert.Equal("varchar(1)", columns.Single(c => c.Name == "charVaryingColumn").StoreType);
                     Assert.Equal("nchar(1)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
                     Assert.Equal("nchar(1)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
-                    Assert.Equal("nvarchar(1)", columns.Single(c => c.Name == "nationalCharacterVaryingColumn").StoreType);
-                    Assert.Equal("nvarchar(1)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
+                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "nationalCharacterVaryingColumn").StoreType);
+                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
                     Assert.Equal("nchar(1)", columns.Single(c => c.Name == "ncharColumn").StoreType);
-                    Assert.Equal("nvarchar(1)", columns.Single(c => c.Name == "nvarcharColumn").StoreType);
+                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "varcharColumn").StoreType);
                     Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "varbinaryColumn").StoreType);
                     Assert.Equal("varchar(1)", columns.Single(c => c.Name == "varcharColumn").StoreType);
                 },
@@ -1031,12 +759,12 @@ CREATE TABLE NoFacetTypes (
     timestampColumn timestamp NULL,
     tinyintColumn tinyint NOT NULL,
     uniqueidentifierColumn uniqueidentifier NULL,
-    xmlColumn xml NULL,
-)
+    xmlColumn xml NULL
+);
 
 CREATE TABLE RowversionType (
     Id int,
-    rowversionColumn rowversion NULL,
+    rowversionColumn rowversion NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1089,7 +817,7 @@ CREATE TABLE DefaultComputedValues (
     ComputedValue AS GETDATE(),
     A int NOT NULL,
     B int NOT NULL,
-    SumOfAAndB AS A + B PERSISTED,
+    SumOfAAndB AS A + B PERSISTED
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1183,10 +911,10 @@ DROP TYPE timeAlias;");
                 @"
 CREATE TABLE ValueGeneratedProperties (
     Id int IDENTITY(1, 1),
-    NoValueGenerationColumn nvarchar(max),
+    NoValueGenerationColumn varchar(255),
     FixedDefaultValue datetime2 NOT NULL DEFAULT ('October 20, 2015 11am'),
     ComputedValue AS GETDATE(),
-    rowversionColumn rowversion NULL,
+    rowversionColumn rowversion NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1210,7 +938,7 @@ CREATE TABLE ValueGeneratedProperties (
                 @"
 CREATE TABLE RowVersionTable (
     Id int,
-    rowversionColumn rowversion,
+    rowversionColumn rowversion
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1231,7 +959,7 @@ CREATE TABLE RowVersionTable (
 CREATE TABLE NullableColumns (
     Id int,
     NullableInt int NULL,
-    NonNullString nvarchar(max) NOT NULL,
+    NonNullString varchar(255) NOT NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1265,7 +993,7 @@ CREATE TABLE CompositePrimaryKeyTable (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal("dbo", pk.Table.Schema);
+                    Assert.Equal(null, pk.Table.Schema);
                     Assert.Equal("CompositePrimaryKeyTable", pk.Table.Name);
                     Assert.StartsWith("PK__Composit", pk.Name);
                     Assert.Equal(
@@ -1281,7 +1009,7 @@ CREATE TABLE CompositePrimaryKeyTable (
                 @"
 CREATE TABLE NonClusteredPrimaryKeyTable (
     Id1 int PRIMARY KEY NONCLUSTERED,
-    Id2 int,
+    Id2 int
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1289,7 +1017,7 @@ CREATE TABLE NonClusteredPrimaryKeyTable (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal("dbo", pk.Table.Schema);
+                    Assert.Equal(null, pk.Table.Schema);
                     Assert.Equal("NonClusteredPrimaryKeyTable", pk.Table.Name);
                     Assert.StartsWith("PK__NonClust", pk.Name);
                     Assert.Equal(
@@ -1305,7 +1033,7 @@ CREATE TABLE NonClusteredPrimaryKeyTable (
                 @"
 CREATE TABLE NonClusteredPrimaryKeyTableWithClusteredIndex (
     Id1 int PRIMARY KEY NONCLUSTERED,
-    Id2 int,
+    Id2 int
 );
 
 CREATE CLUSTERED INDEX ClusteredIndex ON NonClusteredPrimaryKeyTableWithClusteredIndex( Id2 );",
@@ -1315,7 +1043,7 @@ CREATE CLUSTERED INDEX ClusteredIndex ON NonClusteredPrimaryKeyTableWithClustere
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal("dbo", pk.Table.Schema);
+                    Assert.Equal(null, pk.Table.Schema);
                     Assert.Equal("NonClusteredPrimaryKeyTableWithClusteredIndex", pk.Table.Name);
                     Assert.StartsWith("PK__NonClust", pk.Name);
                     Assert.Equal(
@@ -1332,7 +1060,7 @@ CREATE CLUSTERED INDEX ClusteredIndex ON NonClusteredPrimaryKeyTableWithClustere
 CREATE TABLE NonClusteredPrimaryKeyTableWithClusteredConstraint (
     Id1 int PRIMARY KEY,
     Id2 int,
-    CONSTRAINT UK_Clustered UNIQUE CLUSTERED ( Id2 ),
+    CONSTRAINT UK_Clustered UNIQUE CLUSTERED ( Id2 )
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1340,7 +1068,7 @@ CREATE TABLE NonClusteredPrimaryKeyTableWithClusteredConstraint (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal("dbo", pk.Table.Schema);
+                    Assert.Equal(null, pk.Table.Schema);
                     Assert.Equal("NonClusteredPrimaryKeyTableWithClusteredConstraint", pk.Table.Name);
                     Assert.StartsWith("PK__NonClust", pk.Name);
                     Assert.Equal(
@@ -1357,7 +1085,7 @@ CREATE TABLE NonClusteredPrimaryKeyTableWithClusteredConstraint (
 CREATE TABLE PrimaryKeyName (
     Id1 int,
     Id2 int,
-    CONSTRAINT MyPK PRIMARY KEY ( Id2 ),
+    CONSTRAINT MyPK PRIMARY KEY ( Id2 )
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1365,7 +1093,7 @@ CREATE TABLE PrimaryKeyName (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal("dbo", pk.Table.Schema);
+                    Assert.Equal(null, pk.Table.Schema);
                     Assert.Equal("PrimaryKeyName", pk.Table.Name);
                     Assert.StartsWith("MyPK", pk.Name);
                     Assert.Equal(
@@ -1395,7 +1123,7 @@ CREATE TABLE CompositeUniqueConstraintTable (
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", uniqueConstraint.Table.Schema);
+                    Assert.Equal(null, uniqueConstraint.Table.Schema);
                     Assert.Equal("CompositeUniqueConstraintTable", uniqueConstraint.Table.Name);
                     Assert.Equal("UX", uniqueConstraint.Name);
                     Assert.Equal(
@@ -1411,7 +1139,7 @@ CREATE TABLE CompositeUniqueConstraintTable (
                 @"
 CREATE TABLE ClusteredUniqueConstraintTable (
     Id1 int,
-    Id2 int UNIQUE CLUSTERED,
+    Id2 int UNIQUE CLUSTERED
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1420,7 +1148,7 @@ CREATE TABLE ClusteredUniqueConstraintTable (
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", uniqueConstraint.Table.Schema);
+                    Assert.Equal(null, uniqueConstraint.Table.Schema);
                     Assert.Equal("ClusteredUniqueConstraintTable", uniqueConstraint.Table.Name);
                     Assert.StartsWith("UQ__Clustere", uniqueConstraint.Name);
                     Assert.Equal(
@@ -1437,7 +1165,7 @@ CREATE TABLE ClusteredUniqueConstraintTable (
 CREATE TABLE UniqueConstraintName (
     Id1 int,
     Id2 int,
-    CONSTRAINT MyUC UNIQUE ( Id2 ),
+    CONSTRAINT MyUC UNIQUE ( Id2 )
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1446,7 +1174,7 @@ CREATE TABLE UniqueConstraintName (
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", uniqueConstraint.Table.Schema);
+                    Assert.Equal(null, uniqueConstraint.Table.Schema);
                     Assert.Equal("UniqueConstraintName", uniqueConstraint.Table.Name);
                     Assert.Equal("MyUC", uniqueConstraint.Name);
                     Assert.Equal(
@@ -1466,7 +1194,7 @@ CREATE TABLE UniqueConstraintName (
                 @"
 CREATE TABLE CompositeIndexTable (
     Id1 int,
-    Id2 int,
+    Id2 int
 );
 
 CREATE INDEX IX_COMPOSITE ON CompositeIndexTable ( Id2, Id1 );",
@@ -1477,7 +1205,7 @@ CREATE INDEX IX_COMPOSITE ON CompositeIndexTable ( Id2, Id1 );",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", index.Table.Schema);
+                    Assert.Equal(null, index.Table.Schema);
                     Assert.Equal("CompositeIndexTable", index.Table.Name);
                     Assert.Equal("IX_COMPOSITE", index.Name);
                     Assert.Equal(
@@ -1493,7 +1221,7 @@ CREATE INDEX IX_COMPOSITE ON CompositeIndexTable ( Id2, Id1 );",
                 @"
 CREATE TABLE ClusteredIndexTable (
     Id1 int,
-    Id2 int,
+    Id2 int
 );
 
 CREATE CLUSTERED INDEX IX_CLUSTERED ON ClusteredIndexTable ( Id2 );",
@@ -1504,7 +1232,7 @@ CREATE CLUSTERED INDEX IX_CLUSTERED ON ClusteredIndexTable ( Id2 );",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", index.Table.Schema);
+                    Assert.Equal(null, index.Table.Schema);
                     Assert.Equal("ClusteredIndexTable", index.Table.Name);
                     Assert.Equal("IX_CLUSTERED", index.Name);
                     Assert.Equal(
@@ -1520,7 +1248,7 @@ CREATE CLUSTERED INDEX IX_CLUSTERED ON ClusteredIndexTable ( Id2 );",
                 @"
 CREATE TABLE UniqueIndexTable (
     Id1 int,
-    Id2 int,
+    Id2 int
 );
 
 CREATE UNIQUE INDEX IX_UNIQUE ON UniqueIndexTable ( Id2 );",
@@ -1531,7 +1259,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON UniqueIndexTable ( Id2 );",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", index.Table.Schema);
+                    Assert.Equal(null, index.Table.Schema);
                     Assert.Equal("UniqueIndexTable", index.Table.Name);
                     Assert.Equal("IX_UNIQUE", index.Name);
                     Assert.True(index.IsUnique);
@@ -1549,7 +1277,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON UniqueIndexTable ( Id2 );",
                 @"
 CREATE TABLE FilteredIndexTable (
     Id1 int,
-    Id2 int NULL,
+    Id2 int NULL
 );
 
 CREATE UNIQUE INDEX IX_UNIQUE ON FilteredIndexTable ( Id2 ) WHERE Id2 > 10;",
@@ -1560,7 +1288,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON FilteredIndexTable ( Id2 ) WHERE Id2 > 10;",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", index.Table.Schema);
+                    Assert.Equal(null, index.Table.Schema);
                     Assert.Equal("FilteredIndexTable", index.Table.Name);
                     Assert.Equal("IX_UNIQUE", index.Name);
                     Assert.Equal("(`Id2`>(10))", index.Filter);
@@ -1589,7 +1317,7 @@ CREATE TABLE DependentTable (
     Id int PRIMARY KEY,
     ForeignKeyId1 int,
     ForeignKeyId2 int,
-    FOREIGN KEY (ForeignKeyId1, ForeignKeyId2) REFERENCES PrincipalTable(Id1, Id2) ON DELETE CASCADE,
+    FOREIGN KEY (ForeignKeyId1, ForeignKeyId2) REFERENCES PrincipalTable(Id1, Id2) ON DELETE CASCADE
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1598,9 +1326,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", fk.Table.Schema);
+                    Assert.Equal(null, fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal("dbo", fk.PrincipalTable.Schema);
+                    Assert.Equal(null, fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId1", "ForeignKeyId2" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1619,11 +1347,11 @@ DROP TABLE PrincipalTable;");
             Test(
                 @"
 CREATE TABLE PrincipalTable (
-    Id int PRIMARY KEY,
+    Id int PRIMARY KEY
 );
 
 CREATE TABLE AnotherPrincipalTable (
-    Id int PRIMARY KEY,
+    Id int PRIMARY KEY
 );
 
 CREATE TABLE DependentTable (
@@ -1631,7 +1359,7 @@ CREATE TABLE DependentTable (
     ForeignKeyId1 int,
     ForeignKeyId2 int,
     FOREIGN KEY (ForeignKeyId1) REFERENCES PrincipalTable(Id) ON DELETE CASCADE,
-    FOREIGN KEY (ForeignKeyId2) REFERENCES AnotherPrincipalTable(Id) ON DELETE CASCADE,
+    FOREIGN KEY (ForeignKeyId2) REFERENCES AnotherPrincipalTable(Id) ON DELETE CASCADE
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1644,9 +1372,9 @@ CREATE TABLE DependentTable (
                     var principalFk = Assert.Single(foreignKeys.Where(f => f.PrincipalTable.Name == "PrincipalTable"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", principalFk.Table.Schema);
+                    Assert.Equal(null, principalFk.Table.Schema);
                     Assert.Equal("DependentTable", principalFk.Table.Name);
-                    Assert.Equal("dbo", principalFk.PrincipalTable.Schema);
+                    Assert.Equal(null, principalFk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", principalFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId1" }, principalFk.Columns.Select(ic => ic.Name).ToList());
@@ -1657,9 +1385,9 @@ CREATE TABLE DependentTable (
                     var anotherPrincipalFk = Assert.Single(foreignKeys.Where(f => f.PrincipalTable.Name == "AnotherPrincipalTable"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", anotherPrincipalFk.Table.Schema);
+                    Assert.Equal(null, anotherPrincipalFk.Table.Schema);
                     Assert.Equal("DependentTable", anotherPrincipalFk.Table.Name);
-                    Assert.Equal("dbo", anotherPrincipalFk.PrincipalTable.Schema);
+                    Assert.Equal(null, anotherPrincipalFk.PrincipalTable.Schema);
                     Assert.Equal("AnotherPrincipalTable", anotherPrincipalFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId2" }, anotherPrincipalFk.Columns.Select(ic => ic.Name).ToList());
@@ -1680,13 +1408,13 @@ DROP TABLE PrincipalTable;");
                 @"
 CREATE TABLE PrincipalTable (
     Id1 int,
-    Id2 int UNIQUE,
+    Id2 int UNIQUE
 );
 
 CREATE TABLE DependentTable (
     Id int PRIMARY KEY,
     ForeignKeyId int,
-    FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id2) ON DELETE CASCADE,
+    FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id2) ON DELETE CASCADE
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1695,9 +1423,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", fk.Table.Schema);
+                    Assert.Equal(null, fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal("dbo", fk.PrincipalTable.Schema);
+                    Assert.Equal(null, fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1716,13 +1444,13 @@ DROP TABLE PrincipalTable;");
             Test(
                 @"
 CREATE TABLE PrincipalTable (
-    Id int PRIMARY KEY,
+    Id int PRIMARY KEY
 );
 
 CREATE TABLE DependentTable (
     Id int PRIMARY KEY,
     ForeignKeyId int,
-    CONSTRAINT MYFK FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE,
+    CONSTRAINT MYFK FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1731,9 +1459,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", fk.Table.Schema);
+                    Assert.Equal(null, fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal("dbo", fk.PrincipalTable.Schema);
+                    Assert.Equal(null, fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1753,13 +1481,13 @@ DROP TABLE PrincipalTable;");
             Test(
                 @"
 CREATE TABLE PrincipalTable (
-    Id int PRIMARY KEY,
+    Id int PRIMARY KEY
 );
 
 CREATE TABLE DependentTable (
     Id int PRIMARY KEY,
     ForeignKeyId int,
-    FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE SET NULL,
+    FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE SET NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1768,9 +1496,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("dbo", fk.Table.Schema);
+                    Assert.Equal(null, fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal("dbo", fk.PrincipalTable.Schema);
+                    Assert.Equal(null, fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1793,7 +1521,7 @@ DROP TABLE PrincipalTable;");
             Test(
                 @"
 CREATE TABLE Blank (
-    Id int,
+    Id int
 );",
                 Enumerable.Empty<string>(),
                 new[] { "MySchema" },
@@ -1817,7 +1545,7 @@ CREATE TABLE Blank (
             Test(
                 @"
 CREATE TABLE Blank (
-    Id int,
+    Id int
 );",
                 new[] { "MyTable" },
                 Enumerable.Empty<string>(),
@@ -1841,13 +1569,13 @@ CREATE TABLE Blank (
             Test(
                 @"
 CREATE TABLE PrincipalTable (
-    Id int PRIMARY KEY,
+    Id int PRIMARY KEY
 );
 
 CREATE TABLE DependentTable (
     Id int PRIMARY KEY,
     ForeignKeyId int,
-    CONSTRAINT MYFK FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE,
+    CONSTRAINT MYFK FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE
 );",
                 new[] { "DependentTable" },
                 Enumerable.Empty<string>(),
@@ -1927,14 +1655,12 @@ DROP TABLE PrincipalTable;");
 
         public class JetDatabaseModelFixture : SharedStoreFixtureBase<PoolableDbContext>
         {
-            protected override string StoreName { get; } = nameof(JetDatabaseModelFactoryTest);
+            protected override string StoreName { get; } = JetTestHelpers.Instance.GetStoreName(nameof(JetDatabaseModelFactoryTest));
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
             public new JetTestStore TestStore => (JetTestStore)base.TestStore;
 
             public JetDatabaseModelFixture()
             {
-                TestStore.ExecuteNonQuery("CREATE SCHEMA db2");
-                TestStore.ExecuteNonQuery("CREATE SCHEMA [db.2]");
             }
 
             protected override bool ShouldLogCategory(string logCategory)

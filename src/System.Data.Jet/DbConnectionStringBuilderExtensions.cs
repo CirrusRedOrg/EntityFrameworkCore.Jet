@@ -90,26 +90,20 @@ namespace System.Data.Jet
         
         public static string GetUserId(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (IsOleDb(builder))
+            if (builder.ContainsKey("user id"))
             {
                 return builder.TryGetValue("user id", out var value)
-                    ? (string)value
-                    : null;
+                ? (string)value
+                : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
-                IsOdbc(builder))
+            if (builder.ContainsKey("uid"))
             {
                 return builder.TryGetValue("uid", out var value)
                     ? (string)value
                     : null;
             }
-
-            return builder.TryGetValue("user id", out var oleDbValue)
-                ? (string)oleDbValue
-                : builder.TryGetValue("uid", out var odbcValue)
-                    ? (string)odbcValue
-                    : null;
+            return null;
         }
 
         public static void SetUserId(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
@@ -130,27 +124,20 @@ namespace System.Data.Jet
         
         public static string GetPassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
-                IsOleDb(builder))
+            if (builder.ContainsKey("password"))
             {
                 return builder.TryGetValue("password", out var value)
-                    ? (string)value
-                    : null;
+                ? (string)value
+                : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
-                IsOdbc(builder))
+            if (builder.ContainsKey("pwd"))
             {
                 return builder.TryGetValue("pwd", out var value)
                     ? (string)value
                     : null;
             }
-
-            return builder.TryGetValue("password", out var oleDbValue)
-                ? (string)oleDbValue
-                : builder.TryGetValue("pwd", out var odbcValue)
-                    ? (string)odbcValue
-                    : null;
+            return null;
         }
 
         public static void SetPassword(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
@@ -171,27 +158,20 @@ namespace System.Data.Jet
         
         public static string GetSystemDatabase(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
-                IsOleDb(builder))
+            if (builder.ContainsKey("Jet OLEDB:System Database"))
             {
                 return builder.TryGetValue("Jet OLEDB:System Database", out var value)
-                    ? (string)value
-                    : null;
+                ? (string)value
+                : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
-                IsOdbc(builder))
+            if (builder.ContainsKey("SystemDB"))
             {
                 return builder.TryGetValue("SystemDB", out var value)
                     ? (string)value
                     : null;
             }
-
-            return builder.TryGetValue("Jet OLEDB:System Database", out var oleDbValue)
-                ? (string)oleDbValue
-                : builder.TryGetValue("SystemDB", out var odbcValue)
-                    ? (string)odbcValue
-                    : null;
+            return null;
         }
 
         public static void SetSystemDatabase(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)

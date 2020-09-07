@@ -572,8 +572,9 @@ namespace System.Data.Jet
 
         public static bool DatabaseExists(string fileNameOrConnectionString)
         {
-            var fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString)
-                .Trim('"');
+            var fileName = JetStoreDatabaseHandling.ExpandFileName(
+                JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString)
+                    .Trim('"'));
 
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new InvalidOperationException("The file name or connection string is invalid.");

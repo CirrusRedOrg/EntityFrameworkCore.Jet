@@ -195,16 +195,33 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
         
         public static void DeleteFile(string fileName)
         {
-            if (!File.Exists(fileName))
-                return;
-
             JetConnection.ClearAllPools();
+
+            fileName = ExpandFileName(fileName);
+            
+            var directoryPath = Path.GetDirectoryName(fileName) ?? string.Empty;
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            var extension = Path.GetExtension(fileName);
+
+            if (!File.Exists(fileName))
+            {
+                return;
+            }
 
             File.Delete(fileName);
 
-            if (string.Equals(Path.GetExtension(fileName), "accdb", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(extension) ||
+                string.Equals(extension, ".accdb", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(extension, ".mdb", StringComparison.OrdinalIgnoreCase))
             {
-                File.Delete(Path.Combine(Path.GetDirectoryName(fileName), Path.GetFileNameWithoutExtension(fileName) + ".laccdb"));
+                File.Delete(Path.Combine(directoryPath, fileNameWithoutExtension + ".laccdb"));
+            }
+            
+            if (string.IsNullOrEmpty(extension) ||
+                string.Equals(extension, ".mdb", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(extension, ".accdb", StringComparison.OrdinalIgnoreCase))
+            {
+                File.Delete(Path.Combine(directoryPath, fileNameWithoutExtension + ".ldb"));
             }
         }
 
@@ -227,7 +244,18 @@ namespace System.Data.Jet.JetStoreSchemaDefinition
                 fileName = Path.Combine(dataDirectory, fileName.Substring("|DataDirectory|".Length));
             }
 
-            return Path.GetFullPath(fileName);
+            return EnsureFileExtension(Path.GetFullPath(fileName));
+        }
+
+        public static string EnsureFileExtension(string fileName)
+        {
+            var extension = Path.GetExtension(fileName);
+            if (string.IsNullOrEmpty(extension))
+            {
+                fileName += ".accdb";
+            }
+
+            return fileName;
         }
     }
 }

@@ -17,7 +17,7 @@ jobs:
       vmImage: 'windows-latest'
     steps:
     - pwsh: |
-        Invoke-WebRequest "https://download.microsoft.com/download/0/6/A/06AD225D-42E3-4A58-A35C-71CCF694C9C6/AccessDatabaseEngine_X64.exe" -OutFile "AccessDatabaseEngine_2010_X64.exe"
+        Invoke-WebRequest "https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe" -OutFile "AccessDatabaseEngine_2010_X64.exe"
         .\AccessDatabaseEngine_2010_X64.exe /passive
       displayName: Install Access Database Engine
     - pwsh: |

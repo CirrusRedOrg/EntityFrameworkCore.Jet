@@ -82,5 +82,14 @@
         /// <c>true</c> to use the connection pooling; otherwise, <c>false</c>.
         /// </value>
         public static bool UseConnectionPooling { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to return a default value for the column
+        /// if the column is not meant to be null and somehow the value stored is actually null
+        /// </summary>
+        /// <value>
+        /// <c>true</c> to return a default value; otherwise, <c>false</c>.
+        /// </value>
+        public static bool UseDefaultValueOnDnNullConversionError { get; set; } = false;
     }
 }

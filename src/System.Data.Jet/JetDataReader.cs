@@ -47,6 +47,10 @@ namespace System.Data.Jet
         public override bool GetBoolean(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError)
+            {
+                if (value is DBNull) return false;
+            }
             if (value is bool boolValue)
                 return boolValue;
 
@@ -75,6 +79,10 @@ namespace System.Data.Jet
         public override byte GetByte(int ordinal)
         {
             var value = GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError)
+            {
+                if (value is DBNull) return 0;
+            }
             if (value is byte byteValue)
                 return byteValue;
 
@@ -98,19 +106,47 @@ namespace System.Data.Jet
         }
 
         public override long GetBytes(int ordinal, long dataOffset, byte[] buffer, int bufferOffset, int length)
-            => _wrappedDataReader.GetBytes(ordinal, dataOffset, buffer, bufferOffset, length);
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return _wrappedDataReader.GetBytes(ordinal, dataOffset, buffer, bufferOffset, length);
+        }
 
         public override char GetChar(int ordinal)
-            => _wrappedDataReader.GetChar(ordinal);
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return (char)0;
+            }
+            return (char) value;
+        }
 
         public override long GetChars(int ordinal, long dataOffset, char[] buffer, int bufferOffset, int length)
-            => _wrappedDataReader.GetChars(ordinal, dataOffset, buffer, bufferOffset, length);
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return _wrappedDataReader.GetChars(ordinal, dataOffset, buffer, bufferOffset, length);
+        }
 
         public override string GetDataTypeName(int ordinal)
             => _wrappedDataReader.GetDataTypeName(ordinal);
 
         public override DateTime GetDateTime(int ordinal)
-            => _wrappedDataReader.GetDateTime(ordinal);
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified);
+            }
+            return _wrappedDataReader.GetDateTime(ordinal);
+        }
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
             => GetDateTime(ordinal) - JetConfiguration.TimeSpanOffset;
@@ -119,10 +155,24 @@ namespace System.Data.Jet
             => GetDateTime(ordinal);
 
         public override decimal GetDecimal(int ordinal)
-            => Convert.ToDecimal(_wrappedDataReader.GetValue(ordinal));
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return Convert.ToDecimal(value);
+        }
 
         public override double GetDouble(int ordinal)
-            => Convert.ToDouble(_wrappedDataReader.GetValue(ordinal));
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return Convert.ToDouble(value);
+        }
 
         public override System.Collections.IEnumerator GetEnumerator()
             => _wrappedDataReader.GetEnumerator();
@@ -131,12 +181,23 @@ namespace System.Data.Jet
             => _wrappedDataReader.GetFieldType(ordinal);
 
         public override float GetFloat(int ordinal)
-            => Convert.ToSingle(_wrappedDataReader.GetValue(ordinal));
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return Convert.ToSingle(value);
+        }
 
         public override Guid GetGuid(int ordinal)
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return Guid.Empty;
+            }
             if (value is byte[])
                 return new Guid((byte[]) value);
             else
@@ -144,15 +205,26 @@ namespace System.Data.Jet
         }
 
         public override short GetInt16(int ordinal)
-            => Convert.ToInt16(_wrappedDataReader.GetValue(ordinal));
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return Convert.ToInt16(value);
+        }
 
         public override int GetInt32(int ordinal)
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (value is string)
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
             {
-                var buffer = Encoding.Unicode.GetBytes((string) value);
+                return 0;
+            }
+            else if (value is string)
+            {
+                var buffer = Encoding.Unicode.GetBytes((string)value);
                 var intValue = BitConverter.ToInt32(buffer, 0);
                 return intValue;
             }
@@ -161,7 +233,14 @@ namespace System.Data.Jet
         }
 
         public override long GetInt64(int ordinal)
-            => Convert.ToInt64(_wrappedDataReader.GetValue(ordinal));
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return 0;
+            }
+            return Convert.ToInt64(value);
+        }
 
         public override string GetName(int ordinal)
             => _wrappedDataReader.GetName(ordinal);
@@ -173,7 +252,14 @@ namespace System.Data.Jet
             => _wrappedDataReader.GetSchemaTable();
 
         public override string GetString(int ordinal)
-            => _wrappedDataReader.GetString(ordinal);
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            {
+                return "";
+            }
+            return _wrappedDataReader.GetString(ordinal);
+        }
 
         public override object GetValue(int ordinal)
             => _wrappedDataReader.GetValue(ordinal);

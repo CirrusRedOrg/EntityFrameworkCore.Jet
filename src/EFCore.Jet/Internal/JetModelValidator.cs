@@ -101,58 +101,5 @@ namespace EntityFrameworkCore.Jet.Internal
                 }
             }
         }
-
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        protected override void ValidateSharedColumnsCompatibility(
-            IReadOnlyList<IEntityType> mappedTypes, string tableName, IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
-        {
-            base.ValidateSharedColumnsCompatibility(mappedTypes, tableName, logger);
-
-            var identityColumns = new List<IProperty>();
-            var propertyMappings = new Dictionary<string, IProperty>();
-
-            foreach (var property in mappedTypes.SelectMany(et => et.GetDeclaredProperties()))
-            {
-                var columnName = property.GetColumnName();
-                if (propertyMappings.TryGetValue(columnName, out var duplicateProperty))
-                {
-                    var propertyStrategy = property.GetValueGenerationStrategy();
-                    var duplicatePropertyStrategy = duplicateProperty.GetValueGenerationStrategy();
-                    if (propertyStrategy != duplicatePropertyStrategy
-                        && (propertyStrategy == JetValueGenerationStrategy.IdentityColumn
-                            || duplicatePropertyStrategy == JetValueGenerationStrategy.IdentityColumn))
-                    {
-                        throw new InvalidOperationException(
-                            JetStrings.DuplicateColumnNameValueGenerationStrategyMismatch(
-                                duplicateProperty.DeclaringEntityType.DisplayName(),
-                                duplicateProperty.Name,
-                                property.DeclaringEntityType.DisplayName(),
-                                property.Name,
-                                columnName,
-                                tableName));
-                    }
-                }
-                else
-                {
-                    propertyMappings[columnName] = property;
-                    if (property.GetValueGenerationStrategy() == JetValueGenerationStrategy.IdentityColumn)
-                    {
-                        identityColumns.Add(property);
-                    }
-                }
-            }
-
-            if (identityColumns.Count > 1)
-            {
-                var sb = new StringBuilder()
-                    .AppendJoin(identityColumns.Select(p => "'" + p.DeclaringEntityType.DisplayName() + "." + p.Name + "'"));
-                throw new InvalidOperationException(JetStrings.MultipleIdentityColumns(sb, tableName));
-            }
-        }
     }
 }

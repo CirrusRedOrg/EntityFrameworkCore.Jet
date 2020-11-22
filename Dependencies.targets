@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <EFCoreVersion>[3.1.15, 5.0.0)</EFCoreVersion>
-    <MicrosoftExtensionsVersion>3.1.15</MicrosoftExtensionsVersion>
+    <EFCoreVersion>5.0.0</EFCoreVersion>
+    <MicrosoftExtensionsVersion>5.0.0</MicrosoftExtensionsVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,7 +11,7 @@
     <PackageReference Update="Microsoft.Extensions.Caching.Memory" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
-    <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="4.7.1" />
+    <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="5.0.0" />
     <PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
     <PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
@@ -19,15 +19,15 @@
     <!-- EntityFrameworkCore.Jet.Data -->
     <PackageReference Update="System.ValueTuple" Version="4.5.0" />
     <PackageReference Update="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Update="Microsoft.Win32.Registry" Version="4.7.0" />
+    <PackageReference Update="Microsoft.Win32.Registry" Version="5.0.0" />
     
     <!-- EFCore.Jet -->
     <PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Update="Microsoft.Extensions.Configuration" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Update="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Update="Microsoft.Bcl.AsyncInterfaces" Version="1.1.1" />
-    <PackageReference Update="Microsoft.Bcl.HashCode" Version="1.1.1" />
-    <PackageReference Update="System.Collections.Immutable" Version="1.7.1" />
+    <PackageReference Update="Microsoft.Bcl.HashCode" Version="1.1.0" />
+    <PackageReference Update="System.Collections.Immutable" Version="1.7.0" />
     <PackageReference Update="System.ComponentModel.Annotations" Version="4.7.0" />
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />-->
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />-->

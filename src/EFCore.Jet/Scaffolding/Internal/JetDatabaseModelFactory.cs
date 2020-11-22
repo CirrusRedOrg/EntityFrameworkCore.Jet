@@ -203,6 +203,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var computedValue = (string) null; // TODO: Implement support for expressions
                                                        // (DAO Field2 (though not mentioned)).
                                                        // Might have no equivalent in ADOX.
+                    var computedIsPersisted = false;
 
                     _logger.ColumnFound(
                         tableName,
@@ -215,7 +216,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         nullable,
                         identitySeed.HasValue,
                         defaultValue,
-                        computedValue);
+                        computedValue,
+                        computedIsPersisted);
                     
                     var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
                     defaultValue = FilterClrDefaults(dataTypeName, nullable, defaultValue);

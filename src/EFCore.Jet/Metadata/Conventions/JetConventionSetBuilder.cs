@@ -37,16 +37,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             ReplaceConvention(conventionSet.ForeignKeyRemovedConventions, valueGenerationConvention);
 
             StoreGenerationConvention storeGenerationConvention = new JetStoreGenerationConvention(Dependencies, RelationalDependencies);
-
             ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, storeGenerationConvention);
             ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, (RelationalValueGenerationConvention) valueGenerationConvention);
-
-            ConventionSet.AddBefore(
-                conventionSet.ModelFinalizedConventions,
-                valueGenerationStrategyConvention,
-                typeof(ValidatingConvention));
-            
-            ReplaceConvention(conventionSet.ModelFinalizedConventions, storeGenerationConvention);
+            ReplaceConvention(conventionSet.ModelFinalizingConventions, storeGenerationConvention);
 
             return conventionSet;
         }

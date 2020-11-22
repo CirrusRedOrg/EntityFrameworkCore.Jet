@@ -95,35 +95,5 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 
             base.ProcessPropertyAnnotationChanged(propertyBuilder, name, annotation, oldAnnotation, context);
         }
-
-        protected override void Validate(IConventionProperty property)
-        {
-            if (property.GetValueGenerationStrategyConfigurationSource() != null
-                && property.GetValueGenerationStrategy() != JetValueGenerationStrategy.None)
-            {
-                if (property.GetDefaultValue() != null)
-                {
-                    throw new InvalidOperationException(
-                        RelationalStrings.ConflictingColumnServerGeneration(
-                            "JetValueGenerationStrategy", property.Name, "DefaultValue"));
-                }
-
-                if (property.GetDefaultValueSql() != null)
-                {
-                    throw new InvalidOperationException(
-                        RelationalStrings.ConflictingColumnServerGeneration(
-                            "JetValueGenerationStrategy", property.Name, "DefaultValueSql"));
-                }
-
-                if (property.GetComputedColumnSql() != null)
-                {
-                    throw new InvalidOperationException(
-                        RelationalStrings.ConflictingColumnServerGeneration(
-                            "JetValueGenerationStrategy", property.Name, "ComputedColumnSql"));
-                }
-            }
-
-            base.Validate(property);
-        }
     }
 }

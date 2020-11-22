@@ -7,6 +7,7 @@ using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using System.Linq;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -105,22 +106,14 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
         public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IProperty property)
         {
-            var annotation = property[JetAnnotationNames.ValueGenerationStrategy];
+            var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
             {
-                return (JetValueGenerationStrategy) annotation;
-            }
-
-            var sharedTablePrincipalPrimaryKeyProperty = property.FindSharedTableRootPrimaryKeyProperty();
-            if (sharedTablePrincipalPrimaryKeyProperty != null)
-            {
-                return sharedTablePrincipalPrimaryKeyProperty.GetValueGenerationStrategy()
-                       == JetValueGenerationStrategy.IdentityColumn
-                    ? JetValueGenerationStrategy.IdentityColumn
-                    : JetValueGenerationStrategy.None;
+                return (JetValueGenerationStrategy)annotation.Value;
             }
 
             if (property.ValueGenerated != ValueGenerated.OnAdd
+                || property.IsForeignKey()
                 || property.GetDefaultValue() != null
                 || property.GetDefaultValueSql() != null
                 || property.GetComputedColumnSql() != null)
@@ -128,12 +121,58 @@ namespace Microsoft.EntityFrameworkCore
                 return JetValueGenerationStrategy.None;
             }
 
+            return GetDefaultValueGenerationStrategy(property);
+        }
+        /// <summary>
+        ///     <para>
+        ///         Returns the <see cref="SqlServerValueGenerationStrategy" /> to use for the property.
+        ///     </para>
+        ///     <para>
+        ///         If no strategy is set for the property, then the strategy to use will be taken from the <see cref="IModel" />.
+        ///     </para>
+        /// </summary>
+        /// <param name="property"> The property. </param>
+        /// <param name="storeObject"> The identifier of the store object. </param>
+        /// <returns> The strategy, or <see cref="SqlServerValueGenerationStrategy.None" /> if none was set. </returns>
+        public static JetValueGenerationStrategy GetValueGenerationStrategy(
+            [NotNull] this IProperty property,
+            in StoreObjectIdentifier storeObject)
+        {
+            var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
+            if (annotation != null)
+            {
+                return (JetValueGenerationStrategy)annotation.Value;
+            }
+
+            var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);
+            if (sharedTableRootProperty != null)
+            {
+                return sharedTableRootProperty.GetValueGenerationStrategy(storeObject)
+                    == JetValueGenerationStrategy.IdentityColumn
+                        ? JetValueGenerationStrategy.IdentityColumn
+                        : JetValueGenerationStrategy.None;
+            }
+
+            if (property.ValueGenerated != ValueGenerated.OnAdd
+                || property.GetContainingForeignKeys().Any(fk => !fk.IsBaseLinking())
+                || property.GetDefaultValue(storeObject) != null
+                || property.GetDefaultValueSql(storeObject) != null
+                || property.GetComputedColumnSql(storeObject) != null)
+            {
+                return JetValueGenerationStrategy.None;
+            }
+
+            return GetDefaultValueGenerationStrategy(property);
+        }
+
+        private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IProperty property)
+        {
             var modelStrategy = property.DeclaringEntityType.Model.GetValueGenerationStrategy();
 
             return modelStrategy == JetValueGenerationStrategy.IdentityColumn
                    && IsCompatibleWithValueGeneration(property)
-                ? JetValueGenerationStrategy.IdentityColumn
-                : JetValueGenerationStrategy.None;
+                    ? JetValueGenerationStrategy.IdentityColumn
+                    : JetValueGenerationStrategy.None;
         }
 
         /// <summary>

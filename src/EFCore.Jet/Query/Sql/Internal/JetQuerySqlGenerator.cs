@@ -211,7 +211,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                                               .Alias, StringComparison.OrdinalIgnoreCase))
                    .All(e => e);
 
-        private void GeneratePseudoFromClause()
+        protected override void GeneratePseudoFromClause()
         {
             Sql.AppendLine()
                 .Append("FROM " + JetConfiguration.DUAL);
@@ -291,6 +291,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         _sqlExpressionFactory.Function(
                             function,
                             new[] {convertExpression.Operand},
+                            false,new List<bool>() {false}, 
                             typeMapping.ClrType)));
 
                 return convertExpression;
@@ -324,18 +325,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 base.VisitLike(likeExpression);
 
             return likeExpression;
-        }
-
-        protected override string GenerateOperator(SqlBinaryExpression e)
-        {
-            return e.OperatorType switch
-            {
-                ExpressionType.Add when e.Type == typeof(string) => " & ",
-                ExpressionType.And => " BAND ",
-                ExpressionType.Modulo => " MOD ",
-                ExpressionType.Or => " BOR ",
-                _ => base.GenerateOperator(e),
-            };
         }
 
         protected override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)

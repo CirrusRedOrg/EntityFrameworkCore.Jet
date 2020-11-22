@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <Description>Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
-    <TargetFrameworks>$(DefaultNetStandardTargetFramework);netcoreapp2.1;net461</TargetFrameworks>
+    <TargetFramework>net5.0-windows7.0</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
     <Platforms>AnyCPU;x86;x64</Platforms>

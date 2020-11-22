@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -60,7 +62,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public JetStringMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
+        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             if (Equals(method, _contains))
             {
@@ -79,6 +81,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             patternExpression,
                             _sqlExpressionFactory.Constant(0)
                         },
+                        false, new List<bool>() { false },
                         typeof(int)),
                     _sqlExpressionFactory.Constant(0));
 
@@ -113,7 +116,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 Equals(method, _trimWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, false, new List<bool>() { false }, method.ReturnType);
             }
 
             // Jet LTRIM does not take arguments
@@ -122,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 Equals(method, _trimStartWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, false, new List<bool>() { false }, method.ReturnType);
             }
 
             // Jet RTRIM does not take arguments
@@ -131,17 +134,17 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 Equals(method, _trimEndWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, false, new List<bool>() { false }, method.ReturnType);
             }
 
             if (Equals(method, _toLower))
             {
-                return _sqlExpressionFactory.Function("LCASE", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LCASE", new[] {instance}, false, new List<bool>() { false }, method.ReturnType);
             }
 
             if (Equals(method, _toUpper))
             {
-                return _sqlExpressionFactory.Function("UCASE", new[] {instance}, method.ReturnType);
+                return _sqlExpressionFactory.Function("UCASE", new[] {instance}, false, new List<bool>() { false }, method.ReturnType);
             }
 
             if (Equals(_substring, _trimEndWithNoParam) ||
@@ -167,6 +170,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return _sqlExpressionFactory.Function(
                     "MID",
                     parameters,
+                    false, new List<bool>() { false },
                     method.ReturnType);
             }
 
@@ -175,6 +179,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return _sqlExpressionFactory.Function(
                     "REPLACE",
                     new[] {instance}.Concat(arguments),
+                    false, new List<bool>() { false },
                     method.ReturnType);
             }
 
@@ -186,6 +191,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         _sqlExpressionFactory.Function(
                             "TRIM",
                             new[] {arguments[0]},
+                            false, new List<bool>() { false },
                             typeof(string)),
                         _sqlExpressionFactory.Constant(string.Empty)));
             }

@@ -3,6 +3,9 @@
   <Import Project="Development.props" Condition="Exists('Development.props')" />
 
   <PropertyGroup>
+    <VersionPrefix>5.0.0</VersionPrefix>
+    <VersionSuffix>alpha</VersionSuffix>
+    
     <Product>EntityFrameworkCore.Jet</Product>
     <Authors>Laurents Meyer, Bubi</Authors>
     <Company>Bubi</Company>
@@ -23,8 +26,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
-    <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
+    <DefaultNetCoreTargetFramework>net5.0-windows</DefaultNetCoreTargetFramework>
   </PropertyGroup>
 
   <ItemGroup>

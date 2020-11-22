@@ -65,5 +65,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 }
             }
         }
+
+        public IModel ProcessModelFinalized(IModel model)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

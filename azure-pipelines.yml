@@ -5,17 +5,27 @@ trigger:
   tags:
     include:
     - '*'
-
 variables:
   isPullRequest: $[eq(variables['Build.Reason'], 'PullRequest')]
   pullRequestSourceBranch: $[variables['System.PullRequest.SourceBranch']]
   buildConfiguration: 'Debug'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-
 jobs:
   - job: BuildAndTest
     displayName: Build and Test (ACE 2010 x64)
+    strategy:
+      matrix:
+        ACE 2010 x64:
+          aceVersion: '2010'
+          aceArchitecture: 'x64'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
+          aceSilentInstallArgument: '/passive'
+        ACE 2010 x86:
+          aceVersion: '2010'
+          aceArchitecture: 'x86'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+          aceSilentInstallArgument: '/passive'
     pool:
       vmImage: 'windows-latest'
     steps:
@@ -24,14 +34,21 @@ jobs:
         echo "pullRequestSourceBranch: $(pullRequestSourceBranch)"
         echo "Build.SourceBranchName: $(Build.SourceBranchName)"
         echo "Build.SourceVersionMessage: $(Build.SourceVersionMessage)"
+        echo "aceVersion: $(aceVersion)"
+        echo "aceArchitecture: $(aceArchitecture)"
+        echo "aceUrl: $(aceUrl)"
+        echo "aceSilentInstallArgument: $(aceSilentInstallArgument)"
       displayName: Output Variables
     - task: UseDotNet@2
       displayName: 'Use .NET SDK'
       inputs:
         useGlobalJson: true
     - pwsh: |
-        Invoke-WebRequest "https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe" -OutFile "AccessDatabaseEngine_2010_X64.exe"
-        .\AccessDatabaseEngine_2010_X64.exe /passive
+        Set-PsDebug -Trace 1
+        $setupFileName = 'AccessDatabaseEngine_$(aceVersion)_$(aceArchitecture).exe'
+        Invoke-WebRequest '$(aceUrl)' -OutFile $setupFileName
+        dir
+        & ".\$setupFileName" $(aceSilentInstallArgument)
       displayName: Install Access Database Engine
     - pwsh: |
         dotnet build --configuration $(buildConfiguration)
@@ -50,7 +67,7 @@ jobs:
       inputs:
         testResultsFormat: VSTest
         testResultsFiles: test/**/*.trx
-        testRunTitle: ACE 2010 x64
+        testRunTitle: ACE $(aceVersion) $(aceArchitecture)
         mergeTestResults: true
         failTaskOnFailedTests: false
   - job: NuGet

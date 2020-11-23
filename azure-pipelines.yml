@@ -7,6 +7,8 @@ trigger:
     - '*'
 
 variables:
+  isPullRequest: $[eq(variables['Build.Reason'], 'PullRequest')]
+  pullRequestSourceBranch: $[variables['System.PullRequest.SourceBranch']]
   buildConfiguration: 'Debug'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -17,6 +19,12 @@ jobs:
     pool:
       vmImage: 'windows-latest'
     steps:
+    - pwsh: |
+        echo "isPullRequest: $(isPullRequest)"
+        echo "pullRequestSourceBranch: $(pullRequestSourceBranch)"
+        echo "Build.SourceBranchName: $(Build.SourceBranchName)"
+        echo "Build.SourceVersionMessage: $(Build.SourceVersionMessage)"
+      displayName: Output Variables
     - task: UseDotNet@2
       displayName: 'Use .NET SDK'
       inputs:
@@ -45,3 +53,84 @@ jobs:
         testRunTitle: ACE 2010 x64
         mergeTestResults: true
         failTaskOnFailedTests: false
+  - job: NuGet
+    dependsOn:
+      - BuildAndTest
+    condition: and(ne(variables['isPullRequest'], true), in(dependencies.BuildAndTest.result, 'Succeeded', 'SucceededWithIssues'))
+    pool:
+      vmImage: 'windows-latest' # must be Windows for PublishSymbols task
+    steps:
+      - task: UseDotNet@2
+        displayName: 'Use .NET Core SDK'
+        inputs:
+          useGlobalJson: true
+      - pwsh: dotnet --info
+        displayName: .NET Information
+      - pwsh: |
+          $officialBuild = '$(Build.SourceBranch)' -match '^refs/tags/[0-9]+\.[0-9]+\.[0-9]+'
+          $wipBuild = '$(Build.SourceBranch)' -match '^refs/heads/.*-wip$'
+          $ciBuildOnly = $wipBuild -or ('$(Build.SourceBranch)' -match '^refs/heads/(?:master|.*-maint)$')
+          $continuesIntegrationTimestamp = Get-Date -Format yyyyMMddHHmmss
+          $buildSha = '$(Build.SourceVersion)'.SubString(0, 7);
+          $pack = '$(buildAndTestSucceeded)' -eq "true" -and ($officialBuild -or $ciBuildOnly) -or $wipBuild
+
+          echo "officialBuild: $officialBuild"
+          echo "wipBuild: $wipBuild"
+          echo "ciBuildOnly: $ciBuildOnly"
+          echo "continuesIntegrationTimestamp: $continuesIntegrationTimestamp"
+          echo "buildSha: $buildSha"
+          echo "pack: $pack"
+
+          if ($pack)
+          {
+            $arguments = 'pack', '-c', 'Release', '-o', '$(Build.ArtifactStagingDirectory)', '-p:ContinuousIntegrationBuild=true'
+
+            if ($ciBuildOnly)
+            {
+              $arguments += "-p:ContinuesIntegrationTimestamp=$continuesIntegrationTimestamp"
+              $arguments += "-p:BuildSha=$buildSha"
+            }
+
+            $projectFiles = Get-ChildItem src/*/*.csproj -Recurse | % { $_.FullName }
+
+            foreach ($projectFile in $projectFiles)
+            {
+              echo "Pack command: dotnet " + (($arguments + $projectFile) -join ' ')
+              & dotnet ($arguments + $projectFile)
+            }
+
+            $pushToAzureArtifacts = $pack
+            $publishSymbolsForAzureArtifacts = $pushToAzureArtifacts
+            $pushToNugetOrg = $officialBuild
+
+            echo "pushToAzureArtifacts: $pushToAzureArtifacts"
+            echo "publishSymbolsForAzureArtifacts: $publishSymbolsForAzureArtifacts"
+            echo "pushToNugetOrg: $pushToNugetOrg"
+
+            echo "##vso[task.setvariable variable=Pack.PushToAzureArtifacts]$pushToAzureArtifacts"
+            echo "##vso[task.setvariable variable=Pack.PublishSymbolsForAzureArtifacts]$publishSymbolsForAzureArtifacts"
+            echo "##vso[task.setvariable variable=Pack.PushToNugetOrg]$pushToNugetOrg"
+          }
+        displayName: "NuGet Pack"
+      - task: NuGetCommand@2
+        displayName: "NuGet Push - AZDO Feed"
+        inputs:
+          command: push
+          publishVstsFeed: 'EntityFrameworkCore.Jet/public'
+          packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+        condition: eq(variables['Pack.PushToAzureArtifacts'],'true')
+      - task: PublishSymbols@2 # AZDO still has no snupkg support, so we need to publish the PDB files to a symbol server
+        displayName: "Publish Symbols to Azure Artifacts symbol server"
+        inputs:
+          symbolServerType: 'TeamServices'
+          treatNotIndexedAsWarning: false
+          indexSources: false
+        condition: eq(variables['Pack.PublishSymbolsForAzureArtifacts'],'true')
+      - task: NuGetCommand@2
+        displayName: "NuGet Push - nuget.org"
+        inputs:
+          command: push
+          nuGetFeedType: external
+          publishFeedCredentials: LauXjpn-NugetOrg-EFCoreJet-AllPackages-PushNew
+          packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+        condition: eq(variables['Pack.PushToNugetOrg'],'true')

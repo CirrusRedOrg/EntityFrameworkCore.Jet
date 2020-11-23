@@ -1,0 +1,47 @@
+<Project>
+  <PropertyGroup Label="Version settings">
+    <!--
+      Use the following values for the different release types:
+          - "alpha"
+          - "beta"
+          - "rc"
+          - "rtm"
+          - "servicing"
+    -->
+    <VersionPrefix>3.1.0</VersionPrefix>
+    <PreReleaseVersionLabel>alpha</PreReleaseVersionLabel>
+    <PreReleaseVersionIteration>1</PreReleaseVersionIteration>
+
+    <!--
+      The following properties will automatically be set by CI builds when appropriate:
+        ContinuesIntegrationTimestamp
+        BuildSha
+    -->
+  </PropertyGroup>
+
+  <!--
+    If no version or else version suffix has been explicitly set, we generate one in the following format:
+      alpha.1.ci.20201004T181121Z+sha.0a1b2c3
+  -->
+  <PropertyGroup>
+    <UseVersionOverride Condition="'$(Version)' != ''">true</UseVersionOverride>
+    <UseVersionSuffixOverride Condition="'$(VersionSuffix)' != ''">true</UseVersionSuffixOverride>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Version Suffix Handling" Condition="'$(UseVersionOverride)' != 'true' And '$(UseVersionSuffixOverride)' != 'true'">
+    <VersionSuffix>$(PreReleaseVersionLabel).$(PreReleaseVersionIteration)</VersionSuffix>
+    <VersionSuffix Condition="'$(ContinuesIntegrationTimestamp)' != ''">$(VersionSuffix).ci.$(ContinuesIntegrationTimestamp)</VersionSuffix>
+    <VersionSuffix Condition="'$(BuildSha)' != ''">$(VersionSuffix)+sha.$(BuildSha)</VersionSuffix>
+  </PropertyGroup>
+
+  <Target Name="EnsureVersionParameters" BeforeTargets="CoreBuild" Condition="'$(UseVersionOverride)' != 'true' And '$(UseVersionSuffixOverride)' != 'true'">
+    <Error Condition="'$(VersionPrefix)' == ''" Text="The 'VersionPrefix' property needs to be set." />
+    <Error Condition="'$(PreReleaseVersionLabel)' == ''" Text="The 'PreReleaseVersionLabel' property needs to be set." />
+    <Error Condition="'$(PreReleaseVersionIteration)' == ''" Text="The 'PreReleaseVersionIteration' property needs to be set." />
+    <!--
+    <Message Importance="high" Text="VersionPrefix: $(VersionPrefix)" />
+    <Message Importance="high" Text="VersionSuffix: $(VersionSuffix)" />
+    <Message Importance="high" Text="Version: $(Version)" />
+    -->
+  </Target>
+</Project>

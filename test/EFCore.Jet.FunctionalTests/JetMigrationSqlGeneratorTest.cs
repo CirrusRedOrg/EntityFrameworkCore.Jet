@@ -652,10 +652,8 @@ CREATE INDEX `IX_Person_FullName` ON `Person` (`FullName`);
 ");
         }
 
-        [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void AlterColumnOperation_memoryOptimized_with_index(bool obsolete)
+        [ConditionalFact]
+        public virtual void AlterColumnOperation_memoryOptimized_with_index()
         {
             Generate(
                 modelBuilder => modelBuilder
@@ -759,9 +757,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
         }
 
         [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void AlterColumnOperation_with_index_included_column(bool obsolete)
+        public virtual void AlterColumnOperation_with_index_included_column()
         {
             Generate(
                 modelBuilder => modelBuilder
@@ -944,9 +940,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
         }
 
         [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void AlterColumnOperation_with_added_online_index(bool obsolete)
+        public virtual void AlterColumnOperation_with_added_online_index()
         {
             Generate(
                 modelBuilder => modelBuilder
@@ -1542,10 +1536,8 @@ END;
 ");
         }
 
-        [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void CreateIndexOperation_memoryOptimized_unique_nullable(bool obsolete)
+        [ConditionalFact]
+        public virtual void CreateIndexOperation_memoryOptimized_unique_nullable()
         {
             Generate(
                 modelBuilder => modelBuilder.Entity(
@@ -1569,9 +1561,7 @@ END;
         }
 
         [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void CreateIndexOperation_memoryOptimized_unique_nullable_with_filter(bool obsolete)
+        public virtual void CreateIndexOperation_memoryOptimized_unique_nullable_with_filter()
         {
             Generate(
                 modelBuilder => modelBuilder.Entity(
@@ -1594,10 +1584,8 @@ END;
 ");
         }
 
-        [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void CreateIndexOperation_memoryOptimized_unique_nonclustered_not_nullable(bool obsolete)
+        [ConditionalFact]
+        public virtual void CreateIndexOperation_memoryOptimized_unique_nonclustered_not_nullable()
         {
             Generate(
                 modelBuilder => modelBuilder.Entity(
@@ -1679,10 +1667,8 @@ DROP DATABASE `Northwind`;
 ");
         }
 
-        [ConditionalTheory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public virtual void DropIndexOperation_memoryOptimized(bool obsolete)
+        [ConditionalFact]
+        public virtual void DropIndexOperation_memoryOptimized()
         {
             Generate(
                 modelBuilder => modelBuilder.Entity(

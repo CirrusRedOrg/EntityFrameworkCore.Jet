@@ -68,12 +68,12 @@ CREATE TABLE `Denali` ( id int );",
                         dbModel.Tables.OrderBy(t => t.Name),
                         d =>
                         {
-                            Assert.Equal(null, d.Schema);
+                            Assert.Null(d.Schema);
                             Assert.Equal("Denali", d.Name);
                         },
                         e =>
                         {
-                            Assert.Equal(null, e.Schema);
+                            Assert.Null(e.Schema);
                             Assert.Equal("Everest", e.Name);
                         });
                 },
@@ -136,7 +136,7 @@ CREATE TABLE `Blogs` (
                     Assert.All(
                         table.Columns, c =>
                         {
-                            Assert.Equal(null, c.Table.Schema);
+                            Assert.Null(c.Table.Schema);
                             Assert.Equal("Blogs", c.Table.Name);
                             Assert.Equal(
                                 @"Blog table comment.
@@ -172,7 +172,7 @@ SELECT
                     Assert.All(
                         table.Columns, c =>
                         {
-                            Assert.Equal(null, c.Table.Schema);
+                            Assert.Null(c.Table.Schema);
                             Assert.Equal("BlogsView", c.Table.Name);
                         });
 
@@ -196,7 +196,7 @@ CREATE TABLE PrimaryKeyTable (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal(null, pk.Table.Schema);
+                    Assert.Null(pk.Table.Schema);
                     Assert.Equal("PrimaryKeyTable", pk.Table.Name);
                     Assert.StartsWith("PK__PrimaryK", pk.Name);
                     Assert.Equal(
@@ -224,7 +224,7 @@ CREATE INDEX IX_INDEX on UniqueConstraint ( IndexProperty );",
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, uniqueConstraint.Table.Schema);
+                    Assert.Null(uniqueConstraint.Table.Schema);
                     Assert.Equal("UniqueConstraint", uniqueConstraint.Table.Name);
                     Assert.StartsWith("UQ__UniqueCo", uniqueConstraint.Name);
                     Assert.Equal(
@@ -256,7 +256,7 @@ CREATE INDEX IX_INDEX on IndexTable ( IndexProperty );",
                     Assert.All(
                         table.Indexes, c =>
                         {
-                            Assert.Equal(null, c.Table.Schema);
+                            Assert.Null(c.Table.Schema);
                             Assert.Equal("IndexTable", c.Table.Name);
                         });
 
@@ -292,9 +292,9 @@ CREATE TABLE SecondDependent (
                     var firstFk = Assert.Single(dbModel.Tables.Single(t => t.Name == "FirstDependent").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, firstFk.Table.Schema);
+                    Assert.Null(firstFk.Table.Schema);
                     Assert.Equal("FirstDependent", firstFk.Table.Name);
-                    Assert.Equal(null, firstFk.PrincipalTable.Schema);
+                    Assert.Null(firstFk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", firstFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, firstFk.Columns.Select(ic => ic.Name).ToList());
@@ -305,9 +305,9 @@ CREATE TABLE SecondDependent (
                     var secondFk = Assert.Single(dbModel.Tables.Single(t => t.Name == "SecondDependent").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, secondFk.Table.Schema);
+                    Assert.Null(secondFk.Table.Schema);
                     Assert.Equal("SecondDependent", secondFk.Table.Name);
-                    Assert.Equal(null, secondFk.PrincipalTable.Schema);
+                    Assert.Null(secondFk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", secondFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "Id" }, secondFk.Columns.Select(ic => ic.Name).ToList());
@@ -993,7 +993,7 @@ CREATE TABLE CompositePrimaryKeyTable (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal(null, pk.Table.Schema);
+                    Assert.Null(pk.Table.Schema);
                     Assert.Equal("CompositePrimaryKeyTable", pk.Table.Name);
                     Assert.StartsWith("PK__Composit", pk.Name);
                     Assert.Equal(
@@ -1017,7 +1017,7 @@ CREATE TABLE NonClusteredPrimaryKeyTable (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal(null, pk.Table.Schema);
+                    Assert.Null(pk.Table.Schema);
                     Assert.Equal("NonClusteredPrimaryKeyTable", pk.Table.Name);
                     Assert.StartsWith("PK__NonClust", pk.Name);
                     Assert.Equal(
@@ -1043,7 +1043,7 @@ CREATE CLUSTERED INDEX ClusteredIndex ON NonClusteredPrimaryKeyTableWithClustere
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal(null, pk.Table.Schema);
+                    Assert.Null(pk.Table.Schema);
                     Assert.Equal("NonClusteredPrimaryKeyTableWithClusteredIndex", pk.Table.Name);
                     Assert.StartsWith("PK__NonClust", pk.Name);
                     Assert.Equal(
@@ -1068,7 +1068,7 @@ CREATE TABLE NonClusteredPrimaryKeyTableWithClusteredConstraint (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal(null, pk.Table.Schema);
+                    Assert.Null(pk.Table.Schema);
                     Assert.Equal("NonClusteredPrimaryKeyTableWithClusteredConstraint", pk.Table.Name);
                     Assert.StartsWith("PK__NonClust", pk.Name);
                     Assert.Equal(
@@ -1093,7 +1093,7 @@ CREATE TABLE PrimaryKeyName (
                 {
                     var pk = dbModel.Tables.Single().PrimaryKey;
 
-                    Assert.Equal(null, pk.Table.Schema);
+                    Assert.Null(pk.Table.Schema);
                     Assert.Equal("PrimaryKeyName", pk.Table.Name);
                     Assert.StartsWith("MyPK", pk.Name);
                     Assert.Equal(
@@ -1123,7 +1123,7 @@ CREATE TABLE CompositeUniqueConstraintTable (
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, uniqueConstraint.Table.Schema);
+                    Assert.Null(uniqueConstraint.Table.Schema);
                     Assert.Equal("CompositeUniqueConstraintTable", uniqueConstraint.Table.Name);
                     Assert.Equal("UX", uniqueConstraint.Name);
                     Assert.Equal(
@@ -1148,7 +1148,7 @@ CREATE TABLE ClusteredUniqueConstraintTable (
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, uniqueConstraint.Table.Schema);
+                    Assert.Null(uniqueConstraint.Table.Schema);
                     Assert.Equal("ClusteredUniqueConstraintTable", uniqueConstraint.Table.Name);
                     Assert.StartsWith("UQ__Clustere", uniqueConstraint.Name);
                     Assert.Equal(
@@ -1174,7 +1174,7 @@ CREATE TABLE UniqueConstraintName (
                     var uniqueConstraint = Assert.Single(dbModel.Tables.Single().UniqueConstraints);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, uniqueConstraint.Table.Schema);
+                    Assert.Null(uniqueConstraint.Table.Schema);
                     Assert.Equal("UniqueConstraintName", uniqueConstraint.Table.Name);
                     Assert.Equal("MyUC", uniqueConstraint.Name);
                     Assert.Equal(
@@ -1205,7 +1205,7 @@ CREATE INDEX IX_COMPOSITE ON CompositeIndexTable ( Id2, Id1 );",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, index.Table.Schema);
+                    Assert.Null(index.Table.Schema);
                     Assert.Equal("CompositeIndexTable", index.Table.Name);
                     Assert.Equal("IX_COMPOSITE", index.Name);
                     Assert.Equal(
@@ -1232,7 +1232,7 @@ CREATE CLUSTERED INDEX IX_CLUSTERED ON ClusteredIndexTable ( Id2 );",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, index.Table.Schema);
+                    Assert.Null(index.Table.Schema);
                     Assert.Equal("ClusteredIndexTable", index.Table.Name);
                     Assert.Equal("IX_CLUSTERED", index.Name);
                     Assert.Equal(
@@ -1259,7 +1259,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON UniqueIndexTable ( Id2 );",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, index.Table.Schema);
+                    Assert.Null(index.Table.Schema);
                     Assert.Equal("UniqueIndexTable", index.Table.Name);
                     Assert.Equal("IX_UNIQUE", index.Name);
                     Assert.True(index.IsUnique);
@@ -1288,7 +1288,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON FilteredIndexTable ( Id2 ) WHERE Id2 > 10;",
                     var index = Assert.Single(dbModel.Tables.Single().Indexes);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, index.Table.Schema);
+                    Assert.Null(index.Table.Schema);
                     Assert.Equal("FilteredIndexTable", index.Table.Name);
                     Assert.Equal("IX_UNIQUE", index.Name);
                     Assert.Equal("(`Id2`>(10))", index.Filter);
@@ -1326,9 +1326,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, fk.Table.Schema);
+                    Assert.Null(fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal(null, fk.PrincipalTable.Schema);
+                    Assert.Null(fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId1", "ForeignKeyId2" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1372,9 +1372,9 @@ CREATE TABLE DependentTable (
                     var principalFk = Assert.Single(foreignKeys.Where(f => f.PrincipalTable.Name == "PrincipalTable"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, principalFk.Table.Schema);
+                    Assert.Null(principalFk.Table.Schema);
                     Assert.Equal("DependentTable", principalFk.Table.Name);
-                    Assert.Equal(null, principalFk.PrincipalTable.Schema);
+                    Assert.Null(principalFk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", principalFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId1" }, principalFk.Columns.Select(ic => ic.Name).ToList());
@@ -1385,9 +1385,9 @@ CREATE TABLE DependentTable (
                     var anotherPrincipalFk = Assert.Single(foreignKeys.Where(f => f.PrincipalTable.Name == "AnotherPrincipalTable"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, anotherPrincipalFk.Table.Schema);
+                    Assert.Null(anotherPrincipalFk.Table.Schema);
                     Assert.Equal("DependentTable", anotherPrincipalFk.Table.Name);
-                    Assert.Equal(null, anotherPrincipalFk.PrincipalTable.Schema);
+                    Assert.Null(anotherPrincipalFk.PrincipalTable.Schema);
                     Assert.Equal("AnotherPrincipalTable", anotherPrincipalFk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId2" }, anotherPrincipalFk.Columns.Select(ic => ic.Name).ToList());
@@ -1423,9 +1423,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, fk.Table.Schema);
+                    Assert.Null(fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal(null, fk.PrincipalTable.Schema);
+                    Assert.Null(fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1459,9 +1459,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, fk.Table.Schema);
+                    Assert.Null(fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal(null, fk.PrincipalTable.Schema);
+                    Assert.Null(fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, fk.Columns.Select(ic => ic.Name).ToList());
@@ -1496,9 +1496,9 @@ CREATE TABLE DependentTable (
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal(null, fk.Table.Schema);
+                    Assert.Null(fk.Table.Schema);
                     Assert.Equal("DependentTable", fk.Table.Name);
-                    Assert.Equal(null, fk.PrincipalTable.Schema);
+                    Assert.Null(fk.PrincipalTable.Schema);
                     Assert.Equal("PrincipalTable", fk.PrincipalTable.Name);
                     Assert.Equal(
                         new List<string> { "ForeignKeyId" }, fk.Columns.Select(ic => ic.Name).ToList());

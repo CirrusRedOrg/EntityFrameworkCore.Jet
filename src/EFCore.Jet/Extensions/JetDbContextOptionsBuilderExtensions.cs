@@ -66,7 +66,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
         /// <param name="dataAccessProviderFactory">An `OdbcFactory` or `OleDbFactory` object to be used for all
         /// data access operations by the Jet connection.</param>
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
@@ -89,7 +89,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
         /// <param name="dataAccessProviderFactory">An `OdbcFactory` or `OleDbFactory` object to be used for all
         /// data access operations by the Jet connection.</param>
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
@@ -111,7 +111,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
         /// <param name="dataAccessProviderType">The type of the data access provider (`Odbc` or `OleDb`) to be used for all
         /// data access operations by the Jet connection.</param>
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
@@ -133,7 +133,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
         /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
         /// <param name="dataAccessProviderType">The type of the data access provider (`Odbc` or `OleDb`) to be used for all
         /// data access operations by the Jet connection.</param>
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>

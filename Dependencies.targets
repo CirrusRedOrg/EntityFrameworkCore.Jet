@@ -12,6 +12,9 @@
     <PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
     <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="4.7.1" />
+    <PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
+    <PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
     
     <!-- System.Data.Jet -->
     <PackageReference Update="System.ValueTuple" Version="4.5.0" />

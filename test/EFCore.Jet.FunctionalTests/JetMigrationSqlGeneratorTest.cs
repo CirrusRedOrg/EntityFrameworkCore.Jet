@@ -756,7 +756,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
 ");
         }
 
-        [ConditionalTheory]
+        [ConditionalFact]
         public virtual void AlterColumnOperation_with_index_included_column()
         {
             Generate(
@@ -939,7 +939,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
 ");
         }
 
-        [ConditionalTheory]
+        [ConditionalFact]
         public virtual void AlterColumnOperation_with_added_online_index()
         {
             Generate(
@@ -1560,7 +1560,7 @@ END;
 ");
         }
 
-        [ConditionalTheory]
+        [ConditionalFact]
         public virtual void CreateIndexOperation_memoryOptimized_unique_nullable_with_filter()
         {
             Generate(

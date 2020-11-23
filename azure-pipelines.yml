@@ -44,10 +44,8 @@ jobs:
       inputs:
         useGlobalJson: true
     - pwsh: |
-        Set-PsDebug -Trace 1
         $setupFileName = 'AccessDatabaseEngine_$(aceVersion)_$(aceArchitecture).exe'
         Invoke-WebRequest '$(aceUrl)' -OutFile $setupFileName
-        dir
         & ".\$setupFileName" $(aceSilentInstallArgument)
       displayName: Install Access Database Engine
     - pwsh: |

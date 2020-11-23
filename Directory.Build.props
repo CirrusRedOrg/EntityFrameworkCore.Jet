@@ -21,7 +21,7 @@
     <IsPackable>False</IsPackable>
     <PublishRepositoryUrl>True</PublishRepositoryUrl>
 
-    <PackageProjectUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet/</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet</PackageProjectUrl>
     <!-- <PackageReleaseNotes>TODO</PackageReleaseNotes> -->
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <!-- <PackageIconUrl>TODO</PackageIconUrl> -->

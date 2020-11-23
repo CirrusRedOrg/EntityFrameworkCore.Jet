@@ -7,15 +7,20 @@ trigger:
     - '*'
 
 variables:
-  buildConfiguration: 'Release'
+  buildConfiguration: 'Debug'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
-  - job: Windows
+  - job: BuildAndTest
+    displayName: Build and Test (ACE 2010 x64)
     pool:
       vmImage: 'windows-latest'
     steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET SDK'
+      inputs:
+        useGlobalJson: true
     - pwsh: |
         Invoke-WebRequest "https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe" -OutFile "AccessDatabaseEngine_2010_X64.exe"
         .\AccessDatabaseEngine_2010_X64.exe /passive
@@ -26,6 +31,17 @@ jobs:
     - pwsh: |
         dotnet test .\test\System.Data.Jet.Test -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
       displayName: 'Run Tests: System.Data.Jet.Test'
+      continueOnError: true
     - pwsh: |
         dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
       displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
+      continueOnError: true
+    - task: PublishTestResults@2
+      displayName: Publish Test Results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: test/**/*.trx
+        testRunTitle: ACE 2010 x64
+        mergeTestResults: true
+        failTaskOnFailedTests: false

@@ -11,9 +11,9 @@
     </ItemGroup>
     
     <ItemGroup>
-        <PackageReference Include="System.ValueTuple" Version="$(SystemValueTuple)" />
-        <PackageReference Include="Microsoft.CSharp" Version="$(MicrosoftCSharp)" />
-        <PackageReference Include="Microsoft.Win32.Registry" Version="$(MicrosoftWin32Registry)" />
+        <PackageReference Include="System.ValueTuple" />
+        <PackageReference Include="Microsoft.CSharp" />
+        <PackageReference Include="Microsoft.Win32.Registry" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">

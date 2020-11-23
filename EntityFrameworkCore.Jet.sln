@@ -32,7 +32,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{B7FF1850-2
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{DC0C1C50-ED7E-4BC0-B45C-E3115ECCCF76}"
 ProjectSection(SolutionItems) = preProject
-	build\Dependencies.props = build\Dependencies.props
 	build\Key.snk = build\Key.snk
 	build\Development.props = build\Development.props
 	build\Development.props.sample = build\Development.props.sample
@@ -43,6 +42,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{76210BB4-A
 ProjectSection(SolutionItems) = preProject
 	Directory.Build.props = Directory.Build.props
 	NuGet.Config = NuGet.Config
+	Directory.Build.targets = Directory.Build.targets
+	global.json = global.json
 EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Jet.Tests", "test\EFCore.Jet.Tests\EFCore.Jet.Tests.csproj", "{770A076B-A448-499C-BB86-A37994C04523}"

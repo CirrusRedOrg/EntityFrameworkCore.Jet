@@ -31,7 +31,7 @@
             }
         }
         
-        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.OleDb; 
+        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc; 
         
         // The SQL statement
         //

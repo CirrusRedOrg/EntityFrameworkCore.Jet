@@ -1,4 +1,10 @@
-﻿using System.Reflection;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-[assembly: AssemblyTitle("EntityFrameworkCore.Jet.FunctionalTests")]
-[assembly: AssemblyDescription("Functional (integration) tests for Jet Entity framework core provider. These tests are original EF Core provider tests")]
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.TestCaseOrderers;
+using Xunit;
+
+// Set assembly wide conditions to control tests in accordance with the environment they are run in.
+[assembly: JetConfiguredCondition]
+
+[assembly: TestCaseOrderer("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.TestCaseOrderers." + nameof(AscendingTestCaseOrderer), "EntityFrameworkCore.Jet.FunctionalTests")]

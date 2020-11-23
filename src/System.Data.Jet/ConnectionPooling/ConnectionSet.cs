@@ -71,8 +71,6 @@ namespace System.Data.Jet.ConnectionPooling
             ReleaseUnmanagedResources();
         }
 
-
         #endregion
-
     }
 }

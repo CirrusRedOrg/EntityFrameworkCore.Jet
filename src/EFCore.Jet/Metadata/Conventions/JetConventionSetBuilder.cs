@@ -1,88 +1,69 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Metadata.Conventions.Internal;
+using System.Data.Jet;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Internal;
-using Microsoft.EntityFrameworkCore.Storage;
-using EntityFrameworkCore.Jet.Utilities;
-using Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EntityFrameworkCore.Jet.Metadata.Conventions
+// ReSharper disable once CheckNamespace
+namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 {
     public class JetConventionSetBuilder : RelationalConventionSetBuilder
     {
-        private readonly ISqlGenerationHelper _sqlGenerationHelper;
-
         public JetConventionSetBuilder(
-            [NotNull] RelationalConventionSetBuilderDependencies dependencies,
-            [NotNull] ISqlGenerationHelper sqlGenerationHelper)
-            : base(dependencies)
+            [NotNull] ProviderConventionSetBuilderDependencies dependencies,
+            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
+            : base(dependencies, relationalDependencies)
         {
-            _sqlGenerationHelper = sqlGenerationHelper;
         }
 
-        public override ConventionSet AddConventions(ConventionSet conventionSet)
+        public override ConventionSet CreateConventionSet()
         {
-            Check.NotNull(conventionSet, nameof(conventionSet));
+            var conventionSet = base.CreateConventionSet();
 
-            base.AddConventions(conventionSet);
+            var valueGenerationStrategyConvention = new JetValueGenerationStrategyConvention(Dependencies, RelationalDependencies);
 
-            var valueGenerationStrategyConvention = new JetValueGenerationStrategyConvention();
             conventionSet.ModelInitializedConventions.Add(valueGenerationStrategyConvention);
+            conventionSet.ModelInitializedConventions.Add(
+                new RelationalMaxIdentifierLengthConvention(64, Dependencies, RelationalDependencies));
 
-            ValueGeneratorConvention valueGeneratorConvention = new JetValueGeneratorConvention();
-            ReplaceConvention(conventionSet.BaseEntityTypeChangedConventions, valueGeneratorConvention);
+            ValueGenerationConvention valueGenerationConvention =
+                new JetValueGenerationConvention(Dependencies, RelationalDependencies);
 
-            var jetInMemoryTablesConvention = new JetMemoryOptimizedTablesConvention();
-            conventionSet.EntityTypeAnnotationChangedConventions.Add(jetInMemoryTablesConvention);
+            ReplaceConvention(conventionSet.EntityTypeBaseTypeChangedConventions, valueGenerationConvention);
+            ReplaceConvention(conventionSet.EntityTypeAnnotationChangedConventions, (RelationalValueGenerationConvention) valueGenerationConvention);
+            ReplaceConvention(conventionSet.EntityTypePrimaryKeyChangedConventions, valueGenerationConvention);
+            ReplaceConvention(conventionSet.ForeignKeyAddedConventions, valueGenerationConvention);
+            ReplaceConvention(conventionSet.ForeignKeyRemovedConventions, valueGenerationConvention);
 
-            ReplaceConvention(conventionSet.PrimaryKeyChangedConventions, valueGeneratorConvention);
+            StoreGenerationConvention storeGenerationConvention = new JetStoreGenerationConvention(Dependencies, RelationalDependencies);
 
-            conventionSet.KeyAddedConventions.Add(jetInMemoryTablesConvention);
+            ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, storeGenerationConvention);
+            ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, (RelationalValueGenerationConvention) valueGenerationConvention);
 
-            ReplaceConvention(conventionSet.ForeignKeyAddedConventions, valueGeneratorConvention);
-
-            ReplaceConvention(conventionSet.ForeignKeyRemovedConventions, valueGeneratorConvention);
-
-            var jetIndexConvention = new JetIndexConvention(_sqlGenerationHelper);
-            conventionSet.IndexAddedConventions.Add(jetInMemoryTablesConvention);
-            conventionSet.IndexAddedConventions.Add(jetIndexConvention);
-
-            conventionSet.IndexUniquenessChangedConventions.Add(jetIndexConvention);
-
-            conventionSet.IndexAnnotationChangedConventions.Add(jetIndexConvention);
-
-            conventionSet.PropertyNullabilityChangedConventions.Add(jetIndexConvention);
-
-            conventionSet.PropertyAnnotationChangedConventions.Add(jetIndexConvention);
-            conventionSet.PropertyAnnotationChangedConventions.Add((JetValueGeneratorConvention)valueGeneratorConvention);
-
-            ReplaceConvention(conventionSet.ModelAnnotationChangedConventions, (RelationalDbFunctionConvention)new JetDbFunctionConvention());
+            ConventionSet.AddBefore(
+                conventionSet.ModelFinalizedConventions,
+                valueGenerationStrategyConvention,
+                typeof(ValidatingConvention));
+            
+            ReplaceConvention(conventionSet.ModelFinalizedConventions, storeGenerationConvention);
 
             return conventionSet;
         }
 
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public static ConventionSet Build()
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkJet()
-                .AddDbContext<DbContext>(o => o.UseJet("Provider=Microsoft.ACE.OLEDB.15.0;Data Source=_.accdb;"))
+                .AddDbContext<DbContext>((p, o) => o
+                    .UseJetWithoutPredefinedDataAccessProvider(
+                        JetConnection.GetConnectionString("Jet.accdb", DataAccessProviderType.Odbc))
+                    .UseInternalServiceProvider(p))
                 .BuildServiceProvider();
 
-            using (var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope())
-            {
-                using (var context = serviceScope.ServiceProvider.GetService<DbContext>())
-                {
-                    return ConventionSet.CreateConventionSet(context);
-                }
-            }
+            using var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
+            using var context = serviceScope.ServiceProvider.GetService<DbContext>();
+            return ConventionSet.CreateConventionSet(context);
         }
     }
 }

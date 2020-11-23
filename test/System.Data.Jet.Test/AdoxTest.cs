@@ -1,5 +1,5 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
+using System.Diagnostics;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -8,237 +8,112 @@ namespace System.Data.Jet.Test
     [TestClass]
     public class AdoxTest
     {
+        private const string StoreName = nameof(AdoxTest) + ".accdb";
+
+        private JetConnection _connection;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _connection = Helpers.CreateAndOpenDatabase(StoreName);
+            
+            CreateTable();
+
+            CheckTableExists("tableName");
+            CheckColumnExists("tableName", "columnName");
+            CheckIndexExists("indexName");
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            _connection?.Close();
+            Helpers.DeleteDatabase(StoreName);
+        }
+
         [TestMethod]
         public void CreateDatabase()
         {
-            try
-            {
-                JetConnection.ClearAllPools();
-                File.Delete("AdoxTest.accdb");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
-
-            JetConnection.ClearAllPools();
-            File.Delete("AdoxTest.accdb");
+            Assert.IsTrue(File.Exists(StoreName));
         }
 
         [TestMethod]
         public void RenameTableAdox()
         {
-            try
-            {
-                JetConnection.ClearAllPools();
-                File.Delete("AdoxTest.accdb");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
-
-            using (JetConnection connection = new JetConnection(JetConnection.GetConnectionString("AdoxTest.accdb")))
-            {
-                connection.Open();
-                CreateTable(connection);
-
-                CheckTableExists(connection, "tableName");
-
-                AdoxWrapper.RenameTable(JetConnection.GetConnectionString("AdoxTest.accdb"), "tableName", "newTableName");
-
-                CheckTableExists(connection, "newTableName");
-            }
-
-            JetConnection.ClearAllPools();
-            File.Delete("AdoxTest.accdb");
-
+            AdoxWrapper.RenameTable(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), "tableName", "newTableName");
+            ReOpenConnection();
+            CheckTableExists("newTableName");
         }
-
-
 
         [TestMethod]
         public void RenameColumnAdox()
         {
-            try
-            {
-                JetConnection.ClearAllPools();
-                File.Delete("AdoxTest.accdb");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
-
-            using (JetConnection connection = new JetConnection(JetConnection.GetConnectionString("AdoxTest.accdb")))
-            {
-                connection.Open();
-                CreateTable(connection);
-
-                CheckColumnExists(connection, "tableName", "columnName");
-
-                AdoxWrapper.RenameColumn(JetConnection.GetConnectionString("AdoxTest.accdb"), "tableName", "columnName", "newColumnName");
-
-                connection.Close();
-                JetConnection.ClearAllPools();
-                connection.Open();
-                CheckColumnExists(connection, "tableName", "newColumnName");
-                
-            }
-
-            JetConnection.ClearAllPools();
-            File.Delete("AdoxTest.accdb");
-
+            AdoxWrapper.RenameColumn(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), "tableName", "columnName", "newColumnName");
+            ReOpenConnection();
+            CheckColumnExists("tableName", "newColumnName");
         }
-
-
-        //[TestMethod]
-        public void RenameIndexAdox()
-        {
-            try
-            {
-                JetConnection.ClearAllPools();
-                File.Delete("AdoxTest.accdb");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
-
-            using (JetConnection connection = new JetConnection(JetConnection.GetConnectionString("AdoxTest.accdb")))
-            {
-                connection.Open();
-                CreateTable(connection);
-
-                CheckIndexExists(connection, "indexName");
-
-                AdoxWrapper.RenameIndex(JetConnection.GetConnectionString("AdoxTest.accdb"), "tableName", "indexName", "newIndexName");
-
-                connection.Close();
-                connection.Open();
-                CheckIndexExists(connection, "newIndexName");
-
-            }
-
-            JetConnection.ClearAllPools();
-            File.Delete("AdoxTest.accdb");
-        }
-
 
         [TestMethod]
         public void RenameTableQuery()
         {
-            try
-            {
-                JetConnection.ClearAllPools();
-                File.Delete("AdoxTest.accdb");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+            _connection.CreateCommand("rename table tableName to newTableName")
+                .ExecuteNonQuery();
 
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
+            ReOpenConnection();
 
-            using (JetConnection connection = new JetConnection(JetConnection.GetConnectionString("AdoxTest.accdb")))
-            {
-                connection.Open();
-                CreateTable(connection);
-
-                CheckTableExists(connection, "tableName");
-
-                connection.CreateCommand("rename table tableName to newTableName").ExecuteNonQuery();
-
-                CheckTableExists(connection, "newTableName");
-            }
-
-            JetConnection.ClearAllPools();
-
-            File.Delete("AdoxTest.accdb");
-
+            CheckTableExists("newTableName");
         }
-
-
 
         [TestMethod]
         public void RenameColumnQuery()
         {
-            try
-            {
-                JetConnection.ClearAllPools();
-                File.Delete("AdoxTest.accdb");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+            _connection.CreateCommand("rename column tableName.columnName to newColumnName")
+                .ExecuteNonQuery();
 
-            AdoxWrapper.CreateEmptyDatabase(JetConnection.GetConnectionString("AdoxTest.accdb"));
+            ReOpenConnection();
 
-            using (JetConnection connection = new JetConnection(JetConnection.GetConnectionString("AdoxTest.accdb")))
-            {
-                connection.Open();
-                CreateTable(connection);
-
-                CheckColumnExists(connection, "tableName", "columnName");
-
-                connection.CreateCommand("rename column tableName.columnName to newColumnName").ExecuteNonQuery();
-
-                connection.Close();
-                JetConnection.ClearAllPools();
-                connection.Open();
-                CheckColumnExists(connection, "tableName", "newColumnName");
-
-            }
-
-            JetConnection.ClearAllPools();
-            File.Delete("AdoxTest.accdb");
-
+            CheckColumnExists("tableName", "newColumnName");
         }
 
-
-
-        private void CheckTableExists(JetConnection connection, string tableName)
+        private void ReOpenConnection()
         {
-            var command = connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW TABLES) WHERE Name='{tableName}'");
-            int result = (int)command.ExecuteScalar();
+            _connection.Close();
+            JetConnection.ClearAllPools();
+            _connection.Open();
+        }
+
+        private void CheckTableExists(string tableName)
+        {
+            var command = _connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW TABLES) WHERE Name='{tableName}'");
+            var result = (int) command.ExecuteScalar();
             command.Dispose();
             if (result != 1)
                 throw new Exception($"Table {tableName} not found");
         }
 
-        private void CheckColumnExists(JetConnection connection, string tableName, string columnName)
+        private void CheckColumnExists(string tableName, string columnName)
         {
-            var command = connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW TABLECOLUMNS) WHERE Table='{tableName}' AND Name='{columnName}'");
-            int result = (int)command.ExecuteScalar();
+            var command = _connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW TABLECOLUMNS) WHERE Table='{tableName}' AND Name='{columnName}'");
+            var result = (int) command.ExecuteScalar();
             command.Dispose();
             if (result != 1)
                 throw new Exception($"Column {tableName}.{columnName} not found");
         }
 
-        private void CheckIndexExists(JetConnection connection, string indexName)
+        private void CheckIndexExists(string indexName)
         {
-            var command = connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW INDEXES) WHERE Name='{indexName}'");
-            int result = (int)command.ExecuteScalar();
+            var command = _connection.CreateCommand($"SELECT COUNT(*) FROM (SHOW INDEXES) WHERE Name='{indexName}'");
+            var result = (int) command.ExecuteScalar();
             command.Dispose();
             if (result != 1)
                 throw new Exception($"Index {indexName} not found");
         }
 
-
-
-        private static void CreateTable(JetConnection connection)
+        private void CreateTable()
         {
             DbCommand command;
-            command = connection.CreateCommand(@"
+            command = _connection.CreateCommand(
+                @"
 CREATE TABLE tableName (columnName int);
 CREATE INDEX indexName ON tableName (columnName);");
             command.ExecuteNonQuery();

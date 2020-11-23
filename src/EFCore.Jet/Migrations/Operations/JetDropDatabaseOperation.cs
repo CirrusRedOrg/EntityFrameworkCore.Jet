@@ -5,8 +5,14 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace EntityFrameworkCore.Jet.Migrations.Operations
 {
+    /// <summary>
+    ///     A Jet-specific <see cref="MigrationOperation" /> to drop a database.
+    /// </summary>
     public class JetDropDatabaseOperation : MigrationOperation
     {
+        /// <summary>
+        ///     The name of the database.
+        /// </summary>
         public virtual string Name { get; [param: NotNull] set; }
     }
 }

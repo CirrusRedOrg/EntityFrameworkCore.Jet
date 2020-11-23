@@ -14,6 +14,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetStringTypeMapping : StringTypeMapping
     {
+        private readonly bool _keepLineBreakCharacters;
         private readonly int _maxSpecificSize;
 
         /// <summary>
@@ -21,35 +22,48 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetStringTypeMapping(
-            [NotNull] string storeType,
+            [CanBeNull] string storeType = null,
             bool unicode = false,
             int? size = null,
             bool fixedLength = false,
-            StoreTypePostfix? storeTypePostfix = null)
+            StoreTypePostfix? storeTypePostfix = null,
+            bool keepLineBreakCharacters = false)
             : this(
                 new RelationalTypeMappingParameters(
                     new CoreTypeMappingParameters(typeof(string)),
-                    storeType,
+                    storeType ?? GetStoreName(fixedLength),
                     storeTypePostfix ?? StoreTypePostfix.Size,
-                    (fixedLength ? System.Data.DbType.String : (DbType?)null),
+                    (fixedLength
+                        ? System.Data.DbType.String
+                        : (DbType?) null),
                     unicode,
                     size,
-                    fixedLength))
-        { }
+                    fixedLength),
+                keepLineBreakCharacters)
+        {
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        protected JetStringTypeMapping(RelationalTypeMappingParameters parameters)
+        protected JetStringTypeMapping(RelationalTypeMappingParameters parameters, bool keepLineBreakCharacters)
             : base(parameters)
         {
+            _keepLineBreakCharacters = keepLineBreakCharacters;
             _maxSpecificSize = CalculateSize(parameters.Size);
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetStringTypeMapping(parameters);
+            => new JetStringTypeMapping(parameters, _keepLineBreakCharacters);
 
+        public RelationalTypeMapping Clone(bool keepLineBreakCharacters)
+            => new JetStringTypeMapping(Parameters, keepLineBreakCharacters);
+
+        private static string GetStoreName(bool fixedLength)
+            => fixedLength
+                ? "char"
+                : "varchar";
 
         private static int CalculateSize(int? size)
         {
@@ -58,7 +72,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 : 255;
         }
 
-
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -66,14 +79,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             // For strings and byte arrays, set the max length to the size facet if specified, or
-            // 8000 bytes if no size facet specified, if the data will fit so as to avoid query cache
+            // 255 characters if no size facet specified, if the data will fit so as to avoid query cache
             // fragmentation by setting lots of different Size values otherwise always set to
             // -1 (unbounded) to avoid SQL client size inference.
 
             var value = parameter.Value;
             var length = (value as string)?.Length ?? (value as byte[])?.Length;
 
-            parameter.Size = value == null || value == DBNull.Value || length != null && length <= _maxSpecificSize
+            parameter.Size = value == null ||
+                             value == DBNull.Value ||
+                             length != null && length <= _maxSpecificSize
                 ? _maxSpecificSize
                 : -1;
         }
@@ -86,6 +101,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     The generated string.
         /// </returns>
         protected override string GenerateNonNullSqlLiteral(object value)
-            => $"'{EscapeSqlLiteral((string)value)}'";
+        {
+            var escaped = $"'{EscapeSqlLiteral((string)value)}'";
+            
+            // BUG: EF Core indents idempotent scripts, which can lead to unexpected values for strings
+            //      that contain line breaks.
+            //      Tracked by: https://github.com/aspnet/EntityFrameworkCore/issues/15256
+            //
+            //      Convert line break characters to their CHR() representation as a workaround.
+
+            return _keepLineBreakCharacters
+                ? escaped
+                : escaped
+                    .Replace("\r", "' & CHR(13) & '")
+                    .Replace("\n", "' & CHR(10) & '");
+        }
     }
 }

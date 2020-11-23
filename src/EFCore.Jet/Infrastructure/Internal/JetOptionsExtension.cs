@@ -1,25 +1,34 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Collections.Generic;
+using System.Data.Common;
+using System.Globalization;
 using System.Text;
-using Extensions.DependencyInjection;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 {
     /// <summary>
-    ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
     public class JetOptionsExtension : RelationalOptionsExtension
     {
-        private string _logFragment;
+        private DbContextOptionsExtensionInfo _info;
+
+        // private bool? _rowNumberPaging;
+        private DbProviderFactory _dataAccessProviderFactory;
+        private bool _useOuterSelectSkipEmulationViaDataReader;
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetOptionsExtension()
         {
@@ -28,53 +37,191 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         // NB: When adding new options, make sure to update the copy ctor below.
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected JetOptionsExtension([NotNull] JetOptionsExtension copyFrom)
             : base(copyFrom)
         {
+            // _rowNumberPaging = copyFrom._rowNumberPaging;
+            _dataAccessProviderFactory = copyFrom._dataAccessProviderFactory;
+            _useOuterSelectSkipEmulationViaDataReader = copyFrom._useOuterSelectSkipEmulationViaDataReader;
         }
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public override DbContextOptionsExtensionInfo Info
+            => _info ??= new ExtensionInfo(this);
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected override RelationalOptionsExtension Clone()
             => new JetOptionsExtension(this);
 
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        // public virtual bool? RowNumberPaging => _rowNumberPaging;
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override bool ApplyServices(IServiceCollection services)
+        /*
+        public virtual JetOptionsExtension WithRowNumberPaging(bool rowNumberPaging)
         {
-            Check.NotNull(services, nameof(services));
+            var clone = (JetOptionsExtension) Clone();
 
-            services.AddEntityFrameworkJet();
+            // clone._rowNumberPaging = rowNumberPaging;
 
-            return true;
+            return clone;
+        }
+        */
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual DbProviderFactory DataAccessProviderFactory => _dataAccessProviderFactory;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual JetOptionsExtension WithDataAccessProviderFactory(DbProviderFactory dataAccessProviderFactory)
+        {
+            var clone = (JetOptionsExtension) Clone();
+
+            clone._dataAccessProviderFactory = dataAccessProviderFactory;
+
+            return clone;
         }
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override string LogFragment
+        public virtual bool UseOuterSelectSkipEmulationViaDataReader => _useOuterSelectSkipEmulationViaDataReader;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual JetOptionsExtension WithUseOuterSelectSkipEmulationViaDataReader(bool enabled)
         {
-            get
+            var clone = (JetOptionsExtension) Clone();
+
+            clone._useOuterSelectSkipEmulationViaDataReader = enabled;
+
+            return clone;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public override void ApplyServices(IServiceCollection services)
+            => services.AddEntityFrameworkJet();
+
+        private sealed class ExtensionInfo : RelationalExtensionInfo
+        {
+            private long? _serviceProviderHash;
+            private string _logFragment;
+
+            public ExtensionInfo(IDbContextOptionsExtension extension)
+                : base(extension)
             {
-                if (_logFragment == null)
+            }
+
+            private new JetOptionsExtension Extension
+                => (JetOptionsExtension) base.Extension;
+
+            public override bool IsDatabaseProvider => true;
+
+            public override string LogFragment
+            {
+                get
                 {
-                    var builder = new StringBuilder();
+                    if (_logFragment == null)
+                    {
+                        var builder = new StringBuilder();
 
-                    builder.Append(base.LogFragment);
+                        builder.Append(base.LogFragment);
 
-                    _logFragment = builder.ToString();
+                        /*
+                        if (Extension._rowNumberPaging == true)
+                        {
+                            builder.Append("RowNumberPaging ");
+                        }
+                        */
+
+                        if (Extension._dataAccessProviderFactory != null)
+                        {
+                            builder.Append("DataAccessProviderFactory ");
+                        }
+
+                        if (Extension._useOuterSelectSkipEmulationViaDataReader)
+                        {
+                            builder.Append("UseOuterSelectSkipEmulationViaDataReader ");
+                        }
+
+                        _logFragment = builder.ToString();
+                    }
+
+                    return _logFragment;
+                }
+            }
+
+            public override long GetServiceProviderHashCode()
+            {
+                if (_serviceProviderHash == null)
+                {
+                    _serviceProviderHash = (base.GetServiceProviderHashCode() * 397) ^
+                                           (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L) ^
+                                           (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) /* ^
+                                           (Extension._rowNumberPaging?.GetHashCode() ?? 0L)*/;
                 }
 
-                return _logFragment;
+                return _serviceProviderHash.Value;
+            }
+
+            public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
+            {
+                /*
+                debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseRowNumberForPaging)]
+                    = (Extension._rowNumberPaging?.GetHashCode() ?? 0L).ToString(CultureInfo.InvariantCulture);
+                */
+                debugInfo["Jet:" + nameof(DataAccessProviderFactory)]
+                    = (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L).ToString(CultureInfo.InvariantCulture);
+#pragma warning disable 618
+                debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseOuterSelectSkipEmulationViaDataReader)]
+#pragma warning restore 618
+                    = Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
     }

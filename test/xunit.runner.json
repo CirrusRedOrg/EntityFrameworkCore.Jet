@@ -1,3 +1,6 @@
 ﻿{
-  "appDomain": "denied"
+  "appDomain": "denied",
+  "parallelizeAssembly": false,
+  "parallelizeTestCollections": false,
+  "diagnosticMessages": false
 }

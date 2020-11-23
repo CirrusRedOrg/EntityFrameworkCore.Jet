@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.OleDb;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
@@ -7,62 +6,49 @@ namespace System.Data.Jet.Test
     [TestClass]
     public class ConnectionPoolingTest
     {
-
-        private readonly string ConnectionString;
-        private readonly string ConnectionStringDummy;
-        private const string FileName = "ConnectionPoolingTest.accdb";
-        private const string FileNameDummy = "ConnectionPoolingTest.accdb";
-
-        public ConnectionPoolingTest()
-        {
-            ConnectionString = JetConnection.GetConnectionString(FileName);
-            ConnectionStringDummy = JetConnection.GetConnectionString(FileNameDummy);
-        }
-
+        private const string StoreName = nameof(ConnectionPoolingTest) + ".accdb";
+        private const string DummyStoreName = nameof(ConnectionPoolingTest) + "Dummy.accdb";
 
         [TestInitialize]
-        public void Initialize()
+        public void Setup()
         {
-            if (!JetConnection.DatabaseExists(ConnectionString))
-                JetConnection.CreateEmptyDatabase(ConnectionString);
-            using (JetConnection connection = new JetConnection(ConnectionString))
+            using (var connection = Helpers.CreateAndOpenDatabase(StoreName))
             {
-                connection.Open();
-                if (!connection.TableExists("SimpleTable"))
-                    connection.CreateCommand("CREATE TABLE SimpleTable ( Col varchar(10) )").ExecuteNonQuery();
-                connection.CreateCommand("DELETE FROM SimpleTable").ExecuteNonQuery();
+                using var command = connection.CreateCommand("CREATE TABLE SimpleTable ( Col varchar(10) )");
+                command.ExecuteNonQuery();
             }
+
             JetConnection.ClearAllPools();
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            Helpers.DeleteDatabase(StoreName);
         }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Open_Connection_Without_Connection_String()
         {
-            JetConnection connection = new JetConnection();
+            using var connection = new JetConnection();
             connection.Open();
         }
-
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteReader_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
-            DbDataReader dataReader;
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
-                dataReader = connection.CreateCommand("Select * from MSysAccessStorage").ExecuteReader();
+                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                command.ExecuteReader();
             }
             catch (Exception e)
             {
                 Assert.AreEqual("\"ExecuteReader\" requires a connection in Open state. Current connection state is Closed", e.Message);
                 throw;
-            }
-
-            while (dataReader.Read())
-            {
-                
             }
         }
 
@@ -70,10 +56,11 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteNonQuery_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
-                var a = connection.CreateCommand("Select * from MSysAccessStorage").ExecuteNonQuery();
+                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                command.ExecuteNonQuery();
             }
             catch (Exception e)
             {
@@ -82,15 +69,15 @@ namespace System.Data.Jet.Test
             }
         }
 
-
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteScalar_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
-            { 
-                var a = connection.CreateCommand("Select * from MSysAccessStorage").ExecuteScalar();
+            {
+                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                command.ExecuteScalar();
             }
             catch (Exception e)
             {
@@ -103,10 +90,11 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Prepare_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             try
             {
-                connection.CreateCommand("Select * from MSysAccessStorage").Prepare();
+                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                command.Prepare();
             }
             catch (Exception e)
             {
@@ -115,33 +103,32 @@ namespace System.Data.Jet.Test
             }
         }
 
-
         [TestMethod]
         public void GetDataReader_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            var dataReader = connection.CreateCommand("Select * from MSysAccessStorage").ExecuteReader();
+            
+            var dataReader = connection.CreateCommand("select * from MSysAccessStorage")
+                .ExecuteReader();
             while (dataReader.Read())
             {
-
             }
         }
-
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void GetTransaction_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
-            var transaction = connection.BeginTransaction();
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            using var transaction = connection.BeginTransaction();
         }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Change_Database_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.ChangeDatabase("abcd");
         }
 
@@ -149,7 +136,7 @@ namespace System.Data.Jet.Test
         [ExpectedException(typeof(InvalidOperationException))]
         public void Change_Database_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.ChangeDatabase("abcd");
         }
@@ -157,117 +144,109 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Change_ConnectionString_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
-            connection.ConnectionString = ConnectionStringDummy;
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            connection.ConnectionString = DummyStoreName;
         }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Change_ConnectionString_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            connection.ConnectionString = ConnectionStringDummy;
+            connection.ConnectionString = DummyStoreName;
         }
 
         [TestMethod]
         public void Read_ConnectionString_From_Closed0_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
-            Assert.AreEqual(ConnectionString, connection.ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
+            Assert.AreEqual(connectionString, connection.ConnectionString);
         }
 
         [TestMethod]
         public void Read_ConnectionString_From_Closed1_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
             connection.Close();
-            Assert.AreEqual(ConnectionString, connection.ConnectionString);
+            Assert.AreEqual(connectionString, connection.ConnectionString);
         }
-
 
         [TestMethod]
         public void Read_ConnectionString_From_Open_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
             connection.Open();
             connection.Close();
-            Assert.AreEqual(ConnectionString, connection.ConnectionString);
-        }
-
-
-        [TestMethod]
-        public void Read_ConnectionString_From_Disposed0_Connection()
-        {
-            JetConnection connection = new JetConnection(ConnectionString);
-            Assert.AreEqual(ConnectionString, connection.ConnectionString);
+            Assert.AreEqual(connectionString, connection.ConnectionString);
         }
 
         [TestMethod]
-        public void Read_ConnectionString_From_Disposed1_Connection()
+        public void Read_ConnectionString_From_Disposed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
             connection.Dispose();
-            Assert.AreEqual("", connection.ConnectionString);
+            Assert.AreEqual(String.Empty, connection.ConnectionString);
         }
-
 
         [TestMethod]
         public void Read_ConnectionString_From_Open_Disposed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
             connection.Open();
             connection.Dispose();
-            Assert.AreEqual("", connection.ConnectionString);
+            Assert.AreEqual(String.Empty, connection.ConnectionString);
         }
-
-
 
         [TestMethod]
         public void Read_ConnectionString_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
             connection.Open();
-            Assert.AreEqual(ConnectionString, connection.ConnectionString);
+            Assert.AreEqual(connectionString, connection.ConnectionString);
         }
 
         [TestMethod]
         public void Read_Database_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.IsTrue(connection.Database == string.Empty);
         }
 
         [TestMethod]
         public void Read_Database_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             Assert.IsTrue(connection.Database == string.Empty);
         }
-
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Read_ServerVersion_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.IsTrue(connection.ServerVersion == string.Empty);
         }
 
         [TestMethod]
         public void Read_ServerVersion_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             Console.WriteLine(connection.ServerVersion);
         }
 
-
         [TestMethod]
         public void Read_Database_From_Disposed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Dispose();
             Assert.IsTrue(connection.Database == string.Empty);
         }
@@ -275,33 +254,50 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Read_DataSource_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
-            Assert.AreEqual(FileName, connection.DataSource);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            
+            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(connectionString);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = connectionString;
+           
+            var fileName = connectionStringBuilder.GetDataSource();
+            using var connection = new JetConnection(connectionString);
+            Assert.AreEqual(fileName, connection.DataSource);
         }
 
         [TestMethod]
         public void Read_DataSource_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            
+            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(connectionString);
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = connectionString;
+
+            var fileName = connectionStringBuilder.GetDataSource();
+            using var connection = new JetConnection(connectionString);
             connection.Open();
-            Assert.AreEqual(FileName, connection.DataSource);
+            Assert.AreEqual(fileName, connection.DataSource);
         }
 
         [TestMethod]
         public void Read_DataSource_From_Disposed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
+            using var connection = new JetConnection(connectionString);
             connection.Dispose();
-            Assert.IsTrue(connection.DataSource == string.Empty);
+            Assert.AreEqual(string.Empty, connection.DataSource);
         }
-
 
         [TestMethod]
         public void DisposeSeveralTimes()
         {
-            int stateChangeCount = 0;
-            JetConnection connection = new JetConnection(ConnectionString);
-            connection.StateChange += (sender, args) => {
+            var stateChangeCount = 0;
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            connection.StateChange += (sender, args) =>
+            {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
                 stateChangeCount++;
             };
@@ -316,9 +312,10 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void DisposeWithoutOpen()
         {
-            int stateChangeCount = 0;
-            JetConnection connection = new JetConnection(ConnectionString);
-            connection.StateChange += (sender, args) => {
+            var stateChangeCount = 0;
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            connection.StateChange += (sender, args) =>
+            {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
                 stateChangeCount++;
             };
@@ -327,33 +324,31 @@ namespace System.Data.Jet.Test
             Assert.AreEqual(0, stateChangeCount);
         }
 
-
         [TestMethod]
         public void Read_Connection_String_After_Dispose()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             Assert.IsFalse(string.IsNullOrEmpty(connection.ConnectionString));
             connection.Dispose();
             Assert.IsTrue(string.IsNullOrEmpty(connection.ConnectionString));
         }
 
-
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void OpenSeveralTimes()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.Open();
         }
 
-
         [TestMethod]
         public void CloseSeveralTimes()
         {
-            int stateChangeCount = 0;
-            JetConnection connection = new JetConnection(ConnectionString);
-            connection.StateChange += (sender, args) => {
+            var stateChangeCount = 0;
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            connection.StateChange += (sender, args) =>
+            {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
                 stateChangeCount++;
             };
@@ -365,9 +360,10 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void OpenCloseSeveralTimes()
         {
-            int stateChangeCount = 0;
-            JetConnection connection = new JetConnection(ConnectionString);
-            connection.StateChange += (sender, args) => {
+            var stateChangeCount = 0;
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            connection.StateChange += (sender, args) =>
+            {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
                 stateChangeCount++;
             };
@@ -377,25 +373,25 @@ namespace System.Data.Jet.Test
             Assert.AreEqual(2, stateChangeCount);
         }
 
-
-
         [TestMethod]
         public void Raise_Events()
         {
-            int stateChangeCount = 0;
+            var stateChangeCount = 0;
 
-            JetConnection connection = new JetConnection(ConnectionString);
-            connection.StateChange += (sender, args) => {
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            connection.StateChange += (sender, args) =>
+            {
                 Console.WriteLine($"{args.OriginalState} => {args.CurrentState}");
                 stateChangeCount++;
             };
 
             connection.Open();
-            var dataReader = connection.CreateCommand("Select * from MSysAccessStorage").ExecuteReader();
+            using var command = connection.CreateCommand("select * from MSysAccessStorage");
+            var dataReader = command.ExecuteReader();
             while (dataReader.Read())
             {
-
             }
+
             connection.Close();
             connection.Open();
             connection.Dispose();
@@ -403,138 +399,159 @@ namespace System.Data.Jet.Test
             Assert.AreEqual(4, stateChangeCount);
         }
 
-
         [TestMethod]
         public void GetSchema_From_Open_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
             connection.GetSchema();
             connection.Close();
         }
-
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void GetSchema_From_Closed_Connection()
         {
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.GetSchema();
         }
-
 
         [TestMethod]
         public void Transaction_Execute_Close_Open_Execute()
         {
-            DbCommand command;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            var transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from MSysAccessStorage");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            
+            using var transaction = connection.BeginTransaction();
+            
+            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            {
+                command.Transaction = transaction;
+                command.ExecuteScalar();
+            }
+
             connection.Close();
             connection.Open();
-            command = connection.CreateCommand("Select count(*) from MSysAccessStorage");
-            command.ExecuteScalar();
+            
+            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            {
+                command.ExecuteScalar();
+            }
         }
 
         [TestMethod]
         public void Transaction_Execute_Commit_Close_Open_Execute()
         {
-            DbCommand command;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            var transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from MSysAccessStorage");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            
+            using var transaction = connection.BeginTransaction();
+
+            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            {
+                command.Transaction = transaction;
+                command.ExecuteScalar();
+            }
+
             transaction.Commit();
             connection.Close();
             connection.Open();
-            command = connection.CreateCommand("Select count(*) from MSysAccessStorage");
-            command.ExecuteScalar();
+
+            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            {
+                command.ExecuteScalar();
+            }
         }
 
         [TestMethod]
         public void Transaction_Execute_Close_Open()
         {
-            DbCommand command;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            var transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("INSERT INTO SimpleTable(Col) VALUES ('aaa')");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            
+            using var transaction = connection.BeginTransaction();
+
+            using (var command = connection.CreateCommand("INSERT INTO SimpleTable(Col) VALUES ('aaa')"))
+            {
+                command.Transaction = transaction;
+                command.ExecuteScalar();
+            }
+
             connection.Close();
             connection.Open();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            Assert.AreEqual(0, command.ExecuteScalar());
+            
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                Assert.AreEqual(0, command.ExecuteScalar());
+            }
         }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Close_Open_Commit()
         {
-            DbCommand command;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            var transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("INSERT INTO SimpleTable(Col) VALUES ('aaa')");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            
+            using var transaction = connection.BeginTransaction();
+
+            using (var command = connection.CreateCommand("INSERT INTO SimpleTable(Col) VALUES ('aaa')"))
+            {
+                command.Transaction = transaction;
+                command.ExecuteScalar();
+            }
+
             connection.Close();
             JetConnection.ClearAllPools();
             connection.Open();
             transaction.Commit();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            Assert.AreEqual(0, command.ExecuteScalar());
+
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                Assert.AreEqual(0, command.ExecuteScalar());
+            }
         }
-
-
 
         [TestMethod]
         public void Transaction_Execute_Close_Open_Transaction()
         {
-            DbCommand command;
-            DbTransaction transaction;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("INSERT INTO SimpleTable(Col) VALUES ('aaa')");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            
+            using var transaction1 = connection.BeginTransaction();
+
+            using (var command = connection.CreateCommand("INSERT INTO SimpleTable(Col) VALUES ('aaa')"))
+            {
+                command.Transaction = transaction1;
+                command.ExecuteScalar();
+            }
+
             connection.Close();
             connection.Open();
-            transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = transaction;
-            Assert.AreEqual(0, command.ExecuteScalar());
-        }
+            using var transaction2 = connection.BeginTransaction();
 
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = transaction2;
+                Assert.AreEqual(0, command.ExecuteScalar());
+            }
+        }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Transaction()
         {
-            DbCommand command;
-            
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            DbTransaction firstTransaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
+            
+            using var firstTransaction = connection.BeginTransaction();
+            using var command = connection.CreateCommand("select count(*) from SimpleTable");
             command.Transaction = firstTransaction;
             command.ExecuteScalar();
 
             try
             {
-                DbTransaction secondTransaction = connection.BeginTransaction();
+                using var secondTransaction = connection.BeginTransaction();
             }
             catch (Exception e)
             {
@@ -546,99 +563,98 @@ namespace System.Data.Jet.Test
         [TestMethod]
         public void Transaction_Commit_Transaction()
         {
-            DbCommand command;
-
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            DbTransaction firstTransaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = firstTransaction;
-            command.ExecuteScalar();
+            
+            using var firstTransaction = connection.BeginTransaction();
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = firstTransaction;
+                command.ExecuteScalar();
+            }
             firstTransaction.Commit();
 
-            DbTransaction secondTransaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = secondTransaction;
-            command.ExecuteScalar();
-
+            using var secondTransaction = connection.BeginTransaction();
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = secondTransaction;
+                command.ExecuteScalar();
+            }
             connection.Close();
 
             connection.Open();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.ExecuteScalar();
-
-
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.ExecuteScalar();
+            }
         }
 
         [TestMethod]
         public void Transaction_Rollback_Transaction()
         {
-            DbCommand command;
-
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            DbTransaction firstTransaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = firstTransaction;
-            command.ExecuteScalar();
+            
+            using var firstTransaction = connection.BeginTransaction();
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = firstTransaction;
+                command.ExecuteScalar();
+            }
             firstTransaction.Rollback();
 
-            DbTransaction secondTransaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = secondTransaction;
-            command.ExecuteScalar();
-
-
+            using var secondTransaction = connection.BeginTransaction();
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = secondTransaction;
+                command.ExecuteScalar();
+            }
             connection.Close();
 
             connection.Open();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.ExecuteScalar();
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.ExecuteScalar();
+            }
         }
-
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Commit_Execute_Transaction()
         {
-            DbCommand command;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            DbTransaction transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            
+            using var transaction = connection.BeginTransaction();
+
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = transaction;
+                command.ExecuteScalar();
+            }
             transaction.Commit();
 
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
-            command.Transaction = transaction;
-            command.ExecuteScalar();
+            using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
+            {
+                command.Transaction = transaction;
+                command.ExecuteScalar();
+            }
             transaction.Commit();
-
-            connection.Close();
         }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Commit_Commit()
         {
-            DbCommand command;
-
-            JetConnection connection = new JetConnection(ConnectionString);
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            DbTransaction transaction = connection.BeginTransaction();
-            command = connection.CreateCommand("Select count(*) from SimpleTable");
+            
+            using var transaction = connection.BeginTransaction();
+            using var command = connection.CreateCommand("select count(*) from SimpleTable");
             command.Transaction = transaction;
             command.ExecuteScalar();
             transaction.Commit();
             transaction.Commit();
-
-            connection.Close();
         }
-
-
     }
 }

@@ -1,8 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Data.Common;
+using System.Data.Odbc;
 using System.Data.OleDb;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace System.Data.Jet.Test
 {
@@ -10,58 +13,59 @@ namespace System.Data.Jet.Test
     {
         public static int CountRows(JetConnection jetConnection, string sqlStatement)
         {
-            DbCommand command = jetConnection.CreateCommand(sqlStatement);
-            DbDataReader dataReader = command.ExecuteReader();
+            var command = jetConnection.CreateCommand(sqlStatement);
+            var dataReader = command.ExecuteReader();
 
-
-            int count = 0;
+            var count = 0;
             while (dataReader.Read())
                 count++;
 
             return count;
-
         }
 
-        public static void ShowDataReaderContent(DbConnection dbConnection, string sqlStatement)
+        public static string GetDataReaderContent(DbConnection dbConnection, string sqlStatement)
         {
-            DbCommand command = dbConnection.CreateCommand();
+            const string delimiter = " | ";
+            
+            using var command = dbConnection.CreateCommand();
             command.CommandText = sqlStatement;
-            DbDataReader dataReader = command.ExecuteReader();
+            
+            using var dataReader = command.ExecuteReader();
+            var content = new StringBuilder();
 
-            bool first = true;
-
-            for (int i = 0; i < dataReader.FieldCount; i++)
+            for (var i = 0; i < dataReader.FieldCount; i++)
             {
-                if (first)
-                    first = false;
-                else
-                    Console.Write("\t");
-
-                Console.Write(dataReader.GetName(i));
+                content.Append($"`{dataReader.GetName(i)}`");
+                content.Append(delimiter);
             }
-            Console.WriteLine();
+            content.Remove(content.Length - delimiter.Length, delimiter.Length);
+            content.AppendLine();
+            
+            for (var i = 0; i < dataReader.FieldCount; i++)
+            {
+                content.Append("---");
+                content.Append(delimiter);
+            }
+            content.Remove(content.Length - delimiter.Length, delimiter.Length);
+            content.AppendLine();
 
             while (dataReader.Read())
             {
-                first = true;
-                for (int i = 0; i < dataReader.FieldCount; i++)
+                for (var i = 0; i < dataReader.FieldCount; i++)
                 {
-                    if (first)
-                        first = false;
-                    else
-                        Console.Write("\t");
-
-                    Console.Write("{0}", dataReader.GetValue(i));
+                    content.Append(dataReader.GetValue(i));
+                    content.Append(delimiter);
                 }
-                Console.WriteLine();
+                content.Remove(content.Length - delimiter.Length, delimiter.Length);
+                content.AppendLine();
             }
 
+            return content.ToString().TrimEnd();
         }
 
         public static void ShowDataTableContent(DataTable dataTable)
         {
-
-            bool first = true;
+            var first = true;
 
             foreach (DataColumn column in dataTable.Columns)
             {
@@ -72,6 +76,7 @@ namespace System.Data.Jet.Test
 
                 Console.Write(column.ColumnName);
             }
+
             Console.WriteLine();
 
             foreach (DataRow row in dataTable.Rows)
@@ -86,60 +91,26 @@ namespace System.Data.Jet.Test
 
                     Console.Write("{0}", row[column]);
                 }
+
                 Console.WriteLine();
             }
-
         }
 
         private static string GetTestDirectory()
         {
-            return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().GetName().CodeBase.Replace("file:///", ""));
+            return IO.Path.GetDirectoryName(
+                Reflection.Assembly.GetExecutingAssembly()
+                    .GetName()
+                    .CodeBase.Replace("file:///", ""));
         }
-
-        public static DbConnection GetJetConnection()
-        {
-            // Take care because according to this article
-            // http://msdn.microsoft.com/en-us/library/dd0w4a2z(v=vs.110).aspx
-            // to make the following line work the provider must be installed in the GAC and we also need an entry in machine.config
-            /*
-            DbProviderFactory providerFactory = System.Data.Common.DbProviderFactories.GetFactory("JetEntityFrameworkProvider");
-            
-            DbConnection connection = providerFactory.CreateConnection();
-            */
-
-            DbConnection connection = new JetConnection();
-
-            connection.ConnectionString = GetJetConnectionString();
-            return connection;
-
-        }
-
-        public static string GetJetConnectionString()
-        {
-            // ReSharper disable once CollectionNeverUpdated.Local
-            OleDbConnectionStringBuilder oleDbConnectionStringBuilder = new OleDbConnectionStringBuilder();
-            //oleDbConnectionStringBuilder.Provider = "Microsoft.Jet.OLEDB.4.0";
-            //oleDbConnectionStringBuilder.DataSource = @".\Empty.mdb";
-            //oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.12.0";
-            oleDbConnectionStringBuilder.Provider = "Microsoft.ACE.OLEDB.15.0";
-            oleDbConnectionStringBuilder.DataSource = GetTestDirectory() + "\\Empty.accdb";
-            return oleDbConnectionStringBuilder.ToString();
-        }
-
-
-        public static DbConnection GetSqlServerConnection()
-        {
-            DbConnection connection = new System.Data.SqlClient.SqlConnection("Data Source=(local);Initial Catalog=JetEfProviderComparativeTest;Integrated Security=true");
-            return connection;
-        }
-
 
         public static string[] GetQueries(string s)
         {
-            string query = string.Empty;
-            List<string> queries = new List<string>();
+            var query = string.Empty;
+            var queries = new List<string>();
 
-            foreach (string line in s.Replace("\r\n", "\n").Split('\n'))
+            foreach (var line in s.Replace("\r\n", "\n")
+                .Split('\n'))
             {
                 if (line.Contains("======="))
                 {
@@ -148,8 +119,10 @@ namespace System.Data.Jet.Test
 
                     query = string.Empty;
                 }
+
                 query += line + "\n";
             }
+
             if (!string.IsNullOrWhiteSpace(query))
                 queries.Add(query);
 
@@ -168,7 +141,6 @@ namespace System.Data.Jet.Test
 
         private static Regex _parseParameterRegex = new Regex(@"(?<name>.*)\((?<type>.*)\) = (?<value>.*)", RegexOptions.IgnoreCase);
 
-
         private static DbDataReader InternatExecute(DbConnection connection, DbTransaction transaction, string queryAndParameters)
         {
             string query;
@@ -176,7 +148,7 @@ namespace System.Data.Jet.Test
 
             if (queryAndParameters.Contains("\n-\n"))
             {
-                int i = queryAndParameters.IndexOf("\n-\n", StringComparison.Ordinal);
+                var i = queryAndParameters.IndexOf("\n-\n", StringComparison.Ordinal);
                 query = queryAndParameters.Substring(0, i);
                 parameterString = queryAndParameters.Substring(i + 3);
             }
@@ -186,10 +158,10 @@ namespace System.Data.Jet.Test
                 parameterString = null;
             }
 
-            string[] sqlParts = query.Split('\n');
-            string executionMethod = sqlParts[0];
-            string sql = string.Empty;
-            for (int i = 1; i < sqlParts.Length; i++)
+            var sqlParts = query.Split('\n');
+            var executionMethod = sqlParts[0];
+            var sql = string.Empty;
+            for (var i = 1; i < sqlParts.Length; i++)
                 sql += sqlParts[i] + "\r\n";
 
             var command = connection.CreateCommand();
@@ -199,26 +171,33 @@ namespace System.Data.Jet.Test
 
             if (parameterString != null)
             {
-                string[] parameterStringList = parameterString.Split('\n');
-                foreach (string sParameter in parameterStringList)
+                var parameterStringList = parameterString.Split('\n');
+                foreach (var sParameter in parameterStringList)
                 {
                     if (string.IsNullOrWhiteSpace(sParameter))
                         continue;
-                    Match match = _parseParameterRegex.Match(sParameter);
+                    var match = _parseParameterRegex.Match(sParameter);
                     if (!match.Success)
                         throw new Exception("Parameter not valid " + sParameter);
-                    string parameterName = match.Groups["name"].Value;
-                    string parameterType = match.Groups["type"].Value;
-                    string sparameterValue = match.Groups["value"].Value;
+                    var parameterName = match.Groups["name"]
+                        .Value;
+                    var parameterType = match.Groups["type"]
+                        .Value;
+                    var sparameterValue = match.Groups["value"]
+                        .Value;
                     object parameterValue;
                     if (sparameterValue == "null")
                         parameterValue = DBNull.Value;
                     else
                         parameterValue = Convert.ChangeType(sparameterValue, Type.GetType("System." + parameterType));
-                    command.Parameters.Add(new OleDbParameter(parameterName, parameterValue));
+
+                    var parameter = command.CreateParameter();
+                    parameter.ParameterName = parameterName;
+                    parameter.Value = parameterValue;
+                    
+                    command.Parameters.Add(parameter);
                 }
             }
-
 
             if (executionMethod.StartsWith("ExecuteNonQuery"))
             {
@@ -232,5 +211,87 @@ namespace System.Data.Jet.Test
             else
                 throw new Exception("Unknown execution method " + executionMethod);
         }
+
+        public static void ExecuteScript(DbConnection connection, string script)
+        {
+            using var command = connection.CreateCommand();
+
+            var batches = new Regex(@"\s*;\s*", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                .Split(script)
+                .Where(b => !string.IsNullOrEmpty(b))
+                .ToList();
+
+            var retryWaitTime = TimeSpan.FromMilliseconds(250);
+            const int maxRetryCount = 6;
+            var retryCount = 0;
+            
+            foreach (var batch in batches)
+            {
+                command.CommandText = batch;
+                
+                try
+                {
+                    command.ExecuteNonQuery();
+                    retryCount = 0;
+                }
+                catch (Exception e)
+                {
+                    if (retryCount >= maxRetryCount)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(batch);
+                        throw;
+                    }
+
+                    retryCount++;
+                    Thread.Sleep(retryWaitTime);
+                }
+            }
+        }
+
+        public static JetConnection CreateAndOpenDatabase(string storeName)
+        {
+            CreateDatabase(storeName);
+            var connection = new JetConnection(storeName);
+            connection.Open();
+            return connection;
+        }
+
+        public static void CreateDatabase(
+            string storeName,
+            DatabaseVersion version = DatabaseVersion.Newest,
+            CollatingOrder collatingOrder = CollatingOrder.General,
+            string databasePassword = null)
+        {
+            DeleteDatabase(storeName);
+            JetConnection.CreateDatabase(storeName, version, collatingOrder, databasePassword);
+        }
+
+        public static void DeleteDatabase(string storeName)
+        {
+            JetConnection.ClearAllPools();
+            JetConnection.DropDatabase(storeName);
+        }
+
+        public static JetConnection OpenDatabase(string storeName, DbProviderFactory dataAccessProviderFactory = null)
+        {
+            var connection = new JetConnection(storeName, dataAccessProviderFactory ?? DataAccessProviderFactory);
+
+            try
+            {
+                connection.Open();
+                return connection;
+            }
+            catch
+            {
+                connection.Dispose();
+                throw;
+            }
+        }
+
+        public static JetConnection OpenDatabase(string storeName, DataAccessProviderType providerType)
+            => OpenDatabase(storeName, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
+
+        public static DbProviderFactory DataAccessProviderFactory { get; set; } = OleDbFactory.Instance; //OdbcFactory.Instance;
     }
 }

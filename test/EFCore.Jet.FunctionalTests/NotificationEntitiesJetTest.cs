@@ -1,11 +1,10 @@
-﻿using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.Extensions.DependencyInjection;
 
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class NotificationEntitiesJetTest
         : NotificationEntitiesTestBase<NotificationEntitiesJetTest.NotificationEntitiesJetFixture>
@@ -17,25 +16,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class NotificationEntitiesJetFixture : NotificationEntitiesFixtureBase
         {
-            private const string DatabaseName = "NotificationEntities";
-            private readonly DbContextOptions _options;
-
-            public NotificationEntitiesJetFixture()
-            {
-                _options = new DbContextOptionsBuilder()
-                    .UseJet(JetTestStore.CreateConnectionString(DatabaseName), b => b.ApplyConfiguration())
-                    .UseInternalServiceProvider(new ServiceCollection()
-                        .AddEntityFrameworkJet()
-                        .AddSingleton(TestModelSource.GetFactory(OnModelCreating))
-                        .BuildServiceProvider())
-                    .Options;
-            }
-
-            public override PoolableDbContext CreateContext()
-                => new PoolableDbContext(_options);
-
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
-
         }
     }
 }

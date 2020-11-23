@@ -1,17 +1,8 @@
-using System;
 using System.Data.Common;
-using System.Data.OleDb;
-
 namespace System.Data.Jet
 {
     public static class JetParameterHelper
     {
-        public static void AddWithValue(this DbParameterCollection parameters, string name, object value)
-        {
-            parameters.Add(new OleDbParameter(name, value));
-        }
-
-
         internal static string GetParameterValueToDisplay(DbParameter parameter)
         {
             if (parameter.Value == DBNull.Value || parameter.Value == null)
@@ -70,10 +61,10 @@ namespace System.Data.Jet
 
         internal static bool IsTimeSpan(DbParameter parameter)
         {
-            if (!(parameter is OleDbParameter))
+            if (!(parameter is DbParameter))
                 return false;
 
-            return (parameter as OleDbParameter).OleDbType == OleDbType.DBTime;
+            return (parameter as DbParameter).DbType == DbType.Time;
         }
 
         internal static bool IsDateTime(DbParameter parameter)

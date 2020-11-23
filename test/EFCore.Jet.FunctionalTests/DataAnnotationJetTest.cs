@@ -1,27 +1,21 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using EntityFrameworkCore.Jet.Diagnostics.Internal;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
-#if Test20
-using Microsoft.EntityFrameworkCore.Storage.Internal;
-#endif
 
 // ReSharper disable InconsistentNaming
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class DataAnnotationJetTest : DataAnnotationTestBase<DataAnnotationJetTest.DataAnnotationJetFixture>
     {
@@ -36,7 +30,7 @@ namespace EntityFramework.Jet.FunctionalTests
         protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
             => facade.UseTransaction(transaction.GetDbTransaction());
 
-        [Fact]
+        [ConditionalFact]
         public virtual ModelBuilder Default_for_key_string_column_throws()
         {
             var modelBuilder = CreateModelBuilder();
@@ -47,7 +41,8 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(
                 CoreStrings.WarningAsErrorTemplate(
                     RelationalEventId.ModelValidationKeyDefaultValueWarning,
-                    RelationalStrings.LogKeyHasDefaultValue.GenerateMessage(nameof(Login1.UserName), nameof(Login1)),
+                    RelationalResources.LogKeyHasDefaultValue(new TestLogger<JetLoggingDefinitions>())
+                        .GenerateMessage(nameof(Login1.UserName), nameof(Login1)),
                     "RelationalEventId.ModelValidationKeyDefaultValueWarning"),
                 Assert.Throws<InvalidOperationException>(() => Validate(modelBuilder)).Message);
 
@@ -58,9 +53,9 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             var modelBuilder = base.Non_public_annotations_are_enabled();
 
-            var relational = GetProperty<PrivateMemberAnnotationClass>(modelBuilder, "PersonFirstName").Relational();
-            Assert.Equal("dsdsd", relational.ColumnName);
-            Assert.Equal("nvarchar(128)", relational.ColumnType);
+            var property = GetProperty<PrivateMemberAnnotationClass>(modelBuilder, "PersonFirstName");
+            Assert.Equal("dsdsd", property.GetColumnName());
+            Assert.Equal("nvarchar(128)", property.GetColumnType());
 
             return modelBuilder;
         }
@@ -69,9 +64,9 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             var modelBuilder = base.Field_annotations_are_enabled();
 
-            var relational = GetProperty<FieldAnnotationClass>(modelBuilder, "_personFirstName").Relational();
-            Assert.Equal("dsdsd", relational.ColumnName);
-            Assert.Equal("nvarchar(128)", relational.ColumnType);
+            var property = GetProperty<FieldAnnotationClass>(modelBuilder, "_personFirstName");
+            Assert.Equal("dsdsd", property.GetColumnName());
+            Assert.Equal("nvarchar(128)", property.GetColumnType());
 
             return modelBuilder;
         }
@@ -80,9 +75,9 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             var modelBuilder = base.Key_and_column_work_together();
 
-            var relational = GetProperty<ColumnKeyAnnotationClass1>(modelBuilder, "PersonFirstName").Relational();
-            Assert.Equal("dsdsd", relational.ColumnName);
-            Assert.Equal("nvarchar(128)", relational.ColumnType);
+            var relational = GetProperty<ColumnKeyAnnotationClass1>(modelBuilder, "PersonFirstName");
+            Assert.Equal("dsdsd", relational.GetColumnName());
+            Assert.Equal("nvarchar(128)", relational.GetColumnType());
 
             return modelBuilder;
         }
@@ -92,11 +87,9 @@ namespace EntityFramework.Jet.FunctionalTests
             var modelBuilder = base.Key_and_MaxLength_64_produce_nvarchar_64();
 
             var property = GetProperty<ColumnKeyAnnotationClass2>(modelBuilder, "PersonFirstName");
-#if Test20
-            var storeType = TestServiceFactory.Instance.Create<JetTypeMapper>().FindMapping(property).StoreType;
-#else
-            var storeType = property.FindRelationalMapping().StoreType;
-#endif
+
+            var storeType = property.GetRelationalTypeMapping().StoreType;
+
             Assert.Equal("nvarchar(64)", storeType);
 
             return modelBuilder;
@@ -107,11 +100,9 @@ namespace EntityFramework.Jet.FunctionalTests
             var modelBuilder = base.Timestamp_takes_precedence_over_MaxLength();
 
             var property = GetProperty<TimestampAndMaxlen>(modelBuilder, "MaxTimestamp");
-#if Test20
-            var storeType = TestServiceFactory.Instance.Create<JetTypeMapper>().FindMapping(property).StoreType;
-#else
-            var storeType = property.FindRelationalMapping().StoreType;
-#endif
+
+            var storeType = property.GetRelationalTypeMapping().StoreType;
+
             Assert.Equal("rowversion", storeType);
 
             return modelBuilder;
@@ -121,8 +112,7 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             var modelBuilder = base.TableNameAttribute_affects_table_name_in_TPH();
 
-            var relational = modelBuilder.Model.FindEntityType(typeof(TNAttrBase)).Relational();
-            Assert.Equal("A", relational.TableName);
+            Assert.Equal("A", modelBuilder.Model.FindEntityType(typeof(TNAttrBase)).GetTableName());
 
             return modelBuilder;
         }
@@ -132,7 +122,7 @@ namespace EntityFramework.Jet.FunctionalTests
             var modelBuilder = base.DatabaseGeneratedOption_configures_the_property_correctly();
 
             var identity = modelBuilder.Model.FindEntityType(typeof(GeneratedEntity)).FindProperty(nameof(GeneratedEntity.Identity));
-            Assert.Equal(JetValueGenerationStrategy.IdentityColumn, identity.Jet().ValueGenerationStrategy);
+            Assert.Equal(JetValueGenerationStrategy.IdentityColumn, identity.GetValueGenerationStrategy());
 
             return modelBuilder;
         }
@@ -144,13 +134,13 @@ namespace EntityFramework.Jet.FunctionalTests
             var entity = modelBuilder.Model.FindEntityType(typeof(GeneratedEntityNonInteger));
 
             var stringProperty = entity.FindProperty(nameof(GeneratedEntityNonInteger.String));
-            Assert.Null(stringProperty.Jet().ValueGenerationStrategy);
+            Assert.Equal(JetValueGenerationStrategy.None, stringProperty.GetValueGenerationStrategy());
 
             var dateTimeProperty = entity.FindProperty(nameof(GeneratedEntityNonInteger.DateTime));
-            Assert.Null(dateTimeProperty.Jet().ValueGenerationStrategy);
+            Assert.Equal(JetValueGenerationStrategy.None, dateTimeProperty.GetValueGenerationStrategy());
 
             var guidProperty = entity.FindProperty(nameof(GeneratedEntityNonInteger.Guid));
-            Assert.Null(guidProperty.Jet().ValueGenerationStrategy);
+            Assert.Equal(JetValueGenerationStrategy.None, guidProperty.GetValueGenerationStrategy());
 
             return modelBuilder;
         }
@@ -159,164 +149,213 @@ namespace EntityFramework.Jet.FunctionalTests
         {
             base.ConcurrencyCheckAttribute_throws_if_value_in_database_changed();
 
-            Assert.Equal(
-                @"SELECT TOP(1) [r].[UniqueNo], [r].[MaxLengthProperty], [r].[Name], [r].[RowVersion], [r].[UniqueNo], [r].[Details_Name], [r].[UniqueNo], [r].[AdditionalDetails_Name]
-FROM [Sample] AS [r]
-WHERE [r].[UniqueNo] = 1
+            AssertSql(
+                $@"SELECT TOP 1 `s`.`UniqueNo`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `t`.`UniqueNo`, `t`.`AdditionalDetails_Name`, `t0`.`UniqueNo`, `t0`.`Details_Name`
+FROM `Sample` AS `s`
+LEFT JOIN (
+    SELECT `s0`.`UniqueNo`, `s0`.`AdditionalDetails_Name`, `s1`.`UniqueNo` AS `UniqueNo0`
+    FROM `Sample` AS `s0`
+    INNER JOIN `Sample` AS `s1` ON `s0`.`UniqueNo` = `s1`.`UniqueNo`
+    WHERE `s0`.`AdditionalDetails_Name` IS NOT NULL
+) AS `t` ON `s`.`UniqueNo` = `t`.`UniqueNo`
+LEFT JOIN (
+    SELECT `s2`.`UniqueNo`, `s2`.`Details_Name`, `s3`.`UniqueNo` AS `UniqueNo0`
+    FROM `Sample` AS `s2`
+    INNER JOIN `Sample` AS `s3` ON `s2`.`UniqueNo` = `s3`.`UniqueNo`
+    WHERE `s2`.`Details_Name` IS NOT NULL
+) AS `t0` ON `s`.`UniqueNo` = `t0`.`UniqueNo`
+WHERE `s`.`UniqueNo` = 1",
+                //
+                $@"SELECT TOP 1 `s`.`UniqueNo`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `t`.`UniqueNo`, `t`.`AdditionalDetails_Name`, `t0`.`UniqueNo`, `t0`.`Details_Name`
+FROM `Sample` AS `s`
+LEFT JOIN (
+    SELECT `s0`.`UniqueNo`, `s0`.`AdditionalDetails_Name`, `s1`.`UniqueNo` AS `UniqueNo0`
+    FROM `Sample` AS `s0`
+    INNER JOIN `Sample` AS `s1` ON `s0`.`UniqueNo` = `s1`.`UniqueNo`
+    WHERE `s0`.`AdditionalDetails_Name` IS NOT NULL
+) AS `t` ON `s`.`UniqueNo` = `t`.`UniqueNo`
+LEFT JOIN (
+    SELECT `s2`.`UniqueNo`, `s2`.`Details_Name`, `s3`.`UniqueNo` AS `UniqueNo0`
+    FROM `Sample` AS `s2`
+    INNER JOIN `Sample` AS `s3` ON `s2`.`UniqueNo` = `s3`.`UniqueNo`
+    WHERE `s2`.`Details_Name` IS NOT NULL
+) AS `t0` ON `s`.`UniqueNo` = `t0`.`UniqueNo`
+WHERE `s`.`UniqueNo` = 1",
+                //
+                $@"{AssertSqlHelper.Declaration("@p2='1'")}
 
-SELECT TOP(1) [r].[UniqueNo], [r].[MaxLengthProperty], [r].[Name], [r].[RowVersion], [r].[UniqueNo], [r].[Details_Name], [r].[UniqueNo], [r].[AdditionalDetails_Name]
-FROM [Sample] AS [r]
-WHERE [r].[UniqueNo] = 1
+{AssertSqlHelper.Declaration("@p0='ModifiedData' (Nullable = false) (Size = 4000)")}
 
-@p2='1'
-@p0='ModifiedData' (Nullable = false) (Size = 4000)
-@p1='00000000-0000-0000-0003-000000000001'
-@p3='00000001-0000-0000-0000-000000000001'
+{AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0003-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
 
 SET NOCOUNT ON;
-UPDATE [Sample] SET [Name] = @p0, [RowVersion] = @p1
-WHERE [UniqueNo] = @p2 AND [RowVersion] = @p3;
-SELECT @@ROWCOUNT;
-
-@p2='1'
-@p0='ChangedData' (Nullable = false) (Size = 4000)
-@p1='00000000-0000-0000-0002-000000000001'
-@p3='00000001-0000-0000-0000-000000000001'
-
-SET NOCOUNT ON;
-UPDATE [Sample] SET [Name] = @p0, [RowVersion] = @p1
-WHERE [UniqueNo] = @p2 AND [RowVersion] = @p3;
+UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
+WHERE `UniqueNo` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
 SELECT @@ROWCOUNT;",
-                Sql,
-                ignoreLineEndingDifferences: true);
+                //
+                $@"{AssertSqlHelper.Declaration("@p2='1'")}
+
+{AssertSqlHelper.Declaration("@p0='ChangedData' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0002-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
+
+SET NOCOUNT ON;
+UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
+WHERE `UniqueNo` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
+SELECT @@ROWCOUNT;");
         }
 
         public override void DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity()
         {
             base.DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity();
 
-            Assert.Equal(
-                @"@p0='' (Size = 10)
-@p1='Third' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000003'
-@p3='Third Additional Name' (Size = 4000)
-@p4='Third Name' (Size = 4000)
+            AssertSql(
+                $@"@p0=NULL (Size = 10)
+{AssertSqlHelper.Declaration("@p1='Third' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000003'")}
+
+{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='Third Name' (Size = 4000)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Sample] ([MaxLengthProperty], [Name], [RowVersion], [AdditionalDetails_Name], [Details_Name])
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT [UniqueNo]
-FROM [Sample]
-WHERE @@ROWCOUNT = 1 AND [UniqueNo] = scope_identity();",
-                Sql,
-                ignoreLineEndingDifferences: true);
+INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")});
+SELECT `UniqueNo`
+FROM `Sample`
+WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();");
         }
 
         public override void MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length()
         {
             base.MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
-            Assert.Equal(
-                @"@p0='Short' (Size = 10)
-@p1='ValidString' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000001'
-@p3='Third Additional Name' (Size = 4000)
-@p4='Third Name' (Size = 4000)
+            AssertSql(
+                $@"{AssertSqlHelper.Declaration("@p0='Short' (Size = 10)")}
+
+{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='Third Name' (Size = 4000)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Sample] ([MaxLengthProperty], [Name], [RowVersion], [AdditionalDetails_Name], [Details_Name])
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT [UniqueNo]
-FROM [Sample]
-WHERE @@ROWCOUNT = 1 AND [UniqueNo] = scope_identity();
+INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")});
+SELECT `UniqueNo`
+FROM `Sample`
+WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();",
+                //
+                $@"{AssertSqlHelper.Declaration("@p0='VeryVeryVeryVeryVeryVeryLongString' (Size = -1)")}
 
-@p0='VeryVeryVeryVeryVeryVeryLongString' (Size = -1)
-@p1='ValidString' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000002'
-@p3='Third Additional Name' (Size = 4000)
-@p4='Third Name' (Size = 4000)
+{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
+
+{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='Third Name' (Size = 4000)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Sample] ([MaxLengthProperty], [Name], [RowVersion], [AdditionalDetails_Name], [Details_Name])
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT [UniqueNo]
-FROM [Sample]
-WHERE @@ROWCOUNT = 1 AND [UniqueNo] = scope_identity();",
-                Sql,
-                ignoreLineEndingDifferences: true);
+INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")});
+SELECT `UniqueNo`
+FROM `Sample`
+WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();");
         }
 
         public override void RequiredAttribute_for_navigation_throws_while_inserting_null_value()
         {
             base.RequiredAttribute_for_navigation_throws_while_inserting_null_value();
 
-            Assert.Contains(
-                @"@p1='1'" + _eol,
-                Sql);
+            AssertSql(
+                $@"@p0=NULL (DbType = Int32)
+{AssertSqlHelper.Declaration("@p1='1'")}
 
-            Assert.Contains(
-                @"@p1='' (Nullable = false) (DbType = Int32)" + _eol,
-                Sql);
+SET NOCOUNT ON;
+INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
+SELECT `Id`
+FROM `BookDetails`
+WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();",
+                //
+                $@"@p0=NULL (DbType = Int32)
+@p1=NULL (Nullable = false) (DbType = Int32)
+
+SET NOCOUNT ON;
+INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
+SELECT `Id`
+FROM `BookDetails`
+WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
         }
 
         public override void RequiredAttribute_for_property_throws_while_inserting_null_value()
         {
             base.RequiredAttribute_for_property_throws_while_inserting_null_value();
 
-            Assert.Equal(
-                @"@p0='' (Size = 10)
-@p1='ValidString' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000001'
-@p3='Two' (Size = 4000)
-@p4='One' (Size = 4000)
+            AssertSql(
+                $@"@p0=NULL (Size = 10)
+{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
+
+{AssertSqlHelper.Declaration("@p3='Two' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='One' (Size = 4000)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Sample] ([MaxLengthProperty], [Name], [RowVersion], [AdditionalDetails_Name], [Details_Name])
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT [UniqueNo]
-FROM [Sample]
-WHERE @@ROWCOUNT = 1 AND [UniqueNo] = scope_identity();
+INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")});
+SELECT `UniqueNo`
+FROM `Sample`
+WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();",
+                //
+                $@"@p0=NULL (Size = 10)
+@p1=NULL (Nullable = false) (Size = 4000)
+{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
 
-@p0='' (Size = 10)
-@p1='' (Nullable = false) (Size = 4000)
-@p2='00000000-0000-0000-0000-000000000002'
-@p3='Two' (Size = 4000)
-@p4='One' (Size = 4000)
+{AssertSqlHelper.Declaration("@p3='Two' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p4='One' (Size = 4000)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Sample] ([MaxLengthProperty], [Name], [RowVersion], [AdditionalDetails_Name], [Details_Name])
-VALUES (@p0, @p1, @p2, @p3, @p4);
-SELECT [UniqueNo]
-FROM [Sample]
-WHERE @@ROWCOUNT = 1 AND [UniqueNo] = scope_identity();",
-                Sql,
-                ignoreLineEndingDifferences: true);
+INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `Details_Name`)
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")});
+SELECT `UniqueNo`
+FROM `Sample`
+WHERE @@ROWCOUNT = 1 AND `UniqueNo` = scope_identity();");
         }
 
         public override void StringLengthAttribute_throws_while_inserting_value_longer_than_max_length()
         {
             base.StringLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
-            Assert.Equal(
-                @"@p0='ValidString' (Size = 16)
+            AssertSql(
+                $@"{AssertSqlHelper.Declaration("@p0='ValidString' (Size = 16)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Two] ([Data])
-VALUES (@p0);
-SELECT [Id], [Timestamp]
-FROM [Two]
-WHERE @@ROWCOUNT = 1 AND [Id] = scope_identity();
-
-@p0='ValidButLongString' (Size = -1)
+INSERT INTO `Two` (`Data`)
+VALUES ({AssertSqlHelper.Parameter("@p0")});
+SELECT `Id`, `Timestamp`
+FROM `Two`
+WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();",
+                //
+                $@"{AssertSqlHelper.Declaration("@p0='ValidButLongString' (Size = -1)")}
 
 SET NOCOUNT ON;
-INSERT INTO [Two] ([Data])
-VALUES (@p0);
-SELECT [Id], [Timestamp]
-FROM [Two]
-WHERE @@ROWCOUNT = 1 AND [Id] = scope_identity();",
-                Sql,
-                ignoreLineEndingDifferences: true);
+INSERT INTO `Two` (`Data`)
+VALUES ({AssertSqlHelper.Parameter("@p0")});
+SELECT `Id`, `Timestamp`
+FROM `Two`
+WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
         }
 
         public override void TimestampAttribute_throws_if_value_in_database_changed()
@@ -329,12 +368,13 @@ WHERE @@ROWCOUNT = 1 AND [Id] = scope_identity();",
 
         private static readonly string _eol = Environment.NewLine;
 
-        private string Sql => Fixture.TestSqlLoggerFactory.Sql;
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
         public class DataAnnotationJetFixture : DataAnnotationFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
-            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ServiceProvider.GetRequiredService<ILoggerFactory>();
+            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
         }
     }
 }

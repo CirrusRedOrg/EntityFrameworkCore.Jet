@@ -1,52 +1,39 @@
-using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
-using System.Data.OleDb;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace System.Data.Jet
 {
     public class JetCommand : DbCommand, ICloneable
     {
-        private DbCommand _WrappedCommand;
-        private JetConnection _Connection;
-        private JetTransaction _Transaction;
-        private bool _DesignTimeVisible;
+#if DEBUG
+        private static int _activeObjectsCount;
+#endif
+        private readonly JetConnection _connection;
+        private JetTransaction _transaction;
+        
+        private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
-        private Guid? _lastGuid = null;
-        private int? _rowCount = null;
-
-        private static readonly Regex _skipRegularExpression = new Regex(@"\bskip\s(?<stringSkipCount>@.*)\b", RegexOptions.IgnoreCase);
-        private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*[;]?\s*$", RegexOptions.IgnoreCase);
+        private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
+        private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="JetCommand"/> class.
-        /// </summary>
-        public JetCommand()
+        protected JetCommand(JetCommand source)
         {
-            Initialize(null, null, null);
-        }
+#if DEBUG
+            Interlocked.Increment(ref _activeObjectsCount);
+#endif
+            _connection = source._connection;
+            _transaction = source._transaction;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="JetCommand"/> class.
-        /// </summary>
-        /// <param name="commandText">The command text.</param>
-        public JetCommand(string commandText)
-        {
-            this.Initialize(commandText, null, null);
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="JetCommand"/> class.
-        /// </summary>
-        /// <param name="commandText">The command text.</param>
-        /// <param name="connection">The connection.</param>
-        public JetCommand(string commandText, JetConnection connection)
-        {
-            this.Initialize(commandText, connection, null);
+            InnerCommand = (DbCommand) ((ICloneable) source.InnerCommand).Clone();
         }
 
         /// <summary>
@@ -55,29 +42,37 @@ namespace System.Data.Jet
         /// <param name="commandText">The command text.</param>
         /// <param name="connection">The connection.</param>
         /// <param name="transaction">The transaction.</param>
-        public JetCommand(string commandText, JetConnection connection, DbTransaction transaction)
+        internal JetCommand(JetConnection connection, string commandText = null, JetTransaction transaction = null)
         {
-            Initialize(commandText, connection, transaction);
+#if DEBUG
+            Interlocked.Increment(ref _activeObjectsCount);
+#endif
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            _transaction = transaction;
+
+            InnerCommand = connection.JetFactory.InnerFactory.CreateCommand();
+            InnerCommand.CommandText = commandText;
         }
 
-        private void Initialize(string commandText, JetConnection connection, DbTransaction transaction)
+        protected override void Dispose(bool disposing)
         {
-            _Connection = null;
-            _Transaction = null;
-            _DesignTimeVisible = true;
-            _WrappedCommand = new OleDbCommand();
-            this.CommandText = commandText;
-            this.Connection = connection;
-            this.Transaction = transaction;
+            if (disposing)
+                InnerCommand.Dispose();
+
+            base.Dispose(disposing);
+
+#if DEBUG
+            Interlocked.Decrement(ref _activeObjectsCount);
+#endif
         }
+
+        internal DbCommand InnerCommand { get; }
 
         /// <summary>
         /// Attempts to Cancels the command execution
         /// </summary>
         public override void Cancel()
-        {
-            this._WrappedCommand.Cancel();
-        }
+            => InnerCommand.Cancel();
 
         /// <summary>
         /// Gets or sets the command text.
@@ -87,14 +82,8 @@ namespace System.Data.Jet
         /// </value>
         public override string CommandText
         {
-            get
-            {
-                return this._WrappedCommand.CommandText;
-            }
-            set
-            {
-                this._WrappedCommand.CommandText = value;
-            }
+            get => InnerCommand.CommandText;
+            set => InnerCommand.CommandText = value;
         }
 
         /// <summary>
@@ -105,14 +94,8 @@ namespace System.Data.Jet
         /// </value>
         public override int CommandTimeout
         {
-            get
-            {
-                return this._WrappedCommand.CommandTimeout;
-            }
-            set
-            {
-                this._WrappedCommand.CommandTimeout = value;
-            }
+            get => InnerCommand.CommandTimeout;
+            set => InnerCommand.CommandTimeout = value;
         }
 
         /// <summary>
@@ -123,14 +106,8 @@ namespace System.Data.Jet
         /// </value>
         public override CommandType CommandType
         {
-            get
-            {
-                return this._WrappedCommand.CommandType;
-            }
-            set
-            {
-                this._WrappedCommand.CommandType = value;
-            }
+            get => InnerCommand.CommandType;
+            set => InnerCommand.CommandType = value;
         }
 
         /// <summary>
@@ -138,9 +115,7 @@ namespace System.Data.Jet
         /// </summary>
         /// <returns></returns>
         protected override DbParameter CreateDbParameter()
-        {
-            return this._WrappedCommand.CreateParameter();
-        }
+            => InnerCommand.CreateParameter();
 
         /// <summary>
         /// Gets or sets the database connection.
@@ -150,23 +125,11 @@ namespace System.Data.Jet
         /// </value>
         protected override DbConnection DbConnection
         {
-            get
-            {
-                return this._Connection;
-            }
+            get => _connection;
             set
             {
-                if (value == null)
-                {
-                    this._Connection = null;
-                }
-                else
-                {
-                    if (!typeof(JetConnection).IsAssignableFrom(value.GetType()))
-                        throw new InvalidOperationException("The JetCommand connection should be a JetConnection");
-
-                    this._Connection = (JetConnection)value;
-                }
+                if (value != _connection)
+                    throw new NotSupportedException($"The {DbConnection} property cannot be changed.");
             }
         }
 
@@ -177,9 +140,7 @@ namespace System.Data.Jet
         /// The database parameter collection.
         /// </value>
         protected override DbParameterCollection DbParameterCollection
-        {
-            get { return this._WrappedCommand.Parameters; }
-        }
+            => InnerCommand.Parameters;
 
         /// <summary>
         /// Gets or sets the database transaction.
@@ -189,14 +150,8 @@ namespace System.Data.Jet
         /// </value>
         protected override DbTransaction DbTransaction
         {
-            get
-            {
-                return _Transaction;
-            }
-            set
-            {
-                _Transaction = (JetTransaction)value;
-            }
+            get => _transaction;
+            set => _transaction = (JetTransaction) value;
         }
 
         /// <summary>
@@ -205,17 +160,8 @@ namespace System.Data.Jet
         /// <value>
         ///   <c>true</c> if design time visible; otherwise, <c>false</c>.
         /// </value>
-        public override bool DesignTimeVisible
-        {
-            get
-            {
-                return this._DesignTimeVisible;
-            }
-            set
-            {
-                this._DesignTimeVisible = value;
-            }
-        }
+        public override bool DesignTimeVisible { get; set; }
+
         /// <summary>
         /// Executes the database data reader.
         /// </summary>
@@ -229,51 +175,50 @@ namespace System.Data.Jet
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("ExecuteReader", ConnectionState.Open, Connection.State));
 
+            ExpandParameters();
 
-            _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+            var commands = SplitCommands();
 
-            LogHelper.ShowCommandText("ExecuteDbDataReader", _WrappedCommand);
+            for (var i = 0; i < commands.Count - 1; i++)
+            {
+                commands[i]
+                    .ExecuteNonQueryCore();
+            }
 
-            DbDataReader dataReader;
-            if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(_WrappedCommand, out dataReader))
-                // Retrieve of store schema definition
+            return commands[commands.Count - 1]
+                .ExecuteDbDataReaderCore(behavior);
+        }
+
+        protected virtual DbDataReader ExecuteDbDataReaderCore(CommandBehavior behavior)
+        {
+            InnerCommand.Connection = _connection.InnerConnection;
+
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
+
+            LogHelper.ShowCommandText("ExecuteDbDataReader", InnerCommand);
+
+            if (JetInformationSchema.TryGetDataReaderFromInformationSchemaCommand(this, out var dataReader))
+                // Retrieve from store schema definition.
                 return dataReader;
 
-            if (_WrappedCommand.CommandType != CommandType.Text)
-                return new JetDataReader(_WrappedCommand.ExecuteReader(behavior));
+            if (InnerCommand.CommandType != CommandType.Text)
+                return new JetDataReader(InnerCommand.ExecuteReader(behavior));
 
-            string[] commandTextList = SplitCommands(_WrappedCommand.CommandText);
-
-            dataReader = null;
-            for (int i = 0; i < commandTextList.Length; i++)
+            if ((dataReader = TryGetDataReaderForSelectRowCount(InnerCommand.CommandText)) == null)
             {
-                string commandText = commandTextList[i];
-                if ((dataReader = TryGetDataReaderForSelectRowCount(commandText)) != null)
-                    continue;
+                FixupGlobalVariables();
+                PrepareOuterSelectSkipEmulationViaDataReader();
+                InlineTopParameters();
+                ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader();
+                FixParameters();
 
-                commandText = ParseIdentity(commandText);
-                commandText = ParseGuid(commandText);
+                dataReader = new JetDataReader(InnerCommand.ExecuteReader(behavior), _outerSelectSkipEmulationViaDataReaderSkipCount);
 
-                dataReader = InternalExecuteDbDataReader(commandText, behavior);
+                _connection.RowCount = dataReader.RecordsAffected;
             }
 
             return dataReader;
-        }
-
-        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
-        {
-            if (_selectRowCountRegularExpression.Match(commandText).Success)
-            {
-                if (_rowCount == null)
-                    throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
-                DataTable dataTable = new DataTable("Rowcount");
-                dataTable.Columns.Add("ROWCOUNT", typeof(int));
-                dataTable.Rows.Add(_rowCount.Value);
-                return new DataTableReader(dataTable);
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -285,43 +230,53 @@ namespace System.Data.Jet
             if (Connection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
 
-            LogHelper.ShowCommandText("ExecuteNonQuery", _WrappedCommand);
+            ExpandParameters();
 
-            if (JetStoreDatabaseHandling.TryDatabaseOperation(_WrappedCommand.CommandText))
+            return SplitCommands()
+                .Aggregate(0, (_, command) => command.ExecuteNonQueryCore());
+        }
+
+        protected virtual int ExecuteNonQueryCore()
+        {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
+            LogHelper.ShowCommandText("ExecuteNonQuery", InnerCommand);
+
+            if (JetStoreDatabaseHandling.ProcessDatabaseOperation(this))
                 return 1;
-            if (JetRenameHandling.TryDatabaseOperation(Connection.ConnectionString, _WrappedCommand.CommandText))
+
+            if (JetRenameHandling.TryDatabaseOperation(Connection.ConnectionString, InnerCommand.CommandText))
                 return 1;
 
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteNonQuery), ConnectionState.Open, Connection.State));
 
-            _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+            InnerCommand.Connection = _connection.InnerConnection;
 
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
 
-            if (_WrappedCommand.CommandType != CommandType.Text)
-                return _WrappedCommand.ExecuteNonQuery();
+            if (InnerCommand.CommandType != CommandType.Text)
+                return InnerCommand.ExecuteNonQuery();
 
-            string[] commandTextList = SplitCommands(_WrappedCommand.CommandText);
-
-            int returnValue = -1;
-            for (int i = 0; i < commandTextList.Length; i++)
+            if (_selectRowCountRegularExpression.Match(InnerCommand.CommandText)
+                .Success)
             {
-                string commandText = commandTextList[i];
-                if (_selectRowCountRegularExpression.Match(commandText).Success)
-                {
-                    if (_rowCount == null)
-                        throw new InvalidOperationException("Invalid " + commandText + ". Run a DataReader before.");
-                    returnValue = _rowCount.Value;
-                    continue;
-                }
-                commandText = ParseIdentity(commandText);
-                commandText = ParseGuid(commandText);
-
-                returnValue = InternalExecuteNonQuery(commandText);
+                return _connection.RowCount;
             }
 
-            return returnValue;
+            FixupGlobalVariables();
+                
+            if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
+                return 0;
+
+            InnerCommand.CommandText = newCommandText;
+
+            InlineTopParameters();
+            FixParameters();
+
+            return _connection.RowCount = InnerCommand.ExecuteNonQuery();
         }
 
         /// <summary>
@@ -336,96 +291,137 @@ namespace System.Data.Jet
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteScalar), ConnectionState.Open, Connection.State));
 
+            ExpandParameters();
 
-            _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+            var commands = SplitCommands();
 
-            LogHelper.ShowCommandText("ExecuteScalar", _WrappedCommand);
-
-            DbDataReader dataReader;
-
-            if (JetStoreSchemaDefinitionRetrieve.TryGetDataReaderFromShowCommand(_WrappedCommand, out dataReader))
+            for (var i = 0; i < commands.Count - 1; i++)
             {
-                // Retrieve of store schema definition
+                commands[i]
+                    .ExecuteNonQueryCore();
+            }
+
+            return commands[commands.Count - 1]
+                .ExecuteScalarCore();
+        }
+
+        protected virtual object ExecuteScalarCore()
+        {
+            if (Connection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
+
+            if (Connection.State != ConnectionState.Open)
+                throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(ExecuteScalar), ConnectionState.Open, Connection.State));
+
+            InnerCommand.Connection = _connection.InnerConnection;
+
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
+
+            LogHelper.ShowCommandText("ExecuteScalar", InnerCommand);
+
+            if (JetInformationSchema.TryGetDataReaderFromInformationSchemaCommand(this, out var dataReader))
+            {
+                // Retrieve from store schema definition.
                 if (dataReader.HasRows)
                 {
                     dataReader.Read();
                     return dataReader[0];
                 }
-                else
-                    return DBNull.Value;
+
+                return DBNull.Value;
             }
 
-            return this._WrappedCommand.ExecuteScalar();
+            FixupGlobalVariables();
+            InlineTopParameters();
+            FixParameters();
+
+            return InnerCommand.ExecuteScalar();
         }
 
-
-
-        private JetDataReader InternalExecuteDbDataReader(string commandText, CommandBehavior behavior)
+        protected virtual IReadOnlyList<JetCommand> SplitCommands()
         {
-            int topCount;
-            int skipCount;
-            string newCommandText;
-            ParseSkipTop(commandText, out topCount, out skipCount, out newCommandText);
-            SortParameters(newCommandText, _WrappedCommand.Parameters);
-            FixParameters(_WrappedCommand.Parameters);
+            // At this point, all parameters have already been expanded.
+            
+            var parser = new JetCommandParser(CommandText);
+            var commandDelimiters = parser.GetStateIndices(';');
+            var currentCommandStart = 0;
+            var usedParameterCount = 0;
+            var commands = new List<JetCommand>();
 
-            DbCommand command;
-            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-            command.CommandText = newCommandText;
+            if (commandDelimiters.Count > 0)
+            {
+                foreach (var commandDelimiter in commandDelimiters)
+                {
+                    var commandText = CommandText.Substring(currentCommandStart, commandDelimiter - currentCommandStart)
+                        .Trim();
 
-            JetDataReader dataReader;
+                    if (!string.IsNullOrEmpty(commandText))
+                    {
+                        var command = (JetCommand) ((ICloneable) this).Clone();
+                        command.CommandText = commandText;
 
-            if (skipCount != 0)
-                dataReader = new JetDataReader(command.ExecuteReader(behavior), topCount == -1 ? 0 : topCount - skipCount, skipCount);
-            else if (topCount >= 0)
-                dataReader = new JetDataReader(command.ExecuteReader(behavior), topCount, 0);
+                        for (var i = 0; i < usedParameterCount; i++)
+                        {
+                            command.Parameters.RemoveAt(0);
+                        }
+                        
+                        var parameterIndices = parser.GetStateIndices(
+                            new[] {'@', '?'},
+                            currentCommandStart,
+                            commandDelimiter - currentCommandStart);
+
+                        while (command.Parameters.Count > parameterIndices.Count)
+                        {
+                            command.Parameters.RemoveAt(parameterIndices.Count);
+                        }
+
+                        usedParameterCount += parameterIndices.Count;
+
+                        commands.Add(command);
+                    }
+
+                    currentCommandStart = commandDelimiter + 1;
+                }
+            }
             else
-                dataReader = new JetDataReader(command.ExecuteReader(behavior));
+            {
+                commands.Add(this);
+            }
 
-            _rowCount = dataReader.RecordsAffected;
-
-            return dataReader;
+            return commands.AsReadOnly();
         }
 
-        private int InternalExecuteNonQuery(string commandText)
+        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
         {
+            if (_selectRowCountRegularExpression.Match(commandText)
+                .Success)
+            {
+                var dataTable = new DataTable("Rowcount");
+                dataTable.Columns.Add("ROWCOUNT", typeof(int));
+                dataTable.Rows.Add(_connection.RowCount);
+                return new DataTableReader(dataTable);
+            }
 
-            // ReSharper disable NotAccessedVariable
-            int topCount;
-            int skipCount;
-            // ReSharper restore NotAccessedVariable
-            string newCommandText;
-            if (!CheckExists(commandText, out newCommandText))
-                return 0;
-            ParseSkipTop(newCommandText, out topCount, out skipCount, out newCommandText);
-
-            SortParameters(newCommandText, _WrappedCommand.Parameters);
-            FixParameters(_WrappedCommand.Parameters);
-
-            DbCommand command;
-            command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-            command.CommandText = newCommandText;
-
-            _rowCount = command.ExecuteNonQuery();
-
-            return _rowCount.Value;
-
+            return null;
         }
 
         private bool CheckExists(string commandText, out string newCommandText)
         {
-            Match match = _ifStatementRegex.Match(commandText);
+            var match = _ifStatementRegex.Match(commandText);
             newCommandText = commandText;
             if (!match.Success)
                 return true;
 
-            string not = match.Groups["not"].Value;
-            string sqlCheckCommand = match.Groups["sqlCheckCommand"].Value;
-            newCommandText = match.Groups["sqlCommand"].Value;
+            var not = match.Groups["not"]
+                .Value;
+            var sqlCheckCommand = match.Groups["sqlCheckCommand"]
+                .Value;
+            newCommandText = match.Groups["sqlCommand"]
+                .Value;
 
             bool hasRows;
-            using (JetCommand command = (JetCommand)((ICloneable)this).Clone())
+            using (var command = (JetCommand) ((ICloneable) this).Clone())
             {
                 command.CommandText = sqlCheckCommand;
                 using (var reader = command.ExecuteReader())
@@ -436,170 +432,280 @@ namespace System.Data.Jet
 
             if (!string.IsNullOrWhiteSpace(not))
                 return !hasRows;
-            else
-                return hasRows;
+            return hasRows;
         }
 
-        private void FixParameters(DbParameterCollection parameters)
+        private void FixParameters()
         {
+            var parameters = InnerCommand.Parameters;
+
             if (parameters.Count == 0)
                 return;
-            foreach (OleDbParameter parameter in parameters)
+
+            foreach (DbParameter parameter in parameters)
             {
-                if (parameter.Value is TimeSpan)
-                    parameter.Value = JetConfiguration.TimeSpanOffset + (TimeSpan) parameter.Value;
-                if (parameter.Value is DateTime)
+                if (parameter.Value is TimeSpan ts)
+                    parameter.Value = JetConfiguration.TimeSpanOffset + ts;
+                if (parameter.Value is DateTime dt)
                 {
                     // Hack: https://github.com/fsprojects/SQLProvider/issues/191
-                    DateTime dt = (DateTime) parameter.Value;
                     parameter.Value = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, dt.Kind);
                 }
             }
         }
 
-
-        private void SortParameters(string query, DbParameterCollection parameters)
+        protected virtual void FixupGlobalVariables()
         {
-            if (parameters.Count == 0)
+            var commandText = InnerCommand.CommandText;
+            
+            commandText = FixupIdentity(commandText);
+            commandText = FixupRowCount(commandText);
+
+            InnerCommand.CommandText = commandText;
+        }
+        
+        protected virtual string FixupIdentity(string commandText)
+            => FixupGlobalVariablePlaceholder(
+                commandText, "@@identity", (outerCommand, placeholder) =>
+                {
+                    var command = (DbCommand) ((ICloneable) outerCommand.InnerCommand).Clone();
+                    command.CommandText = $"SELECT {placeholder}";
+                    command.Parameters.Clear();
+
+                    var identityValue = Convert.ToInt32(command.ExecuteScalar());
+
+                    LogHelper.ShowInfo($"{placeholder} = {identityValue}");
+
+                    return identityValue;
+                });
+
+        protected virtual string FixupRowCount(string commandText)
+            => FixupGlobalVariablePlaceholder(commandText, "@@rowcount", (outerCommand, placeholder) => outerCommand._connection.RowCount);
+
+        protected virtual string FixupGlobalVariablePlaceholder<T>(string commandText, string placeholder, Func<JetCommand, string, T> valueFactory)
+            where T : struct
+        {
+            var parser = new JetCommandParser(commandText);
+            var globalVariableIndices = parser.GetStateIndices('$');
+            var placeholderValue = new Lazy<T>(() => valueFactory(this, placeholder));
+            var newCommandText = new StringBuilder(commandText);
+
+            foreach (var globalVariableIndex in globalVariableIndices)
+            {
+                if (commandText.IndexOf(placeholder, globalVariableIndex, placeholder.Length, StringComparison.OrdinalIgnoreCase) > -1)
+                {
+                    newCommandText.Remove(globalVariableIndex, placeholder.Length);
+                    newCommandText.Insert(globalVariableIndex, placeholderValue.Value);
+                }
+            }
+            
+            return newCommandText.ToString();
+        }
+
+        private void InlineTopParameters()
+        {
+            // We inline all TOP clause parameters of all SELECT statements, because Jet does not support parameters
+            // in TOP clauses.
+            var parameters = InnerCommand.Parameters.Cast<DbParameter>()
+                .ToList();
+
+            if (parameters.Count > 0)
+            {
+                var lastCommandText = InnerCommand.CommandText;
+                var commandText = lastCommandText;
+
+                while ((commandText = _topParameterRegularExpression.Replace(
+                    lastCommandText,
+                    match => Convert.ToInt32(
+                            ExtractParameter(commandText, match.Index, parameters)
+                                .Value)
+                        .ToString(),
+                    1)) != lastCommandText)
+                {
+                    lastCommandText = commandText;
+                }
+
+                InnerCommand.CommandText = commandText;
+
+                InnerCommand.Parameters.Clear();
+                InnerCommand.Parameters.AddRange(parameters.ToArray());
+            }
+        }
+        
+        private void ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader()
+        {
+            // We modify the TOP clause parameter of the outer most SELECT statement if a SKIP clause was also
+            // specified, because Jet does not support skipping records at all, but we can optionally emulate skipping
+            // behavior for the outer most SELECT statement by controlling how the records are being fetched in
+            // JetDataReader.
+
+            if (_outerSelectSkipEmulationViaDataReaderSkipCount > 0)
+            {
+                InnerCommand.CommandText = _outerSelectTopValueRegularExpression.Replace(
+                    InnerCommand.CommandText,
+                    match => (int.Parse(match.Value) + _outerSelectSkipEmulationViaDataReaderSkipCount).ToString());
+            }
+        }
+
+        private void PrepareOuterSelectSkipEmulationViaDataReader()
+        {
+            // We inline the SKIP clause parameter of the outer most SELECT statement, because Jet does not support
+            // skipping records at all, but we can optionally emulate skipping behavior for the outer most SELECT
+            // statement by controlling how the records are being fetched in JetDataReader.
+
+            var match = _outerSelectSkipValueOrParameterRegularExpression.Match(InnerCommand.CommandText);
+
+            if (!match.Success)
+            {
                 return;
+            }
 
-            var parameterArray = parameters.Cast<OleDbParameter>().ToArray();
-            // ReSharper disable once CoVariantArrayConversion
-            Array.Sort(parameterArray, new ParameterPositionComparer(query));
+            var skipValueOrParameter = match.Groups["SkipValueOrParameter"];
 
-            parameters.Clear();
-            foreach (OleDbParameter parameter in parameterArray)
-                parameters.Add(new OleDbParameter(parameter.ParameterName, parameter.Value));
+            if (IsParameter(skipValueOrParameter.Value))
+            {
+                var parameters = InnerCommand.Parameters.Cast<DbParameter>()
+                    .ToList();
+
+                if (parameters.Count <= 0)
+                {
+                    throw new InvalidOperationException($@"Cannot find ""{skipValueOrParameter.Value}"" parameter for SKIP clause.");
+                }
+
+                var parameter = ExtractParameter(InnerCommand.CommandText, match.Index, parameters);
+                _outerSelectSkipEmulationViaDataReaderSkipCount = Convert.ToInt32(parameter.Value);
+                
+                InnerCommand.Parameters.Clear();
+                InnerCommand.Parameters.AddRange(parameters.ToArray());
+            }
+            else
+            {
+                _outerSelectSkipEmulationViaDataReaderSkipCount = int.Parse(skipValueOrParameter.Value);
+            }
+
+            InnerCommand.CommandText = InnerCommand.CommandText.Remove(match.Index, match.Length);
         }
-
-
-        private class ParameterPositionComparer : IComparer<DbParameter>
+        
+        protected virtual bool IsParameter(string fragment)
+            => fragment.Equals("?") ||
+               fragment.Length >= 2 && fragment[0] == '@' && fragment[1] != '@';
+        
+        protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
-            private readonly string _query;
+            var indices = GetParameterIndices(commandText.Substring(0, count));
+            var parameter = InnerCommand.Parameters[indices.Count];
 
-            public ParameterPositionComparer(string query)
-            {
-                _query = query;
-            }
+            parameters.RemoveAt(indices.Count);
 
-            public int Compare(DbParameter x, DbParameter y)
-            {
-                if (x == null) throw new ArgumentNullException(nameof(x));
-                if (y == null) throw new ArgumentNullException(nameof(y));
-
-                int xPosition = _query.IndexOf(x.ParameterName, StringComparison.Ordinal);
-                int yPosition = _query.IndexOf(y.ParameterName, StringComparison.Ordinal);
-                if (xPosition == -1) xPosition = int.MaxValue;
-                if (yPosition == -1) yPosition = int.MaxValue;
-                return xPosition.CompareTo(yPosition);
-            }
+            return parameter;
         }
 
-
-        private string[] SplitCommands(string command)
+        protected virtual void ExpandParameters()
         {
-            string[] commandParts =
-                command.Replace("\r\n", "\n").Replace("\r", "\n")
-                    .Split(new[] { ";\n" }, StringSplitOptions.None);
-            List<string> commands = new List<string>(commandParts.Length);
-            foreach (string commandPart in commandParts)
+            if (_createProcedureExpression.IsMatch(InnerCommand.CommandText))
             {
-                if (!string.IsNullOrWhiteSpace(commandPart.Replace("\n", "").Replace(";", "")))
-                    commands.Add(commandPart);
+                return;
             }
-            return commands.ToArray();
+
+            var indices = GetParameterIndices(InnerCommand.CommandText);
+
+            if (indices.Count <= 0)
+            {
+                return;
+            }
+
+            var placeholders = GetParameterPlaceholders(InnerCommand.CommandText, indices);
+
+            if (placeholders.All(t => t.Name.StartsWith("@")))
+            {
+                MatchParametersAndPlaceholders(placeholders);
+
+                if (JetConnection.GetDataAccessProviderType(_connection.DataAccessProviderFactory) == DataAccessProviderType.Odbc)
+                {
+                    foreach (var placeholder in placeholders.Reverse())
+                    {
+                        InnerCommand.CommandText = InnerCommand.CommandText
+                            .Remove(placeholder.Index, placeholder.Name.Length)
+                            .Insert(placeholder.Index, "?");
+                    }
+                }
+
+                InnerCommand.Parameters.Clear();
+                InnerCommand.Parameters.AddRange(
+                    placeholders.Select(p => p.Parameter)
+                        .ToArray());
+            }
+            else if (placeholders.All(t => t.Name == "?"))
+            {
+                throw new InvalidOperationException("Parameter placeholder count does not match parameter count.");
+            }
+            else
+            {
+                throw new InvalidOperationException("Inconsistent parameter placeholder naming used.");
+            }
         }
 
-
-        private string ParseIdentity(string commandText)
+        protected virtual void MatchParametersAndPlaceholders(IReadOnlyList<ParameterPlaceholder> placeholders)
         {
-            if (commandText.ToLower().Contains("@@identity"))
+            var unusedParameters = InnerCommand.Parameters
+                .Cast<DbParameter>()
+                .ToList();
+
+            foreach (var placeholder in placeholders)
             {
-                DbCommand command;
-                command = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-                command.CommandText = "Select @@identity";
-                object identity = command.ExecuteScalar();
-                int iIdentity = Convert.ToInt32(identity);
-                LogHelper.ShowInfo("@@identity = {0}", iIdentity);
-                return Regex.Replace(commandText, "@@identity", iIdentity.ToString(System.Globalization.CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
+                var parameter = unusedParameters
+                    .FirstOrDefault(p => placeholder.Name.Equals(p.ParameterName, StringComparison.Ordinal));
+
+                if (parameter != null)
+                {
+                    placeholder.Parameter = parameter;
+                    unusedParameters.Remove(parameter);
+                }
+                else
+                {
+                    parameter = placeholders
+                        .FirstOrDefault(p => placeholder.Name.Equals(p.Name, StringComparison.Ordinal))
+                        ?.Parameter;
+
+                    if (parameter == null)
+                    {
+                        throw new InvalidOperationException($"Cannot find parameter with same name as parameter placeholder \"{placeholder.Name}\".");
+                    }
+
+                    var newParameter = (DbParameter) (parameter as ICloneable)?.Clone();
+
+                    if (newParameter == null)
+                    {
+                        throw new InvalidOperationException($"Cannot clone parameter \"{parameter.ParameterName}\".");
+                    }
+
+                    placeholder.Parameter = newParameter;
+                }
             }
-            return commandText;
         }
 
-
-        private string ParseGuid(string commandText)
+        protected virtual IReadOnlyList<ParameterPlaceholder> GetParameterPlaceholders(string commandText, IEnumerable<int> indices)
         {
-            while (commandText.ToLower().Contains("newguid()"))
+            var placeholders = new List<ParameterPlaceholder>();
+
+            foreach (var index in indices)
             {
-                _lastGuid = Guid.NewGuid();
-                commandText = Regex.Replace(commandText, @"newguid\(\)", string.Format("{{{0}}}", _lastGuid), RegexOptions.IgnoreCase);
+                var match = Regex.Match(commandText.Substring(index), @"^(?:\?|@\w+)");
+
+                if (!match.Success)
+                {
+                    throw new InvalidOperationException("Invalid parameter placeholder found.");
+                }
+
+                placeholders.Add(new ParameterPlaceholder {Index = index, Name = match.Value});
             }
 
-            if (commandText.ToLower().Contains("@@guid"))
-            {
-                LogHelper.ShowInfo("@@guid = {{{0}}}", _lastGuid);
-                commandText = Regex.Replace(commandText, "@@guid", string.Format("{{{0}}}", _lastGuid), RegexOptions.IgnoreCase);
-            }
-            return commandText;
+            return placeholders.AsReadOnly();
         }
 
-        private void ParseSkipTop(string commandText, out int topCount, out int skipCount, out string newCommandText)
-        {
-            newCommandText = commandText;
-
-            #region TOP clause
-
-            topCount = -1;
-            skipCount = 0;
-
-            var indexOfTop = newCommandText.IndexOf(" top ", StringComparison.InvariantCultureIgnoreCase);
-            while (indexOfTop != -1)
-            {
-                int indexOfTopEnd = newCommandText.IndexOf(" ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
-                string stringTopCount = newCommandText.Substring(indexOfTop + 5, indexOfTopEnd - indexOfTop - 5).Trim();
-                string[] stringTopCountElements = stringTopCount.Split('+');
-                int topCount0;
-                int topCount1;
-
-                if (stringTopCountElements[0].StartsWith("@"))
-                    topCount0 = Convert.ToInt32(_WrappedCommand.Parameters[stringTopCountElements[0]].Value);
-                else if (!int.TryParse(stringTopCountElements[0], out topCount0))
-                    throw new Exception("Invalid TOP clause parameter");
-
-                if (stringTopCountElements.Length == 1)
-                    topCount1 = 0;
-                else if (stringTopCountElements[1].StartsWith("@"))
-                    topCount1 = Convert.ToInt32(_WrappedCommand.Parameters[stringTopCountElements[1]].Value);
-                else if (!int.TryParse(stringTopCountElements[1], out topCount1))
-                    throw new Exception("Invalid TOP clause parameter");
-
-                int localTopCount = topCount0 + topCount1;
-                newCommandText = newCommandText.Remove(indexOfTop + 5, stringTopCount.Length).Insert(indexOfTop + 5, localTopCount.ToString());
-                if (indexOfTop <= 12)
-                    topCount = localTopCount;
-                indexOfTop = newCommandText.IndexOf(" top ", indexOfTop + 5, StringComparison.InvariantCultureIgnoreCase);
-            }
-
-
-            #endregion
-
-            #region SKIP clause
-
-            Match matchSkipRegularExpression = _skipRegularExpression.Match(newCommandText);
-            if (matchSkipRegularExpression.Success)
-            {
-                string stringSkipCount;
-                stringSkipCount = matchSkipRegularExpression.Groups["stringSkipCount"].Value;
-
-                if (stringSkipCount.StartsWith("@"))
-                    skipCount = Convert.ToInt32(_WrappedCommand.Parameters[stringSkipCount].Value);
-                else if (!int.TryParse(stringSkipCount, out skipCount))
-                    throw new Exception("Invalid SKIP clause parameter");
-                newCommandText = newCommandText.Remove(matchSkipRegularExpression.Index, matchSkipRegularExpression.Length);
-            }
-
-            #endregion
-        }
+        protected virtual IReadOnlyList<int> GetParameterIndices(string sqlFragment)
+            => new JetCommandParser(sqlFragment)
+                .GetStateIndices(new[] {'@', '?'});
 
         /// <summary>
         /// Creates a prepared (or compiled) version of the command on the data source
@@ -612,10 +718,12 @@ namespace System.Data.Jet
             if (Connection.State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Prepare), ConnectionState.Open, Connection.State));
 
-            _WrappedCommand.Connection = _Connection.InnerConnection;
-            _WrappedCommand.Transaction = _Transaction == null ? null : _Transaction.WrappedTransaction;
+            InnerCommand.Connection = _connection.InnerConnection;
 
-            this._WrappedCommand.Prepare();
+            // OLE DB forces us to use an existing active transaction, if one is available.
+            InnerCommand.Transaction = _transaction?.WrappedTransaction ?? _connection.ActiveTransaction?.WrappedTransaction;
+
+            InnerCommand.Prepare();
         }
 
         /// <summary>
@@ -626,36 +734,22 @@ namespace System.Data.Jet
         /// </value>
         public override UpdateRowSource UpdatedRowSource
         {
-            get
-            {
-                return this._WrappedCommand.UpdatedRowSource;
-            }
-            set
-            {
-                this._WrappedCommand.UpdatedRowSource = value;
-            }
+            get => InnerCommand.UpdatedRowSource;
+            set => InnerCommand.UpdatedRowSource = value;
         }
-
-        public static implicit operator OleDbCommand(JetCommand command)
-        {
-            return (OleDbCommand)command._WrappedCommand;
-        }
-
 
         /// <summary>
         /// Clones this instance.
         /// </summary>
         /// <returns>The created object</returns>
         object ICloneable.Clone()
+            => new JetCommand(this);
+
+        protected class ParameterPlaceholder
         {
-            JetCommand clone = new JetCommand();
-            clone._Connection = this._Connection;
-
-            clone._WrappedCommand = (DbCommand)((ICloneable)this._WrappedCommand).Clone();
-
-            return clone;
+            public int Index { get; set; }
+            public string Name { get; set; }
+            public DbParameter Parameter { get; set; }
         }
-
     }
-
 }

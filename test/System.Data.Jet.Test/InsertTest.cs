@@ -1,36 +1,41 @@
-﻿using System;
-using System.Data.Common;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
 {
     [TestClass]
     public class InsertTest
     {
+        private const string StoreName = nameof(InsertTest) + ".accdb";
+
+        private JetConnection _connection;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _connection = Helpers.CreateAndOpenDatabase(StoreName);
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            _connection?.Close();
+            Helpers.DeleteDatabase(StoreName);
+        }
+
         [TestMethod]
         public void InsertTestRun()
         {
             var queries = Helpers.GetQueries(Properties.Resources.InsertTestQueries);
             Assert.AreEqual(4, queries.Length);
 
-            using (var connection = Helpers.GetJetConnection())
+            for (var index = 0; index < queries.Length - 1; index++)
             {
-                connection.Open();
-                DbDataReader reader;
-                for (int index = 0; index < queries.Length - 1; index++)
-                {
-                    string query = queries[index];
-                    reader = Helpers.Execute(connection, query);
-                    if (reader != null)
-                        reader.Dispose();
-                }
-
-
-                Helpers.Execute(connection, queries[3]);
-                
-
+                var query = queries[index];
+                var reader = Helpers.Execute(_connection, query);
+                reader?.Dispose();
             }
-        }
 
+            Helpers.Execute(_connection, queries[3]);
+        }
     }
 }

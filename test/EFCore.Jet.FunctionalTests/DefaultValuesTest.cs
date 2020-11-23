@@ -1,13 +1,15 @@
-﻿using System;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
+using System.Data.Jet;
 using System.Linq;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class DefaultValuesTest : IDisposable
     {
@@ -15,20 +17,22 @@ namespace EntityFramework.Jet.FunctionalTests
             .AddEntityFrameworkJet()
             .BuildServiceProvider();
 
-        [Fact]
+        [ConditionalFact]
         public void Can_use_SQL_Server_default_values()
         {
             using (var context = new ChipsContext(_serviceProvider, TestStore.Name))
             {
-                context.Database.EnsureDeleted();
-                context.Database.EnsureCreated();
+                context.Database.EnsureCreatedResiliently();
 
-                context.Chippers.Add(new Chipper { Id = "Default" });
+                context.Chippers.Add(
+                    new Chipper { Id = "Default" });
 
                 context.SaveChanges();
 
-                var honeyDijon = context.Add(new KettleChips { Name = "Honey Dijon" }).Entity;
-                var buffaloBleu = context.Add(new KettleChips { Name = "Buffalo Bleu", BestBuyDate = new DateTime(2111, 1, 11) }).Entity;
+                var honeyDijon = context.Add(
+                    new KettleChips { Name = "Honey Dijon" }).Entity;
+                var buffaloBleu = context.Add(
+                    new KettleChips { Name = "Buffalo Bleu", BestBuyDate = new DateTime(2111, 1, 11) }).Entity;
 
                 context.SaveChanges();
 
@@ -59,20 +63,21 @@ namespace EntityFramework.Jet.FunctionalTests
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), b => b.ApplyConfiguration())
+                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(_serviceProvider);
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
-                => modelBuilder.Entity<KettleChips>(b =>
-                {
-                    b.Property(e => e.BestBuyDate)
-                        .ValueGeneratedOnAdd()
-                        .HasDefaultValue(new DateTime(2035, 9, 25));
+                => modelBuilder.Entity<KettleChips>(
+                    b =>
+                    {
+                        b.Property(e => e.BestBuyDate)
+                            .ValueGeneratedOnAdd()
+                            .HasDefaultValue(new DateTime(2035, 9, 25));
 
-                    b.Property(e => e.ChipperId)
-                        .IsRequired()
-                        .HasDefaultValue("Default");
-                });
+                        b.Property(e => e.ChipperId)
+                            .IsRequired()
+                            .HasDefaultValue("Default");
+                    });
         }
 
         private class KettleChips
@@ -92,7 +97,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public DefaultValuesTest()
         {
-            TestStore = JetTestStore.Create("DefaultValuesTest");
+            TestStore = JetTestStore.CreateInitialized("DefaultValuesTest");
         }
 
         protected JetTestStore TestStore { get; }

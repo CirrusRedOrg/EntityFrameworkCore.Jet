@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Jet;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.Jet.Infrastructure.Internal
@@ -10,5 +11,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
     /// </summary>
     public interface IJetOptions : ISingletonOptions
     {
+        string ConnectionString { get; }
+        DataAccessProviderType DataAccessProviderType { get; }
+        bool UseOuterSelectSkipEmulationViaDataReader { get; }
     }
 }

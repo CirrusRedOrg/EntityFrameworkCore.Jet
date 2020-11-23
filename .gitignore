@@ -15,6 +15,9 @@ build/
 [Bb]in/
 [Oo]bj/
 
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
 # Enable "build/" folder in the NuGet Packages folder since NuGet packages use it for MSBuild targets
 !packages/*/build/
 
@@ -132,7 +135,6 @@ UpgradeLog*.htm
 App_Data/*.mdf
 App_Data/*.ldf
 
-
 #LightSwitch generated files
 GeneratedArtifacts/
 _Pvt_Extensions/
@@ -154,6 +156,7 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
+
 /_External_Dependencies
 /packages
 /NuGet.Packager
@@ -161,3 +164,5 @@ $RECYCLE.BIN/
 /msbuild/Compile
 /msbuild/Output
 /.vs/EntityFrameworkCore.Jet
+.idea
+!/build/

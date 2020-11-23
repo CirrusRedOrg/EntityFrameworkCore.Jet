@@ -1,20 +1,18 @@
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -23,7 +21,7 @@ using Xunit.Abstractions;
 // ReSharper disable CompareOfFloatsByEqualityOperator
 // ReSharper disable UnusedParameter.Local
 // ReSharper disable PossibleInvalidOperationException
-namespace EntityFramework.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class BuiltInDataTypesJetTest : BuiltInDataTypesTestBase<BuiltInDataTypesJetTest.BuiltInDataTypesJetFixture>
     {
@@ -36,7 +34,136 @@ namespace EntityFramework.Jet.FunctionalTests
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [Fact]
+        [ConditionalFact]
+        public void Sql_translation_uses_type_mapper_when_constant()
+        {
+            using (var context = CreateContext())
+            {
+                var results
+                    = context.Set<MappedNullableDataTypes>()
+                        .Where(e => e.TimeSpanAsTime == new TimeSpan(0, 1, 2))
+                        .Select(e => e.Int)
+                        .ToList();
+
+                Assert.Empty(results);
+
+                AssertSql(
+                    $@"SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE `m`.`TimeSpanAsTime` = '00:01:02'");
+            }
+        }
+
+        [ConditionalFact(Skip = "Issue#13487")]
+        public void Translate_array_length()
+        {
+            using (var db = CreateContext())
+            {
+                db.Set<MappedDataTypesWithIdentity>()
+                    .Where(p => p.BytesAsImage.Length == 0)
+                    .Select(p => p.BytesAsImage.Length)
+                    .FirstOrDefault();
+
+                AssertSql(
+                    $@"SELECT TOP 1 CAST(DATALENGTH(`p`.`BytesAsImage`) AS int)
+FROM `MappedDataTypesWithIdentity` AS `p`
+WHERE CAST(DATALENGTH(`p`.`BytesAsImage`) AS int) = 0");
+            }
+        }
+
+        [ConditionalFact]
+        public void Sql_translation_uses_type_mapper_when_parameter()
+        {
+            using (var context = CreateContext())
+            {
+                var timeSpan = new TimeSpan(2, 1, 0);
+
+                var results
+                    = context.Set<MappedNullableDataTypes>()
+                        .Where(e => e.TimeSpanAsTime == timeSpan)
+                        .Select(e => e.Int)
+                        .ToList();
+
+                Assert.Empty(results);
+                AssertSql(
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_0='02:01:00' (Nullable = true)")}
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE `m`.`TimeSpanAsTime` = {AssertSqlHelper.Parameter("@__timeSpan_0")}");
+            }
+        }
+
+        [ConditionalFact]
+        public virtual void Can_query_using_DateDiffHour_using_TimeSpan()
+        {
+            using (var context = CreateContext())
+            {
+                var timeSpan = new TimeSpan(2, 1, 0);
+
+                var results
+                    = context.Set<MappedNullableDataTypes>()
+                        .Where(e => EF.Functions.DateDiffHour(e.TimeSpanAsTime, timeSpan) == 0)
+                        .Select(e => e.Int)
+                        .ToList();
+
+                Assert.Empty(results);
+                AssertSql(
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE DATEDIFF(HOUR, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
+            }
+        }
+
+        [ConditionalFact]
+        public virtual void Can_query_using_DateDiffMinute_using_TimeSpan()
+        {
+            using (var context = CreateContext())
+            {
+                var timeSpan = new TimeSpan(2, 1, 0);
+
+                var results
+                    = context.Set<MappedNullableDataTypes>()
+                        .Where(e => EF.Functions.DateDiffMinute(e.TimeSpanAsTime, timeSpan) == 0)
+                        .Select(e => e.Int)
+                        .ToList();
+
+                Assert.Empty(results);
+                AssertSql(
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE DATEDIFF(MINUTE, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
+            }
+        }
+
+        [ConditionalFact]
+        public virtual void Can_query_using_DateDiffSecond_using_TimeSpan()
+        {
+            using (var context = CreateContext())
+            {
+                var timeSpan = new TimeSpan(2, 1, 0);
+
+                var results
+                    = context.Set<MappedNullableDataTypes>()
+                        .Where(e => EF.Functions.DateDiffSecond(e.TimeSpanAsTime, timeSpan) == 0)
+                        .Select(e => e.Int)
+                        .ToList();
+
+                Assert.Empty(results);
+                AssertSql(
+                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
+            }
+        }
+
+        [ConditionalFact]
         public virtual void Can_query_using_any_mapped_data_type()
         {
             using (var context = CreateContext())
@@ -54,10 +181,26 @@ namespace EntityFramework.Jet.FunctionalTests
                         SbyteAsTinyint = sbyte.MinValue,
                         BoolAsBit = true,
                         DecimalAsMoney = 81.1m,
+                        DecimalAsSmallmoney = 82.2m,
                         DoubleAsFloat = 83.3,
                         FloatAsReal = 84.4f,
+                        DoubleAsDoublePrecision = 85.5,
+                        DateTimeAsDate = new DateTime(1605, 1, 2, 10, 11, 12),
+                        DateTimeOffsetAsDatetimeoffset = new DateTimeOffset(new DateTime(), TimeSpan.Zero),
+                        DateTimeAsDatetime2 = new DateTime(),
+                        DateTimeAsSmalldatetime = new DateTime(2018, 1, 2, 13, 11, 12),
                         DateTimeAsDatetime = new DateTime(2019, 1, 2, 14, 11, 12),
+                        TimeSpanAsTime = new TimeSpan(0, 11, 15, 12, 2),
+                        StringAsVarcharMax = "C",
+                        StringAsCharVaryingMax = "Your",
+                        StringAsCharacterVaryingMax = "strong",
+                        StringAsNvarcharMax = "don't",
+                        StringAsNationalCharVaryingMax = "help",
+                        StringAsNationalCharacterVaryingMax = "anyone!",
+                        StringAsText = "Gumball Rules!",
                         StringAsNtext = "Gumball Rules OK!",
+                        BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
+                        BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
                         BytesAsImage = new byte[] { 97, 98, 99, 100 },
                         Decimal = 101.7m,
                         DecimalAsDec = 102.8m,
@@ -67,9 +210,19 @@ namespace EntityFramework.Jet.FunctionalTests
                         UlongAsDecimal200 = ulong.MaxValue,
                         UShortAsInt = ushort.MaxValue,
                         SByteAsSmallint = sbyte.MinValue,
+                        CharAsVarcharMax = 'A',
+                        CharAsAsCharVaryingMax = 'B',
+                        CharAsCharacterVaryingMax = 'C',
+                        CharAsNvarcharMax = 'D',
+                        CharAsNationalCharVaryingMax = 'E',
+                        CharAsNationalCharacterVaryingMax = 'F',
+                        CharAsText = 'G',
                         CharAsNtext = 'H',
                         CharAsInt = 'I',
                         EnumAsNvarchar20 = StringEnumU16.Value4,
+                        EnumAsVarcharMax = StringEnum16.Value2,
+                        SqlVariantString = "Bang!",
+                        SqlVariantInt = 887876
                     });
 
                 Assert.Equal(1, context.SaveChanges());
@@ -94,14 +247,69 @@ namespace EntityFramework.Jet.FunctionalTests
                 decimal? param5 = 81.1m;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DecimalAsMoney == param5));
 
+                decimal? param6 = 82.2m;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DecimalAsSmallmoney == param6));
+
                 double? param7a = 83.3;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DoubleAsFloat == param7a));
 
                 float? param7b = 84.4f;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.FloatAsReal == param7b));
 
+                double? param7c = 85.5;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DoubleAsDoublePrecision == param7c));
+
+                DateTime? param8 = new DateTime(1605, 1, 2);
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DateTimeAsDate == param8));
+
+                DateTimeOffset? param9 = new DateTimeOffset(new DateTime(), TimeSpan.Zero);
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DateTimeOffsetAsDatetimeoffset == param9));
+
+                DateTime? param10 = new DateTime();
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DateTimeAsDatetime2 == param10));
+
                 DateTime? param11 = new DateTime(2019, 1, 2, 14, 11, 12);
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DateTimeAsDatetime == param11));
+
+                DateTime? param12 = new DateTime(2018, 1, 2, 13, 11, 0);
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.DateTimeAsSmalldatetime == param12));
+
+                TimeSpan? param13 = new TimeSpan(0, 11, 15, 12, 2);
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.TimeSpanAsTime == param13));
+
+                var param19 = "C";
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.StringAsVarcharMax == param19));
+
+                var param20 = "Your";
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.StringAsCharVaryingMax == param20));
+
+                var param21 = "strong";
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.StringAsCharacterVaryingMax == param21));
+
+                var param27 = "don't";
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.StringAsNvarcharMax == param27));
+
+                var param28 = "help";
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.StringAsNationalCharVaryingMax == param28));
+
+                var param29 = "anyone!";
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.StringAsNationalCharacterVaryingMax == param29));
+
+                var param35 = new byte[] { 89, 90, 91, 92 };
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.BytesAsVarbinaryMax == param35));
+
+                var param36 = new byte[] { 93, 94, 95, 96 };
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.BytesAsBinaryVaryingMax == param36));
 
                 decimal? param38 = 102m;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.Decimal == param38));
@@ -137,26 +345,56 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.SByteAsSmallint == param48));
 
                 Guid? param49 = new Guid("A8F9F951-145F-4545-AC60-B92FF57ADA47");
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.GuidAsUniqueidentifier == param49));
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.GuidAsUniqueidentifier == param49));
+
+                char? param50 = 'A';
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsVarcharMax == param50));
+
+                char? param51 = 'B';
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsAsCharVaryingMax == param51));
+
+                char? param52 = 'C';
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsCharacterVaryingMax == param52));
+
+                char? param53 = 'D';
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsNvarcharMax == param53));
+
+                char? param54 = 'E';
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsNationalCharVaryingMax == param54));
+
+                char? param55 = 'F';
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsNationalCharacterVaryingMax == param55));
 
                 char? param58 = 'I';
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.CharAsInt == param58));
 
                 StringEnumU16? param59 = StringEnumU16.Value4;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.EnumAsNvarchar20 == param59));
+
+                StringEnum16? param60 = StringEnum16.Value2;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.EnumAsVarcharMax == param60));
+
+                object param61 = "Bang!";
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.SqlVariantString.Equals(param61)));
+
+                object param62 = 887876;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.SqlVariantInt.Equals(param62)));
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_query_using_any_mapped_data_types_with_nulls()
         {
             using (var context = CreateContext())
             {
                 context.Set<MappedNullableDataTypes>().Add(
-                    new MappedNullableDataTypes
-                    {
-                        Int = 911
-                    });
+                    new MappedNullableDataTypes { Int = 911 });
 
                 Assert.Equal(1, context.SaveChanges());
             }
@@ -170,7 +408,8 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 short? param2 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.ShortAsSmallint == param2));
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && (long?)(int?)e.ShortAsSmallint == param2));
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && (long?)(int?)e.ShortAsSmallint == param2));
 
                 byte? param3 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.ByteAsTinyint == param3));
@@ -181,20 +420,85 @@ namespace EntityFramework.Jet.FunctionalTests
                 decimal? param5 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DecimalAsMoney == param5));
 
+                decimal? param6 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DecimalAsSmallmoney == param6));
+
                 double? param7a = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DoubleAsFloat == param7a));
 
                 float? param7b = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.FloatAsReal == param7b));
 
+                double? param7c = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DoubleAsDoublePrecision == param7c));
+
+                DateTime? param8 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DateTimeAsDate == param8));
+
+                DateTimeOffset? param9 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DateTimeOffsetAsDatetimeoffset == param9));
+
+                DateTime? param10 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DateTimeAsDatetime2 == param10));
+
                 DateTime? param11 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DateTimeAsDatetime == param11));
 
+                DateTime? param12 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.DateTimeAsSmalldatetime == param12));
+
+                TimeSpan? param13 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.TimeSpanAsTime == param13));
+
+                string param19 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsVarcharMax == param19));
+
+                string param20 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsCharVaryingMax == param20));
+
+                string param21 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsCharacterVaryingMax == param21));
+
+                string param27 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsNvarcharMax == param27));
+
+                string param28 = null;
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsNationalCharVaryingMax == param28));
+
+                string param29 = null;
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsNationalCharacterVaryingMax == param29));
+
+                string param30 = null;
+
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsText == param30));
+
                 string param31 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsNtext == param31));
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.StringAsNtext == param31));
+
+                byte[] param35 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.BytesAsVarbinaryMax == param35));
+
+                byte[] param36 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.BytesAsBinaryVaryingMax == param36));
 
                 byte[] param37 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.BytesAsImage == param37));
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.BytesAsImage == param37));
 
                 decimal? param38 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.Decimal == param38));
@@ -230,20 +534,55 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.SByteAsSmallint == param48));
 
                 Guid? param49 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.GuidAsUniqueidentifier == param49));
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.GuidAsUniqueidentifier == param49));
 
-                char? param57 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsNtext == param57));
+                char? param50 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsVarcharMax == param50));
+
+                char? param51 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsAsCharVaryingMax == param51));
+
+                char? param52 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsCharacterVaryingMax == param52));
+
+                char? param53 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsNvarcharMax == param53));
+
+                char? param54 = null;
+                Assert.Same(
+                    entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsNationalCharVaryingMax == param54));
+
+                char? param55 = null;
+                Assert.Same(
+                    entity,
+                    context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsNationalCharacterVaryingMax == param55));
+
+                //char? param56 = null;
+                //Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsText == param56));
+
+                //char? param57 = null;
+                //Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsNtext == param57));
 
                 char? param58 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.CharAsInt == param58));
 
                 StringEnumU16? param59 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.EnumAsNvarchar20 == param59));
+
+                StringEnum16? param60 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.EnumAsVarcharMax == param60));
+
+                object param61 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.SqlVariantString == param61));
+                object param62 = null;
+                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.SqlVariantInt == param62));
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types()
         {
             var entity = CreateMappedDataTypes(77);
@@ -254,38 +593,66 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-#if !Test20
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='True'
-@p2='80'
-@p3='0x61626364' (Nullable = false) (Size = 8000)
-@p4='73'
-@p5='H' (Nullable = false) (Size = 1)
-@p6='2019-01-02T14:11:12' (DbType = DateTime)
-@p7='101.1'
-@p8='102.2'
-@p9='81.1'
-@p10='103.3'
-@p11='83.3'
-@p12='Value4' (Nullable = false) (Size = 20)
-@p13='84.4'
-@p14='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p15='78'
-@p16='-128'
-@p17='128'
-@p18='79'
-@p19='Gumball Rules OK!' (Nullable = false) (Size = 4000)
-@p20='65535'
-@p21='-1'
-@p22='4294967295'
-@p23='-1'
-@p24='-1'
-@p25='18446744073709551615'",
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='True'")}
+{AssertSqlHelper.Declaration("@p2='80' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p3='0x5D5E5F60' (Nullable = false) (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p4='0x61626364' (Nullable = false) (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p5='0x595A5B5C' (Nullable = false) (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p6='B' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p7='C' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p8='73'")}
+{AssertSqlHelper.Declaration("@p9='E' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p10='F' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p11='H' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p12='D' (Nullable = false) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p13='G' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p14='A' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p15='2015-01-02T10:11:12' (DbType = Date)")}
+{AssertSqlHelper.Declaration("@p16='2019-01-02T14:11:12' (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p17='2017-01-02T12:11:12'")}
+{AssertSqlHelper.Declaration("@p18='2018-01-02T13:11:12' (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p19='2016-01-02T11:11:12.0000000+00:00'")}
+{AssertSqlHelper.Declaration("@p20='101.1'")}
+{AssertSqlHelper.Declaration("@p21='102.2'")}
+{AssertSqlHelper.Declaration("@p22='81.1'")}
+{AssertSqlHelper.Declaration("@p23='103.3'")}
+{AssertSqlHelper.Declaration("@p24='82.2'")}
+{AssertSqlHelper.Declaration("@p25='85.5'")}
+{AssertSqlHelper.Declaration("@p26='83.3'")}
+{AssertSqlHelper.Declaration("@p27='Value4' (Nullable = false) (Size = 20)")}
+{AssertSqlHelper.Declaration("@p28='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p29='84.4'")}
+{AssertSqlHelper.Declaration("@p30='a8f9f951-145f-4545-ac60-b92ff57ada47'")}
+{AssertSqlHelper.Declaration("@p31='78'")}
+{AssertSqlHelper.Declaration("@p32='-128'")}
+{AssertSqlHelper.Declaration("@p33='128' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p34='79'")}
+{AssertSqlHelper.Declaration("@p35='887876'")}
+{AssertSqlHelper.Declaration("@p36='Bang!' (Nullable = false) (Size = 5)")}
+{AssertSqlHelper.Declaration("@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p39='help' (Nullable = false) (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p40='anyone!' (Nullable = false) (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)")}
+{AssertSqlHelper.Declaration(@"@p42='"
+                + entity.StringAsNvarcharMax
+                + @"' (Nullable = false) (Size = -1)")}
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p44='"
+                + entity.StringAsVarcharMax
+                + @"' (Nullable = false) (Size = -1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p45='11:15:12'")}
+{AssertSqlHelper.Declaration("@p46='65535'")}
+{AssertSqlHelper.Declaration("@p47='-1'")}
+{AssertSqlHelper.Declaration("@p48='4294967295'")}
+{AssertSqlHelper.Declaration("@p49='-1'")}
+{AssertSqlHelper.Declaration("@p50='-1'")}
+{AssertSqlHelper.Declaration("@p51='18446744073709551615'")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
-#endif
 
             using (var context = CreateContext())
             {
@@ -294,11 +661,7 @@ namespace EntityFramework.Jet.FunctionalTests
         }
 
         private string DumpParameters()
-        {
-            var parameters = Fixture.TestSqlLoggerFactory.Parameters.First().Replace(", ", _eol);
-            System.Diagnostics.Debug.WriteLine(parameters);
-            return parameters;
-        }
+            => Fixture.TestSqlLoggerFactory.Parameters.Single().Replace(", ", _eol);
 
         private static void AssertMappedDataTypes(MappedDataTypes entity, int id)
         {
@@ -313,10 +676,26 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(sbyte.MinValue, entity.SByteAsTinyint);
             Assert.True(entity.BoolAsBit);
             Assert.Equal(81.1m, entity.DecimalAsMoney);
+            Assert.Equal(82.2m, entity.DecimalAsSmallmoney);
             Assert.Equal(83.3, entity.DoubleAsFloat);
             Assert.Equal(84.4f, entity.FloatAsReal);
+            Assert.Equal(85.5, entity.DoubleAsDoublePrecision);
+            Assert.Equal(new DateTime(2015, 1, 2), entity.DateTimeAsDate);
+            Assert.Equal(new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero), entity.DateTimeOffsetAsDatetimeoffset);
+            Assert.Equal(new DateTime(2017, 1, 2, 12, 11, 12), entity.DateTimeAsDatetime2);
+            Assert.Equal(new DateTime(2018, 1, 2, 13, 11, 00), entity.DateTimeAsSmalldatetime);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.DateTimeAsDatetime);
+            Assert.Equal(new TimeSpan(11, 15, 12), entity.TimeSpanAsTime);
+            Assert.Equal(expected.StringAsVarcharMax, entity.StringAsVarcharMax);
+            Assert.Equal("Your", entity.StringAsAsCharVaryingMax);
+            Assert.Equal("strong", entity.StringAsCharacterVaryingMax);
+            Assert.Equal(expected.StringAsNvarcharMax, entity.StringAsNvarcharMax);
+            Assert.Equal("help", entity.StringAsNationalCharVaryingMax);
+            Assert.Equal("anyone!", entity.StringAsNationalCharacterVaryingMax);
+            Assert.Equal("Gumball Rules!", entity.StringAsText);
             Assert.Equal("Gumball Rules OK!", entity.StringAsNtext);
+            Assert.Equal(new byte[] { 89, 90, 91, 92 }, entity.BytesAsVarbinaryMax);
+            Assert.Equal(new byte[] { 93, 94, 95, 96 }, entity.BytesAsBinaryVaryingMax);
             Assert.Equal(new byte[] { 97, 98, 99, 100 }, entity.BytesAsImage);
             Assert.Equal(101m, entity.Decimal);
             Assert.Equal(102m, entity.DecimalAsDec);
@@ -326,9 +705,19 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(ulong.MaxValue, entity.UlongAsDecimal200);
             Assert.Equal(ushort.MaxValue, entity.UShortAsInt);
             Assert.Equal(sbyte.MinValue, entity.SByteAsSmallint);
+            Assert.Equal('A', entity.CharAsVarcharMax);
+            Assert.Equal('B', entity.CharAsAsCharVaryingMax);
+            Assert.Equal('C', entity.CharAsCharacterVaryingMax);
+            Assert.Equal('D', entity.CharAsNvarcharMax);
+            Assert.Equal('E', entity.CharAsNationalCharVaryingMax);
+            Assert.Equal('F', entity.CharAsNationalCharacterVaryingMax);
+            Assert.Equal('G', entity.CharAsText);
             Assert.Equal('H', entity.CharAsNtext);
             Assert.Equal('I', entity.CharAsInt);
+            Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
+            Assert.Equal("Bang!", entity.SqlVariantString);
+            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedDataTypes CreateMappedDataTypes(int id)
@@ -344,10 +733,26 @@ namespace EntityFramework.Jet.FunctionalTests
                 SByteAsTinyint = sbyte.MinValue,
                 BoolAsBit = true,
                 DecimalAsMoney = 81.1m,
+                DecimalAsSmallmoney = 82.2m,
                 DoubleAsFloat = 83.3,
                 FloatAsReal = 84.4f,
+                DoubleAsDoublePrecision = 85.5,
+                DateTimeAsDate = new DateTime(2015, 1, 2, 10, 11, 12),
+                DateTimeOffsetAsDatetimeoffset = new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero),
+                DateTimeAsDatetime2 = new DateTime(2017, 1, 2, 12, 11, 12),
+                DateTimeAsSmalldatetime = new DateTime(2018, 1, 2, 13, 11, 12),
                 DateTimeAsDatetime = new DateTime(2019, 1, 2, 14, 11, 12),
+                TimeSpanAsTime = new TimeSpan(11, 15, 12),
+                StringAsVarcharMax = string.Concat(Enumerable.Repeat("C", 8001)),
+                StringAsAsCharVaryingMax = "Your",
+                StringAsCharacterVaryingMax = "strong",
+                StringAsNvarcharMax = string.Concat(Enumerable.Repeat("D", 4001)),
+                StringAsNationalCharVaryingMax = "help",
+                StringAsNationalCharacterVaryingMax = "anyone!",
+                StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
+                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
+                BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
                 BytesAsImage = new byte[] { 97, 98, 99, 100 },
                 Decimal = 101.1m,
                 DecimalAsDec = 102.2m,
@@ -357,12 +762,22 @@ namespace EntityFramework.Jet.FunctionalTests
                 UlongAsDecimal200 = ulong.MaxValue,
                 UShortAsInt = ushort.MaxValue,
                 SByteAsSmallint = sbyte.MinValue,
+                CharAsVarcharMax = 'A',
+                CharAsAsCharVaryingMax = 'B',
+                CharAsCharacterVaryingMax = 'C',
+                CharAsNvarcharMax = 'D',
+                CharAsNationalCharVaryingMax = 'E',
+                CharAsNationalCharacterVaryingMax = 'F',
+                CharAsText = 'G',
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
+                EnumAsVarcharMax = StringEnum16.Value2,
+                SqlVariantString = "Bang!",
+                SqlVariantInt = 887876
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types()
         {
             using (var context = CreateContext())
@@ -372,38 +787,62 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-#if !Test20
             var parameters = DumpParameters();
             Assert.Equal(
-                 @"@p0='77'
-@p1='True' (Nullable = true)
-@p2='80' (Nullable = true)
-@p3='0x61626364' (Size = 8000)
-@p4='73' (Nullable = true)
-@p5='H' (Size = 1)
-@p6='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)
-@p7='101.1' (Nullable = true)
-@p8='102.2' (Nullable = true)
-@p9='81.1' (Nullable = true)
-@p10='103.3' (Nullable = true)
-@p11='83.3' (Nullable = true)
-@p12='Value4' (Size = 20)
-@p13='84.4' (Nullable = true)
-@p14='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p15='78' (Nullable = true)
-@p16='-128' (Nullable = true)
-@p17='128' (Nullable = true)
-@p18='79' (Nullable = true)
-@p19='Gumball Rules OK!' (Size = 4000)
-@p20='65535' (Nullable = true)
-@p21='-1' (Nullable = true)
-@p22='4294967295' (Nullable = true)
-@p23='-1' (Nullable = true)
-@p24='-1' (Nullable = true)
-@p25='18446744073709551615' (Nullable = true)",
-                 parameters,
-                 ignoreLineEndingDifferences: true);
-#endif
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='True' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p2='80' (Nullable = true) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p3='0x5D5E5F60' (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p4='0x61626364' (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p5='0x595A5B5C' (Size = 8000)")}
+{AssertSqlHelper.Declaration("@p6='B' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p7='C' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p8='73' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p9='E' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p10='F' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p11='H' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p12='D' (Size = 1)")}
+{AssertSqlHelper.Declaration("@p13='G' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p14='A' (Size = 1) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p15='2015-01-02T10:11:12' (Nullable = true) (DbType = Date)")}
+{AssertSqlHelper.Declaration("@p16='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p17='2017-01-02T12:11:12' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p18='2018-01-02T13:11:12' (Nullable = true) (DbType = DateTime)")}
+{AssertSqlHelper.Declaration("@p19='2016-01-02T11:11:12.0000000+00:00' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p20='101.1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p21='102.2' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p22='81.1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p23='103.3' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p24='82.2' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p25='85.5' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p26='83.3' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p27='Value4' (Size = 20)")}
+{AssertSqlHelper.Declaration("@p28='Value2' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p29='84.4' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p30='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p31='78' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p32='-128' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p33='128' (Nullable = true) (Size = 1)")}
+{AssertSqlHelper.Declaration("@p34='79' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p35='887876' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p36='Bang!' (Size = 5)")}
+{AssertSqlHelper.Declaration("@p37='Your' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p38='strong' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p39='help' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p40='anyone!' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p42='don't' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p44='C' (Size = 8000) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p45='11:15:12' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p46='65535' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p47='-1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p48='4294967295' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p49='-1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p50='-1' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p51='18446744073709551615' (Nullable = true)")}",
+                parameters,
+                ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
             {
@@ -423,10 +862,26 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(sbyte.MinValue, entity.SbyteAsTinyint);
             Assert.True(entity.BoolAsBit);
             Assert.Equal(81.1m, entity.DecimalAsMoney);
+            Assert.Equal(82.2m, entity.DecimalAsSmallmoney);
             Assert.Equal(83.3, entity.DoubleAsFloat);
             Assert.Equal(84.4f, entity.FloatAsReal);
+            Assert.Equal(85.5, entity.DoubleAsDoublePrecision);
+            Assert.Equal(new DateTime(2015, 1, 2), entity.DateTimeAsDate);
+            Assert.Equal(new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero), entity.DateTimeOffsetAsDatetimeoffset);
+            Assert.Equal(new DateTime(2017, 1, 2, 12, 11, 12), entity.DateTimeAsDatetime2);
+            Assert.Equal(new DateTime(2018, 1, 2, 13, 11, 00), entity.DateTimeAsSmalldatetime);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.DateTimeAsDatetime);
+            Assert.Equal(new TimeSpan(11, 15, 12), entity.TimeSpanAsTime);
+            Assert.Equal("C", entity.StringAsVarcharMax);
+            Assert.Equal("Your", entity.StringAsCharVaryingMax);
+            Assert.Equal("strong", entity.StringAsCharacterVaryingMax);
+            Assert.Equal("don't", entity.StringAsNvarcharMax);
+            Assert.Equal("help", entity.StringAsNationalCharVaryingMax);
+            Assert.Equal("anyone!", entity.StringAsNationalCharacterVaryingMax);
+            Assert.Equal("Gumball Rules!", entity.StringAsText);
             Assert.Equal("Gumball Rules OK!", entity.StringAsNtext);
+            Assert.Equal(new byte[] { 89, 90, 91, 92 }, entity.BytesAsVarbinaryMax);
+            Assert.Equal(new byte[] { 93, 94, 95, 96 }, entity.BytesAsBinaryVaryingMax);
             Assert.Equal(new byte[] { 97, 98, 99, 100 }, entity.BytesAsImage);
             Assert.Equal(101m, entity.Decimal);
             Assert.Equal(102m, entity.DecimalAsDec);
@@ -436,9 +891,19 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(ulong.MaxValue, entity.UlongAsDecimal200);
             Assert.Equal(ushort.MaxValue, entity.UShortAsInt);
             Assert.Equal(sbyte.MinValue, entity.SByteAsSmallint);
+            Assert.Equal('A', entity.CharAsVarcharMax);
+            Assert.Equal('B', entity.CharAsAsCharVaryingMax);
+            Assert.Equal('C', entity.CharAsCharacterVaryingMax);
+            Assert.Equal('D', entity.CharAsNvarcharMax);
+            Assert.Equal('E', entity.CharAsNationalCharVaryingMax);
+            Assert.Equal('F', entity.CharAsNationalCharacterVaryingMax);
+            Assert.Equal('G', entity.CharAsText);
             Assert.Equal('H', entity.CharAsNtext);
             Assert.Equal('I', entity.CharAsInt);
+            Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
+            Assert.Equal("Bang!", entity.SqlVariantString);
+            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedNullableDataTypes CreateMappedNullableDataTypes(int id)
@@ -454,10 +919,26 @@ namespace EntityFramework.Jet.FunctionalTests
                 SbyteAsTinyint = sbyte.MinValue,
                 BoolAsBit = true,
                 DecimalAsMoney = 81.1m,
+                DecimalAsSmallmoney = 82.2m,
                 DoubleAsFloat = 83.3,
                 FloatAsReal = 84.4f,
+                DoubleAsDoublePrecision = 85.5,
+                DateTimeAsDate = new DateTime(2015, 1, 2, 10, 11, 12),
+                DateTimeOffsetAsDatetimeoffset = new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero),
+                DateTimeAsDatetime2 = new DateTime(2017, 1, 2, 12, 11, 12),
+                DateTimeAsSmalldatetime = new DateTime(2018, 1, 2, 13, 11, 12),
                 DateTimeAsDatetime = new DateTime(2019, 1, 2, 14, 11, 12),
+                TimeSpanAsTime = new TimeSpan(11, 15, 12),
+                StringAsVarcharMax = "C",
+                StringAsCharVaryingMax = "Your",
+                StringAsCharacterVaryingMax = "strong",
+                StringAsNvarcharMax = "don't",
+                StringAsNationalCharVaryingMax = "help",
+                StringAsNationalCharacterVaryingMax = "anyone!",
+                StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
+                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
+                BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
                 BytesAsImage = new byte[] { 97, 98, 99, 100 },
                 Decimal = 101.1m,
                 DecimalAsDec = 102.2m,
@@ -467,12 +948,22 @@ namespace EntityFramework.Jet.FunctionalTests
                 UlongAsDecimal200 = ulong.MaxValue,
                 UShortAsInt = ushort.MaxValue,
                 SByteAsSmallint = sbyte.MinValue,
+                CharAsVarcharMax = 'A',
+                CharAsAsCharVaryingMax = 'B',
+                CharAsCharacterVaryingMax = 'C',
+                CharAsNvarcharMax = 'D',
+                CharAsNationalCharVaryingMax = 'E',
+                CharAsNationalCharacterVaryingMax = 'F',
+                CharAsText = 'G',
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
+                EnumAsVarcharMax = StringEnum16.Value2,
+                SqlVariantString = "Bang!",
+                SqlVariantInt = 887876
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null()
         {
             using (var context = CreateContext())
@@ -482,38 +973,62 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-#if !Test20
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='78'
-@p1='' (DbType = Boolean)
-@p2='' (DbType = Byte)
-@p3='' (Size = 8000) (DbType = Binary)
-@p4='' (DbType = Int32)
-@p5='' (Size = 1)
-@p6='' (DbType = DateTime)
-@p7='' (DbType = Decimal)
-@p8='' (DbType = Decimal)
-@p9='' (DbType = Decimal)
-@p10='' (DbType = Decimal)
-@p11='' (DbType = Double)
-@p12='' (Size = 20)
-@p13='' (DbType = Single)
-@p14='' (DbType = Guid)
-@p15='' (DbType = Int64)
-@p16='' (DbType = Int16)
-@p17='' (DbType = Byte)
-@p18='' (DbType = Int16)
-@p19='' (Size = 4000)
-@p20='' (DbType = Int32)
-@p21='' (DbType = Int16)
-@p22='' (DbType = Int64)
-@p23='' (DbType = Int32)
-@p24='' (DbType = Int64)
-@p25='' (DbType = Decimal)",
+               $@"{AssertSqlHelper.Declaration("@p0='78'")}
+@p1=NULL
+@p2=NULL (DbType = Byte)
+@p3=NULL (Size = 8000) (DbType = Binary)
+@p4=NULL (Size = 8000) (DbType = Binary)
+@p5=NULL (Size = 8000) (DbType = Binary)
+@p6=NULL (Size = 1) (DbType = AnsiString)
+@p7=NULL (Size = 1) (DbType = AnsiString)
+@p8=NULL (DbType = Int32)
+@p9=NULL (Size = 1)
+@p10=NULL (Size = 1)
+@p11=NULL (Size = 1)
+@p12=NULL (Size = 1)
+@p13=NULL (Size = 1) (DbType = AnsiString)
+@p14=NULL (Size = 1) (DbType = AnsiString)
+@p15=NULL (DbType = Date)
+@p16=NULL (DbType = DateTime)
+@p17=NULL (DbType = DateTime2)
+@p18=NULL (DbType = DateTime)
+@p19=NULL (DbType = DateTimeOffset)
+@p20=NULL
+@p21=NULL
+@p22=NULL
+@p23=NULL
+@p24=NULL
+@p25=NULL
+@p26=NULL
+@p27=NULL (Size = 20)
+@p28=NULL (Size = 8000) (DbType = AnsiString)
+@p29=NULL
+@p30=NULL (DbType = Guid)
+@p31=NULL (DbType = Int64)
+@p32=NULL (DbType = Int16)
+@p33=NULL (DbType = Byte)
+@p34=NULL (DbType = Int16)
+@p35=NULL
+@p36=NULL
+@p37=NULL (Size = 8000) (DbType = AnsiString)
+@p38=NULL (Size = 8000) (DbType = AnsiString)
+@p39=NULL (Size = 4000)
+@p40=NULL (Size = 4000)
+@p41=NULL (Size = 4000)
+@p42=NULL (Size = 4000)
+@p43=NULL (Size = 8000) (DbType = AnsiString)
+@p44=NULL (Size = 8000) (DbType = AnsiString)
+@p45=NULL
+@p46=NULL (DbType = Int32)
+@p47=NULL (DbType = Int16)
+@p48=NULL (DbType = Int64)
+@p49=NULL (DbType = Int32)
+@p50=NULL (DbType = Int64)
+@p51=NULL",
                 parameters,
                 ignoreLineEndingDifferences: true);
-#endif
 
             using (var context = CreateContext())
             {
@@ -533,10 +1048,26 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.SbyteAsTinyint);
             Assert.Null(entity.BoolAsBit);
             Assert.Null(entity.DecimalAsMoney);
+            Assert.Null(entity.DecimalAsSmallmoney);
             Assert.Null(entity.DoubleAsFloat);
             Assert.Null(entity.FloatAsReal);
+            Assert.Null(entity.DoubleAsDoublePrecision);
+            Assert.Null(entity.DateTimeAsDate);
+            Assert.Null(entity.DateTimeOffsetAsDatetimeoffset);
+            Assert.Null(entity.DateTimeAsDatetime2);
+            Assert.Null(entity.DateTimeAsSmalldatetime);
             Assert.Null(entity.DateTimeAsDatetime);
+            Assert.Null(entity.TimeSpanAsTime);
+            Assert.Null(entity.StringAsVarcharMax);
+            Assert.Null(entity.StringAsCharVaryingMax);
+            Assert.Null(entity.StringAsCharacterVaryingMax);
+            Assert.Null(entity.StringAsNvarcharMax);
+            Assert.Null(entity.StringAsNationalCharVaryingMax);
+            Assert.Null(entity.StringAsNationalCharacterVaryingMax);
+            Assert.Null(entity.StringAsText);
             Assert.Null(entity.StringAsNtext);
+            Assert.Null(entity.BytesAsVarbinaryMax);
+            Assert.Null(entity.BytesAsBinaryVaryingMax);
             Assert.Null(entity.BytesAsImage);
             Assert.Null(entity.Decimal);
             Assert.Null(entity.DecimalAsDec);
@@ -546,12 +1077,22 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.UlongAsDecimal200);
             Assert.Null(entity.UShortAsInt);
             Assert.Null(entity.SByteAsSmallint);
+            Assert.Null(entity.CharAsVarcharMax);
+            Assert.Null(entity.CharAsAsCharVaryingMax);
+            Assert.Null(entity.CharAsCharacterVaryingMax);
+            Assert.Null(entity.CharAsNvarcharMax);
+            Assert.Null(entity.CharAsNationalCharVaryingMax);
+            Assert.Null(entity.CharAsNationalCharacterVaryingMax);
+            Assert.Null(entity.CharAsText);
             Assert.Null(entity.CharAsNtext);
             Assert.Null(entity.CharAsInt);
             Assert.Null(entity.EnumAsNvarchar20);
+            Assert.Null(entity.EnumAsVarcharMax);
+            Assert.Null(entity.SqlVariantString);
+            Assert.Null(entity.SqlVariantInt);
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types()
         {
             using (var context = CreateContext())
@@ -563,17 +1104,26 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='0x0A0B0C' (Size = 3)
-@p2='0x0B0C0D' (Size = 3)
-@p3='E' (Size = 3)
-@p4='F' (Size = 3)
-@p5='D' (Size = 3)
-@p6='The' (Size = 3)
-@p7='Squ' (Size = 3)
-@p8='Col' (Size = 3)
-@p9='Won' (Size = 3)
-@p10='Int' (Size = 3)",
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='0x0A0B0C' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p2='0x0C0D0E' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p3='0x0B0C0D' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p4='B' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p5='C' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p6='E' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p7='F' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p8='D' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p9='A' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p10='Wor' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p11='Thr' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p12='Lon' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p13='Let' (Size = 3) (DbType = AnsiString)")}
+{AssertSqlHelper.Declaration("@p14='The' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p15='Squ' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p16='Col' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p17='Won' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p18='Int' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p19='Tha' (Size = 3) (DbType = AnsiString)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -586,6 +1136,11 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedSizedDataTypes(MappedSizedDataTypes entity, int id)
         {
             Assert.Equal(id, entity.Id);
+            Assert.Equal("Wor", entity.StringAsChar3);
+            Assert.Equal("Lon", entity.StringAsCharacter3);
+            Assert.Equal("Tha", entity.StringAsVarchar3);
+            Assert.Equal("Thr", entity.StringAsCharVarying3);
+            Assert.Equal("Let", entity.StringAsCharacterVarying3);
             Assert.Equal("Won", entity.StringAsNchar3);
             Assert.Equal("Squ", entity.StringAsNationalCharacter3);
             Assert.Equal("Int", entity.StringAsNvarchar3);
@@ -593,6 +1148,10 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal("Col", entity.StringAsNationalCharacterVarying3);
             Assert.Equal(new byte[] { 10, 11, 12 }, entity.BytesAsBinary3);
             Assert.Equal(new byte[] { 11, 12, 13 }, entity.BytesAsVarbinary3);
+            Assert.Equal(new byte[] { 12, 13, 14 }, entity.BytesAsBinaryVarying3);
+            Assert.Equal('A', entity.CharAsVarchar3);
+            Assert.Equal('B', entity.CharAsAsCharVarying3);
+            Assert.Equal('C', entity.CharAsCharacterVarying3);
             Assert.Equal('D', entity.CharAsNvarchar3);
             Assert.Equal('E', entity.CharAsNationalCharVarying3);
             Assert.Equal('F', entity.CharAsNationalCharacterVarying3);
@@ -602,6 +1161,11 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedSizedDataTypes
             {
                 Id = id,
+                StringAsChar3 = "Wor",
+                StringAsCharacter3 = "Lon",
+                StringAsVarchar3 = "Tha",
+                StringAsCharVarying3 = "Thr",
+                StringAsCharacterVarying3 = "Let",
                 StringAsNchar3 = "Won",
                 StringAsNationalCharacter3 = "Squ",
                 StringAsNvarchar3 = "Int",
@@ -609,12 +1173,16 @@ namespace EntityFramework.Jet.FunctionalTests
                 StringAsNationalCharacterVarying3 = "Col",
                 BytesAsBinary3 = new byte[] { 10, 11, 12 },
                 BytesAsVarbinary3 = new byte[] { 11, 12, 13 },
+                BytesAsBinaryVarying3 = new byte[] { 12, 13, 14 },
+                CharAsVarchar3 = 'A',
+                CharAsAsCharVarying3 = 'B',
+                CharAsCharacterVarying3 = 'C',
                 CharAsNvarchar3 = 'D',
                 CharAsNationalCharVarying3 = 'E',
                 CharAsNationalCharacterVarying3 = 'F'
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types()
         {
             using (var context = CreateContext())
@@ -626,17 +1194,26 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='78'
-@p1='' (Size = 3) (DbType = Binary)
-@p2='' (Size = 3) (DbType = Binary)
-@p3='' (Size = 3)
-@p4='' (Size = 3)
-@p5='' (Size = 3)
-@p6='' (Size = 3)
-@p7='' (Size = 3)
-@p8='' (Size = 3)
-@p9='' (Size = 3)
-@p10='' (Size = 3)",
+               $@"{AssertSqlHelper.Declaration("@p0='78'")}
+@p1=NULL (Size = 3) (DbType = Binary)
+@p2=NULL (Size = 3) (DbType = Binary)
+@p3=NULL (Size = 3) (DbType = Binary)
+@p4=NULL (Size = 3) (DbType = AnsiString)
+@p5=NULL (Size = 3) (DbType = AnsiString)
+@p6=NULL (Size = 3)
+@p7=NULL (Size = 3)
+@p8=NULL (Size = 3)
+@p9=NULL (Size = 3) (DbType = AnsiString)
+@p10=NULL (Size = 3) (DbType = AnsiString)
+@p11=NULL (Size = 3) (DbType = AnsiString)
+@p12=NULL (Size = 3) (DbType = AnsiString)
+@p13=NULL (Size = 3) (DbType = AnsiString)
+@p14=NULL (Size = 3)
+@p15=NULL (Size = 3)
+@p16=NULL (Size = 3)
+@p17=NULL (Size = 3)
+@p18=NULL (Size = 3)
+@p19=NULL (Size = 3) (DbType = AnsiString)",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -649,6 +1226,11 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertNullMappedSizedDataTypes(MappedSizedDataTypes entity, int id)
         {
             Assert.Equal(id, entity.Id);
+            Assert.Null(entity.StringAsChar3);
+            Assert.Null(entity.StringAsCharacter3);
+            Assert.Null(entity.StringAsVarchar3);
+            Assert.Null(entity.StringAsCharVarying3);
+            Assert.Null(entity.StringAsCharacterVarying3);
             Assert.Null(entity.StringAsNchar3);
             Assert.Null(entity.StringAsNationalCharacter3);
             Assert.Null(entity.StringAsNvarchar3);
@@ -656,13 +1238,16 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.StringAsNationalCharacterVarying3);
             Assert.Null(entity.BytesAsBinary3);
             Assert.Null(entity.BytesAsVarbinary3);
+            Assert.Null(entity.BytesAsBinaryVarying3);
+            Assert.Null(entity.CharAsVarchar3);
+            Assert.Null(entity.CharAsAsCharVarying3);
+            Assert.Null(entity.CharAsCharacterVarying3);
             Assert.Null(entity.CharAsNvarchar3);
             Assert.Null(entity.CharAsNationalCharVarying3);
             Assert.Null(entity.CharAsNationalCharacterVarying3);
         }
 
-#if !Test20
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale()
         {
             using (var context = CreateContext())
@@ -674,11 +1259,16 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='102.2' (Size = 3)
-@p2='101.1' (Size = 3)
-@p3='103.3' (Size = 3)",
-                parameters,
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='2017-01-02T12:11:12' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p2='2016-01-02T11:11:12.0000000+00:00' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p3='102.2' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p4='101.1' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p5='103.3' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p6='85.55000305175781' (Size = 25)")}
+{AssertSqlHelper.Declaration("@p7='85.5' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p8='83.33000183105469' (Size = 25)")}
+{AssertSqlHelper.Declaration("@p9='83.3' (Size = 3)")}",parameters,
                 ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
@@ -690,6 +1280,12 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedScaledDataTypes(MappedScaledDataTypes entity, int id)
         {
             Assert.Equal(id, entity.Id);
+            Assert.Equal(83.3f, entity.FloatAsFloat3);
+            Assert.Equal(85.5f, entity.FloatAsDoublePrecision3);
+            Assert.Equal(83.33f, entity.FloatAsFloat25);
+            Assert.Equal(85.55f, entity.FloatAsDoublePrecision25);
+            Assert.Equal(new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero), entity.DateTimeOffsetAsDatetimeoffset3);
+            Assert.Equal(new DateTime(2017, 1, 2, 12, 11, 12), entity.DateTimeAsDatetime23);
             Assert.Equal(101m, entity.DecimalAsDecimal3);
             Assert.Equal(102m, entity.DecimalAsDec3);
             Assert.Equal(103m, entity.DecimalAsNumeric3);
@@ -699,13 +1295,18 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedScaledDataTypes
             {
                 Id = id,
+                FloatAsFloat3 = 83.3f,
+                FloatAsDoublePrecision3 = 85.5f,
+                FloatAsFloat25 = 83.33f,
+                FloatAsDoublePrecision25 = 85.55f,
+                DateTimeOffsetAsDatetimeoffset3 = new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero),
+                DateTimeAsDatetime23 = new DateTime(2017, 1, 2, 12, 11, 12),
                 DecimalAsDecimal3 = 101.1m,
                 DecimalAsDec3 = 102.2m,
                 DecimalAsNumeric3 = 103.3m
             };
-#endif
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale()
         {
             using (var context = CreateContext())
@@ -717,11 +1318,13 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='77'
-@p1='102.2'
-@p2='101.1'
-@p3='103.3'",
-                parameters,
+               $@"{AssertSqlHelper.Declaration("@p0='77'")}
+{AssertSqlHelper.Declaration("@p1='102.2'")}
+
+{AssertSqlHelper.Declaration("@p2='101.1'")}
+
+{AssertSqlHelper.Declaration("@p3='103.3'")}",
+parameters,
                 ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
@@ -747,7 +1350,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 DecimalAsNumeric52 = 103.3m
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -757,38 +1360,112 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-#if !Test20
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='True'
-@p1='80'
-@p2='0x61626364' (Nullable = false) (Size = 8000)
-@p3='73'
-@p4='H' (Nullable = false) (Size = 1)
-@p5='2019-01-02T14:11:12' (DbType = DateTime)
-@p6='101.1'
-@p7='102.2'
-@p8='81.1'
-@p9='103.3'
-@p10='83.3'
-@p11='Value4' (Nullable = false) (Size = 20)
-@p12='84.4'
-@p13='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p14='77'
-@p15='78'
-@p16='-128'
-@p17='128'
-@p18='79'
-@p19='Gumball Rules OK!' (Nullable = false) (Size = 4000)
-@p20='65535'
-@p21='-1'
-@p22='4294967295'
-@p23='-1'
-@p24='-1'
-@p25='18446744073709551615'",
-                parameters,
+               $@"{AssertSqlHelper.Declaration("@p0='True'")}
+{AssertSqlHelper.Declaration("@p1='80' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p2='0x5D5E5F60' (Nullable = false) (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p3='0x61626364' (Nullable = false) (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p4='0x595A5B5C' (Nullable = false) (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p5='B' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p6='C' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p7='73'")}
+
+{AssertSqlHelper.Declaration("@p8='E' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p9='F' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p10='H' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p11='D' (Nullable = false) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p12='G' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p13='A' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p14='2015-01-02T10:11:12' (DbType = Date)")}
+
+{AssertSqlHelper.Declaration("@p15='2019-01-02T14:11:12' (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p16='2017-01-02T12:11:12'")}
+
+{AssertSqlHelper.Declaration("@p17='2018-01-02T13:11:12' (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p18='2016-01-02T11:11:12.0000000+00:00'")}
+
+{AssertSqlHelper.Declaration("@p19='101.1'")}
+
+{AssertSqlHelper.Declaration("@p20='102.2'")}
+
+{AssertSqlHelper.Declaration("@p21='81.1'")}
+
+{AssertSqlHelper.Declaration("@p22='103.3'")}
+
+{AssertSqlHelper.Declaration("@p23='82.2'")}
+
+{AssertSqlHelper.Declaration("@p24='85.5'")}
+
+{AssertSqlHelper.Declaration("@p25='83.3'")}
+
+{AssertSqlHelper.Declaration("@p26='Value4' (Nullable = false) (Size = 20)")}
+
+{AssertSqlHelper.Declaration("@p27='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p28='84.4'")}
+
+{AssertSqlHelper.Declaration("@p29='a8f9f951-145f-4545-ac60-b92ff57ada47'")}
+
+{AssertSqlHelper.Declaration("@p30='77'")}
+
+{AssertSqlHelper.Declaration("@p31='78'")}
+
+{AssertSqlHelper.Declaration("@p32='-128'")}
+
+{AssertSqlHelper.Declaration("@p33='128' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p34='79'")}
+
+{AssertSqlHelper.Declaration("@p35='887876'")}
+
+{AssertSqlHelper.Declaration("@p36='Bang!' (Nullable = false) (Size = 5)")}
+
+{AssertSqlHelper.Declaration("@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p39='help' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p40='anyone!' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p42='don't' (Nullable = false) (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p44='C' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p45='11:15:12'")}
+
+{AssertSqlHelper.Declaration("@p46='65535'")}
+
+{AssertSqlHelper.Declaration("@p47='-1'")}
+
+{AssertSqlHelper.Declaration("@p48='4294967295'")}
+
+{AssertSqlHelper.Declaration("@p49='-1'")}
+
+{AssertSqlHelper.Declaration("@p50='-1'")}
+
+{AssertSqlHelper.Declaration("@p51='18446744073709551615'")}",
+parameters,
                 ignoreLineEndingDifferences: true);
-#endif
 
             using (var context = CreateContext())
             {
@@ -808,10 +1485,26 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(sbyte.MinValue, entity.SbyteAsTinyint);
             Assert.True(entity.BoolAsBit);
             Assert.Equal(81.1m, entity.DecimalAsMoney);
+            Assert.Equal(82.2m, entity.DecimalAsSmallmoney);
             Assert.Equal(83.3, entity.DoubleAsFloat);
             Assert.Equal(84.4f, entity.FloatAsReal);
+            Assert.Equal(85.5, entity.DoubleAsDoublePrecision);
+            Assert.Equal(new DateTime(2015, 1, 2), entity.DateTimeAsDate);
+            Assert.Equal(new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero), entity.DateTimeOffsetAsDatetimeoffset);
+            Assert.Equal(new DateTime(2017, 1, 2, 12, 11, 12), entity.DateTimeAsDatetime2);
+            Assert.Equal(new DateTime(2018, 1, 2, 13, 11, 00), entity.DateTimeAsSmalldatetime);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.DateTimeAsDatetime);
+            Assert.Equal(new TimeSpan(11, 15, 12), entity.TimeSpanAsTime);
+            Assert.Equal("C", entity.StringAsVarcharMax);
+            Assert.Equal("Your", entity.StringAsCharVaryingMax);
+            Assert.Equal("strong", entity.StringAsCharacterVaryingMax);
+            Assert.Equal("don't", entity.StringAsNvarcharMax);
+            Assert.Equal("help", entity.StringAsNationalCharVaryingMax);
+            Assert.Equal("anyone!", entity.StringAsNationalCharacterVaryingMax);
+            Assert.Equal("Gumball Rules!", entity.StringAsText);
             Assert.Equal("Gumball Rules OK!", entity.StringAsNtext);
+            Assert.Equal(new byte[] { 89, 90, 91, 92 }, entity.BytesAsVarbinaryMax);
+            Assert.Equal(new byte[] { 93, 94, 95, 96 }, entity.BytesAsBinaryVaryingMax);
             Assert.Equal(new byte[] { 97, 98, 99, 100 }, entity.BytesAsImage);
             Assert.Equal(101m, entity.Decimal);
             Assert.Equal(102m, entity.DecimalAsDec);
@@ -821,9 +1514,19 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(ulong.MaxValue, entity.UlongAsDecimal200);
             Assert.Equal(ushort.MaxValue, entity.UShortAsInt);
             Assert.Equal(sbyte.MinValue, entity.SByteAsSmallint);
+            Assert.Equal('A', entity.CharAsVarcharMax);
+            Assert.Equal('B', entity.CharAsAsCharVaryingMax);
+            Assert.Equal('C', entity.CharAsCharacterVaryingMax);
+            Assert.Equal('D', entity.CharAsNvarcharMax);
+            Assert.Equal('E', entity.CharAsNationalCharVaryingMax);
+            Assert.Equal('F', entity.CharAsNationalCharacterVaryingMax);
+            Assert.Equal('G', entity.CharAsText);
             Assert.Equal('H', entity.CharAsNtext);
             Assert.Equal('I', entity.CharAsInt);
+            Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
+            Assert.Equal("Bang!", entity.SqlVariantString);
+            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedDataTypesWithIdentity CreateMappedDataTypesWithIdentity(int id)
@@ -839,10 +1542,26 @@ namespace EntityFramework.Jet.FunctionalTests
                 SbyteAsTinyint = sbyte.MinValue,
                 BoolAsBit = true,
                 DecimalAsMoney = 81.1m,
+                DecimalAsSmallmoney = 82.2m,
                 DoubleAsFloat = 83.3,
                 FloatAsReal = 84.4f,
+                DoubleAsDoublePrecision = 85.5,
+                DateTimeAsDate = new DateTime(2015, 1, 2, 10, 11, 12),
+                DateTimeOffsetAsDatetimeoffset = new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero),
+                DateTimeAsDatetime2 = new DateTime(2017, 1, 2, 12, 11, 12),
+                DateTimeAsSmalldatetime = new DateTime(2018, 1, 2, 13, 11, 12),
                 DateTimeAsDatetime = new DateTime(2019, 1, 2, 14, 11, 12),
+                TimeSpanAsTime = new TimeSpan(11, 15, 12),
+                StringAsVarcharMax = "C",
+                StringAsCharVaryingMax = "Your",
+                StringAsCharacterVaryingMax = "strong",
+                StringAsNvarcharMax = "don't",
+                StringAsNationalCharVaryingMax = "help",
+                StringAsNationalCharacterVaryingMax = "anyone!",
+                StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
+                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
+                BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
                 BytesAsImage = new byte[] { 97, 98, 99, 100 },
                 Decimal = 101.1m,
                 DecimalAsDec = 102.2m,
@@ -852,12 +1571,22 @@ namespace EntityFramework.Jet.FunctionalTests
                 UlongAsDecimal200 = ulong.MaxValue,
                 UShortAsInt = ushort.MaxValue,
                 SByteAsSmallint = sbyte.MinValue,
+                CharAsVarcharMax = 'A',
+                CharAsAsCharVaryingMax = 'B',
+                CharAsCharacterVaryingMax = 'C',
+                CharAsNvarcharMax = 'D',
+                CharAsNationalCharVaryingMax = 'E',
+                CharAsNationalCharacterVaryingMax = 'F',
+                CharAsText = 'G',
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
+                EnumAsVarcharMax = StringEnum16.Value2,
+                SqlVariantString = "Bang!",
+                SqlVariantInt = 887876
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -867,38 +1596,112 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-#if !Test20
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='True' (Nullable = true)
-@p1='80' (Nullable = true)
-@p2='0x61626364' (Size = 8000)
-@p3='73' (Nullable = true)
-@p4='H' (Size = 1)
-@p5='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)
-@p6='101.1' (Nullable = true)
-@p7='102.2' (Nullable = true)
-@p8='81.1' (Nullable = true)
-@p9='103.3' (Nullable = true)
-@p10='83.3' (Nullable = true)
-@p11='Value4' (Size = 20)
-@p12='84.4' (Nullable = true)
-@p13='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p14='77' (Nullable = true)
-@p15='78' (Nullable = true)
-@p16='-128' (Nullable = true)
-@p17='128' (Nullable = true)
-@p18='79' (Nullable = true)
-@p19='Gumball Rules OK!' (Size = 4000)
-@p20='65535' (Nullable = true)
-@p21='4294967295' (Nullable = true)
-@p22='-1' (Nullable = true)
-@p23='-1' (Nullable = true)
-@p24='18446744073709551615' (Nullable = true)
-@p25='-1' (Nullable = true)",
+               $@"{AssertSqlHelper.Declaration("@p0='True' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p1='80' (Nullable = true) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p2='0x61626364' (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p3='0x595A5B5C' (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p4='0x5D5E5F60' (Size = 8000)")}
+
+{AssertSqlHelper.Declaration("@p5='B' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p6='C' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p7='73' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p8='E' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p9='F' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p10='H' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p11='D' (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p12='G' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p13='A' (Size = 1) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p14='2015-01-02T10:11:12' (Nullable = true) (DbType = Date)")}
+
+{AssertSqlHelper.Declaration("@p15='2019-01-02T14:11:12' (Nullable = true) (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p16='2017-01-02T12:11:12' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p17='2018-01-02T13:11:12' (Nullable = true) (DbType = DateTime)")}
+
+{AssertSqlHelper.Declaration("@p18='2016-01-02T11:11:12.0000000+00:00' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p19='101.1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p20='102.2' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p21='81.1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p22='103.3' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p23='82.2' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p24='85.5' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p25='83.3' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p26='Value4' (Size = 20)")}
+
+{AssertSqlHelper.Declaration("@p27='Value2' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p28='84.4' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p29='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p30='77' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p31='78' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p32='-128' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p33='128' (Nullable = true) (Size = 1)")}
+
+{AssertSqlHelper.Declaration("@p34='79' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p35='887876' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p36='Bang!' (Size = 5)")}
+
+{AssertSqlHelper.Declaration("@p37='Your' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p38='strong' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p39='help' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p40='anyone!' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p42='don't' (Size = 4000)")}
+
+{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p44='C' (Size = 8000) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p45='11:15:12' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p46='65535' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p47='4294967295' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p48='-1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p49='-1' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p50='18446744073709551615' (Nullable = true)")}
+
+{AssertSqlHelper.Declaration("@p51='-1' (Nullable = true)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
-#endif
 
             using (var context = CreateContext())
             {
@@ -918,10 +1721,26 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(sbyte.MinValue, entity.SbyteAsTinyint);
             Assert.True(entity.BoolAsBit);
             Assert.Equal(81.1m, entity.DecimalAsMoney);
+            Assert.Equal(82.2m, entity.DecimalAsSmallmoney);
             Assert.Equal(83.3, entity.DoubleAsFloat);
             Assert.Equal(84.4f, entity.FloatAsReal);
+            Assert.Equal(85.5, entity.DoubleAsDoublePrecision);
+            Assert.Equal(new DateTime(2015, 1, 2), entity.DateTimeAsDate);
+            Assert.Equal(new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero), entity.DateTimeOffsetAsDatetimeoffset);
+            Assert.Equal(new DateTime(2017, 1, 2, 12, 11, 12), entity.DateTimeAsDatetime2);
+            Assert.Equal(new DateTime(2018, 1, 2, 13, 11, 00), entity.DateTimeAsSmalldatetime);
             Assert.Equal(new DateTime(2019, 1, 2, 14, 11, 12), entity.DateTimeAsDatetime);
+            Assert.Equal(new TimeSpan(11, 15, 12), entity.TimeSpanAsTime);
+            Assert.Equal("C", entity.StringAsVarcharMax);
+            Assert.Equal("Your", entity.StringAsCharVaryingMax);
+            Assert.Equal("strong", entity.StringAsCharacterVaryingMax);
+            Assert.Equal("don't", entity.StringAsNvarcharMax);
+            Assert.Equal("help", entity.StringAsNationalCharVaryingMax);
+            Assert.Equal("anyone!", entity.StringAsNationalCharacterVaryingMax);
+            Assert.Equal("Gumball Rules!", entity.StringAsText);
             Assert.Equal("Gumball Rules OK!", entity.StringAsNtext);
+            Assert.Equal(new byte[] { 89, 90, 91, 92 }, entity.BytesAsVarbinaryMax);
+            Assert.Equal(new byte[] { 93, 94, 95, 96 }, entity.BytesAsVaryingMax);
             Assert.Equal(new byte[] { 97, 98, 99, 100 }, entity.BytesAsImage);
             Assert.Equal(101m, entity.Decimal);
             Assert.Equal(102m, entity.DecimalAsDec);
@@ -931,9 +1750,19 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal(ulong.MaxValue, entity.UlongAsDecimal200);
             Assert.Equal(ushort.MaxValue, entity.UShortAsInt);
             Assert.Equal(sbyte.MinValue, entity.SByteAsSmallint);
+            Assert.Equal('A', entity.CharAsVarcharMax);
+            Assert.Equal('B', entity.CharAsAsCharVaryingMax);
+            Assert.Equal('C', entity.CharAsCharacterVaryingMax);
+            Assert.Equal('D', entity.CharAsNvarcharMax);
+            Assert.Equal('E', entity.CharAsNationalCharVaryingMax);
+            Assert.Equal('F', entity.CharAsNationalCharacterVaryingMax);
+            Assert.Equal('G', entity.CharAsText);
             Assert.Equal('H', entity.CharAsNtext);
             Assert.Equal('I', entity.CharAsInt);
+            Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
+            Assert.Equal("Bang!", entity.SqlVariantString);
+            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedNullableDataTypesWithIdentity CreateMappedNullableDataTypesWithIdentity(int id)
@@ -949,10 +1778,26 @@ namespace EntityFramework.Jet.FunctionalTests
                 SbyteAsTinyint = sbyte.MinValue,
                 BoolAsBit = true,
                 DecimalAsMoney = 81.1m,
+                DecimalAsSmallmoney = 82.2m,
                 DoubleAsFloat = 83.3,
                 FloatAsReal = 84.4f,
+                DoubleAsDoublePrecision = 85.5,
+                DateTimeAsDate = new DateTime(2015, 1, 2, 10, 11, 12),
+                DateTimeOffsetAsDatetimeoffset = new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero),
+                DateTimeAsDatetime2 = new DateTime(2017, 1, 2, 12, 11, 12),
+                DateTimeAsSmalldatetime = new DateTime(2018, 1, 2, 13, 11, 12),
                 DateTimeAsDatetime = new DateTime(2019, 1, 2, 14, 11, 12),
+                TimeSpanAsTime = new TimeSpan(11, 15, 12),
+                StringAsVarcharMax = "C",
+                StringAsCharVaryingMax = "Your",
+                StringAsCharacterVaryingMax = "strong",
+                StringAsNvarcharMax = "don't",
+                StringAsNationalCharVaryingMax = "help",
+                StringAsNationalCharacterVaryingMax = "anyone!",
+                StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
+                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
+                BytesAsVaryingMax = new byte[] { 93, 94, 95, 96 },
                 BytesAsImage = new byte[] { 97, 98, 99, 100 },
                 Decimal = 101.1m,
                 DecimalAsDec = 102.2m,
@@ -962,12 +1807,22 @@ namespace EntityFramework.Jet.FunctionalTests
                 UlongAsDecimal200 = ulong.MaxValue,
                 UShortAsInt = ushort.MaxValue,
                 SByteAsSmallint = sbyte.MinValue,
+                CharAsVarcharMax = 'A',
+                CharAsAsCharVaryingMax = 'B',
+                CharAsCharacterVaryingMax = 'C',
+                CharAsNvarcharMax = 'D',
+                CharAsNationalCharVaryingMax = 'E',
+                CharAsNationalCharacterVaryingMax = 'F',
+                CharAsText = 'G',
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
+                EnumAsVarcharMax = StringEnum16.Value2,
+                SqlVariantString = "Bang!",
+                SqlVariantInt = 887876
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_with_identity()
         {
             using (var context = CreateContext())
@@ -977,42 +1832,68 @@ namespace EntityFramework.Jet.FunctionalTests
                 Assert.Equal(1, context.SaveChanges());
             }
 
-#if !Test20
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='' (DbType = Boolean)
-@p1='' (DbType = Byte)
-@p2='' (Size = 8000) (DbType = Binary)
-@p3='' (DbType = Int32)
-@p4='' (Size = 1)
-@p5='' (DbType = DateTime)
-@p6='' (DbType = Decimal)
-@p7='' (DbType = Decimal)
-@p8='' (DbType = Decimal)
-@p9='' (DbType = Decimal)
-@p10='' (DbType = Double)
-@p11='' (Size = 20)
-@p12='' (DbType = Single)
-@p13='' (DbType = Guid)
-@p14='78' (Nullable = true)
-@p15='' (DbType = Int64)
-@p16='' (DbType = Int16)
-@p17='' (DbType = Byte)
-@p18='' (DbType = Int16)
-@p19='' (Size = 4000)
-@p20='' (DbType = Int32)
-@p21='' (DbType = Int64)
-@p22='' (DbType = Int32)
-@p23='' (DbType = Int64)
-@p24='' (DbType = Decimal)
-@p25='' (DbType = Int16)",
+               $@"@p0=NULL
+@p1=NULL (DbType = Byte)
+@p2=NULL (Size = 8000) (DbType = Binary)
+@p3=NULL (Size = 8000) (DbType = Binary)
+@p4=NULL (Size = 8000) (DbType = Binary)
+@p5=NULL (Size = 1) (DbType = AnsiString)
+@p6=NULL (Size = 1) (DbType = AnsiString)
+@p7=NULL (DbType = Int32)
+@p8=NULL (Size = 1)
+@p9=NULL (Size = 1)
+@p10=NULL (Size = 1)
+@p11=NULL (Size = 1)
+@p12=NULL (Size = 1) (DbType = AnsiString)
+@p13=NULL (Size = 1) (DbType = AnsiString)
+@p14=NULL (DbType = Date)
+@p15=NULL (DbType = DateTime)
+@p16=NULL (DbType = DateTime2)
+@p17=NULL (DbType = DateTime)
+@p18=NULL (DbType = DateTimeOffset)
+@p19=NULL
+@p20=NULL
+@p21=NULL
+@p22=NULL
+@p23=NULL
+@p24=NULL
+@p25=NULL
+@p26=NULL (Size = 20)
+@p27=NULL (Size = 8000) (DbType = AnsiString)
+@p28=NULL
+@p29=NULL (DbType = Guid)
+{AssertSqlHelper.Declaration("@p30='78' (Nullable = true)")}
+
+@p31=NULL (DbType = Int64)
+@p32=NULL (DbType = Int16)
+@p33=NULL (DbType = Byte)
+@p34=NULL (DbType = Int16)
+@p35=NULL
+@p36=NULL
+@p37=NULL (Size = 8000) (DbType = AnsiString)
+@p38=NULL (Size = 8000) (DbType = AnsiString)
+@p39=NULL (Size = 4000)
+@p40=NULL (Size = 4000)
+@p41=NULL (Size = 4000)
+@p42=NULL (Size = 4000)
+@p43=NULL (Size = 8000) (DbType = AnsiString)
+@p44=NULL (Size = 8000) (DbType = AnsiString)
+@p45=NULL
+@p46=NULL (DbType = Int32)
+@p47=NULL (DbType = Int64)
+@p48=NULL (DbType = Int32)
+@p49=NULL (DbType = Int64)
+@p50=NULL
+@p51=NULL (DbType = Int16)",
                 parameters,
                 ignoreLineEndingDifferences: true);
-#endif
 
             using (var context = CreateContext())
             {
-                AssertNullMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 78), 78);
+                AssertNullMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 78), 78);
             }
         }
 
@@ -1029,10 +1910,26 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.SbyteAsTinyint);
             Assert.Null(entity.BoolAsBit);
             Assert.Null(entity.DecimalAsMoney);
+            Assert.Null(entity.DecimalAsSmallmoney);
             Assert.Null(entity.DoubleAsFloat);
             Assert.Null(entity.FloatAsReal);
+            Assert.Null(entity.DoubleAsDoublePrecision);
+            Assert.Null(entity.DateTimeAsDate);
+            Assert.Null(entity.DateTimeOffsetAsDatetimeoffset);
+            Assert.Null(entity.DateTimeAsDatetime2);
+            Assert.Null(entity.DateTimeAsSmalldatetime);
             Assert.Null(entity.DateTimeAsDatetime);
+            Assert.Null(entity.TimeSpanAsTime);
+            Assert.Null(entity.StringAsVarcharMax);
+            Assert.Null(entity.StringAsCharVaryingMax);
+            Assert.Null(entity.StringAsCharacterVaryingMax);
+            Assert.Null(entity.StringAsNvarcharMax);
+            Assert.Null(entity.StringAsNationalCharVaryingMax);
+            Assert.Null(entity.StringAsNationalCharacterVaryingMax);
+            Assert.Null(entity.StringAsText);
             Assert.Null(entity.StringAsNtext);
+            Assert.Null(entity.BytesAsVarbinaryMax);
+            Assert.Null(entity.BytesAsVaryingMax);
             Assert.Null(entity.BytesAsImage);
             Assert.Null(entity.Decimal);
             Assert.Null(entity.DecimalAsDec);
@@ -1042,12 +1939,22 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.UlongAsDecimal200);
             Assert.Null(entity.UShortAsInt);
             Assert.Null(entity.SByteAsSmallint);
+            Assert.Null(entity.CharAsVarcharMax);
+            Assert.Null(entity.CharAsAsCharVaryingMax);
+            Assert.Null(entity.CharAsCharacterVaryingMax);
+            Assert.Null(entity.CharAsNvarcharMax);
+            Assert.Null(entity.CharAsNationalCharVaryingMax);
+            Assert.Null(entity.CharAsNationalCharacterVaryingMax);
+            Assert.Null(entity.CharAsText);
             Assert.Null(entity.CharAsNtext);
             Assert.Null(entity.CharAsInt);
             Assert.Null(entity.EnumAsNvarchar20);
+            Assert.Null(entity.EnumAsVarcharMax);
+            Assert.Null(entity.SqlVariantString);
+            Assert.Null(entity.SqlVariantInt);
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -1059,17 +1966,44 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='0x0A0B0C' (Size = 3)
-@p1='0x0B0C0D' (Size = 3)
-@p2='E' (Size = 3)
-@p3='F' (Size = 3)
-@p4='D' (Size = 3)
-@p5='77'
-@p6='The' (Size = 3)
-@p7='Squ' (Size = 3)
-@p8='Col' (Size = 3)
-@p9='Won' (Size = 3)
-@p10='Int' (Size = 3)",
+               $@"{AssertSqlHelper.Declaration("@p0='0x0A0B0C' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p1='0x0C0D0E' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p2='0x0B0C0D' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p3='B' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p4='C' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p5='E' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p6='F' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p7='D' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p8='A' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p9='77'")}
+
+{AssertSqlHelper.Declaration("@p10='Wor' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p11='Thr' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p12='Lon' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p13='Let' (Size = 3) (DbType = AnsiString)")}
+
+{AssertSqlHelper.Declaration("@p14='The' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p15='Squ' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p16='Col' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p17='Won' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p18='Int' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p19='Tha' (Size = 3) (DbType = AnsiString)")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1082,6 +2016,11 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedSizedDataTypesWithIdentity(MappedSizedDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
+            Assert.Equal("Wor", entity.StringAsChar3);
+            Assert.Equal("Lon", entity.StringAsCharacter3);
+            Assert.Equal("Tha", entity.StringAsVarchar3);
+            Assert.Equal("Thr", entity.StringAsCharVarying3);
+            Assert.Equal("Let", entity.StringAsCharacterVarying3);
             Assert.Equal("Won", entity.StringAsNchar3);
             Assert.Equal("Squ", entity.StringAsNationalCharacter3);
             Assert.Equal("Int", entity.StringAsNvarchar3);
@@ -1089,6 +2028,10 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Equal("Col", entity.StringAsNationalCharacterVarying3);
             Assert.Equal(new byte[] { 10, 11, 12 }, entity.BytesAsBinary3);
             Assert.Equal(new byte[] { 11, 12, 13 }, entity.BytesAsVarbinary3);
+            Assert.Equal(new byte[] { 12, 13, 14 }, entity.BytesAsBinaryVarying3);
+            Assert.Equal('A', entity.CharAsVarchar3);
+            Assert.Equal('B', entity.CharAsAsCharVarying3);
+            Assert.Equal('C', entity.CharAsCharacterVarying3);
             Assert.Equal('D', entity.CharAsNvarchar3);
             Assert.Equal('E', entity.CharAsNationalCharVarying3);
             Assert.Equal('F', entity.CharAsNationalCharacterVarying3);
@@ -1098,6 +2041,11 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedSizedDataTypesWithIdentity
             {
                 Int = id,
+                StringAsChar3 = "Wor",
+                StringAsCharacter3 = "Lon",
+                StringAsVarchar3 = "Tha",
+                StringAsCharVarying3 = "Thr",
+                StringAsCharacterVarying3 = "Let",
                 StringAsNchar3 = "Won",
                 StringAsNationalCharacter3 = "Squ",
                 StringAsNvarchar3 = "Int",
@@ -1105,12 +2053,16 @@ namespace EntityFramework.Jet.FunctionalTests
                 StringAsNationalCharacterVarying3 = "Col",
                 BytesAsBinary3 = new byte[] { 10, 11, 12 },
                 BytesAsVarbinary3 = new byte[] { 11, 12, 13 },
+                BytesAsBinaryVarying3 = new byte[] { 12, 13, 14 },
+                CharAsVarchar3 = 'A',
+                CharAsAsCharVarying3 = 'B',
+                CharAsCharacterVarying3 = 'C',
                 CharAsNvarchar3 = 'D',
                 CharAsNationalCharVarying3 = 'E',
                 CharAsNationalCharacterVarying3 = 'F'
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -1122,17 +2074,27 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='' (Size = 3) (DbType = Binary)
-@p1='' (Size = 3) (DbType = Binary)
-@p2='' (Size = 3)
-@p3='' (Size = 3)
-@p4='' (Size = 3)
-@p5='78'
-@p6='' (Size = 3)
-@p7='' (Size = 3)
-@p8='' (Size = 3)
-@p9='' (Size = 3)
-@p10='' (Size = 3)",
+               $@"@p0=NULL (Size = 3) (DbType = Binary)
+@p1=NULL (Size = 3) (DbType = Binary)
+@p2=NULL (Size = 3) (DbType = Binary)
+@p3=NULL (Size = 3) (DbType = AnsiString)
+@p4=NULL (Size = 3) (DbType = AnsiString)
+@p5=NULL (Size = 3)
+@p6=NULL (Size = 3)
+@p7=NULL (Size = 3)
+@p8=NULL (Size = 3) (DbType = AnsiString)
+{AssertSqlHelper.Declaration("@p9='78'")}
+
+@p10=NULL (Size = 3) (DbType = AnsiString)
+@p11=NULL (Size = 3) (DbType = AnsiString)
+@p12=NULL (Size = 3) (DbType = AnsiString)
+@p13=NULL (Size = 3) (DbType = AnsiString)
+@p14=NULL (Size = 3)
+@p15=NULL (Size = 3)
+@p16=NULL (Size = 3)
+@p17=NULL (Size = 3)
+@p18=NULL (Size = 3)
+@p19=NULL (Size = 3) (DbType = AnsiString)",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1145,6 +2107,11 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertNullMappedSizedDataTypesWithIdentity(MappedSizedDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
+            Assert.Null(entity.StringAsChar3);
+            Assert.Null(entity.StringAsCharacter3);
+            Assert.Null(entity.StringAsVarchar3);
+            Assert.Null(entity.StringAsCharVarying3);
+            Assert.Null(entity.StringAsCharacterVarying3);
             Assert.Null(entity.StringAsNchar3);
             Assert.Null(entity.StringAsNationalCharacter3);
             Assert.Null(entity.StringAsNvarchar3);
@@ -1152,13 +2119,16 @@ namespace EntityFramework.Jet.FunctionalTests
             Assert.Null(entity.StringAsNationalCharacterVarying3);
             Assert.Null(entity.BytesAsBinary3);
             Assert.Null(entity.BytesAsVarbinary3);
+            Assert.Null(entity.BytesAsBinaryVarying3);
+            Assert.Null(entity.CharAsVarchar3);
+            Assert.Null(entity.CharAsAsCharVarying3);
+            Assert.Null(entity.CharAsCharacterVarying3);
             Assert.Null(entity.CharAsNvarchar3);
             Assert.Null(entity.CharAsNationalCharVarying3);
             Assert.Null(entity.CharAsNationalCharacterVarying3);
         }
 
-#if !Test20
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_with_identity()
         {
             using (var context = CreateContext())
@@ -1170,10 +2140,24 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='102.2' (Size = 3)
-@p1='101.1' (Size = 3)
-@p2='103.3' (Size = 3)
-@p3='77'",
+               $@"{AssertSqlHelper.Declaration("@p0='2017-01-02T12:11:12' (Size = 3)")}
+{AssertSqlHelper.Declaration("@p1='2016-01-02T11:11:12.0000000+00:00' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p2='102.2' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p3='101.1' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p4='103.3' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p5='85.55000305175781' (Size = 25)")}
+
+{AssertSqlHelper.Declaration("@p6='85.5' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p7='83.33000183105469' (Size = 25)")}
+
+{AssertSqlHelper.Declaration("@p8='83.3' (Size = 3)")}
+
+{AssertSqlHelper.Declaration("@p9='77'")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1186,6 +2170,12 @@ namespace EntityFramework.Jet.FunctionalTests
         private static void AssertMappedScaledDataTypesWithIdentity(MappedScaledDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
+            Assert.Equal(83.3f, entity.FloatAsFloat3);
+            Assert.Equal(85.5f, entity.FloatAsDoublePrecision3);
+            Assert.Equal(83.33f, entity.FloatAsFloat25);
+            Assert.Equal(85.55f, entity.FloatAsDoublePrecision25);
+            Assert.Equal(new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero), entity.DateTimeOffsetAsDatetimeoffset3);
+            Assert.Equal(new DateTime(2017, 1, 2, 12, 11, 12), entity.DateTimeAsDatetime23);
             Assert.Equal(101m, entity.DecimalAsDecimal3);
             Assert.Equal(102m, entity.DecimalAsDec3);
             Assert.Equal(103m, entity.DecimalAsNumeric3);
@@ -1195,13 +2185,18 @@ namespace EntityFramework.Jet.FunctionalTests
             => new MappedScaledDataTypesWithIdentity
             {
                 Int = id,
+                FloatAsFloat3 = 83.3f,
+                FloatAsDoublePrecision3 = 85.5f,
+                FloatAsFloat25 = 83.33f,
+                FloatAsDoublePrecision25 = 85.55f,
+                DateTimeOffsetAsDatetimeoffset3 = new DateTimeOffset(new DateTime(2016, 1, 2, 11, 11, 12), TimeSpan.Zero),
+                DateTimeAsDatetime23 = new DateTime(2017, 1, 2, 12, 11, 12),
                 DecimalAsDecimal3 = 101.1m,
                 DecimalAsDec3 = 102.2m,
                 DecimalAsNumeric3 = 103.3m
             };
-#endif
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_with_identity()
         {
             using (var context = CreateContext())
@@ -1214,10 +2209,12 @@ namespace EntityFramework.Jet.FunctionalTests
 
             var parameters = DumpParameters();
             Assert.Equal(
-                @"@p0='102.2'
-@p1='101.1'
-@p2='103.3'
-@p3='77'",
+               $@"{AssertSqlHelper.Declaration("@p0='102.2'")}
+{AssertSqlHelper.Declaration("@p1='101.1'")}
+
+{AssertSqlHelper.Declaration("@p2='103.3'")}
+
+{AssertSqlHelper.Declaration("@p3='77'")}",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1228,7 +2225,8 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        private static void AssertMappedPrecisionAndScaledDataTypesWithIdentity(MappedPrecisionAndScaledDataTypesWithIdentity entity, int id)
+        private static void AssertMappedPrecisionAndScaledDataTypesWithIdentity(
+            MappedPrecisionAndScaledDataTypesWithIdentity entity, int id)
         {
             Assert.Equal(id, entity.Int);
             Assert.Equal(101.1m, entity.DecimalAsDecimal52);
@@ -1245,7 +2243,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 DecimalAsNumeric52 = 103.3m
             };
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -1265,7 +2263,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -1285,7 +2283,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_in_batch()
         {
             using (var context = CreateContext())
@@ -1305,7 +2303,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -1325,7 +2323,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -1345,8 +2343,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-#if !Test20
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_in_batch()
         {
             using (var context = CreateContext())
@@ -1365,9 +2362,8 @@ namespace EntityFramework.Jet.FunctionalTests
                 AssertMappedScaledDataTypes(context.Set<MappedScaledDataTypes>().Single(e => e.Id == 179), 179);
             }
         }
-#endif
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_in_batch()
         {
             using (var context = CreateContext())
@@ -1387,7 +2383,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1407,7 +2403,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1421,13 +2417,16 @@ namespace EntityFramework.Jet.FunctionalTests
 
             using (var context = CreateContext())
             {
-                AssertMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 177), 177);
-                AssertMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 178), 178);
-                AssertMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 179), 179);
+                AssertMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 177), 177);
+                AssertMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 178), 178);
+                AssertMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 179), 179);
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1441,13 +2440,16 @@ namespace EntityFramework.Jet.FunctionalTests
 
             using (var context = CreateContext())
             {
-                AssertNullMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 278), 278);
-                AssertNullMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 279), 279);
-                AssertNullMappedNullableDataTypesWithIdentity(context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 280), 280);
+                AssertNullMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 278), 278);
+                AssertNullMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 279), 279);
+                AssertNullMappedNullableDataTypesWithIdentity(
+                    context.Set<MappedNullableDataTypesWithIdentity>().Single(e => e.Int == 280), 280);
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1467,7 +2469,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1487,8 +2489,7 @@ namespace EntityFramework.Jet.FunctionalTests
             }
         }
 
-#if !Test20
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1507,9 +2508,8 @@ namespace EntityFramework.Jet.FunctionalTests
                 AssertMappedScaledDataTypesWithIdentity(context.Set<MappedScaledDataTypesWithIdentity>().Single(e => e.Int == 179), 179);
             }
         }
-#endif
 
-        [Fact]
+        [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -1535,288 +2535,432 @@ namespace EntityFramework.Jet.FunctionalTests
         [ConditionalFact]
         public virtual void Columns_have_expected_data_types()
         {
-            var actual = QueryForColumnTypes(CreateContext());
+            var actual = QueryForColumnTypes(
+                CreateContext(),
+                nameof(ObjectBackedDataTypes), nameof(NullableBackedDataTypes), nameof(NonNullableBackedDataTypes));
 
-            const string expected = @"BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable varbinary] [MaxLength = 512]
-BinaryForeignKeyDataType.Id ---> [int] [Precision = 10]
-BinaryKeyDataType.Id ---> [varbinary] [MaxLength = 512]
-BuiltInDataTypes.Enum16 ---> [smallint] [Precision = 5]
-BuiltInDataTypes.Enum32 ---> [int] [Precision = 10]
-BuiltInDataTypes.Enum64 ---> [bigint] [Precision = 19]
-BuiltInDataTypes.Enum8 ---> [tinyint] [Precision = 3]
-BuiltInDataTypes.EnumS8 ---> [smallint] [Precision = 5]
-BuiltInDataTypes.EnumU16 ---> [int] [Precision = 10]
-BuiltInDataTypes.EnumU32 ---> [bigint] [Precision = 19]
-BuiltInDataTypes.EnumU64 ---> [numeric] [Precision = 20 Scale = 0]
-BuiltInDataTypes.Id ---> [int] [Precision = 10]
-BuiltInDataTypes.PartitionId ---> [int] [Precision = 10]
-BuiltInDataTypes.TestBoolean ---> [bit] [Precision = 1 Scale = 0]
-BuiltInDataTypes.TestByte ---> [tinyint] [Precision = 3]
-BuiltInDataTypes.TestCharacter ---> [nvarchar] [MaxLength = 1]
-BuiltInDataTypes.TestDateTime ---> [datetime] [Precision = 23 Scale = 3]
-BuiltInDataTypes.TestDateTimeOffset ---> [nvarchar] [MaxLength = 48]
-BuiltInDataTypes.TestDecimal ---> [numeric] [Precision = 18 Scale = 2]
-BuiltInDataTypes.TestDouble ---> [float] [Precision = 53]
-BuiltInDataTypes.TestInt16 ---> [smallint] [Precision = 5]
-BuiltInDataTypes.TestInt32 ---> [int] [Precision = 10]
-BuiltInDataTypes.TestInt64 ---> [bigint] [Precision = 19]
-BuiltInDataTypes.TestSignedByte ---> [smallint] [Precision = 5]
-BuiltInDataTypes.TestSingle ---> [real] [Precision = 24]
-BuiltInDataTypes.TestTimeSpan ---> [nvarchar] [MaxLength = 48]
-BuiltInDataTypes.TestUnsignedInt16 ---> [int] [Precision = 10]
-BuiltInDataTypes.TestUnsignedInt32 ---> [bigint] [Precision = 19]
-BuiltInDataTypes.TestUnsignedInt64 ---> [numeric] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.Enum16 ---> [smallint] [Precision = 5]
-BuiltInDataTypesShadow.Enum32 ---> [int] [Precision = 10]
-BuiltInDataTypesShadow.Enum64 ---> [bigint] [Precision = 19]
-BuiltInDataTypesShadow.Enum8 ---> [tinyint] [Precision = 3]
-BuiltInDataTypesShadow.EnumS8 ---> [smallint] [Precision = 5]
-BuiltInDataTypesShadow.EnumU16 ---> [int] [Precision = 10]
-BuiltInDataTypesShadow.EnumU32 ---> [bigint] [Precision = 19]
-BuiltInDataTypesShadow.EnumU64 ---> [numeric] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.Id ---> [int] [Precision = 10]
-BuiltInDataTypesShadow.PartitionId ---> [int] [Precision = 10]
-BuiltInDataTypesShadow.TestBoolean ---> [bit] [Precision = 1 Scale = 0]
-BuiltInDataTypesShadow.TestByte ---> [tinyint] [Precision = 3]
-BuiltInDataTypesShadow.TestCharacter ---> [nvarchar] [MaxLength = 1]
-BuiltInDataTypesShadow.TestDateTime ---> [datetime] [Precision = 23 Scale = 3]
-BuiltInDataTypesShadow.TestDateTimeOffset ---> [nvarchar] [MaxLength = 48]
-BuiltInDataTypesShadow.TestDecimal ---> [numeric] [Precision = 18 Scale = 2]
-BuiltInDataTypesShadow.TestDouble ---> [float] [Precision = 53]
-BuiltInDataTypesShadow.TestInt16 ---> [smallint] [Precision = 5]
-BuiltInDataTypesShadow.TestInt32 ---> [int] [Precision = 10]
-BuiltInDataTypesShadow.TestInt64 ---> [bigint] [Precision = 19]
-BuiltInDataTypesShadow.TestSignedByte ---> [smallint] [Precision = 5]
-BuiltInDataTypesShadow.TestSingle ---> [real] [Precision = 24]
-BuiltInDataTypesShadow.TestTimeSpan ---> [nvarchar] [MaxLength = 48]
-BuiltInDataTypesShadow.TestUnsignedInt16 ---> [int] [Precision = 10]
-BuiltInDataTypesShadow.TestUnsignedInt32 ---> [bigint] [Precision = 19]
-BuiltInDataTypesShadow.TestUnsignedInt64 ---> [numeric] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.Enum16 ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypes.Enum32 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypes.Enum64 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypes.Enum8 ---> [nullable tinyint] [Precision = 3]
-BuiltInNullableDataTypes.EnumS8 ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypes.EnumU16 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypes.EnumU32 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypes.EnumU64 ---> [nullable numeric] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.Id ---> [int] [Precision = 10]
-BuiltInNullableDataTypes.PartitionId ---> [int] [Precision = 10]
-BuiltInNullableDataTypes.TestByteArray ---> [nullable image] [MaxLength = 1073741823]
-BuiltInNullableDataTypes.TestNullableBoolean ---> [nullable bit] [Precision = 1 Scale = 0]
-BuiltInNullableDataTypes.TestNullableByte ---> [nullable tinyint] [Precision = 3]
-BuiltInNullableDataTypes.TestNullableCharacter ---> [nullable nvarchar] [MaxLength = 1]
-BuiltInNullableDataTypes.TestNullableDateTime ---> [nullable datetime] [Precision = 23 Scale = 3]
-BuiltInNullableDataTypes.TestNullableDateTimeOffset ---> [nullable nvarchar] [MaxLength = 48]
-BuiltInNullableDataTypes.TestNullableDecimal ---> [nullable numeric] [Precision = 18 Scale = 2]
-BuiltInNullableDataTypes.TestNullableDouble ---> [nullable float] [Precision = 53]
-BuiltInNullableDataTypes.TestNullableInt16 ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypes.TestNullableInt32 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypes.TestNullableInt64 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypes.TestNullableSignedByte ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypes.TestNullableSingle ---> [nullable real] [Precision = 24]
-BuiltInNullableDataTypes.TestNullableTimeSpan ---> [nullable nvarchar] [MaxLength = 48]
-BuiltInNullableDataTypes.TestNullableUnsignedInt16 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypes.TestNullableUnsignedInt32 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypes.TestNullableUnsignedInt64 ---> [nullable numeric] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.TestString ---> [nullable nvarchar] [MaxLength = 4000]
-BuiltInNullableDataTypesShadow.Enum16 ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypesShadow.Enum32 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypesShadow.Enum64 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypesShadow.Enum8 ---> [nullable tinyint] [Precision = 3]
-BuiltInNullableDataTypesShadow.EnumS8 ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypesShadow.EnumU16 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypesShadow.EnumU32 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypesShadow.EnumU64 ---> [nullable numeric] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.Id ---> [int] [Precision = 10]
-BuiltInNullableDataTypesShadow.PartitionId ---> [int] [Precision = 10]
-BuiltInNullableDataTypesShadow.TestByteArray ---> [nullable image] [MaxLength = 1073741823]
-BuiltInNullableDataTypesShadow.TestNullableBoolean ---> [nullable bit] [Precision = 1 Scale = 0]
-BuiltInNullableDataTypesShadow.TestNullableByte ---> [nullable tinyint] [Precision = 3]
-BuiltInNullableDataTypesShadow.TestNullableCharacter ---> [nullable nvarchar] [MaxLength = 1]
-BuiltInNullableDataTypesShadow.TestNullableDateTime ---> [nullable datetime] [Precision = 23 Scale = 3]
-BuiltInNullableDataTypesShadow.TestNullableDateTimeOffset ---> [nullable nvarchar] [MaxLength = 48]
-BuiltInNullableDataTypesShadow.TestNullableDecimal ---> [nullable numeric] [Precision = 18 Scale = 2]
-BuiltInNullableDataTypesShadow.TestNullableDouble ---> [nullable float] [Precision = 53]
-BuiltInNullableDataTypesShadow.TestNullableInt16 ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypesShadow.TestNullableInt32 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypesShadow.TestNullableInt64 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypesShadow.TestNullableSignedByte ---> [nullable smallint] [Precision = 5]
-BuiltInNullableDataTypesShadow.TestNullableSingle ---> [nullable real] [Precision = 24]
-BuiltInNullableDataTypesShadow.TestNullableTimeSpan ---> [nullable nvarchar] [MaxLength = 48]
-BuiltInNullableDataTypesShadow.TestNullableUnsignedInt16 ---> [nullable int] [Precision = 10]
-BuiltInNullableDataTypesShadow.TestNullableUnsignedInt32 ---> [nullable bigint] [Precision = 19]
-BuiltInNullableDataTypesShadow.TestNullableUnsignedInt64 ---> [nullable numeric] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.TestString ---> [nullable nvarchar] [MaxLength = 4000]
-EmailTemplate.Id ---> [uniqueidentifier]
-EmailTemplate.TemplateType ---> [int] [Precision = 10]
-MappedDataTypes.BoolAsBit ---> [bit] [Precision = 1 Scale = 0]
-MappedDataTypes.ByteAsTinyint ---> [tinyint] [Precision = 3]
-MappedDataTypes.BytesAsImage ---> [image] [MaxLength = 1073741823]
-MappedDataTypes.CharAsInt ---> [int] [Precision = 10]
-MappedDataTypes.CharAsNtext ---> [ntext] [MaxLength = 536870911]
-MappedDataTypes.DateTimeAsDatetime ---> [datetime] [Precision = 23 Scale = 3]
-MappedDataTypes.Decimal ---> [numeric] [Precision = 18 Scale = 0]
-MappedDataTypes.DecimalAsDec ---> [numeric] [Precision = 18 Scale = 0]
-MappedDataTypes.DecimalAsMoney ---> [money] [Precision = 19 Scale = 4]
-MappedDataTypes.DecimalAsNumeric ---> [numeric] [Precision = 18 Scale = 0]
-MappedDataTypes.DoubleAsFloat ---> [float] [Precision = 53]
-MappedDataTypes.EnumAsNvarchar20 ---> [nvarchar] [MaxLength = 20]
-MappedDataTypes.FloatAsReal ---> [real] [Precision = 24]
-MappedDataTypes.GuidAsUniqueidentifier ---> [uniqueidentifier]
-MappedDataTypes.Int ---> [int] [Precision = 10]
-MappedDataTypes.LongAsBigInt ---> [bigint] [Precision = 19]
-MappedDataTypes.SByteAsSmallint ---> [smallint] [Precision = 5]
-MappedDataTypes.SByteAsTinyint ---> [tinyint] [Precision = 3]
-MappedDataTypes.ShortAsSmallint ---> [smallint] [Precision = 5]
-MappedDataTypes.StringAsNtext ---> [ntext] [MaxLength = 536870911]
-MappedDataTypes.UintAsBigint ---> [bigint] [Precision = 19]
-MappedDataTypes.UintAsInt ---> [int] [Precision = 10]
-MappedDataTypes.UlongAsBigint ---> [bigint] [Precision = 19]
-MappedDataTypes.UlongAsDecimal200 ---> [numeric] [Precision = 20 Scale = 0]
-MappedDataTypes.UShortAsInt ---> [int] [Precision = 10]
-MappedDataTypes.UShortAsSmallint ---> [smallint] [Precision = 5]
-MappedDataTypesWithIdentity.BoolAsBit ---> [bit] [Precision = 1 Scale = 0]
-MappedDataTypesWithIdentity.ByteAsTinyint ---> [tinyint] [Precision = 3]
-MappedDataTypesWithIdentity.BytesAsImage ---> [image] [MaxLength = 1073741823]
-MappedDataTypesWithIdentity.CharAsInt ---> [int] [Precision = 10]
-MappedDataTypesWithIdentity.CharAsNtext ---> [ntext] [MaxLength = 536870911]
-MappedDataTypesWithIdentity.DateTimeAsDatetime ---> [datetime] [Precision = 23 Scale = 3]
-MappedDataTypesWithIdentity.Decimal ---> [numeric] [Precision = 18 Scale = 0]
-MappedDataTypesWithIdentity.DecimalAsDec ---> [numeric] [Precision = 18 Scale = 0]
-MappedDataTypesWithIdentity.DecimalAsMoney ---> [money] [Precision = 19 Scale = 4]
-MappedDataTypesWithIdentity.DecimalAsNumeric ---> [numeric] [Precision = 18 Scale = 0]
-MappedDataTypesWithIdentity.DoubleAsFloat ---> [float] [Precision = 53]
-MappedDataTypesWithIdentity.EnumAsNvarchar20 ---> [nvarchar] [MaxLength = 20]
-MappedDataTypesWithIdentity.FloatAsReal ---> [real] [Precision = 24]
-MappedDataTypesWithIdentity.GuidAsUniqueidentifier ---> [uniqueidentifier]
-MappedDataTypesWithIdentity.Id ---> [int] [Precision = 10]
-MappedDataTypesWithIdentity.Int ---> [int] [Precision = 10]
-MappedDataTypesWithIdentity.LongAsBigint ---> [bigint] [Precision = 19]
-MappedDataTypesWithIdentity.SByteAsSmallint ---> [smallint] [Precision = 5]
-MappedDataTypesWithIdentity.SbyteAsTinyint ---> [tinyint] [Precision = 3]
-MappedDataTypesWithIdentity.ShortAsSmallint ---> [smallint] [Precision = 5]
-MappedDataTypesWithIdentity.StringAsNtext ---> [ntext] [MaxLength = 536870911]
-MappedDataTypesWithIdentity.UintAsBigint ---> [bigint] [Precision = 19]
-MappedDataTypesWithIdentity.UintAsInt ---> [int] [Precision = 10]
-MappedDataTypesWithIdentity.UlongAsBigint ---> [bigint] [Precision = 19]
-MappedDataTypesWithIdentity.UlongAsDecimal200 ---> [numeric] [Precision = 20 Scale = 0]
-MappedDataTypesWithIdentity.UShortAsInt ---> [int] [Precision = 10]
-MappedDataTypesWithIdentity.UShortAsSmallint ---> [smallint] [Precision = 5]
-MappedNullableDataTypes.BoolAsBit ---> [nullable bit] [Precision = 1 Scale = 0]
-MappedNullableDataTypes.ByteAsTinyint ---> [nullable tinyint] [Precision = 3]
-MappedNullableDataTypes.BytesAsImage ---> [nullable image] [MaxLength = 1073741823]
-MappedNullableDataTypes.CharAsInt ---> [nullable int] [Precision = 10]
-MappedNullableDataTypes.CharAsNtext ---> [nullable ntext] [MaxLength = 536870911]
-MappedNullableDataTypes.DateTimeAsDatetime ---> [nullable datetime] [Precision = 23 Scale = 3]
-MappedNullableDataTypes.Decimal ---> [nullable numeric] [Precision = 18 Scale = 0]
-MappedNullableDataTypes.DecimalAsDec ---> [nullable numeric] [Precision = 18 Scale = 0]
-MappedNullableDataTypes.DecimalAsMoney ---> [nullable money] [Precision = 19 Scale = 4]
-MappedNullableDataTypes.DecimalAsNumeric ---> [nullable numeric] [Precision = 18 Scale = 0]
-MappedNullableDataTypes.DoubleAsFloat ---> [nullable float] [Precision = 53]
-MappedNullableDataTypes.EnumAsNvarchar20 ---> [nullable nvarchar] [MaxLength = 20]
-MappedNullableDataTypes.FloatAsReal ---> [nullable real] [Precision = 24]
-MappedNullableDataTypes.GuidAsUniqueidentifier ---> [nullable uniqueidentifier]
-MappedNullableDataTypes.Int ---> [int] [Precision = 10]
-MappedNullableDataTypes.LongAsBigint ---> [nullable bigint] [Precision = 19]
-MappedNullableDataTypes.SByteAsSmallint ---> [nullable smallint] [Precision = 5]
-MappedNullableDataTypes.SbyteAsTinyint ---> [nullable tinyint] [Precision = 3]
-MappedNullableDataTypes.ShortAsSmallint ---> [nullable smallint] [Precision = 5]
-MappedNullableDataTypes.StringAsNtext ---> [nullable ntext] [MaxLength = 536870911]
-MappedNullableDataTypes.UintAsBigint ---> [nullable bigint] [Precision = 19]
-MappedNullableDataTypes.UintAsInt ---> [nullable int] [Precision = 10]
-MappedNullableDataTypes.UlongAsBigint ---> [nullable bigint] [Precision = 19]
-MappedNullableDataTypes.UlongAsDecimal200 ---> [nullable numeric] [Precision = 20 Scale = 0]
-MappedNullableDataTypes.UShortAsInt ---> [nullable int] [Precision = 10]
-MappedNullableDataTypes.UShortAsSmallint ---> [nullable smallint] [Precision = 5]
-MappedNullableDataTypesWithIdentity.BoolAsBit ---> [nullable bit] [Precision = 1 Scale = 0]
-MappedNullableDataTypesWithIdentity.ByteAsTinyint ---> [nullable tinyint] [Precision = 3]
-MappedNullableDataTypesWithIdentity.BytesAsImage ---> [nullable image] [MaxLength = 1073741823]
-MappedNullableDataTypesWithIdentity.CharAsInt ---> [nullable int] [Precision = 10]
-MappedNullableDataTypesWithIdentity.CharAsNtext ---> [nullable ntext] [MaxLength = 536870911]
-MappedNullableDataTypesWithIdentity.DateTimeAsDatetime ---> [nullable datetime] [Precision = 23 Scale = 3]
-MappedNullableDataTypesWithIdentity.Decimal ---> [nullable numeric] [Precision = 18 Scale = 0]
-MappedNullableDataTypesWithIdentity.DecimalAsDec ---> [nullable numeric] [Precision = 18 Scale = 0]
-MappedNullableDataTypesWithIdentity.DecimalAsMoney ---> [nullable money] [Precision = 19 Scale = 4]
-MappedNullableDataTypesWithIdentity.DecimalAsNumeric ---> [nullable numeric] [Precision = 18 Scale = 0]
-MappedNullableDataTypesWithIdentity.DoubleAsFloat ---> [nullable float] [Precision = 53]
-MappedNullableDataTypesWithIdentity.EnumAsNvarchar20 ---> [nullable nvarchar] [MaxLength = 20]
-MappedNullableDataTypesWithIdentity.FloatAsReal ---> [nullable real] [Precision = 24]
-MappedNullableDataTypesWithIdentity.GuidAsUniqueidentifier ---> [nullable uniqueidentifier]
-MappedNullableDataTypesWithIdentity.Id ---> [int] [Precision = 10]
-MappedNullableDataTypesWithIdentity.Int ---> [nullable int] [Precision = 10]
-MappedNullableDataTypesWithIdentity.LongAsBigint ---> [nullable bigint] [Precision = 19]
-MappedNullableDataTypesWithIdentity.SByteAsSmallint ---> [nullable smallint] [Precision = 5]
-MappedNullableDataTypesWithIdentity.SbyteAsTinyint ---> [nullable tinyint] [Precision = 3]
-MappedNullableDataTypesWithIdentity.ShortAsSmallint ---> [nullable smallint] [Precision = 5]
-MappedNullableDataTypesWithIdentity.StringAsNtext ---> [nullable ntext] [MaxLength = 536870911]
-MappedNullableDataTypesWithIdentity.UintAsBigint ---> [nullable bigint] [Precision = 19]
-MappedNullableDataTypesWithIdentity.UintAsInt ---> [nullable int] [Precision = 10]
-MappedNullableDataTypesWithIdentity.UlongAsBigint ---> [nullable bigint] [Precision = 19]
-MappedNullableDataTypesWithIdentity.UlongAsDecimal200 ---> [nullable numeric] [Precision = 20 Scale = 0]
-MappedNullableDataTypesWithIdentity.UShortAsInt ---> [nullable int] [Precision = 10]
-MappedNullableDataTypesWithIdentity.UshortAsSmallint ---> [nullable smallint] [Precision = 5]
-MappedPrecisionAndScaledDataTypes.DecimalAsDec52 ---> [numeric] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypes.DecimalAsDecimal52 ---> [numeric] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypes.DecimalAsNumeric52 ---> [numeric] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypes.Id ---> [int] [Precision = 10]
-MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDec52 ---> [numeric] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDecimal52 ---> [numeric] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsNumeric52 ---> [numeric] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypesWithIdentity.Id ---> [int] [Precision = 10]
-MappedPrecisionAndScaledDataTypesWithIdentity.Int ---> [int] [Precision = 10]
-MappedScaledDataTypes.DecimalAsDec3 ---> [numeric] [Precision = 3 Scale = 0]
-MappedScaledDataTypes.DecimalAsDecimal3 ---> [numeric] [Precision = 3 Scale = 0]
-MappedScaledDataTypes.DecimalAsNumeric3 ---> [numeric] [Precision = 3 Scale = 0]
-MappedScaledDataTypes.Id ---> [int] [Precision = 10]
-MappedScaledDataTypesWithIdentity.DecimalAsDec3 ---> [numeric] [Precision = 3 Scale = 0]
-MappedScaledDataTypesWithIdentity.DecimalAsDecimal3 ---> [numeric] [Precision = 3 Scale = 0]
-MappedScaledDataTypesWithIdentity.DecimalAsNumeric3 ---> [numeric] [Precision = 3 Scale = 0]
-MappedScaledDataTypesWithIdentity.Id ---> [int] [Precision = 10]
-MappedScaledDataTypesWithIdentity.Int ---> [int] [Precision = 10]
-MappedSizedDataTypes.BytesAsBinary3 ---> [nullable binary] [MaxLength = 3]
-MappedSizedDataTypes.BytesAsVarbinary3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypes.CharAsNationalCharacterVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsNationalCharVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsNvarchar3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypes.Id ---> [int] [Precision = 10]
-MappedSizedDataTypes.StringAsNationalCharacter3 ---> [nullable nchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNationalCharacterVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNationalCharVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNchar3 ---> [nullable nchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNvarchar3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.BytesAsBinary3 ---> [nullable binary] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.BytesAsVarbinary3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsNationalCharacterVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsNationalCharVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsNvarchar3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.Id ---> [int] [Precision = 10]
-MappedSizedDataTypesWithIdentity.Int ---> [int] [Precision = 10]
-MappedSizedDataTypesWithIdentity.StringAsNationalCharacter3 ---> [nullable nchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNationalCharacterVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNationalCharVarying3 ---> [nullable nvarchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNchar3 ---> [nullable nchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNvarchar3 ---> [nullable nvarchar] [MaxLength = 3]
-MaxLengthDataTypes.ByteArray5 ---> [nullable varbinary] [MaxLength = 5]
-MaxLengthDataTypes.ByteArray9000 ---> [nullable varbinary] [MaxLength = 4000]
-MaxLengthDataTypes.Id ---> [int] [Precision = 10]
-MaxLengthDataTypes.String3 ---> [nullable nvarchar] [MaxLength = 3]
-MaxLengthDataTypes.String9000 ---> [nullable nvarchar] [MaxLength = 4000]
-StringForeignKeyDataType.Id ---> [int] [Precision = 10]
-StringForeignKeyDataType.StringKeyDataTypeId ---> [nullable nvarchar] [MaxLength = 256]
-StringKeyDataType.Id ---> [nvarchar] [MaxLength = 256]
-UnicodeDataTypes.Id ---> [int] [Precision = 10]
-UnicodeDataTypes.StringAnsi ---> [nullable nvarchar] [MaxLength = 4000]
-UnicodeDataTypes.StringAnsi3 ---> [nullable nvarchar] [MaxLength = 3]
-UnicodeDataTypes.StringAnsi9000 ---> [nullable nvarchar] [MaxLength = 4000]
-UnicodeDataTypes.StringDefault ---> [nullable nvarchar] [MaxLength = 4000]
-UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
+            const string expected = @"Animal.Id ---> `int` [Precision = 10 Scale = 0]
+AnimalDetails.AnimalId ---> `nullable int` [Precision = 10 Scale = 0]
+AnimalDetails.BoolField ---> `int` [Precision = 10 Scale = 0]
+AnimalDetails.Id ---> `int` [Precision = 10 Scale = 0]
+AnimalIdentification.AnimalId ---> `int` [Precision = 10 Scale = 0]
+AnimalIdentification.Id ---> `int` [Precision = 10 Scale = 0]
+AnimalIdentification.Method ---> `int` [Precision = 10 Scale = 0]
+BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> `nullable varbinary` [MaxLength = 900]
+BinaryForeignKeyDataType.Id ---> `int` [Precision = 10 Scale = 0]
+BinaryKeyDataType.Ex ---> `nullable nvarchar` [MaxLength = -1]
+BinaryKeyDataType.Id ---> `varbinary` [MaxLength = 900]
+BuiltInDataTypes.Enum16 ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypes.Enum32 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypes.Enum64 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypes.Enum8 ---> `tinyint` [Precision = 3 Scale = 0]
+BuiltInDataTypes.EnumS8 ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypes.EnumU16 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypes.EnumU32 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypes.EnumU64 ---> `decimal` [Precision = 20 Scale = 0]
+BuiltInDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypes.PartitionId ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypes.TestBoolean ---> `bit`
+BuiltInDataTypes.TestByte ---> `tinyint` [Precision = 3 Scale = 0]
+BuiltInDataTypes.TestCharacter ---> `nvarchar` [MaxLength = 1]
+BuiltInDataTypes.TestDateTime ---> `datetime2` [Precision = 7]
+BuiltInDataTypes.TestDateTimeOffset ---> `datetimeoffset` [Precision = 7]
+BuiltInDataTypes.TestDecimal ---> `decimal` [Precision = 18 Scale = 2]
+BuiltInDataTypes.TestDouble ---> `float` [Precision = 53]
+BuiltInDataTypes.TestInt16 ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypes.TestInt32 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypes.TestInt64 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypes.TestSignedByte ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypes.TestSingle ---> `real` [Precision = 24]
+BuiltInDataTypes.TestTimeSpan ---> `time` [Precision = 7]
+BuiltInDataTypes.TestUnsignedInt16 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypes.TestUnsignedInt32 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypes.TestUnsignedInt64 ---> `decimal` [Precision = 20 Scale = 0]
+BuiltInDataTypesShadow.Enum16 ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypesShadow.Enum32 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypesShadow.Enum64 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypesShadow.Enum8 ---> `tinyint` [Precision = 3 Scale = 0]
+BuiltInDataTypesShadow.EnumS8 ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypesShadow.EnumU16 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypesShadow.EnumU32 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypesShadow.EnumU64 ---> `decimal` [Precision = 20 Scale = 0]
+BuiltInDataTypesShadow.Id ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypesShadow.PartitionId ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypesShadow.TestBoolean ---> `bit`
+BuiltInDataTypesShadow.TestByte ---> `tinyint` [Precision = 3 Scale = 0]
+BuiltInDataTypesShadow.TestCharacter ---> `nvarchar` [MaxLength = 1]
+BuiltInDataTypesShadow.TestDateTime ---> `datetime2` [Precision = 7]
+BuiltInDataTypesShadow.TestDateTimeOffset ---> `datetimeoffset` [Precision = 7]
+BuiltInDataTypesShadow.TestDecimal ---> `decimal` [Precision = 18 Scale = 2]
+BuiltInDataTypesShadow.TestDouble ---> `float` [Precision = 53]
+BuiltInDataTypesShadow.TestInt16 ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypesShadow.TestInt32 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypesShadow.TestInt64 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypesShadow.TestSignedByte ---> `smallint` [Precision = 5 Scale = 0]
+BuiltInDataTypesShadow.TestSingle ---> `real` [Precision = 24]
+BuiltInDataTypesShadow.TestTimeSpan ---> `time` [Precision = 7]
+BuiltInDataTypesShadow.TestUnsignedInt16 ---> `int` [Precision = 10 Scale = 0]
+BuiltInDataTypesShadow.TestUnsignedInt32 ---> `bigint` [Precision = 19 Scale = 0]
+BuiltInDataTypesShadow.TestUnsignedInt64 ---> `decimal` [Precision = 20 Scale = 0]
+BuiltInNullableDataTypes.Enum16 ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypes.Enum32 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypes.Enum64 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypes.Enum8 ---> `nullable tinyint` [Precision = 3 Scale = 0]
+BuiltInNullableDataTypes.EnumS8 ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypes.EnumU16 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypes.EnumU32 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypes.EnumU64 ---> `nullable decimal` [Precision = 20 Scale = 0]
+BuiltInNullableDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypes.PartitionId ---> `int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypes.TestByteArray ---> `nullable varbinary` [MaxLength = -1]
+BuiltInNullableDataTypes.TestNullableBoolean ---> `nullable bit`
+BuiltInNullableDataTypes.TestNullableByte ---> `nullable tinyint` [Precision = 3 Scale = 0]
+BuiltInNullableDataTypes.TestNullableCharacter ---> `nullable nvarchar` [MaxLength = 1]
+BuiltInNullableDataTypes.TestNullableDateTime ---> `nullable datetime2` [Precision = 7]
+BuiltInNullableDataTypes.TestNullableDateTimeOffset ---> `nullable datetimeoffset` [Precision = 7]
+BuiltInNullableDataTypes.TestNullableDecimal ---> `nullable decimal` [Precision = 18 Scale = 2]
+BuiltInNullableDataTypes.TestNullableDouble ---> `nullable float` [Precision = 53]
+BuiltInNullableDataTypes.TestNullableInt16 ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypes.TestNullableInt32 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypes.TestNullableInt64 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypes.TestNullableSignedByte ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypes.TestNullableSingle ---> `nullable real` [Precision = 24]
+BuiltInNullableDataTypes.TestNullableTimeSpan ---> `nullable time` [Precision = 7]
+BuiltInNullableDataTypes.TestNullableUnsignedInt16 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypes.TestNullableUnsignedInt32 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypes.TestNullableUnsignedInt64 ---> `nullable decimal` [Precision = 20 Scale = 0]
+BuiltInNullableDataTypes.TestString ---> `nullable nvarchar` [MaxLength = -1]
+BuiltInNullableDataTypesShadow.Enum16 ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypesShadow.Enum32 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypesShadow.Enum64 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypesShadow.Enum8 ---> `nullable tinyint` [Precision = 3 Scale = 0]
+BuiltInNullableDataTypesShadow.EnumS8 ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypesShadow.EnumU16 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypesShadow.EnumU32 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypesShadow.EnumU64 ---> `nullable decimal` [Precision = 20 Scale = 0]
+BuiltInNullableDataTypesShadow.Id ---> `int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypesShadow.PartitionId ---> `int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypesShadow.TestByteArray ---> `nullable varbinary` [MaxLength = -1]
+BuiltInNullableDataTypesShadow.TestNullableBoolean ---> `nullable bit`
+BuiltInNullableDataTypesShadow.TestNullableByte ---> `nullable tinyint` [Precision = 3 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableCharacter ---> `nullable nvarchar` [MaxLength = 1]
+BuiltInNullableDataTypesShadow.TestNullableDateTime ---> `nullable datetime2` [Precision = 7]
+BuiltInNullableDataTypesShadow.TestNullableDateTimeOffset ---> `nullable datetimeoffset` [Precision = 7]
+BuiltInNullableDataTypesShadow.TestNullableDecimal ---> `nullable decimal` [Precision = 18 Scale = 2]
+BuiltInNullableDataTypesShadow.TestNullableDouble ---> `nullable float` [Precision = 53]
+BuiltInNullableDataTypesShadow.TestNullableInt16 ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableInt32 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableInt64 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableSignedByte ---> `nullable smallint` [Precision = 5 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableSingle ---> `nullable real` [Precision = 24]
+BuiltInNullableDataTypesShadow.TestNullableTimeSpan ---> `nullable time` [Precision = 7]
+BuiltInNullableDataTypesShadow.TestNullableUnsignedInt16 ---> `nullable int` [Precision = 10 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableUnsignedInt32 ---> `nullable bigint` [Precision = 19 Scale = 0]
+BuiltInNullableDataTypesShadow.TestNullableUnsignedInt64 ---> `nullable decimal` [Precision = 20 Scale = 0]
+BuiltInNullableDataTypesShadow.TestString ---> `nullable nvarchar` [MaxLength = -1]
+EmailTemplate.Id ---> `uniqueidentifier`
+EmailTemplate.TemplateType ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypes.BoolAsBit ---> `bit`
+MappedDataTypes.ByteAsTinyint ---> `tinyint` [Precision = 3 Scale = 0]
+MappedDataTypes.BytesAsBinaryVaryingMax ---> `varbinary` [MaxLength = -1]
+MappedDataTypes.BytesAsImage ---> `image` [MaxLength = 2147483647]
+MappedDataTypes.BytesAsVarbinaryMax ---> `varbinary` [MaxLength = -1]
+MappedDataTypes.CharAsAsCharVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.CharAsCharacterVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.CharAsInt ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypes.CharAsNationalCharacterVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypes.CharAsNationalCharVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypes.CharAsNtext ---> `ntext` [MaxLength = 1073741823]
+MappedDataTypes.CharAsNvarcharMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypes.CharAsText ---> `text` [MaxLength = 2147483647]
+MappedDataTypes.CharAsVarcharMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.DateTimeAsDate ---> `date` [Precision = 0]
+MappedDataTypes.DateTimeAsDatetime ---> `datetime` [Precision = 3]
+MappedDataTypes.DateTimeAsDatetime2 ---> `datetime2` [Precision = 7]
+MappedDataTypes.DateTimeAsSmalldatetime ---> `smalldatetime` [Precision = 0]
+MappedDataTypes.DateTimeOffsetAsDatetimeoffset ---> `datetimeoffset` [Precision = 7]
+MappedDataTypes.Decimal ---> `decimal` [Precision = 18 Scale = 0]
+MappedDataTypes.DecimalAsDec ---> `decimal` [Precision = 18 Scale = 0]
+MappedDataTypes.DecimalAsMoney ---> `money` [Precision = 19 Scale = 4]
+MappedDataTypes.DecimalAsNumeric ---> `numeric` [Precision = 18 Scale = 0]
+MappedDataTypes.DecimalAsSmallmoney ---> `smallmoney` [Precision = 10 Scale = 4]
+MappedDataTypes.DoubleAsDoublePrecision ---> `float` [Precision = 53]
+MappedDataTypes.DoubleAsFloat ---> `float` [Precision = 53]
+MappedDataTypes.EnumAsNvarchar20 ---> `nvarchar` [MaxLength = 20]
+MappedDataTypes.EnumAsVarcharMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.FloatAsReal ---> `real` [Precision = 24]
+MappedDataTypes.GuidAsUniqueidentifier ---> `uniqueidentifier`
+MappedDataTypes.Int ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypes.LongAsBigInt ---> `bigint` [Precision = 19 Scale = 0]
+MappedDataTypes.SByteAsSmallint ---> `smallint` [Precision = 5 Scale = 0]
+MappedDataTypes.SByteAsTinyint ---> `tinyint` [Precision = 3 Scale = 0]
+MappedDataTypes.ShortAsSmallint ---> `smallint` [Precision = 5 Scale = 0]
+MappedDataTypes.SqlVariantInt ---> `sql_variant` [MaxLength = 0]
+MappedDataTypes.SqlVariantString ---> `sql_variant` [MaxLength = 0]
+MappedDataTypes.StringAsAsCharVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.StringAsCharacterVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.StringAsNationalCharacterVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypes.StringAsNationalCharVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypes.StringAsNtext ---> `ntext` [MaxLength = 1073741823]
+MappedDataTypes.StringAsNvarcharMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypes.StringAsText ---> `text` [MaxLength = 2147483647]
+MappedDataTypes.StringAsVarcharMax ---> `varchar` [MaxLength = -1]
+MappedDataTypes.TimeSpanAsTime ---> `time` [Precision = 7]
+MappedDataTypes.UintAsBigint ---> `bigint` [Precision = 19 Scale = 0]
+MappedDataTypes.UintAsInt ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypes.UlongAsBigint ---> `bigint` [Precision = 19 Scale = 0]
+MappedDataTypes.UlongAsDecimal200 ---> `decimal` [Precision = 20 Scale = 0]
+MappedDataTypes.UShortAsInt ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypes.UShortAsSmallint ---> `smallint` [Precision = 5 Scale = 0]
+MappedDataTypesWithIdentity.BoolAsBit ---> `bit`
+MappedDataTypesWithIdentity.ByteAsTinyint ---> `tinyint` [Precision = 3 Scale = 0]
+MappedDataTypesWithIdentity.BytesAsBinaryVaryingMax ---> `varbinary` [MaxLength = -1]
+MappedDataTypesWithIdentity.BytesAsImage ---> `image` [MaxLength = 2147483647]
+MappedDataTypesWithIdentity.BytesAsVarbinaryMax ---> `varbinary` [MaxLength = -1]
+MappedDataTypesWithIdentity.CharAsAsCharVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.CharAsCharacterVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.CharAsInt ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypesWithIdentity.CharAsNationalCharacterVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.CharAsNationalCharVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.CharAsNtext ---> `ntext` [MaxLength = 1073741823]
+MappedDataTypesWithIdentity.CharAsNvarcharMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.CharAsText ---> `text` [MaxLength = 2147483647]
+MappedDataTypesWithIdentity.CharAsVarcharMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.DateTimeAsDate ---> `date` [Precision = 0]
+MappedDataTypesWithIdentity.DateTimeAsDatetime ---> `datetime` [Precision = 3]
+MappedDataTypesWithIdentity.DateTimeAsDatetime2 ---> `datetime2` [Precision = 7]
+MappedDataTypesWithIdentity.DateTimeAsSmalldatetime ---> `smalldatetime` [Precision = 0]
+MappedDataTypesWithIdentity.DateTimeOffsetAsDatetimeoffset ---> `datetimeoffset` [Precision = 7]
+MappedDataTypesWithIdentity.Decimal ---> `decimal` [Precision = 18 Scale = 0]
+MappedDataTypesWithIdentity.DecimalAsDec ---> `decimal` [Precision = 18 Scale = 0]
+MappedDataTypesWithIdentity.DecimalAsMoney ---> `money` [Precision = 19 Scale = 4]
+MappedDataTypesWithIdentity.DecimalAsNumeric ---> `numeric` [Precision = 18 Scale = 0]
+MappedDataTypesWithIdentity.DecimalAsSmallmoney ---> `smallmoney` [Precision = 10 Scale = 4]
+MappedDataTypesWithIdentity.DoubleAsDoublePrecision ---> `float` [Precision = 53]
+MappedDataTypesWithIdentity.DoubleAsFloat ---> `float` [Precision = 53]
+MappedDataTypesWithIdentity.EnumAsNvarchar20 ---> `nvarchar` [MaxLength = 20]
+MappedDataTypesWithIdentity.EnumAsVarcharMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.FloatAsReal ---> `real` [Precision = 24]
+MappedDataTypesWithIdentity.GuidAsUniqueidentifier ---> `uniqueidentifier`
+MappedDataTypesWithIdentity.Id ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypesWithIdentity.Int ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypesWithIdentity.LongAsBigint ---> `bigint` [Precision = 19 Scale = 0]
+MappedDataTypesWithIdentity.SByteAsSmallint ---> `smallint` [Precision = 5 Scale = 0]
+MappedDataTypesWithIdentity.SbyteAsTinyint ---> `tinyint` [Precision = 3 Scale = 0]
+MappedDataTypesWithIdentity.ShortAsSmallint ---> `smallint` [Precision = 5 Scale = 0]
+MappedDataTypesWithIdentity.SqlVariantInt ---> `sql_variant` [MaxLength = 0]
+MappedDataTypesWithIdentity.SqlVariantString ---> `sql_variant` [MaxLength = 0]
+MappedDataTypesWithIdentity.StringAsCharacterVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.StringAsCharVaryingMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.StringAsNationalCharacterVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.StringAsNationalCharVaryingMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.StringAsNtext ---> `ntext` [MaxLength = 1073741823]
+MappedDataTypesWithIdentity.StringAsNvarcharMax ---> `nvarchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.StringAsText ---> `text` [MaxLength = 2147483647]
+MappedDataTypesWithIdentity.StringAsVarcharMax ---> `varchar` [MaxLength = -1]
+MappedDataTypesWithIdentity.TimeSpanAsTime ---> `time` [Precision = 7]
+MappedDataTypesWithIdentity.UintAsBigint ---> `bigint` [Precision = 19 Scale = 0]
+MappedDataTypesWithIdentity.UintAsInt ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypesWithIdentity.UlongAsBigint ---> `bigint` [Precision = 19 Scale = 0]
+MappedDataTypesWithIdentity.UlongAsDecimal200 ---> `decimal` [Precision = 20 Scale = 0]
+MappedDataTypesWithIdentity.UShortAsInt ---> `int` [Precision = 10 Scale = 0]
+MappedDataTypesWithIdentity.UShortAsSmallint ---> `smallint` [Precision = 5 Scale = 0]
+MappedNullableDataTypes.BoolAsBit ---> `nullable bit`
+MappedNullableDataTypes.ByteAsTinyint ---> `nullable tinyint` [Precision = 3 Scale = 0]
+MappedNullableDataTypes.BytesAsBinaryVaryingMax ---> `nullable varbinary` [MaxLength = -1]
+MappedNullableDataTypes.BytesAsImage ---> `nullable image` [MaxLength = 2147483647]
+MappedNullableDataTypes.BytesAsVarbinaryMax ---> `nullable varbinary` [MaxLength = -1]
+MappedNullableDataTypes.CharAsAsCharVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.CharAsCharacterVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.CharAsInt ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypes.CharAsNationalCharacterVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypes.CharAsNationalCharVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypes.CharAsNtext ---> `nullable ntext` [MaxLength = 1073741823]
+MappedNullableDataTypes.CharAsNvarcharMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypes.CharAsText ---> `nullable text` [MaxLength = 2147483647]
+MappedNullableDataTypes.CharAsVarcharMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.DateTimeAsDate ---> `nullable date` [Precision = 0]
+MappedNullableDataTypes.DateTimeAsDatetime ---> `nullable datetime` [Precision = 3]
+MappedNullableDataTypes.DateTimeAsDatetime2 ---> `nullable datetime2` [Precision = 7]
+MappedNullableDataTypes.DateTimeAsSmalldatetime ---> `nullable smalldatetime` [Precision = 0]
+MappedNullableDataTypes.DateTimeOffsetAsDatetimeoffset ---> `nullable datetimeoffset` [Precision = 7]
+MappedNullableDataTypes.Decimal ---> `nullable decimal` [Precision = 18 Scale = 0]
+MappedNullableDataTypes.DecimalAsDec ---> `nullable decimal` [Precision = 18 Scale = 0]
+MappedNullableDataTypes.DecimalAsMoney ---> `nullable money` [Precision = 19 Scale = 4]
+MappedNullableDataTypes.DecimalAsNumeric ---> `nullable numeric` [Precision = 18 Scale = 0]
+MappedNullableDataTypes.DecimalAsSmallmoney ---> `nullable smallmoney` [Precision = 10 Scale = 4]
+MappedNullableDataTypes.DoubleAsDoublePrecision ---> `nullable float` [Precision = 53]
+MappedNullableDataTypes.DoubleAsFloat ---> `nullable float` [Precision = 53]
+MappedNullableDataTypes.EnumAsNvarchar20 ---> `nullable nvarchar` [MaxLength = 20]
+MappedNullableDataTypes.EnumAsVarcharMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.FloatAsReal ---> `nullable real` [Precision = 24]
+MappedNullableDataTypes.GuidAsUniqueidentifier ---> `nullable uniqueidentifier`
+MappedNullableDataTypes.Int ---> `int` [Precision = 10 Scale = 0]
+MappedNullableDataTypes.LongAsBigint ---> `nullable bigint` [Precision = 19 Scale = 0]
+MappedNullableDataTypes.SByteAsSmallint ---> `nullable smallint` [Precision = 5 Scale = 0]
+MappedNullableDataTypes.SbyteAsTinyint ---> `nullable tinyint` [Precision = 3 Scale = 0]
+MappedNullableDataTypes.ShortAsSmallint ---> `nullable smallint` [Precision = 5 Scale = 0]
+MappedNullableDataTypes.SqlVariantInt ---> `nullable sql_variant` [MaxLength = 0]
+MappedNullableDataTypes.SqlVariantString ---> `nullable sql_variant` [MaxLength = 0]
+MappedNullableDataTypes.StringAsCharacterVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.StringAsCharVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.StringAsNationalCharacterVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypes.StringAsNationalCharVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypes.StringAsNtext ---> `nullable ntext` [MaxLength = 1073741823]
+MappedNullableDataTypes.StringAsNvarcharMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypes.StringAsText ---> `nullable text` [MaxLength = 2147483647]
+MappedNullableDataTypes.StringAsVarcharMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypes.TimeSpanAsTime ---> `nullable time` [Precision = 7]
+MappedNullableDataTypes.UintAsBigint ---> `nullable bigint` [Precision = 19 Scale = 0]
+MappedNullableDataTypes.UintAsInt ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypes.UlongAsBigint ---> `nullable bigint` [Precision = 19 Scale = 0]
+MappedNullableDataTypes.UlongAsDecimal200 ---> `nullable decimal` [Precision = 20 Scale = 0]
+MappedNullableDataTypes.UShortAsInt ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypes.UShortAsSmallint ---> `nullable smallint` [Precision = 5 Scale = 0]
+MappedNullableDataTypesWithIdentity.BoolAsBit ---> `nullable bit`
+MappedNullableDataTypesWithIdentity.ByteAsTinyint ---> `nullable tinyint` [Precision = 3 Scale = 0]
+MappedNullableDataTypesWithIdentity.BytesAsImage ---> `nullable image` [MaxLength = 2147483647]
+MappedNullableDataTypesWithIdentity.BytesAsVarbinaryMax ---> `nullable varbinary` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.BytesAsVaryingMax ---> `nullable varbinary` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.CharAsAsCharVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.CharAsCharacterVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.CharAsInt ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypesWithIdentity.CharAsNationalCharacterVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.CharAsNationalCharVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.CharAsNtext ---> `nullable ntext` [MaxLength = 1073741823]
+MappedNullableDataTypesWithIdentity.CharAsNvarcharMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.CharAsText ---> `nullable text` [MaxLength = 2147483647]
+MappedNullableDataTypesWithIdentity.CharAsVarcharMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.DateTimeAsDate ---> `nullable date` [Precision = 0]
+MappedNullableDataTypesWithIdentity.DateTimeAsDatetime ---> `nullable datetime` [Precision = 3]
+MappedNullableDataTypesWithIdentity.DateTimeAsDatetime2 ---> `nullable datetime2` [Precision = 7]
+MappedNullableDataTypesWithIdentity.DateTimeAsSmalldatetime ---> `nullable smalldatetime` [Precision = 0]
+MappedNullableDataTypesWithIdentity.DateTimeOffsetAsDatetimeoffset ---> `nullable datetimeoffset` [Precision = 7]
+MappedNullableDataTypesWithIdentity.Decimal ---> `nullable decimal` [Precision = 18 Scale = 0]
+MappedNullableDataTypesWithIdentity.DecimalAsDec ---> `nullable decimal` [Precision = 18 Scale = 0]
+MappedNullableDataTypesWithIdentity.DecimalAsMoney ---> `nullable money` [Precision = 19 Scale = 4]
+MappedNullableDataTypesWithIdentity.DecimalAsNumeric ---> `nullable numeric` [Precision = 18 Scale = 0]
+MappedNullableDataTypesWithIdentity.DecimalAsSmallmoney ---> `nullable smallmoney` [Precision = 10 Scale = 4]
+MappedNullableDataTypesWithIdentity.DoubleAsDoublePrecision ---> `nullable float` [Precision = 53]
+MappedNullableDataTypesWithIdentity.DoubleAsFloat ---> `nullable float` [Precision = 53]
+MappedNullableDataTypesWithIdentity.EnumAsNvarchar20 ---> `nullable nvarchar` [MaxLength = 20]
+MappedNullableDataTypesWithIdentity.EnumAsVarcharMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.FloatAsReal ---> `nullable real` [Precision = 24]
+MappedNullableDataTypesWithIdentity.GuidAsUniqueidentifier ---> `nullable uniqueidentifier`
+MappedNullableDataTypesWithIdentity.Id ---> `int` [Precision = 10 Scale = 0]
+MappedNullableDataTypesWithIdentity.Int ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypesWithIdentity.LongAsBigint ---> `nullable bigint` [Precision = 19 Scale = 0]
+MappedNullableDataTypesWithIdentity.SByteAsSmallint ---> `nullable smallint` [Precision = 5 Scale = 0]
+MappedNullableDataTypesWithIdentity.SbyteAsTinyint ---> `nullable tinyint` [Precision = 3 Scale = 0]
+MappedNullableDataTypesWithIdentity.ShortAsSmallint ---> `nullable smallint` [Precision = 5 Scale = 0]
+MappedNullableDataTypesWithIdentity.SqlVariantInt ---> `nullable sql_variant` [MaxLength = 0]
+MappedNullableDataTypesWithIdentity.SqlVariantString ---> `nullable sql_variant` [MaxLength = 0]
+MappedNullableDataTypesWithIdentity.StringAsCharacterVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.StringAsCharVaryingMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.StringAsNationalCharacterVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.StringAsNationalCharVaryingMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.StringAsNtext ---> `nullable ntext` [MaxLength = 1073741823]
+MappedNullableDataTypesWithIdentity.StringAsNvarcharMax ---> `nullable nvarchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.StringAsText ---> `nullable text` [MaxLength = 2147483647]
+MappedNullableDataTypesWithIdentity.StringAsVarcharMax ---> `nullable varchar` [MaxLength = -1]
+MappedNullableDataTypesWithIdentity.TimeSpanAsTime ---> `nullable time` [Precision = 7]
+MappedNullableDataTypesWithIdentity.UintAsBigint ---> `nullable bigint` [Precision = 19 Scale = 0]
+MappedNullableDataTypesWithIdentity.UintAsInt ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypesWithIdentity.UlongAsBigint ---> `nullable bigint` [Precision = 19 Scale = 0]
+MappedNullableDataTypesWithIdentity.UlongAsDecimal200 ---> `nullable decimal` [Precision = 20 Scale = 0]
+MappedNullableDataTypesWithIdentity.UShortAsInt ---> `nullable int` [Precision = 10 Scale = 0]
+MappedNullableDataTypesWithIdentity.UshortAsSmallint ---> `nullable smallint` [Precision = 5 Scale = 0]
+MappedPrecisionAndScaledDataTypes.DecimalAsDec52 ---> `decimal` [Precision = 5 Scale = 2]
+MappedPrecisionAndScaledDataTypes.DecimalAsDecimal52 ---> `decimal` [Precision = 5 Scale = 2]
+MappedPrecisionAndScaledDataTypes.DecimalAsNumeric52 ---> `numeric` [Precision = 5 Scale = 2]
+MappedPrecisionAndScaledDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDec52 ---> `decimal` [Precision = 5 Scale = 2]
+MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDecimal52 ---> `decimal` [Precision = 5 Scale = 2]
+MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsNumeric52 ---> `numeric` [Precision = 5 Scale = 2]
+MappedPrecisionAndScaledDataTypesWithIdentity.Id ---> `int` [Precision = 10 Scale = 0]
+MappedPrecisionAndScaledDataTypesWithIdentity.Int ---> `int` [Precision = 10 Scale = 0]
+MappedScaledDataTypes.DateTimeAsDatetime23 ---> `datetime2` [Precision = 3]
+MappedScaledDataTypes.DateTimeOffsetAsDatetimeoffset3 ---> `datetimeoffset` [Precision = 3]
+MappedScaledDataTypes.DecimalAsDec3 ---> `decimal` [Precision = 3 Scale = 0]
+MappedScaledDataTypes.DecimalAsDecimal3 ---> `decimal` [Precision = 3 Scale = 0]
+MappedScaledDataTypes.DecimalAsNumeric3 ---> `numeric` [Precision = 3 Scale = 0]
+MappedScaledDataTypes.FloatAsDoublePrecision25 ---> `float` [Precision = 53]
+MappedScaledDataTypes.FloatAsDoublePrecision3 ---> `real` [Precision = 24]
+MappedScaledDataTypes.FloatAsFloat25 ---> `float` [Precision = 53]
+MappedScaledDataTypes.FloatAsFloat3 ---> `real` [Precision = 24]
+MappedScaledDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+MappedScaledDataTypesWithIdentity.DateTimeAsDatetime23 ---> `datetime2` [Precision = 3]
+MappedScaledDataTypesWithIdentity.DateTimeOffsetAsDatetimeoffset3 ---> `datetimeoffset` [Precision = 3]
+MappedScaledDataTypesWithIdentity.DecimalAsDec3 ---> `decimal` [Precision = 3 Scale = 0]
+MappedScaledDataTypesWithIdentity.DecimalAsDecimal3 ---> `decimal` [Precision = 3 Scale = 0]
+MappedScaledDataTypesWithIdentity.DecimalAsNumeric3 ---> `numeric` [Precision = 3 Scale = 0]
+MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision25 ---> `float` [Precision = 53]
+MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision3 ---> `real` [Precision = 24]
+MappedScaledDataTypesWithIdentity.FloatAsFloat25 ---> `float` [Precision = 53]
+MappedScaledDataTypesWithIdentity.FloatAsFloat3 ---> `real` [Precision = 24]
+MappedScaledDataTypesWithIdentity.Id ---> `int` [Precision = 10 Scale = 0]
+MappedScaledDataTypesWithIdentity.Int ---> `int` [Precision = 10 Scale = 0]
+MappedSizedDataTypes.BytesAsBinary3 ---> `nullable binary` [MaxLength = 3]
+MappedSizedDataTypes.BytesAsBinaryVarying3 ---> `nullable varbinary` [MaxLength = 3]
+MappedSizedDataTypes.BytesAsVarbinary3 ---> `nullable varbinary` [MaxLength = 3]
+MappedSizedDataTypes.CharAsAsCharVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypes.CharAsCharacterVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypes.CharAsNationalCharacterVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypes.CharAsNationalCharVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypes.CharAsNvarchar3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypes.CharAsVarchar3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+MappedSizedDataTypes.StringAsChar3 ---> `nullable char` [MaxLength = 3]
+MappedSizedDataTypes.StringAsCharacter3 ---> `nullable char` [MaxLength = 3]
+MappedSizedDataTypes.StringAsCharacterVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsCharVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsNationalCharacter3 ---> `nullable nchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsNationalCharacterVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsNationalCharVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsNchar3 ---> `nullable nchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsNvarchar3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypes.StringAsVarchar3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.BytesAsBinary3 ---> `nullable binary` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.BytesAsBinaryVarying3 ---> `nullable varbinary` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.BytesAsVarbinary3 ---> `nullable varbinary` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.CharAsAsCharVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.CharAsCharacterVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.CharAsNationalCharacterVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.CharAsNationalCharVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.CharAsNvarchar3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.CharAsVarchar3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.Id ---> `int` [Precision = 10 Scale = 0]
+MappedSizedDataTypesWithIdentity.Int ---> `int` [Precision = 10 Scale = 0]
+MappedSizedDataTypesWithIdentity.StringAsChar3 ---> `nullable char` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsCharacter3 ---> `nullable char` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsCharacterVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsCharVarying3 ---> `nullable varchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsNationalCharacter3 ---> `nullable nchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsNationalCharacterVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsNationalCharVarying3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsNchar3 ---> `nullable nchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsNvarchar3 ---> `nullable nvarchar` [MaxLength = 3]
+MappedSizedDataTypesWithIdentity.StringAsVarchar3 ---> `nullable varchar` [MaxLength = 3]
+MaxLengthDataTypes.ByteArray5 ---> `nullable varbinary` [MaxLength = 5]
+MaxLengthDataTypes.ByteArray9000 ---> `nullable varbinary` [MaxLength = -1]
+MaxLengthDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+MaxLengthDataTypes.String3 ---> `nullable nvarchar` [MaxLength = 3]
+MaxLengthDataTypes.String9000 ---> `nullable nvarchar` [MaxLength = -1]
+StringForeignKeyDataType.Id ---> `int` [Precision = 10 Scale = 0]
+StringForeignKeyDataType.StringKeyDataTypeId ---> `nullable nvarchar` [MaxLength = 450]
+StringKeyDataType.Id ---> `nvarchar` [MaxLength = 450]
+UnicodeDataTypes.Id ---> `int` [Precision = 10 Scale = 0]
+UnicodeDataTypes.StringAnsi ---> `nullable varchar` [MaxLength = -1]
+UnicodeDataTypes.StringAnsi3 ---> `nullable varchar` [MaxLength = 3]
+UnicodeDataTypes.StringAnsi9000 ---> `nullable varchar` [MaxLength = -1]
+UnicodeDataTypes.StringDefault ---> `nullable nvarchar` [MaxLength = -1]
+UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
 ";
 
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
 
-        [Fact]
+        [ConditionalFact]
         public void Can_get_column_types_from_built_model()
         {
             using (var context = CreateContext())
@@ -1825,7 +2969,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
 
                 foreach (var property in context.Model.GetEntityTypes().SelectMany(e => e.GetDeclaredProperties()))
                 {
-                    var columnType = property.Relational().ColumnType;
+                    var columnType = property.GetColumnType();
                     Assert.NotNull(columnType);
 
                     if (property[RelationalAnnotationNames.ColumnType] == null)
@@ -1838,7 +2982,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             }
         }
 
-        public static string QueryForColumnTypes(DbContext context)
+        public static string QueryForColumnTypes(DbContext context, params string[] tablesToIgnore)
         {
             const string query
                 = @"SELECT
@@ -1872,12 +3016,15 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
                             DataType = reader.GetString(2),
                             IsNullable = reader.IsDBNull(3) ? null : (bool?)(reader.GetString(3) == "YES"),
                             MaxLength = reader.IsDBNull(4) ? null : (int?)reader.GetInt32(4),
-                            NumericPrecision = reader.IsDBNull(5) ? null : (int?)reader.GetInt16(5),
-                            NumericScale = reader.IsDBNull(6) ? null : (int?)reader.GetInt16(6),
-                            DateTimePrecision = null
+                            NumericPrecision = reader.IsDBNull(5) ? null : (int?)reader.GetByte(5),
+                            NumericScale = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
+                            DateTimePrecision = reader.IsDBNull(7) ? null : (int?)reader.GetInt16(7)
                         };
 
-                        columns.Add(columnInfo);
+                        if (!tablesToIgnore.Contains(columnInfo.TableName))
+                        {
+                            columns.Add(columnInfo);
+                        }
                     }
                 }
             }
@@ -1938,21 +3085,28 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             return actual;
         }
 
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
         public class BuiltInDataTypesJetFixture : BuiltInDataTypesFixtureBase
         {
             public override bool StrictEquality => true;
 
-            public override bool SupportsAnsi => false;
+            public override bool SupportsAnsi => true;
 
-            public override bool SupportsUnicodeToAnsiConversion => false;
+            public override bool SupportsUnicodeToAnsiConversion => true;
 
-            public override bool SupportsLargeStringComparisons => false;
+            public override bool SupportsLargeStringComparisons => true;
+
+            public override bool SupportsDecimalComparisons => true;
 
             protected override ITestStoreFactory TestStoreFactory
                 => JetTestStoreFactory.Instance;
 
-            public TestSqlLoggerFactory TestSqlLoggerFactory
-                => (TestSqlLoggerFactory)ServiceProvider.GetRequiredService<ILoggerFactory>();
+            protected override bool ShouldLogCategory(string logCategory)
+                => logCategory == DbLoggerCategory.Query.Name;
+
+            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {
@@ -2005,19 +3159,16 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             {
                 var options = base.AddOptions(builder).ConfigureWarnings(
                     c => c
-                        .Log(RelationalEventId.QueryClientEvaluationWarning));
-                //.Log(SqlServerEventId.DecimalTypeDefaultWarning));
+                        .Log(JetEventId.DecimalTypeDefaultWarning));
 
                 new JetDbContextOptionsBuilder(options).MinBatchSize(1);
 
                 return options;
             }
 
-            public override int LongStringLength => 250;
-
             public override bool SupportsBinaryKeys => true;
 
-            public override DateTime DefaultDateTime => new DateTime(1900, 1, 1);
+            public override DateTime DefaultDateTime => new DateTime();
         }
 
         [Flags]
@@ -2041,7 +3192,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public int Int { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public long LongAsBigInt { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2053,7 +3204,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public uint UintAsInt { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public ulong UlongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2068,17 +3219,65 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "money")]
             public decimal DecimalAsMoney { get; set; }
 
+            [Column(TypeName = "smallmoney")]
+            public decimal DecimalAsSmallmoney { get; set; }
+
             [Column(TypeName = "float")]
             public double DoubleAsFloat { get; set; }
 
             [Column(TypeName = "real")]
             public float FloatAsReal { get; set; }
 
+            [Column(TypeName = "double precision")]
+            public double DoubleAsDoublePrecision { get; set; }
+
+            [Column(TypeName = "date")]
+            public DateTime DateTimeAsDate { get; set; }
+
+            [Column(TypeName = "datetimeoffset")]
+            public DateTimeOffset DateTimeOffsetAsDatetimeoffset { get; set; }
+
+            [Column(TypeName = "datetime2")]
+            public DateTime DateTimeAsDatetime2 { get; set; }
+
+            [Column(TypeName = "smalldatetime")]
+            public DateTime DateTimeAsSmalldatetime { get; set; }
+
             [Column(TypeName = "datetime")]
             public DateTime DateTimeAsDatetime { get; set; }
 
+            [Column(TypeName = "time")]
+            public TimeSpan TimeSpanAsTime { get; set; }
+
+            [Column(TypeName = "varchar(max)")]
+            public string StringAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public string StringAsAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public string StringAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public string StringAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public string StringAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public string StringAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public string StringAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
+
+            [Column(TypeName = "varbinary(max)")]
+            public byte[] BytesAsVarbinaryMax { get; set; }
+
+            [Column(TypeName = "binary varying(max)")]
+            public byte[] BytesAsBinaryVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
             public byte[] BytesAsImage { get; set; }
@@ -2092,10 +3291,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "numeric")]
             public decimal DecimalAsNumeric { get; set; }
 
-            [Column(TypeName = "image")]
+            [Column(TypeName = "uniqueidentifier")]
             public Guid GuidAsUniqueidentifier { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public uint UintAsBigint { get; set; }
 
             [Column(TypeName = "decimal(20,0)")]
@@ -2107,19 +3306,64 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "smallint")]
             public sbyte SByteAsSmallint { get; set; }
 
+            [Column(TypeName = "varchar(max)")]
+            public char CharAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public char CharAsAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public char CharAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public char CharAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public char CharAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public char CharAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public char CharAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public char CharAsNtext { get; set; }
 
             [Column(TypeName = "int")]
             public char CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(20)")]
+            [Column(TypeName = "varchar(max)")]
+            public StringEnum16 EnumAsVarcharMax { get; set; }
+
+            [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantString { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantInt { get; set; }
         }
 
         protected class MappedSizedDataTypes
         {
             public int Id { get; set; }
+
+            [Column(TypeName = "char(3)")]
+            public string StringAsChar3 { get; set; }
+
+            [Column(TypeName = "character(3)")]
+            public string StringAsCharacter3 { get; set; }
+
+            [Column(TypeName = "varchar(3)")]
+            public string StringAsVarchar3 { get; set; }
+
+            [Column(TypeName = "char varying(3)")]
+            public string StringAsCharVarying3 { get; set; }
+
+            [Column(TypeName = "character varying(3)")]
+            public string StringAsCharacterVarying3 { get; set; }
 
             [Column(TypeName = "nchar(3)")]
             public string StringAsNchar3 { get; set; }
@@ -2142,6 +3386,18 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "varbinary(3)")]
             public byte[] BytesAsVarbinary3 { get; set; }
 
+            [Column(TypeName = "binary varying(3)")]
+            public byte[] BytesAsBinaryVarying3 { get; set; }
+
+            [Column(TypeName = "varchar(3)")]
+            public char? CharAsVarchar3 { get; set; }
+
+            [Column(TypeName = "char varying(3)")]
+            public char? CharAsAsCharVarying3 { get; set; }
+
+            [Column(TypeName = "character varying(3)")]
+            public char? CharAsCharacterVarying3 { get; set; }
+
             [Column(TypeName = "nvarchar(3)")]
             public char? CharAsNvarchar3 { get; set; }
 
@@ -2155,6 +3411,24 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
         protected class MappedScaledDataTypes
         {
             public int Id { get; set; }
+
+            [Column(TypeName = "float(3)")]
+            public float FloatAsFloat3 { get; set; }
+
+            [Column(TypeName = "double precision(3)")]
+            public float FloatAsDoublePrecision3 { get; set; }
+
+            [Column(TypeName = "float(25)")]
+            public float FloatAsFloat25 { get; set; }
+
+            [Column(TypeName = "double precision(25)")]
+            public float FloatAsDoublePrecision25 { get; set; }
+
+            [Column(TypeName = "datetimeoffset(3)")]
+            public DateTimeOffset DateTimeOffsetAsDatetimeoffset3 { get; set; }
+
+            [Column(TypeName = "datetime2(3)")]
+            public DateTime DateTimeAsDatetime23 { get; set; }
 
             [Column(TypeName = "decimal(3)")]
             public decimal DecimalAsDecimal3 { get; set; }
@@ -2185,7 +3459,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public int? Int { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public long? LongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2197,7 +3471,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public uint? UintAsInt { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public ulong? UlongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2212,17 +3486,65 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "money")]
             public decimal? DecimalAsMoney { get; set; }
 
+            [Column(TypeName = "smallmoney")]
+            public decimal? DecimalAsSmallmoney { get; set; }
+
             [Column(TypeName = "float")]
             public double? DoubleAsFloat { get; set; }
 
             [Column(TypeName = "real")]
             public float? FloatAsReal { get; set; }
 
+            [Column(TypeName = "double precision")]
+            public double? DoubleAsDoublePrecision { get; set; }
+
+            [Column(TypeName = "date")]
+            public DateTime? DateTimeAsDate { get; set; }
+
+            [Column(TypeName = "datetimeoffset")]
+            public DateTimeOffset? DateTimeOffsetAsDatetimeoffset { get; set; }
+
+            [Column(TypeName = "datetime2")]
+            public DateTime? DateTimeAsDatetime2 { get; set; }
+
+            [Column(TypeName = "smalldatetime")]
+            public DateTime? DateTimeAsSmalldatetime { get; set; }
+
             [Column(TypeName = "datetime")]
             public DateTime? DateTimeAsDatetime { get; set; }
 
+            [Column(TypeName = "time")]
+            public TimeSpan? TimeSpanAsTime { get; set; }
+
+            [Column(TypeName = "varchar(max)")]
+            public string StringAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public string StringAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public string StringAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public string StringAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public string StringAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public string StringAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public string StringAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
+
+            [Column(TypeName = "varbinary(max)")]
+            public byte[] BytesAsVarbinaryMax { get; set; }
+
+            [Column(TypeName = "binary varying(max)")]
+            public byte[] BytesAsBinaryVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
             public byte[] BytesAsImage { get; set; }
@@ -2239,7 +3561,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "uniqueidentifier")]
             public Guid? GuidAsUniqueidentifier { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public uint? UintAsBigint { get; set; }
 
             [Column(TypeName = "decimal(20,0)")]
@@ -2251,14 +3573,44 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "smallint")]
             public sbyte? SByteAsSmallint { get; set; }
 
+            [Column(TypeName = "varchar(max)")]
+            public char? CharAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public char? CharAsAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public char? CharAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public char? CharAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public char? CharAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public char? CharAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public char? CharAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public char? CharAsNtext { get; set; }
 
             [Column(TypeName = "int")]
             public char? CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(20)")]
+            [Column(TypeName = "varchar(max)")]
+            public StringEnum16? EnumAsVarcharMax { get; set; }
+
+            [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantString { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantInt { get; set; }
         }
 
         protected class MappedDataTypesWithIdentity
@@ -2268,7 +3620,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public int Int { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public long LongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2280,7 +3632,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public uint UintAsInt { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public ulong UlongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2295,17 +3647,65 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "money")]
             public decimal DecimalAsMoney { get; set; }
 
+            [Column(TypeName = "smallmoney")]
+            public decimal DecimalAsSmallmoney { get; set; }
+
             [Column(TypeName = "float")]
             public double DoubleAsFloat { get; set; }
 
             [Column(TypeName = "real")]
             public float FloatAsReal { get; set; }
 
+            [Column(TypeName = "double precision")]
+            public double DoubleAsDoublePrecision { get; set; }
+
+            [Column(TypeName = "date")]
+            public DateTime DateTimeAsDate { get; set; }
+
+            [Column(TypeName = "datetimeoffset")]
+            public DateTimeOffset DateTimeOffsetAsDatetimeoffset { get; set; }
+
+            [Column(TypeName = "datetime2")]
+            public DateTime DateTimeAsDatetime2 { get; set; }
+
+            [Column(TypeName = "smalldatetime")]
+            public DateTime DateTimeAsSmalldatetime { get; set; }
+
             [Column(TypeName = "datetime")]
             public DateTime DateTimeAsDatetime { get; set; }
 
+            [Column(TypeName = "time")]
+            public TimeSpan TimeSpanAsTime { get; set; }
+
+            [Column(TypeName = "varchar(max)")]
+            public string StringAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public string StringAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public string StringAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public string StringAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public string StringAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public string StringAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public string StringAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
+
+            [Column(TypeName = "varbinary(max)")]
+            public byte[] BytesAsVarbinaryMax { get; set; }
+
+            [Column(TypeName = "binary varying(max)")]
+            public byte[] BytesAsBinaryVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
             public byte[] BytesAsImage { get; set; }
@@ -2322,7 +3722,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "uniqueidentifier")]
             public Guid GuidAsUniqueidentifier { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public uint UintAsBigint { get; set; }
 
             [Column(TypeName = "decimal(20,0)")]
@@ -2334,20 +3734,65 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "smallint")]
             public sbyte SByteAsSmallint { get; set; }
 
+            [Column(TypeName = "varchar(max)")]
+            public char CharAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public char CharAsAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public char CharAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public char CharAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public char CharAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public char CharAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public char CharAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public char CharAsNtext { get; set; }
 
             [Column(TypeName = "int")]
             public char CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(20)")]
+            [Column(TypeName = "varchar(max)")]
+            public StringEnum16 EnumAsVarcharMax { get; set; }
+
+            [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantString { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantInt { get; set; }
         }
 
         protected class MappedSizedDataTypesWithIdentity
         {
             public int Id { get; set; }
             public int Int { get; set; }
+
+            [Column(TypeName = "char(3)")]
+            public string StringAsChar3 { get; set; }
+
+            [Column(TypeName = "character(3)")]
+            public string StringAsCharacter3 { get; set; }
+
+            [Column(TypeName = "varchar(3)")]
+            public string StringAsVarchar3 { get; set; }
+
+            [Column(TypeName = "char varying(3)")]
+            public string StringAsCharVarying3 { get; set; }
+
+            [Column(TypeName = "character varying(3)")]
+            public string StringAsCharacterVarying3 { get; set; }
 
             [Column(TypeName = "nchar(3)")]
             public string StringAsNchar3 { get; set; }
@@ -2370,6 +3815,18 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "varbinary(3)")]
             public byte[] BytesAsVarbinary3 { get; set; }
 
+            [Column(TypeName = "binary varying(3)")]
+            public byte[] BytesAsBinaryVarying3 { get; set; }
+
+            [Column(TypeName = "varchar(3)")]
+            public char? CharAsVarchar3 { get; set; }
+
+            [Column(TypeName = "char varying(3)")]
+            public char? CharAsAsCharVarying3 { get; set; }
+
+            [Column(TypeName = "character varying(3)")]
+            public char? CharAsCharacterVarying3 { get; set; }
+
             [Column(TypeName = "nvarchar(3)")]
             public char? CharAsNvarchar3 { get; set; }
 
@@ -2384,6 +3841,24 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
         {
             public int Id { get; set; }
             public int Int { get; set; }
+
+            [Column(TypeName = "float(3)")]
+            public float FloatAsFloat3 { get; set; }
+
+            [Column(TypeName = "double precision(3)")]
+            public float FloatAsDoublePrecision3 { get; set; }
+
+            [Column(TypeName = "float(25)")]
+            public float FloatAsFloat25 { get; set; }
+
+            [Column(TypeName = "double precision(25)")]
+            public float FloatAsDoublePrecision25 { get; set; }
+
+            [Column(TypeName = "datetimeoffset(3)")]
+            public DateTimeOffset DateTimeOffsetAsDatetimeoffset3 { get; set; }
+
+            [Column(TypeName = "datetime2(3)")]
+            public DateTime DateTimeAsDatetime23 { get; set; }
 
             [Column(TypeName = "decimal(3)")]
             public decimal DecimalAsDecimal3 { get; set; }
@@ -2417,7 +3892,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public int? Int { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public long? LongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2429,7 +3904,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "int")]
             public uint? UintAsInt { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public ulong? UlongAsBigint { get; set; }
 
             [Column(TypeName = "smallint")]
@@ -2444,17 +3919,65 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "money")]
             public decimal? DecimalAsMoney { get; set; }
 
+            [Column(TypeName = "smallmoney")]
+            public decimal? DecimalAsSmallmoney { get; set; }
+
             [Column(TypeName = "float")]
             public double? DoubleAsFloat { get; set; }
 
             [Column(TypeName = "real")]
             public float? FloatAsReal { get; set; }
 
+            [Column(TypeName = "double precision")]
+            public double? DoubleAsDoublePrecision { get; set; }
+
+            [Column(TypeName = "date")]
+            public DateTime? DateTimeAsDate { get; set; }
+
+            [Column(TypeName = "datetimeoffset")]
+            public DateTimeOffset? DateTimeOffsetAsDatetimeoffset { get; set; }
+
+            [Column(TypeName = "datetime2")]
+            public DateTime? DateTimeAsDatetime2 { get; set; }
+
+            [Column(TypeName = "smalldatetime")]
+            public DateTime? DateTimeAsSmalldatetime { get; set; }
+
             [Column(TypeName = "datetime")]
             public DateTime? DateTimeAsDatetime { get; set; }
 
+            [Column(TypeName = "time")]
+            public TimeSpan? TimeSpanAsTime { get; set; }
+
+            [Column(TypeName = "varchar(max)")]
+            public string StringAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public string StringAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public string StringAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public string StringAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public string StringAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public string StringAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public string StringAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
+
+            [Column(TypeName = "varbinary(max)")]
+            public byte[] BytesAsVarbinaryMax { get; set; }
+
+            [Column(TypeName = "binary varying(max)")]
+            public byte[] BytesAsVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
             public byte[] BytesAsImage { get; set; }
@@ -2471,7 +3994,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "uniqueidentifier")]
             public Guid? GuidAsUniqueidentifier { get; set; }
 
-            [Column(TypeName = "int")]
+            [Column(TypeName = "bigint")]
             public uint? UintAsBigint { get; set; }
 
             [Column(TypeName = "decimal(20,0)")]
@@ -2483,14 +4006,44 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = 4000]
             [Column(TypeName = "smallint")]
             public sbyte? SByteAsSmallint { get; set; }
 
+            [Column(TypeName = "varchar(max)")]
+            public char? CharAsVarcharMax { get; set; }
+
+            [Column(TypeName = "char varying(max)")]
+            public char? CharAsAsCharVaryingMax { get; set; }
+
+            [Column(TypeName = "character varying(max)")]
+            public char? CharAsCharacterVaryingMax { get; set; }
+
+            [Column(TypeName = "nvarchar(max)")]
+            public char? CharAsNvarcharMax { get; set; }
+
+            [Column(TypeName = "national char varying(max)")]
+            public char? CharAsNationalCharVaryingMax { get; set; }
+
+            [Column(TypeName = "national character varying(max)")]
+            public char? CharAsNationalCharacterVaryingMax { get; set; }
+
             [Column(TypeName = "text")]
+            public char? CharAsText { get; set; }
+
+            [Column(TypeName = "ntext")]
             public char? CharAsNtext { get; set; }
 
             [Column(TypeName = "int")]
             public char? CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(20)")]
+            [Column(TypeName = "varchar(max)")]
+            public StringEnum16? EnumAsVarcharMax { get; set; }
+
+            [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantString { get; set; }
+
+            [Column(TypeName = "sql_variant")]
+            public object SqlVariantInt { get; set; }
         }
 
         public class ColumnInfo

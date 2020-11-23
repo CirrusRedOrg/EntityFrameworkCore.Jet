@@ -1,4 +1,5 @@
 <#
     Session["ResourceFile"] = "JetStrings.resx";
+    Session["LoggingDefinitionsClass"] = "Diagnostics.Internal.JetLoggingDefinitions";
 #>
 <#@ include file="..\..\..\tools\Resources.tt" #>

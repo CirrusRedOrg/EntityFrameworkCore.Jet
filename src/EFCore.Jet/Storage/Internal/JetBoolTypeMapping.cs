@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data;
+﻿using System.Data;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -7,11 +6,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetBoolTypeMapping : BoolTypeMapping
     {
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="BoolTypeMapping" /> class.
-        /// </summary>
-        /// <param name="storeType"> The name of the database type. </param>
-        /// <param name="dbType"> The <see cref="DbType" /> to be used. </param>
         public JetBoolTypeMapping(
             [NotNull] string storeType,
             DbType? dbType = System.Data.DbType.Boolean)
@@ -19,23 +13,17 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
         }
 
-        /// <summary>
-        ///     Creates a copy of this mapping.
-        /// </summary>
-        /// <param name="storeType"> The name of the database type. </param>
-        /// <param name="size"> The size of data the property is configured to store, or null if no size is configured. </param>
-        /// <returns> The newly created mapping. </returns>
-        public override RelationalTypeMapping Clone(string storeType, int? size)
-            => new JetBoolTypeMapping(storeType, DbType);
+        protected JetBoolTypeMapping(RelationalTypeMappingParameters parameters)
+            : base(parameters)
+        {
+        }
 
-        /// <summary>
-        ///     Generates the SQL representation of a literal value.
-        /// </summary>
-        /// <param name="value">The literal value.</param>
-        /// <returns>
-        ///     The generated string.
-        /// </returns>
+        protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
+            => new JetBoolTypeMapping(parameters);
+
         protected override string GenerateNonNullSqlLiteral(object value)
-            => (bool)value ? "True" : "False";
+            => (bool) value
+                ? "TRUE"
+                : "FALSE";
     }
 }

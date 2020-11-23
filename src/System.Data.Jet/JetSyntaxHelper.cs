@@ -15,7 +15,7 @@ namespace System.Data.Jet
         public static string ToSqlString(string value)
         {
             // In Jet everything's unicode
-            return "'" + value.Replace("'", "''") + "'";
+            return $"'{value.Replace("'", "''")}'";
         }
 
         public static string ToSqlString(int value)
@@ -31,6 +31,32 @@ namespace System.Data.Jet
         public static string ToSqlString(bool value)
         {
             return value ? "true" : "false";
+        }
+
+        public static string ToSqlStringSwitch(object value)
+        {
+            string output;
+            switch (value)
+            {
+                case bool b:
+                    output = ToSqlString(b);
+                    break;
+                case int i:
+                    output = ToSqlString(i);
+                    break;
+                case string str:
+                    output = ToSqlString(str);
+                    break;
+                case Guid guid:
+                    output = ToSqlString(guid);
+                    break;
+                case byte[] byteArray:
+                    output = ToSqlString(byteArray);
+                    break;
+                default:
+                    throw new NotSupportedException();
+            }
+            return output;
         }
 
         static string ByteArrayToBinaryString(byte[] binaryArray)
@@ -58,9 +84,9 @@ namespace System.Data.Jet
         internal static string QuoteIdentifier(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentNullException("name");
+                throw new ArgumentNullException(nameof(name));
 
-            return "[" + name.Replace("]", "]]") + "]";
+            return $"`{name}`";
         }
 
         /// <summary>

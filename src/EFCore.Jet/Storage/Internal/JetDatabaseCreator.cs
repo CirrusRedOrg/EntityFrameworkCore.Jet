@@ -2,9 +2,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.OleDb;
+using System.Threading;
+using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
-using EntityFrameworkCore.Jet.Properties;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -38,7 +39,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public override void Create()
         {
-
             using (var emptyConnection = _relationalConnection.CreateEmptyConnection())
             {
                 Dependencies.MigrationCommandExecutor
@@ -46,41 +46,69 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
                 ClearPool();
             }
-
         }
 
         /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        protected override bool HasTables()
+        public override bool HasTables()
         {
-            using (var dataReader = Dependencies.ExecutionStrategyFactory.Create()
-                .Execute(_relationalConnection, connection => CreateShowUserTablesCommand().ExecuteReader(connection)))
-                return dataReader.DbDataReader.HasRows;
+            return Dependencies.ExecutionStrategyFactory
+                .Create()
+                .Execute(
+                    _relationalConnection,
+                    connection =>
+                    {
+                        using var dataReader = CreateHasTablesCommand()
+                            .ExecuteReader(
+                                new RelationalCommandParameterObject(
+                                    connection,
+                                    null,
+                                    null,
+                                    Dependencies.CurrentContext.Context,
+                                    Dependencies.CommandLogger));
+                        return dataReader.DbDataReader.HasRows;
+                    });
         }
 
-        private IRelationalCommand CreateShowUserTablesCommand()
-        {
-            return _rawSqlCommandBuilder
-                           .Build("SHOW TABLES WHERE TYPE='USER'");
-        }
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public override Task<bool> HasTablesAsync(CancellationToken cancellationToken = default)
+            => Dependencies.ExecutionStrategyFactory.Create().ExecuteAsync(
+                _relationalConnection,
+                async (connection, ct) =>
+                {
+                    await using var dataReader = await CreateHasTablesCommand()
+                        .ExecuteReaderAsync(
+                            new RelationalCommandParameterObject(
+                                connection,
+                                null,
+                                null,
+                                Dependencies.CurrentContext.Context,
+                                Dependencies.CommandLogger),
+                            cancellationToken: ct);
+                    return dataReader.DbDataReader.HasRows;
+                }, cancellationToken);
 
-        // ReSharper disable once UnusedMember.Local
+        private IRelationalCommand CreateHasTablesCommand()
+            => _rawSqlCommandBuilder.Build(@"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')");
+
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
-        {
-            var builder = new OleDbConnectionStringBuilder(_relationalConnection.DbConnection.ConnectionString);
-            return Dependencies.MigrationsSqlGenerator.Generate(new[] { new JetCreateDatabaseOperation { Name = builder.DataSource} });
-        }
+            => Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = _relationalConnection.DbConnection.DataSource}});
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override bool Exists()
-        {
-            return System.Data.Jet.JetConnection.DatabaseExists(_relationalConnection.DbConnection.ConnectionString);
-        }
+            => System.Data.Jet.JetConnection.DatabaseExists(_relationalConnection.DbConnection.ConnectionString);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -108,7 +136,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             var operations = new MigrationOperation[]
             {
-                new JetDropDatabaseOperation { Name = databaseName }
+                new JetDropDatabaseOperation {Name = databaseName}
             };
 
             var masterCommands = Dependencies.MigrationsSqlGenerator.Generate(operations);
@@ -116,10 +144,12 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         }
 
         // Clear connection pools in case there are active connections that are pooled
-        private static void ClearAllPools() => System.Data.Jet.JetConnection.ClearAllPools();
+        private static void ClearAllPools()
+            => System.Data.Jet.JetConnection.ClearAllPools();
 
         // Clear connection pool for the database connection since after the 'create database' call, a previously
         // invalid connection may now be valid.
-        private void ClearPool() => System.Data.Jet.JetConnection.ClearPool((System.Data.Jet.JetConnection)_relationalConnection.DbConnection);
+        private void ClearPool()
+            => System.Data.Jet.JetConnection.ClearPool((System.Data.Jet.JetConnection) _relationalConnection.DbConnection);
     }
 }

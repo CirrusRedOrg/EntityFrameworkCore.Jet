@@ -1,28 +1,38 @@
-﻿using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace System.Data.Jet.Test
 {
     [TestClass]
     public class DdlTest
     {
+        private const string StoreName = nameof(DdlTest) + ".accdb";
+
+        private JetConnection _connection;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _connection = Helpers.CreateAndOpenDatabase(StoreName);
+        }
+
+        [TestCleanup]
+        public void TearDown()
+        {
+            _connection?.Close();
+            Helpers.DeleteDatabase(StoreName);
+        }
+
         [TestMethod]
         public void CheckIfTablesExists()
         {
+            var queries = Helpers.GetQueries(Properties.Resources.CheckIfTableExistsTestQueries);
 
-            var queries = Helpers.GetQueries(System.Data.Jet.Test.Properties.Resources.CheckIfTableExistsTestQueries);
+            Helpers.Execute(_connection, queries[0]);
 
-            using (var connection = Helpers.GetJetConnection())
-            {
-                connection.Open();
-                Helpers.Execute(connection, queries[0]);
+            var exists = _connection.TableExists("CheckIfTableExistsTable");
+            Assert.IsTrue(exists);
 
-                bool exists = ((JetConnection)AssemblyInitialization.Connection).TableExists("CheckIfTableExistsTable");
-                Assert.IsTrue(exists);
-
-                Helpers.Execute(connection, queries[1]);
-            }
-
+            Helpers.Execute(_connection, queries[1]);
         }
     }
 }

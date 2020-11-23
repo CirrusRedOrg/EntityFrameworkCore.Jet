@@ -2,9 +2,8 @@
 
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Query.Expressions;
-using Microsoft.EntityFrameworkCore.Query.Sql;
-using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
@@ -12,9 +11,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetQuerySqlGeneratorFactory : QuerySqlGeneratorFactoryBase
+    public class JetQuerySqlGeneratorFactory : IQuerySqlGeneratorFactory
     {
-        private readonly IJetOptions _jetOptions;
+        [NotNull] private readonly QuerySqlGeneratorDependencies _dependencies;
+        [NotNull] private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        [NotNull] private readonly ITypeMappingSource _typeMappingSource;
+        [NotNull] private readonly IJetOptions _options;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -22,19 +24,17 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         public JetQuerySqlGeneratorFactory(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
-            [NotNull] IJetOptions jetOptions)
-            : base(dependencies)
+            [NotNull] ISqlExpressionFactory sqlExpressionFactory,
+            [NotNull] ITypeMappingSource typeMappingSource,
+            [NotNull] IJetOptions options)
         {
-            _jetOptions = jetOptions;
+            _dependencies = dependencies;
+            _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+            _typeMappingSource = typeMappingSource;
+            _options = options;
         }
 
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public override IQuerySqlGenerator CreateDefault(SelectExpression selectExpression)
-            => new JetQuerySqlGenerator(
-                Dependencies,
-                Check.NotNull(selectExpression, nameof(selectExpression)));
+        public virtual QuerySqlGenerator Create()
+            => new JetQuerySqlGenerator(_dependencies, _sqlExpressionFactory, _typeMappingSource, _options);
     }
 }

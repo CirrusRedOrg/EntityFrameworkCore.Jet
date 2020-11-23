@@ -1,23 +1,18 @@
-﻿using System;
-
-// ReSharper disable InconsistentNaming
-
-namespace System.Data.Jet
+﻿namespace System.Data.Jet
 {
     /// <summary>
     /// Jet configuration
     /// </summary>
     public static class JetConfiguration
     {
-
         /// <summary>
         /// The time span offset (Jet does not support timespans)
         /// </summary>
-        public static DateTime TimeSpanOffset = new DateTime(1899, 12, 30);
-
+        public static DateTime TimeSpanOffset { get; set; } = new DateTime(1899, 12, 30);
 
         private static object _integerNullValue = Int32.MinValue;
 
+        // CHECK: Replace with Nullable<Int32>
         /// <summary>
         /// Gets or sets the integer null value returned by queries. This should solve a Jet issue
         /// that if I do a UNION ALL of null, int and null the Jet raises an error
@@ -27,7 +22,7 @@ namespace System.Data.Jet
         /// </value>
         public static object IntegerNullValue
         {
-            get { return _integerNullValue; }
+            get => _integerNullValue;
             set
             {
                 if (!(value is int) && value != null)
@@ -35,10 +30,9 @@ namespace System.Data.Jet
                 _integerNullValue = value;
             }
         }
-
-        public static string OleDbDefaultProvider = "Microsoft.ACE.OLEDB.15.0";
-
-
+        
+        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc; 
+        
         // The SQL statement
         //
         // (SELECT COUNT(*) FROM MSysRelationships)
@@ -61,7 +55,7 @@ namespace System.Data.Jet
         /// <summary>
         /// The DUAL table or query
         /// </summary>
-        public static string DUAL = DUALForAccdb;
+        public static string DUAL { get; set; } = DUALForAccdb;
 
         /// <summary>
         /// The dual table for accdb
@@ -79,8 +73,7 @@ namespace System.Data.Jet
         /// <value>
         ///   <c>true</c> to show SQL statements; otherwise, <c>false</c>.
         /// </value>
-        public static bool ShowSqlStatements = false;
-
+        public static bool ShowSqlStatements { get; set; } = false;
 
         /// <summary>
         /// Gets or sets a value indicating whether the connection pooling should be used
@@ -88,7 +81,6 @@ namespace System.Data.Jet
         /// <value>
         /// <c>true</c> to use the connection pooling; otherwise, <c>false</c>.
         /// </value>
-        public static bool UseConnectionPooling = false;
-
+        public static bool UseConnectionPooling { get; set; } = false;
     }
 }

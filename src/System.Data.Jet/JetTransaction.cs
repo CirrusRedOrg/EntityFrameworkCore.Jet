@@ -1,19 +1,22 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 
 namespace System.Data.Jet
 {
-    class JetTransaction : DbTransaction
+    internal class JetTransaction : DbTransaction
     {
+        private readonly JetConnection _connection;
 
-        internal DbTransaction WrappedTransaction { get; private set; }
-        readonly JetConnection _connection;
+        internal virtual DbTransaction WrappedTransaction { get; }
 
-        public JetTransaction(DbTransaction wrappedTransaction, JetConnection connection)
+        protected JetTransaction()
         {
-            LogHelper.ShowCommandHeader("\r\nvvv BeginTransaction (" + wrappedTransaction.IsolationLevel + ")");
-            WrappedTransaction = wrappedTransaction;
+        }
+
+        public JetTransaction(JetConnection connection, IsolationLevel isolationLevel)
+        {
             _connection = connection;
+            LogHelper.ShowCommandHeader($"\r\nvvv BeginTransaction ({isolationLevel})");
+            WrappedTransaction = connection.InnerConnection.BeginTransaction(isolationLevel);
         }
 
         public override void Commit()
@@ -24,14 +27,10 @@ namespace System.Data.Jet
         }
 
         protected override DbConnection DbConnection
-        {
-            get { return _connection; }
-        }
+            => _connection;
 
         public override System.Data.IsolationLevel IsolationLevel
-        {
-            get { return WrappedTransaction.IsolationLevel; }
-        }
+            => WrappedTransaction.IsolationLevel;
 
         public override void Rollback()
         {
@@ -39,7 +38,5 @@ namespace System.Data.Jet
             WrappedTransaction.Rollback();
             _connection.ActiveTransaction = null;
         }
-
-
     }
 }

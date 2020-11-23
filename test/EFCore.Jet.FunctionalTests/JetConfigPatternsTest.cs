@@ -1,22 +1,27 @@
-﻿using System;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
+using System.Data.Jet;
 using System.Linq;
 using System.Threading.Tasks;
-using EntityFramework.Jet.FunctionalTests.TestUtilities;
-using EntityFrameworkCore.Jet;
-using Extensions.DependencyInjection;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace EntityFramework.Jet.FunctionalTests
+// ReSharper disable InconsistentNaming
+// ReSharper disable UnusedAutoPropertyAccessor.Local
+#pragma warning disable RCS1102 // Make class static.
+namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class JetConfigPatternsTest
     {
         public class ImplicitServicesAndConfig
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_query_with_implicit_services_and_OnConfiguring()
             {
                 using (JetTestStore.GetNorthwindStore())
@@ -33,7 +38,12 @@ namespace EntityFramework.Jet.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                    => optionsBuilder.UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    => optionsBuilder
+                        .EnableServiceProviderCaching(false)
+                        .UseJet(
+                            JetNorthwindTestStoreFactory.NorthwindConnectionString,
+                            TestEnvironment.DataAccessProviderFactory,
+                            b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -42,14 +52,16 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class ImplicitServicesExplicitConfig
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_query_with_implicit_services_and_explicit_config()
             {
                 using (JetTestStore.GetNorthwindStore())
                 {
                     using (var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
-                            .UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration()).Options))
+                            .EnableServiceProviderCaching(false)
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .Options))
                     {
                         Assert.Equal(91, await context.Customers.CountAsync());
                     }
@@ -72,7 +84,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class ExplicitServicesImplicitConfig
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_query_with_explicit_services_and_OnConfiguring()
             {
                 using (JetTestStore.GetNorthwindStore())
@@ -98,7 +110,8 @@ namespace EntityFramework.Jet.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                    => optionsBuilder.UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    => optionsBuilder.UseJet(
+                        JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -107,16 +120,18 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class ExplicitServicesAndConfig
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_query_with_explicit_services_and_explicit_config()
             {
                 using (JetTestStore.GetNorthwindStore())
                 {
-                    using (var context = new NorthwindContext(new DbContextOptionsBuilder()
-                        .UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration())
-                        .UseInternalServiceProvider(new ServiceCollection()
-                            .AddEntityFrameworkJet()
-                            .BuildServiceProvider()).Options))
+                    using (var context = new NorthwindContext(
+                        new DbContextOptionsBuilder()
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .UseInternalServiceProvider(
+                                new ServiceCollection()
+                                    .AddEntityFrameworkJet()
+                                    .BuildServiceProvider()).Options))
                     {
                         Assert.Equal(91, await context.Customers.CountAsync());
                     }
@@ -139,23 +154,25 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class ExplicitServicesAndNoConfig
         {
-            [Fact]
+            [ConditionalFact]
             public void Throws_on_attempt_to_use_SQL_Server_without_providing_connection_string()
             {
                 using (JetTestStore.GetNorthwindStore())
                 {
                     Assert.Equal(
                         CoreStrings.NoProviderConfigured,
-                        Assert.Throws<InvalidOperationException>(() =>
-                        {
-                            using (var context = new NorthwindContext(
-                                new DbContextOptionsBuilder().UseInternalServiceProvider(new ServiceCollection()
-                                    .AddEntityFrameworkJet()
-                                    .BuildServiceProvider()).Options))
+                        Assert.Throws<InvalidOperationException>(
+                            () =>
                             {
-                                Assert.Equal(91, context.Customers.Count());
-                            }
-                        }).Message);
+                                using (var context = new NorthwindContext(
+                                    new DbContextOptionsBuilder().UseInternalServiceProvider(
+                                        new ServiceCollection()
+                                            .AddEntityFrameworkJet()
+                                            .BuildServiceProvider()).Options))
+                                {
+                                    Assert.Equal(91, context.Customers.Count());
+                                }
+                            }).Message);
                 }
             }
 
@@ -175,20 +192,21 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class NoServicesAndNoConfig
         {
-            [Fact]
+            [ConditionalFact]
             public void Throws_on_attempt_to_use_context_with_no_store()
             {
                 using (JetTestStore.GetNorthwindStore())
                 {
                     Assert.Equal(
                         CoreStrings.NoProviderConfigured,
-                        Assert.Throws<InvalidOperationException>(() =>
-                        {
-                            using (var context = new NorthwindContext())
+                        Assert.Throws<InvalidOperationException>(
+                            () =>
                             {
-                                Assert.Equal(91, context.Customers.Count());
-                            }
-                        }).Message);
+                                using (var context = new NorthwindContext())
+                                {
+                                    Assert.Equal(91, context.Customers.Count());
+                                }
+                            }).Message);
                 }
             }
 
@@ -198,12 +216,15 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
+
+                protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                    => optionsBuilder.EnableServiceProviderCaching(false);
             }
         }
 
         public class ImplicitConfigButNoServices
         {
-            [Fact]
+            [ConditionalFact]
             public void Throws_on_attempt_to_use_store_with_no_store_services()
             {
                 var serviceCollection = new ServiceCollection();
@@ -214,15 +235,16 @@ namespace EntityFramework.Jet.FunctionalTests
                 {
                     Assert.Equal(
                         CoreStrings.NoProviderConfigured,
-                        Assert.Throws<InvalidOperationException>(() =>
-                        {
-                            using (var context = new NorthwindContext(
-                                new DbContextOptionsBuilder()
-                                    .UseInternalServiceProvider(serviceProvider).Options))
+                        Assert.Throws<InvalidOperationException>(
+                            () =>
                             {
-                                Assert.Equal(91, context.Customers.Count());
-                            }
-                        }).Message);
+                                using (var context = new NorthwindContext(
+                                    new DbContextOptionsBuilder()
+                                        .UseInternalServiceProvider(serviceProvider).Options))
+                                {
+                                    Assert.Equal(91, context.Customers.Count());
+                                }
+                            }).Message);
                 }
             }
 
@@ -236,7 +258,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-                    optionsBuilder.UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    optionsBuilder.UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -245,7 +267,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class InjectContext
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_register_context_with_DI_container_and_have_it_injected()
             {
                 var serviceProvider = new ServiceCollection()
@@ -287,7 +309,8 @@ namespace EntityFramework.Jet.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                    => optionsBuilder.UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    => optionsBuilder.UseJet(
+                        JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -296,14 +319,17 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class InjectContextAndConfiguration
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_register_context_and_configuration_with_DI_container_and_have_both_injected()
             {
                 var serviceProvider = new ServiceCollection()
                     .AddTransient<MyController>()
                     .AddTransient<NorthwindContext>()
-                    .AddSingleton(new DbContextOptionsBuilder()
-                        .UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration()).Options).BuildServiceProvider();
+                    .AddSingleton(
+                        new DbContextOptionsBuilder()
+                            .EnableServiceProviderCaching(false)
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .Options).BuildServiceProvider();
 
                 using (JetTestStore.GetNorthwindStore())
                 {
@@ -343,13 +369,16 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class ConstructorArgsToBuilder
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_pass_context_options_to_constructor_and_use_in_builder()
             {
                 using (JetTestStore.GetNorthwindStore())
                 {
-                    using (var context = new NorthwindContext(new DbContextOptionsBuilder()
-                        .UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration()).Options))
+                    using (var context = new NorthwindContext(
+                        new DbContextOptionsBuilder()
+                            .EnableServiceProviderCaching(false)
+                            .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .Options))
                     {
                         Assert.Equal(91, await context.Customers.CountAsync());
                     }
@@ -372,12 +401,12 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class ConstructorArgsToOnConfiguring
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_pass_connection_string_to_constructor_and_use_in_OnConfiguring()
             {
                 using (JetTestStore.GetNorthwindStore())
                 {
-                    using (var context = new NorthwindContext(JetTestStore.NorthwindConnectionString))
+                    using (var context = new NorthwindContext(JetNorthwindTestStoreFactory.NorthwindConnectionString))
                     {
                         Assert.Equal(91, await context.Customers.CountAsync());
                     }
@@ -396,7 +425,9 @@ namespace EntityFramework.Jet.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                    => optionsBuilder.UseJet(_connectionString, b => b.ApplyConfiguration());
+                    => optionsBuilder
+                        .EnableServiceProviderCaching(false)
+                        .UseJet(_connectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -405,7 +436,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
         public class NestedContext
         {
-            [Fact]
+            [ConditionalFact]
             public async Task Can_use_one_context_nested_inside_another_of_the_same_type()
             {
                 using (JetTestStore.GetNorthwindStore())
@@ -422,7 +453,7 @@ namespace EntityFramework.Jet.FunctionalTests
 
                         using (var context2 = new NorthwindContext(serviceProvider))
                         {
-                            Assert.Equal(0, context2.ChangeTracker.Entries().Count());
+                            Assert.Empty(context2.ChangeTracker.Entries());
 
                             var customers2 = await context2.Customers.ToListAsync();
                             Assert.Equal(91, customers2.Count);
@@ -451,22 +482,28 @@ namespace EntityFramework.Jet.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder
                     .UseInternalServiceProvider(_serviceProvider)
-                    .UseJet(JetTestStore.NorthwindConnectionString, b => b.ApplyConfiguration());
+                    .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
             }
         }
 
+        // ReSharper disable once ClassNeverInstantiated.Local
         private class Customer
         {
             public string CustomerID { get; set; }
+
+            // ReSharper disable UnusedMember.Local
             public string CompanyName { get; set; }
+
             public string Fax { get; set; }
+            // ReSharper restore UnusedMember.Local
         }
 
         private static void ConfigureModel(ModelBuilder builder)
-            => builder.Entity<Customer>(b =>
-            {
-                b.HasKey(c => c.CustomerID);
-                b.ToTable("Customers");
-            });
+            => builder.Entity<Customer>(
+                b =>
+                {
+                    b.HasKey(c => c.CustomerID);
+                    b.ToTable("Customers");
+                });
     }
 }

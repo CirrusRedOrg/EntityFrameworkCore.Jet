@@ -1,16 +1,15 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 
 // ReSharper disable once CheckNamespace
-namespace EntityFrameworkCore.Jet
+namespace Microsoft.EntityFrameworkCore
 {
     /// <summary>
     ///     Jet specific extension methods for <see cref="PropertyBuilder" />.
@@ -18,84 +17,166 @@ namespace EntityFrameworkCore.Jet
     public static class JetPropertyBuilderExtensions
     {
         /// <summary>
-        ///     Configures the key property to use a sequence-based hi-lo pattern to generate values for new entities,
+        ///     Configures the key property to use the Jet IDENTITY feature to generate values for new entities,
         ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
         /// </summary>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
-        /// <param name="name"> The name of the sequence. </param>
-        /// <param name="schema"> The schema of the sequence. </param>
+        /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
+        /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static PropertyBuilder ForJetUseSequenceHiLo(
+        public static PropertyBuilder UseIdentityColumn(
             [NotNull] this PropertyBuilder propertyBuilder,
-            [CanBeNull] string name = null,
-            [CanBeNull] string schema = null)
+            int seed = 1,
+            int increment = 1)
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
-            Check.NullButNotEmpty(name, nameof(name));
-            Check.NullButNotEmpty(schema, nameof(schema));
 
             var property = propertyBuilder.Metadata;
-
-            name = name ?? JetModelAnnotations.DefaultHiLoSequenceName;
-
-            var model = property.DeclaringEntityType.Model;
-
-            if (model.Jet().FindSequence(name, schema) == null)
-            {
-                model.Jet().GetOrAddSequence(name, schema).IncrementBy = 10;
-            }
-
-            GetJetInternalBuilder(propertyBuilder).ValueGenerationStrategy(JetValueGenerationStrategy.SequenceHiLo);
-
-            property.Jet().HiLoSequenceName = name;
-            property.Jet().HiLoSequenceSchema = schema;
+            property.SetValueGenerationStrategy(JetValueGenerationStrategy.IdentityColumn);
+            property.SetIdentitySeed(seed);
+            property.SetIdentityIncrement(increment);
 
             return propertyBuilder;
         }
 
         /// <summary>
-        ///     Configures the key property to use a sequence-based hi-lo pattern to generate values for new entities,
+        ///     Configures the key property to use the Jet IDENTITY feature to generate values for new entities,
         ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
         /// </summary>
         /// <typeparam name="TProperty"> The type of the property being configured. </typeparam>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
-        /// <param name="name"> The name of the sequence. </param>
-        /// <param name="schema"> The schema of the sequence. </param>
+        /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
+        /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static PropertyBuilder<TProperty> ForJetUseSequenceHiLo<TProperty>(
+        public static PropertyBuilder<TProperty> UseIdentityColumn<TProperty>(
             [NotNull] this PropertyBuilder<TProperty> propertyBuilder,
-            [CanBeNull] string name = null,
-            [CanBeNull] string schema = null)
-            => (PropertyBuilder<TProperty>)ForJetUseSequenceHiLo((PropertyBuilder)propertyBuilder, name, schema);
+            int seed = 1,
+            int increment = 1)
+            => (PropertyBuilder<TProperty>) UseIdentityColumn((PropertyBuilder) propertyBuilder, seed, increment);
 
         /// <summary>
-        ///     Configures the key property to use the Jet IDENTITY feature to generate values for new entities,
-        ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+        ///     Configures the seed for Jet IDENTITY.
         /// </summary>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
-        /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static PropertyBuilder UseJetIdentityColumn(
-            [NotNull] this PropertyBuilder propertyBuilder)
+        /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
+        /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
+        /// <returns>
+        ///     The same builder instance if the configuration was applied,
+        ///     <c>null</c> otherwise.
+        /// </returns>
+        public static IConventionPropertyBuilder HasIdentityColumnSeed(
+            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
+        {
+            if (propertyBuilder.CanSetIdentityColumnSeed(seed, fromDataAnnotation))
+            {
+                propertyBuilder.Metadata.SetIdentitySeed(seed, fromDataAnnotation);
+                return propertyBuilder;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     Returns a value indicating whether the given value can be set as the seed for Jet IDENTITY.
+        /// </summary>
+        /// <param name="propertyBuilder"> The builder for the property being configured. </param>
+        /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
+        /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
+        /// <returns> <c>true</c> if the given value can be set as the seed for Jet IDENTITY. </returns>
+        public static bool CanSetIdentityColumnSeed(
+            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
 
-            GetJetInternalBuilder(propertyBuilder).ValueGenerationStrategy(JetValueGenerationStrategy.IdentityColumn);
-
-            return propertyBuilder;
+            return propertyBuilder.CanSetAnnotation(JetAnnotationNames.IdentitySeed, seed, fromDataAnnotation);
         }
 
         /// <summary>
-        ///     Configures the key property to use the Jet IDENTITY feature to generate values for new entities,
-        ///     when targeting Jet. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+        ///     Configures the increment for Jet IDENTITY.
         /// </summary>
-        /// <typeparam name="TProperty"> The type of the property being configured. </typeparam>
         /// <param name="propertyBuilder"> The builder for the property being configured. </param>
-        /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static PropertyBuilder<TProperty> UseJetIdentityColumn<TProperty>(
-            [NotNull] this PropertyBuilder<TProperty> propertyBuilder)
-            => (PropertyBuilder<TProperty>)UseJetIdentityColumn((PropertyBuilder)propertyBuilder);
+        /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
+        /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
+        /// <returns>
+        ///     The same builder instance if the configuration was applied,
+        ///     <c>null</c> otherwise.
+        /// </returns>
+        public static IConventionPropertyBuilder HasIdentityColumnIncrement(
+            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
+        {
+            if (propertyBuilder.CanSetIdentityColumnIncrement(increment, fromDataAnnotation))
+            {
+                propertyBuilder.Metadata.SetIdentityIncrement(increment, fromDataAnnotation);
+                return propertyBuilder;
+            }
 
-        private static JetPropertyBuilderAnnotations GetJetInternalBuilder(PropertyBuilder propertyBuilder)
-            => propertyBuilder.GetInfrastructure<InternalPropertyBuilder>().Jet(ConfigurationSource.Explicit);
+            return null;
+        }
+
+        /// <summary>
+        ///     Returns a value indicating whether the given value can be set as the increment for Jet IDENTITY.
+        /// </summary>
+        /// <param name="propertyBuilder"> The builder for the property being configured. </param>
+        /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
+        /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
+        /// <returns> <c>true</c> if the given value can be set as the default increment for Jet IDENTITY. </returns>
+        public static bool CanSetIdentityColumnIncrement(
+            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
+        {
+            Check.NotNull(propertyBuilder, nameof(propertyBuilder));
+
+            return propertyBuilder.CanSetAnnotation(JetAnnotationNames.IdentityIncrement, increment, fromDataAnnotation);
+        }
+
+        /// <summary>
+        ///     Configures the value generation strategy for the key property, when targeting Jet.
+        /// </summary>
+        /// <param name="propertyBuilder"> The builder for the property being configured. </param>
+        /// <param name="valueGenerationStrategy"> The value generation strategy. </param>
+        /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
+        /// <returns>
+        ///     The same builder instance if the configuration was applied,
+        ///     <c>null</c> otherwise.
+        /// </returns>
+        public static IConventionPropertyBuilder HasValueGenerationStrategy(
+            [NotNull] this IConventionPropertyBuilder propertyBuilder,
+            JetValueGenerationStrategy? valueGenerationStrategy,
+            bool fromDataAnnotation = false)
+        {
+            if (propertyBuilder.CanSetAnnotation(
+                JetAnnotationNames.ValueGenerationStrategy, valueGenerationStrategy, fromDataAnnotation))
+            {
+                propertyBuilder.Metadata.SetValueGenerationStrategy(valueGenerationStrategy, fromDataAnnotation);
+                if (valueGenerationStrategy != JetValueGenerationStrategy.IdentityColumn)
+                {
+                    propertyBuilder.HasIdentityColumnSeed(null, fromDataAnnotation);
+                    propertyBuilder.HasIdentityColumnIncrement(null, fromDataAnnotation);
+                }
+
+                return propertyBuilder;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     Returns a value indicating whether the given value can be set as the value generation strategy.
+        /// </summary>
+        /// <param name="propertyBuilder"> The builder for the property being configured. </param>
+        /// <param name="valueGenerationStrategy"> The value generation strategy. </param>
+        /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
+        /// <returns> <c>true</c> if the given value can be set as the default value generation strategy. </returns>
+        public static bool CanSetValueGenerationStrategy(
+            [NotNull] this IConventionPropertyBuilder propertyBuilder,
+            JetValueGenerationStrategy? valueGenerationStrategy,
+            bool fromDataAnnotation = false)
+        {
+            Check.NotNull(propertyBuilder, nameof(propertyBuilder));
+
+            return (valueGenerationStrategy == null
+                    || JetPropertyExtensions.IsCompatibleWithValueGeneration(propertyBuilder.Metadata))
+                   && propertyBuilder.CanSetAnnotation(
+                       JetAnnotationNames.ValueGenerationStrategy, valueGenerationStrategy, fromDataAnnotation);
+        }
     }
 }

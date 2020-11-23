@@ -1,36 +1,69 @@
-using System;
-using System.ComponentModel;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Jet.JetStoreSchemaDefinition;
-using System.Data.OleDb;
-using System.Transactions;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using Microsoft.Win32;
 
 namespace System.Data.Jet
 {
     public class JetConnection : DbConnection, IDisposable, ICloneable
     {
         private ConnectionState _state;
-        private string _ConnectionString;
+        private string _connectionString;
+        private bool _frozen;
 
         internal DbConnection InnerConnection { get; private set; }
 
-        internal DbTransaction ActiveTransaction { get; set; }
-
+        internal JetTransaction ActiveTransaction { get; set; }
+        
+        internal int RowCount { get; set; }
+        
+        internal string ActiveConnectionString { get; private set; }
+        internal string FileNameOrConnectionString => ConnectionString;
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
         public JetConnection()
+            : this(null, null)
         {
-            _state = ConnectionState.Closed;
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
-        /// <param name="connectionString">The connection string.</param>
-        public JetConnection(string connectionString) : this()
+        /// <param name="fileNameOrConnectionString">The file name or connection string (either ODBC or OLE DB).</param>
+        public JetConnection(string fileNameOrConnectionString)
+            : this(fileNameOrConnectionString, null)
         {
-            this.ConnectionString = connectionString;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="JetConnection"/> class.
+        /// </summary>
+        /// <param name="dataAccessProviderFactory">The underlying provider factory to use by Jet. Supported are
+        /// `OdbcFactory` and `OleDbFactory`.</param>
+        public JetConnection(DbProviderFactory dataAccessProviderFactory)
+            : this(null, dataAccessProviderFactory)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="JetConnection"/> class.
+        /// </summary>
+        /// <param name="fileNameOrConnectionString">The file name or connection string (either ODBC or OLE DB).</param>
+        /// <param name="dataAccessProviderFactory">The underlying provider factory to use by Jet. Supported are
+        /// `OdbcFactory` and `OleDbFactory`.</param>
+        public JetConnection(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+        {
+            ConnectionString = fileNameOrConnectionString;
+
+            if (dataAccessProviderFactory != null)
+                DataAccessProviderFactory = dataAccessProviderFactory;
+
+            _state = ConnectionState.Closed;
         }
 
         /// <summary>
@@ -45,13 +78,32 @@ namespace System.Data.Jet
         /// <summary>
         /// Gets the <see cref="T:System.Data.Common.DbProviderFactory" /> for this <see cref="T:System.Data.Common.DbConnection" />.
         /// </summary>
-        protected override DbProviderFactory DbProviderFactory
+        protected override DbProviderFactory DbProviderFactory => JetFactory;
+
+        /// <summary>
+        /// Gets or sets an `OdbcFactory` or `OleDbFactory` object, to use as the underlying data
+        /// access API. Jet uses this provider factory internally for all data access operations.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">This property can only be set as long as the connection is closed.</exception>
+        public DbProviderFactory DataAccessProviderFactory
         {
-            get
+            get => JetFactory?.InnerFactory;
+            set
             {
-                return JetProviderFactory.Instance;
+                if (value == null)
+                    throw new ArgumentNullException(nameof(value));
+
+                if (JetFactory != null && JetFactory != value)
+                    throw new InvalidOperationException($"The {DataAccessProviderFactory} property can only be set once.");
+
+                JetFactory = new JetFactory(this, value);
             }
         }
+
+        /// <summary>
+        /// Gets a `JetProviderFactory` object, that can be used to create Jet specific objects (e.g. `JetCommand`).
+        /// </summary>
+        public JetFactory JetFactory { get; private set; }
 
         /// <summary>
         /// Starts a database transaction.
@@ -71,16 +123,18 @@ namespace System.Data.Jet
             switch (isolationLevel)
             {
                 case IsolationLevel.Serializable:
-                    ActiveTransaction = new JetTransaction(InnerConnection.BeginTransaction(IsolationLevel.ReadCommitted), this);
+                    ActiveTransaction = CreateTransaction(IsolationLevel.ReadCommitted);
                     break;
                 default:
-                    ActiveTransaction = new JetTransaction(InnerConnection.BeginTransaction(isolationLevel), this);
+                    ActiveTransaction = CreateTransaction(isolationLevel);
                     break;
             }
 
             return ActiveTransaction;
-
         }
+
+        private JetTransaction CreateTransaction(IsolationLevel isolationLevel)
+            => new JetTransaction(this, isolationLevel);
 
         /// <summary>
         /// Changes the current database for an open connection.
@@ -99,18 +153,25 @@ namespace System.Data.Jet
         /// </summary>
         public override void Close()
         {
-            if (_state == ConnectionState.Closed)
-                return;
             if (ActiveTransaction != null)
+            {
                 ActiveTransaction.Rollback();
-            ActiveTransaction = null;
-            _state = ConnectionState.Closed;
+                ActiveTransaction = null;
+            }
+
+            ActiveConnectionString = null;
+
             if (InnerConnection != null)
             {
                 InnerConnection.StateChange -= WrappedConnection_StateChange;
-                InnerConnectionFactory.Instance.CloseConnection(_ConnectionString, InnerConnection);
+                InnerConnectionFactory.Instance.CloseConnection(_connectionString, InnerConnection);
+                InnerConnection = null;
             }
-            InnerConnection = null;
+
+            if (_state == ConnectionState.Closed)
+                return;
+
+            _state = ConnectionState.Closed;
             OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
         }
 
@@ -119,15 +180,16 @@ namespace System.Data.Jet
         /// </summary>
         public override string ConnectionString
         {
-            get
-            {
-                return _ConnectionString;
-            }
+            get => _connectionString;
             set
             {
                 if (State != ConnectionState.Closed)
                     throw new InvalidOperationException(Messages.CannotChangePropertyValueInThisConnectionState(nameof(ConnectionString), State));
-                _ConnectionString = value;
+
+                if (_frozen)
+                    throw new InvalidOperationException($"Cannot modify \"{nameof(ConnectionString)}\" property after the connection has been frozen.");
+
+                _connectionString = value;
             }
         }
 
@@ -136,12 +198,7 @@ namespace System.Data.Jet
         /// For Jet this time is unlimited
         /// </summary>
         public override int ConnectionTimeout
-        {
-            get
-            {
-                return 0;
-            }
-        }
+            => 0;
 
         /// <summary>
         /// Creates and returns a <see cref="T:System.Data.Common.DbCommand" /> object associated with the current connection.
@@ -151,7 +208,7 @@ namespace System.Data.Jet
         /// </returns>
         protected override DbCommand CreateDbCommand()
         {
-            DbCommand command = JetProviderFactory.Instance.CreateCommand();
+            var command = JetFactory.CreateCommand();
             command.Connection = this;
             return command;
         }
@@ -162,21 +219,13 @@ namespace System.Data.Jet
         /// in the connection string before the connection is opened.
         /// </summary>
         public override string Database
-        {
-            get { return string.Empty; }
-        }
+            => string.Empty;
 
         /// <summary>
         /// Gets the name of the file to open.
         /// </summary>
         public override string DataSource
-        {
-            get
-            {
-                OleDbConnectionStringBuilder connectionStringBuilder = new OleDbConnectionStringBuilder(_ConnectionString);
-                return connectionStringBuilder.DataSource;
-            }
-        }
+            => JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(_connectionString);
 
         /// <summary>
         /// Releases the unmanaged resources used by the <see cref="T:System.ComponentModel.Component" /> and optionally releases the managed resources.
@@ -184,7 +233,7 @@ namespace System.Data.Jet
         /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         protected override void Dispose(bool disposing)
         {
-            _ConnectionString = string.Empty;
+            _connectionString = string.Empty;
 
             if (disposing)
                 Close();
@@ -196,7 +245,7 @@ namespace System.Data.Jet
         /// Enlists in the specified transaction.
         /// </summary>
         /// <param name="transaction">A reference to an existing <see cref="T:System.Transactions.Transaction" /> in which to enlist.</param>
-        public override void EnlistTransaction(Transaction transaction)
+        public override void EnlistTransaction(System.Transactions.Transaction transaction)
         {
             if (InnerConnection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
@@ -261,15 +310,95 @@ namespace System.Data.Jet
         {
             if (IsEmpty)
                 return;
-            if (string.IsNullOrWhiteSpace(_ConnectionString))
+            if (string.IsNullOrWhiteSpace(_connectionString))
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(ConnectionString)));
             if (State != ConnectionState.Closed)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState(nameof(Open), ConnectionState.Closed, State));
 
-            _state = ConnectionState.Open;
-            InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_ConnectionString);
-            InnerConnection.StateChange += WrappedConnection_StateChange;
-            OnStateChange(new StateChangeEventArgs(ConnectionState.Closed, ConnectionState.Open));
+            var fileNameOrConnectionString = ConnectionString;
+            var dataAccessProviderType = DataAccessProviderFactory != null
+                ? (DataAccessProviderType?)GetDataAccessProviderType(DataAccessProviderFactory)
+                : null;
+
+            string connectionString;
+            
+            if (IsConnectionString(fileNameOrConnectionString))
+            {
+                // If the connection string is an actual connection string an not just a file path, then we should
+                // be able to deduct the provider from its style.
+                dataAccessProviderType ??= GetDataAccessProviderType(fileNameOrConnectionString);
+                connectionString = fileNameOrConnectionString;
+            }
+            else
+            {
+                dataAccessProviderType ??= JetConfiguration.DefaultDataAccessProviderType;
+
+                if (IsFileName(fileNameOrConnectionString))
+                {
+                    // If the connection string is just a file path, we need to construct a valid connection string from it
+                    // by using the default data access provider type (ODBC or OLE DB) and retrieving its most recent
+                    // ACE/Jet provider.
+                    var fileName = fileNameOrConnectionString;
+                    connectionString = GetConnectionString(fileName, dataAccessProviderType.Value);
+                }
+                else
+                {
+                    // Who knows what got passed to us. We assume it is some kind of fancy connection string
+                    // and just use it as is.
+                    connectionString = fileNameOrConnectionString;
+                }
+            }
+
+            DataAccessProviderFactory ??= JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
+            
+            // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
+            // information, but is in a distinctive style (ODBC or OLE DB) anyway.
+            // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
+            var connectionStringBuilder = DataAccessProviderFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = connectionString;
+
+            if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider()))
+            {
+                var provider = GetMostRecentCompatibleProviders(dataAccessProviderType.Value)
+                    .FirstOrDefault()
+                    .Key;
+
+                if (provider == null)
+                    throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
+                    
+                connectionStringBuilder.SetProvider(provider);
+                connectionString = connectionStringBuilder.ToString();
+            }
+            
+            // Enable ExtendedAnsiSQL when using ODBC to support ODBC 4.0 statements (like CREATE VIEW).
+            if (dataAccessProviderType == DataAccessProviderType.Odbc)
+            {
+                if (!connectionStringBuilder.ContainsKey("ExtendedAnsiSQL"))
+                {
+                    connectionStringBuilder["ExtendedAnsiSQL"] = 1;
+                    connectionString = connectionStringBuilder.ToString();
+                }
+            }
+
+            connectionString = ExpandDatabaseFilePath(connectionString);
+            
+            try
+            {
+                InnerConnection = InnerConnectionFactory.Instance.OpenConnection(
+                    connectionString,
+                    JetFactory.InnerFactory);
+                InnerConnection.StateChange += WrappedConnection_StateChange;
+                ActiveConnectionString = connectionString;
+
+                RowCount = 0;
+                _state = ConnectionState.Open;
+                OnStateChange(new StateChangeEventArgs(ConnectionState.Closed, ConnectionState.Open));
+            }
+            catch
+            {
+                Close();
+                throw;
+            }
         }
 
         /// <summary>
@@ -300,7 +429,7 @@ namespace System.Data.Jet
 
         public bool TableExists(string tableName)
         {
-            ConnectionState oldConnectionState = State;
+            var oldConnectionState = State;
             bool tableExists;
 
             if (oldConnectionState == ConnectionState.Closed)
@@ -308,8 +437,8 @@ namespace System.Data.Jet
 
             try
             {
-                string sqlFormat = "select count(*) from [{0}] where 1=2";
-                CreateCommand(String.Format(sqlFormat, tableName)).ExecuteNonQuery();
+                CreateCommand($"select count(*) from `{tableName}` where 1=2")
+                    .ExecuteNonQuery();
                 tableExists = true;
             }
             catch
@@ -325,11 +454,16 @@ namespace System.Data.Jet
 
         public DbCommand CreateCommand(string commandText, int? commandTimeout = null)
         {
-            if (String.IsNullOrEmpty(commandText))
+            if (JetFactory == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(DataAccessProviderFactory)));
+
+            if (string.IsNullOrEmpty(commandText))
                 // SqlCommand will complain if the command text is empty
                 commandText = Environment.NewLine;
 
-            var command = new JetCommand(commandText, this);
+            var command = (JetCommand) JetFactory.CreateCommand();
+            command.CommandText = commandText;
+
             if (commandTimeout.HasValue)
                 command.CommandTimeout = commandTimeout.Value;
 
@@ -344,23 +478,16 @@ namespace System.Data.Jet
         /// </returns>
         object ICloneable.Clone()
         {
-            JetConnection clone = new JetConnection();
+            var clone = new JetConnection();
             if (InnerConnection != null)
-                clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_ConnectionString);
+                clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_connectionString, JetFactory.InnerFactory);
             return clone;
         }
 
-
-        /// <summary>
-        /// Performs an explicit conversion from <see cref="JetConnection"/> to <see cref="OleDbConnection"/>.
-        /// </summary>
-        /// <param name="connection">The connection.</param>
-        /// <returns>
-        /// The result of the conversion.
-        /// </returns>
-        public static explicit operator OleDbConnection(JetConnection connection)
+        public void Freeze()
         {
-            return (OleDbConnection)connection.InnerConnection;
+            if (!string.IsNullOrWhiteSpace(ConnectionString))
+                _frozen = true;
         }
 
         /// <summary>
@@ -376,54 +503,251 @@ namespace System.Data.Jet
         /// Clears all pools.
         /// </summary>
         public static void ClearAllPools()
+            => InnerConnectionFactory.Instance.ClearAllPools();
+
+        public void CreateDatabase(
+            DatabaseVersion version = DatabaseVersion.Newest,
+            CollatingOrder collatingOrder = CollatingOrder.General,
+            string databasePassword = null)
+            => CreateDatabase(DataSource, version, collatingOrder, databasePassword, SchemaProviderType);
+
+        public static void CreateDatabase(
+            string fileNameOrConnectionString,
+            DatabaseVersion version = DatabaseVersion.Newest,
+            CollatingOrder collatingOrder = CollatingOrder.General,
+            string databasePassword = null,
+            SchemaProviderType schemaProviderType = SchemaProviderType.Precise)
         {
-            InnerConnectionFactory.Instance.ClearAllPools();
+            var databaseCreator = JetDatabaseCreator.CreateInstance(schemaProviderType);
+            
+            databaseCreator.CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
+            databaseCreator.CreateDualTable(fileNameOrConnectionString, databasePassword);
         }
 
-        public void CreateEmptyDatabase()
+        public static string GetConnectionString(string fileNameOrConnectioString, DbProviderFactory dataAccessProviderFactory)
+            => GetConnectionString(fileNameOrConnectioString, GetDataAccessProviderType(dataAccessProviderFactory));
+
+        public static string GetConnectionString(string fileNameOrConnectioString, DataAccessProviderType dataAccessProviderType)
+            => IsConnectionString(fileNameOrConnectioString)
+                ? fileNameOrConnectioString
+                : GetConnectionString(
+                    GetMostRecentCompatibleProviders(dataAccessProviderType).First().Key,
+                    fileNameOrConnectioString,
+                    dataAccessProviderType);
+
+        public static string GetConnectionString(string provider, string fileName, DbProviderFactory dataAccessProviderFactory)
+            => GetConnectionString(provider, fileName, GetDataAccessProviderType(dataAccessProviderFactory));
+
+        public static string GetConnectionString(string provider, string fileName, DataAccessProviderType dataAccessProviderType)
+            => dataAccessProviderType == DataAccessProviderType.OleDb
+                ? $"Provider={provider};Data Source={fileName}"
+                : $"Driver={{{provider}}};DBQ={fileName}";
+        
+        private string ExpandDatabaseFilePath(string connectionString)
         {
-            AdoxWrapper.CreateEmptyDatabase(_ConnectionString);
+            var connectionStringBuilder = JetFactory.InnerFactory.CreateConnectionStringBuilder();
+            connectionStringBuilder.ConnectionString = connectionString;
+            connectionStringBuilder.SetDataSource(JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.GetDataSource()));
+
+            return connectionStringBuilder.ToString();
         }
 
-        public static void CreateEmptyDatabase(string connectionString)
-        {
-            AdoxWrapper.CreateEmptyDatabase(connectionString);
-        }
+        public void DropDatabase()
+            => DropDatabase(_connectionString);
 
-
-        public static string GetConnectionString(string fileName)
+        public static void DropDatabase(string fileNameOrConnectionString)
         {
-            return $"Provider={JetConfiguration.OleDbDefaultProvider};Data Source={fileName}";
-        }
+            var fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString);
 
-        public void DropDatabase(bool throwOnError = true)
-        {
-            DropDatabase(_ConnectionString, throwOnError);
-        }
-
-        public static void DropDatabase(string connectionString, bool throwOnError = true)
-        {
-            string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
             if (string.IsNullOrWhiteSpace(fileName))
-                throw new Exception("Cannot retrieve file name from connection string");
+                throw new InvalidOperationException("The file name or connection string is invalid.");
 
-            JetStoreDatabaseHandling.DeleteFile(fileName.Trim(), throwOnError);
+            JetStoreDatabaseHandling.DeleteFile(fileName);
         }
 
         public bool DatabaseExists()
-        {
-            return DatabaseExists(_ConnectionString);
-        }
+            => DatabaseExists(_connectionString);
+        
+        public SchemaProviderType SchemaProviderType { get; set; }
 
-        public static bool DatabaseExists(string connectionString)
+        public static bool DatabaseExists(string fileNameOrConnectionString)
         {
-            string fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(connectionString);
-            fileName = fileName.Trim('"');
+            var fileName = JetStoreDatabaseHandling.ExpandFileName(
+                JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString)
+                    .Trim('"'));
+
             if (string.IsNullOrWhiteSpace(fileName))
-                throw new Exception("Cannot retrieve file name from connection string");
-            return System.IO.File.Exists(fileName);
+                throw new InvalidOperationException("The file name or connection string is invalid.");
+
+            return File.Exists(fileName);
         }
 
+        public static DataAccessProviderType GetDataAccessProviderType(string connectionString)
+        {
+            var isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Provider\s*=\s*\w+", RegexOptions.IgnoreCase);
+            var isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase);
 
+            if (isOdbc && isOleDb)
+                throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
+
+            if (!isOdbc && !isOleDb)
+            {
+                isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Data Source\s*=", RegexOptions.IgnoreCase);
+                isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*DBQ\s*=", RegexOptions.IgnoreCase);
+
+                if (isOdbc && isOleDb)
+                    throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
+
+                if (!isOdbc && !isOleDb)
+                    throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
+            }
+
+            return isOleDb
+                ? DataAccessProviderType.OleDb
+                : DataAccessProviderType.Odbc;
+        }
+
+        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory providerFactory)
+        {
+            var isOleDb = providerFactory
+                .GetType()
+                .GetTypesInHierarchy()
+                .FirstOrDefault(
+                    t => string.Equals(
+                        t.FullName,
+                        "System.Data.OleDb.OleDbFactory",
+                        StringComparison.OrdinalIgnoreCase)) != null;
+
+            var isOdbc = providerFactory
+                .GetType()
+                .GetTypesInHierarchy()
+                .FirstOrDefault(
+                    t => string.Equals(
+                        t.FullName,
+                        "System.Data.Odbc.OdbcFactory",
+                        StringComparison.OrdinalIgnoreCase)) != null;
+
+            if (isOdbc && isOleDb)
+                throw new InvalidOperationException();
+
+            if (!isOdbc && !isOleDb)
+                throw new ArgumentException($"The parameter is neither of type OdbcFactory nor OleDbFactory.", nameof(providerFactory));
+
+            return isOleDb
+                ? DataAccessProviderType.OleDb
+                : DataAccessProviderType.Odbc;
+        }
+
+        public static KeyValuePair<string, Version>[] GetMostRecentCompatibleProviders(DataAccessProviderType dataAccessProviderType)
+            => dataAccessProviderType == DataAccessProviderType.OleDb
+                ? _oledbProviders.Value
+                    .Select(s => Regex.Match(s, @"Microsoft\.(?:ACE|Jet)\.OLEDB\.(?<Version>\d+\.\d+)", RegexOptions.IgnoreCase))
+                    .Where(m => m.Success)
+                    .Select(
+                        m => new KeyValuePair<string, Version>(
+                            m.Value, new Version(
+                                m.Groups["Version"]
+                                    .Value)))
+                    .OrderByDescending(kvp => kvp.Value)
+                    .ToArray()
+                : _odbcProviders.Value
+                    .Where(
+                        kvp => kvp.Key.IndexOf("Microsoft Access Driver", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                               (kvp.Key.IndexOf("*.mdb", StringComparison.OrdinalIgnoreCase) >= 0 || kvp.Key.IndexOf("*.accdb", StringComparison.OrdinalIgnoreCase) >= 0))
+                    .OrderByDescending(kvp => kvp.Value)
+                    .ThenByDescending(kvp => kvp.Key.IndexOf("*.accdb", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+        private static readonly Lazy<Dictionary<string, Version>> _odbcProviders = new Lazy<Dictionary<string, Version>>(() =>
+        {
+            var drivers = new Dictionary<string, Version>();
+
+            try
+            {
+                using (var odbcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\ODBC\ODBCINST.INI"))
+                {
+                    if (odbcKey != null)
+                    {
+                        var driverKeyNames = odbcKey.GetSubKeyNames();
+
+                        foreach (var driverKeyName in driverKeyNames)
+                        {
+                            try
+                            {
+                                using (var driverKey = odbcKey.OpenSubKey(driverKeyName))
+                                {
+                                    if (driverKey?.GetValue("Driver") != null)
+                                    {
+                                        if (driverKey.GetValue("DriverODBCVer") is string versionString)
+                                        {
+                                            drivers.Add(driverKeyName, new Version(versionString));
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                // ignored
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+
+            return drivers;
+        }, true);
+
+        private static readonly Lazy<string[]> _oledbProviders = new Lazy<string[]>(() =>
+        {
+            var providers = new List<string>();
+
+            try
+            {
+                using (var clsidKey = Registry.ClassesRoot.OpenSubKey(@"CLSID"))
+                {
+                    if (clsidKey != null)
+                    {
+                        var clasidSubKeyNames = clsidKey.GetSubKeyNames();
+
+                        foreach (var clsidSubKeyName in clasidSubKeyNames)
+                        {
+                            try
+                            {
+                                using (var clsidSubKey = clsidKey.OpenSubKey(clsidSubKeyName))
+                                {
+                                    if (clsidSubKey?.GetValue("OLEDB_SERVICES") != null)
+                                    {
+                                        if (clsidSubKey.GetValue(null) is string provider)
+                                        {
+                                            providers.Add(provider);
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                // ignored
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+
+            return providers.ToArray();
+        }, true);
+
+        public static bool IsConnectionString(string fileNameOrConnectionString)
+            => JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString);
+
+        public static bool IsFileName(string fileNameOrConnectionString)
+            => JetStoreDatabaseHandling.IsFileName(fileNameOrConnectionString);
     }
 }

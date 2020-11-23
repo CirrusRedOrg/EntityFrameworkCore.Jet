@@ -8,7 +8,6 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
-
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
     /// <summary>
@@ -28,17 +27,14 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         [NotNull] private static readonly MethodInfo _endsWith = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), new[] {typeof(string)});
 
         [NotNull] private static readonly MethodInfo _trimWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.Trim), new Type[0]);
-
         [NotNull] private static readonly MethodInfo _trimWithChars = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char[])});
         // [NotNull] private static readonly MethodInfo _trimWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char)}); // Jet TRIM does not take arguments
 
         [NotNull] private static readonly MethodInfo _trimStartWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new Type[0]);
-
         [NotNull] private static readonly MethodInfo _trimStartWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char[])});
         // [NotNull] private static readonly MethodInfo _trimStartWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char)}); // Jet LTRIM does not take arguments
 
         [NotNull] private static readonly MethodInfo _trimEndWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new Type[0]);
-
         [NotNull] private static readonly MethodInfo _trimEndWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char[])});
         // [NotNull] private static readonly MethodInfo _trimEndWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char)}); // Jet LTRIM does not take arguments
 
@@ -111,39 +107,45 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     _sqlExpressionFactory.Add(_sqlExpressionFactory.Constant("%"), arguments[0]));
             }
 
-            // Jet TRIM does not take arguments
-            if (_trimWithNoParam.Equals(method) ||
-                _trimWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
+            // Jet TRIM does not take arguments.
+            // _trimWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
+            if (Equals(method, _trimWithNoParam) ||
+                Equals(method, _trimWithChars) &&
+                (arguments[0] as SqlConstantExpression)?.Value == null || ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
             {
                 return _sqlExpressionFactory.Function("TRIM", new[] {instance}, method.ReturnType);
             }
 
             // Jet LTRIM does not take arguments
-            if (_trimStartWithNoParam.Equals(method) ||
-                _trimStartWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
+            // _trimStartWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
+            if (Equals(method, _trimStartWithNoParam) ||
+                Equals(method, _trimStartWithChars) &&
+                (arguments[0] as SqlConstantExpression)?.Value == null || ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
             {
                 return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, method.ReturnType);
             }
 
             // Jet RTRIM does not take arguments
-            if (_trimEndWithNoParam.Equals(method) ||
-                _trimEndWithChars.Equals(method) && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
+            // _trimEndWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
+            if (Equals(method, _trimEndWithNoParam) ||
+                Equals(method, _trimEndWithChars) &&
+                (arguments[0] as SqlConstantExpression)?.Value == null || ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
             {
                 return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, method.ReturnType);
             }
 
-            if (_toLower.Equals(method))
+            if (Equals(method, _toLower))
             {
                 return _sqlExpressionFactory.Function("LCASE", new[] {instance}, method.ReturnType);
             }
 
-            if (_toUpper.Equals(method))
+            if (Equals(method, _toUpper))
             {
                 return _sqlExpressionFactory.Function("UCASE", new[] {instance}, method.ReturnType);
             }
 
-            if (_trimEndWithNoParam.Equals(_substring) ||
-                _trimEndWithChars.Equals(_substringWithLength))
+            if (Equals(_substring, _trimEndWithNoParam) ||
+                Equals(_substringWithLength, _trimEndWithChars))
             {
                 var parameters = new List<SqlExpression>(
                     new[]
@@ -168,7 +170,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     method.ReturnType);
             }
 
-            if (_replace.Equals(method))
+            if (Equals(method, _replace))
             {
                 return _sqlExpressionFactory.Function(
                     "REPLACE",
@@ -176,7 +178,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     method.ReturnType);
             }
 
-            if (_isNullOrWhiteSpace.Equals(method))
+            if (Equals(method, _isNullOrWhiteSpace))
             {
                 return _sqlExpressionFactory.OrElse(
                     _sqlExpressionFactory.IsNull(arguments[0]),

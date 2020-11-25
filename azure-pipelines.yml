@@ -77,47 +77,49 @@ jobs:
         echo "dotnetInstallDirectory: $(dotnetInstallDirectory)"
         echo "dotnetPath: $(dotnetPath)"
       displayName: Output Variables
-#    - pwsh: |
-#        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
-#      displayName: .NET Information Before SDK Install
-#    - pwsh: |
-#        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
-#        &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture $(aceArchitecture) -InstallDir '$(dotnetInstallDirectory)' -Verbose
-#      displayName: Install .NET SDK
-#    - pwsh: |
-#        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
-#      displayName: .NET Information After SDK Install
-#    - pwsh: |
-#        $setupFileName = 'AccessDatabaseEngine_$(aceVersion)_$(aceArchitecture).exe'
-#        Invoke-WebRequest '$(aceUrl)' -OutFile $setupFileName
-#        & ".\$setupFileName" $(aceSilentInstallArgument)
-#      displayName: Install Access Database Engine
-#    - pwsh: |
-#        dotnet build --configuration $(buildConfiguration)
-#      displayName: Build Solution
-#    - pwsh: |
-#        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
-#        dotnet test .\test\System.Data.Jet.Test -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
-#      displayName: 'Run Tests: System.Data.Jet.Test'
-#      continueOnError: true
-#    - pwsh: |
-#        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
-#        dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
-#      displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
-#      continueOnError: true
-#    - task: PublishTestResults@2
-#      displayName: Publish Test Results
-#      condition: succeededOrFailed()
-#      inputs:
-#        testResultsFormat: VSTest
-#        testResultsFiles: test/**/*.trx
-#        testRunTitle: ACE $(aceVersion) $(aceArchitecture) with $(dataAccessProviderType)
-#        mergeTestResults: true
-#        failTaskOnFailedTests: false
+    - pwsh: |
+        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
+      displayName: .NET Information Before SDK Install
+    - pwsh: |
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+        &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture $(aceArchitecture) -InstallDir '$(dotnetInstallDirectory)' -Verbose
+      displayName: Install .NET SDK
+    - pwsh: |
+        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
+      displayName: .NET Information After SDK Install
+    - pwsh: |
+        $setupFileName = 'AccessDatabaseEngine_$(aceVersion)_$(aceArchitecture).exe'
+        Invoke-WebRequest '$(aceUrl)' -OutFile $setupFileName
+        & ".\$setupFileName" $(aceSilentInstallArgument)
+      displayName: Install Access Database Engine
+    - pwsh: |
+        dotnet build --configuration $(buildConfiguration)
+      displayName: Build Solution
+    - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
+        dotnet test .\test\System.Data.Jet.Test -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+        exit 0
+      displayName: 'Run Tests: System.Data.Jet.Test'
+      continueOnError: true
+    - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
+        dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+        exit 0
+      displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
+      continueOnError: true
+    - task: PublishTestResults@2
+      displayName: Publish Test Results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: test/**/*.trx
+        testRunTitle: ACE $(aceVersion) $(aceArchitecture) with $(dataAccessProviderType)
+        mergeTestResults: true
+        failTaskOnFailedTests: false
   - job: NuGet
     dependsOn:
       - BuildAndTest
-    condition: and(ne(variables['isPullRequest'], true), in(dependencies.BuildAndTest.result, 'Succeeded', 'SucceededWithIssues'))
+    condition: and(ne(variables['isPullRequest'], true), eq(dependencies.BuildAndTest.result, 'Succeeded'))
     pool:
       vmImage: 'windows-latest' # must be Windows for PublishSymbols task
     steps:
@@ -128,11 +130,9 @@ jobs:
       - pwsh: dotnet --info
         displayName: .NET Information
       - pwsh: |
-          Set-PsDebug -Trace 1
-          
           $officialBuild = '$(Build.SourceBranch)' -match '^refs/tags/[0-9]+\.[0-9]+\.[0-9]+'
           $wipBuild = '$(Build.SourceBranch)' -match '^refs/heads/.*-wip$'
-          $ciBuildOnly = $wipBuild -or ('$(Build.SourceBranch)' -match '^refs/heads/(?:master|.*-servicing)$') 
+          $ciBuildOnly = $wipBuild -or ('$(Build.SourceBranch)' -match '^refs/heads/(?:master|.*-servicing)$')
           $continuousIntegrationTimestamp = Get-Date -Format yyyyMMddHHmmss
           $buildSha = '$(Build.SourceVersion)'.SubString(0, 7);
           $pack = $officialBuild -or $ciBuildOnly -or $wipBuild

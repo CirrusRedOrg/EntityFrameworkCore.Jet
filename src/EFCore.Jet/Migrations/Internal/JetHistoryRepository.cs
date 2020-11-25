@@ -51,7 +51,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
 
                 var builder = new StringBuilder();
                 builder
-                    .Append("SHOW TABLES WHERE NAME=")
+                    .Append("SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = ")
                     .Append(stringTypeMapping.GenerateSqlLiteral(TableName));
 
                 return builder.ToString();
@@ -131,7 +131,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
 
             builder
-                .Append("IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE Name = ")
+                .Append("IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(TableName))
                 .Append(") THEN ");
             using (builder.Indent())

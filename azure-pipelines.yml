@@ -5,27 +5,191 @@ trigger:
   tags:
     include:
     - '*'
-
 variables:
-  buildConfiguration: 'Release'
+  isPullRequest: $[eq(variables['Build.Reason'], 'PullRequest')]
+  pullRequestSourceBranch: $[variables['System.PullRequest.SourceBranch']]
+  buildConfiguration: 'Debug'
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-
 jobs:
-  - job: Windows
+  - job: BuildAndTest
+    displayName: Build and Test
+    strategy:
+      matrix:
+        ACE 2010 x64 with ODBC:
+          aceVersion: '2010'
+          aceArchitecture: 'x64'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
+          aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'ODBC'
+          defaultConnection: 'DBQ=Jet.accdb'
+        ACE 2010 x64 with OLE DB:
+          aceVersion: '2010'
+          aceArchitecture: 'x64'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
+          aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'OLE DB'
+          defaultConnection: 'Data Source=Jet.accdb'
+        ACE 2010 x86 with ODBC:
+          aceVersion: '2010'
+          aceArchitecture: 'x86'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+          aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'ODBC'
+          defaultConnection: 'DBQ=Jet.accdb'
+        ACE 2010 x86 with OLE DB:
+          aceVersion: '2010'
+          aceArchitecture: 'x86'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+          aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'OLE DB'
+          defaultConnection: 'Data Source=Jet.accdb'
     pool:
       vmImage: 'windows-latest'
     steps:
     - pwsh: |
-        Invoke-WebRequest "https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe" -OutFile "AccessDatabaseEngine_2010_X64.exe"
-        .\AccessDatabaseEngine_2010_X64.exe /passive
+        if ('$(aceArchitecture)' -eq 'x86')
+        {
+          $dotnetInstallDirectory = 'C:\Program Files (x86)\dotnet'
+        }
+        else
+        {
+          $dotnetInstallDirectory = 'C:\Program Files\dotnet'
+        }
+        echo "##vso[task.setvariable variable=dotnetInstallDirectory]$dotnetInstallDirectory"
+
+        $dotnetPath = Join-Path $dotnetInstallDirectory 'dotnet.exe'
+        echo "##vso[task.setvariable variable=dotnetPath]$dotnetPath"
+
+        $path = $env:path.Replace('C:\Program Files\dotnet', $dotnetInstallDirectory)
+        echo "##vso[task.setvariable variable=path]$path"
+      displayName: Set additional variables
+    - pwsh: |
+        echo "isPullRequest: $(isPullRequest)"
+        echo "pullRequestSourceBranch: $(pullRequestSourceBranch)"
+        echo "Build.SourceBranchName: $(Build.SourceBranchName)"
+        echo "Build.SourceVersionMessage: $(Build.SourceVersionMessage)"
+        echo "aceVersion: $(aceVersion)"
+        echo "aceArchitecture: $(aceArchitecture)"
+        echo "aceUrl: $(aceUrl)"
+        echo "dotnetInstallDirectory: $(dotnetInstallDirectory)"
+        echo "dotnetPath: $(dotnetPath)"
+      displayName: Output Variables
+    - pwsh: |
+        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
+      displayName: .NET Information Before SDK Install
+    - pwsh: |
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+        &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture $(aceArchitecture) -InstallDir '$(dotnetInstallDirectory)' -Verbose
+      displayName: Install .NET SDK
+    - pwsh: |
+        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
+      displayName: .NET Information After SDK Install
+    - pwsh: |
+        $setupFileName = 'AccessDatabaseEngine_$(aceVersion)_$(aceArchitecture).exe'
+        Invoke-WebRequest '$(aceUrl)' -OutFile $setupFileName
+        & ".\$setupFileName" $(aceSilentInstallArgument)
       displayName: Install Access Database Engine
     - pwsh: |
         dotnet build --configuration $(buildConfiguration)
       displayName: Build Solution
     - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\System.Data.Jet.Test -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
       displayName: 'Run Tests: System.Data.Jet.Test'
+      continueOnError: true
     - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
       displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
+      continueOnError: true
+    - task: PublishTestResults@2
+      displayName: Publish Test Results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: test/**/*.trx
+        testRunTitle: ACE $(aceVersion) $(aceArchitecture) with $(dataAccessProviderType)
+        mergeTestResults: true
+        failTaskOnFailedTests: false
+  - job: NuGet
+    dependsOn:
+      - BuildAndTest
+    condition: and(ne(variables['isPullRequest'], true), in(dependencies.BuildAndTest.result, 'Succeeded', 'SucceededWithIssues'))
+    pool:
+      vmImage: 'windows-latest' # must be Windows for PublishSymbols task
+    steps:
+      - task: UseDotNet@2
+        displayName: 'Use .NET Core SDK'
+        inputs:
+          useGlobalJson: true
+      - pwsh: dotnet --info
+        displayName: .NET Information
+      - pwsh: |
+          $officialBuild = '$(Build.SourceBranch)' -match '^refs/tags/[0-9]+\.[0-9]+\.[0-9]+'
+          $wipBuild = '$(Build.SourceBranch)' -match '^refs/heads/.*-wip$'
+          $ciBuildOnly = $wipBuild -or ('$(Build.SourceBranch)' -match '^refs/heads/(?:master|.*-maint)$')
+          $continuesIntegrationTimestamp = Get-Date -Format yyyyMMddHHmmss
+          $buildSha = '$(Build.SourceVersion)'.SubString(0, 7);
+          $pack = '$(buildAndTestSucceeded)' -eq "true" -and ($officialBuild -or $ciBuildOnly) -or $wipBuild
+
+          echo "officialBuild: $officialBuild"
+          echo "wipBuild: $wipBuild"
+          echo "ciBuildOnly: $ciBuildOnly"
+          echo "continuesIntegrationTimestamp: $continuesIntegrationTimestamp"
+          echo "buildSha: $buildSha"
+          echo "pack: $pack"
+
+          if ($pack)
+          {
+            $arguments = 'pack', '-c', 'Release', '-o', '$(Build.ArtifactStagingDirectory)', '-p:ContinuousIntegrationBuild=true'
+
+            if ($ciBuildOnly)
+            {
+              $arguments += "-p:ContinuesIntegrationTimestamp=$continuesIntegrationTimestamp"
+              $arguments += "-p:BuildSha=$buildSha"
+            }
+
+            $projectFiles = Get-ChildItem src/*/*.csproj -Recurse | % { $_.FullName }
+
+            foreach ($projectFile in $projectFiles)
+            {
+              echo "Pack command: dotnet " + (($arguments + $projectFile) -join ' ')
+              & dotnet ($arguments + $projectFile)
+            }
+
+            $pushToAzureArtifacts = $pack
+            $publishSymbolsForAzureArtifacts = $pushToAzureArtifacts
+            $pushToNugetOrg = $officialBuild
+
+            echo "pushToAzureArtifacts: $pushToAzureArtifacts"
+            echo "publishSymbolsForAzureArtifacts: $publishSymbolsForAzureArtifacts"
+            echo "pushToNugetOrg: $pushToNugetOrg"
+
+            echo "##vso[task.setvariable variable=Pack.PushToAzureArtifacts]$pushToAzureArtifacts"
+            echo "##vso[task.setvariable variable=Pack.PublishSymbolsForAzureArtifacts]$publishSymbolsForAzureArtifacts"
+            echo "##vso[task.setvariable variable=Pack.PushToNugetOrg]$pushToNugetOrg"
+          }
+        displayName: "NuGet Pack"
+      - task: NuGetCommand@2
+        displayName: "NuGet Push - AZDO Feed"
+        inputs:
+          command: push
+          publishVstsFeed: 'EntityFrameworkCore.Jet/public'
+          packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+        condition: eq(variables['Pack.PushToAzureArtifacts'],'true')
+      - task: PublishSymbols@2 # AZDO still has no snupkg support, so we need to publish the PDB files to a symbol server
+        displayName: "Publish Symbols to Azure Artifacts symbol server"
+        inputs:
+          symbolServerType: 'TeamServices'
+          treatNotIndexedAsWarning: false
+          indexSources: false
+        condition: eq(variables['Pack.PublishSymbolsForAzureArtifacts'],'true')
+      - task: NuGetCommand@2
+        displayName: "NuGet Push - nuget.org"
+        inputs:
+          command: push
+          nuGetFeedType: external
+          publishFeedCredentials: LauXjpn-NugetOrg-EFCoreJet-AllPackages-PushNew
+          packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+        condition: eq(variables['Pack.PushToNugetOrg'],'true')

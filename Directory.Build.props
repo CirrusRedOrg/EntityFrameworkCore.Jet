@@ -3,8 +3,7 @@
     <DefaultNetCoreTargetFramework>netcoreapp3.1</DefaultNetCoreTargetFramework>
     <DefaultNetStandardTargetFramework>netstandard2.0</DefaultNetStandardTargetFramework>
   </PropertyGroup>
-
-  <Import Project=".\build\Dependencies.props" />
+  
   <Import Project=".\build\Development.props" Condition="Exists('.\build\Development.props')" />
 
   <PropertyGroup>
@@ -13,7 +12,7 @@
     
     <Product>EntityFrameworkCore.Jet</Product>
     <Description>Jet (Microsoft Access mdb or accdb files) provider for Entity Framework Core (EFCore)</Description>
-    <Authors>Bubi</Authors>
+    <Authors>Laurents Meyer, Bubi</Authors>
     <Company>Bubi</Company>
     <Copyright>Copyright © 2017-2020 - Bubi</Copyright>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
@@ -22,7 +21,7 @@
     <IsPackable>False</IsPackable>
     <PublishRepositoryUrl>True</PublishRepositoryUrl>
 
-    <PackageProjectUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet/</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet</PackageProjectUrl>
     <!-- <PackageReleaseNotes>TODO</PackageReleaseNotes> -->
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <!-- <PackageIconUrl>TODO</PackageIconUrl> -->
@@ -31,7 +30,7 @@
     <PackageTags>Entity Framework Core Jet;Entity Framework Core Access;Entity Framework Core MS Access;entity-framework-core-jet;entity-framework-core-access;entity-framework-core-msaccess;EF Jet;EF Access;EF MS Access;Data;O/RM;EntityFramework;EntityFrameworkCore;EFCore;Jet;Access;MS Access</PackageTags>
 
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>git://github.com/bubibubi/EntityFrameworkCore.Jet.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet.git</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

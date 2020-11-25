@@ -11,15 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace EntityFrameworkCore.Jet.Infrastructure
 {
     /// <summary>
-    ///     <para>
-    ///         Allows Jet specific configuration to be performed on <see cref="DbContextOptions" />.
-    ///     </para>
-    ///     <para>
-    ///         Instances of this class are returned from a call to
-    ///         <see
-    ///             cref="JetDbContextOptionsExtensions.UseJet(DbContextOptionsBuilder, JetConfiguration.DefaultProviderFactory,string,System.Action{JetDbContextOptionsBuilder})" />
-    ///         and it is not designed to be directly constructed in your application code.
-    ///     </para>
+    /// Provides extension methods on <see cref="DbContextOptionsBuilder"/> and <see cref="DbContextOptionsBuilder{T}"/>
+    /// to configure a <see cref="DbContext"/> to use with Jet/Access and EntityFrameworkCore.Jet.
     /// </summary>
     public class JetDbContextOptionsBuilder
         : RelationalDbContextOptionsBuilder<JetDbContextOptionsBuilder, JetOptionsExtension>

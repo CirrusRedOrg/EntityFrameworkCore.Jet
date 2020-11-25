@@ -7,18 +7,18 @@
     </PropertyGroup>
     
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsConfigurationEnvironmentVariablesVersion)" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MicrosoftExtensionsConfigurationFileExtensionsVersion)" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
 
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsLoggingVersion)" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="$(MicrosoftExtensionsLoggingVersion)" />
-        <PackageReference Include="System.Data.Odbc" Version="5.0.0-preview.3.20171.3" />
-        <PackageReference Include="System.Data.OleDb" Version="5.0.0-preview.3.20171.3" />
+        <PackageReference Include="Microsoft.Extensions.Logging" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="$(MicrosoftExtensionsVersion)" />
+        <PackageReference Include="System.Data.Odbc" />
+        <PackageReference Include="System.Data.OleDb" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
@@ -46,10 +46,10 @@
         <Reference Include="Microsoft.EntityFrameworkCore.Specification.Tests">
             <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
         </Reference>
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="$(MicrosoftExtensionsCachingMemoryVersion)" />
-        <PackageReference Include="NetTopologySuite" Version="$(NetTopologySuiteVersion)" />
-        <PackageReference Include="System.ComponentModel.TypeConverter" Version="$(SystemComponentModelTypeConverterVersion)" />
-        <PackageReference Include="Castle.Core" Version="$(CastleCoreVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+        <PackageReference Include="NetTopologySuite" />
+        <PackageReference Include="System.ComponentModel.TypeConverter" />
+        <PackageReference Include="Castle.Core" />
     </ItemGroup>
 
     <ItemGroup>

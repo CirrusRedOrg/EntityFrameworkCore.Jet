@@ -7,52 +7,23 @@
     <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
     <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
-  
+
   <ItemGroup>
-    <Compile Include="..\Shared\Check.cs">
-      <Link>Check.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\CodeAnnotations.cs">
-      <Link>CodeAnnotations.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\MemberInfoExtensions.cs">
-      <Link>MemberInfoExtensions.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\PropertyInfoExtensions.cs">
-      <Link>PropertyInfoExtensions.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\SharedTypeExtensions.cs">
-      <Link>SharedTypeExtensions.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\StringBuilderExtensions.cs">
-      <Link>StringBuilderExtensions.cs</Link>
-    </Compile>
+    <Compile Include="..\Shared\*.cs" />
   </ItemGroup>
+
+  <!-- TODO: Check if app.config can be deleted. -->
   <ItemGroup>
     <None Include="app.config" />
   </ItemGroup>
+  
   <ItemGroup>
     <Content Include="Properties\EntityFrameworkCore.Jet.rd.xml" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Properties\JetStrings.Designer.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
-    </None>
-    <Compile Update="Properties\JetStrings.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>JetStrings.Designer.tt</DependentUpon>
-    </Compile>
-    <EmbeddedResource Update="Properties\JetStrings.resx">
-      <CustomToolNamespace>EntityFrameworkCore.Jet.Internal</CustomToolNamespace>
-    </EmbeddedResource>
-  </ItemGroup>
-
   <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
@@ -69,17 +40,17 @@
       <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
     </Reference>
     
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjection)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsConfigurationEnvironmentVariablesVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="$(MicrosoftExtensionsConfigurationVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="$(MicrosoftExtensionsCachingMemoryVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsLoggingVersion)" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="$(MicrosoftBclAsyncInterfacesVersion)" />
-    <PackageReference Include="Microsoft.Bcl.HashCode" Version="$(MicrosoftBclHashCodeVersion)" />
-    <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
-    <PackageReference Include="System.ComponentModel.Annotations" Version="$(SystemComponentModelAnnotationsVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="Microsoft.Bcl.HashCode" />
+    <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.ComponentModel.Annotations" />
   </ItemGroup>
 
   <ItemGroup>
@@ -88,6 +59,21 @@
 
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Update="Properties\JetStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Update="Properties\JetStrings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>JetStrings.Designer.tt</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Properties\JetStrings.resx">
+      <CustomToolNamespace>EntityFrameworkCore.Jet.Internal</CustomToolNamespace>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

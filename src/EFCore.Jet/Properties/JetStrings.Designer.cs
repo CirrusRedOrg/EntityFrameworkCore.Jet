@@ -20,6 +20,12 @@ namespace EntityFrameworkCore.Jet.Internal
     {
         private static readonly ResourceManager _resourceManager
             = new ResourceManager("EntityFrameworkCore.Jet.Properties.JetStrings", typeof(JetStrings).GetTypeInfo().Assembly);
+        
+        /// <summary>
+        ///     Generating idempotent scripts for migration is not currently supported by Jet. For more information, see http://go.microsoft.com/fwlink/?LinkId=723262.
+        /// </summary>
+        public static string MigrationScriptGenerationNotSupported
+            => GetString("MigrationScriptGenerationNotSupported");
 
         /// <summary>
         ///     Identity value generation cannot be used for the property '{property}' on entity type '{entityType}' because the property type is '{propertyType}'. Identity value generation can only be used with signed integer properties.

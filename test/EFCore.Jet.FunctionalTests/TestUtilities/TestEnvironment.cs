@@ -18,8 +18,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             .Build()
             .GetSection("Test:Jet");
 
-        public static string DefaultConnection { get; } = Config["DefaultConnection"]
-            ?? JetConnection.GetConnectionString("Jet.accdb", TestEnvironment.DataAccessProviderFactory);
+        public static string DefaultConnection { get; } = Environment.GetEnvironmentVariable("EFCoreJet_DefaultConnection") ??
+                                                          Config["DefaultConnection"] ??
+                                                          JetConnection.GetConnectionString("Jet.accdb", TestEnvironment.DataAccessProviderFactory);
 
         public static bool IsConfigured
         {

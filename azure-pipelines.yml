@@ -13,22 +13,57 @@ variables:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 jobs:
   - job: BuildAndTest
-    displayName: Build and Test (ACE 2010 x64)
+    displayName: Build and Test
     strategy:
       matrix:
-        ACE 2010 x64:
+        ACE 2010 x64 with ODBC:
           aceVersion: '2010'
           aceArchitecture: 'x64'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
           aceSilentInstallArgument: '/passive'
-        ACE 2010 x86:
+          dataAccessProviderType: 'ODBC'
+          defaultConnection: 'DBQ=Jet.accdb'
+        ACE 2010 x64 with OLE DB:
+          aceVersion: '2010'
+          aceArchitecture: 'x64'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
+          aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'OLE DB'
+          defaultConnection: 'Data Source=Jet.accdb'
+        ACE 2010 x86 with ODBC:
           aceVersion: '2010'
           aceArchitecture: 'x86'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
           aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'ODBC'
+          defaultConnection: 'DBQ=Jet.accdb'
+        ACE 2010 x86 with OLE DB:
+          aceVersion: '2010'
+          aceArchitecture: 'x86'
+          aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+          aceSilentInstallArgument: '/passive'
+          dataAccessProviderType: 'OLE DB'
+          defaultConnection: 'Data Source=Jet.accdb'
     pool:
       vmImage: 'windows-latest'
     steps:
+    - pwsh: |
+        if ('$(aceArchitecture)' -eq 'x86')
+        {
+          $dotnetInstallDirectory = 'C:\Program Files (x86)\dotnet'
+        }
+        else
+        {
+          $dotnetInstallDirectory = 'C:\Program Files\dotnet'
+        }
+        echo "##vso[task.setvariable variable=dotnetInstallDirectory]$dotnetInstallDirectory"
+
+        $dotnetPath = Join-Path $dotnetInstallDirectory 'dotnet.exe'
+        echo "##vso[task.setvariable variable=dotnetPath]$dotnetPath"
+
+        $path = $env:path.Replace('C:\Program Files\dotnet', $dotnetInstallDirectory)
+        echo "##vso[task.setvariable variable=path]$path"
+      displayName: Set additional variables
     - pwsh: |
         echo "isPullRequest: $(isPullRequest)"
         echo "pullRequestSourceBranch: $(pullRequestSourceBranch)"
@@ -37,12 +72,19 @@ jobs:
         echo "aceVersion: $(aceVersion)"
         echo "aceArchitecture: $(aceArchitecture)"
         echo "aceUrl: $(aceUrl)"
-        echo "aceSilentInstallArgument: $(aceSilentInstallArgument)"
+        echo "dotnetInstallDirectory: $(dotnetInstallDirectory)"
+        echo "dotnetPath: $(dotnetPath)"
       displayName: Output Variables
-    - task: UseDotNet@2
-      displayName: 'Use .NET SDK'
-      inputs:
-        useGlobalJson: true
+    - pwsh: |
+        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
+      displayName: .NET Information Before SDK Install
+    - pwsh: |
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+        &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture $(aceArchitecture) -InstallDir '$(dotnetInstallDirectory)' -Verbose
+      displayName: Install .NET SDK
+    - pwsh: |
+        try { dotnet --info } catch { echo 'No $(aceArchitecture) .NET SDK installed' }
+      displayName: .NET Information After SDK Install
     - pwsh: |
         $setupFileName = 'AccessDatabaseEngine_$(aceVersion)_$(aceArchitecture).exe'
         Invoke-WebRequest '$(aceUrl)' -OutFile $setupFileName
@@ -52,10 +94,12 @@ jobs:
         dotnet build --configuration $(buildConfiguration)
       displayName: Build Solution
     - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\System.Data.Jet.Test -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
       displayName: 'Run Tests: System.Data.Jet.Test'
       continueOnError: true
     - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
       displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
       continueOnError: true
@@ -65,7 +109,7 @@ jobs:
       inputs:
         testResultsFormat: VSTest
         testResultsFiles: test/**/*.trx
-        testRunTitle: ACE $(aceVersion) $(aceArchitecture)
+        testRunTitle: ACE $(aceVersion) $(aceArchitecture) with $(dataAccessProviderType)
         mergeTestResults: true
         failTaskOnFailedTests: false
   - job: NuGet

@@ -236,12 +236,9 @@ namespace EntityFrameworkCore.Jet.Data
         protected override void Dispose(bool disposing)
         {
             _connectionString = string.Empty;
-			
-            if (disposing)
-            {
-                Close();
-            }
 
+            if (disposing)
+                Close();
 
             base.Dispose(disposing);
         }

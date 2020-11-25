@@ -12,7 +12,7 @@ It runs on Windows operating systems only and can be used with either ODBC or OL
 All stable releases are available on [nuget.org](https://www.nuget.org/packages/EntityFrameworkCore.Jet/).
 
 ## Daily Builds
-To use the latest daily builds from our Azure DevOps feed, add a `NuGet.config` file to your solution root with the following content and enable _prereleases_:
+To use the latest daily builds from our [Azure DevOps feed](https://bubibubi.visualstudio.com/EntityFrameworkCore.Jet/_packaging?_a=feed&feed=public%40Local), add a `NuGet.config` file to your solution root with the following content and enable _prereleases_:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>

@@ -5,9 +5,7 @@
 `EntityFrameworkCore.Jet` is an Entity Framework Core provider for Jet (Microsoft Access database file formats `mdb` and `accdb`).
 
 The provider is .NET Standard 2.0 compatible, so it can be used with .NET (Core) 2.0+ and .NET Framework 4.6.1+.
-
 The major version corresponds with the major version of EF Core (i.e. version `3.x` is compatible with EF Core `3.y`).
-
 It runs on Windows operating systems only and can be used with either ODBC or OLE DB together with their corresponding Access Database driver/provider.
 
 ## Stable Releases

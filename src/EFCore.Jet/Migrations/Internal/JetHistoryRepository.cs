@@ -2,11 +2,14 @@
 
 using System;
 using System.Text;
+using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Migrations;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Migrations.Internal
 {
@@ -51,7 +54,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
 
                 var builder = new StringBuilder();
                 builder
-                    .Append("SHOW TABLES WHERE NAME=")
+                    .Append("SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = ")
                     .Append(stringTypeMapping.GenerateSqlLiteral(TableName));
 
                 return builder.ToString();
@@ -131,7 +134,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
 
             builder
-                .Append("IF NOT EXISTS (SELECT * FROM (SHOW TABLES) WHERE Name = ")
+                .Append("IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = ")
                 .Append(stringTypeMapping.GenerateSqlLiteral(TableName))
                 .Append(") THEN ");
             using (builder.Indent())
@@ -151,20 +154,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         /// </summary>
         public override string GetBeginIfNotExistsScript(string migrationId)
         {
-            Check.NotEmpty(migrationId, nameof(migrationId));
-
-            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
-
-            return new StringBuilder()
-                .Append("IF NOT EXISTS(SELECT * FROM ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
-                .Append(" WHERE ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = ")
-                .Append(stringTypeMapping.GenerateSqlLiteral(migrationId))
-                .AppendLine(")")
-                .Append("THEN")
-                .ToString();
+            throw new NotSupportedException(JetStrings.MigrationScriptGenerationNotSupported);
         }
 
         /// <summary>
@@ -175,20 +165,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         /// </summary>
         public override string GetBeginIfExistsScript(string migrationId)
         {
-            Check.NotEmpty(migrationId, nameof(migrationId));
-
-            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
-
-            return new StringBuilder()
-                .Append("IF EXISTS(SELECT * FROM ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(TableName))
-                .Append(" WHERE ")
-                .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
-                .Append(" = ")
-                .Append(stringTypeMapping.GenerateSqlLiteral(migrationId))
-                .AppendLine(")")
-                .Append("THEN")
-                .ToString();
+            throw new NotSupportedException(JetStrings.MigrationScriptGenerationNotSupported);
         }
 
         /// <summary>
@@ -197,6 +174,9 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public override string GetEndIfScript() => ";" + Environment.NewLine;
+        public override string GetEndIfScript()
+        {
+            throw new NotSupportedException(JetStrings.MigrationScriptGenerationNotSupported);
+        }
     }
 }

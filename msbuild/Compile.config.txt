@@ -1,4 +1,0 @@
-﻿..\build\GlobalAssemblyInfo.cs
-
-_MakeSetup.bat
-

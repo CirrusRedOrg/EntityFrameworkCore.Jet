@@ -90,6 +90,6 @@
         /// <value>
         /// <c>true</c> to return a default value; otherwise, <c>false</c>.
         /// </value>
-        public static bool UseDefaultValueOnDnNullConversionError { get; set; } = false;
+        public static bool UseDefaultValueOnDBNullConversionError { get; set; } = false;
     }
 }

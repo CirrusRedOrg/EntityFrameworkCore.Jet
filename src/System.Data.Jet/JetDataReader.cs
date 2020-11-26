@@ -47,7 +47,7 @@ namespace System.Data.Jet
         public override bool GetBoolean(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError)
             {
                 if (value is DBNull) return false;
             }
@@ -79,7 +79,7 @@ namespace System.Data.Jet
         public override byte GetByte(int ordinal)
         {
             var value = GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError)
             {
                 if (value is DBNull) return 0;
             }
@@ -108,7 +108,7 @@ namespace System.Data.Jet
         public override long GetBytes(int ordinal, long dataOffset, byte[] buffer, int bufferOffset, int length)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -118,7 +118,7 @@ namespace System.Data.Jet
         public override char GetChar(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return (char)0;
             }
@@ -128,7 +128,7 @@ namespace System.Data.Jet
         public override long GetChars(int ordinal, long dataOffset, char[] buffer, int bufferOffset, int length)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -141,7 +141,7 @@ namespace System.Data.Jet
         public override DateTime GetDateTime(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified);
             }
@@ -157,7 +157,7 @@ namespace System.Data.Jet
         public override decimal GetDecimal(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -167,7 +167,7 @@ namespace System.Data.Jet
         public override double GetDouble(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -183,7 +183,7 @@ namespace System.Data.Jet
         public override float GetFloat(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -194,7 +194,7 @@ namespace System.Data.Jet
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return Guid.Empty;
             }
@@ -207,7 +207,7 @@ namespace System.Data.Jet
         public override short GetInt16(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -218,7 +218,7 @@ namespace System.Data.Jet
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -235,7 +235,7 @@ namespace System.Data.Jet
         public override long GetInt64(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return 0;
             }
@@ -254,7 +254,7 @@ namespace System.Data.Jet
         public override string GetString(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            if (JetConfiguration.UseDefaultValueOnDnNullConversionError && value is DBNull)
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && value is DBNull)
             {
                 return "";
             }

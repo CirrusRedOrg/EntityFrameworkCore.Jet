@@ -12,7 +12,7 @@
     <DebugType>portable</DebugType>
     <IsPackable>False</IsPackable>
     <!-- <PackageReleaseNotes>TODO</PackageReleaseNotes> -->
-    <PackageTags>Entity Framework Core Jet;Entity Framework Core Access;Entity Framework Core MS Access;entity-framework-core-jet;entity-framework-core-access;entity-framework-core-msaccess;EF Jet;EF Access;EF MS Access;Data;O/RM;EntityFramework;EntityFrameworkCore;EFCore;Jet;Access;MS Access;ACE</PackageTags>
+    <PackageTags>Entity Framework Core;Entity Framework Core;entity-framework-core;Jet;ACE;Access;MS Access;msaccess;EF;EFCore;EF Core;EntityFrameworkCore</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet</PackageProjectUrl>
     <!-- <PackageIconUrl>TODO</PackageIconUrl> -->

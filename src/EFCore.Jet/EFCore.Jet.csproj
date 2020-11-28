@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Description>Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
     <TargetFrameworks>$(DefaultNetStandardTargetFramework);netcoreapp2.1;net461</TargetFrameworks>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>

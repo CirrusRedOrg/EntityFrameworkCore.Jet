@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Explicit ODBC support for Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
+    <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
+    <AssemblyName>EntityFrameworkCore.Jet.Odbc</AssemblyName>
+    <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
+    <PackageTags>$(PackageTags);ODBC;System.Data.Odbc</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EFCore.Jet\EFCore.Jet.csproj" PrivateAssets="contentfiles;build" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Data.Odbc" />
+  </ItemGroup>
+
+</Project>

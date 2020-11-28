@@ -31,5 +31,6 @@
     <IncludeSymbols>true</IncludeSymbols>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <MinClientVersion>3.6</MinClientVersion>
   </PropertyGroup>
 </Project>

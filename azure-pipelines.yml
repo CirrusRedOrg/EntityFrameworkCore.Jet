@@ -132,7 +132,7 @@ jobs:
       - pwsh: |
           $officialBuild = '$(Build.SourceBranch)' -match '^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+'
           $wipBuild = '$(Build.SourceBranch)' -match '^refs/heads/.*-wip$'
-          $ciBuildOnly = $wipBuild -or ('$(Build.SourceBranch)' -match '^refs/heads/(?:master|.*-servicing)$')
+          $ciBuildOnly = $wipBuild -or ('$(Build.SourceBranch)' -match '^refs/heads/(?:master|.*-servicing|azure-pipelines)$') # DEBUG: azure-pipelines
           $continuousIntegrationTimestamp = Get-Date -Format yyyyMMddHHmmss
           $buildSha = '$(Build.SourceVersion)'.SubString(0, 7);
           $pack = $officialBuild -or $ciBuildOnly -or $wipBuild

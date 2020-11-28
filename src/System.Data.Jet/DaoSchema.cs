@@ -39,17 +39,24 @@ namespace System.Data.Jet
                 var userId = csb.GetUserId();
                 var password = csb.GetPassword();
                 var systemDatabase = csb.GetSystemDatabase();
+                var databasePassword = csb.GetDatabasePassword();
 
                 if (!string.IsNullOrEmpty(systemDatabase))
                 {
                     _dbEngine.SystemDB = systemDatabase;
                 }
 
-                _workspace = _dbEngine.CreateWorkspace(string.Empty, userId ?? "admin", password ?? string.Empty, /*WorkspaceTypeEnum.dbUseJet*/ 2);
+                _workspace = _dbEngine.CreateWorkspace(string.Empty, userId ?? "Admin", password ?? string.Empty, /*WorkspaceTypeEnum.dbUseJet*/ 2);
 
                 try
                 {
-                    _database = _workspace.OpenDatabase(dataSource, /* Exclusive */ false, /* ReadOnly */ true, string.Empty);
+                    _database = _workspace.OpenDatabase(
+                        dataSource,
+                        /* Exclusive */ false,
+                        /* ReadOnly */ true,
+                        "MS Access" + (string.IsNullOrEmpty(databasePassword)
+                            ? null
+                            : $";PWD={databasePassword}"));
                 }
                 catch
                 {

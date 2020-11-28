@@ -8,40 +8,40 @@ namespace System.Data.Jet
     {
         public static string GetProvider(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                return builder.TryGetValue("provider", out var value)
+                return builder.TryGetValue("Provider", out var value)
                     ? (string)value
                     : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            if (providerType == DataAccessProviderType.Odbc ||
                 IsOdbc(builder))
             {
-                return builder.TryGetValue("driver", out var value)
+                return builder.TryGetValue("DRIVER", out var value)
                     ? (string)value
                     : null;
             }
 
-            return builder.TryGetValue("provider", out var oleDbValue)
+            return builder.TryGetValue("Provider", out var oleDbValue)
                 ? (string)oleDbValue
-                : builder.TryGetValue("driver", out var odbcValue)
+                : builder.TryGetValue("DRIVER", out var odbcValue)
                     ? (string)odbcValue
                     : null;
         }
 
         public static void SetProvider(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                builder["provider"] = value;
+                builder["Provider"] = value;
             }
-            else if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            else if (providerType == DataAccessProviderType.Odbc ||
                      IsOdbc(builder))
             {
-                builder["driver"] = Regex.Replace(value.Trim(), @"^(?<!\{)(.*)(?!\})$", @"{$1}", RegexOptions.IgnoreCase);
+                builder["DRIVER"] = Regex.Replace(value.Trim(), @"^(?<!\{)(.*)(?!\})$", @"{$1}", RegexOptions.IgnoreCase);
             }
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
@@ -49,40 +49,40 @@ namespace System.Data.Jet
         
         public static string GetDataSource(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                return builder.TryGetValue("data source", out var value)
+                return builder.TryGetValue("Data Source", out var value)
                     ? (string)value
                     : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            if (providerType == DataAccessProviderType.Odbc ||
                 IsOdbc(builder))
             {
-                return builder.TryGetValue("dbq", out var value)
+                return builder.TryGetValue("DBQ", out var value)
                     ? (string)value
                     : null;
             }
 
-            return builder.TryGetValue("data source", out var oleDbValue)
+            return builder.TryGetValue("Data Source", out var oleDbValue)
                 ? (string)oleDbValue
-                : builder.TryGetValue("dbq", out var odbcValue)
+                : builder.TryGetValue("DBQ", out var odbcValue)
                     ? (string)odbcValue
                     : null;
         }
 
         public static void SetDataSource(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                builder["data source"] = value;
+                builder["Data Source"] = value;
             }
-            else if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            else if (providerType == DataAccessProviderType.Odbc ||
                      IsOdbc(builder))
             {
-                builder["dbq"] = value;
+                builder["DBQ"] = value;
             }
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
@@ -92,37 +92,37 @@ namespace System.Data.Jet
         {
             if (IsOleDb(builder))
             {
-                return builder.TryGetValue("user id", out var value)
+                return builder.TryGetValue("User ID", out var value)
                     ? (string)value
                     : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            if (providerType == DataAccessProviderType.Odbc ||
                 IsOdbc(builder))
             {
-                return builder.TryGetValue("uid", out var value)
+                return builder.TryGetValue("UID", out var value)
                     ? (string)value
                     : null;
             }
 
-            return builder.TryGetValue("user id", out var oleDbValue)
+            return builder.TryGetValue("User ID", out var oleDbValue)
                 ? (string)oleDbValue
-                : builder.TryGetValue("uid", out var odbcValue)
+                : builder.TryGetValue("UID", out var odbcValue)
                     ? (string)odbcValue
                     : null;
         }
 
         public static void SetUserId(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                builder["user id"] = value;
+                builder["User ID"] = value;
             }
-            else if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            else if (providerType == DataAccessProviderType.Odbc ||
                      IsOdbc(builder))
             {
-                builder["uid"] = value;
+                builder["UID"] = value;
             }
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
@@ -130,40 +130,49 @@ namespace System.Data.Jet
         
         public static string GetPassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                return builder.TryGetValue("password", out var value)
+                return builder.TryGetValue("Password", out var value)
                     ? (string)value
                     : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            // MAJOR ISSUE: PWD seems to be used for the datbase password AND the workgroup user password.
+            //              See https://stackoverflow.com/questions/65025810/how-to-specify-mdw-username-and-password-user-level-security-and-the-database
+            //              As a workaround, we will assume the PWD field to contain the database password, if no SYSTEMDB has been specified.
+            //              Otherwise, we will handle the field as the workgroup user password.
+
+            if (providerType == DataAccessProviderType.Odbc ||
                 IsOdbc(builder))
             {
-                return builder.TryGetValue("pwd", out var value)
-                    ? (string)value
+                return !string.IsNullOrEmpty(builder.GetSystemDatabase(providerType))
+                    ? builder.TryGetValue("PWD", out var value)
+                        ? (string) value
+                        : null
                     : null;
             }
 
-            return builder.TryGetValue("password", out var oleDbValue)
-                ? (string)oleDbValue
-                : builder.TryGetValue("pwd", out var odbcValue)
-                    ? (string)odbcValue
+            return builder.TryGetValue("Password", out var oleDbValue)
+                ? (string) oleDbValue
+                : !string.IsNullOrEmpty(builder.GetSystemDatabase(providerType))
+                    ? builder.TryGetValue("PWD", out var odbcValue)
+                        ? (string) odbcValue
+                        : null
                     : null;
         }
 
         public static void SetPassword(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
-                builder["password"] = value;
+                builder["Password"] = value;
             }
-            else if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            else if (providerType == DataAccessProviderType.Odbc ||
                      IsOdbc(builder))
             {
-                builder["pwd"] = value;
+                builder["PWD"] = value;
             }
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
@@ -171,7 +180,7 @@ namespace System.Data.Jet
         
         public static string GetSystemDatabase(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
                 return builder.TryGetValue("Jet OLEDB:System Database", out var value)
@@ -179,32 +188,82 @@ namespace System.Data.Jet
                     : null;
             }
 
-            if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            if (providerType == DataAccessProviderType.Odbc ||
                 IsOdbc(builder))
             {
-                return builder.TryGetValue("SystemDB", out var value)
+                return builder.TryGetValue("SYSTEMDB", out var value)
                     ? (string)value
                     : null;
             }
 
             return builder.TryGetValue("Jet OLEDB:System Database", out var oleDbValue)
                 ? (string)oleDbValue
-                : builder.TryGetValue("SystemDB", out var odbcValue)
+                : builder.TryGetValue("SYSTEMDB", out var odbcValue)
                     ? (string)odbcValue
                     : null;
         }
 
         public static void SetSystemDatabase(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
         {
-            if (providerType != null && providerType == DataAccessProviderType.OleDb ||
+            if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
                 builder["Jet OLEDB:System Database"] = value;
             }
-            else if (providerType != null && providerType == DataAccessProviderType.Odbc ||
+            else if (providerType == DataAccessProviderType.Odbc ||
                      IsOdbc(builder))
             {
-                builder["SystemDB"] = value;
+                builder["SYSTEMDB"] = value;
+            }
+            else
+                throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
+        }
+
+        public static string GetDatabasePassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+        {
+            if (providerType == DataAccessProviderType.OleDb ||
+                IsOleDb(builder))
+            {
+                return builder.TryGetValue("Jet OLEDB:Database Password", out var value)
+                    ? (string)value
+                    : null;
+            }
+
+            // MAJOR ISSUE: PWD seems to be used for the datbase password AND the workgroup user password.
+            //              See https://stackoverflow.com/questions/65025810/how-to-specify-mdw-username-and-password-user-level-security-and-the-database
+            //              As a workaround, we will assume the PWD field to contain the database password, if no SYSTEMDB has been specified.
+            //              Otherwise, we will handle the field as the workgroup user password.
+
+            if (providerType == DataAccessProviderType.Odbc ||
+                IsOdbc(builder))
+            {
+                return string.IsNullOrEmpty(builder.GetSystemDatabase(providerType))
+                    ? builder.TryGetValue("PWD", out var value)
+                        ? (string) value
+                        : null
+                    : null;
+            }
+
+            return builder.TryGetValue("Jet OLEDB:Database Password", out var oleDbValue)
+                ? (string) oleDbValue
+                : string.IsNullOrEmpty(builder.GetSystemDatabase(providerType))
+                    ? builder.TryGetValue("PWD", out var odbcValue)
+                        ? (string) odbcValue
+                        : null
+                    : null;
+        }
+
+        public static void SetDatabasePassword(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
+        {
+            if (providerType == DataAccessProviderType.OleDb ||
+                IsOleDb(builder))
+            {
+                builder["Jet OLEDB:Database Password"] = value;
+            }
+            else if (providerType == DataAccessProviderType.Odbc ||
+                     IsOdbc(builder))
+            {
+                builder["PWD"] = value;
             }
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");

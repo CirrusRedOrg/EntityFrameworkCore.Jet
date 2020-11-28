@@ -59,14 +59,15 @@ namespace System.Data.Jet
             if (JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString) &&
                 JetConnection.GetDataAccessProviderType(fileNameOrConnectionString) == DataAccessProviderType.Odbc)
             {
-                var oldCbs = new DbConnectionStringBuilder(true) {ConnectionString = fileNameOrConnectionString};
-                var newCbs = new DbConnectionStringBuilder {ConnectionString = connectionString};
+                var oldCsb = new DbConnectionStringBuilder(true) {ConnectionString = fileNameOrConnectionString};
+                var newCsb = new DbConnectionStringBuilder {ConnectionString = connectionString};
 
-                newCbs.SetUserId(oldCbs.GetUserId(DataAccessProviderType.Odbc), DataAccessProviderType.Odbc);
-                newCbs.SetPassword(oldCbs.GetPassword(DataAccessProviderType.Odbc), DataAccessProviderType.Odbc);
-                newCbs.SetSystemDatabase(oldCbs.GetSystemDatabase(DataAccessProviderType.Odbc), DataAccessProviderType.Odbc);
+                newCsb.SetUserId(oldCsb.GetUserId(DataAccessProviderType.Odbc), DataAccessProviderType.OleDb);
+                newCsb.SetPassword(oldCsb.GetPassword(DataAccessProviderType.Odbc), DataAccessProviderType.OleDb);
+                newCsb.SetSystemDatabase(oldCsb.GetSystemDatabase(DataAccessProviderType.Odbc), DataAccessProviderType.OleDb);
+                newCsb.SetDatabasePassword(oldCsb.GetDatabasePassword(DataAccessProviderType.Odbc), DataAccessProviderType.OleDb);
 
-                connectionString = newCbs.ConnectionString;
+                connectionString = newCsb.ConnectionString;
             }
 
             return connectionString;
@@ -706,6 +707,7 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
         
         public override void Dispose()
         {
+            _connection.Dispose();
             _catalog.Dispose();
         }
         

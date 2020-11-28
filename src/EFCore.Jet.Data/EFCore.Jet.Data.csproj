@@ -5,6 +5,7 @@
         <TargetFrameworks>$(DefaultNetStandardTargetFramework);netcoreapp2.1;net461</TargetFrameworks>
         <Platforms>AnyCPU;x86;x64</Platforms>
         <RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
+        <PackageTags>$(PackageTags);System.Data.Jet</PackageTags>
     </PropertyGroup>
     
     <ItemGroup>

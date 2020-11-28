@@ -73,11 +73,6 @@
     <None Remove="EFCore.Jet.Integration.Test.csproj.DotSettings" />
     <None Remove="EFCore.Jet.Integration.Test.DotSettings" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config">
-      <SubType>Designer</SubType>
-    </None>
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
@@ -94,7 +89,9 @@
 
     <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
   </ItemGroup>
+  
   <ItemGroup>
     <Folder Include="Properties" />
   </ItemGroup>
+  
 </Project>

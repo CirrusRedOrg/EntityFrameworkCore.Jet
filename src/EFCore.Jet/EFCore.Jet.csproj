@@ -12,15 +12,6 @@
     <Compile Include="..\Shared\*.cs" />
   </ItemGroup>
 
-  <!-- TODO: Check if app.config can be deleted. -->
-  <ItemGroup>
-    <None Include="app.config" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Content Include="Properties\EntityFrameworkCore.Jet.rd.xml" />
-  </ItemGroup>
-
   <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
     <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" />

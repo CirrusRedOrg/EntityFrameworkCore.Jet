@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
     <Platforms>AnyCPU;x86;x64</Platforms>
+    <RootNamespace>System.Data.Jet.Test</RootNamespace>
   </PropertyGroup>
   
   <ItemGroup>
@@ -31,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\System.Data.Jet\System.Data.Jet.csproj" />
+    <ProjectReference Include="..\..\src\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,4 +41,5 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
 </Project>

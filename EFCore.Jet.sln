@@ -14,9 +14,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{6A8DE399-1
 		test\Directory.Build.props = test\Directory.Build.props
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Data.Jet", "src\System.Data.Jet\System.Data.Jet.csproj", "{88BE8B4F-8DA9-42B9-9A1F-839451BA5F8C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Data", "src\EFCore.Jet.Data\EFCore.Jet.Data.csproj", "{88BE8B4F-8DA9-42B9-9A1F-839451BA5F8C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Data.Jet.Test", "test\System.Data.Jet.Test\System.Data.Jet.Test.csproj", "{E77112B7-B6BA-43A8-B21F-DD79A7A47A2F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Data.Tests", "test\EFCore.Jet.Data.Tests\EFCore.Jet.Data.Tests.csproj", "{E77112B7-B6BA-43A8-B21F-DD79A7A47A2F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet", "src\EFCore.Jet\EFCore.Jet.csproj", "{D6966B04-4C38-4925-BCDE-F8655F38D04C}"
 EndProject

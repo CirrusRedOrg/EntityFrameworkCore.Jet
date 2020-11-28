@@ -54,7 +54,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\System.Data.Jet\System.Data.Jet.csproj" />
+    <ProjectReference Include="..\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>

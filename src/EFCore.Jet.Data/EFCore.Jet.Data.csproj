@@ -4,6 +4,7 @@
         <Description>Jet/ACE data provider for .NET used by EntityFramworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
         <TargetFrameworks>$(DefaultNetStandardTargetFramework);netcoreapp2.1;net461</TargetFrameworks>
         <Platforms>AnyCPU;x86;x64</Platforms>
+        <RootNamespace>System.Data.Jet</RootNamespace>
     </PropertyGroup>
     
     <ItemGroup>

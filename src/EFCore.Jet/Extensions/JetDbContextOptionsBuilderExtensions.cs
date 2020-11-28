@@ -37,7 +37,12 @@ namespace Microsoft.EntityFrameworkCore
             [NotNull] string fileNameOrConnectionString,
             [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
             where TContext : DbContext
-            => (DbContextOptionsBuilder<TContext>) UseJet((DbContextOptionsBuilder) optionsBuilder, fileNameOrConnectionString, jetOptionsAction);
+        {
+            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
+            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
+
+            return (DbContextOptionsBuilder<TContext>) UseJet((DbContextOptionsBuilder) optionsBuilder, fileNameOrConnectionString, jetOptionsAction);
+        }
 
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.
@@ -219,8 +224,13 @@ namespace Microsoft.EntityFrameworkCore
             [NotNull] DbConnection connection,
             [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
             where TContext : DbContext
-            => (DbContextOptionsBuilder<TContext>) UseJet(
+        {
+            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
+            Check.NotNull(connection, nameof(connection));
+
+            return (DbContextOptionsBuilder<TContext>) UseJet(
                 (DbContextOptionsBuilder) optionsBuilder, connection, jetOptionsAction);
+        }
 
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
         /// <summary>

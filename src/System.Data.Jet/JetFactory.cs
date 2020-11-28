@@ -8,6 +8,8 @@ namespace System.Data.Jet
     /// </summary>
     public class JetFactory : DbProviderFactory
     {
+        public static readonly Version MinimumRequiredOdbcVersion = new Version(5, 0, 0);
+        public static readonly Version MinimumRequiredOleDbVersion = new Version(5, 0, 0);
         public static readonly JetFactory Instance = new JetFactory(null, null);
 
         public JetConnection Connection { get; }
@@ -117,26 +119,42 @@ namespace System.Data.Jet
             {
                 try
                 {
-                    return (DbProviderFactory) Type.GetType("System.Data.OleDb.OleDbFactory, System.Data.OleDb")
+                    var type = Type.GetType("System.Data.OleDb.OleDbFactory, System.Data.OleDb");
+                    var version = type.Assembly.GetName().Version;
+
+                    if (version < MinimumRequiredOleDbVersion)
+                    {
+                        throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.OleDb' is lower than the minimum required version {MinimumRequiredOleDbVersion}.");
+                    }
+                    
+                    return (DbProviderFactory) type
                         .GetField("Instance", BindingFlags.Static | BindingFlags.Public)
                         .GetValue(null);
                 }
                 catch (Exception e)
                 {
-                    throw new TypeLoadException("To use OLE DB in conjunction with Jet, please reference the \"System.Data.OleDb\" NuGet package.", e);
+                    throw new TypeLoadException("To use OLE DB in conjunction with Jet, please reference the 'System.Data.OleDb' (version >= 5.0.0) NuGet package.", e);
                 }
             }
             else
             {
                 try
                 {
-                    return (DbProviderFactory) Type.GetType("System.Data.Odbc.OdbcFactory, System.Data.Odbc")
+                    var type = Type.GetType("System.Data.Odbc.OdbcFactory, System.Data.Odbc");
+                    var version = type.Assembly.GetName().Version;
+
+                    if (version < MinimumRequiredOdbcVersion)
+                    {
+                        throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.Odbc' is lower than the minimum required version {MinimumRequiredOdbcVersion}.");
+                    }
+                    
+                    return (DbProviderFactory) type
                         .GetField("Instance", BindingFlags.Static | BindingFlags.Public)
                         .GetValue(null);
                 }
                 catch (Exception e)
                 {
-                    throw new TypeLoadException("To use ODBC in conjunction with Jet, please reference the \"System.Data.Odbc\" NuGet package.", e);
+                    throw new TypeLoadException("To use ODBC in conjunction with Jet, please reference the 'System.Data.Odbc' (version >= 5.0.0) NuGet package.", e);
                 }
             }
         }

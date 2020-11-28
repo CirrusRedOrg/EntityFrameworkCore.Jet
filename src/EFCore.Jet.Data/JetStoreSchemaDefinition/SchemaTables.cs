@@ -1,4 +1,6 @@
-namespace System.Data.Jet.JetStoreSchemaDefinition
+using System.Data;
+
+namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     internal static class SchemaTables
     {

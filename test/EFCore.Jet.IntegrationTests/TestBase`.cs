@@ -1,6 +1,6 @@
 using System;
 using System.Data.Common;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;

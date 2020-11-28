@@ -3,7 +3,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 

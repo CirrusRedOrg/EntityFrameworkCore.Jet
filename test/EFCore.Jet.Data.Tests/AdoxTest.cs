@@ -1,9 +1,10 @@
-﻿using System.Data.Common;
+﻿using System;
+using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace System.Data.Jet.Test
+namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
     public class AdoxTest

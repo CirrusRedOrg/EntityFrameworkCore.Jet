@@ -1,7 +1,8 @@
+using System;
 using System.Data.Common;
-using System.Data.Jet.JetStoreSchemaDefinition;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public static class AdoxWrapper
     {

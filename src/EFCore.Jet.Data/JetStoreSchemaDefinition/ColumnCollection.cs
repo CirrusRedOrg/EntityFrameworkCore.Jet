@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace System.Data.Jet.JetStoreSchemaDefinition
+namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     class ColumnCollection : List<Column>
     {

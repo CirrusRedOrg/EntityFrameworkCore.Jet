@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;

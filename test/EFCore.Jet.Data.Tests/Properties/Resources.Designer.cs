@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace System.Data.Jet.Test.Properties {
+namespace EntityFrameworkCore.Jet.Data.Tests.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace System.Data.Jet.Test.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("System.Data.Jet.Test.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("EntityFrameworkCore.Jet.Data.Tests.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -120,7 +120,8 @@ namespace System.Data.Jet.Test.Properties {
         ///WHERE 1 = 1 AND [StudentId] = @@identity;
         ///
         ///ExecuteDbDataReader==========
-        ///SELECT TOP 1 [s].[StudentId], [s].[Notes], [s].[StudentName]        /// [rest of string was truncated]&quot;;.
+        ///SELECT TOP 1 [s].[StudentId], [s].[Notes], [s].[StudentName]
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string UpdateTestQueries {
             get {

@@ -1,10 +1,11 @@
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
-namespace System.Data.Jet.JetStoreSchemaDefinition
+namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     static class JetStoreDatabaseHandling
     {

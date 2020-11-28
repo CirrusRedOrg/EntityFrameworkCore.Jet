@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
     <Platforms>AnyCPU;x86;x64</Platforms>
-    <RootNamespace>System.Data.Jet.Test</RootNamespace>
+    <RootNamespace>EntityFrameworkCore.Jet.Data.Tests</RootNamespace>
   </PropertyGroup>
   
   <ItemGroup>

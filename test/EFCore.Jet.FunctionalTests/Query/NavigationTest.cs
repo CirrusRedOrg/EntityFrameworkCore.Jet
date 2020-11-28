@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;

@@ -1,7 +1,8 @@
-using System.Data.Jet.JetStoreSchemaDefinition;
+using System;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.Linq;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public class DaoDatabaseCreator
         : JetDatabaseCreator

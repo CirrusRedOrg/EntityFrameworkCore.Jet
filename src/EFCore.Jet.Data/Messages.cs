@@ -1,6 +1,7 @@
 ﻿using System;
+using System.Data;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     static class Messages
     {

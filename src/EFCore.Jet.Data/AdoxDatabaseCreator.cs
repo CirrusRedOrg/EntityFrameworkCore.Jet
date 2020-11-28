@@ -1,6 +1,7 @@
-using System.Data.Jet.JetStoreSchemaDefinition;
+using System;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public class AdoxDatabaseCreator
         : JetDatabaseCreator

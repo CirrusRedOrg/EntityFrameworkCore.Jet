@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     internal static class TypesExtensions
     {

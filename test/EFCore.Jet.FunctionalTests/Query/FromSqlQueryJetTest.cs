@@ -2,7 +2,7 @@
 
 using System.Data.Common;
 using System.Linq;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Data.OleDb;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;

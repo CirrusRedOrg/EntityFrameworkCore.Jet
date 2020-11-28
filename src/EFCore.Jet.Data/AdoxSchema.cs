@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
-using System.Data.Jet.JetStoreSchemaDefinition;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.Diagnostics;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public class AdoxSchema : SchemaProvider
     {

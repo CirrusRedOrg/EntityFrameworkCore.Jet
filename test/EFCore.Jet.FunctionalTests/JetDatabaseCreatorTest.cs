@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Internal;

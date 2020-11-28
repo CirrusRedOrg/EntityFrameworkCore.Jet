@@ -1,7 +1,8 @@
+using System;
 using System.Data.Common;
 using System.Reflection;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     /// <summary>
     /// Jet provider factory

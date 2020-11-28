@@ -1,6 +1,7 @@
-﻿using System.Data.Common;
+﻿using System.Data;
+using System.Data.Common;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     internal class JetTransaction : DbTransaction
     {
@@ -29,7 +30,7 @@ namespace System.Data.Jet
         protected override DbConnection DbConnection
             => _connection;
 
-        public override System.Data.IsolationLevel IsolationLevel
+        public override IsolationLevel IsolationLevel
             => WrappedTransaction.IsolationLevel;
 
         public override void Rollback()

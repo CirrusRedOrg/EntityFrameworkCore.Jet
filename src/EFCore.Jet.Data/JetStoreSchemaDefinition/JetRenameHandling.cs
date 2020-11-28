@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace System.Data.Jet.JetStoreSchemaDefinition
+namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     internal class JetRenameHandling
     {

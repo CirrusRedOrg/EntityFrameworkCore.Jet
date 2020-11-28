@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data.Common;
 
-namespace System.Data.Jet.ConnectionPooling
+namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 {
     class ConnectionSet : IDisposable
     {

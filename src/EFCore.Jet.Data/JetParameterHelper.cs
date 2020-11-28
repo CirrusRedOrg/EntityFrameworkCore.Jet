@@ -1,5 +1,7 @@
+using System;
+using System.Data;
 using System.Data.Common;
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public static class JetParameterHelper
     {

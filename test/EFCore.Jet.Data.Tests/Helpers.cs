@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.OleDb;
@@ -7,7 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace System.Data.Jet.Test
+namespace EntityFrameworkCore.Jet.Data.Tests
 {
     static class Helpers
     {
@@ -98,8 +100,8 @@ namespace System.Data.Jet.Test
 
         private static string GetTestDirectory()
         {
-            return IO.Path.GetDirectoryName(
-                Reflection.Assembly.GetExecutingAssembly()
+            return System.IO.Path.GetDirectoryName(
+                System.Reflection.Assembly.GetExecutingAssembly()
                     .GetName()
                     .CodeBase.Replace("file:///", ""));
         }

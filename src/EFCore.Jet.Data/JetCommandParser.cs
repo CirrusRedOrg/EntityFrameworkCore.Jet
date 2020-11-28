@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public class JetCommandParser
     {

@@ -4,7 +4,7 @@ using System.Text;
 using System.IO;
 using System.Xml.Serialization;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
 
     /// <summary>

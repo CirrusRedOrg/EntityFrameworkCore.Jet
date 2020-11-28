@@ -1,7 +1,9 @@
-﻿using System.Data.Common;
+﻿using System;
+using System.Data;
+using System.Data.Common;
 using System.Text.RegularExpressions;
 
-namespace System.Data.Jet.JetStoreSchemaDefinition
+namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     internal static class JetInformationSchema
     {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Linq;
 using EntityFrameworkCore.Jet.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;

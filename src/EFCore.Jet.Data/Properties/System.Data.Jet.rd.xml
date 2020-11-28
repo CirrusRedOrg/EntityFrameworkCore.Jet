@@ -2,7 +2,7 @@
 
 <Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
   <Library>
-    <Assembly Name="System.Data.Jet" Dynamic="Required All" />
+    <Assembly Name="EntityFrameworkCore.Jet.Data" Dynamic="Required All" />
     <!-- TODO optimize this for types that actually need reflection -->
   </Library>
 </Directives>

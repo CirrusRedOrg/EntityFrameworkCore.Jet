@@ -1,7 +1,9 @@
-﻿using System.Data.Common;
-using System.Data.Jet.ConnectionPooling;
+﻿using System;
+using System.Data;
+using System.Data.Common;
+using EntityFrameworkCore.Jet.Data.ConnectionPooling;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     class InnerConnectionFactory : IDisposable
     {

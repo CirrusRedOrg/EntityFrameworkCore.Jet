@@ -1,4 +1,6 @@
-namespace System.Data.Jet
+using System;
+
+namespace EntityFrameworkCore.Jet.Data
 {
     public abstract class JetDatabaseCreator : IJetDatabaseCreator
     {

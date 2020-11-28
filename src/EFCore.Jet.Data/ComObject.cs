@@ -1,8 +1,9 @@
+using System;
 using System.Dynamic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     // A small wrapper around COM interop to make it more easy to use.
     // See https://github.com/dotnet/runtime/issues/12587#issuecomment-534611966

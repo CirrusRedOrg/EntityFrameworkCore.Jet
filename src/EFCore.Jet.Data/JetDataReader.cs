@@ -1,8 +1,10 @@
-﻿using System.Data.Common;
+﻿using System;
+using System.Data;
+using System.Data.Common;
 using System.Text;
 using System.Threading;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     internal class JetDataReader : DbDataReader
     {

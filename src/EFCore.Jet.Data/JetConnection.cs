@@ -1,12 +1,14 @@
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
-using System.Data.Jet.JetStoreSchemaDefinition;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public class JetConnection : DbConnection, IDisposable, ICloneable
     {

@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     static class JetSyntaxHelper
     {

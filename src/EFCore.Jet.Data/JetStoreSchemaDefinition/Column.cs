@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace System.Data.Jet.JetStoreSchemaDefinition
+namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     class Column
     {

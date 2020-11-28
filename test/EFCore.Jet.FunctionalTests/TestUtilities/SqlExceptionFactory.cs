@@ -3,7 +3,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Data.OleDb;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities

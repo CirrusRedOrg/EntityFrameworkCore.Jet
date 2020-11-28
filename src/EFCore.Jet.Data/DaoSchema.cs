@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
-using System.Data.Jet.JetStoreSchemaDefinition;
+using System.Data;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.Diagnostics;
 using System.Linq;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public class DaoSchema : SchemaProvider
     {

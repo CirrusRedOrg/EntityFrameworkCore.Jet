@@ -1,7 +1,7 @@
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace System.Data.Jet.Test
+namespace EntityFrameworkCore.Jet.Data.Tests
 {
     // TODO: Call all tests for ODBC and OLE DB.
     [TestClass]

@@ -2,7 +2,7 @@
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace System.Data.Jet.Test
+namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
     public class CreateDatabaseTest

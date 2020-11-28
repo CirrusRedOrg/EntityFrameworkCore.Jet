@@ -1,8 +1,9 @@
+using System;
 using System.Data.Common;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public static class DbConnectionStringBuilderExtensions
     {

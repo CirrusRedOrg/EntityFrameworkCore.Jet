@@ -4,11 +4,11 @@
         <Description>Jet/ACE data provider for .NET used by EntityFramworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
         <TargetFrameworks>$(DefaultNetStandardTargetFramework);netcoreapp2.1;net461</TargetFrameworks>
         <Platforms>AnyCPU;x86;x64</Platforms>
-        <RootNamespace>System.Data.Jet</RootNamespace>
+        <RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
     </PropertyGroup>
     
     <ItemGroup>
-        <Content Include="Properties\System.Data.Jet.rd.xml" />
+        <Content Include="Properties\EntityFrameworkCore.Jet.Data.rd.xml" />
     </ItemGroup>
     
     <ItemGroup>

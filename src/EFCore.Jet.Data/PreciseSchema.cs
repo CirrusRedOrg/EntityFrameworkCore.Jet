@@ -1,4 +1,6 @@
-namespace System.Data.Jet
+using System.Data;
+
+namespace EntityFrameworkCore.Jet.Data
 {
     public class PreciseSchema : SchemaProvider
     {

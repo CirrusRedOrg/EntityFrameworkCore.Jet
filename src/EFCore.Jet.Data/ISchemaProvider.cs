@@ -1,4 +1,7 @@
-namespace System.Data.Jet
+using System;
+using System.Data;
+
+namespace EntityFrameworkCore.Jet.Data
 {
     public interface ISchemaProvider
         : IDisposable

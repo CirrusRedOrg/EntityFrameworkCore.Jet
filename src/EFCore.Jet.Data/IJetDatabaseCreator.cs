@@ -1,4 +1,4 @@
-namespace System.Data.Jet
+namespace EntityFrameworkCore.Jet.Data
 {
     public enum CollatingOrder
     {

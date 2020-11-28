@@ -1,4 +1,5 @@
-﻿using System.Data.Common;
+﻿using System;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -16,7 +17,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
     JET does not support exclamation marks in column names. Exclamation marks has been replaced with #
 */
 
-namespace System.Data.Jet.Test
+namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
     public class CreateE2ETest

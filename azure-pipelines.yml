@@ -97,9 +97,9 @@ jobs:
       displayName: Build Solution
     - pwsh: |
         $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
-        dotnet test .\test\EntityFrameworkCore.Jet.Data.Tests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+        dotnet test .\test\EFCore.Jet.Data.Tests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
         exit 0
-      displayName: 'Run Tests: EntityFrameworkCore.Jet.Data.Tests'
+      displayName: 'Run Tests: EFCore.Jet.Data.Tests'
       continueOnError: true
     - pwsh: |
         $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'

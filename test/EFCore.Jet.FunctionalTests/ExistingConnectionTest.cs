@@ -4,7 +4,7 @@ using System;
 using System.Data;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;

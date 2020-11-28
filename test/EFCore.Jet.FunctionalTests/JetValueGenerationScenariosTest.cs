@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Linq;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Data.Common;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.IntegrationTests.Model01;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests

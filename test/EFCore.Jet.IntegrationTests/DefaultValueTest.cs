@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Data.Common;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 using System.Linq;
 using EntityFrameworkCore.Jet.IntegrationTests;
 using Microsoft.EntityFrameworkCore;

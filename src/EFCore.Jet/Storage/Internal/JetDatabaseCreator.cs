@@ -108,7 +108,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override bool Exists()
-            => System.Data.Jet.JetConnection.DatabaseExists(_relationalConnection.DbConnection.ConnectionString);
+            => EntityFrameworkCore.Jet.Data.JetConnection.DatabaseExists(_relationalConnection.DbConnection.ConnectionString);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -145,11 +145,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         // Clear connection pools in case there are active connections that are pooled
         private static void ClearAllPools()
-            => System.Data.Jet.JetConnection.ClearAllPools();
+            => EntityFrameworkCore.Jet.Data.JetConnection.ClearAllPools();
 
         // Clear connection pool for the database connection since after the 'create database' call, a previously
         // invalid connection may now be valid.
         private void ClearPool()
-            => System.Data.Jet.JetConnection.ClearPool((System.Data.Jet.JetConnection) _relationalConnection.DbConnection);
+            => EntityFrameworkCore.Jet.Data.JetConnection.ClearPool((EntityFrameworkCore.Jet.Data.JetConnection) _relationalConnection.DbConnection);
     }
 }

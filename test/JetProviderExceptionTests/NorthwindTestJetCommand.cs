@@ -1,5 +1,5 @@
 using System;
-using System.Data.Jet;
+using EntityFrameworkCore.Jet.Data;
 
 namespace JetProviderExceptionTests
 {

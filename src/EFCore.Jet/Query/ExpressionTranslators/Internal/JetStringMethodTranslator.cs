@@ -110,8 +110,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             // Jet TRIM does not take arguments.
             // _trimWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
             if (Equals(method, _trimWithNoParam) ||
-                Equals(method, _trimWithChars) &&
-                (!arguments.Any() || (arguments[0] as SqlConstantExpression)?.Value == null || ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
+                Equals(method, _trimWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
+                 ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
                 return _sqlExpressionFactory.Function("TRIM", new[] {instance}, method.ReturnType);
             }
@@ -119,8 +119,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             // Jet LTRIM does not take arguments
             // _trimStartWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
             if (Equals(method, _trimStartWithNoParam) ||
-                Equals(method, _trimStartWithChars) &&
-                (!arguments.Any() || (arguments[0] as SqlConstantExpression)?.Value == null || ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
+                Equals(method, _trimStartWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
+                 ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
                 return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, method.ReturnType);
             }
@@ -128,8 +128,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             // Jet RTRIM does not take arguments
             // _trimEndWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
             if (Equals(method, _trimEndWithNoParam) ||
-                Equals(method, _trimEndWithChars) &&
-                (!arguments.Any() || (arguments[0] as SqlConstantExpression)?.Value == null || ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
+                Equals(method, _trimEndWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
+                 ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
                 return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, method.ReturnType);
             }

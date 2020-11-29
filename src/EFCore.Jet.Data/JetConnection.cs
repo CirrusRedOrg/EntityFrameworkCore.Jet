@@ -384,6 +384,13 @@ namespace EntityFrameworkCore.Jet.Data
 
             connectionString = ExpandDatabaseFilePath(connectionString);
             
+            // MDB Tools contains a bug, that case sensitively checks for the DBQ and DSN connection string options
+            // and expects them to be UPPERCASE. However, OdbcConnectionStringBuilder returns them lower case.
+            if (dataAccessProviderType == DataAccessProviderType.Odbc)
+            {
+                connectionString = FixOdbcConnectionStringForMdbTools(connectionString);
+            }
+
             try
             {
                 InnerConnection = InnerConnectionFactory.Instance.OpenConnection(
@@ -751,5 +758,9 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static bool IsFileName(string fileNameOrConnectionString)
             => JetStoreDatabaseHandling.IsFileName(fileNameOrConnectionString);
+
+        private static readonly Regex _mdbToolsFixRegex = new Regex(@"(?:^|;)(?:\s*(DBQ|DSN)\s*=)", RegexOptions.IgnoreCase);
+        protected virtual string FixOdbcConnectionStringForMdbTools(string connectionString)
+            => _mdbToolsFixRegex.Replace(connectionString, match => match.Value.ToUpperInvariant());
     }
 }

@@ -1413,7 +1413,7 @@ WHERE RTRIM(`c`.`ContactTitle`) = 'Owner'");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE LTRIM(RTRIM(`c`.`ContactTitle`)) = 'Owner'");
+WHERE TRIM(`c`.`ContactTitle`) = 'Owner'");
         }
 
         [ConditionalTheory(Skip = "Issue#17328")]

@@ -847,7 +847,7 @@ WHERE (NEWID() <> '00000000-0000-0000-0000-000000000000') OR NEWID() IS NULL");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE UPPER(`c`.`CustomerID`) = 'ALFKI'");
+WHERE UCASE(`c`.`CustomerID`) = 'ALFKI'");
         }
 
         public override async Task Where_string_to_lower(bool isAsync)
@@ -857,7 +857,7 @@ WHERE UPPER(`c`.`CustomerID`) = 'ALFKI'");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE LOWER(`c`.`CustomerID`) = 'alfki'");
+WHERE LCASE(`c`.`CustomerID`) = 'alfki'");
         }
 
         public override async Task Where_functions_nested(bool isAsync)

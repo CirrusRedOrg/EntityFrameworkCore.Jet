@@ -165,4 +165,4 @@ $RECYCLE.BIN/
 /msbuild/Output
 /.vs/EntityFrameworkCore.Jet
 .idea
-!/build/
+Development.props

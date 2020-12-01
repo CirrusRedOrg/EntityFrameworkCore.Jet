@@ -20,4 +20,13 @@
     <PackageReference Include="System.Data.Odbc" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
+    <Reference Include="Microsoft.EntityFrameworkCore">
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
+      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

@@ -164,10 +164,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     }
                 }
             }
-            
-            GetColumns(connection, tables);
-            GetIndexes(connection, tables);
-            GetRelations(connection, tables);
+
+            if (tables.Count > 0)
+            {
+                GetColumns(connection, tables);
+                GetIndexes(connection, tables);
+                GetRelations(connection, tables);
+            }
 
             return tables;
         }

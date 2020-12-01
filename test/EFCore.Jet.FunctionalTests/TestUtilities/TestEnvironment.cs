@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         public static string DefaultConnection { get; } = Environment.GetEnvironmentVariable("EFCoreJet_DefaultConnection") ??
                                                           Config["DefaultConnection"] ??
-                                                          JetConnection.GetConnectionString("Jet.accdb", TestEnvironment.DataAccessProviderFactory);
+                                                          JetConnection.GetConnectionString("Jet.accdb", default(DataAccessProviderType));
 
         public static bool IsConfigured
         {
@@ -38,8 +38,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public static DataAccessProviderType DataAccessProviderType { get; } = JetConnection.GetDataAccessProviderType(DefaultConnection);
         public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(DefaultConnection));
         
-        public static bool IsLocalDb { get; } = true;
-
         public static bool IsCI { get; } = Environment.GetEnvironmentVariable("PIPELINE_WORKSPACE") != null
             || Environment.GetEnvironmentVariable("TEAMCITY_VERSION") != null;
 

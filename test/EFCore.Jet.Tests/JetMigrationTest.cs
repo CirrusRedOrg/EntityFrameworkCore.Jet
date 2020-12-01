@@ -72,7 +72,7 @@ namespace EntityFrameworkCore.Jet
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 optionsBuilder
-                    .UseJet(_databaseName, DataAccessProviderType.OleDb /*TestEnvironment.DataAccessProviderFactory*/, b => b.ApplyConfiguration())
+                    .UseJet(_databaseName, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                     .AddInterceptors(new CommandInterceptor())
                     .UseInternalServiceProvider(_serviceProvider);
 

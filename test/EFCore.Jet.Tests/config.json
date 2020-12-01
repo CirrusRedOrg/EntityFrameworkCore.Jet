@@ -1,0 +1,7 @@
+{
+    "Test": {
+      "Jet": {
+        "DefaultConnection": "DBQ=Jet.accdb"
+      }
+    }
+}

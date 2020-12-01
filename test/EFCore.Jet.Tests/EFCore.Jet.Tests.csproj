@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="xunit.core" />
+    <PackageReference Include="xunit.assert" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.runner.console" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     <PackageReference Include="Moq" />

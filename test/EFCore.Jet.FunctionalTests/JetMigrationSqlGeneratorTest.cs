@@ -359,7 +359,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
         }
 
         [ConditionalFact]
-        public virtual void AddColumnOperation_smalldatetime_with_defaultValue()
+        public virtual void AddColumnOperation_datetime_with_defaultValue_sql()
         {
             Generate(
                 new AddColumnOperation
@@ -368,13 +368,13 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                     Schema = null,
                     Name = "Birthday",
                     ClrType = typeof(DateTime),
-                    ColumnType = "smalldatetime",
+                    ColumnType = "datetime",
                     IsNullable = false,
-                    DefaultValue = new DateTime(2019, 1, 1)
+                    DefaultValueSql = "#2019-01-01#"
                 });
 
             AssertSql(
-                $@"ALTER TABLE `People` ADD `Birthday` smalldatetime NOT NULL DEFAULT '2019-01-01T00:00:00';
+                $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2019-01-01#;
 ");
         }
 

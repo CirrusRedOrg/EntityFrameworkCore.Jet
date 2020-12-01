@@ -100,13 +100,16 @@ jobs:
         dotnet test .\test\EFCore.Jet.Data.Tests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
         exit 0
       displayName: 'Run Tests: EFCore.Jet.Data.Tests'
-      continueOnError: true
     - pwsh: |
         $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
         exit 0
       displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
-      continueOnError: true
+    - pwsh: |
+        $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
+        dotnet test .\test\EFCore.Jet.Tests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+      displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
+      continueOnError: false
     - task: PublishTestResults@2
       displayName: Publish Test Results
       condition: succeededOrFailed()

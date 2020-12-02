@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
+    <TargetFramework>net5.0-windows7.0</TargetFramework>
     <AssemblyName>EntityFrameworkCore.Jet.Tests</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
   </PropertyGroup>

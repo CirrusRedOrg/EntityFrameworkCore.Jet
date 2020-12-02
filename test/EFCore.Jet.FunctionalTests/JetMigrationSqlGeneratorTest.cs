@@ -18,7 +18,7 @@ using Xunit;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class JetMigrationSqlGeneratorTest : MigrationSqlGeneratorTestBase
+    public class JetMigrationSqlGeneratorTest : MigrationsSqlGeneratorTestBase
     {
         public override void CreateTableOperation()
         {

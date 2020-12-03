@@ -11,6 +11,7 @@ namespace EntityFrameworkCore.Jet.Data
     {
         public static readonly Version MinimumRequiredOdbcVersion = new Version(5, 0, 0);
         public static readonly Version MinimumRequiredOleDbVersion = new Version(5, 0, 0);
+
         public static readonly JetFactory Instance = new JetFactory(null, null);
 
         public JetConnection Connection { get; }
@@ -121,9 +122,11 @@ namespace EntityFrameworkCore.Jet.Data
                 try
                 {
                     var type = Type.GetType("System.Data.OleDb.OleDbFactory, System.Data.OleDb");
-                    var version = type.Assembly.GetName().Version;
+                    var assemblyName = type.Assembly.GetName();
+                    var version = assemblyName.Version;
 
-                    if (version < MinimumRequiredOleDbVersion)
+                    if (version < MinimumRequiredOleDbVersion &&
+                        assemblyName.Name != "System.Data") // For .NET Framework, System.Data.OleDb is just a stub that references the .NET Framework implementation.
                     {
                         throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.OleDb' is lower than the minimum required version {MinimumRequiredOleDbVersion}.");
                     }
@@ -134,7 +137,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
                 catch (Exception e)
                 {
-                    throw new TypeLoadException("To use OLE DB in conjunction with Jet, please reference the 'System.Data.OleDb' (version >= 5.0.0) NuGet package.", e);
+                    throw new TypeLoadException($"To use OLE DB in conjunction with Jet, please reference the 'System.Data.OleDb' (version >= {MinimumRequiredOleDbVersion}) NuGet package.", e);
                 }
             }
             else
@@ -142,9 +145,11 @@ namespace EntityFrameworkCore.Jet.Data
                 try
                 {
                     var type = Type.GetType("System.Data.Odbc.OdbcFactory, System.Data.Odbc");
-                    var version = type.Assembly.GetName().Version;
+                    var assemblyName = type.Assembly.GetName();
+                    var version = assemblyName.Version;
 
-                    if (version < MinimumRequiredOdbcVersion)
+                    if (version < MinimumRequiredOdbcVersion &&
+                        assemblyName.Name != "System.Data") // For .NET Framework, System.Data.Odbc is just a stub that references the .NET Framework implementation.
                     {
                         throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.Odbc' is lower than the minimum required version {MinimumRequiredOdbcVersion}.");
                     }
@@ -155,7 +160,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
                 catch (Exception e)
                 {
-                    throw new TypeLoadException("To use ODBC in conjunction with Jet, please reference the 'System.Data.Odbc' (version >= 5.0.0) NuGet package.", e);
+                    throw new TypeLoadException($"To use ODBC in conjunction with Jet, please reference the 'System.Data.Odbc' (version >= {MinimumRequiredOdbcVersion}) NuGet package.", e);
                 }
             }
         }

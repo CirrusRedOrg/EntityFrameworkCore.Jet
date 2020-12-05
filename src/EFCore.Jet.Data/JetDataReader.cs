@@ -144,15 +144,26 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override DateTime GetDateTime(int ordinal)
         {
+            // Some/all ODBC/OLE DB methods don't support returning fractions of seconds.
+            // Since DATETIME values are really just DOUBLE values internally in Jet, we explicitly convert those vales
+            // to DOUBLE in the most outer SELECT projections as a workaround.
             var value = _wrappedDataReader.GetValue(ordinal);
             return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                    Convert.IsDBNull(value)
                 ? default
-                : (DateTime) value;
+                : value is double doubleValue
+                    ? new DateTime(JetConfiguration.TimeSpanOffset.Ticks + (long) (doubleValue * TimeSpan.TicksPerDay))
+                    : (DateTime) value;
         }
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
-            => GetDateTime(ordinal) - JetConfiguration.TimeSpanOffset;
+        {
+            var dateTime = GetDateTime(ordinal);
+            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                   dateTime == default
+                ? default
+                : dateTime - JetConfiguration.TimeSpanOffset;
+        }
 
         public virtual DateTimeOffset GetDateTimeOffset(int ordinal)
             => GetDateTime(ordinal);

@@ -30,16 +30,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly IntTypeMapping _integer = new IntTypeMapping("integer", DbType.Int32);
         // private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
 
-        private readonly FloatTypeMapping _single = new JetFloatTypeMapping("single");
-        private readonly DoubleTypeMapping _double = new JetDoubleTypeMapping("double");
+        private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
+        private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");
 
-        private readonly DecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 10, StoreTypePostfix.PrecisionAndScale);
-        private readonly DecimalTypeMapping _currency = new JetCurrencyTypeMapping("currency");
+        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 10, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetCurrencyTypeMapping _currency = new JetCurrencyTypeMapping("currency");
 
         private readonly JetDateTimeTypeMapping _datetime = new JetDateTimeTypeMapping("datetime", dbType: DbType.DateTime);
         private readonly JetDateTimeOffsetTypeMapping _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime");
         private readonly JetDateTimeTypeMapping _date = new JetDateTimeTypeMapping("datetime", dbType: DbType.Date);
-        private readonly TimeSpanTypeMapping _time = new JetTimeSpanTypeMapping("datetime");
+        private readonly JetTimeSpanTypeMapping _time = new JetTimeSpanTypeMapping("datetime");
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString = new JetStringTypeMapping("char", unicode: true);
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);

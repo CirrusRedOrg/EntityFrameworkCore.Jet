@@ -354,7 +354,7 @@ EXEC sp_addextendedproperty 'MS_Description', 'My Comment 2', 'SCHEMA', 'dbo', '
                 });
 
             AssertSql(
-                $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #01/01/2019 00:00:00#;
+                $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT 43466.0;
 ");
         }
 

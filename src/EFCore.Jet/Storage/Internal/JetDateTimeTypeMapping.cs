@@ -3,20 +3,24 @@
 using System;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
+using System.Text;
+using EntityFrameworkCore.Jet.Data;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetDateTimeTypeMapping : DateTimeTypeMapping
+    public class JetDateTimeTypeMapping : RelationalTypeMapping
     {
-        private const string DateTimeFormatConst = @"{0:MM'/'dd'/'yyyy HH\:mm\:ss}";
-        private const string DateTimeShortFormatConst = "{0:MM'/'dd'/'yyyy}";
-
+        private const int MaxDateTimeDoublePrecision = 10;
+        private static readonly JetDoubleTypeMapping _doubleTypeMapping = new JetDoubleTypeMapping("double");
+        
         public JetDateTimeTypeMapping(
             [NotNull] string storeType,
-            DbType? dbType = null)
-            : base(storeType, dbType)
+            DbType? dbType = null,
+            [CanBeNull] Type clrType = null)
+            : base(storeType, clrType ?? typeof(DateTime), dbType ?? System.Data.DbType.DateTime)
         {
         }
 
@@ -31,31 +35,75 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
-
-            // Check: Is this really necessary for Jet?
-            /*
-            if (DbType == System.Data.DbType.Date ||
-                DbType == System.Data.DbType.DateTime ||
-                DbType == System.Data.DbType.DateTime2 ||
-                DbType == System.Data.DbType.DateTimeOffset ||
-                DbType == System.Data.DbType.Time)
+            
+            if (parameter.Value is DateTime dateTime)
             {
-                ((OleDbParameter) parameter).OleDbType = OleDbType.DBTimeStamp;
+                parameter.Value = GetDateTimeDoubleValue(dateTime);
+                parameter.ResetDbType();
             }
-            */
         }
 
-        protected override string SqlLiteralFormatString => "#" + DateTimeFormatConst + "#";
+        protected override string GenerateNonNullSqlLiteral(object value)
+            => GenerateNonNullSqlLiteral(value, false);
 
-        public static string GenerateSqlLiteral([NotNull] object o, bool shortForm)
+        public static string GenerateNonNullSqlLiteral(object value, bool defaultClauseCompatible)
         {
-            if (o == null)
-                throw new ArgumentNullException(nameof(o));
+            var dateTime = (DateTime) value;
 
-            return
-                shortForm
-                    ? string.Format("#" + DateTimeShortFormatConst + "#", o)
-                    : string.Format("#" + DateTimeFormatConst + "#", o);
+            dateTime = CheckDateTimeValue(dateTime);
+            
+            if (!defaultClauseCompatible)
+            {
+                var literal = new StringBuilder()
+                    .AppendFormat(CultureInfo.InvariantCulture, "#{0:yyyy-MM-dd}", dateTime);
+                
+                var time = dateTime.TimeOfDay;
+                if (time != TimeSpan.Zero)
+                {
+                    literal.AppendFormat(CultureInfo.InvariantCulture, @" {0:hh\:mm\:ss}", time);
+                }
+
+                literal.Append("#");
+                
+                if (time != TimeSpan.Zero)
+                {
+                    var fractionsTicks = time.Ticks % TimeSpan.TicksPerSecond;
+                    if (fractionsTicks > 0)
+                    {
+                        var jetTimeDoubleFractions = Math.Round((double) fractionsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
+
+                        literal
+                            .Insert(0, "(")
+                            .Append(" + ")
+                            .Append(_doubleTypeMapping.GenerateSqlLiteral(jetTimeDoubleFractions))
+                            .Append(")");
+                    }
+                }
+
+                return literal.ToString();
+            }
+
+            return _doubleTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValue(dateTime));
+        }
+
+        private static double GetDateTimeDoubleValue(DateTime dateTime)
+            => Math.Round(
+                (double) (CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset).Ticks / TimeSpan.TicksPerDay,
+                MaxDateTimeDoublePrecision);
+
+        private static DateTime CheckDateTimeValue(DateTime dateTime)
+        {
+            if (dateTime < JetConfiguration.TimeSpanOffset)
+            {
+                if (dateTime != default)
+                {
+                    throw new InvalidOperationException($"The {nameof(DateTime)} value '{dateTime}' is smaller than the minimum supported value of '{JetConfiguration.TimeSpanOffset}'.");
+                }
+
+                dateTime = JetConfiguration.TimeSpanOffset;
+            }
+
+            return dateTime;
         }
     }
 }

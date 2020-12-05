@@ -1,18 +1,17 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetTimeSpanTypeMapping : TimeSpanTypeMapping
+    public class JetTimeSpanTypeMapping : JetDateTimeTypeMapping
     {
         public JetTimeSpanTypeMapping(
                 [NotNull] string storeType)
-            : base(storeType, System.Data.DbType.Time)
+            : base(storeType, System.Data.DbType.Time, typeof(TimeSpan))
         {
         }
 
@@ -23,27 +22,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new JetTimeSpanTypeMapping(parameters);
-
-        protected override void ConfigureParameter(DbParameter parameter)
-        {
-            base.ConfigureParameter(parameter);
-
-            // Check: Is this really necessary for Jet?
-            /*
-            if (DbType == System.Data.DbType.Date ||
-                DbType == System.Data.DbType.DateTime ||
-                DbType == System.Data.DbType.DateTime2 ||
-                DbType == System.Data.DbType.DateTimeOffset ||
-                DbType == System.Data.DbType.Time)
-            {
-                ((OleDbParameter) parameter).OleDbType = OleDbType.DBTimeStamp;
-            }
-            */
-        }
-
+        
         protected override string GenerateNonNullSqlLiteral(object value)
-        {
-            return $"{JetConfiguration.TimeSpanOffset + (TimeSpan) value:#MM'/'dd'/'yyyy hh\\:mm\\:ss#}";
-        }
+            => base.GenerateNonNullSqlLiteral(JetConfiguration.TimeSpanOffset + (TimeSpan) value);
     }
 }

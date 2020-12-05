@@ -16,6 +16,13 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         }
 
         public override Expression Process(Expression query)
-            => new SearchConditionConvertingExpressionVisitor(SqlExpressionFactory).Visit(base.Process(query));
+        {
+            query = base.Process(query);
+            
+            query = new SearchConditionConvertingExpressionVisitor(SqlExpressionFactory).Visit(query);
+            query = new JetDateTimeExpressionVisitor(SqlExpressionFactory).Visit(query);
+
+            return query;
+        }
     }
 }

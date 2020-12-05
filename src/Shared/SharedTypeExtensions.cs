@@ -1,4 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -226,6 +228,14 @@ namespace System
             {
                 return ex.Types.Where(t => t != null).Select(IntrospectionExtensions.GetTypeInfo);
             }
+        }
+
+        public static bool IsTimeRelatedType(this Type type)
+        {
+            var unwrappedType = UnwrapNullableType(type);
+            return unwrappedType == typeof(DateTime) ||
+                   unwrappedType == typeof(DateTimeOffset) ||
+                   unwrappedType == typeof(TimeSpan);
         }
     }
 }

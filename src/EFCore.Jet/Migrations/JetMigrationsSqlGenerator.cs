@@ -772,19 +772,13 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                     typeMapping = Dependencies.TypeMappingSource.GetMappingForValue(defaultValue);
                 }
 
-                // Jet does not support defaults for hh:mm:ss in create table statement
-                bool isDateTimeValue =
-                    defaultValue.GetType()
-                        .UnwrapNullableType() == typeof(DateTime) ||
-                    defaultValue.GetType()
-                        .UnwrapNullableType() == typeof(DateTimeOffset);
-
+                defaultValue = defaultValue.GetType().IsTimeRelatedType()
+                    ? JetDateTimeTypeMapping.GenerateNonNullSqlLiteral(defaultValue, true)
+                    : typeMapping.GenerateSqlLiteral(defaultValue);
+                
                 builder
                     .Append(" DEFAULT ")
-                    .Append(
-                        isDateTimeValue
-                            ? JetDateTimeTypeMapping.GenerateSqlLiteral(defaultValue, true)
-                            : typeMapping.GenerateSqlLiteral(defaultValue));
+                    .Append(defaultValue);
             }
         }
 

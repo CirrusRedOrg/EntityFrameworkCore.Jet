@@ -5,6 +5,10 @@
     <AssemblyName>EntityFrameworkCore.Jet.Tests</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Include="..\Shared\**\*.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Update="config.json">

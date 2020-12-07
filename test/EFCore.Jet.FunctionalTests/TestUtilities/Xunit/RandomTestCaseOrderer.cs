@@ -6,7 +6,8 @@ using System.Text;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.TestCaseOrderers
+// ReSharper disable once CheckNamespace
+namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit
 {
     public class RandomTestCaseOrderer : ITestCaseOrderer
     {

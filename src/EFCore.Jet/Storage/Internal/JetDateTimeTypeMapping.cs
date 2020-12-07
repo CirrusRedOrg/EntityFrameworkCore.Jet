@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetDateTimeTypeMapping : RelationalTypeMapping
     {
         private const int MaxDateTimeDoublePrecision = 10;
-        private static readonly JetDoubleTypeMapping _doubleTypeMapping = new JetDoubleTypeMapping("double");
+        private static readonly JetDecimalTypeMapping _decimalTypeMapping = new JetDecimalTypeMapping("decimal", System.Data.DbType.Decimal, 18, 10);
         
         public JetDateTimeTypeMapping(
             [NotNull] string storeType,
@@ -38,7 +38,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             
             if (parameter.Value is DateTime dateTime)
             {
-                parameter.Value = GetDateTimeDoubleValue(dateTime);
+                parameter.Value = GetDateTimeDoubleValueAsDecimal(dateTime);
                 parameter.ResetDbType();
             }
         }
@@ -52,7 +52,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             dateTime = CheckDateTimeValue(dateTime);
             
-            if (!defaultClauseCompatible)
+            if (!defaultClauseCompatible /*&&
+                dateTime.Ticks % TimeSpan.TicksPerSecond == 0*/)
             {
                 var literal = new StringBuilder()
                     .AppendFormat(CultureInfo.InvariantCulture, "#{0:yyyy-MM-dd}", dateTime);
@@ -67,15 +68,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 
                 if (time != TimeSpan.Zero)
                 {
-                    var fractionsTicks = time.Ticks % TimeSpan.TicksPerSecond;
-                    if (fractionsTicks > 0)
+                    // Round to milliseconds.
+                    var millisecondsTicks = time.Ticks % TimeSpan.TicksPerSecond / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
+                    if (millisecondsTicks > 0)
                     {
-                        var jetTimeDoubleFractions = Math.Round((double) fractionsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
+                        var jetTimeDoubleFractions = Math.Round((decimal) millisecondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
 
                         literal
                             .Insert(0, "(")
                             .Append(" + ")
-                            .Append(_doubleTypeMapping.GenerateSqlLiteral(jetTimeDoubleFractions))
+                            .Append(_decimalTypeMapping.GenerateSqlLiteral(jetTimeDoubleFractions))
                             .Append(")");
                     }
                 }
@@ -83,13 +85,19 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 return literal.ToString();
             }
 
-            return _doubleTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValue(dateTime));
+            return _decimalTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValueAsDecimal(dateTime));
         }
 
-        private static double GetDateTimeDoubleValue(DateTime dateTime)
-            => Math.Round(
-                (double) (CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset).Ticks / TimeSpan.TicksPerDay,
-                MaxDateTimeDoublePrecision);
+        private static decimal GetDateTimeDoubleValueAsDecimal(DateTime dateTime)
+        {
+            var checkDateTimeValue = CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset;
+            
+            // Round to milliseconds.
+            var millisecondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
+            var result = Math.Round((decimal) millisecondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
+
+            return result;
+        }
 
         private static DateTime CheckDateTimeValue(DateTime dateTime)
         {

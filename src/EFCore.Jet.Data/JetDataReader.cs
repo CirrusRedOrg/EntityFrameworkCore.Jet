@@ -148,12 +148,25 @@ namespace EntityFrameworkCore.Jet.Data
             // Since DATETIME values are really just DOUBLE values internally in Jet, we explicitly convert those vales
             // to DOUBLE in the most outer SELECT projections as a workaround.
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : value is double doubleValue
-                    ? new DateTime(JetConfiguration.TimeSpanOffset.Ticks + (long) (doubleValue * TimeSpan.TicksPerDay))
-                    : (DateTime) value;
+            
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+                return default;
+
+            if (value is double doubleValue)
+            {
+                // Round to milliseconds.
+                return new DateTime(
+                    JetConfiguration.TimeSpanOffset.Ticks +
+                    (long) (Math.Round(
+                                (decimal) (long) ((decimal) doubleValue * TimeSpan.TicksPerDay) /
+                                TimeSpan.TicksPerMillisecond,
+                                0,
+                                MidpointRounding.AwayFromZero) *
+                            TimeSpan.TicksPerMillisecond));
+            }
+
+            return (DateTime) value;
         }
 
         public virtual TimeSpan GetTimeSpan(int ordinal)

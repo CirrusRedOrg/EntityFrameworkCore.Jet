@@ -1519,7 +1519,7 @@ FROM `Customers` AS `c`");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'QUICK') AND (`o`.`OrderDate` > #01/01/1998 00:00:00#)");
+WHERE (`o`.`CustomerID` = 'QUICK') AND (`o`.`OrderDate` > #1998-01-01 00:00:00#)");
         }
 
         public override void Where_navigation_contains()

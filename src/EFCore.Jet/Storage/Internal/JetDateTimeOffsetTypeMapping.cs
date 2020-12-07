@@ -7,17 +7,16 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetDateTimeOffsetTypeMapping : DateTimeOffsetTypeMapping
+    public class JetDateTimeOffsetTypeMapping : JetDateTimeTypeMapping
     {
-        private const string DateTimeOffsetFormatConst = @"{0:MM'/'dd'/'yyyy HH\:mm\:ss}";
-
         public JetDateTimeOffsetTypeMapping(
                 [NotNull] string storeType)
             : base(
                 storeType,
-                System.Data.DbType.DateTime) // delibrately use DbType.DateTime, because OleDb will throw a
-                                             // "No mapping exists from DbType DateTimeOffset to a known OleDbType."
-                                             // exception when using DbType.DateTimeOffset.
+                System.Data.DbType.DateTime,
+                typeof(DateTimeOffset)) // delibrately use DbType.DateTime, because OleDb will throw a
+                                        // "No mapping exists from DbType DateTimeOffset to a known OleDbType."
+                                        // exception when using DbType.DateTimeOffset.
         {
         }
 
@@ -31,35 +30,19 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override void ConfigureParameter(DbParameter parameter)
         {
-            base.ConfigureParameter(parameter);
-
-            // Check: Is this really necessary for Jet?
-            /*
-            if (DbType == System.Data.DbType.Date ||
-                DbType == System.Data.DbType.DateTime ||
-                DbType == System.Data.DbType.DateTime2 ||
-                DbType == System.Data.DbType.DateTimeOffset ||
-                DbType == System.Data.DbType.Time)
-            {
-                ((OleDbParameter) parameter).OleDbType = OleDbType.DBTimeStamp;
-            }
-            */
-
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
                 parameter.Value = dateTimeOffset.UtcDateTime;
             }
+
+            base.ConfigureParameter(parameter);
         }
 
-        protected override string SqlLiteralFormatString => "#" + DateTimeOffsetFormatConst + "#";
-
-        public override string GenerateProviderValueSqlLiteral([CanBeNull] object value)
-            => value == null
-                ? "NULL"
-                : GenerateNonNullSqlLiteral(
-                    value is DateTimeOffset dateTimeOffset
-                        ? dateTimeOffset.UtcDateTime
-                        : value);
+        protected override string GenerateNonNullSqlLiteral(object value)
+            => base.GenerateNonNullSqlLiteral(
+                value is DateTimeOffset dateTimeOffset
+                    ? dateTimeOffset.UtcDateTime
+                    : value);
     }
 }

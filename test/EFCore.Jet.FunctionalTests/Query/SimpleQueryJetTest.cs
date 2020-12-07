@@ -1667,7 +1667,7 @@ FROM `Customers` AS `c`
 WHERE (`c`.`CustomerID` = 'ALFKI') AND EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderDate` = #10/24/2008 00:00:00#))");
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderDate` = #2008-10-24 00:00:00#))");
         }
 
         public override async Task Where_Join_Exists(bool isAsync)
@@ -1680,7 +1680,7 @@ FROM `Customers` AS `c`
 WHERE (`c`.`CustomerID` = 'ALFKI') AND EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderDate` = #10/24/2008 00:00:00#))");
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderDate` = #2008-10-24 00:00:00#))");
         }
 
         public override async Task Where_Join_Exists_Inequality(bool isAsync)
@@ -1693,7 +1693,7 @@ FROM `Customers` AS `c`
 WHERE (`c`.`CustomerID` = 'ALFKI') AND EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND ((`o`.`OrderDate` <> #10/24/2008 00:00:00#) OR `o`.`OrderDate` IS NULL))");
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND ((`o`.`OrderDate` <> #2008-10-24 00:00:00#) OR `o`.`OrderDate` IS NULL))");
         }
 
         public override async Task Where_Join_Exists_Constant(bool isAsync)
@@ -2669,7 +2669,7 @@ ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`)");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > #01/01/1998 12:00:00#");
+WHERE `o`.`OrderDate` > #1998-01-01 12:00:00#");
         }
 
         public override async Task DateTime_parse_is_parameterized_when_from_closure(bool isAsync)
@@ -2691,7 +2691,7 @@ WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__Parse_0")}");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > #01/01/1998 12:00:00#");
+WHERE `o`.`OrderDate` > #1998-01-01 12:00:00#");
         }
 
         public override async Task New_DateTime_is_parameterized_when_from_closure(bool isAsync)
@@ -3444,11 +3444,11 @@ ORDER BY `e1`.`EmployeeID`");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE CONVERT(date, `o`.`OrderDate`) IN ( #07/04/1996 00:00:00#, #07/16/1996 00:00:00#)",
+WHERE CONVERT(date, `o`.`OrderDate`) IN ( #1996-07-04 00:00:00#, #1996-07-16 00:00:00#)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE CONVERT(date, `o`.`OrderDate`) IN ( #07/04/1996 00:00:00#)");
+WHERE CONVERT(date, `o`.`OrderDate`) IN ( #1996-07-04 00:00:00#)");
         }
 
         public override async Task Contains_with_subquery_involving_join_binds_to_correct_table(bool isAsync)

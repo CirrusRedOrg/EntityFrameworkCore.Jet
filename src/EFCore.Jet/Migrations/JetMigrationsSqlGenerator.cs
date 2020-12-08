@@ -773,7 +773,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 }
 
                 defaultValue = defaultValue.GetType().IsTimeRelatedType()
-                    ? JetDateTimeTypeMapping.GenerateNonNullSqlLiteral(defaultValue, true)
+                    ? JetDateTimeTypeMapping.GenerateNonNullSqlLiteral(defaultValue, true, _options.EnableMillisecondsSupport)
                     : typeMapping.GenerateSqlLiteral(defaultValue);
                 
                 builder

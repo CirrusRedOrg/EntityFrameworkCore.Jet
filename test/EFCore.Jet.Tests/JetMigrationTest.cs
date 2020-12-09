@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet
         public virtual void Create_table_with_HasDefaultValueSql()
         {
             using var context = CreateContext(
-                builder =>
+                model: builder =>
                 {
                     builder.Entity<Cookie>(
                         entity =>

@@ -33,6 +33,20 @@ namespace EntityFrameworkCore.Jet
                 .ToList();
             
             Assert.Equal(2, cookies.Count);
+            Assert.True(cookies.All(c => c.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21)));
+        }
+
+        [ConditionalFact]
+        public virtual void Where_datetime_with_HasDefaultValue_EnableMillisecondsSupport()
+        {
+            using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
+            context.Database.EnsureCreatedResiliently();
+
+            var cookies = context.Cookies
+                .Where(o => o.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21, 123))
+                .ToList();
+            
+            Assert.Equal(2, cookies.Count);
             Assert.True(cookies.All(c => c.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21, 123)));
         }
 
@@ -43,7 +57,21 @@ namespace EntityFrameworkCore.Jet
             context.Database.EnsureCreatedResiliently();
 
             var cookies = context.Cookies
-                .Where(o => o.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21, 124))
+                .Where(o => o.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21, 987))
+                .ToList();
+            
+            Assert.Equal(2, cookies.Count);
+            Assert.True(cookies.All(c => c.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21)));
+        }
+
+        [ConditionalFact]
+        public virtual void Where_datetime_with_HasDefaultValue_precision_EnableMillisecondsSupport()
+        {
+            using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
+            context.Database.EnsureCreatedResiliently();
+
+            var cookies = context.Cookies
+                .Where(o => o.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21, 987))
                 .ToList();
             
             Assert.Empty(cookies);
@@ -53,6 +81,20 @@ namespace EntityFrameworkCore.Jet
         public virtual void Where_datetime_with_HasDefaultValueSql()
         {
             using var context = CreateContext();
+            context.Database.EnsureCreatedResiliently();
+
+            var cookies = context.Cookies
+                .Where(o => o.BestServedAfterDateTime == new DateTime(2020, 12, 31, 13, 42, 21))
+                .ToList();
+            
+            Assert.Equal(2, cookies.Count);
+            Assert.True(cookies.All(c => c.BestServedAfterDateTime == new DateTime(2020, 12, 31, 13, 42, 21)));
+        }
+
+        [ConditionalFact]
+        public virtual void Where_datetime_with_HasDefaultValueSql_EnableMillisecondsSupport()
+        {
+            using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
             context.Database.EnsureCreatedResiliently();
 
             var cookies = context.Cookies
@@ -74,13 +116,41 @@ namespace EntityFrameworkCore.Jet
                 .ToList();
             
             Assert.Single(cookies);
+            Assert.Equal(new DateTime(2019, 12, 31, 13, 42, 21), cookies[0].PuchasedDateTime);
+        }
+
+        [ConditionalFact]
+        public virtual void Where_datetime_with_fractions_EnableMillisecondsSupport()
+        {
+            using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
+            context.Database.EnsureCreatedResiliently();
+
+            var cookies = context.Cookies
+                .Where(o => o.PuchasedDateTime == new DateTime(2019, 12, 31, 13, 42, 21, 123))
+                .ToList();
+            
+            Assert.Single(cookies);
             Assert.Equal(new DateTime(2019, 12, 31, 13, 42, 21, 123), cookies[0].PuchasedDateTime);
         }
-        
+
         [ConditionalFact]
         public virtual void Where_datetime_with_fractions_paramter()
         {
             using var context = CreateContext();
+
+            var dateTime = new DateTime(2019, 12, 31, 13, 42, 21, 123);
+            var cookies = context.Cookies
+                .Where(o => o.PuchasedDateTime == dateTime)
+                .ToList();
+            
+            Assert.Single(cookies);
+            Assert.Equal(new DateTime(2019, 12, 31, 13, 42, 21), cookies[0].PuchasedDateTime);
+        }
+
+        [ConditionalFact]
+        public virtual void Where_datetime_with_fractions_paramter_EnableMillisecondsSupport()
+        {
+            using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
 
             var dateTime = new DateTime(2019, 12, 31, 13, 42, 21, 123);
             var cookies = context.Cookies

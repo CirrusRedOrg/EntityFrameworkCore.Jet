@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,19 +23,23 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     {
         private readonly QueryTranslationPostprocessorDependencies _dependencies;
         private readonly RelationalQueryTranslationPostprocessorDependencies _relationalDependencies;
+        private readonly IJetOptions _options;
 
         public JetQueryTranslationPostprocessorFactory(
             QueryTranslationPostprocessorDependencies dependencies,
-            RelationalQueryTranslationPostprocessorDependencies relationalDependencies)
+            RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
+            IJetOptions options)
         {
             _dependencies = dependencies;
             _relationalDependencies = relationalDependencies;
+            _options = options;
         }
 
         public virtual QueryTranslationPostprocessor Create(QueryCompilationContext queryCompilationContext)
             => new JetQueryTranslationPostprocessor(
                 _dependencies,
                 _relationalDependencies,
-                queryCompilationContext);
+                queryCompilationContext,
+                _options);
     }
 }

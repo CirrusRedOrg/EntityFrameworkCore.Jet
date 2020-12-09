@@ -102,14 +102,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             {
                 // Round to milliseconds.
                 var millisecondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
-                var result = Math.Round((decimal) millisecondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
+                var result = /*Math.Round(*/(decimal) millisecondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
                 return result;
             }
             else
             {
                 // Round to seconds.
                 var secondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond;
-                var result = Math.Round((decimal) secondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision - 2);
+                var result = /*Math.Round(*/(decimal) secondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
                 return result;
             }
         }

@@ -11,11 +11,12 @@ namespace EntityFrameworkCore.Jet
     {
         public TestBase()
         {
-            TestStore = JetTestStore.CreateInitialized(nameof(JetMigrationTest));
+            TestStore = JetTestStore.CreateInitialized(StoreName);
         }
 
         public virtual void Dispose() => TestStore.Dispose();
 
+        public virtual string StoreName => GetType().Name;
         public virtual JetTestStore TestStore { get; }
         public virtual List<string> SqlCommands { get; } = new List<string>();
         public virtual string Sql => string.Join("\n\n", SqlCommands);

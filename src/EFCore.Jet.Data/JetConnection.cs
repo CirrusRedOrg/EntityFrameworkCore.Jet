@@ -210,9 +210,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// </returns>
         protected override DbCommand CreateDbCommand()
         {
-            var command = JetFactory.CreateCommand();
-            command.Connection = this;
-            return command;
+            return CreateCommand(null);
         }
 
         /// <summary>

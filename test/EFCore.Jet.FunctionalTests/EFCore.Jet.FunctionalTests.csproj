@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="xunit.core" />
     <PackageReference Include="xunit.assert" />
     <PackageReference Include="xunit.runner.visualstudio" />

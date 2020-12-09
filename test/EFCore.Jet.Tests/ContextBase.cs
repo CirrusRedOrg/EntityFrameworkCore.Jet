@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -15,36 +16,45 @@ namespace EntityFrameworkCore.Jet
         private IServiceProvider _serviceProvider;
         private string _databaseName;
         private Action<DbCommand> _commandLogger;
-        private Action<ModelBuilder> _modelBuilder;
+        private Action<ModelBuilder> _model;
         private Action<IServiceProvider, DbContextOptionsBuilder> _options;
+        private Action<JetDbContextOptionsBuilder> _jetOptions;
 
-        public ContextBase()
-        {
-        }
-
-        public void Initialize(string databaseName, Action<DbCommand> commandLogger, Action<ModelBuilder> modelBuilder = null, Action<IServiceProvider, DbContextOptionsBuilder> options = null, IServiceCollection serviceCollection = null)
+        public void Initialize(
+            string databaseName,
+            Action<DbCommand> commandLogger,
+            Action<ModelBuilder> model = null,
+            Action<IServiceProvider, DbContextOptionsBuilder> options = null,
+            IServiceCollection serviceCollection = null,
+            Action<JetDbContextOptionsBuilder> jetOptions = null)
         {
             _serviceProvider = (serviceCollection ?? new ServiceCollection().AddEntityFrameworkJet())
                 .BuildServiceProvider();
+            
             _databaseName = databaseName;
             _commandLogger = commandLogger;
-            _modelBuilder = modelBuilder;
+            _model = model;
             _options = options;
+            _jetOptions = jetOptions;
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder
-                .UseJet(_databaseName, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                .UseJet(_databaseName, TestEnvironment.DataAccessProviderFactory, b =>
+                {
+                    b.ApplyConfiguration();
+                    _jetOptions?.Invoke(b);
+                })
                 .AddInterceptors(new CommandInterceptor(_commandLogger))
                 .UseInternalServiceProvider(_serviceProvider);
 
-            if (_modelBuilder != null)
+            if (_model != null)
             {
                 var conventionSet = JetConventionSetBuilder.Build();
                 var modelBuilder = new ModelBuilder(conventionSet);
 
-                _modelBuilder.Invoke(modelBuilder);
+                _model.Invoke(modelBuilder);
 
                 var model = modelBuilder.FinalizeModel();
                 optionsBuilder.UseModel(model);

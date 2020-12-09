@@ -48,6 +48,13 @@ namespace EntityFrameworkCore.Jet.Infrastructure
             => WithOption(e => e.WithUseOuterSelectSkipEmulationViaDataReader(enabled));
 
         /// <summary>
+        ///     Configures the context support milliseconds in `DateTime`, `DateTimeOffset` and `TimeSpan` values when
+        ///     accessing Jet databases. Jet has no native support for milliseconds, therefore this feature is opt-in.
+        /// </summary>
+        public virtual JetDbContextOptionsBuilder EnableMillisecondsSupport(bool enabled = true)
+            => WithOption(e => e.WithEnableMillisecondsSupport(enabled));
+
+        /// <summary>
         ///     Configures the context to use the default retrying <see cref="IExecutionStrategy" />.
         /// </summary>
         public virtual JetDbContextOptionsBuilder EnableRetryOnFailure()

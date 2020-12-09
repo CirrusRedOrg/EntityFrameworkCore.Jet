@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -36,10 +37,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 10, StoreTypePostfix.PrecisionAndScale);
         private readonly JetCurrencyTypeMapping _currency = new JetCurrencyTypeMapping("currency");
 
-        private readonly JetDateTimeTypeMapping _datetime = new JetDateTimeTypeMapping("datetime", dbType: DbType.DateTime);
-        private readonly JetDateTimeOffsetTypeMapping _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime");
-        private readonly JetDateTimeTypeMapping _date = new JetDateTimeTypeMapping("datetime", dbType: DbType.Date);
-        private readonly JetTimeSpanTypeMapping _time = new JetTimeSpanTypeMapping("datetime");
+        private readonly JetDateTimeTypeMapping _datetime;
+        private readonly JetDateTimeOffsetTypeMapping _datetimeoffset;
+        private readonly JetDateTimeTypeMapping _date;
+        private readonly JetTimeSpanTypeMapping _time;
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString = new JetStringTypeMapping("char", unicode: true);
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
@@ -58,7 +59,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public JetTypeMappingSource(
             [NotNull] TypeMappingSourceDependencies dependencies,
-            [NotNull] RelationalTypeMappingSourceDependencies relationalDependencies)
+            [NotNull] RelationalTypeMappingSourceDependencies relationalDependencies,
+            [NotNull] IJetOptions options)
             : base(dependencies, relationalDependencies)
         {
             // References:
@@ -70,6 +72,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // TODO: Check the types and their mappings against
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
             
+            _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
+            _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
+            _date = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.Date);
+            _time = new JetTimeSpanTypeMapping("datetime", options);
+
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping>(StringComparer.OrdinalIgnoreCase)
                 {

@@ -23,6 +23,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         // private bool? _rowNumberPaging;
         private DbProviderFactory _dataAccessProviderFactory;
         private bool _useOuterSelectSkipEmulationViaDataReader;
+        private bool _enableMillisecondsSupport;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -48,6 +49,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
             // _rowNumberPaging = copyFrom._rowNumberPaging;
             _dataAccessProviderFactory = copyFrom._dataAccessProviderFactory;
             _useOuterSelectSkipEmulationViaDataReader = copyFrom._useOuterSelectSkipEmulationViaDataReader;
+            _enableMillisecondsSupport = copyFrom._enableMillisecondsSupport;
         }
 
         /// <summary>
@@ -145,6 +147,29 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        public virtual bool EnableMillisecondsSupport => _enableMillisecondsSupport;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual JetOptionsExtension WithEnableMillisecondsSupport(bool enabled)
+        {
+            var clone = (JetOptionsExtension) Clone();
+
+            clone._enableMillisecondsSupport = enabled;
+
+            return clone;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public override void ApplyServices(IServiceCollection services)
             => services.AddEntityFrameworkJet();
 
@@ -190,6 +215,11 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                             builder.Append("UseOuterSelectSkipEmulationViaDataReader ");
                         }
 
+                        if (Extension._enableMillisecondsSupport)
+                        {
+                            builder.Append("EnableMillisecondsSupport ");
+                        }
+
                         _logFragment = builder.ToString();
                     }
 
@@ -203,7 +233,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                 {
                     _serviceProviderHash = (base.GetServiceProviderHashCode() * 397) ^
                                            (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L) ^
-                                           (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) /* ^
+                                           (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) ^
+                                           (Extension._enableMillisecondsSupport.GetHashCode() * 397)/* ^
                                            (Extension._rowNumberPaging?.GetHashCode() ?? 0L)*/;
                 }
 
@@ -222,6 +253,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                 debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseOuterSelectSkipEmulationViaDataReader)]
 #pragma warning restore 618
                     = Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode().ToString(CultureInfo.InvariantCulture);
+                debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.EnableMillisecondsSupport)]
+                    = Extension._enableMillisecondsSupport.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
     }

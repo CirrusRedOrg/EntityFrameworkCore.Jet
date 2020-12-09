@@ -13,13 +13,13 @@ namespace EntityFrameworkCore.Jet.Data
         private readonly dynamic _connection;
         private readonly dynamic _catalog;
 
-        public AdoxSchema(JetConnection connection, bool naturalOnly)
-            : this(connection)
+        public AdoxSchema(JetConnection connection, bool naturalOnly, bool readOnly)
+            : this(connection, readOnly)
         {
             _naturalOnly = naturalOnly;
         }
         
-        public AdoxSchema(JetConnection connection)
+        public AdoxSchema(JetConnection connection, bool readOnly)
         {
             _connection = new ComObject("ADODB.Connection");
             
@@ -574,6 +574,50 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
 
             dataTable.AcceptChanges();
             return dataTable;
+        }
+
+        public override void RenameTable(string oldTableName, string newTableName)
+        {
+            if (string.IsNullOrWhiteSpace(oldTableName))
+                throw new ArgumentNullException(nameof(oldTableName));
+            if (string.IsNullOrWhiteSpace(newTableName))
+                throw new ArgumentNullException(nameof(newTableName));
+
+            try
+            {
+                using var tables = _catalog.Tables;
+                using var table = tables[oldTableName];
+                table.Name = newTableName;
+            }
+            catch (Exception e)
+            {
+                // TODO: Try interating over the collections instead of using Item["Name"].
+                throw new Exception($"Cannot rename table '{oldTableName}' to '{newTableName}'.", e);
+            }
+        }
+
+        public override void RenameColumn(string tableName, string oldColumnName, string newColumnName)
+        {
+            if (string.IsNullOrWhiteSpace(tableName))
+                throw new ArgumentNullException(nameof(tableName));
+            if (string.IsNullOrWhiteSpace(oldColumnName))
+                throw new ArgumentNullException(nameof(oldColumnName));
+            if (string.IsNullOrWhiteSpace(newColumnName))
+                throw new ArgumentNullException(nameof(newColumnName));
+
+            try
+            {
+                using var tables = _catalog.Tables;
+                using var table = tables[tableName];
+                using var columns = table.Columns;
+                using var column = columns[oldColumnName];
+                column.Name = newColumnName;
+            }
+            catch (Exception e)
+            {
+                // TODO: Try interating over the collections instead of using Item["Name"].
+                throw new Exception($"Cannot rename column '{oldColumnName}' to '{newColumnName}' of table '{tableName}'.", e);
+            }
         }
 
         protected static string GetDataTypeString(DataTypeEnum dataType, bool isIdentity = false)

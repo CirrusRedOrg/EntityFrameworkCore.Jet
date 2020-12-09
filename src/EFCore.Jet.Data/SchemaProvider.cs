@@ -10,14 +10,14 @@ namespace EntityFrameworkCore.Jet.Data
         Adox,
     }
 
-    public abstract class SchemaProvider : ISchemaProvider
+    public abstract class SchemaProvider : ISchemaProvider, ISchemaOperationsProvider
     {
-        public static SchemaProvider CreateInstance(SchemaProviderType type, JetConnection connection)
+        public static SchemaProvider CreateInstance(SchemaProviderType type, JetConnection connection, bool readOnly = true)
             => type switch
             {
-                SchemaProviderType.Precise => new PreciseSchema(connection),
-                SchemaProviderType.Dao => new PreciseSchema(connection),
-                SchemaProviderType.Adox => new PreciseSchema(connection),
+                SchemaProviderType.Precise => new PreciseSchema(connection, readOnly),
+                SchemaProviderType.Dao => new PreciseSchema(connection, readOnly),
+                SchemaProviderType.Adox => new PreciseSchema(connection, readOnly),
                 _ => throw new ArgumentOutOfRangeException(nameof(type)),
             };
 
@@ -31,6 +31,9 @@ namespace EntityFrameworkCore.Jet.Data
         public abstract DataTable GetRelations();
         public abstract DataTable GetRelationColumns();
         public abstract DataTable GetCheckConstraints();
+
+        public abstract void RenameTable(string oldTableName, string newTableName);
+        public abstract void RenameColumn(string tableName, string oldColumnName, string newColumnName);
 
         internal static bool IsSystemTableByName(string tableName)
             => tableName.StartsWith("msys", StringComparison.OrdinalIgnoreCase);

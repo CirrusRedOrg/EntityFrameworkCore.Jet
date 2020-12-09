@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
 using JetBrains.Annotations;
@@ -101,7 +102,17 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => _rawSqlCommandBuilder.Build(@"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')");
 
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
-            => Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = _relationalConnection.DbConnection.DataSource}});
+        {
+            var dataSource = _relationalConnection.DbConnection.DataSource;
+
+            // Alternative:
+            // var connection = (JetConnection) _relationalConnection.DbConnection;
+            // var csb = connection.JetFactory.CreateConnectionStringBuilder();
+            // csb.ConnectionString = connection.ConnectionString;
+            // var dataSource = csb.GetDataSource();
+            
+            return Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = dataSource}});
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

@@ -53,8 +53,10 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
 
             // Provider=Microsoft.ACE.OLEDB.12.0;Data Source=Joe's Database.accdb;
+            // Provider=Microsoft.ACE.OLEDB.12.0;Data Source="Joe's Database.accdb";
+            // Provider=Microsoft.ACE.OLEDB.12.0;Data Source='Joe''s Database.accdb';
             _regExExtractFilenameFromConnectionString = new Regex(
-                @"^(?:.*;)?\s*(?:data source|dbq)\s*=\s*(?<filename>.*?)\s*(?:;|$)",
+                @"^(?:.*;)?\s*(?:data source|dbq)\s*=\s*(?:(?<quote>[""'])\s*(?<filename>.*?)\s*\k<quote>|(?<filename>.*?))\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
 
             // CREATE DATABASE Joe's Database.accdb;
@@ -171,14 +173,21 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
         public static string ExtractFileNameFromConnectionString(string connectionString)
         {
-            string fileName;
-            Match match = _regExExtractFilenameFromConnectionString.Match(connectionString);
+            var match = _regExExtractFilenameFromConnectionString.Match(connectionString);
             if (match.Success)
-                fileName = match.Groups["filename"]
-                    .Value;
-            else
-                fileName = connectionString;
-            return fileName;
+            {
+                var fileName = match.Groups["filename"].Value;
+
+                if (match.Groups["quote"].Success)
+                {
+                    var quoteChar = match.Groups["quote"].Value;
+                    fileName = fileName.Replace(quoteChar + quoteChar, quoteChar);
+                }
+
+                return fileName;
+            }
+
+            return connectionString;
         }
 
         public static bool IsConnectionString(string connectionString)

@@ -363,22 +363,29 @@ namespace EntityFrameworkCore.Jet.Data
                         var command = (JetCommand) ((ICloneable) this).Clone();
                         command.CommandText = commandText;
 
-                        for (var i = 0; i < usedParameterCount; i++)
+                        if (_createProcedureExpression.IsMatch(command.CommandText))
                         {
-                            command.Parameters.RemoveAt(0);
+                            command.Parameters.Clear();
                         }
-                        
-                        var parameterIndices = parser.GetStateIndices(
-                            new[] {'@', '?'},
-                            currentCommandStart,
-                            commandDelimiter - currentCommandStart);
-
-                        while (command.Parameters.Count > parameterIndices.Count)
+                        else
                         {
-                            command.Parameters.RemoveAt(parameterIndices.Count);
-                        }
+                            for (var i = 0; i < usedParameterCount && command.Parameters.Count > 0; i++)
+                            {
+                                command.Parameters.RemoveAt(0);
+                            }
 
-                        usedParameterCount += parameterIndices.Count;
+                            var parameterIndices = parser.GetStateIndices(
+                                new[] {'@', '?'},
+                                currentCommandStart,
+                                commandDelimiter - currentCommandStart);
+
+                            while (command.Parameters.Count > parameterIndices.Count)
+                            {
+                                command.Parameters.RemoveAt(parameterIndices.Count);
+                            }
+
+                            usedParameterCount += parameterIndices.Count;
+                        }
 
                         commands.Add(command);
                     }

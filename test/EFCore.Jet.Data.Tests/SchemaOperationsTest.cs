@@ -52,7 +52,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [TestMethod]
         public void RenameTable_Query()
         {
-            _connection.CreateCommand("rename table tableName to newTableName")
+            _connection.CreateCommand("ALTER TABLE tableName RENAME TO newTableName")
                 .ExecuteNonQuery();
 
             ReOpenConnection();
@@ -71,7 +71,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [TestMethod]
         public void RenameColumn_Query()
         {
-            _connection.CreateCommand("rename column tableName.columnName to newColumnName")
+            _connection.CreateCommand("ALTER TABLE tableName RENAME COLUMN columnName TO newColumnName")
                 .ExecuteNonQuery();
 
             ReOpenConnection();

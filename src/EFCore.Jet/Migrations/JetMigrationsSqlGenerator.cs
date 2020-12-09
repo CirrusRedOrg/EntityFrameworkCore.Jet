@@ -370,9 +370,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             //           2. INSERT INTO ... SELECT ... FROM
             //           3. DROP TABLE `source table`
             //           4. Recrete indices and references.
-            builder.Append("RENAME TABLE ")
+            builder.Append("ALTER TABLE ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                .Append(" TO ")
+                .Append(" RENAME TO ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.NewName))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand();
@@ -617,9 +617,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            builder.Append("RENAME COLUMN ")
+            builder.Append("ALTER TABLE ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                .Append(".")
+                .Append(" RENAME COLUMN ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
                 .Append(" TO ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.NewName))

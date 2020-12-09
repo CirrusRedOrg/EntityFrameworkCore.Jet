@@ -134,7 +134,7 @@ namespace EntityFrameworkCore.Jet
         }
 
         [ConditionalFact]
-        public virtual void Where_datetime_with_fractions_paramter()
+        public virtual void Where_datetime_with_fractions_parameter()
         {
             using var context = CreateContext();
 
@@ -148,7 +148,7 @@ namespace EntityFrameworkCore.Jet
         }
 
         [ConditionalFact]
-        public virtual void Where_datetime_with_fractions_paramter_EnableMillisecondsSupport()
+        public virtual void Where_datetime_with_fractions_parameter_EnableMillisecondsSupport()
         {
             using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
 

@@ -46,6 +46,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             {
                 parameter.Value = GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport);
                 parameter.ResetDbType();
+                
+                // Necessary to explicitly set for OLE DB, to apply the System.Decimal value as DOUBLE to Jet.
+                parameter.DbType = System.Data.DbType.Double;
             }
         }
 
@@ -96,6 +99,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private static decimal GetDateTimeDoubleValueAsDecimal(DateTime dateTime, bool millisecondsSupportEnabled)
         {
+            //
+            // We are explicitly using System.Decimal here, so we get better scale results:
+            //
+            
             var checkDateTimeValue = CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset;
 
             if (millisecondsSupportEnabled)

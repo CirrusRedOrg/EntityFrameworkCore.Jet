@@ -15,13 +15,13 @@ namespace EntityFrameworkCore.Jet.Data
         private readonly dynamic _dbEngine;
         private readonly bool _naturalOnly;
 
-        public DaoSchema(JetConnection connection, bool naturalOnly)
-            : this(connection)
+        public DaoSchema(JetConnection connection, bool naturalOnly, bool readOnly)
+            : this(connection, readOnly)
         {
             _naturalOnly = naturalOnly;
         }
         
-        public DaoSchema(JetConnection connection)
+        public DaoSchema(JetConnection connection, bool readOnly)
         {
             _connection = connection;
 
@@ -55,7 +55,7 @@ namespace EntityFrameworkCore.Jet.Data
                     _database = _workspace.OpenDatabase(
                         dataSource,
                         /* Exclusive */ false,
-                        /* ReadOnly */ true,
+                        /* ReadOnly */ readOnly,
                         "MS Access" + (string.IsNullOrEmpty(databasePassword)
                             ? null
                             : $";PWD={databasePassword}"));
@@ -512,6 +512,51 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
         // DAO does not support CHECK CONSTRAINTs. Only ADOX does.
         public override DataTable GetCheckConstraints()
             => SchemaTables.GetCheckConstraintsDataTable();
+        
+        
+        public override void RenameTable(string oldTableName, string newTableName)
+        {
+            if (string.IsNullOrWhiteSpace(oldTableName))
+                throw new ArgumentNullException(nameof(oldTableName));
+            if (string.IsNullOrWhiteSpace(newTableName))
+                throw new ArgumentNullException(nameof(newTableName));
+
+            try
+            {
+                using var tableDefs = _database.TableDefs;
+                using var tableDef = tableDefs[oldTableName];
+                tableDef.Name = newTableName;
+            }
+            catch (Exception e)
+            {
+                // TODO: Try interating over the collections instead of using Item["Name"].
+                throw new Exception($"Cannot rename table '{oldTableName}' to '{newTableName}'.", e);
+            }
+        }
+
+        public override void RenameColumn(string tableName, string oldColumnName, string newColumnName)
+        {
+            if (string.IsNullOrWhiteSpace(tableName))
+                throw new ArgumentNullException(nameof(tableName));
+            if (string.IsNullOrWhiteSpace(oldColumnName))
+                throw new ArgumentNullException(nameof(oldColumnName));
+            if (string.IsNullOrWhiteSpace(newColumnName))
+                throw new ArgumentNullException(nameof(newColumnName));
+
+            try
+            {
+                using var tableDefs = _database.TableDefs;
+                using var tableDef = tableDefs[tableName];
+                using var fields = tableDef.Fields;
+                using var field = fields[oldColumnName];
+                field.Name = newColumnName;
+            }
+            catch (Exception e)
+            {
+                // TODO: Try interating over the collections instead of using Item["Name"].
+                throw new Exception($"Cannot rename column '{oldColumnName}' to '{newColumnName}' of table '{tableName}'.", e);
+            }
+        }
 
         protected static string GetDataTypeString(DataTypeEnum dataType, bool isIdentity = false)
             => dataType switch

@@ -2,7 +2,7 @@
 
 namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
-    internal class JetRenameHandling
+    internal static class JetSchemaOperationsHandling
     {
         private static readonly Regex _renameTableRegex = new Regex(
             $@"^\s*rename\s+table\s+{GetIdentifierPattern("OldTableName")}\s+to\s+{GetIdentifierPattern("NewTableName")}\s*$",
@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             $@"^\s*rename\s+column\s+{GetIdentifierPattern("TableName")}\s*\.\s*{GetIdentifierPattern("OldColumnName")}\s+to\s+{GetIdentifierPattern("NewColumnName")}\s*$",
             RegexOptions.IgnoreCase);
 
-        public static bool TryDatabaseOperation(string connectionString, string commandText)
+        public static bool TryDatabaseOperation(JetConnection connection, string commandText)
         {
             var match = _renameTableRegex.Match(commandText);
             if (match.Success)
@@ -20,9 +20,8 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 var oldTableName = match.Groups["OldTableName"].Value;
                 var newTableName = match.Groups["NewTableName"].Value;
                 
-                // TODO: Only use ADOX in an OLE DB context. Use DAO in an ODBC context.
-                AdoxWrapper.RenameTable(connectionString, oldTableName, newTableName);
-                
+                RenameTable(connection, oldTableName, newTableName);
+
                 return true;
             }
 
@@ -33,8 +32,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 var oldColumnName = match.Groups["OldColumnName"].Value;
                 var newColumnName = match.Groups["NewColumnName"].Value;
                 
-                // TODO: Only use ADOX in an OLE DB context. Use DAO in an ODBC context.
-                AdoxWrapper.RenameColumn(connectionString, tableName, oldColumnName, newColumnName);
+                RenameColumn(connection, tableName, oldColumnName, newColumnName);
                 
                 return true;
             }
@@ -44,5 +42,17 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
         private static string GetIdentifierPattern(string key)
             => $@"(?:`(?<{key}>.*?)`|\[(?<{key}>.*?)\]|(?<{key}>\S*))";
+        
+        private static void RenameTable(JetConnection connection, string oldTableName, string newTableName)
+        {
+            using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection, false);
+            schemaProvider.RenameTable(oldTableName, newTableName);
+        }
+
+        private static void RenameColumn(JetConnection connection, string tableName, string oldColumnName, string newColumnName)
+        {
+            using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection, false);
+            schemaProvider.RenameColumn(tableName, oldColumnName, newColumnName);
+        }
     }
 }

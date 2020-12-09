@@ -8,11 +8,11 @@ namespace EntityFrameworkCore.Jet.Data
         private readonly AdoxSchema _adoxSchema;
         private readonly DaoSchema _daoSchema;
         
-        public PreciseSchema(JetConnection connection)
+        public PreciseSchema(JetConnection connection, bool readOnly)
         {
             _connection = connection;
-            _adoxSchema = new AdoxSchema(connection, true);
-            _daoSchema = new DaoSchema(connection, true);
+            _adoxSchema = new AdoxSchema(connection, true, readOnly);
+            _daoSchema = new DaoSchema(connection, true, readOnly);
         }
 
         public override void EnsureDualTable()
@@ -60,6 +60,12 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override DataTable GetCheckConstraints()
             => _adoxSchema.GetCheckConstraints(); // DAO does not support CHECK CONSTRAINTs, but ADOX does
+        
+        public override void RenameTable(string oldTableName, string newTableName)
+            => _adoxSchema.RenameTable(oldTableName, newTableName); // either ADOX or DAO is fine
+
+        public override void RenameColumn(string tableName, string oldColumnName, string newColumnName)
+            => _adoxSchema.RenameColumn(tableName, oldColumnName, newColumnName); // either ADOX or DAO is fine
 
         public override void Dispose()
         {

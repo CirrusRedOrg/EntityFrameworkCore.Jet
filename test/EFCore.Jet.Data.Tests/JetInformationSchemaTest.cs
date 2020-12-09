@@ -12,16 +12,17 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [ClassInitialize]
         public static void TestFixtureSetup(TestContext context)
         {
-            // using var connection = Helpers.CreateAndOpenDatabase(StoreName);
-            //
-            // var scriptPath = Path.Combine(Path.GetDirectoryName(typeof(JetInformationSchemaTest).Assembly.Location) ?? string.Empty, "Northwind.sql");
-            // var script = File.ReadAllText(scriptPath);
-            // Helpers.ExecuteScript(connection, script);
+            using var connection = Helpers.CreateAndOpenDatabase(StoreName);
+            
+            var scriptPath = Path.Combine(Path.GetDirectoryName(typeof(JetInformationSchemaTest).Assembly.Location) ?? string.Empty, "Northwind.sql");
+            var script = File.ReadAllText(scriptPath);
+            Helpers.ExecuteScript(connection, script);
         }
 
         [ClassCleanup]
         public static void TestFixtureTearDown()
         {
+            Helpers.DeleteDatabase(StoreName);
         }
 
         private void AssertDataReaderContent(string actual, string expected)
@@ -34,6 +35,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         {
             using var connection = Helpers.OpenDatabase(StoreName, providerType);
             var result = Helpers.GetDataReaderContent(connection, @"SELECT * FROM `INFORMATION_SCHEMA.TABLES`
+WHERE TABLE_TYPE <> 'SYSTEM TABLE'
 ORDER BY TABLE_NAME");
             
             AssertDataReaderContent(result, @"
@@ -51,18 +53,6 @@ Customers | BASE TABLE |  |
 Employees | BASE TABLE |  | 
 EmployeeTerritories | BASE TABLE |  | 
 Invoices | VIEW |  | 
-MSysAccessStorage | SYSTEM TABLE |  | 
-MSysACEs | SYSTEM TABLE |  | 
-MSysComplexColumns | SYSTEM TABLE |  | 
-MSysNameMap | SYSTEM TABLE |  | 
-MSysNavPaneGroupCategories | SYSTEM TABLE |  | 
-MSysNavPaneGroups | SYSTEM TABLE |  | 
-MSysNavPaneGroupToObjects | SYSTEM TABLE |  | 
-MSysNavPaneObjectIDs | SYSTEM TABLE |  | 
-MSysObjects | SYSTEM TABLE |  | 
-MSysQueries | SYSTEM TABLE |  | 
-MSysRelationships | SYSTEM TABLE |  | 
-MSysResources | SYSTEM TABLE |  | 
 Order Details | BASE TABLE |  | 
 Order Details Extended | VIEW |  | 
 Order Subtotals | VIEW |  | 

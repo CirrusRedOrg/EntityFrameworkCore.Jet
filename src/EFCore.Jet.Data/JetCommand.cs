@@ -248,7 +248,7 @@ namespace EntityFrameworkCore.Jet.Data
             if (JetStoreDatabaseHandling.ProcessDatabaseOperation(this))
                 return 1;
 
-            if (JetRenameHandling.TryDatabaseOperation(Connection.ConnectionString, InnerCommand.CommandText))
+            if (JetSchemaOperationsHandling.TryDatabaseOperation((JetConnection)Connection, InnerCommand.CommandText))
                 return 1;
 
             if (Connection.State != ConnectionState.Open)

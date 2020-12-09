@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Jet.Data
     {
         public override void CreateDatabase(
             string fileNameOrConnectionString,
-            DatabaseVersion version = DatabaseVersion.Newest,
+            DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null)
         {
@@ -20,6 +20,12 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             var filePath = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
+            
+            if (version == DatabaseVersion.NewestSupported &&
+                string.Equals(System.IO.Path.GetExtension(filePath), ".mdb"))
+            {
+                version = DatabaseVersion.Version40;
+            }
 
             try
             {
@@ -33,7 +39,6 @@ namespace EntityFrameworkCore.Jet.Data
                     DatabaseVersion.Version30 => (int) DatabaseTypeEnum.dbVersion30,
                     DatabaseVersion.Version40 => (int) DatabaseTypeEnum.dbVersion40,
                     DatabaseVersion.Version120 => (int) DatabaseTypeEnum.dbVersion120,
-                    DatabaseVersion.Newest => 0,
                     _ => 0,
                 };
 

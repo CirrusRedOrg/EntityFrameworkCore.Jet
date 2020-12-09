@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.Data
     {
         public override void CreateDatabase(
             string fileNameOrConnectionString,
-            DatabaseVersion version = DatabaseVersion.Newest,
+            DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null)
         {
@@ -20,10 +20,16 @@ namespace EntityFrameworkCore.Jet.Data
             
             var filePath = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
             
+            if (version == DatabaseVersion.NewestSupported &&
+                string.Equals(System.IO.Path.GetExtension(filePath), ".mdb"))
+            {
+                version = DatabaseVersion.Version40;
+            }
+
             try
             {
                 using dynamic catalog = new ComObject("ADOX.Catalog");
-
+                
                 // ADOX is an ADO eXtension and ADO is build on top of OLE DB.
                 var connectionString = GetConnectionString(filePath, version, collatingOrder, databasePassword);
                 using var connection = catalog.Create(connectionString);
@@ -86,7 +92,6 @@ namespace EntityFrameworkCore.Jet.Data
                 DatabaseVersion.Version30 => 5,
                 DatabaseVersion.Version40 => 5,
                 DatabaseVersion.Version120 => 6,
-                DatabaseVersion.Newest => 0,
                 _ => 0
             };
 

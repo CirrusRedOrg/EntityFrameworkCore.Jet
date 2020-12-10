@@ -24,11 +24,11 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         {
             query = base.Process(query);
             
-            query = new SearchConditionConvertingExpressionVisitor(SqlExpressionFactory).Visit(query);
+            query = new SearchConditionConvertingExpressionVisitor(RelationalDependencies.SqlExpressionFactory).Visit(query);
 
             if (_options.EnableMillisecondsSupport)
             {
-                query = new JetDateTimeExpressionVisitor(SqlExpressionFactory).Visit(query);
+                query = new JetDateTimeExpressionVisitor(RelationalDependencies.SqlExpressionFactory).Visit(query);
             }
 
             return query;

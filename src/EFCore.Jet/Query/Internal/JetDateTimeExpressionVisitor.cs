@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
 {
@@ -34,7 +36,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                             _sqlExpressionFactory.Convert(
                                 projection.Expression,
                                 typeof(double),
-                                _sqlExpressionFactory.FindMapping(typeof(double))))
+                                new DoubleTypeMapping("double",DbType.Double)))
                         : projection)
                 .ToList();
 
@@ -46,9 +48,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 selectExpression.Having,
                 selectExpression.Orderings.ToList(),
                 selectExpression.Limit,
-                selectExpression.Offset,
-                selectExpression.IsDistinct,
-                selectExpression.Alias);
+                selectExpression.Offset);
             
             return expression;
         }

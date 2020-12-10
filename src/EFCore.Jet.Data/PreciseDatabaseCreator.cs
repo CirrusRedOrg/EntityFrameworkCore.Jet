@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.Jet.Data
     {
         public override void CreateDatabase(
             string fileNameOrConnectionString,
-            DatabaseVersion version = DatabaseVersion.Newest,
+            DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null)
             => new DaoDatabaseCreator().CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);

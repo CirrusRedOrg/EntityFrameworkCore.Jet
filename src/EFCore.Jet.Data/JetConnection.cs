@@ -506,14 +506,14 @@ namespace EntityFrameworkCore.Jet.Data
             => InnerConnectionFactory.Instance.ClearAllPools();
 
         public void CreateDatabase(
-            DatabaseVersion version = DatabaseVersion.Newest,
+            DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null)
             => CreateDatabase(DataSource, version, collatingOrder, databasePassword, SchemaProviderType);
 
         public static void CreateDatabase(
             string fileNameOrConnectionString,
-            DatabaseVersion version = DatabaseVersion.Newest,
+            DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null,
             SchemaProviderType schemaProviderType = SchemaProviderType.Precise)

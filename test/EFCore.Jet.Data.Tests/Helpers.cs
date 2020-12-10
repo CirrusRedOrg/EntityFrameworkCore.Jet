@@ -261,7 +261,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
 
         public static void CreateDatabase(
             string storeName,
-            DatabaseVersion version = DatabaseVersion.Newest,
+            DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null)
         {

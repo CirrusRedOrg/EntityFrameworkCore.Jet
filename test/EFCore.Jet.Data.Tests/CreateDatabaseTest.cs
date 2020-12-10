@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Data;
+using System.Data.Common;
 using System.Data.Odbc;
+using System.Data.OleDb;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -108,6 +111,33 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             
             connection.ConnectionString = csb.ConnectionString;
             connection.Open();
+            Assert.IsTrue(connection.State == ConnectionState.Open);
+        }
+        
+        [TestMethod]
+        public void CreateDatabaseWithWrongPassword()
+        {
+            using var connection = new JetConnection(Helpers.DataAccessProviderFactory);
+            
+            var command = connection.CreateCommand();
+            command.CommandText = $"CREATE DATABASE '{StoreName}' PASSWORD 'wrong password'";
+            command.ExecuteNonQuery();
+            Assert.IsTrue(File.Exists(StoreName));
+
+            var csb = Helpers.DataAccessProviderFactory.CreateConnectionStringBuilder();
+            csb.SetDataSource(StoreName);
+            csb.SetDatabasePassword("right password");
+            
+            connection.ConnectionString = csb.ConnectionString;
+
+            try
+            {
+                connection.Open();
+            }
+            catch (Exception e)
+            {
+                Assert.IsInstanceOfType(e, typeof(DbException));
+            }
         }
     }
 }

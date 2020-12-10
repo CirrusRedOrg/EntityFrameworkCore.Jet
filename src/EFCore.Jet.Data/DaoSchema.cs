@@ -73,37 +73,6 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
 
-        public override void EnsureDualTable()
-        {
-            using var tableDefs = _database.TableDefs;
-
-            try
-            {
-                using var tableDef = tableDefs["#Dual"];
-            }
-            catch
-            {
-                const string sqlQueries = @"CREATE TABLE `#Dual` (`ID` INTEGER NOT NULL CONSTRAINT `PrimaryKey` PRIMARY KEY);
-INSERT INTO `#Dual` (`ID`) VALUES (1);
-ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
-                var connection = _connection.InnerConnection;
-                var queries = sqlQueries.Split(';');
-
-                foreach (var query in queries)
-                {
-                    using var command = connection.CreateCommand();
-                    command.CommandText = query;
-                    command.ExecuteNonQuery();
-                }
-
-                tableDefs.Refresh();
-                using var tableDef = tableDefs["#Dual"];
-                
-                var attributes = (TableDefAttributeEnum) tableDef.Attributes;
-                tableDef.Attributes = attributes | TableDefAttributeEnum.dbSystemObject; // hide table
-            }
-        }
-
         public override DataTable GetTables()
         {
             var dataTable = SchemaTables.GetTablesDataTable();
@@ -513,7 +482,32 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
         public override DataTable GetCheckConstraints()
             => SchemaTables.GetCheckConstraintsDataTable();
         
-        
+        public override void EnsureDualTable()
+        {
+            using var tableDefs = _database.TableDefs;
+
+            try
+            {
+                using var tableDef = tableDefs[JetConnection.DefaultDualTableName];
+            }
+            catch
+            {
+                _database.Execute($@"CREATE TABLE `{JetConnection.DefaultDualTableName}` (`ID` INTEGER NOT NULL CONSTRAINT `PrimaryKey` PRIMARY KEY)", RecordsetOptionEnum.dbFailOnError);
+                _database.Execute($@"INSERT INTO `{JetConnection.DefaultDualTableName}` (`ID`) VALUES (1)", RecordsetOptionEnum.dbFailOnError);
+
+                // Check constraints are not supported by DAO. They are supported by ADOX.
+                // database.Execute($@"ALTER TABLE [{JetConnection.DefaultDualTableName}] ADD CONSTRAINT SingleRecord CHECK ([ID] = 1)", RecordsetOptionEnum.dbFailOnError);
+
+                tableDefs.Refresh();
+                using var tableDef = tableDefs[JetConnection.DefaultDualTableName];
+                tableDef.ValidationRule = "[ID] = 1"; // not as good as a CHECK CONSTRAINT, but better than nothing
+
+                var attributes = (TableDefAttributeEnum) tableDef.Attributes;
+                attributes |= TableDefAttributeEnum.dbSystemObject;
+                tableDef.Attributes = attributes;
+            }
+        }
+
         public override void RenameTable(string oldTableName, string newTableName)
         {
             if (string.IsNullOrWhiteSpace(oldTableName))
@@ -769,6 +763,23 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
             dbRelationDeleteCascade = 0x00001000,
             dbRelationLeft = 0x01000000,
             dbRelationRight = 0x02000000,
+        }
+        
+        [Flags]
+        protected enum RecordsetOptionEnum
+        {
+            dbDenyWrite = 0x00000001,
+            dbDenyRead = 0x00000002,
+            dbReadOnly = 0x00000004,
+            dbAppendOnly = 0x00000008,
+            dbInconsistent = 0x00000010,
+            dbConsistent = 0x00000020,
+            dbSQLPassThrough = 0x00000040,
+            dbFailOnError = 0x00000080,
+            dbForwardOnly = 0x00000100,
+            dbSeeChanges = 0x00000200,
+            dbRunAsync = 0x00000400,
+            dbExecDirect = 0x00000800,
         }
     }
 }

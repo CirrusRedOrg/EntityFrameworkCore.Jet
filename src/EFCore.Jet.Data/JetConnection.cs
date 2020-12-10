@@ -24,6 +24,8 @@ namespace EntityFrameworkCore.Jet.Data
         
         internal string ActiveConnectionString { get; private set; }
         internal string FileNameOrConnectionString => ConnectionString;
+
+        public const string DefaultDualTableName = "#Dual";
         
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
@@ -324,7 +326,7 @@ namespace EntityFrameworkCore.Jet.Data
             
             if (IsConnectionString(fileNameOrConnectionString))
             {
-                // If the connection string is an actual connection string an not just a file path, then we should
+                // If the connection string is an actual connection string and not just a file path, then we should
                 // be able to deduct the provider from its style.
                 dataAccessProviderType ??= GetDataAccessProviderType(fileNameOrConnectionString);
                 connectionString = fileNameOrConnectionString;
@@ -518,21 +520,55 @@ namespace EntityFrameworkCore.Jet.Data
             string databasePassword = null,
             SchemaProviderType schemaProviderType = SchemaProviderType.Precise)
         {
-            var databaseCreator = JetDatabaseCreator.CreateInstance(schemaProviderType);
+            if (databasePassword != null &&
+                databasePassword.Length > 20)
+            {
+                throw new ArgumentOutOfRangeException(nameof(databasePassword));
+            }
+
+            //
+            // Create database:
+            //
             
+            var databaseCreator = JetDatabaseCreator.CreateInstance(schemaProviderType);
             databaseCreator.CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
-            databaseCreator.CreateDualTable(fileNameOrConnectionString, databasePassword);
+
+            //
+            // Ensure dual table existence:
+            //
+            
+            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(
+                IsConnectionString(fileNameOrConnectionString)
+                    ? GetDataAccessProviderType(fileNameOrConnectionString)
+                    : JetConfiguration.DefaultDataAccessProviderType);
+
+            var connectionString = GetConnectionString(fileNameOrConnectionString, dataAccessProviderFactory);
+
+            if (!string.IsNullOrEmpty(databasePassword))
+            {
+                var csb = dataAccessProviderFactory.CreateConnectionStringBuilder();
+                csb.ConnectionString = connectionString;
+                csb.SetDatabasePassword(databasePassword);
+
+                connectionString = csb.ConnectionString;
+            }
+
+            using var connection = new JetConnection(connectionString, dataAccessProviderFactory);
+            connection.Open();
+            
+            using var schemaProvider = SchemaProvider.CreateInstance(schemaProviderType, connection);
+            schemaProvider.EnsureDualTable();
         }
 
-        public static string GetConnectionString(string fileNameOrConnectioString, DbProviderFactory dataAccessProviderFactory)
-            => GetConnectionString(fileNameOrConnectioString, GetDataAccessProviderType(dataAccessProviderFactory));
+        public static string GetConnectionString(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+            => GetConnectionString(fileNameOrConnectionString, GetDataAccessProviderType(dataAccessProviderFactory));
 
-        public static string GetConnectionString(string fileNameOrConnectioString, DataAccessProviderType dataAccessProviderType)
-            => IsConnectionString(fileNameOrConnectioString)
-                ? fileNameOrConnectioString
+        public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType)
+            => IsConnectionString(fileNameOrConnectionString)
+                ? fileNameOrConnectionString
                 : GetConnectionString(
                     GetMostRecentCompatibleProviders(dataAccessProviderType).First().Key,
-                    fileNameOrConnectioString,
+                    fileNameOrConnectionString,
                     dataAccessProviderType);
 
         public static string GetConnectionString(string provider, string fileName, DbProviderFactory dataAccessProviderFactory)

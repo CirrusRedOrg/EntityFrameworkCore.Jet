@@ -395,7 +395,12 @@ namespace EntityFrameworkCore.Jet.Data
             }
             else
             {
-                commands.Add(this);
+                var commandText = CommandText.Trim();
+                if (!string.IsNullOrEmpty(commandText))
+                {
+                    CommandText = commandText;
+                    commands.Add(this);
+                }
             }
 
             return commands.AsReadOnly();

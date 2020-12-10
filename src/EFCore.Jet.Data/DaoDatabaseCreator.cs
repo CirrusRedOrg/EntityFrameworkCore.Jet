@@ -84,48 +84,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw new Exception($"Cannot create database \"{filePath}\" using DAO.", e);
             }
         }
-
-        public override void CreateDualTable(string fileNameOrConnectionString, string databasePassword = null)
-        {
-            try
-            {
-                if (databasePassword != null &&
-                    databasePassword.Length > 20)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(databasePassword));
-                }
-
-                var filePath = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
-
-                using var dbEngine = CreateDbEngine();
-                using var database = dbEngine.OpenDatabase(
-                    filePath,
-                    /* Exclusive */ false,
-                    /* ReadOnly */ false,
-                    "MS Access" + (string.IsNullOrEmpty(databasePassword)
-                        ? null
-                        : $";PWD={databasePassword}"));
-
-                database.Execute(@"CREATE TABLE `#Dual` (`ID` INTEGER NOT NULL CONSTRAINT `PrimaryKey` PRIMARY KEY)", RecordsetOptionEnum.dbFailOnError);
-                database.Execute(@"INSERT INTO `#Dual` (`ID`) VALUES (1)", RecordsetOptionEnum.dbFailOnError);
-
-                // Check constraints are not supported by DAO. They are supported by ADOX.
-                // database.Execute(@"ALTER TABLE [#Dual] ADD CONSTRAINT SingleRecord CHECK ([ID] = 1)", RecordsetOptionEnum.dbFailOnError);
-
-                using var tableDefs = database.TableDefs;
-                using var tableDef = tableDefs["#Dual"];
-                tableDef.ValidationRule = "[ID] = 1"; // not as good as a CHECK CONSTRAINT, but better than nothing
-
-                var attributes = (TableDefAttributeEnum) tableDef.Attributes;
-                attributes |= TableDefAttributeEnum.dbSystemObject;
-                tableDef.Attributes = attributes;
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"Could not create dual table `#Dual` using DAO.", e);
-            }
-        }
-
+        
         private static dynamic CreateDbEngine()
         {
             var progids = Enumerable.Range(12, 6)
@@ -184,22 +143,6 @@ namespace EntityFrameworkCore.Jet.Data
             dbVersion30 = 0x00000020,
             dbVersion40 = 0x00000040,
             dbVersion120 = 0x00000080
-        }
-
-        protected enum RecordsetOptionEnum
-        {
-            dbDenyWrite = 0x00000001,
-            dbDenyRead = 0x00000002,
-            dbReadOnly = 0x00000004,
-            dbAppendOnly = 0x00000008,
-            dbInconsistent = 0x00000010,
-            dbConsistent = 0x00000020,
-            dbSQLPassThrough = 0x00000040,
-            dbFailOnError = 0x00000080,
-            dbForwardOnly = 0x00000100,
-            dbSeeChanges = 0x00000200,
-            dbRunAsync = 0x00000400,
-            dbExecDirect = 0x00000800,
         }
         
         [Flags]

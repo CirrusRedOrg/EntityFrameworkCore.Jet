@@ -98,11 +98,13 @@ jobs:
     - pwsh: |
         $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\EFCore.Jet.Data.Tests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
-        exit 0
       displayName: 'Run Tests: EFCore.Jet.Data.Tests'
     - pwsh: |
         $env:EFCoreJet_DefaultConnection = '$(defaultConnection)'
         dotnet test .\test\EFCore.Jet.FunctionalTests -c $(buildConfiguration) --no-build --logger trx --verbosity detailed
+        
+        # Ignore failure for now.
+        # TODO: Explicitly check for abort and either return a failure or repeat test task.
         exit 0
       displayName: 'Run Tests: EFCore.Jet.FunctionalTests'
     - pwsh: |

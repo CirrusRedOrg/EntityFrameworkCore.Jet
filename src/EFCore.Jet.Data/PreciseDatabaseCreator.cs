@@ -9,8 +9,5 @@ namespace EntityFrameworkCore.Jet.Data
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null)
             => new DaoDatabaseCreator().CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
-
-        public override void CreateDualTable(string fileNameOrConnectionString, string databasePassword = null)
-            => new AdoxDatabaseCreator().CreateDualTable(fileNameOrConnectionString, databasePassword);
     }
 }

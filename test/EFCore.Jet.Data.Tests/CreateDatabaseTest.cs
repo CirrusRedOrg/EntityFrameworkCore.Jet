@@ -89,5 +89,25 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             connection.DropDatabase();
             Assert.IsFalse(File.Exists(StoreName));
         }
+        
+        [TestMethod]
+        public void CreateDatabaseWithPassword()
+        {
+            var password = "Joe's password";
+            var escapedPassword = password.Replace("'", "''");
+            using var connection = new JetConnection(Helpers.DataAccessProviderFactory);
+            
+            var command = connection.CreateCommand();
+            command.CommandText = $"CREATE DATABASE '{StoreName}' PASSWORD '{escapedPassword}'";
+            command.ExecuteNonQuery();
+            Assert.IsTrue(File.Exists(StoreName));
+
+            var csb = Helpers.DataAccessProviderFactory.CreateConnectionStringBuilder();
+            csb.SetDataSource(StoreName);
+            csb.SetDatabasePassword(password);
+            
+            connection.ConnectionString = csb.ConnectionString;
+            connection.Open();
+        }
     }
 }

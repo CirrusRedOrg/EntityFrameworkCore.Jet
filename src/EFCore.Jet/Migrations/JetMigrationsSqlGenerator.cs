@@ -449,6 +449,13 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append("CREATE DATABASE ")
                 .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name));
 
+            if (!string.IsNullOrEmpty(operation.Password))
+            {
+                builder
+                    .Append(" PASSWORD ")
+                    .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Password));
+            }
+
             builder
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);

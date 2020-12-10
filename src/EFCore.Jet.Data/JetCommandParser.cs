@@ -180,6 +180,10 @@ namespace EntityFrameworkCore.Jet.Data
                     {
                         state = '`';
                     }
+                    else if (c == '[')
+                    {
+                        state = '[';
+                    }
                     else if (c == '?')
                     {
                         States[i] = '?';
@@ -196,6 +200,11 @@ namespace EntityFrameworkCore.Jet.Data
                 }
                 else if (state == '`' &&
                          c == '`')
+                {
+                    state = '\0';
+                }
+                else if (state == '[' &&
+                         c == ']')
                 {
                     state = '\0';
                 }

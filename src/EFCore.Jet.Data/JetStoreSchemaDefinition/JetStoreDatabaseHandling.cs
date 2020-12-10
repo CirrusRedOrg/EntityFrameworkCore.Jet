@@ -29,8 +29,9 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase);
 
             // CREATE DATABASE 'Joe''s Database.accdb';
+            // CREATE DATABASE 'Joe''s Database.accdb' PASSWORD 'Joe''s secret';
             _regExParseCreateDatabaseCommand = new Regex(
-                @"^\s*create\s+database\s+'\s*(?<filename>(?:''|[^'])*)\s*'\s*(?:;|$)",
+                @"^\s*create\s+database\s+'\s*(?<filename>(?:''|[^'])*)\s*'(\s+password\s+'(?<password>(?:''|[^'])*)')?\s*(?:;|$)",
                 RegexOptions.IgnoreCase);
 
             // DROP DATABASE 'Joe''s Database.accdb';
@@ -88,87 +89,88 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             if (!match.Success)
                 return false;
 
+            //
+            // CREATE DATABASE:
+            //
+            
             match = _regExParseCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                var fileName = ExpandFileName(
-                    UnescapeSingleQuotes(
-                        match.Groups["filename"]
-                            .Value));
+                var fileName = UnescapeSingleQuotes(match.Groups["filename"].Value);
+                var databasePassword = UnescapeSingleQuotes(match.Groups["password"].Value);
 
                 if (string.IsNullOrWhiteSpace(fileName))
-                    throw new InvalidOperationException("CREATE DATABASE statement is missing the database file name.");
-
-                var databaseCreator = new DaoDatabaseCreator();
-                databaseCreator.CreateDatabase(fileName);
-                return true;
-            }
-
-            match = _regExParseObsoleteCreateDatabaseCommandFromConnection.Match(commandText);
-            if (match.Success)
-            {
-                var databaseCreator = new DaoDatabaseCreator();
-                databaseCreator.CreateDatabase(ExtractFileNameFromConnectionString(match.Groups["connectionString"].Value));
-
+                    throw new InvalidOperationException("CREATE DATABASE statement is missing database file name.");
+                
+                JetConnection.CreateDatabase(fileName, databasePassword: databasePassword);
                 return true;
             }
 
             match = _regExParseObsoleteCreateDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                var fileName = match.Groups["filename"]
-                    .Value;
-                if (string.IsNullOrWhiteSpace(fileName))
-                    throw new Exception("Missing file name");
+                var fileName = match.Groups["filename"].Value;
                 
-                var databaseCreator = new DaoDatabaseCreator();
-                databaseCreator.CreateDatabase(fileName);
+                if (string.IsNullOrWhiteSpace(fileName))
+                    throw new InvalidOperationException("CREATE DATABASE statement is missing database file name or connection string.");
+                
+                JetConnection.CreateDatabase(fileName);
                 return true;
             }
-
-            match = _regExParseObsoleteDropDatabaseCommandFromConnection.Match(commandText);
+            
+            match = _regExParseObsoleteCreateDatabaseCommandFromConnection.Match(commandText);
             if (match.Success)
             {
-                var connectionString = match.Groups["connectionString"]
-                    .Value;
-                var fileName = ExtractFileNameFromConnectionString(connectionString);
-
-                if (string.IsNullOrWhiteSpace(fileName))
-                    throw new Exception("Missing file name");
-
-                DeleteFile(fileName);
+                var connectionString = ExtractFileNameFromConnectionString(match.Groups["connectionString"].Value);
+                
+                if (string.IsNullOrWhiteSpace(connectionString))
+                    throw new InvalidOperationException("CREATE DATABASE statement is missing database file name or connection string.");
+                
+                JetConnection.CreateDatabase(connectionString);
                 return true;
             }
 
+            //
+            // DROP DATABASE:
+            //
+            
             match = _regExParseDropDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                var fileName = ExpandFileName(
-                    UnescapeSingleQuotes(
-                        match.Groups["filename"]
-                            .Value));
+                var fileName = ExpandFileName(UnescapeSingleQuotes(match.Groups["filename"].Value));
 
                 if (string.IsNullOrWhiteSpace(fileName))
-                    throw new InvalidOperationException("DROP DATABASE statement is missing the database file name.");
+                    throw new InvalidOperationException("DROP DATABASE statement is missing database file name or connection string.");
 
-                DeleteFile(fileName);
+                JetConnection.DropDatabase(fileName);
                 return true;
             }
 
             match = _regExParseObsoleteDropDatabaseCommand.Match(commandText);
             if (match.Success)
             {
-                var fileName = match.Groups["filename"]
-                    .Value;
+                var fileName = match.Groups["filename"].Value;
 
                 if (string.IsNullOrWhiteSpace(fileName))
-                    throw new Exception("Missing file name");
+                    throw new InvalidOperationException("DROP DATABASE statement is missing database file name or connection string.");
 
-                DeleteFile(fileName);
+                JetConnection.DropDatabase(fileName);
                 return true;
             }
 
-            throw new Exception(commandText + " is not a valid database command");
+            match = _regExParseObsoleteDropDatabaseCommandFromConnection.Match(commandText);
+            if (match.Success)
+            {
+                var connectionString = match.Groups["connectionString"].Value;
+
+                if (string.IsNullOrWhiteSpace(connectionString))
+                    throw new InvalidOperationException("DROP DATABASE statement is missing database file name or connection string.");
+
+                JetConnection.DropDatabase(connectionString);
+                return true;
+            }
+            
+            throw new Exception($"\"{commandText}\" is not a valid database command.");
         }
 
         public static string ExtractFileNameFromConnectionString(string connectionString)

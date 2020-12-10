@@ -103,15 +103,25 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
         {
-            var dataSource = _relationalConnection.DbConnection.DataSource;
-
             // Alternative:
-            // var connection = (JetConnection) _relationalConnection.DbConnection;
-            // var csb = connection.JetFactory.CreateConnectionStringBuilder();
-            // csb.ConnectionString = connection.ConnectionString;
-            // var dataSource = csb.GetDataSource();
+            // var dataSource = _relationalConnection.DbConnection.DataSource;
+
+            var connection = (JetConnection) _relationalConnection.DbConnection;
+            var csb = connection.JetFactory.CreateConnectionStringBuilder();
+            csb.ConnectionString = connection.ConnectionString;
             
-            return Dependencies.MigrationsSqlGenerator.Generate(new[] {new JetCreateDatabaseOperation {Name = dataSource}});
+            var dataSource = csb.GetDataSource();
+            var databasePassword = csb.GetDatabasePassword();
+
+            return Dependencies.MigrationsSqlGenerator.Generate(
+                new[]
+                {
+                    new JetCreateDatabaseOperation
+                    {
+                        Name = dataSource,
+                        Password = databasePassword
+                    }
+                });
         }
 
         /// <summary>

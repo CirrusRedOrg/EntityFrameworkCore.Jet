@@ -40,10 +40,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteReader_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
             try
             {
-                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
                 command.ExecuteReader();
             }
             catch (Exception e)
@@ -57,10 +57,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteNonQuery_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
             try
             {
-                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
                 command.ExecuteNonQuery();
             }
             catch (Exception e)
@@ -74,10 +74,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteScalar_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
             try
             {
-                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
                 command.ExecuteScalar();
             }
             catch (Exception e)
@@ -91,10 +91,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [ExpectedException(typeof(InvalidOperationException))]
         public void Prepare_From_Closed_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
             try
             {
-                using var command = connection.CreateCommand("select * from MSysAccessStorage");
+                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
                 command.Prepare();
             }
             catch (Exception e)
@@ -107,10 +107,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         [TestMethod]
         public void GetDataReader_From_Open_Connection()
         {
-            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
+            using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
             connection.Open();
             
-            var dataReader = connection.CreateCommand("select * from MSysAccessStorage")
+            var dataReader = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`")
                 .ExecuteReader();
             while (dataReader.Read())
             {
@@ -387,7 +387,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             };
 
             connection.Open();
-            using var command = connection.CreateCommand("select * from MSysAccessStorage");
+            using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
             var dataReader = command.ExecuteReader();
             while (dataReader.Read())
             {
@@ -425,7 +425,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             
             using var transaction = connection.BeginTransaction();
             
-            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            using (var command = connection.CreateCommand($"select count(*) from `{JetConnection.DefaultDualTableName}`"))
             {
                 command.Transaction = transaction;
                 command.ExecuteScalar();
@@ -434,7 +434,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             connection.Close();
             connection.Open();
             
-            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            using (var command = connection.CreateCommand($"select count(*) from `{JetConnection.DefaultDualTableName}`"))
             {
                 command.ExecuteScalar();
             }
@@ -448,7 +448,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             
             using var transaction = connection.BeginTransaction();
 
-            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            using (var command = connection.CreateCommand($"select count(*) from `{JetConnection.DefaultDualTableName}`"))
             {
                 command.Transaction = transaction;
                 command.ExecuteScalar();
@@ -458,7 +458,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             connection.Close();
             connection.Open();
 
-            using (var command = connection.CreateCommand("select count(*) from MSysAccessStorage"))
+            using (var command = connection.CreateCommand($"select count(*) from `{JetConnection.DefaultDualTableName}`"))
             {
                 command.ExecuteScalar();
             }

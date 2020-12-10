@@ -6,7 +6,6 @@ namespace EntityFrameworkCore.Jet.Data
     public interface ISchemaProvider
         : IDisposable
     {
-        void EnsureDualTable();
         DataTable GetTables();
         DataTable GetColumns();
         DataTable GetIndexes();

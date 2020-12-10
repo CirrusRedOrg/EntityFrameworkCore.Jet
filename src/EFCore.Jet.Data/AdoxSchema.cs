@@ -46,7 +46,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw;
             }
         }
-
+        
         private static string GetOleDbConnectionString(string fileNameOrConnectionString)
         {
             if (JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString) &&
@@ -74,45 +74,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             return connectionString;
         }
-
-        public override void EnsureDualTable()
-        {
-            using var tables = _catalog.Tables;
-
-            try
-            {
-                using var table = tables["#Dual"];
-            }
-            catch
-            {
-                const string sqlQueries = @"CREATE TABLE `#Dual` (`ID` INTEGER NOT NULL CONSTRAINT `PrimaryKey` PRIMARY KEY);
-INSERT INTO `#Dual` (`ID`) VALUES (1);
-ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
-                var connection = _connection.InnerConnection;
-                var queries = sqlQueries.Split(';');
-
-                foreach (var query in queries)
-                {
-                    using var command = connection.CreateCommand();
-                    command.CommandText = query;
-                    command.ExecuteNonQuery();
-                }
-
-                try
-                {
-                    tables.Refresh();
-                    using var table = tables["#Dual"];
-                    using var properties = table.Properties;
-                    using var property = properties["Jet OLEDB:Table Hidden In Access"];
-                    property.Value = true;
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-        }
-
+        
         public override DataTable GetTables()
         {
             var dataTable = SchemaTables.GetTablesDataTable();
@@ -574,6 +536,35 @@ ALTER TABLE `#Dual` ADD CONSTRAINT `SingleRecord` CHECK (`ID` = 1)";
 
             dataTable.AcceptChanges();
             return dataTable;
+        }
+
+        public override void EnsureDualTable()
+        {
+            using var tables = _catalog.Tables;
+
+            try
+            {
+                using var table = tables[JetConnection.DefaultDualTableName];
+            }
+            catch
+            {
+                _connection.Execute($"CREATE TABLE `{JetConnection.DefaultDualTableName}` (`ID` INTEGER NOT NULL CONSTRAINT `PrimaryKey` PRIMARY KEY)", out int _, (int)CommandTypeEnum.adCmdText | (int)ExecuteOptionEnum.adExecuteNoRecords);
+                _connection.Execute($"INSERT INTO `{JetConnection.DefaultDualTableName}` (`ID`) VALUES (1)", out int _, (int)CommandTypeEnum.adCmdText | (int)ExecuteOptionEnum.adExecuteNoRecords);
+                _connection.Execute($"ALTER TABLE `{JetConnection.DefaultDualTableName}` ADD CONSTRAINT `SingleRecord` CHECK ((SELECT COUNT(*) FROM [{JetConnection.DefaultDualTableName}]) = 1)", out int _, (int)CommandTypeEnum.adCmdText | (int)ExecuteOptionEnum.adExecuteNoRecords);
+
+                try
+                {
+                    tables.Refresh();
+                    using var table = tables[JetConnection.DefaultDualTableName];
+                    using var properties = table.Properties;
+                    using var property = properties["Jet OLEDB:Table Hidden In Access"];
+                    property.Value = true;
+                }
+                catch (Exception e)
+                {
+                    throw new Exception($"Cannot create dual table '{JetConnection.DefaultDualTableName}' using ADOX.", e);
+                }
+            }
         }
 
         public override void RenameTable(string oldTableName, string newTableName)

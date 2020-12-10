@@ -22,7 +22,6 @@ namespace EntityFrameworkCore.Jet.Data
             };
 
         public abstract void Dispose();
-        public abstract void EnsureDualTable();
         
         public abstract DataTable GetTables();
         public abstract DataTable GetColumns();
@@ -32,6 +31,7 @@ namespace EntityFrameworkCore.Jet.Data
         public abstract DataTable GetRelationColumns();
         public abstract DataTable GetCheckConstraints();
 
+        public abstract void EnsureDualTable();
         public abstract void RenameTable(string oldTableName, string newTableName);
         public abstract void RenameColumn(string tableName, string oldColumnName, string newColumnName);
 

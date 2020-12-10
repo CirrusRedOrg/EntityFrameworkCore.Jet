@@ -38,10 +38,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
 WHERE TABLE_TYPE <> 'SYSTEM TABLE'
 ORDER BY TABLE_NAME");
             
-            AssertDataReaderContent(result, @"
+            AssertDataReaderContent(result, $@"
 `TABLE_NAME` | `TABLE_TYPE` | `VALIDATION_RULE` | `VALIDATION_TEXT`
 --- | --- | --- | ---
-#Dual | INTERNAL TABLE |  | 
+{JetConnection.DefaultDualTableName} | INTERNAL TABLE |  | 
 Alphabetical list of products | VIEW |  | 
 Categories | BASE TABLE |  | 
 Category Sales for 1997 | VIEW |  | 
@@ -245,10 +245,10 @@ FK_Order_Details_Orders | OrderID | OrderID");
                 @"SELECT * FROM `INFORMATION_SCHEMA.CHECK_CONSTRAINTS`
 ORDER BY TABLE_NAME, CONSTRAINT_NAME");
             
-            AssertDataReaderContent(result, @"
+            AssertDataReaderContent(result, $@"
 `TABLE_NAME` | `CONSTRAINT_NAME` | `CHECK_CLAUSE`
 --- | --- | ---
-#Dual | SingleRecord | (SELECT COUNT(*) FROM [#Dual]) = 1
+{JetConnection.DefaultDualTableName} | SingleRecord | (SELECT COUNT(*) FROM [{JetConnection.DefaultDualTableName}]) = 1
 Employees | CK_BirthDate | [BirthDate] < NOW()
 Order Details | CK_Discount | [Discount] >= 0 and ([Discount] <= 1)
 Order Details | CK_Quantity | [Quantity] > 0

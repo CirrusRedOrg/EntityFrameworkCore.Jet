@@ -48,9 +48,5 @@ namespace EntityFrameworkCore.Jet.Data
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
             string databasePassword = null);
-
-        void CreateDualTable(
-            string fileNameOrConnectionString,
-            string databasePassword = null);
     }
 }

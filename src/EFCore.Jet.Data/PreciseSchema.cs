@@ -1,25 +1,24 @@
+using System;
 using System.Data;
 
 namespace EntityFrameworkCore.Jet.Data
 {
     public class PreciseSchema : SchemaProvider
     {
-        private readonly JetConnection _connection;
-        private readonly AdoxSchema _adoxSchema;
-        private readonly DaoSchema _daoSchema;
-        
+        private readonly Lazy<AdoxSchema> _adoxSchema;
+        private readonly Lazy<DaoSchema> _daoSchema;
+
         public PreciseSchema(JetConnection connection, bool readOnly)
         {
-            _connection = connection;
-            _adoxSchema = new AdoxSchema(connection, true, readOnly);
-            _daoSchema = new DaoSchema(connection, true, readOnly);
+            _adoxSchema = new Lazy<AdoxSchema>(() => new AdoxSchema(connection, true, readOnly), false);
+            _daoSchema = new Lazy<DaoSchema>(() => new DaoSchema(connection, true, readOnly), false);
         }
 
         public override void EnsureDualTable()
-            => _adoxSchema.EnsureDualTable(); // either ADOX or DAO is fine
+            => _adoxSchema.Value.EnsureDualTable(); // prefer ADOX, but DAO works too (but less precise)
 
         public override DataTable GetTables()
-            => _adoxSchema.GetTables(); // either ADOX or DAO is fine
+            => _adoxSchema.Value.GetTables(); // either ADOX or DAO is fine
 
         public override DataTable GetColumns()
         {
@@ -27,8 +26,8 @@ namespace EntityFrameworkCore.Jet.Data
             // numeric scale of decimal columns.
             // ADOX lacks ordinal position information and has very unreliable nullable information.
             
-            var dataTable = _adoxSchema.GetColumns();
-            var ordinalPositionsAndNullables = _daoSchema.GetOrdinalPositionsAndNullables();
+            var dataTable = _adoxSchema.Value.GetColumns();
+            var ordinalPositionsAndNullables = _daoSchema.Value.GetOrdinalPositionsAndNullables();
 
             foreach (DataRow row in dataTable.Rows)
             {
@@ -47,30 +46,37 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         public override DataTable GetIndexes()
-            => _adoxSchema.GetIndexes(); // either ADOX or DAO is fine
+            => _adoxSchema.Value.GetIndexes(); // either ADOX or DAO is fine
 
         public override DataTable GetIndexColumns()
-            => _daoSchema.GetIndexColumns(); // either ADOX or DAO is fine
+            => _daoSchema.Value.GetIndexColumns(); // either ADOX or DAO is fine
 
         public override DataTable GetRelations()
-            => _daoSchema.GetRelations(); // either ADOX or DAO is fine
+            => _daoSchema.Value.GetRelations(); // either ADOX or DAO is fine
 
         public override DataTable GetRelationColumns()
-            => _daoSchema.GetRelationColumns(); // either ADOX or DAO is fine
+            => _daoSchema.Value.GetRelationColumns(); // either ADOX or DAO is fine
 
         public override DataTable GetCheckConstraints()
-            => _adoxSchema.GetCheckConstraints(); // DAO does not support CHECK CONSTRAINTs, but ADOX does
+            => _adoxSchema.Value.GetCheckConstraints(); // DAO does not support CHECK CONSTRAINTs, but ADOX does
         
         public override void RenameTable(string oldTableName, string newTableName)
-            => _adoxSchema.RenameTable(oldTableName, newTableName); // either ADOX or DAO is fine
+            => _adoxSchema.Value.RenameTable(oldTableName, newTableName); // either ADOX or DAO is fine
 
         public override void RenameColumn(string tableName, string oldColumnName, string newColumnName)
-            => _adoxSchema.RenameColumn(tableName, oldColumnName, newColumnName); // either ADOX or DAO is fine
+            => _adoxSchema.Value.RenameColumn(tableName, oldColumnName, newColumnName); // either ADOX or DAO is fine
 
         public override void Dispose()
         {
-            _daoSchema.Dispose();
-            _adoxSchema.Dispose();
+            if (_daoSchema.IsValueCreated)
+            {
+                _daoSchema.Value.Dispose();
+            }
+
+            if (_adoxSchema.IsValueCreated)
+            {
+                _adoxSchema.Value.Dispose();
+            }
         }
     }
 }

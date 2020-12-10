@@ -14,6 +14,5 @@ namespace EntityFrameworkCore.Jet.Data
             };
 
         public abstract void CreateDatabase(string fileNameOrConnectionString, DatabaseVersion version = DatabaseVersion.NewestSupported, CollatingOrder collatingOrder = CollatingOrder.General, string databasePassword = null);
-        public abstract void CreateDualTable(string fileNameOrConnectionString, string databasePassword = null);
     }
 }

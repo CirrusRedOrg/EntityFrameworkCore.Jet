@@ -1,6 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Diagnostics.Internal;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
+using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Scaffolding.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Design;
@@ -31,6 +33,7 @@ namespace EntityFrameworkCore.Jet.Design.Internal
                 .AddSingleton<IRelationalTypeMappingSource, JetTypeMappingSource>()
                 .AddSingleton<IDatabaseModelFactory, JetDatabaseModelFactory>()
                 .AddSingleton<IProviderConfigurationCodeGenerator, JetCodeGenerator>()
-                .AddSingleton<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>();
+                .AddSingleton<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>()
+                .AddSingleton<IJetOptions, JetOptions>();
     }
 }

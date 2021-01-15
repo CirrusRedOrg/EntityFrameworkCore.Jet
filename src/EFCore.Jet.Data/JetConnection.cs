@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Data;
 using System.Data.Common;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -382,7 +384,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
             }
 
-            connectionString = ExpandDatabaseFilePath(connectionString);
+            connectionString = ExpandDatabaseFilePath(connectionString, DataAccessProviderFactory);
             
             try
             {
@@ -561,11 +563,17 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         public static string GetConnectionString(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
-            => GetConnectionString(fileNameOrConnectionString, GetDataAccessProviderType(dataAccessProviderFactory));
+            => GetConnectionString(fileNameOrConnectionString, GetDataAccessProviderType(dataAccessProviderFactory), dataAccessProviderFactory);
 
-        public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType)
+        public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType? dataAccessProviderType = null)
+        {
+            var providerType = dataAccessProviderType ?? JetConfiguration.DefaultDataAccessProviderType; 
+            return GetConnectionString(fileNameOrConnectionString, providerType, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
+        }
+
+        internal static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType, DbProviderFactory dataAccessProviderFactory)
             => IsConnectionString(fileNameOrConnectionString)
-                ? fileNameOrConnectionString
+                ? ExpandDatabaseFilePath(fileNameOrConnectionString, dataAccessProviderFactory)
                 : GetConnectionString(
                     GetMostRecentCompatibleProviders(dataAccessProviderType).First().Key,
                     fileNameOrConnectionString,
@@ -576,12 +584,12 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static string GetConnectionString(string provider, string fileName, DataAccessProviderType dataAccessProviderType)
             => dataAccessProviderType == DataAccessProviderType.OleDb
-                ? $"Provider={provider};Data Source={fileName}"
-                : $"Driver={{{provider}}};DBQ={fileName}";
+                ? $"Provider={provider};Data Source={JetStoreDatabaseHandling.ExpandFileName(fileName)}"
+                : $"Driver={{{provider}}};DBQ={JetStoreDatabaseHandling.ExpandFileName(fileName)}";
         
-        private string ExpandDatabaseFilePath(string connectionString)
+        private static string ExpandDatabaseFilePath(string connectionString, DbProviderFactory dataAccessProviderFactory)
         {
-            var connectionStringBuilder = JetFactory.InnerFactory.CreateConnectionStringBuilder();
+            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = connectionString;
             connectionStringBuilder.SetDataSource(JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.GetDataSource()));
 

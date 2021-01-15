@@ -107,8 +107,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // var dataSource = _relationalConnection.DbConnection.DataSource;
 
             var connection = (JetConnection) _relationalConnection.DbConnection;
+            var fileNameOrConnectionString = connection.ConnectionString;
+            var connectionString = JetConnection.GetConnectionString(fileNameOrConnectionString, connection.DataAccessProviderFactory);
+
             var csb = connection.JetFactory.CreateConnectionStringBuilder();
-            csb.ConnectionString = connection.ConnectionString;
+            csb.ConnectionString = connectionString;
             
             var dataSource = csb.GetDataSource();
             var databasePassword = csb.GetDatabasePassword();

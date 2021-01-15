@@ -18,37 +18,7 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         public IReadOnlyList<int> GetStateIndices(char state, int start = 0, int length = -1)
-        {
-            if (start < 0 ||
-                start >= States.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(start));
-            }
-
-            if (length < 0 ||
-                length > 0 && start + length > States.Length)
-            {
-                length = States.Length - start;
-            }
-
-            var stateIndices = new List<int>();
-            char? lastState = null;
-
-            for (var i = start; i < length; i++)
-            {
-                var currentState = States[i];
-
-                if (currentState == state &&
-                    currentState != lastState)
-                {
-                    stateIndices.Add(i);
-                }
-
-                lastState = currentState;
-            }
-
-            return stateIndices.AsReadOnly();
-        }
+            => GetStateIndices(new[] {state}, start, length);
 
         public IReadOnlyList<int> GetStateIndices(char[] states, int start = 0, int length = -1)
         {
@@ -77,7 +47,7 @@ namespace EntityFrameworkCore.Jet.Data
             var stateIndices = new List<int>();
             char? lastState = null;
 
-            for (var i = start; i < length; i++)
+            for (var i = start; i < start + length; i++)
             {
                 var currentState = States[i];
 

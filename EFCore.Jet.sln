@@ -40,6 +40,7 @@ ProjectSection(SolutionItems) = preProject
 	Development.props = Development.props
 	Development.props.sample = Development.props.sample
 	Key.snk = Key.snk
+	docs\README.md = docs\README.md
 EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Jet.Tests", "test\EFCore.Jet.Tests\EFCore.Jet.Tests.csproj", "{770A076B-A448-499C-BB86-A37994C04523}"

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
@@ -49,7 +50,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly GuidTypeMapping _guid = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
         private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8);
 
-        private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
+        private readonly Dictionary<string, RelationalTypeMapping[]> _storeTypeMappings;
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
         private readonly HashSet<string> _disallowedMappings;
 
@@ -78,88 +79,88 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _time = new JetTimeSpanTypeMapping("datetime", options);
 
             _storeTypeMappings
-                = new Dictionary<string, RelationalTypeMapping>(StringComparer.OrdinalIgnoreCase)
+                = new Dictionary<string, RelationalTypeMapping[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    {"binary", _fixedLengthBinary},
+                    {"binary",                     new[] {_fixedLengthBinary}},
 
-                    {"varbinary", _variableLengthBinary},
-                    {"binary varying", _variableLengthBinary},
-                    {"bit varying", _variableLengthBinary},
+                    {"varbinary",                  new[] {_variableLengthBinary}},
+                    {"binary varying",             new[] {_variableLengthBinary}},
+                    {"bit varying",                new[] {_variableLengthBinary}},
 
-                    {"longbinary", _unboundedBinary},
-                    {"general", _unboundedBinary},
-                    {"image", _unboundedBinary},
-                    {"oleobject", _unboundedBinary},
+                    {"longbinary",                 new[] {_unboundedBinary}},
+                    {"general",                    new[] {_unboundedBinary}},
+                    {"image",                      new[] {_unboundedBinary}},
+                    {"oleobject",                  new[] {_unboundedBinary}},
 
-                    {"bit", _bit},
-                    {"boolean", _bit},
-                    {"logical", _bit},
-                    {"logical1", _bit},
-                    {"yesno", _bit},
+                    {"bit",                        new[] {_bit}},
+                    {"boolean",                    new[] {_bit}},
+                    {"logical",                    new[] {_bit}},
+                    {"logical1",                   new[] {_bit}},
+                    {"yesno",                      new[] {_bit}},
 
-                    {"counter", _counter},
-                    {"identity", _counter},
-                    {"autoincrement", _counter},
+                    {"counter",                    new[] {_counter}},
+                    {"identity",                   new[] {_counter}},
+                    {"autoincrement",              new[] {_counter}},
                     
-                    {"byte", _byte},
-                    {"tinyint", _byte},
-                    {"integer1", _byte},
+                    {"byte",                       new[] {_byte}},
+                    {"tinyint",                    new[] {_byte}},
+                    {"integer1",                   new[] {_byte}},
 
-                    {"smallint", _smallint},
-                    {"short", _smallint},
-                    {"integer2", _smallint},
+                    {"smallint",                   new[] {_smallint}},
+                    {"short",                      new[] {_smallint}},
+                    {"integer2",                   new[] {_smallint}},
 
-                    {"integer", _integer},
-                    {"long", _integer},
-                    {"int", _integer},
-                    {"integer4", _integer},
+                    {"integer",                    new[] {_integer}},
+                    {"long",                       new[] {_integer}},
+                    {"int",                        new[] {_integer}},
+                    {"integer4",                   new[] {_integer}},
 
-                    {"single", _single},
-                    {"real", _single},
-                    {"float4", _single},
-                    {"ieeesingle", _single},
+                    {"single",                     new[] {_single}},
+                    {"real",                       new[] {_single}},
+                    {"float4",                     new[] {_single}},
+                    {"ieeesingle",                 new[] {_single}},
 
-                    {"double", _double},
-                    {"float", _double},
-                    {"float8", _double},
-                    {"ieeedouble", _double},
-                    {"number", _double},
-                    
-                    {"decimal", _decimal},
-                    {"numeric", _decimal},
-                    {"dec", _decimal},
-                
-                    {"currency", _currency},
-                    {"money", _currency},
+                    {"double",                     new[] {_double}},
+                    {"float",                      new[] {_double}},
+                    {"float8",                     new[] {_double}},
+                    {"ieeedouble",                 new[] {_double}},
+                    {"number",                     new[] {_double}},
 
-                    {"datetime", _datetime},
-                    {"date", _date},
-                    {"time", _time},
+                    {"decimal",                    new[] {_decimal}},
+                    {"numeric",                    new[] {_decimal}},
+                    {"dec",                        new[] {_decimal}},
 
-                    {"char", _fixedLengthUnicodeString},
-                    {"alphanumeric", _fixedLengthUnicodeString},
-                    {"character", _fixedLengthUnicodeString},
-                    {"nchar", _fixedLengthUnicodeString},
-                    {"national char", _fixedLengthUnicodeString},
-                    {"national character", _fixedLengthUnicodeString},
+                    {"currency",                   new[] {_currency}},
+                    {"money",                      new[] {_currency}},
 
-                    {"varchar", _variableLengthUnicodeString},
-                    {"string", _variableLengthUnicodeString},
-                    {"char varying", _variableLengthUnicodeString},
-                    {"character varying", _variableLengthUnicodeString},
-                    {"national char varying", _variableLengthUnicodeString},
-                    {"national character varying", _variableLengthUnicodeString},
+                    {"datetime",                   new RelationalTypeMapping[] {_datetime, _datetimeoffset}},
+                    {"date",                       new[] {_date}},
+                    {"time",                       new[] {_time}},
 
-                    {"longchar", _unboundedUnicodeString},
-                    {"longtext", _unboundedUnicodeString},
-                    {"memo", _unboundedUnicodeString},
-                    {"note", _unboundedUnicodeString},
-                    {"ntext", _unboundedUnicodeString},
+                    {"char",                       new[] {_fixedLengthUnicodeString}},
+                    {"alphanumeric",               new[] {_fixedLengthUnicodeString}},
+                    {"character",                  new[] {_fixedLengthUnicodeString}},
+                    {"nchar",                      new[] {_fixedLengthUnicodeString}},
+                    {"national char",              new[] {_fixedLengthUnicodeString}},
+                    {"national character",         new[] {_fixedLengthUnicodeString}},
 
-                    {"guid", _guid},
-                    {"uniqueidentifier", _guid},
+                    {"varchar",                    new[] {_variableLengthUnicodeString}},
+                    {"string",                     new[] {_variableLengthUnicodeString}},
+                    {"char varying",               new[] {_variableLengthUnicodeString}},
+                    {"character varying",          new[] {_variableLengthUnicodeString}},
+                    {"national char varying",      new[] {_variableLengthUnicodeString}},
+                    {"national character varying", new[] {_variableLengthUnicodeString}},
 
-                    {"timestamp", _rowversion},
+                    {"longchar",                   new[] {_unboundedUnicodeString}},
+                    {"longtext",                   new[] {_unboundedUnicodeString}},
+                    {"memo",                       new[] {_unboundedUnicodeString}},
+                    {"note",                       new[] {_unboundedUnicodeString}},
+                    {"ntext",                      new[] {_unboundedUnicodeString}},
+
+                    {"guid",                       new[] {_guid}},
+                    {"uniqueidentifier",           new[] {_guid}},
+
+                    {"timestamp",                  new[] {_rowversion}},
                 };
 
             // Note: sbyte, ushort, uint, char, long and ulong type mappings are not supported by Jet.
@@ -263,14 +264,31 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         : _unboundedUnicodeString;
                 }
 
-                if (_storeTypeMappings.TryGetValue(storeTypeName, out var mapping)
-                    || _storeTypeMappings.TryGetValue(storeTypeNameBase, out mapping))
+                // First look for the fully qualified store type name.
+                if (_storeTypeMappings.TryGetValue(storeTypeName, out var mappings))
+                {
+                    // We found the user-specified store type.
+                    // If no CLR type was provided, we're probably scaffolding from an existing database. Take the first
+                    // mapping as the default.
+                    // If a CLR type was provided, look for a mapping between the store and CLR types. If none is found,
+                    // fail immediately.
+                    return clrType == null
+                        ? mappings[0]
+                        : mappings.FirstOrDefault(m => m.ClrType == clrType);
+                }
+
+                // Then look for the base store type name.
+                if (_storeTypeMappings.TryGetValue(storeTypeNameBase, out mappings))
                 {
                     return clrType == null
-                           || mapping.ClrType == clrType
-                        ? mapping
-                        : null;
+                        ? mappings[0]
+                            .Clone(in mappingInfo)
+                        : mappings.FirstOrDefault(m => m.ClrType == clrType)
+                            ?.Clone(in mappingInfo);
                 }
+                
+                // A store type name was provided, but is unknown. This could be a domain (alias) type, in which case
+                // we proceed with a CLR type lookup (if the type doesn't exist at all the failure will come later).
             }
 
             if (clrType != null)

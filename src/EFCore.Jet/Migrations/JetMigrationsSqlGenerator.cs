@@ -771,18 +771,16 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             }
             else if (defaultValue != null)
             {
-                var typeMapping = columnType != null
-                    ? Dependencies.TypeMappingSource.FindMapping(defaultValue.GetType(), columnType)
-                    : null;
-                if (typeMapping == null)
-                {
-                    typeMapping = Dependencies.TypeMappingSource.GetMappingForValue(defaultValue);
-                }
+                var typeMapping = (columnType != null
+                                      ? Dependencies.TypeMappingSource.FindMapping(defaultValue.GetType(), columnType)
+                                      : null) ??
+                                  Dependencies.TypeMappingSource.GetMappingForValue(defaultValue);
 
-                defaultValue = defaultValue.GetType().IsTimeRelatedType()
-                    ? JetDateTimeTypeMapping.GenerateNonNullSqlLiteral(defaultValue, true, _options.EnableMillisecondsSupport)
+                // All time related type mappings derive from JetDateTimeTypeMapping.
+                defaultValue = typeMapping is JetDateTimeTypeMapping dateTimeTypeMapping
+                    ? dateTimeTypeMapping.GenerateNonNullSqlLiteral(defaultValue, defaultClauseCompatible: true)
                     : typeMapping.GenerateSqlLiteral(defaultValue);
-                
+
                 builder
                     .Append(" DEFAULT ")
                     .Append(defaultValue);

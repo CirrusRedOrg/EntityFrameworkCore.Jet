@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new JetTimeSpanTypeMapping(parameters, _options);
         
-        protected override string GenerateNonNullSqlLiteral(object value)
-            => base.GenerateNonNullSqlLiteral(JetConfiguration.TimeSpanOffset + (TimeSpan) value);
+        protected override DateTime ConvertToDateTimeCompatibleValue(object value)
+            => JetConfiguration.TimeSpanOffset + (TimeSpan) value;
     }
 }

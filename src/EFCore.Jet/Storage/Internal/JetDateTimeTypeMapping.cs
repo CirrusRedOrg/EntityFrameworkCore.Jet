@@ -53,17 +53,17 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         }
 
         protected override string GenerateNonNullSqlLiteral(object value)
-            => GenerateNonNullSqlLiteral(value, false, _options.EnableMillisecondsSupport);
+            => GenerateNonNullSqlLiteral(value, false);
 
-        public static string GenerateNonNullSqlLiteral(object value, bool defaultClauseCompatible, bool millisecondsSupportEnabled)
+        public virtual string GenerateNonNullSqlLiteral(object value, bool defaultClauseCompatible)
         {
-            var dateTime = (DateTime) value;
+            var dateTime = ConvertToDateTimeCompatibleValue(value);
 
             dateTime = CheckDateTimeValue(dateTime);
 
             if (defaultClauseCompatible)
             {
-                return _decimalTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValueAsDecimal(dateTime, millisecondsSupportEnabled));
+                return _decimalTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport));
             }
             
             var literal = new StringBuilder()
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             literal.Append("#");
                 
-            if (millisecondsSupportEnabled &&
+            if (_options.EnableMillisecondsSupport &&
                 time != TimeSpan.Zero)
             {
                 // Round to milliseconds.
@@ -96,6 +96,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             return literal.ToString();
         }
+
+        protected virtual DateTime ConvertToDateTimeCompatibleValue(object value)
+            => (DateTime) value;
 
         private static decimal GetDateTimeDoubleValueAsDecimal(DateTime dateTime, bool millisecondsSupportEnabled)
         {

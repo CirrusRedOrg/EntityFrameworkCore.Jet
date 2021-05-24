@@ -45,10 +45,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             base.ConfigureParameter(parameter);
         }
 
-        protected override string GenerateNonNullSqlLiteral(object value)
-            => base.GenerateNonNullSqlLiteral(
-                value is DateTimeOffset dateTimeOffset
-                    ? dateTimeOffset.UtcDateTime
-                    : value);
+        protected override DateTime ConvertToDateTimeCompatibleValue(object value)
+            => ((DateTimeOffset) value).UtcDateTime;
     }
 }

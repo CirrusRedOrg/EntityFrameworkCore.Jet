@@ -3,4 +3,3 @@
 using Microsoft.EntityFrameworkCore.Design;
 
 [assembly: DesignTimeProviderServices("EntityFrameworkCore.Jet.Design.Internal.JetDesignTimeServices")]
-[assembly: System.Runtime.Versioning.SupportedOSPlatform("windows7.0")]

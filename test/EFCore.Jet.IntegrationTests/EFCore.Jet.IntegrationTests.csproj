@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0-windows7.0</TargetFramework>
-    <RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
+    <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
     <RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
     <GenerateProgramFile>false</GenerateProgramFile>
     <Platforms>AnyCPU;x86;x64</Platforms>

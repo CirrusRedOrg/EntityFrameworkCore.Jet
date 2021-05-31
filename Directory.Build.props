@@ -3,15 +3,12 @@
   <Import Project="Development.props" Condition="Exists('Development.props')" />
 
   <PropertyGroup>
-    <VersionPrefix>5.0.0</VersionPrefix>
-    <VersionSuffix>alpha</VersionSuffix>
-    
     <Product>EntityFrameworkCore.Jet</Product>
     <Authors>Laurents Meyer, Bubi</Authors>
     <Company>Bubi</Company>
-    <Copyright>Copyright © 2017-2020 Bubi</Copyright>
+    <Copyright>Copyright © 2017-2021 Bubi</Copyright>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>latest</LangVersion>
     <DebugType>portable</DebugType>
     <IsPackable>False</IsPackable>
     <!-- <PackageReleaseNotes>TODO</PackageReleaseNotes> -->
@@ -26,7 +23,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <DefaultNetCoreTargetFramework>net5.0-windows</DefaultNetCoreTargetFramework>
+    <DefaultNetCoreTargetFramework>net5.0</DefaultNetCoreTargetFramework>
+    <WindowsOnlyNetCoreTargetFramework>net5.0-windows</WindowsOnlyNetCoreTargetFramework>
+    <DefaultNetCoreLegacyTargetFramework>netcoreapp5.0</DefaultNetCoreLegacyTargetFramework>
+    <DefaultNetStandardTargetFramework>netstandard2.1</DefaultNetStandardTargetFramework>
   </PropertyGroup>
 
   <ItemGroup>

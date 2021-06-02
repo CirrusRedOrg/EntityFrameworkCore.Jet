@@ -229,9 +229,9 @@ WHERE RELATION_NAME = 'FK_Order_Details_Orders'
 ORDER BY RELATION_NAME, REFERENCING_COLUMN_NAME, PRINCIPAL_COLUMN_NAME");
             
             AssertDataReaderContent(result, @"
-`RELATION_NAME` | `REFERENCING_COLUMN_NAME` | `PRINCIPAL_COLUMN_NAME`
---- | --- | ---
-FK_Order_Details_Orders | OrderID | OrderID");
+`RELATION_NAME` | `REFERENCING_COLUMN_NAME` | `PRINCIPAL_COLUMN_NAME` | `ORDINAL_POSITION`
+--- | --- | --- | ---
+FK_Order_Details_Orders | OrderID | OrderID | 1");
         }
 
         [DataTestMethod]

@@ -443,7 +443,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             var relationColumnsTable = new DataTable();
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT * FROM `INFORMATION_SCHEMA.RELATION_COLUMNS` ORDER BY RELATION_NAME, REFERENCING_COLUMN_NAME, PRINCIPAL_COLUMN_NAME";
+                command.CommandText = "SELECT * FROM `INFORMATION_SCHEMA.RELATION_COLUMNS` ORDER BY RELATION_NAME, ORDINAL_POSITION"; // no sorting would be fine as well
                 using var reader = command.ExecuteReader();
                 relationColumnsTable.Load(reader);
             }

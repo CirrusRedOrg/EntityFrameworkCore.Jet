@@ -470,7 +470,8 @@ namespace EntityFrameworkCore.Jet.Data
                     dataTable.Rows.Add(
                         relationName,
                         referencingColumnName,
-                        principalColumnName);
+                        principalColumnName,
+                        j + 1);
                 }
             }
 

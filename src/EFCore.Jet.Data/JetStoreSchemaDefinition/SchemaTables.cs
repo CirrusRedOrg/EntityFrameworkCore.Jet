@@ -110,6 +110,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     new DataColumn("RELATION_NAME", typeof(string)),
                     new DataColumn("REFERENCING_COLUMN_NAME", typeof(string)),
                     new DataColumn("PRINCIPAL_COLUMN_NAME", typeof(string)),
+                    new DataColumn("ORDINAL_POSITION", typeof(int)),
                 });
             
             return dataTable;

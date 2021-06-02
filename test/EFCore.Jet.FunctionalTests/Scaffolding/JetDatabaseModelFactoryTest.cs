@@ -1511,6 +1511,36 @@ DROP TABLE DependentTable;
 DROP TABLE PrincipalTable;");
         }
 
+        [ConditionalFact]
+        public void Relationship_column_order_is_as_defined()
+        {
+            Test(
+                @"
+CREATE TABLE PrincipalTable (
+    IdB int,
+    IdA int,
+    PRIMARY KEY (IdB, IdA)
+);
+
+CREATE TABLE DependentTable (
+    Id int PRIMARY KEY,
+    ForeignKeyIdB int,
+    ForeignKeyIdA int,
+    FOREIGN KEY (ForeignKeyIdB, ForeignKeyIdA) REFERENCES PrincipalTable(IdB, IdA)
+);",
+                Enumerable.Empty<string>(),
+                Enumerable.Empty<string>(),
+                dbModel =>
+                {
+                    var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
+                    
+                    Assert.Equal(fk.PrincipalColumns, fk.PrincipalTable.PrimaryKey.Columns);
+                },
+                @"
+DROP TABLE DependentTable;
+DROP TABLE PrincipalTable;");
+        }
+
         #endregion
 
         #region Warnings

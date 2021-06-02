@@ -471,7 +471,8 @@ namespace EntityFrameworkCore.Jet.Data
                             dataTable.Rows.Add(
                                 relationName,
                                 referencingColumnName,
-                                principalColumnName);
+                                principalColumnName,
+                                k + 1);
                         }
                     }
                 }

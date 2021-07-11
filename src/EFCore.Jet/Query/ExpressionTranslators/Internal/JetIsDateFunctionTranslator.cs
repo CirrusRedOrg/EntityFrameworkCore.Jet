@@ -26,7 +26,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     _sqlExpressionFactory.Function(
                         "ISDATE",
                         new[] { arguments[1] },
-                         false, new List<bool>() { false },
+                        false,
+                        new[] {false},
                         _methodInfo.ReturnType),
                     _methodInfo.ReturnType)
                 : null;

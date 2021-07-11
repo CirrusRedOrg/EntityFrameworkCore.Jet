@@ -3,20 +3,24 @@
 using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
 {
     public class JetQueryTranslationPostprocessor : RelationalQueryTranslationPostprocessor
     {
+        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
         private readonly IJetOptions _options;
 
         public JetQueryTranslationPostprocessor(
             QueryTranslationPostprocessorDependencies dependencies,
             RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
             QueryCompilationContext queryCompilationContext,
+            IRelationalTypeMappingSource relationalTypeMappingSource,
             IJetOptions options)
             : base(dependencies, relationalDependencies, queryCompilationContext)
         {
+            _relationalTypeMappingSource = relationalTypeMappingSource;
             _options = options;
         }
 
@@ -28,7 +32,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
 
             if (_options.EnableMillisecondsSupport)
             {
-                query = new JetDateTimeExpressionVisitor(RelationalDependencies.SqlExpressionFactory).Visit(query);
+                query = new JetDateTimeExpressionVisitor(RelationalDependencies.SqlExpressionFactory, _relationalTypeMappingSource).Visit(query);
             }
 
             return query;

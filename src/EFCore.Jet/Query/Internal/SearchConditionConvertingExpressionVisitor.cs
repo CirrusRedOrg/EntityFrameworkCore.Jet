@@ -342,9 +342,10 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             _isSearchCondition = parentSearchCondition;
             var newFunction = sqlFunctionExpression.Update(instance, arguments);
 
-            var condition = sqlFunctionExpression.Name == "FREETEXT" || sqlFunctionExpression.Name == "CONTAINS";
+            // var condition = string.Equals(sqlFunctionExpression.Name, "FREETEXT")
+            //    || string.Equals(sqlFunctionExpression.Name, "CONTAINS");
 
-            return ApplyConversion(newFunction, condition);
+            return ApplyConversion(newFunction, /* condition */ false);
         }
 
         /// <summary>

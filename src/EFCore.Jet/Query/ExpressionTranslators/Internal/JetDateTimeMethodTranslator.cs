@@ -64,7 +64,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         amountToAdd,
                         instance
                     },
-                     false, new List<bool>() { false },
+                    false,
+                    new[] {false},
                     method.ReturnType);
             }
 

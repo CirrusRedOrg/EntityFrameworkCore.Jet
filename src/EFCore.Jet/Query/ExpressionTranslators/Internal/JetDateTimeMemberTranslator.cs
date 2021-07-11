@@ -35,8 +35,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 return member.Name switch
                 {
-                    nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),false,new List<bool>() {false}, returnType),
-                    nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new List<bool>() { false }, returnType),
+                    nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),false, new[] {false}, returnType),
+                    nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new[] {false}, returnType),
                     _ => null,
                 };
             }
@@ -45,8 +45,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 nameof(DateTime.Today) => _sqlExpressionFactory.Function(
                         "DATEVALUE",
-                        new[] {_sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new List<bool>() { false }, returnType)},
-                        false, new List<bool>() { false },
+                        new[] {_sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new[] {false}, returnType)},
+                        false,
+                        new[] {false},
                         returnType),
 
                 nameof(DateTime.Year) => GetDatePartExpression(instance, returnType, "yyyy"),
@@ -67,14 +68,16 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     _sqlExpressionFactory.Function(
                         "DATEVALUE",
                         new[] {instance},
-                         false, new List<bool>() { false },
+                        false,
+                        new[] {false},
                         returnType)),
                 nameof(DateTime.TimeOfDay) => _sqlExpressionFactory.NullChecked(
                     instance,
                     _sqlExpressionFactory.Function(
                         "TIMEVALUE",
                         new[] {instance},
-                         false, new List<bool>() { false },
+                        false,
+                        new[] {false},
                         returnType)),
 
                 nameof(DateTime.Ticks) => null,
@@ -95,7 +98,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     _sqlExpressionFactory.Constant(datePart),
                     instance,
                 },
-                 false, new List<bool>() { false },
+                false,
+                new[] {false},
                 returnType);
         }
     }

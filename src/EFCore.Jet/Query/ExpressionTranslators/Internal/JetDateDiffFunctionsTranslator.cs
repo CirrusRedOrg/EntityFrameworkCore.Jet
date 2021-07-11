@@ -220,9 +220,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     "DATEDIFF",
                     new[] { _sqlExpressionFactory.Constant(datePart), startDate, endDate },
                     false,
-                    new List<bool>() {false}, 
-                    typeof(int)
-                    );
+                    new[] {false}, 
+                    typeof(int));
             }
 
             return null;

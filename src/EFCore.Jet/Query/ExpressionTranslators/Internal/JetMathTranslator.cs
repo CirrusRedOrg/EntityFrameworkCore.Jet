@@ -84,7 +84,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return _sqlExpressionFactory.Function(
                     sqlFunctionName,
                     arguments,
-                    false, new List<bool>() { false },
+                    false,
+                    new[] {false},
                     method.ReturnType);
             }
 
@@ -120,7 +121,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                     )
                                 )
                             },
-                            false, new List<bool>() { false },
+                            false,
+                            new[] {false},
                             method.ReturnType)),
 
                     // Arcsin(X) = Atn(X / Sqr(-X * X + 1))
@@ -149,19 +151,20 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 )
                             )
                         },
-                        false, new List<bool>() { false },
+                        false,
+                        new[] {false},
                         method.ReturnType),
 
                     // Logn(x) = Log(x) / Log(n)
                     nameof(Math.Log10) => _sqlExpressionFactory.Divide(
-                        _sqlExpressionFactory.Function("LOG", new[] {arguments[0]}, false, new List<bool>() { false }, method.ReturnType),
+                        _sqlExpressionFactory.Function("LOG", new[] {arguments[0]}, false, new[] {false}, method.ReturnType),
                         _sqlExpressionFactory.Constant(Math.Log(10))
                     ),
 
                     // Math.Log(x, n) //Logn(x) = Log(x) / Log(n)
                     nameof(Math.Log) => _sqlExpressionFactory.Divide(
-                        _sqlExpressionFactory.Function("LOG", new[] {arguments[0]}, false, new List<bool>() { false }, method.ReturnType),
-                        _sqlExpressionFactory.Function("LOG", new[] {arguments[1]}, false, new List<bool>() { false }, method.ReturnType)
+                        _sqlExpressionFactory.Function("LOG", new[] {arguments[0]}, false, new[] {false}, method.ReturnType),
+                        _sqlExpressionFactory.Function("LOG", new[] {arguments[1]}, false, new[] {false}, method.ReturnType)
                     ),
 
                     _ => null,
@@ -173,7 +176,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return _sqlExpressionFactory.Function(
                     "INT",
                     new[] {arguments[0]},
-                    false, new List<bool>() { false },
+                    false,
+                    new[] {false},
                     method.ReturnType);
             }
 
@@ -184,7 +188,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     arguments.Count == 1
                         ? new[] {arguments[0], _sqlExpressionFactory.Constant(0)}
                         : new[] {arguments[0], arguments[1]},
-                    false, new List<bool>() { false },
+                    false,
+                    new[] {false},
                     method.ReturnType);
             }
 

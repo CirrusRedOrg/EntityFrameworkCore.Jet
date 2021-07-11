@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
@@ -11,10 +10,14 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     public class JetDateTimeExpressionVisitor : ExpressionVisitor
     {
         private readonly ISqlExpressionFactory _sqlExpressionFactory;
-
-        public JetDateTimeExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
+        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
+        
+        public JetDateTimeExpressionVisitor(
+            ISqlExpressionFactory sqlExpressionFactory,
+            IRelationalTypeMappingSource relationalTypeMappingSource)
         {
             _sqlExpressionFactory = sqlExpressionFactory;
+            _relationalTypeMappingSource = relationalTypeMappingSource;
         }
 
         protected override Expression VisitExtension(Expression extensionExpression)
@@ -36,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                             _sqlExpressionFactory.Convert(
                                 projection.Expression,
                                 typeof(double),
-                                new DoubleTypeMapping("double",DbType.Double)))
+                                _relationalTypeMappingSource.FindMapping(typeof(double))))
                         : projection)
                 .ToList();
 

@@ -264,7 +264,7 @@ namespace EntityFrameworkCore.Jet.Internal
             = new ResourceManager("EntityFrameworkCore.Jet.Properties.JetStrings", typeof(JetResources).GetTypeInfo().Assembly);
 
         /// <summary>
-        ///     Both the SqlServerValueGenerationStrategy '{generationStrategy}' and '{otherGenerationStrategy}' have been set on property '{propertyName}' on entity type '{entityName}'. Configuring two strategies is usually unintentional and will likely result in a database error.
+        ///     Both the JetValueGenerationStrategy '{generationStrategy}' and '{otherGenerationStrategy}' have been set on property '{propertyName}' on entity type '{entityName}'. Configuring two strategies is usually unintentional and will likely result in a database error.
         /// </summary>
         public static EventDefinition<string, string, string, string> LogConflictingValueGenerationStrategies([NotNull] IDiagnosticsLogger logger)
         {

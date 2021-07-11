@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
             Console.WriteLine("DB First ======================================================================");
 
             /*
-            //EntityConnection ec = GetSqlServerEntityConnection();
+            //EntityConnection ec = GetJetEntityConnection();
             EntityConnection ec = JetEntityFrameworkProvider.Test.DbFirst.SetUpDbFirst.GetJetEntityConnection();
             //EntityConnection ec = GetOleDbEntityConnection();
 

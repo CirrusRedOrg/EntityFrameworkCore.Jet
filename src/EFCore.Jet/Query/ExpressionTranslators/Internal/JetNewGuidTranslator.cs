@@ -28,7 +28,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 ? _sqlExpressionFactory.Function(
                     "NEWGUID",
                     Array.Empty<SqlExpression>(),
-                    false, new List<bool>() { false },
+                    false,
+                    new[] {false},
                     method.ReturnType)
                 : null;
         }

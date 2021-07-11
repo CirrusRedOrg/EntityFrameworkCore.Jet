@@ -132,7 +132,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             if (IsIdentity(operation))
             {
                 // NB: This gets added to all added non-nullable columns by MigrationsModelDiffer. We need to suppress
-                //     it, here because SQL Server can't have both IDENTITY and a DEFAULT constraint on the same column.
+                //     it, here because Jet can't have both IDENTITY and a DEFAULT constraint on the same column.
                 operation.DefaultValue = null;
             }
 

@@ -291,7 +291,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         _sqlExpressionFactory.Function(
                             function,
                             new[] {convertExpression.Operand},
-                            false,new List<bool>() {false}, 
+                            false,
+                            new[] {false}, 
                             typeMapping.ClrType)));
 
                 return convertExpression;
@@ -326,6 +327,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return likeExpression;
         }
+
+        protected override string GetOperator([NotNull] SqlBinaryExpression binaryExpression)
+            => binaryExpression.OperatorType switch
+            {
+                ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",
+                ExpressionType.And => " BAND ",
+                ExpressionType.Modulo => " MOD ",
+                ExpressionType.Or => " BOR ",
+                _ => base.GetOperator(binaryExpression),
+            };
 
         protected override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
         {

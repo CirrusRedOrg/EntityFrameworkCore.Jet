@@ -37,7 +37,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         }
 
         /// <summary>
-        ///     The SQL Server value generation strategy.
+        ///     The Jet value generation strategy.
         /// </summary>
         public virtual JetValueGenerationStrategy JetValueGenerationStrategy { get; }
 

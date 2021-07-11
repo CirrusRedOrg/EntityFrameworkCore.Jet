@@ -4,7 +4,6 @@ using System;
 using System.Text;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Migrations;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore;

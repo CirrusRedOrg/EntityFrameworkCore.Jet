@@ -175,18 +175,21 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
         public static string ExtractFileNameFromConnectionString(string connectionString)
         {
-            var match = _regExExtractFilenameFromConnectionString.Match(connectionString);
-            if (match.Success)
+            if (connectionString != null)
             {
-                var fileName = match.Groups["filename"].Value;
-
-                if (match.Groups["quote"].Success)
+                var match = _regExExtractFilenameFromConnectionString.Match(connectionString);
+                if (match.Success)
                 {
-                    var quoteChar = match.Groups["quote"].Value;
-                    fileName = fileName.Replace(quoteChar + quoteChar, quoteChar);
-                }
+                    var fileName = match.Groups["filename"].Value;
 
-                return fileName;
+                    if (match.Groups["quote"].Success)
+                    {
+                        var quoteChar = match.Groups["quote"].Value;
+                        fileName = fileName.Replace(quoteChar + quoteChar, quoteChar);
+                    }
+
+                    return fileName;
+                }
             }
 
             return connectionString;

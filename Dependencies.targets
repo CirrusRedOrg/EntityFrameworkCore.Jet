@@ -45,6 +45,7 @@
     <PackageReference Update="MSTest.TestAdapter" Version="2.2.4" />
     <PackageReference Update="MSTest.TestFramework" Version="2.2.4" />
     <PackageReference Update="coverlet.collector" Version="3.0.3" />
+    <PackageReference Update="Newtonsoft.Json" Version="13.0.1" />
 
     <!-- EntityFrameworkCore.Jet.Data.Tests -->
     <!--<PackageReference Update="System.Data.Odbc" Version="$(SystemDataOdbcVersion)" />-->

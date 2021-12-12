@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(DefaultNetCoreTargetFramework)</TargetFramework>
+    <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
     <RootNamespace>EntityFrameworkCore.Jet.FunctionalTests</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet.FunctionalTests</AssemblyName>
     <Platforms>AnyCPU;x86;x64</Platforms>
@@ -16,9 +16,11 @@
     <PackageReference Include="xunit.assert" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="xunit.runner.console" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Data.Odbc" />
     <PackageReference Include="System.Data.OleDb" />
   </ItemGroup>

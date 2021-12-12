@@ -1181,7 +1181,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     modelBuilder.HasChangeTrackingStrategy(ChangeTrackingStrategy.ChangedNotifications);
                 }
 
-                modelBuilder.Entity<TBlog>().ToTable("Blog", null);
+                modelBuilder.Entity<TBlog>().ToTable("Blog");
             }
 
             public DbSet<TBlog> Blogs { get; set; }

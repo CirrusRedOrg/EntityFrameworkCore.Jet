@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class MigrationsJetFixture : MigrationsFixtureBase
+    public class MigrationsJetFixture : MigrationsInfrastructureFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 

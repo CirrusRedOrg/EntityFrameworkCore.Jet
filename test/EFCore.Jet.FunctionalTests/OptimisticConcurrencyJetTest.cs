@@ -11,9 +11,27 @@ using Xunit;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class OptimisticConcurrencyJetTest : OptimisticConcurrencyTestBase<F1JetFixture>
+    public class OptimisticConcurrencyULongJetTest : OptimisticConcurrencyJetTestBase<F1ULongJetFixture, ulong>
+    {
+        public OptimisticConcurrencyULongJetTest(F1ULongJetFixture fixture)
+            : base(fixture)
+        {
+        }
+    }
+
+    public class OptimisticConcurrencyJetTest : OptimisticConcurrencyJetTestBase<F1JetFixture, byte[]>
     {
         public OptimisticConcurrencyJetTest(F1JetFixture fixture)
+            : base(fixture)
+        {
+        }
+    }
+    
+    public abstract class OptimisticConcurrencyJetTestBase<TFixture, TRowVersion>
+        : OptimisticConcurrencyTestBase<TFixture, TRowVersion>
+        where TFixture : F1FixtureBase<TRowVersion>, new()
+    {
+        protected OptimisticConcurrencyJetTestBase(TFixture fixture)
             : base(fixture)
         {
         }

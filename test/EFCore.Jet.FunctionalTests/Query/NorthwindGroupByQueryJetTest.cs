@@ -11,10 +11,10 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class GroupByQueryJetTest : GroupByQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class NorthwindGroupByQueryJetTest : NorthwindGroupByQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
         // ReSharper disable once UnusedParameter.Local
-        public GroupByQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public NorthwindGroupByQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
@@ -35,15 +35,7 @@ GROUP BY `o`.`CustomerID`");
                 "The LINQ expression 'GroupBy(`o`.CustomerID, `o`)' could not be translated and will be evaluated locally.",
                 Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
         }
-
-        public override async Task GroupBy_Property_Select_Average_with_navigation_expansion(bool isAsync)
-        {
-            await base.GroupBy_Property_Select_Average_with_navigation_expansion(isAsync);
-
-            AssertSql(
-                $@"");
-        }
-
+        
         public override async Task GroupBy_Property_Select_Count(bool isAsync)
         {
             await base.GroupBy_Property_Select_Count(isAsync);
@@ -1245,17 +1237,7 @@ FROM (
 ORDER BY `t`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}");
         }
-
-        public override async Task GroupBy_Select_sum_over_unmapped_property(bool isAsync)
-        {
-            await base.GroupBy_Select_sum_over_unmapped_property(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
+        
         public override async Task GroupBy_filter_key(bool isAsync)
         {
             await base.GroupBy_filter_key(isAsync);
@@ -1487,17 +1469,7 @@ ORDER BY `o1`.`OrderID`");
 FROM `Orders` AS `o`
 ORDER BY `o`.`CustomerID`");
         }
-
-        public override async Task GroupBy_Where_in_aggregate(bool isAsync)
-        {
-            await base.GroupBy_Where_in_aggregate(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
+        
         public override async Task GroupBy_Key_as_part_of_element_selector(bool isAsync)
         {
             await base.GroupBy_Key_as_part_of_element_selector(isAsync);
@@ -1517,56 +1489,7 @@ GROUP BY `o`.`OrderID`");
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`, `o`.`CustomerID`");
         }
-
-        public override async Task GroupBy_anonymous(bool isAsync)
-        {
-            await base.GroupBy_anonymous(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`City`, `c`.`CustomerID`
-FROM `Customers` AS `c`
-ORDER BY `c`.`City`");
-        }
-
-        public override async Task GroupBy_anonymous_with_where(bool isAsync)
-        {
-            await base.GroupBy_anonymous_with_where(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`City`, `c`.`CustomerID`
-FROM `Customers` AS `c`
-WHERE `c`.`Country` IN ('Argentina', 'Austria', 'Brazil', 'France', 'Germany', 'USA')
-ORDER BY `c`.`City`");
-        }
-
-        public override async Task GroupBy_anonymous_subquery(bool isAsync)
-        {
-            await base.GroupBy_anonymous_subquery(isAsync);
-
-            AssertSql($@" ");
-        }
-
-        public override async Task GroupBy_nested_order_by_enumerable(bool isAsync)
-        {
-            await base.GroupBy_nested_order_by_enumerable(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`Country`, `c`.`CustomerID`
-FROM `Customers` AS `c`
-ORDER BY `c`.`Country`");
-        }
-
-        public override async Task GroupBy_join_default_if_empty_anonymous(bool isAsync)
-        {
-            await base.GroupBy_join_default_if_empty_anonymous(isAsync);
-
-            AssertSql(
-                $@"SELECT `order0`.`OrderID`, `order0`.`CustomerID`, `order0`.`EmployeeID`, `order0`.`OrderDate`, `orderDetail0`.`OrderID`, `orderDetail0`.`ProductID`, `orderDetail0`.`Discount`, `orderDetail0`.`Quantity`, `orderDetail0`.`UnitPrice`
-FROM `Orders` AS `order0`
-LEFT JOIN `Order Details` AS `orderDetail0` ON `order0`.`OrderID` = `orderDetail0`.`OrderID`
-ORDER BY `order0`.`OrderID`");
-        }
-
+        
         public override async Task GroupBy_SelectMany(bool isAsync)
         {
             await base.GroupBy_SelectMany(isAsync);
@@ -1576,79 +1499,7 @@ ORDER BY `order0`.`OrderID`");
 FROM `Customers` AS `c`
 ORDER BY `c`.`City`");
         }
-
-        public override async Task GroupBy_simple(bool isAsync)
-        {
-            await base.GroupBy_simple(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
-        public override async Task GroupBy_simple2(bool isAsync)
-        {
-            await base.GroupBy_simple2(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
-        public override async Task GroupBy_first(bool isAsync)
-        {
-            await base.GroupBy_first(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI'
-ORDER BY `o`.`CustomerID`");
-        }
-
-        public override async Task GroupBy_with_element_selector(bool isAsync)
-        {
-            await base.GroupBy_with_element_selector(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`CustomerID`, `o`.`OrderID`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
-        public override async Task GroupBy_with_element_selector2(bool isAsync)
-        {
-            await base.GroupBy_with_element_selector2(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
-        public override async Task GroupBy_with_element_selector3(bool isAsync)
-        {
-            await base.GroupBy_with_element_selector3(isAsync);
-
-            AssertSql(
-                $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Employees` AS `e`
-ORDER BY `e`.`EmployeeID`");
-        }
-
-        public override async Task GroupBy_DateTimeOffset_Property(bool isAsync)
-        {
-            await base.GroupBy_DateTimeOffset_Property(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` IS NOT NULL
-ORDER BY DATEPART('m', `o`.`OrderDate`)");
-        }
-
+        
         public override async Task OrderBy_GroupBy_SelectMany(bool isAsync)
         {
             await base.OrderBy_GroupBy_SelectMany(isAsync);
@@ -1668,37 +1519,7 @@ ORDER BY `o`.`CustomerID`, `o`.`OrderID`");
 FROM `Employees` AS `e`
 ORDER BY `e`.`EmployeeID`");
         }
-
-        public override async Task GroupBy_with_orderby(bool isAsync)
-        {
-            await base.GroupBy_with_orderby(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`, `o`.`OrderID`");
-        }
-
-        public override async Task GroupBy_with_orderby_and_anonymous_projection(bool isAsync)
-        {
-            await base.GroupBy_with_orderby_and_anonymous_projection(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
-        public override async Task GroupBy_with_orderby_take_skip_distinct(bool isAsync)
-        {
-            await base.GroupBy_with_orderby_take_skip_distinct(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
+        
         public override async Task GroupBy_with_orderby_take_skip_distinct_followed_by_group_key_projection(bool isAsync)
         {
             await base.GroupBy_with_orderby_take_skip_distinct_followed_by_group_key_projection(isAsync);
@@ -1706,26 +1527,7 @@ ORDER BY `o`.`CustomerID`");
             AssertSql(
                 $@"");
         }
-
-        public override async Task GroupBy_with_orderby_take_skip_distinct_followed_by_order_by_group_key(bool isAsync)
-        {
-            await base.GroupBy_with_orderby_take_skip_distinct_followed_by_order_by_group_key(isAsync);
-
-            AssertSql(
-                $@"");
-        }
-
-        public override async Task GroupBy_join_anonymous(bool isAsync)
-        {
-            await base.GroupBy_join_anonymous(isAsync);
-
-            AssertSql(
-                $@"SELECT `order0`.`OrderID`, `order0`.`CustomerID`, `order0`.`EmployeeID`, `order0`.`OrderDate`, `orderDetail0`.`OrderID`, `orderDetail0`.`ProductID`, `orderDetail0`.`Discount`, `orderDetail0`.`Quantity`, `orderDetail0`.`UnitPrice`
-FROM `Orders` AS `order0`
-LEFT JOIN `Order Details` AS `orderDetail0` ON `order0`.`OrderID` = `orderDetail0`.`OrderID`
-ORDER BY `order0`.`OrderID`");
-        }
-
+        
         public override async Task GroupBy_Distinct(bool isAsync)
         {
             await base.GroupBy_Distinct(isAsync);
@@ -1735,73 +1537,7 @@ ORDER BY `order0`.`OrderID`");
 FROM `Orders` AS `o0`
 ORDER BY `o0`.`CustomerID`");
         }
-
-        public override async Task OrderBy_Skip_GroupBy(bool isAsync)
-        {
-            await base.OrderBy_Skip_GroupBy(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='800'")}
-
-SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-FROM (
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    ORDER BY `o`.`OrderDate`, `o`.`OrderID`
-    SKIP {AssertSqlHelper.Parameter("@__p_0")}
-) AS `t`
-ORDER BY `t`.`CustomerID`");
-        }
-
-        public override async Task OrderBy_Take_GroupBy(bool isAsync)
-        {
-            await base.OrderBy_Take_GroupBy(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='50'")}
-
-SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    ORDER BY `o`.`OrderDate`
-) AS `t`
-ORDER BY `t`.`CustomerID`");
-        }
-
-        public override async Task OrderBy_Skip_Take_GroupBy(bool isAsync)
-        {
-            await base.OrderBy_Skip_Take_GroupBy(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='450'")}
-
-{AssertSqlHelper.Declaration("@__p_1='50'")}
-
-SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-FROM (
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    WHERE (`o`.`CustomerID` <> 'SAVEA') OR `o`.`CustomerID` IS NULL
-    ORDER BY `o`.`OrderDate`
-    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-) AS `t`
-ORDER BY `t`.`CustomerID`");
-        }
-
-        public override async Task Select_Distinct_GroupBy(bool isAsync)
-        {
-            await base.Select_Distinct_GroupBy(isAsync);
-
-            AssertSql(
-                $@"SELECT `t`.`CustomerID`, `t`.`EmployeeID`
-FROM (
-    SELECT DISTINCT `o`.`CustomerID`, `o`.`EmployeeID`
-    FROM `Orders` AS `o`
-) AS `t`
-ORDER BY `t`.`CustomerID`");
-        }
-
+        
         public override async Task GroupBy_with_aggregate_through_navigation_property(bool isAsync)
         {
             await base.GroupBy_with_aggregate_through_navigation_property(isAsync);
@@ -1817,17 +1553,7 @@ FROM `Customers` AS [i.Customer0]",
                 $@"SELECT [i.Customer0].`CustomerID`, [i.Customer0].`Region`
 FROM `Customers` AS [i.Customer0]");
         }
-
-        public override async Task GroupBy_anonymous_key_without_aggregate(bool isAsync)
-        {
-            await base.GroupBy_anonymous_key_without_aggregate(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`, `o`.`OrderDate`");
-        }
-
+        
         public override async Task GroupBy_Shadow(bool isAsync)
         {
             await base.GroupBy_Shadow(isAsync);
@@ -1860,35 +1586,7 @@ FROM `Employees` AS `e`
 WHERE `e`.`EmployeeID` = 1
 ORDER BY `e`.`EmployeeID`");
         }
-
-        public override async Task GroupBy_Select_First_GroupBy(bool isAsync)
-        {
-            await base.GroupBy_Select_First_GroupBy(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-ORDER BY `c`.`City`");
-        }
-
-        public override async Task GroupBy_Select_First_GroupBy_followed_by_identity_projection(bool isAsync)
-        {
-            await base.GroupBy_Select_First_GroupBy_followed_by_identity_projection(isAsync);
-
-            AssertSql(
-                $@"");
-        }
-
-        public override async Task Select_GroupBy(bool isAsync)
-        {
-            await base.Select_GroupBy(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID` AS `Order`, `o`.`CustomerID` AS `Customer`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
+        
         public override async Task Select_GroupBy_SelectMany(bool isAsync)
         {
             await base.Select_GroupBy_SelectMany(isAsync);
@@ -1898,39 +1596,7 @@ ORDER BY `o`.`CustomerID`");
 FROM `Orders` AS `o`
 ORDER BY `o`.`OrderID`");
         }
-
-        public override async Task Join_GroupBy_entity_ToList(bool isAsync)
-        {
-            await base.Join_GroupBy_entity_ToList(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
-
-{AssertSqlHelper.Declaration("@__p_1='50'")}
-
-SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`, `t2`.`OrderID`, `t2`.`CustomerID`, `t2`.`EmployeeID`, `t2`.`OrderDate`
-FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-    FROM `Customers` AS `c0`
-    ORDER BY `c0`.`CustomerID`
-) AS `t1`
-INNER JOIN (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_1")} `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-    FROM `Orders` AS `o0`
-    ORDER BY `o0`.`OrderID`
-) AS `t2` ON `t1`.`CustomerID` = `t2`.`CustomerID`");
-        }
-
-        public override async Task Double_GroupBy_with_aggregate(bool isAsync)
-        {
-            await base.Double_GroupBy_with_aggregate(isAsync);
-
-            AssertSql(
-                $@"SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM `Orders` AS `o0`
-ORDER BY `o0`.`OrderID`, `o0`.`OrderDate`");
-        }
-
+        
         public override async Task Count_after_GroupBy_aggregate(bool isAsync)
         {
             await base.Count_after_GroupBy_aggregate(isAsync);
@@ -1943,17 +1609,7 @@ FROM (
     GROUP BY `o`.`CustomerID`
 ) AS `t`");
         }
-
-        public override async Task LongCount_after_client_GroupBy(bool isAsync)
-        {
-            await base.LongCount_after_client_GroupBy(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-ORDER BY `o`.`CustomerID`");
-        }
-
+        
         public override async Task MinMax_after_GroupBy_aggregate(bool isAsync)
         {
             await base.MinMax_after_GroupBy_aggregate(isAsync);
@@ -2192,15 +1848,7 @@ GROUP BY `o`.`CustomerID`");
             AssertSql(
                 $@"");
         }
-
-        public override async Task Complex_query_with_groupBy_in_subquery4(bool isAsync)
-        {
-            await base.Complex_query_with_groupBy_in_subquery4(isAsync);
-
-            AssertSql(
-                $@"");
-        }
-
+        
         public override async Task Group_by_with_arithmetic_operation_inside_aggregate(bool isAsync)
         {
             await base.Group_by_with_arithmetic_operation_inside_aggregate(isAsync);

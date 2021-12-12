@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit
         public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases)
             where TTestCase : ITestCase
         {
-            var orderedTestCases = testCases.OrderBy(c => _testCaseOrder.IndexOf(c.TestMethod.Method.Name)).ToList();
+            var orderedTestCases = testCases.OrderBy(c => Array.IndexOf(_testCaseOrder, c.TestMethod.Method.Name)).ToList();
 
             var builder = new StringBuilder()
                 .AppendLine("Test Case Order:")

@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model54_MemoryLeakageTest
 
             modelBuilder.Entity<Student>().HasIndex(_ => _.StudentName);
             modelBuilder.Entity<Standard>()
-                .HasIndex(_ => new { _.StandardName, _.StandardId }).HasName("MultipleColumnIndex");
+                .HasIndex(_ => new { _.StandardName, _.StandardId }).HasDatabaseName("MultipleColumnIndex");
 
         }
     }

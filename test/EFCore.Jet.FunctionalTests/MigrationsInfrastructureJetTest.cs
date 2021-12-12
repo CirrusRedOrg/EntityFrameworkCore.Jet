@@ -2,21 +2,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
-using EntityFrameworkCore.Jet.Data;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
 using Identity30.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.AspNetIdentity;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseCreator;
 
@@ -24,9 +18,9 @@ using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseC
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     [JetCondition(JetCondition.IsNotCI)]
-    public class MigrationsJetTest : MigrationsTestBase<MigrationsJetFixture>
+    public class MigrationsInfrastructureJetTest : MigrationsInfrastructureTestBase<MigrationsJetFixture>
     {
-        public MigrationsJetTest(MigrationsJetFixture fixture)
+        public MigrationsInfrastructureJetTest(MigrationsJetFixture fixture)
             : base(fixture)
         {
         }
@@ -356,105 +350,7 @@ GO
 
             Assert.Equal("EntityFrameworkCore.Jet", ActiveProvider);
         }
-
-        protected override async Task AssertFirstMigrationAsync(DbConnection connection)
-        {
-            var sql = await GetDatabaseSchemaAsync(connection);
-            Assert.Equal(
-                @"
-CreatedTable
-    Id int NOT NULL
-    ColumnWithDefaultToDrop int NULL DEFAULT ((0))
-    ColumnWithDefaultToAlter int NULL DEFAULT ((1))
-
-Foos
-    Id int NOT NULL
-",
-                sql,
-                ignoreLineEndingDifferences: true);
-        }
-
-        protected override async Task AssertSecondMigrationAsync(DbConnection connection)
-        {
-            var sql = await GetDatabaseSchemaAsync(connection);
-            Assert.Equal(
-                @"
-CreatedTable
-    Id int NOT NULL
-    ColumnWithDefaultToAlter int NULL
-
-Foos
-    Id int NOT NULL
-",
-                sql,
-                ignoreLineEndingDifferences: true);
-        }
-
-        private async Task<string> GetDatabaseSchemaAsync(DbConnection connection)
-        {
-            var builder = new IndentedStringBuilder();
-
-            var command = connection.CreateCommand();
-            command.CommandText = @"
-                SELECT
-                    t.name,
-                    c.Name,
-                    TYPE_NAME(c.user_type_id),
-                    c.is_nullable,
-                    d.Definition
-                FROM sys.objects t
-                LEFT JOIN sys.columns c ON c.object_id = t.object_id
-                LEFT JOIN sys.default_constraints d ON d.parent_column_id = c.column_id AND d.parent_object_id = t.object_id
-                WHERE t.type = 'U'
-                ORDER BY t.name, c.column_id;";
-
-            using (var reader = await command.ExecuteReaderAsync())
-            {
-                var first = true;
-                string lastTable = null;
-                while (await reader.ReadAsync())
-                {
-                    var currentTable = reader.GetString(0);
-                    if (currentTable != lastTable)
-                    {
-                        if (first)
-                        {
-                            first = false;
-                        }
-                        else
-                        {
-                            builder.DecrementIndent();
-                        }
-
-                        builder
-                            .AppendLine()
-                            .AppendLine(currentTable)
-                            .IncrementIndent();
-
-                        lastTable = currentTable;
-                    }
-
-                    builder
-                        .Append(reader[1]) // Name
-                        .Append(" ")
-                        .Append(reader[2]) // Type
-                        .Append(" ")
-                        .Append(reader.GetBoolean(3) ? "NULL" : "NOT NULL");
-
-                    if (!await reader.IsDBNullAsync(4))
-                    {
-                        builder
-                            .Append(" DEFAULT ")
-                            .Append(reader[4]);
-                    }
-
-                    builder.AppendLine();
-                }
-            }
-
-            return builder.ToString();
-        }
-
+        
         [ConditionalFact]
         public async Task Empty_Migration_Creates_Database()
         {
@@ -1390,8 +1286,8 @@ namespace Identity30.Data
             builder.Entity<IdentityUser>(
                 b =>
                 {
-                    b.HasIndex(u => u.NormalizedUserName).HasName("UserNameIndex").IsUnique();
-                    b.HasIndex(u => u.NormalizedEmail).HasName("EmailIndex");
+                    b.HasIndex(u => u.NormalizedUserName).HasDatabaseName("UserNameIndex").IsUnique();
+                    b.HasIndex(u => u.NormalizedEmail).HasDatabaseName("EmailIndex");
                     b.ToTable("AspNetUsers");
                 });
 
@@ -1416,7 +1312,7 @@ namespace Identity30.Data
             builder.Entity<IdentityRole>(
                 b =>
                 {
-                    b.HasIndex(r => r.NormalizedName).HasName("RoleNameIndex").IsUnique();
+                    b.HasIndex(r => r.NormalizedName).HasDatabaseName("RoleNameIndex").IsUnique();
                     b.ToTable("AspNetRoles");
                 });
 

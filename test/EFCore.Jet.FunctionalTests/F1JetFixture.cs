@@ -2,18 +2,25 @@
 
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class F1JetFixture : F1RelationalFixture
+    public class F1ULongJetFixture : F1JetFixtureBase<ulong>
+    {
+    }
+
+    public class F1JetFixture : F1JetFixtureBase<byte[]>
+    {
+    }
+
+    public abstract class F1JetFixtureBase<TRowVersion> : F1RelationalFixture<TRowVersion>
     {
         protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
-
-        public override ModelBuilder CreateModelBuilder()
-            => new ModelBuilder(JetConventionSetBuilder.Build());
+        
+        public override TestHelpers TestHelpers
+            => JetTestHelpers.Instance;
 
         protected override void BuildModelExternal(ModelBuilder modelBuilder)
         {

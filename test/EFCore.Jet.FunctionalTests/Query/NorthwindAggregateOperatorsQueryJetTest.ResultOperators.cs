@@ -1,17 +1,28 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
-using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest
+    public class NorthwindAggregateOperatorsQueryJetTest : NorthwindAggregateOperatorsQueryRelationalTestBase<
+        NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
+        public NorthwindAggregateOperatorsQueryJetTest(
+            NorthwindQueryJetFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
+            : base(fixture)
+        {
+            ClearLog();
+            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        }
+
+        protected override bool CanExecuteQueryString
+            => true;
+
         public override void Select_All()
         {
             base.Select_All();
@@ -1162,34 +1173,7 @@ WHERE `c`.`CustomerID` IN ('ALFKI')");
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` IN ('ALFKI')");
         }
-
-        public override void Contains_over_entityType_with_null_should_rewrite_to_identity_equality()
-        {
-            base.Contains_over_entityType_with_null_should_rewrite_to_identity_equality();
-
-            AssertSql(
-                $@"@__entity_equality_p_0_OrderID=NULL (DbType = Int32)
-
-SELECT CASE
-    WHEN {AssertSqlHelper.Parameter("@__entity_equality_p_0_OrderID")} IN (
-        SELECT `o`.`OrderID`
-        FROM `Orders` AS `o`
-        WHERE `o`.`CustomerID` = 'VINET'
-    )
-     THEN True
-    ELSE False
-END");
-        }
-
-        public override async Task String_FirstOrDefault_in_projection_does_client_eval(bool isAsync)
-        {
-            await base.String_FirstOrDefault_in_projection_does_client_eval(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`
-FROM `Customers` AS `c`");
-        }
-
+        
         public override async Task Project_constant_Sum(bool isAsync)
         {
             await base.Project_constant_Sum(isAsync);
@@ -1371,5 +1355,11 @@ FROM `Orders` AS `o`",
                 $@"SELECT COUNT(*)
 FROM `Orders` AS `o`");
         }
+
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override void ClearLog()
+            => Fixture.TestSqlLoggerFactory.Clear();
     }
 }

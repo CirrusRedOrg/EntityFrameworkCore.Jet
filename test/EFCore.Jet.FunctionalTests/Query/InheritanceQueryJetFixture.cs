@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class InheritanceJetFixture : InheritanceRelationalFixture
+    public class InheritanceQueryJetFixture : InheritanceQueryRelationalFixture
     {
         protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
     }

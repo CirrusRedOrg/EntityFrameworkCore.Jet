@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Scaffolding;
 using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using EntityFrameworkCore.Jet.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                     loggerFactory,
                     new LoggingOptions(),
                     new DiagnosticListener("Fake"),
-                    new JetLoggingDefinitions()));
+                    new JetLoggingDefinitions(),
+                    new NullDbContextLogger()));
     }
 }

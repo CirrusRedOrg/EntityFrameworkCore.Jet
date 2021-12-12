@@ -14,9 +14,9 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest : SimpleQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public partial class NorthwindMiscellaneousQueryJetTest : NorthwindMiscellaneousQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
-        public SimpleQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public NorthwindMiscellaneousQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             ClearLog();
@@ -2340,37 +2340,7 @@ INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
 //) AS `t`
 //WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
-
-        public override async Task Select_correlated_subquery_projection(bool isAsync)
-        {
-            await base.Select_correlated_subquery_projection(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `cc`.`CustomerID`
-FROM `Customers` AS `cc`
-ORDER BY `cc`.`CustomerID`",
-                //
-                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
-
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}",
-                //
-                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ANATR' (Size = 5)")}
-
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}",
-                //
-                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ANTON' (Size = 5)")}
-
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}");
-        }
-
+        
         public override async Task Select_correlated_subquery_filtered(bool isAsync)
         {
             await base.Select_correlated_subquery_filtered(isAsync);

@@ -2,12 +2,27 @@
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest
+    public class NorthwindSelectQueryJetTest : NorthwindSelectQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
+        public NorthwindSelectQueryJetTest(
+            NorthwindQueryJetFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
+            : base(fixture)
+        {
+            ClearLog();
+            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        }
+
+        protected override bool CanExecuteQueryString
+            => true;
+
         public override async Task Projection_when_arithmetic_expression_precedence(bool isAsync)
         {
             await base.Projection_when_arithmetic_expression_precedence(isAsync);
@@ -1151,17 +1166,7 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'");
         }
-
-        public override async Task Explicit_cast_in_arithmatic_operation_is_preserved(bool isAsync)
-        {
-            await base.Explicit_cast_in_arithmatic_operation_is_preserved(isAsync);
-
-            AssertSql(
-                $@"SELECT IIf(`o`.`OrderID` IS NULL, NULL, CCUR(`o`.`OrderID`)) / IIf(`o`.`OrderID` + 1000 IS NULL, NULL, CCUR((`o`.`OrderID` + 1000)))
-FROM `Orders` AS `o`
-WHERE `o`.`OrderID` = 10243");
-        }
-
+        
         public override async Task SelectMany_whose_selector_references_outer_source(bool isAsync)
         {
             await base.SelectMany_whose_selector_references_outer_source(isAsync);
@@ -1222,5 +1227,11 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
+
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override void ClearLog()
+            => Fixture.TestSqlLoggerFactory.Clear();
     }
 }

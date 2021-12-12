@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit.Abstractions;
 
@@ -14,25 +15,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             fixture.TestSqlLoggerFactory.Clear();
         }
-
-        public override void Include_reference_with_inheritance1()
+        
+        public override async Task Include_reference_with_inheritance_reverse(bool async)
         {
-            base.Include_reference_with_inheritance1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`
-    FROM `BaseReferencesOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')");
-        }
-
-        public override void Include_reference_with_inheritance_reverse()
-        {
-            base.Include_reference_with_inheritance_reverse();
+            await base.Include_reference_with_inheritance_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`BaseParentId`, `b`.`Discriminator`, `b`.`Name`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -45,9 +31,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')");
         }
 
-        public override void Include_self_reference_with_inheritance()
+        public override async Task Include_self_reference_with_inheritance(bool async)
         {
-            base.Include_self_reference_with_inheritance();
+            await base.Include_self_reference_with_inheritance(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -60,9 +46,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')");
         }
 
-        public override void Include_self_reference_with_inheritance_reverse()
+        public override async Task Include_self_reference_with_inheritance_reverse(bool async)
         {
-            base.Include_self_reference_with_inheritance_reverse();
+            await base.Include_self_reference_with_inheritance_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -74,25 +60,10 @@ LEFT JOIN (
 ) AS `t` ON `b`.`BaseId` = `t`.`Id`
 WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
         }
-
-        public override void Include_reference_with_inheritance_with_filter1()
+        
+        public override async Task Include_reference_with_inheritance_with_filter_reverse(bool async)
         {
-            base.Include_reference_with_inheritance_with_filter1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`
-    FROM `BaseReferencesOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
-        }
-
-        public override void Include_reference_with_inheritance_with_filter_reverse()
-        {
-            base.Include_reference_with_inheritance_with_filter_reverse();
+            await base.Include_reference_with_inheritance_with_filter_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`BaseParentId`, `b`.`Discriminator`, `b`.`Name`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -105,9 +76,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_reference_without_inheritance()
+        public override async Task Include_reference_without_inheritance(bool async)
         {
-            base.Include_reference_without_inheritance();
+            await base.Include_reference_without_inheritance(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `r`.`Id`, `r`.`Name`, `r`.`ParentId`
@@ -116,9 +87,9 @@ LEFT JOIN `ReferencesOnBase` AS `r` ON `b`.`Id` = `r`.`ParentId`
 WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')");
         }
 
-        public override void Include_reference_without_inheritance_reverse()
+        public override async Task Include_reference_without_inheritance_reverse(bool async)
         {
-            base.Include_reference_without_inheritance_reverse();
+            await base.Include_reference_without_inheritance_reverse(async);
 
             AssertSql(
                 $@"SELECT `r`.`Id`, `r`.`Name`, `r`.`ParentId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -130,9 +101,9 @@ LEFT JOIN (
 ) AS `t` ON `r`.`ParentId` = `t`.`Id`");
         }
 
-        public override void Include_reference_without_inheritance_with_filter()
+        public override async Task Include_reference_without_inheritance_with_filter(bool async)
         {
-            base.Include_reference_without_inheritance_with_filter();
+            await base.Include_reference_without_inheritance_with_filter(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `r`.`Id`, `r`.`Name`, `r`.`ParentId`
@@ -141,9 +112,9 @@ LEFT JOIN `ReferencesOnBase` AS `r` ON `b`.`Id` = `r`.`ParentId`
 WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_reference_without_inheritance_with_filter_reverse()
+        public override async Task Include_reference_without_inheritance_with_filter_reverse(bool async)
         {
-            base.Include_reference_without_inheritance_with_filter_reverse();
+            await base.Include_reference_without_inheritance_with_filter_reverse(async);
 
             AssertSql(
                 $@"SELECT `r`.`Id`, `r`.`Name`, `r`.`ParentId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -155,26 +126,10 @@ LEFT JOIN (
 ) AS `t` ON `r`.`ParentId` = `t`.`Id`
 WHERE (`r`.`Name` <> 'Bar') OR `r`.`Name` IS NULL");
         }
-
-        public override void Include_collection_with_inheritance1()
+        
+        public override async Task Include_collection_with_inheritance_reverse(bool async)
         {
-            base.Include_collection_with_inheritance1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedProperty`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`, `b0`.`DerivedProperty`
-    FROM `BaseCollectionsOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseCollectionOnBase', 'DerivedCollectionOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')
-ORDER BY `b`.`Id`, `t`.`Id`");
-        }
-
-        public override void Include_collection_with_inheritance_reverse()
-        {
-            base.Include_collection_with_inheritance_reverse();
+            await base.Include_collection_with_inheritance_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`BaseParentId`, `b`.`Discriminator`, `b`.`Name`, `b`.`DerivedProperty`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -186,26 +141,10 @@ LEFT JOIN (
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`
 WHERE `b`.`Discriminator` IN ('BaseCollectionOnBase', 'DerivedCollectionOnBase')");
         }
-
-        public override void Include_collection_with_inheritance_with_filter1()
+        
+        public override async Task Include_collection_with_inheritance_with_filter_reverse(bool async)
         {
-            base.Include_collection_with_inheritance_with_filter1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedProperty`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`, `b0`.`DerivedProperty`
-    FROM `BaseCollectionsOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseCollectionOnBase', 'DerivedCollectionOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)
-ORDER BY `b`.`Id`, `t`.`Id`");
-        }
-
-        public override void Include_collection_with_inheritance_with_filter_reverse()
-        {
-            base.Include_collection_with_inheritance_with_filter_reverse();
+            await base.Include_collection_with_inheritance_with_filter_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`BaseParentId`, `b`.`Discriminator`, `b`.`Name`, `b`.`DerivedProperty`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -218,9 +157,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` IN ('BaseCollectionOnBase', 'DerivedCollectionOnBase') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_collection_without_inheritance()
+        public override async Task Include_collection_without_inheritance(bool async)
         {
-            base.Include_collection_without_inheritance();
+            await base.Include_collection_without_inheritance(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `c`.`Id`, `c`.`Name`, `c`.`ParentId`
@@ -230,9 +169,9 @@ WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInher
 ORDER BY `b`.`Id`, `c`.`Id`");
         }
 
-        public override void Include_collection_without_inheritance_reverse()
+        public override async Task Include_collection_without_inheritance_reverse(bool async)
         {
-            base.Include_collection_without_inheritance_reverse();
+            await base.Include_collection_without_inheritance_reverse(async);
 
             AssertSql(
                 $@"SELECT `c`.`Id`, `c`.`Name`, `c`.`ParentId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -244,9 +183,9 @@ LEFT JOIN (
 ) AS `t` ON `c`.`ParentId` = `t`.`Id`");
         }
 
-        public override void Include_collection_without_inheritance_with_filter()
+        public override async Task Include_collection_without_inheritance_with_filter(bool async)
         {
-            base.Include_collection_without_inheritance_with_filter();
+            await base.Include_collection_without_inheritance_with_filter(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `c`.`Id`, `c`.`Name`, `c`.`ParentId`
@@ -256,9 +195,9 @@ WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInher
 ORDER BY `b`.`Id`, `c`.`Id`");
         }
 
-        public override void Include_collection_without_inheritance_with_filter_reverse()
+        public override async Task Include_collection_without_inheritance_with_filter_reverse(bool async)
         {
-            base.Include_collection_without_inheritance_with_filter_reverse();
+            await base.Include_collection_without_inheritance_with_filter_reverse(async);
 
             AssertSql(
                 $@"SELECT `c`.`Id`, `c`.`Name`, `c`.`ParentId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -271,9 +210,9 @@ LEFT JOIN (
 WHERE (`c`.`Name` <> 'Bar') OR `c`.`Name` IS NULL");
         }
 
-        public override void Include_reference_with_inheritance_on_derived1()
+        public override async Task Include_reference_with_inheritance_on_derived1(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived1();
+            await base.Include_reference_with_inheritance_on_derived1(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`
@@ -286,9 +225,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
         }
 
-        public override void Include_reference_with_inheritance_on_derived2()
+        public override async Task Include_reference_with_inheritance_on_derived2(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived2();
+            await base.Include_reference_with_inheritance_on_derived2(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedInheritanceRelationshipEntityId`
@@ -301,9 +240,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
         }
 
-        public override void Include_reference_with_inheritance_on_derived4()
+        public override async Task Include_reference_with_inheritance_on_derived4(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived4();
+            await base.Include_reference_with_inheritance_on_derived4(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedInheritanceRelationshipEntityId`
@@ -316,9 +255,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
         }
 
-        public override void Include_reference_with_inheritance_on_derived_reverse()
+        public override async Task Include_reference_with_inheritance_on_derived_reverse(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived_reverse();
+            await base.Include_reference_with_inheritance_on_derived_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`BaseParentId`, `b`.`Discriminator`, `b`.`Name`, `b`.`DerivedInheritanceRelationshipEntityId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -331,9 +270,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` IN ('BaseReferenceOnDerived', 'DerivedReferenceOnDerived')");
         }
 
-        public override void Include_reference_with_inheritance_on_derived_with_filter1()
+        public override async Task Include_reference_with_inheritance_on_derived_with_filter1(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived_with_filter1();
+            await base.Include_reference_with_inheritance_on_derived_with_filter1(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`
@@ -346,9 +285,9 @@ LEFT JOIN (
 WHERE (`b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_reference_with_inheritance_on_derived_with_filter2()
+        public override async Task Include_reference_with_inheritance_on_derived_with_filter2(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived_with_filter2();
+            await base.Include_reference_with_inheritance_on_derived_with_filter2(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedInheritanceRelationshipEntityId`
@@ -361,9 +300,9 @@ LEFT JOIN (
 WHERE (`b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_reference_with_inheritance_on_derived_with_filter4()
+        public override async Task Include_reference_with_inheritance_on_derived_with_filter4(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived_with_filter4();
+            await base.Include_reference_with_inheritance_on_derived_with_filter4(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedInheritanceRelationshipEntityId`
@@ -376,9 +315,9 @@ LEFT JOIN (
 WHERE (`b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_reference_with_inheritance_on_derived_with_filter_reverse()
+        public override async Task Include_reference_with_inheritance_on_derived_with_filter_reverse(bool async)
         {
-            base.Include_reference_with_inheritance_on_derived_with_filter_reverse();
+            await base.Include_reference_with_inheritance_on_derived_with_filter_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`BaseParentId`, `b`.`Discriminator`, `b`.`Name`, `b`.`DerivedInheritanceRelationshipEntityId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -391,9 +330,9 @@ LEFT JOIN (
 WHERE `b`.`Discriminator` IN ('BaseReferenceOnDerived', 'DerivedReferenceOnDerived') AND ((`b`.`Name` <> 'Bar') OR `b`.`Name` IS NULL)");
         }
 
-        public override void Include_reference_without_inheritance_on_derived1()
+        public override async Task Include_reference_without_inheritance_on_derived1(bool async)
         {
-            base.Include_reference_without_inheritance_on_derived1();
+            await base.Include_reference_without_inheritance_on_derived1(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `r`.`Id`, `r`.`Name`, `r`.`ParentId`
@@ -402,9 +341,9 @@ LEFT JOIN `ReferencesOnBase` AS `r` ON `b`.`Id` = `r`.`ParentId`
 WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
         }
 
-        public override void Include_reference_without_inheritance_on_derived2()
+        public override async Task Include_reference_without_inheritance_on_derived2(bool async)
         {
-            base.Include_reference_without_inheritance_on_derived2();
+            await base.Include_reference_without_inheritance_on_derived2(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `r`.`Id`, `r`.`Name`, `r`.`ParentId`
@@ -413,9 +352,9 @@ LEFT JOIN `ReferencesOnDerived` AS `r` ON `b`.`Id` = `r`.`ParentId`
 WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
         }
 
-        public override void Include_reference_without_inheritance_on_derived_reverse()
+        public override async Task Include_reference_without_inheritance_on_derived_reverse(bool async)
         {
-            base.Include_reference_without_inheritance_on_derived_reverse();
+            await base.Include_reference_without_inheritance_on_derived_reverse(async);
 
             AssertSql(
                 $@"SELECT `r`.`Id`, `r`.`Name`, `r`.`ParentId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -427,9 +366,9 @@ LEFT JOIN (
 ) AS `t` ON `r`.`ParentId` = `t`.`Id`");
         }
 
-        public override void Include_collection_with_inheritance_on_derived1()
+        public override async Task Include_collection_with_inheritance_on_derived1(bool async)
         {
-            base.Include_collection_with_inheritance_on_derived1();
+            await base.Include_collection_with_inheritance_on_derived1(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedProperty`
@@ -443,9 +382,9 @@ WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'
 ORDER BY `b`.`Id`, `t`.`Id`");
         }
 
-        public override void Include_collection_with_inheritance_on_derived2()
+        public override async Task Include_collection_with_inheritance_on_derived2(bool async)
         {
-            base.Include_collection_with_inheritance_on_derived2();
+            await base.Include_collection_with_inheritance_on_derived2(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`ParentId`, `t`.`DerivedInheritanceRelationshipEntityId`
@@ -459,9 +398,9 @@ WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'
 ORDER BY `b`.`Id`, `t`.`Id`");
         }
 
-        public override void Include_collection_with_inheritance_on_derived3()
+        public override async Task Include_collection_with_inheritance_on_derived3(bool async)
         {
-            base.Include_collection_with_inheritance_on_derived3();
+            await base.Include_collection_with_inheritance_on_derived3(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`ParentId`, `t`.`DerivedInheritanceRelationshipEntityId`
@@ -475,9 +414,9 @@ WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'
 ORDER BY `b`.`Id`, `t`.`Id`");
         }
 
-        public override void Include_collection_with_inheritance_on_derived_reverse()
+        public override async Task Include_collection_with_inheritance_on_derived_reverse(bool async)
         {
-            base.Include_collection_with_inheritance_on_derived_reverse();
+            await base.Include_collection_with_inheritance_on_derived_reverse(async);
 
             AssertSql(
                 $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`ParentId`, `b`.`DerivedInheritanceRelationshipEntityId`, `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`BaseId`
@@ -489,50 +428,10 @@ LEFT JOIN (
 ) AS `t` ON `b`.`ParentId` = `t`.`Id`
 WHERE `b`.`Discriminator` IN ('BaseCollectionOnDerived', 'DerivedCollectionOnDerived')");
         }
-
-        public override void Nested_include_with_inheritance_reference_reference1()
+        
+        public override async Task Nested_include_with_inheritance_reference_reference_reverse(bool async)
         {
-            base.Nested_include_with_inheritance_reference_reference1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`ParentCollectionId`, `t0`.`ParentReferenceId`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`
-    FROM `BaseReferencesOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-LEFT JOIN (
-    SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`
-    FROM `NestedReferences` AS `n`
-    WHERE `n`.`Discriminator` IN ('NestedReferenceBase', 'NestedReferenceDerived')
-) AS `t0` ON `t`.`Id` = `t0`.`ParentReferenceId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')");
-        }
-
-        public override void Nested_include_with_inheritance_reference_reference3()
-        {
-            base.Nested_include_with_inheritance_reference_reference3();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`ParentCollectionId`, `t0`.`ParentReferenceId`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`
-    FROM `BaseReferencesOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-LEFT JOIN (
-    SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`
-    FROM `NestedReferences` AS `n`
-    WHERE `n`.`Discriminator` IN ('NestedReferenceBase', 'NestedReferenceDerived')
-) AS `t0` ON `t`.`Id` = `t0`.`ParentReferenceId`
-WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'");
-        }
-
-        public override void Nested_include_with_inheritance_reference_reference_reverse()
-        {
-            base.Nested_include_with_inheritance_reference_reference_reverse();
+            await base.Nested_include_with_inheritance_reference_reference_reverse(async);
 
             AssertSql(
                 $@"SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`BaseId`
@@ -549,52 +448,10 @@ LEFT JOIN (
 ) AS `t0` ON `t`.`BaseParentId` = `t0`.`Id`
 WHERE `n`.`Discriminator` IN ('NestedReferenceBase', 'NestedReferenceDerived')");
         }
-
-        public override void Nested_include_with_inheritance_reference_collection1()
+        
+        public override async Task Nested_include_with_inheritance_reference_collection_reverse(bool async)
         {
-            base.Nested_include_with_inheritance_reference_collection1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`ParentCollectionId`, `t0`.`ParentReferenceId`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`
-    FROM `BaseReferencesOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-LEFT JOIN (
-    SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`
-    FROM `NestedCollections` AS `n`
-    WHERE `n`.`Discriminator` IN ('NestedCollectionBase', 'NestedCollectionDerived')
-) AS `t0` ON `t`.`Id` = `t0`.`ParentReferenceId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')
-ORDER BY `b`.`Id`, `t0`.`Id`");
-        }
-
-        public override void Nested_include_with_inheritance_reference_collection3()
-        {
-            base.Nested_include_with_inheritance_reference_collection3();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`ParentCollectionId`, `t0`.`ParentReferenceId`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`
-    FROM `BaseReferencesOnBase` AS `b0`
-    WHERE `b0`.`Discriminator` IN ('BaseReferenceOnBase', 'DerivedReferenceOnBase')
-) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-LEFT JOIN (
-    SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`
-    FROM `NestedCollections` AS `n`
-    WHERE `n`.`Discriminator` IN ('NestedCollectionBase', 'NestedCollectionDerived')
-) AS `t0` ON `t`.`Id` = `t0`.`ParentReferenceId`
-WHERE `b`.`Discriminator` = 'DerivedInheritanceRelationshipEntity'
-ORDER BY `b`.`Id`, `t0`.`Id`");
-        }
-
-        public override void Nested_include_with_inheritance_reference_collection_reverse()
-        {
-            base.Nested_include_with_inheritance_reference_collection_reverse();
+            await base.Nested_include_with_inheritance_reference_collection_reverse(async);
 
             AssertSql(
                 $@"SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`BaseId`
@@ -611,31 +468,10 @@ LEFT JOIN (
 ) AS `t0` ON `t`.`BaseParentId` = `t0`.`Id`
 WHERE `n`.`Discriminator` IN ('NestedCollectionBase', 'NestedCollectionDerived')");
         }
-
-        public override void Nested_include_with_inheritance_collection_reference1()
+        
+        public override async Task Nested_include_with_inheritance_collection_reference_reverse(bool async)
         {
-            base.Nested_include_with_inheritance_collection_reference1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t0`.`Id`, `t0`.`BaseParentId`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`DerivedProperty`, `t0`.`Id0`, `t0`.`Discriminator0`, `t0`.`Name0`, `t0`.`ParentCollectionId`, `t0`.`ParentReferenceId`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`, `b0`.`DerivedProperty`, `t`.`Id` AS `Id0`, `t`.`Discriminator` AS `Discriminator0`, `t`.`Name` AS `Name0`, `t`.`ParentCollectionId`, `t`.`ParentReferenceId`
-    FROM `BaseCollectionsOnBase` AS `b0`
-    LEFT JOIN (
-        SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`
-        FROM `NestedReferences` AS `n`
-        WHERE `n`.`Discriminator` IN ('NestedReferenceBase', 'NestedReferenceDerived')
-    ) AS `t` ON `b0`.`Id` = `t`.`ParentCollectionId`
-    WHERE `b0`.`Discriminator` IN ('BaseCollectionOnBase', 'DerivedCollectionOnBase')
-) AS `t0` ON `b`.`Id` = `t0`.`BaseParentId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')
-ORDER BY `b`.`Id`, `t0`.`Id`");
-        }
-
-        public override void Nested_include_with_inheritance_collection_reference_reverse()
-        {
-            base.Nested_include_with_inheritance_collection_reference_reverse();
+            await base.Nested_include_with_inheritance_collection_reference_reverse(async);
 
             AssertSql(
                 $@"SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedProperty`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`BaseId`
@@ -652,31 +488,10 @@ LEFT JOIN (
 ) AS `t0` ON `t`.`BaseParentId` = `t0`.`Id`
 WHERE `n`.`Discriminator` IN ('NestedReferenceBase', 'NestedReferenceDerived')");
         }
-
-        public override void Nested_include_with_inheritance_collection_collection1()
+        
+        public override async Task Nested_include_with_inheritance_collection_collection_reverse(bool async)
         {
-            base.Nested_include_with_inheritance_collection_collection1();
-
-            AssertSql(
-                $@"SELECT `b`.`Id`, `b`.`Discriminator`, `b`.`Name`, `b`.`BaseId`, `t0`.`Id`, `t0`.`BaseParentId`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`DerivedProperty`, `t0`.`Id0`, `t0`.`Discriminator0`, `t0`.`Name0`, `t0`.`ParentCollectionId`, `t0`.`ParentReferenceId`
-FROM `BaseEntities` AS `b`
-LEFT JOIN (
-    SELECT `b0`.`Id`, `b0`.`BaseParentId`, `b0`.`Discriminator`, `b0`.`Name`, `b0`.`DerivedProperty`, `t`.`Id` AS `Id0`, `t`.`Discriminator` AS `Discriminator0`, `t`.`Name` AS `Name0`, `t`.`ParentCollectionId`, `t`.`ParentReferenceId`
-    FROM `BaseCollectionsOnBase` AS `b0`
-    LEFT JOIN (
-        SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`
-        FROM `NestedCollections` AS `n`
-        WHERE `n`.`Discriminator` IN ('NestedCollectionBase', 'NestedCollectionDerived')
-    ) AS `t` ON `b0`.`Id` = `t`.`ParentCollectionId`
-    WHERE `b0`.`Discriminator` IN ('BaseCollectionOnBase', 'DerivedCollectionOnBase')
-) AS `t0` ON `b`.`Id` = `t0`.`BaseParentId`
-WHERE `b`.`Discriminator` IN ('BaseInheritanceRelationshipEntity', 'DerivedInheritanceRelationshipEntity')
-ORDER BY `b`.`Id`, `t0`.`Id`, `t0`.`Id0`");
-        }
-
-        public override void Nested_include_with_inheritance_collection_collection_reverse()
-        {
-            base.Nested_include_with_inheritance_collection_collection_reverse();
+            await base.Nested_include_with_inheritance_collection_collection_reverse(async);
 
             AssertSql(
                 $@"SELECT `n`.`Id`, `n`.`Discriminator`, `n`.`Name`, `n`.`ParentCollectionId`, `n`.`ParentReferenceId`, `t`.`Id`, `t`.`BaseParentId`, `t`.`Discriminator`, `t`.`Name`, `t`.`DerivedProperty`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`BaseId`
@@ -694,9 +509,9 @@ LEFT JOIN (
 WHERE `n`.`Discriminator` IN ('NestedCollectionBase', 'NestedCollectionDerived')");
         }
 
-        public override void Nested_include_collection_reference_on_non_entity_base()
+        public override async Task Nested_include_collection_reference_on_non_entity_base(bool async)
         {
-            base.Nested_include_collection_reference_on_non_entity_base();
+            await base.Nested_include_collection_reference_on_non_entity_base(async);
 
             AssertSql(
                 $@"SELECT `r`.`Id`, `r`.`Name`, `t`.`Id`, `t`.`Name`, `t`.`ReferenceId`, `t`.`ReferencedEntityId`, `t`.`Id0`, `t`.`Name0`

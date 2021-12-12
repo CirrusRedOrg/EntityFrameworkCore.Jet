@@ -10,9 +10,9 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class FiltersJetTest : FiltersTestBase<NorthwindQueryJetFixture<NorthwindFiltersCustomizer>>
+    public class FiltersJetTest : NorthwindQueryFiltersQueryTestBase<NorthwindQueryJetFixture<NorthwindQueryFiltersCustomizer>>
     {
-        public FiltersJetTest(NorthwindQueryJetFixture<NorthwindFiltersCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public FiltersJetTest(NorthwindQueryJetFixture<NorthwindQueryFiltersCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();

@@ -71,7 +71,7 @@ WHERE `p`.`DependentId` = {AssertSqlHelper.Parameter("@__category_PrincipalId_0"
                     entityType.GetForeignKeys().Single().GetConstraintName());
                 Assert.Equal(
                     "IX_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWork~",
-                    entityType.GetIndexes().Single().GetName());
+                    entityType.GetIndexes().Single().GetDatabaseName());
 
                 var entityType2 = context.Model.FindEntityType(
                     typeof(
@@ -86,13 +86,13 @@ WHERE `p`.`DependentId` = {AssertSqlHelper.Parameter("@__category_PrincipalId_0"
                     entityType2.GetKeys().Single().GetName());
                 Assert.Equal(
                     "ExtraPropertyWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCo~",
-                    entityType2.GetProperties().ElementAt(1).GetColumnName());
+                    entityType2.GetProperties().ElementAt(1).GetColumnBaseName());
                 Assert.Equal(
                     "ExtraPropertyWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingC~1",
-                    entityType2.GetProperties().ElementAt(2).GetColumnName());
+                    entityType2.GetProperties().ElementAt(2).GetColumnBaseName());
                 Assert.Equal(
                     "IX_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWor~1",
-                    entityType2.GetIndexes().Single().GetName());
+                    entityType2.GetIndexes().Single().GetDatabaseName());
             }
         }
 

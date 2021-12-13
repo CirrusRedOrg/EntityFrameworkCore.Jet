@@ -8,9 +8,9 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class CompiledQueryJetTest : CompiledQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class NorthwindCompiledQueryJetTest : NorthwindCompiledQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
-        public CompiledQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public NorthwindCompiledQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();
@@ -162,9 +162,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
-        public override async Task DbQuery_query_async()
+        public override async Task Keyless_query_async()
         {
-            await base.DbQuery_query_async();
+            await base.Keyless_query_async();
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`",
@@ -172,9 +172,9 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
                 $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
         }
 
-        public override void DbQuery_query_first()
+        public override void Keyless_query_first()
         {
-            base.DbQuery_query_first();
+            base.Keyless_query_first();
 
             AssertSql(
                 $@"SELECT TOP 1 `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
@@ -184,9 +184,9 @@ FROM (
 ORDER BY `c`.`CompanyName`");
         }
 
-        public override async Task DbQuery_query_first_async()
+        public override async Task Keyless_query_first_async()
         {
-            await base.DbQuery_query_first_async();
+            await base.Keyless_query_first_async();
 
             AssertSql(
                 $@"SELECT TOP 1 `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
@@ -196,9 +196,9 @@ FROM (
 ORDER BY `c`.`CompanyName`");
         }
 
-        public override void DbQuery_query()
+        public override void Keyless_query()
         {
-            base.DbQuery_query();
+            base.Keyless_query();
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`",

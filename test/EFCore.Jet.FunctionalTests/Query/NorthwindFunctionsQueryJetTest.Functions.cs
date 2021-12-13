@@ -6,13 +6,27 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest
+    public class NorthwindFunctionsQueryJetTest : NorthwindFunctionsQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
+        public NorthwindFunctionsQueryJetTest(
+#pragma warning disable IDE0060 // Remove unused parameter
+            NorthwindQueryJetFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
+#pragma warning restore IDE0060 // Remove unused parameter
+            : base(fixture)
+        {
+            ClearLog();
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        }
+
         public override async Task String_StartsWith_Literal(bool isAsync)
         {
             await base.String_StartsWith_Literal(isAsync);
@@ -1512,5 +1526,11 @@ WHERE 0 = 1");
 //WHERE `o`.`OrderID` < 10250
 //ORDER BY `A` DESC");
         }
+
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override void ClearLog()
+            => Fixture.TestSqlLoggerFactory.Clear();
     }
 }

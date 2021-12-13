@@ -762,7 +762,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             protected override IExecutionStrategy CreateDefaultStrategy(ExecutionStrategyDependencies dependencies)
             {
-                return new NoopExecutionStrategy(dependencies);
+                return new NonRetryingExecutionStrategy(dependencies);
             }
         }
 

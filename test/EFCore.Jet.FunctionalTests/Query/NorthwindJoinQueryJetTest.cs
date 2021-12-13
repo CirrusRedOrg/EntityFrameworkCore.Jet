@@ -2,12 +2,27 @@
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest
+    public class NorthwindJoinQueryJetTest : NorthwindJoinQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
+        public NorthwindJoinQueryJetTest(
+            NorthwindQueryJetFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
+            : base(fixture)
+        {
+            ClearLog();
+            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        }
+
+        protected override bool CanExecuteQueryString
+            => true;
+
         public override async Task Join_customers_orders_projection(bool isAsync)
         {
             await base.Join_customers_orders_projection(isAsync);
@@ -209,18 +224,6 @@ INNER JOIN (
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
-        public override async Task Join_client_new_expression(bool isAsync)
-        {
-            await base.Join_client_new_expression(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`",
-                //
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`");
-        }
-
         public override async Task Join_same_collection_multiple(bool isAsync)
         {
             await base.Join_same_collection_multiple(isAsync);
@@ -240,35 +243,6 @@ INNER JOIN `Customers` AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Orders` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`CustomerID` = `o0`.`CustomerID`");
-        }
-
-        public override async Task GroupJoin_customers_orders_count(bool isAsync)
-        {
-            await base.GroupJoin_customers_orders_count(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`");
-        }
-
-        public override async Task GroupJoin_customers_orders_count_preserves_ordering(bool isAsync)
-        {
-            await base.GroupJoin_customers_orders_count_preserves_ordering(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
-
-SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
-    ORDER BY `c`.`City`
-) AS `t`
-LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`City`, `t`.`CustomerID`");
         }
 
         public override async Task GroupJoin_simple(bool isAsync)
@@ -299,28 +273,6 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
                 $@"SELECT `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
-        }
-
-        public override async Task GroupJoin_tracking_groups(bool isAsync)
-        {
-            await base.GroupJoin_tracking_groups(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`");
-        }
-
-        public override async Task GroupJoin_tracking_groups2(bool isAsync)
-        {
-            await base.GroupJoin_tracking_groups2(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`");
         }
 
         public override async Task GroupJoin_simple_ordering(bool isAsync)
@@ -453,39 +405,7 @@ WHERE `o2`.`OrderID` IS NOT NULL AND (`o2`.`CustomerID` = 'ALFKI')");
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
         }
-
-        public override async Task GroupJoin_with_different_outer_elements_with_same_key(bool isAsync)
-        {
-            await base.GroupJoin_with_different_outer_elements_with_same_key(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
-        }
-
-        public override async Task GroupJoin_with_different_outer_elements_with_same_key_with_predicate(bool isAsync)
-        {
-            await base.GroupJoin_with_different_outer_elements_with_same_key_with_predicate(isAsync);
-
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE `o`.`OrderID` > 11500");
-        }
-
-        public override async Task GroupJoin_with_different_outer_elements_with_same_key_projected_from_another_entity(bool isAsync)
-        {
-            await base.GroupJoin_with_different_outer_elements_with_same_key_projected_from_another_entity(isAsync);
-
-            AssertSql(
-                $@"SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Order Details` AS `od`
-INNER JOIN `Orders` AS [od.Order] ON `od`.`OrderID` = [od.Order].`OrderID`
-LEFT JOIN `Customers` AS `c` ON [od.Order].`CustomerID` = `c`.`CustomerID`");
-        }
-
+        
         public override async Task GroupJoin_SelectMany_subquery_with_filter(bool isAsync)
         {
             await base.GroupJoin_SelectMany_subquery_with_filter(isAsync);
@@ -536,30 +456,6 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override async Task GroupJoin_with_order_by_key_descending1(bool isAsync)
-        {
-            await base.GroupJoin_with_order_by_key_descending1(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
-ORDER BY `c`.`CustomerID` DESC");
-        }
-
-        public override async Task GroupJoin_with_order_by_key_descending2(bool isAsync)
-        {
-            await base.GroupJoin_with_order_by_key_descending2(isAsync);
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
-ORDER BY `c`.`CustomerID` DESC");
-        }
-
         public override async Task GroupJoin_Subquery_with_Take_Then_SelectMany_Where(bool isAsync)
         {
             await base.GroupJoin_Subquery_with_Take_Then_SelectMany_Where(isAsync);
@@ -585,5 +481,11 @@ INNER JOIN (
         {
             return base.GroupJoin_subquery_projection_outer_mixed(isAsync);
         }
+        
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override void ClearLog()
+            => Fixture.TestSqlLoggerFactory.Clear();
     }
 }

@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public string SkipReason =>
             // ReSharper disable once UseStringInterpolation
             string.Format(
-                "The test SQL Server does not meet these conditions: '{0}'",
+                "The test Jet does not meet these conditions: '{0}'",
                 string.Join(
                     ", ", Enum.GetValues(typeof(JetCondition))
                         .Cast<Enum>()

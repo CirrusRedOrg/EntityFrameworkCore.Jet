@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model01
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<Standard>()
-                .HasIndex(_ => new {_.StandardName, _.StandardId}).HasName("MultipleColumnIndex");
+                .HasIndex(_ => new {_.StandardName, _.StandardId}).HasDatabaseName("MultipleColumnIndex");
             modelBuilder.Entity<Student>().HasIndex(_ => _.StudentName);
         }
     }

@@ -58,13 +58,22 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             _keepBreakingCharactersStringTypeMapping = ((JetStringTypeMapping) _stringTypeMapping).Clone(keepLineBreakCharacters: true);
         }
 
-        // ReSharper disable once OptionalParameterHierarchyMismatch
-        public override IReadOnlyList<MigrationCommand> Generate(IReadOnlyList<MigrationOperation> operations, IModel model)
+        /// <summary>
+        ///     Generates commands from a list of operations.
+        /// </summary>
+        /// <param name="operations"> The operations. </param>
+        /// <param name="model"> The target model which may be <see langword="null" /> if the operations exist without a model. </param>
+        /// <param name="options"> The options to use when generating commands. </param>
+        /// <returns> The list of commands to be executed or scripted. </returns>
+        public override IReadOnlyList<MigrationCommand> Generate(
+            IReadOnlyList<MigrationOperation> operations,
+            IModel model = null,
+            MigrationsSqlGenerationOptions options = MigrationsSqlGenerationOptions.Default)
         {
             _operations = operations;
             try
             {
-                return base.Generate(operations, model);
+                return base.Generate(operations, model, options);
             }
             finally
             {
@@ -123,7 +132,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             if (IsIdentity(operation))
             {
                 // NB: This gets added to all added non-nullable columns by MigrationsModelDiffer. We need to suppress
-                //     it, here because SQL Server can't have both IDENTITY and a DEFAULT constraint on the same column.
+                //     it, here because Jet can't have both IDENTITY and a DEFAULT constraint on the same column.
                 operation.DefaultValue = null;
             }
 
@@ -152,8 +161,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
 
-            IEnumerable<IIndex> indexesToRebuild = null;
-            var property = FindProperty(model, operation.Schema, operation.Table, operation.Name);
+            IEnumerable<ITableIndex> indexesToRebuild = null;
+            var column = model?.GetRelationalModel().FindTable(operation.Table, operation.Schema)
+                ?.Columns.FirstOrDefault(c => c.Name == operation.Name);
 
             if (operation.ComputedColumnSql != null)
             {
@@ -163,9 +173,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                     Table = operation.Table,
                     Name = operation.Name
                 };
-                if (property != null)
+                if (column != null)
                 {
-                    dropColumnOperation.AddAnnotations(_migrationsAnnotations.ForRemove(property));
+                    dropColumnOperation.AddAnnotations(column.GetAnnotations());
                 }
 
                 var addColumnOperation = new AddColumnOperation
@@ -187,8 +197,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 addColumnOperation.AddAnnotations(operation.GetAnnotations());
 
                 // TODO: Use a column rebuild instead
-                indexesToRebuild = GetIndexesToRebuild(property, operation)
-                    .ToList();
+                indexesToRebuild = GetIndexesToRebuild(column, operation).ToList();
                 DropIndexes(indexesToRebuild, builder);
                 Generate(dropColumnOperation, model, builder, terminate: false);
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
@@ -227,7 +236,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             if (narrowed)
             {
-                indexesToRebuild = GetIndexesToRebuild(property, operation)
+                indexesToRebuild = GetIndexesToRebuild(column, operation)
                     .ToList();
                 DropIndexes(indexesToRebuild, builder);
             }
@@ -783,7 +792,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
                 builder
                     .Append(" DEFAULT ")
-                    .Append(defaultValue);
+                    .Append((string)defaultValue);
             }
         }
 
@@ -861,47 +870,43 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         /// <summary>
-        ///     Gets the list of indexes that need to be rebuilt when the given property is changing.
+        ///     Gets the list of indexes that need to be rebuilt when the given column is changing.
         /// </summary>
-        /// <param name="property"> The property. </param>
+        /// <param name="column"> The column. </param>
         /// <param name="currentOperation"> The operation which may require a rebuild. </param>
         /// <returns> The list of indexes affected. </returns>
-        protected virtual IEnumerable<IIndex> GetIndexesToRebuild(
-            [CanBeNull] IProperty property,
+        protected virtual IEnumerable<ITableIndex> GetIndexesToRebuild(
+            [CanBeNull] IColumn column,
             [NotNull] MigrationOperation currentOperation)
         {
             Check.NotNull(currentOperation, nameof(currentOperation));
 
-            if (property == null)
+            if (column == null)
             {
                 yield break;
             }
 
+            var table = column.Table;
             var createIndexOperations = _operations.SkipWhile(o => o != currentOperation)
                 .Skip(1)
                 .OfType<CreateIndexOperation>()
                 .ToList();
-            foreach (var index in property.DeclaringEntityType.GetIndexes()
-                .Concat(
-                    property.DeclaringEntityType.GetDerivedTypes()
-                        .SelectMany(et => et.GetDeclaredIndexes())))
+            foreach (var index in table.Indexes)
             {
-                var indexName = index.GetName();
+                var indexName = index.Name;
                 if (createIndexOperations.Any(o => o.Name == indexName))
                 {
                     continue;
                 }
 
-                if (index.Properties.Any(p => p == property))
+                if (index.Columns.Any(c => c == column))
                 {
                     yield return index;
                 }
-                else if (index.GetIncludeProperties() is IReadOnlyList<string> includeProperties)
+                else if (index[JetAnnotationNames.Include] is IReadOnlyList<string> includeColumns
+                         && includeColumns.Contains(column.Name))
                 {
-                    if (includeProperties.Contains(property.Name))
-                    {
-                        yield return index;
-                    }
+                    yield return index;
                 }
             }
         }
@@ -912,7 +917,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="indexes"> The indexes to drop. </param>
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected virtual void DropIndexes(
-            [NotNull] IEnumerable<IIndex> indexes,
+            [NotNull] IEnumerable<ITableIndex> indexes,
             [NotNull] MigrationCommandListBuilder builder)
         {
             Check.NotNull(indexes, nameof(indexes));
@@ -920,15 +925,16 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             foreach (var index in indexes)
             {
+                var table = index.Table;
                 var operation = new DropIndexOperation
                 {
-                    Schema = index.DeclaringEntityType.GetSchema(),
-                    Table = index.DeclaringEntityType.GetTableName(),
-                    Name = index.GetName()
+                    Schema = table.Schema,
+                    Table = table.Name,
+                    Name = index.Name
                 };
-                operation.AddAnnotations(_migrationsAnnotations.ForRemove(index));
+                operation.AddAnnotations(index.GetAnnotations());
 
-                Generate(operation, index.DeclaringEntityType.Model, builder, terminate: false);
+                Generate(operation, table.Model.Model, builder, terminate: false);
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
             }
         }
@@ -939,7 +945,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="indexes"> The indexes to create. </param>
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected virtual void CreateIndexes(
-            [NotNull] IEnumerable<IIndex> indexes,
+            [NotNull] IEnumerable<ITableIndex> indexes,
             [NotNull] MigrationCommandListBuilder builder)
         {
             Check.NotNull(indexes, nameof(indexes));
@@ -947,19 +953,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             foreach (var index in indexes)
             {
-                var operation = new CreateIndexOperation
-                {
-                    IsUnique = index.IsUnique,
-                    Name = index.GetName(),
-                    Schema = index.DeclaringEntityType.GetSchema(),
-                    Table = index.DeclaringEntityType.GetTableName(),
-                    Columns = index.Properties.Select(p => p.GetColumnName())
-                        .ToArray(),
-                    Filter = index.GetFilter()
-                };
-                operation.AddAnnotations(_migrationsAnnotations.For(index));
-
-                Generate(operation, index.DeclaringEntityType.Model, builder, terminate: false);
+                Generate(CreateIndexOperation.CreateFrom(index), index.Table.Model.Model, builder, terminate: false);
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
             }
         }

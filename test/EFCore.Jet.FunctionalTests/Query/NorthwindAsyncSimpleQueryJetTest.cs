@@ -4,9 +4,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -16,10 +14,10 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class AsyncSimpleQueryJetTest : AsyncSimpleQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class NorthwindAsyncSimpleQueryJetTest : NorthwindAsyncSimpleQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
         // ReSharper disable once UnusedParameter.Local
-        public AsyncSimpleQueryJetTest(
+        public NorthwindAsyncSimpleQueryJetTest(
             NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {

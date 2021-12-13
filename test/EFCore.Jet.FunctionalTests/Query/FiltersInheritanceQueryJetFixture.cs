@@ -2,7 +2,7 @@
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class FiltersInheritanceJetFixture : InheritanceJetFixture
+    public class FiltersInheritanceQueryJetFixture : InheritanceQueryJetFixture
     {
         protected override bool EnableFilters => true;
     }

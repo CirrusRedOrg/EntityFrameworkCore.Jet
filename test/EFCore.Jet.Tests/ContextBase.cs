@@ -90,19 +90,19 @@ namespace EntityFrameworkCore.Jet
                 return base.NonQueryExecuting(command, eventData, result);
             }
 
-            public override Task<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = new CancellationToken())
+            public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = new CancellationToken())
             {
                 _commandLogger.Invoke(command);
                 return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
             }
 
-            public override Task<InterceptionResult<object>> ScalarExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<object> result, CancellationToken cancellationToken = new CancellationToken())
+            public override ValueTask<InterceptionResult<object>> ScalarExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<object> result, CancellationToken cancellationToken = new CancellationToken())
             {
                 _commandLogger.Invoke(command);
                 return base.ScalarExecutingAsync(command, eventData, result, cancellationToken);
             }
 
-            public override Task<InterceptionResult<int>> NonQueryExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = new CancellationToken())
+            public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = new CancellationToken())
             {
                 _commandLogger.Invoke(command);
                 return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);

@@ -26,29 +26,62 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        public static void DecimalTypeKeyWarning(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
+            [NotNull] IProperty property)
+        {
+            var definition = JetResources.LogDecimalTypeKey(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
+            }
+
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+            {
+                var eventData = new PropertyEventData(
+                    definition,
+                    DecimalTypeKeyWarning,
+                    property);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static string DecimalTypeKeyWarning(EventDefinitionBase definition, EventData payload)
+        {
+            var d = (EventDefinition<string, string>)definition;
+            var p = (PropertyEventData)payload;
+            return d.GenerateMessage(
+                p.Property.Name,
+                p.Property.DeclaringEntityType.DisplayName());
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public static void DecimalTypeDefaultWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
             [NotNull] IProperty property)
         {
             var definition = JetResources.LogDefaultDecimalTypeColumn(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
             }
 
-            if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                diagnostics.DiagnosticSource.Write(
-                    definition.EventId.Name,
-                    new PropertyEventData(
-                        definition,
-                        DecimalTypeDefaultWarning,
-                        property));
+                var eventData = new PropertyEventData(
+                    definition,
+                    DecimalTypeDefaultWarning,
+                    property);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
             }
         }
 
@@ -73,23 +106,19 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogByteIdentityColumn(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
             }
 
-            if (diagnostics.DiagnosticSource.IsEnabled(definition.EventId.Name))
+            if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
             {
-                diagnostics.DiagnosticSource.Write(
-                    definition.EventId.Name,
-                    new PropertyEventData(
-                        definition,
-                        ByteIdentityColumnWarning,
-                        property));
+                var eventData = new PropertyEventData(
+                    definition,
+                    ByteIdentityColumnWarning,
+                    property);
+
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
             }
         }
 
@@ -120,16 +149,15 @@ namespace EntityFrameworkCore.Jet.Internal
             bool nullable,
             bool identity,
             [CanBeNull] string defaultValue,
-            [CanBeNull] string computedValue)
+            [CanBeNull] string computedValue,
+            bool? stored)
         {
             var definition = JetResources.LogFoundColumn(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
                 definition.Log(
                     diagnostics,
-                    warningBehavior,
                     l => l.LogDebug(
                         definition.EventId,
                         null,
@@ -144,7 +172,8 @@ namespace EntityFrameworkCore.Jet.Internal
                         nullable,
                         identity,
                         defaultValue,
-                        computedValue));
+                        computedValue,
+                        stored));
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -165,13 +194,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundForeignKey(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    foreignKeyName, tableName, principalTableName, onDeleteAction);
+                definition.Log(diagnostics, foreignKeyName, tableName, principalTableName, onDeleteAction);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -189,13 +214,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundDefaultSchema(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    schemaName);
+                definition.Log(diagnostics, schemaName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -214,13 +235,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundTypeAlias(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    typeAliasName, systemTypeName);
+                definition.Log(diagnostics, typeAliasName, systemTypeName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -239,13 +256,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundPrimaryKey(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    primaryKeyName, tableName);
+                definition.Log(diagnostics, primaryKeyName, tableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -264,13 +277,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundUniqueConstraint(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    uniqueConstraintName, tableName);
+                definition.Log(diagnostics, uniqueConstraintName, tableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -290,13 +299,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundIndex(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    indexName, tableName, unique);
+                definition.Log(diagnostics, indexName, tableName, unique);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -316,13 +321,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogPrincipalTableNotInSelectionSet(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    foreignKeyName, tableName, principalTableName);
+                definition.Log(diagnostics, foreignKeyName, tableName, principalTableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -343,13 +344,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogPrincipalColumnNotFound(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    foreignKeyName, tableName, principalColumnName, principalTableName);
+                definition.Log(diagnostics, foreignKeyName, tableName, principalColumnName, principalTableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -367,13 +364,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogMissingSchema(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    schemaName);
+                definition.Log(diagnostics, schemaName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -391,13 +384,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogMissingTable(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    tableName);
+                definition.Log(diagnostics, tableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -422,12 +411,10 @@ namespace EntityFrameworkCore.Jet.Internal
             // No DiagnosticsSource events because these are purely design-time messages
             var definition = JetResources.LogFoundSequence(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
                 definition.Log(
                     diagnostics,
-                    warningBehavior,
                     l => l.LogDebug(
                         definition.EventId,
                         null,
@@ -454,13 +441,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundTable(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    tableName);
+                definition.Log(diagnostics, tableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages
@@ -479,13 +462,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogReflexiveConstraintIgnored(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    foreignKeyName, tableName);
+                definition.Log(diagnostics, foreignKeyName, tableName);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages

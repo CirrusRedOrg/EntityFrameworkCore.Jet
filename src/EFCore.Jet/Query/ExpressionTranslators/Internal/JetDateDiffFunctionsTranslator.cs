@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -204,7 +205,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             _sqlExpressionFactory = sqlExpressionFactory;
         }
 
-        public virtual SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
+        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             if (_methodInfoDateDiffMapping.TryGetValue(method, out var datePart))
             {
@@ -218,6 +219,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return _sqlExpressionFactory.Function(
                     "DATEDIFF",
                     new[] { _sqlExpressionFactory.Constant(datePart), startDate, endDate },
+                    false,
+                    new[] {false}, 
                     typeof(int));
             }
 

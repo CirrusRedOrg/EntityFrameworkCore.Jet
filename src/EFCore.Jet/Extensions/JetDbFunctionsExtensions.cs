@@ -2,7 +2,7 @@
 
 using System;
 using JetBrains.Annotations;
-using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -15,7 +15,7 @@ namespace Microsoft.EntityFrameworkCore
     {
         /// <summary>
         ///     Counts the number of year boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(YEAR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(YEAR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -25,11 +25,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
-            => endDate.Year - startDate.Year;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
 
         /// <summary>
         ///     Counts the number of year boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(YEAR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(YEAR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -39,13 +39,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffYear(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
 
         /// <summary>
         ///     Counts the number of year boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(YEAR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(YEAR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -55,11 +53,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
-            => DateDiffYear(_, startDate.UtcDateTime, endDate.UtcDateTime);
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
 
         /// <summary>
         ///     Counts the number of year boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(YEAR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(YEAR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -69,13 +67,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffYear(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
 
         /// <summary>
         ///     Counts the number of month boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MONTH,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MONTH,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -85,11 +81,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
-            => 12 * (endDate.Year - startDate.Year) + endDate.Month - startDate.Month;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
 
         /// <summary>
         ///     Counts the number of month boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MONTH,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MONTH,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -99,13 +95,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffMonth(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
 
         /// <summary>
         ///     Counts the number of month boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MONTH,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MONTH,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -115,11 +109,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
-            => DateDiffMonth(_, startDate.UtcDateTime, endDate.UtcDateTime);
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
 
         /// <summary>
         ///     Counts the number of month boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MONTH,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MONTH,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -129,13 +123,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffMonth(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
 
         /// <summary>
         ///     Counts the number of day boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(DAY,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(DAY,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -145,11 +137,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
-            => (endDate.Date - startDate.Date).Days;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
 
         /// <summary>
         ///     Counts the number of day boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(DAY,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(DAY,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -159,13 +151,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffDay(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
 
         /// <summary>
         ///     Counts the number of day boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(DAY,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(DAY,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -175,11 +165,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
-            => DateDiffDay(_, startDate.UtcDateTime, endDate.UtcDateTime);
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
 
         /// <summary>
         ///     Counts the number of day boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(DAY,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(DAY,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -189,13 +179,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffDay(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
 
         /// <summary>
         ///     Counts the number of hour boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(HOUR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(HOUR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -205,16 +193,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
-        {
-            checked
-            {
-                return DateDiffDay(_, startDate, endDate) * 24 + endDate.Hour - startDate.Hour;
-            }
-        }
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
 
         /// <summary>
         ///     Counts the number of hour boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(HOUR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(HOUR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -224,13 +207,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffHour(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
 
         /// <summary>
         ///     Counts the number of hour boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(HOUR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(HOUR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -240,11 +221,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
-            => DateDiffHour(_, startDate.UtcDateTime, endDate.UtcDateTime);
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
 
         /// <summary>
         ///     Counts the number of hour boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(HOUR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(HOUR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -254,13 +235,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffHour(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
 
         /// <summary>
         ///     Counts the number of hour boundaries crossed between the startTimeSpan and endTimeSpan.
-        ///     Corresponds to SQL Server's DATEDIFF(HOUR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(HOUR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startTimeSpan">Starting timespan for the calculation.</param>
@@ -270,16 +249,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             TimeSpan startTimeSpan,
             TimeSpan endTimeSpan)
-        {
-            checked
-            {
-                return endTimeSpan.Hours - startTimeSpan.Hours;
-            }
-        }
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
 
         /// <summary>
         ///     Counts the number of hour boundaries crossed between the startTimeSpan and endTimeSpan.
-        ///     Corresponds to SQL Server's DATEDIFF(HOUR,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(HOUR,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startTimeSpan">Starting timespan for the calculation.</param>
@@ -289,13 +263,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             TimeSpan? startTimeSpan,
             TimeSpan? endTimeSpan)
-            => (startTimeSpan.HasValue && endTimeSpan.HasValue)
-                ? (int?)DateDiffHour(_, startTimeSpan.Value, endTimeSpan.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
 
         /// <summary>
         ///     Counts the number of minute boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MINUTE,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MINUTE,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -305,16 +277,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
-        {
-            checked
-            {
-                return DateDiffHour(_, startDate, endDate) * 60 + endDate.Minute - startDate.Minute;
-            }
-        }
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
 
         /// <summary>
         ///     Counts the number of minute boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MINUTE,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MINUTE,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -324,13 +291,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffMinute(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
 
         /// <summary>
         ///     Counts the number of minute boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MINUTE,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MINUTE,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -340,11 +305,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
-            => DateDiffMinute(_, startDate.UtcDateTime, endDate.UtcDateTime);
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
 
         /// <summary>
         ///     Counts the number of minute boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(MINUTE,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MINUTE,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -354,13 +319,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffMinute(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
 
         /// <summary>
         ///     Counts the number of minute boundaries crossed between the startTimeSpan and endTimeSpan.
-        ///     Corresponds to SQL Server's DATEDIFF(MINUTE,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MINUTE,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startTimeSpan">Starting timespan for the calculation.</param>
@@ -370,16 +333,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             TimeSpan startTimeSpan,
             TimeSpan endTimeSpan)
-        {
-            checked
-            {
-                return DateDiffHour(_, startTimeSpan, endTimeSpan) * 60 + endTimeSpan.Minutes - startTimeSpan.Minutes;
-            }
-        }
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
 
         /// <summary>
         ///     Counts the number of minute boundaries crossed between the startTimeSpan and endTimeSpan.
-        ///     Corresponds to SQL Server's DATEDIFF(MINUTE,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(MINUTE,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startTimeSpan">Starting timespan for the calculation.</param>
@@ -389,13 +347,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             TimeSpan? startTimeSpan,
             TimeSpan? endTimeSpan)
-            => (startTimeSpan.HasValue && endTimeSpan.HasValue)
-                ? (int?)DateDiffMinute(_, startTimeSpan.Value, endTimeSpan.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
 
         /// <summary>
         ///     Counts the number of second boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(SECOND,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(SECOND,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -405,16 +361,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
-        {
-            checked
-            {
-                return DateDiffMinute(_, startDate, endDate) * 60 + endDate.Second - startDate.Second;
-            }
-        }
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
 
         /// <summary>
         ///     Counts the number of second boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(SECOND,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(SECOND,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -424,13 +375,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffSecond(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
 
         /// <summary>
         ///     Counts the number of second boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(SECOND,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(SECOND,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -440,11 +389,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
-            => DateDiffSecond(_, startDate.UtcDateTime, endDate.UtcDateTime);
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
 
         /// <summary>
         ///     Counts the number of second boundaries crossed between the startDate and endDate.
-        ///     Corresponds to SQL Server's DATEDIFF(SECOND,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(SECOND,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startDate">Starting date for the calculation.</param>
@@ -454,13 +403,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
-            => (startDate.HasValue && endDate.HasValue)
-                ? (int?)DateDiffSecond(_, startDate.Value, endDate.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
 
         /// <summary>
         ///     Counts the number of second boundaries crossed between the startTimeSpan and endTimeSpan.
-        ///     Corresponds to SQL Server's DATEDIFF(SECOND,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(SECOND,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startTimeSpan">Starting timespan for the calculation.</param>
@@ -470,16 +417,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             TimeSpan startTimeSpan,
             TimeSpan endTimeSpan)
-        {
-            checked
-            {
-                return DateDiffMinute(_, startTimeSpan, endTimeSpan) * 60 + endTimeSpan.Seconds - startTimeSpan.Seconds;
-            }
-        }
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
 
         /// <summary>
         ///     Counts the number of second boundaries crossed between the startTimeSpan and endTimeSpan.
-        ///     Corresponds to SQL Server's DATEDIFF(SECOND,startDate,endDate).
+        ///     Corresponds to Jet's DATEDIFF(SECOND,startDate,endDate).
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="startTimeSpan">Starting timespan for the calculation.</param>
@@ -489,13 +431,11 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             TimeSpan? startTimeSpan,
             TimeSpan? endTimeSpan)
-            => (startTimeSpan.HasValue && endTimeSpan.HasValue)
-                ? (int?)DateDiffSecond(_, startTimeSpan.Value, endTimeSpan.Value)
-                : null;
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
 
         /// <summary>
         ///     Validate if the given string is a valid date.
-        ///     Corresponds to the SQL Server's ISDATE('date').
+        ///     Corresponds to the Jet's ISDATE('date').
         /// </summary>
         /// <param name="_">The DbFunctions instance.</param>
         /// <param name="expression">Expression to validate</param>
@@ -503,6 +443,6 @@ namespace Microsoft.EntityFrameworkCore
         public static bool IsDate(
             [CanBeNull] this DbFunctions _,
             [NotNull] string expression)
-            => throw new InvalidOperationException(JetStrings.FunctionOnClient(nameof(IsDate)));
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsDate)));
     }
 }

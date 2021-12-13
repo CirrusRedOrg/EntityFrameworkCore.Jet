@@ -79,7 +79,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 Assert.NotNull(customers);
                 Assert.Contains(
 #pragma warning disable CS0612 // Type or member is obsolete
-                    CoreResources.LogIgnoredInclude(new TestLogger<JetLoggingDefinitions>()).GenerateMessage("`c`.Orders"),
+                    CoreResources.LogNavigationBaseIncludeIgnored(new TestLogger<JetLoggingDefinitions>()).GenerateMessage("`c`.Orders"),
                     Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
 #pragma warning restore CS0612 // Type or member is obsolete
             }
@@ -132,7 +132,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 Assert.NotNull(orders);
                 Assert.Contains(
 #pragma warning disable CS0612 // Type or member is obsolete
-                    CoreResources.LogIgnoredInclude(new TestLogger<JetLoggingDefinitions>()).GenerateMessage(
+                    CoreResources.LogNavigationBaseIncludeIgnored(new TestLogger<JetLoggingDefinitions>()).GenerateMessage(
 #pragma warning restore CS0612 // Type or member is obsolete
                         "{from Order o in `g` orderby `o`.OrderID asc select `o` => FirstOrDefault()}.OrderDetails"),
                     Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));

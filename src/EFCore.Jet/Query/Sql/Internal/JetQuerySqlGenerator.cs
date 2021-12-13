@@ -211,7 +211,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                                               .Alias, StringComparison.OrdinalIgnoreCase))
                    .All(e => e);
 
-        private void GeneratePseudoFromClause()
+        protected override void GeneratePseudoFromClause()
         {
             Sql.AppendLine()
                 .Append("FROM " + JetConfiguration.DUAL);
@@ -283,7 +283,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (typeMapping == null)
                 throw new InvalidOperationException(RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
-            if (_convertMappings.TryGetValue(typeMapping.ClrType.Name, out var function))
+            // We are explicitly converting to the target type (convertExpression.Type) and not the CLR type of the
+            // accociated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
+            // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
+            if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
                 Visit(
                     _sqlExpressionFactory.NullChecked(
@@ -291,6 +294,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         _sqlExpressionFactory.Function(
                             function,
                             new[] {convertExpression.Operand},
+                            false,
+                            new[] {false}, 
                             typeMapping.ClrType)));
 
                 return convertExpression;
@@ -326,17 +331,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return likeExpression;
         }
 
-        protected override string GenerateOperator(SqlBinaryExpression e)
-        {
-            return e.OperatorType switch
+        protected override string GetOperator([NotNull] SqlBinaryExpression binaryExpression)
+            => binaryExpression.OperatorType switch
             {
-                ExpressionType.Add when e.Type == typeof(string) => " & ",
+                ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",
                 ExpressionType.And => " BAND ",
                 ExpressionType.Modulo => " MOD ",
                 ExpressionType.Or => " BOR ",
-                _ => base.GenerateOperator(e),
+                _ => base.GetOperator(binaryExpression),
             };
-        }
 
         protected override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
         {

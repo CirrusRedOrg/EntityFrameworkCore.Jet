@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -39,7 +41,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public JetDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
+        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             if (_methodInfoDatePartMapping.TryGetValue(method, out var datePart))
             {
@@ -62,6 +64,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         amountToAdd,
                         instance
                     },
+                    false,
+                    new[] {false},
                     method.ReturnType);
             }
 

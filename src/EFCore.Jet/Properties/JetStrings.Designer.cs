@@ -72,6 +72,62 @@ namespace EntityFrameworkCore.Jet.Internal
             => GetString("AlterMemoryOptimizedTable");
 
         /// <summary>
+        ///     '{entityType1}.{property1}' and '{entityType2}.{property2}' are both mapped to column '{columnName}' in '{table}', but are configured with different identity increment values.
+        /// </summary>
+        public static string DuplicateColumnIdentityIncrementMismatch([CanBeNull] object entityType1, [CanBeNull] object property1, [CanBeNull] object entityType2, [CanBeNull] object property2, [CanBeNull] object columnName, [CanBeNull] object table)
+            => string.Format(
+                GetString("DuplicateColumnIdentityIncrementMismatch", nameof(entityType1), nameof(property1), nameof(entityType2), nameof(property2), nameof(columnName), nameof(table)),
+                entityType1, property1, entityType2, property2, columnName, table);
+
+        /// <summary>
+        ///     '{entityType1}.{property1}' and '{entityType2}.{property2}' are both mapped to column '{columnName}' in '{table}', but are configured with different identity seed values.
+        /// </summary>
+        public static string DuplicateColumnIdentitySeedMismatch([CanBeNull] object entityType1, [CanBeNull] object property1, [CanBeNull] object entityType2, [CanBeNull] object property2, [CanBeNull] object columnName, [CanBeNull] object table)
+            => string.Format(
+                GetString("DuplicateColumnIdentitySeedMismatch", nameof(entityType1), nameof(property1), nameof(entityType2), nameof(property2), nameof(columnName), nameof(table)),
+                entityType1, property1, entityType2, property2, columnName, table);
+
+        /// <summary>
+        ///     '{entityType1}.{property1}' and '{entityType2}.{property2}' are both mapped to column '{columnName}' in '{table}', but are configured with different hi-lo sequences.
+        /// </summary>
+        public static string DuplicateColumnSequenceMismatch([CanBeNull] object entityType1, [CanBeNull] object property1, [CanBeNull] object entityType2, [CanBeNull] object property2, [CanBeNull] object columnName, [CanBeNull] object table)
+            => string.Format(
+                GetString("DuplicateColumnSequenceMismatch", nameof(entityType1), nameof(property1), nameof(entityType2), nameof(property2), nameof(columnName), nameof(table)),
+                entityType1, property1, entityType2, property2, columnName, table);
+
+        /// <summary>
+        ///     The indexes {index1} on '{entityType1}' and {index2} on '{entityType2}' are both mapped to '{table}.{indexName}', but have different clustered configurations.
+        /// </summary>
+        public static string DuplicateIndexClusteredMismatch([CanBeNull] object index1, [CanBeNull] object entityType1, [CanBeNull] object index2, [CanBeNull] object entityType2, [CanBeNull] object table, [CanBeNull] object indexName)
+            => string.Format(
+                GetString("DuplicateIndexClusteredMismatch", nameof(index1), nameof(entityType1), nameof(index2), nameof(entityType2), nameof(table), nameof(indexName)),
+                index1, entityType1, index2, entityType2, table, indexName);
+
+        /// <summary>
+        ///     The indexes {index1} on '{entityType1}' and {index2} on '{entityType2}' are both mapped to '{table}.{indexName}', but have different fill factor configurations.
+        /// </summary>
+        public static string DuplicateIndexFillFactorMismatch([CanBeNull] object index1, [CanBeNull] object entityType1, [CanBeNull] object index2, [CanBeNull] object entityType2, [CanBeNull] object table, [CanBeNull] object indexName)
+            => string.Format(
+                GetString("DuplicateIndexFillFactorMismatch", nameof(index1), nameof(entityType1), nameof(index2), nameof(entityType2), nameof(table), nameof(indexName)),
+                index1, entityType1, index2, entityType2, table, indexName);
+
+        /// <summary>
+        ///     The indexes {index1} on '{entityType1}' and {index2} on '{entityType2}' are both mapped to '{table}.{indexName}', but have different included columns: {includedColumns1} and {includedColumns2}.
+        /// </summary>
+        public static string DuplicateIndexIncludedMismatch([CanBeNull] object index1, [CanBeNull] object entityType1, [CanBeNull] object index2, [CanBeNull] object entityType2, [CanBeNull] object table, [CanBeNull] object indexName, [CanBeNull] object includedColumns1, [CanBeNull] object includedColumns2)
+            => string.Format(
+                GetString("DuplicateIndexIncludedMismatch", nameof(index1), nameof(entityType1), nameof(index2), nameof(entityType2), nameof(table), nameof(indexName), nameof(includedColumns1), nameof(includedColumns2)),
+                index1, entityType1, index2, entityType2, table, indexName, includedColumns1, includedColumns2);
+
+        /// <summary>
+        ///     The indexes {index1} on '{entityType1}' and {index2} on '{entityType2}' are both mapped to '{table}.{indexName}', but have different online configurations.
+        /// </summary>
+        public static string DuplicateIndexOnlineMismatch([CanBeNull] object index1, [CanBeNull] object entityType1, [CanBeNull] object index2, [CanBeNull] object entityType2, [CanBeNull] object table, [CanBeNull] object indexName)
+            => string.Format(
+                GetString("DuplicateIndexOnlineMismatch", nameof(index1), nameof(entityType1), nameof(index2), nameof(entityType2), nameof(table), nameof(indexName)),
+                index1, entityType1, index2, entityType2, table, indexName);
+
+        /// <summary>
         ///     To change the IDENTITY property of a column, the column needs to be dropped and recreated.
         /// </summary>
         public static string AlterIdentityColumn
@@ -206,6 +262,54 @@ namespace EntityFrameworkCore.Jet.Internal
     {
         private static readonly ResourceManager _resourceManager
             = new ResourceManager("EntityFrameworkCore.Jet.Properties.JetStrings", typeof(JetResources).GetTypeInfo().Assembly);
+
+        /// <summary>
+        ///     Both the JetValueGenerationStrategy '{generationStrategy}' and '{otherGenerationStrategy}' have been set on property '{propertyName}' on entity type '{entityName}'. Configuring two strategies is usually unintentional and will likely result in a database error.
+        /// </summary>
+        public static EventDefinition<string, string, string, string> LogConflictingValueGenerationStrategies([NotNull] IDiagnosticsLogger logger)
+        {
+            var definition = ((Diagnostics.Internal.JetLoggingDefinitions)logger.Definitions).LogConflictingValueGenerationStrategies;
+            if (definition == null)
+            {
+                definition = LazyInitializer.EnsureInitialized<EventDefinitionBase>(
+                    ref ((Diagnostics.Internal.JetLoggingDefinitions)logger.Definitions).LogConflictingValueGenerationStrategies,
+                    () => new EventDefinition<string, string, string, string>(
+                        logger.Options,
+                        JetEventId.ConflictingValueGenerationStrategiesWarning,
+                        LogLevel.Warning,
+                        "JetEventId.ConflictingValueGenerationStrategiesWarning",
+                        level => LoggerMessage.Define<string, string, string, string>(
+                            level,
+                            JetEventId.ConflictingValueGenerationStrategiesWarning,
+                            _resourceManager.GetString("LogConflictingValueGenerationStrategies"))));
+            }
+
+            return (EventDefinition<string, string, string, string>)definition;
+        }
+
+        /// <summary>
+        ///     The decimal property '{property}' is part of a key on entity type '{entityType}'. If the configured precision and scale don't match the column type in the database, this will cause values to be silently truncated if they do not fit in the default precision and scale. Consider using a different property as the key, or make sure that the database column type matches the model configuration and enable decimal rounding warnings using 'SET NUMERIC_ROUNDABORT ON'.
+        /// </summary>
+        public static EventDefinition<string, string> LogDecimalTypeKey([NotNull] IDiagnosticsLogger logger)
+        {
+            var definition = ((Diagnostics.Internal.JetLoggingDefinitions)logger.Definitions).LogDecimalTypeKey;
+            if (definition == null)
+            {
+                definition = LazyInitializer.EnsureInitialized<EventDefinitionBase>(
+                    ref ((Diagnostics.Internal.JetLoggingDefinitions)logger.Definitions).LogDecimalTypeKey,
+                    () => new EventDefinition<string, string>(
+                        logger.Options,
+                        JetEventId.DecimalTypeKeyWarning,
+                        LogLevel.Warning,
+                        "JetEventId.DecimalTypeKeyWarning",
+                        level => LoggerMessage.Define<string, string>(
+                            level,
+                            JetEventId.DecimalTypeKeyWarning,
+                            _resourceManager.GetString("LogDecimalTypeKey"))));
+            }
+
+            return (EventDefinition<string, string>)definition;
+        }
 
         /// <summary>
         ///     No type was specified for the decimal column '{property}' on entity type '{entityType}'. This will cause values to be silently truncated if they do not fit in the default precision and scale. Explicitly specify the Jet column type that can accommodate all the values using 'HasColumnType()'.

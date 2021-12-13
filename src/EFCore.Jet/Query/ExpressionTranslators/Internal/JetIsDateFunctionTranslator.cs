@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
@@ -18,13 +19,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public JetIsDateFunctionTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = sqlExpressionFactory;
 
-        public virtual SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments)
+        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             return _methodInfo.Equals(method)
                 ? _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Function(
                         "ISDATE",
                         new[] { arguments[1] },
+                        false,
+                        new[] {false},
                         _methodInfo.ReturnType),
                     _methodInfo.ReturnType)
                 : null;

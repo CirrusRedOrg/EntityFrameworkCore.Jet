@@ -2,11 +2,27 @@
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest
+    public class NorthwindWhereQueryJetTest : NorthwindWhereQueryRelationalTestBase<
+        NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
+        public NorthwindWhereQueryJetTest(
+            NorthwindQueryJetFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
+            : base(fixture)
+        {
+            ClearLog();
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        }
+
+        protected override bool CanExecuteQueryString
+            => true;
+
         public override async Task Where_simple(bool isAsync)
         {
             await base.Where_simple(isAsync);
@@ -30,9 +46,9 @@ WHERE EXISTS (
     WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI'))");
         }
 
-        public override async Task Where_simple_closure(bool isAsync)
+        public override async Task<string> Where_simple_closure(bool isAsync)
         {
-            await base.Where_simple_closure(isAsync);
+            var queryString = await base.Where_simple_closure(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__city_0='London' (Size = 4000)")}
@@ -40,6 +56,8 @@ WHERE EXISTS (
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__city_0")}");
+
+            return queryString;
         }
 
         public override async Task Where_indexer_closure(bool isAsync)
@@ -1396,31 +1414,7 @@ WHERE `p`.`UnitsInStock` >= 20");
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`");
         }
-
-        public override async Task Ternary_should_not_evaluate_both_sides(bool isAsync)
-        {
-            await base.Ternary_should_not_evaluate_both_sides(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='none' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@__p_1='none' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@__p_2='none' (Size = 4000)")}
-
-SELECT `c`.`CustomerID`, {AssertSqlHelper.Parameter("@__p_0")} AS `Data1`, {AssertSqlHelper.Parameter("@__p_1")} AS `Data2`, {AssertSqlHelper.Parameter("@__p_2")} AS `Data3`
-FROM `Customers` AS `c`");
-        }
-
-        public override async Task Ternary_should_not_evaluate_both_sides_with_parameter(bool isAsync)
-        {
-            await base.Ternary_should_not_evaluate_both_sides_with_parameter(isAsync);
-
-            AssertSql(
-                $@"SELECT True AS `Data1`
-FROM `Orders` AS `o`");
-        }
-
+        
         public override async Task Where_compare_constructed_multi_value_equal(bool isAsync)
         {
             await base.Where_compare_constructed_multi_value_equal(isAsync);
@@ -1721,19 +1715,7 @@ WHERE `o`.`OrderID` = 1");
 FROM `Customers` AS `c`
 WHERE `c`.`City` IN ('Seattle')");
         }
-
-        public override async Task Project_non_nullable_value_after_FirstOrDefault_on_empty_collection(bool isAsync)
-        {
-            await base.Project_non_nullable_value_after_FirstOrDefault_on_empty_collection(isAsync);
-
-            AssertSql(
-                $@"SELECT (
-    SELECT TOP 1 CAST(LEN(`o`.`CustomerID`) AS int)
-    FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` = 'John Doe')
-FROM `Customers` AS `c`");
-        }
-
+        
         public override async Task Filter_non_nullable_value_after_FirstOrDefault_on_empty_collection(bool isAsync)
         {
             await base.Filter_non_nullable_value_after_FirstOrDefault_on_empty_collection(isAsync);
@@ -1766,5 +1748,11 @@ WHERE CONVERT(VARCHAR(11), `o`.`OrderID`) LIKE '%20%'");
 FROM `Orders` AS `o`
 WHERE CAST(`o`.`OrderID` AS nvarchar(max)) LIKE '%20%'");
         }
+
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override void ClearLog()
+            => Fixture.TestSqlLoggerFactory.Clear();
     }
 }

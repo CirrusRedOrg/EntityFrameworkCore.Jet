@@ -1,21 +1,22 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.TestModels.Inheritance;
+using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
 using Xunit;
 using Xunit.Abstractions;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class InheritanceJetTest : InheritanceRelationalTestBase<InheritanceJetFixture>
+    public class InheritanceQueryJetTest : InheritanceRelationalQueryTestBase<InheritanceQueryJetFixture>
     {
 #pragma warning disable IDE0060 // Remove unused parameter
-        public InheritanceJetTest(InheritanceJetFixture fixture, ITestOutputHelper testOutputHelper)
+        public InheritanceQueryJetTest(InheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
 #pragma warning restore IDE0060 // Remove unused parameter
             : base(fixture)
         {
@@ -32,21 +33,21 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 var cokeType = context.Model.FindEntityType(typeof(Coke));
                 var teaType = context.Model.FindEntityType(typeof(Tea));
 
-                Assert.Equal("SugarGrams", cokeType.FindProperty("SugarGrams").GetColumnName());
-                Assert.Equal("CaffeineGrams", cokeType.FindProperty("CaffeineGrams").GetColumnName());
-                Assert.Equal("CokeCO2", cokeType.FindProperty("Carbonation").GetColumnName());
+                Assert.Equal("SugarGrams", cokeType.FindProperty("SugarGrams").GetColumnBaseName());
+                Assert.Equal("CaffeineGrams", cokeType.FindProperty("CaffeineGrams").GetColumnBaseName());
+                Assert.Equal("CokeCO2", cokeType.FindProperty("Carbonation").GetColumnBaseName());
 
-                Assert.Equal("SugarGrams", liltType.FindProperty("SugarGrams").GetColumnName());
-                Assert.Equal("LiltCO2", liltType.FindProperty("Carbonation").GetColumnName());
+                Assert.Equal("SugarGrams", liltType.FindProperty("SugarGrams").GetColumnBaseName());
+                Assert.Equal("LiltCO2", liltType.FindProperty("Carbonation").GetColumnBaseName());
 
-                Assert.Equal("CaffeineGrams", teaType.FindProperty("CaffeineGrams").GetColumnName());
-                Assert.Equal("HasMilk", teaType.FindProperty("HasMilk").GetColumnName());
+                Assert.Equal("CaffeineGrams", teaType.FindProperty("CaffeineGrams").GetColumnBaseName());
+                Assert.Equal("HasMilk", teaType.FindProperty("HasMilk").GetColumnBaseName());
             }
         }
 
-        public override void Can_query_when_shared_column()
+        public override async Task Can_query_when_shared_column(bool async)
         {
-            base.Can_query_when_shared_column();
+            await base.Can_query_when_shared_column(async);
 
             AssertSql(
                 $@"SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`SugarGrams`
@@ -86,9 +87,9 @@ FROM (
 WHERE `a`.`Discriminator` = 'Eagle'");
         }
 
-        public override void Can_query_all_types_when_shared_column()
+        public override async Task Can_query_all_types_when_shared_column(bool async)
         {
-            base.Can_query_all_types_when_shared_column();
+            await base.Can_query_all_types_when_shared_column(async);
 
             AssertSql(
                 $@"SELECT `d`.`Id`, `d`.`Discriminator`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`SugarGrams`, `d`.`LiltCO2`, `d`.`HasMilk`
@@ -96,9 +97,9 @@ FROM `Drink` AS `d`
 WHERE `d`.`Discriminator` IN ('Drink', 'Coke', 'Lilt', 'Tea')");
         }
 
-        public override void Can_use_of_type_animal()
+        public override async Task Can_use_of_type_animal(bool async)
         {
-            base.Can_use_of_type_animal();
+            await base.Can_use_of_type_animal(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -107,9 +108,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_use_is_kiwi()
+        public override async Task Can_use_is_kiwi(bool async)
         {
-            base.Can_use_is_kiwi();
+            await base.Can_use_is_kiwi(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -117,9 +118,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`Discriminator` = 'Kiwi')");
         }
 
-        public override void Can_use_is_kiwi_with_other_predicate()
+        public override async Task Can_use_is_kiwi_with_other_predicate(bool async)
         {
-            base.Can_use_is_kiwi_with_other_predicate();
+            await base.Can_use_is_kiwi_with_other_predicate(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -127,9 +128,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND ((`a`.`Discriminator` = 'Kiwi') AND (`a`.`CountryId` = 1))");
         }
 
-        public override void Can_use_is_kiwi_in_projection()
+        public override async Task Can_use_is_kiwi_in_projection(bool async)
         {
-            base.Can_use_is_kiwi_in_projection();
+            await base.Can_use_is_kiwi_in_projection(async);
 
             AssertSql(
                 $@"SELECT IIF(`a`.`Discriminator` = 'Kiwi', 1, 0)
@@ -137,9 +138,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi')");
         }
 
-        public override void Can_use_of_type_bird()
+        public override async Task Can_use_of_type_bird(bool async)
         {
-            base.Can_use_of_type_bird();
+            await base.Can_use_of_type_bird(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -148,9 +149,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND `a`.`Discriminator` IN ('Eagl
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_use_of_type_bird_predicate()
+        public override async Task Can_use_of_type_bird_predicate(bool async)
         {
-            base.Can_use_of_type_bird_predicate();
+            await base.Can_use_of_type_bird_predicate(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -159,9 +160,9 @@ WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`CountryId` = 1)) AND `
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_use_of_type_bird_with_projection()
+        public override async Task Can_use_of_type_bird_with_projection(bool async)
         {
-            base.Can_use_of_type_bird_with_projection();
+            await base.Can_use_of_type_bird_with_projection(async);
 
             AssertSql(
                 $@"SELECT `a`.`EagleId`
@@ -169,9 +170,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND `a`.`Discriminator` IN ('Eagle', 'Kiwi')");
         }
 
-        public override void Can_use_of_type_bird_first()
+        public override async Task Can_use_of_type_bird_first(bool async)
         {
-            base.Can_use_of_type_bird_first();
+            await base.Can_use_of_type_bird_first(async);
 
             AssertSql(
                 $@"SELECT TOP 1 `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -180,9 +181,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND `a`.`Discriminator` IN ('Eagl
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_use_of_type_kiwi()
+        public override async Task Can_use_of_type_kiwi(bool async)
         {
-            base.Can_use_of_type_kiwi();
+            await base.Can_use_of_type_kiwi(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
@@ -190,9 +191,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`Discriminator` = 'Kiwi')");
         }
 
-        public override void Can_use_of_type_rose()
+        public override async Task Can_use_of_type_rose(bool async)
         {
-            base.Can_use_of_type_rose();
+            await base.Can_use_of_type_rose(async);
 
             AssertSql(
                 $@"SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
@@ -200,9 +201,9 @@ FROM `Plant` AS `p`
 WHERE `p`.`Genus` IN (1, 0) AND (`p`.`Genus` = 0)");
         }
 
-        public override void Can_query_all_animals()
+        public override async Task Can_query_all_animals(bool async)
         {
-            base.Can_query_all_animals();
+            await base.Can_query_all_animals(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -211,9 +212,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_query_all_animal_views()
+        public override async Task Can_query_all_animal_views(bool async)
         {
-            base.Can_query_all_animal_views();
+            await base.Can_query_all_animal_views(async);
 
             AssertSql(
                 $@"SELECT `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -224,9 +225,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`CountryId`");
         }
 
-        public override void Can_query_all_plants()
+        public override async Task Can_query_all_plants(bool async)
         {
-            base.Can_query_all_plants();
+            await base.Can_query_all_plants(async);
 
             AssertSql(
                 $@"SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
@@ -235,9 +236,9 @@ WHERE `p`.`Genus` IN (1, 0)
 ORDER BY `p`.`Species`");
         }
 
-        public override void Can_filter_all_animals()
+        public override async Task Can_filter_all_animals(bool async)
         {
-            base.Can_filter_all_animals();
+            await base.Can_filter_all_animals(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -246,9 +247,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`Name` = 'Great spotted 
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_query_all_birds()
+        public override async Task Can_query_all_birds(bool async)
         {
-            base.Can_query_all_birds();
+            await base.Can_query_all_birds(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
@@ -257,9 +258,9 @@ WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi')
 ORDER BY `a`.`Species`");
         }
 
-        public override void Can_query_just_kiwis()
+        public override async Task Can_query_just_kiwis(bool async)
         {
-            base.Can_query_just_kiwis();
+            await base.Can_query_just_kiwis(async);
 
             AssertSql(
                 $@"SELECT TOP 2 `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
@@ -267,9 +268,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'");
         }
 
-        public override void Can_query_just_roses()
+        public override async Task Can_query_just_roses(bool async)
         {
-            base.Can_query_just_roses();
+            await base.Can_query_just_roses(async);
 
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
@@ -278,9 +279,9 @@ WHERE `p`.`Genus` = 0"
             );
         }
 
-        public override void Can_include_prey()
+        public override async Task Can_include_prey(bool async)
         {
-            base.Can_include_prey();
+            await base.Can_include_prey(async);
 
             AssertSql(
                 $@"SELECT `t`.`Species`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`Group`, `t0`.`Species`, `t0`.`CountryId`, `t0`.`Discriminator`, `t0`.`Name`, `t0`.`EagleId`, `t0`.`IsFlightless`, `t0`.`Group`, `t0`.`FoundOn`
@@ -297,9 +298,9 @@ LEFT JOIN (
 ORDER BY `t`.`Species`, `t0`.`Species`");
         }
 
-        public override void Can_include_animals()
+        public override async Task Can_include_animals(bool async)
         {
-            base.Can_include_animals();
+            await base.Can_include_animals(async);
 
             AssertSql(
                 $@"SELECT `c`.`Id`, `c`.`Name`, `t`.`Species`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`Group`, `t`.`FoundOn`
@@ -312,9 +313,9 @@ LEFT JOIN (
 ORDER BY `c`.`Name`, `c`.`Id`, `t`.`Species`");
         }
 
-        public override void Can_use_of_type_kiwi_where_north_on_derived_property()
+        public override async Task Can_use_of_type_kiwi_where_north_on_derived_property(bool async)
         {
-            base.Can_use_of_type_kiwi_where_north_on_derived_property();
+            await base.Can_use_of_type_kiwi_where_north_on_derived_property(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
@@ -322,9 +323,9 @@ FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`Discriminator` = 'Kiwi')) AND (`a`.`FoundOn` = 0)");
         }
 
-        public override void Can_use_of_type_kiwi_where_south_on_derived_property()
+        public override async Task Can_use_of_type_kiwi_where_south_on_derived_property(bool async)
         {
-            base.Can_use_of_type_kiwi_where_south_on_derived_property();
+            await base.Can_use_of_type_kiwi_where_south_on_derived_property(async);
 
             AssertSql(
                 $@"SELECT `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
@@ -332,9 +333,9 @@ FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` IN ('Eagle', 'Kiwi') AND (`a`.`Discriminator` = 'Kiwi')) AND (`a`.`FoundOn` = 1)");
         }
 
-        public override void Discriminator_used_when_projection_over_derived_type()
+        public override async Task Discriminator_used_when_projection_over_derived_type(bool async)
         {
-            base.Discriminator_used_when_projection_over_derived_type();
+            await base.Discriminator_used_when_projection_over_derived_type(async);
 
             AssertSql(
                 $@"SELECT `a`.`FoundOn`
@@ -342,9 +343,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'");
         }
 
-        public override void Discriminator_used_when_projection_over_derived_type2()
+        public override async Task Discriminator_used_when_projection_over_derived_type2(bool async)
         {
-            base.Discriminator_used_when_projection_over_derived_type2();
+            await base.Discriminator_used_when_projection_over_derived_type2(async);
 
             AssertSql(
                 $@"SELECT `a`.`IsFlightless`, `a`.`Discriminator`
@@ -352,9 +353,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` IN ('Eagle', 'Kiwi')");
         }
 
-        public override void Discriminator_used_when_projection_over_of_type()
+        public override async Task Discriminator_used_when_projection_over_of_type(bool async)
         {
-            base.Discriminator_used_when_projection_over_of_type();
+            await base.Discriminator_used_when_projection_over_of_type(async);
 
             AssertSql(
                 $@"SELECT `a`.`FoundOn`
@@ -417,9 +418,9 @@ FROM `Animal` AS `a`
 WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%owenii')");
         }
 
-        public override void Byte_enum_value_constant_used_in_projection()
+        public override async Task Byte_enum_value_constant_used_in_projection(bool async)
         {
-            base.Byte_enum_value_constant_used_in_projection();
+            await base.Byte_enum_value_constant_used_in_projection(async);
 
             AssertSql(
                 $@"SELECT CASE
@@ -430,9 +431,9 @@ FROM `Animal` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'");
         }
 
-        public override void Union_siblings_with_duplicate_property_in_subquery()
+        public override async Task Union_siblings_with_duplicate_property_in_subquery(bool async)
         {
-            base.Union_siblings_with_duplicate_property_in_subquery();
+            await base.Union_siblings_with_duplicate_property_in_subquery(async);
 
             AssertSql(
                 $@"SELECT `t`.`Id`, `t`.`Discriminator`, `t`.`CaffeineGrams`, `t`.`CokeCO2`, `t`.`SugarGrams`, `t`.`Carbonation`, `t`.`SugarGrams0`, `t`.`CaffeineGrams0`, `t`.`HasMilk`
@@ -448,9 +449,9 @@ FROM (
 WHERE `t`.`Id` > 0");
         }
 
-        public override void OfType_Union_subquery()
+        public override async Task OfType_Union_subquery(bool async)
         {
-            base.OfType_Union_subquery();
+            await base.OfType_Union_subquery(async);
 
             AssertSql(
                 $@"SELECT `t`.`Species`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`FoundOn`
@@ -466,16 +467,16 @@ FROM (
 WHERE (`t`.`FoundOn` = 0) AND `t`.`FoundOn` IS NOT NULL");
         }
 
-        public override void OfType_Union_OfType()
+        public override async Task OfType_Union_OfType(bool async)
         {
-            base.OfType_Union_OfType();
+            await base.OfType_Union_OfType(async);
 
             AssertSql($@" ");
         }
 
-        public override void Subquery_OfType()
+        public override async Task Subquery_OfType(bool async)
         {
-            base.Subquery_OfType();
+            await base.Subquery_OfType(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
@@ -489,9 +490,9 @@ FROM (
 WHERE `t`.`Discriminator` = 'Kiwi'");
         }
 
-        public override void Union_entity_equality()
+        public override async Task Union_entity_equality(bool async)
         {
-            base.Union_entity_equality();
+            await base.Union_entity_equality(async);
 
             AssertSql(
                 $@"SELECT `t`.`Species`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`Group`, `t`.`FoundOn`

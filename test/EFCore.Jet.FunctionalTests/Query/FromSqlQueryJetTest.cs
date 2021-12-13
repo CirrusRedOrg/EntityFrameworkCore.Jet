@@ -45,9 +45,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 $@"SELECT ""Region"", ""PostalCode"", ""PostalCode"" AS ""Foo"", ""Phone"", ""Fax"", ""CustomerID"", ""Country"", ""ContactTitle"", ""ContactName"", ""CompanyName"", ""City"", ""Address"" FROM ""Customers""");
         }
 
-        public override void FromSqlRaw_queryable_composed()
+        public override string FromSqlRaw_queryable_composed()
         {
-            base.FromSqlRaw_queryable_composed();
+            var queryString = base.FromSqlRaw_queryable_composed();
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -55,6 +55,8 @@ FROM (
     SELECT * FROM ""Customers""
 ) AS `c`
 WHERE CHARINDEX('z', `c`.`ContactName`) > 0");
+
+            return queryString;
         }
 
         public override void FromSqlRaw_queryable_composed_after_removing_whitespaces()
@@ -330,9 +332,9 @@ WHERE `c`.`CustomerID` = `o`.`CustomerID`");
 SELECT * FROM ""Employees"" WHERE ""ReportsTo"" = {AssertSqlHelper.Parameter("@p0")} OR (""ReportsTo"" IS NULL AND {AssertSqlHelper.Parameter("@p0")} IS NULL)");
         }
 
-        public override void FromSqlRaw_queryable_with_parameters_and_closure()
+        public override string FromSqlRaw_queryable_with_parameters_and_closure()
         {
-            base.FromSqlRaw_queryable_with_parameters_and_closure();
+            var queryString = base.FromSqlRaw_queryable_with_parameters_and_closure();
 
             AssertSql(
                 $@"p0='London' (Size = 4000)
@@ -343,6 +345,8 @@ FROM (
     SELECT * FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")}
 ) AS `c`
 WHERE `c`.`ContactTitle` = {AssertSqlHelper.Parameter("@__contactTitle_1")}");
+
+            return queryString;
         }
 
         public override void FromSqlRaw_queryable_simple_cache_key_includes_query_string()

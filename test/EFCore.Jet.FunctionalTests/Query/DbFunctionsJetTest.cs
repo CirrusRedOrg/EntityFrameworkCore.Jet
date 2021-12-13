@@ -2,6 +2,7 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -13,7 +14,7 @@ using EF = Microsoft.EntityFrameworkCore.EF;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class DbFunctionsJetTest : DbFunctionsTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class DbFunctionsJetTest : NorthwindDbFunctionsQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
         public DbFunctionsJetTest(
             NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
@@ -23,9 +24,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        public override void Like_literal()
+        public override async Task Like_literal(bool async)
         {
-            base.Like_literal();
+            await base.Like_literal(async);
 
             AssertSql(
                 $@"SELECT COUNT(*)
@@ -33,9 +34,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`ContactName` LIKE '%M%'");
         }
 
-        public override void Like_identity()
+        public override async Task Like_identity(bool async)
         {
-            base.Like_identity();
+            await base.Like_identity(async);
 
             AssertSql(
                 $@"SELECT COUNT(*)
@@ -43,9 +44,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`ContactName` LIKE `c`.`ContactName`");
         }
 
-        public override void Like_literal_with_escape()
+        public override async Task Like_literal_with_escape(bool async)
         {
-            base.Like_literal_with_escape();
+            await base.Like_literal_with_escape(async);
 
             AssertSql(
                 $@"SELECT COUNT(*)
@@ -218,5 +219,8 @@ WHERE CAST(ISDATE(`o`.`CustomerID` + CAST(`o`.`OrderID` AS nchar(5))) AS bit) = 
 
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override string CaseInsensitiveCollation { get; }
+        protected override string CaseSensitiveCollation { get; }
     }
 }

@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
@@ -60,17 +59,26 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <param name="property"> The property. </param>
         /// <returns> The store value generation strategy to set for the given property. </returns>
         protected override ValueGenerated? GetValueGenerated(IConventionProperty property)
-            => GetValueGenerated(property);
+        {
+            var tableName = property.DeclaringEntityType.GetTableName();
+            if (tableName == null)
+            {
+                return null;
+            }
+
+            return GetValueGenerated(property, StoreObjectIdentifier.Table(tableName, property.DeclaringEntityType.GetSchema()));
+        }
 
         /// <summary>
         ///     Returns the store value generation strategy to set for the given property.
         /// </summary>
         /// <param name="property"> The property. </param>
+        /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The store value generation strategy to set for the given property. </returns>
-        public static new ValueGenerated? GetValueGenerated([NotNull] IProperty property)
-            => RelationalValueGenerationConvention.GetValueGenerated(property)
-               ?? (property.GetValueGenerationStrategy() != JetValueGenerationStrategy.None
-                   ? ValueGenerated.OnAdd
-                   : (ValueGenerated?) null);
+        public static new ValueGenerated? GetValueGenerated([NotNull] IProperty property, in StoreObjectIdentifier storeObject)
+            => RelationalValueGenerationConvention.GetValueGenerated(property, storeObject)
+                ?? (property.GetValueGenerationStrategy(storeObject) != JetValueGenerationStrategy.None
+                    ? ValueGenerated.OnAdd
+                    : (ValueGenerated?)null);
     }
 }

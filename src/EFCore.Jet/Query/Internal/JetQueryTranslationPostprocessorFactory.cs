@@ -2,6 +2,7 @@
 
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
@@ -23,15 +24,18 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     {
         private readonly QueryTranslationPostprocessorDependencies _dependencies;
         private readonly RelationalQueryTranslationPostprocessorDependencies _relationalDependencies;
+        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
         private readonly IJetOptions _options;
 
         public JetQueryTranslationPostprocessorFactory(
             QueryTranslationPostprocessorDependencies dependencies,
             RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
+            IRelationalTypeMappingSource relationalTypeMappingSource,
             IJetOptions options)
         {
             _dependencies = dependencies;
             _relationalDependencies = relationalDependencies;
+            _relationalTypeMappingSource = relationalTypeMappingSource;
             _options = options;
         }
 
@@ -40,6 +44,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 _dependencies,
                 _relationalDependencies,
                 queryCompilationContext,
+                _relationalTypeMappingSource,
                 _options);
     }
 }

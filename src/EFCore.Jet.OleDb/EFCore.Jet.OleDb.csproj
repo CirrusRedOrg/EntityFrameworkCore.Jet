@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Description>Explicit OLE DB support for Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
-    <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
+    <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
     <AssemblyName>EntityFrameworkCore.Jet.OleDb</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <PackageTags>$(PackageTags);OLE DB;OLEDB;System.Data.OleDb</PackageTags>

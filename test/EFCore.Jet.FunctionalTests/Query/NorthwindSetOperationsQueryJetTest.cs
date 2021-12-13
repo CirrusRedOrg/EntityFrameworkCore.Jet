@@ -3,12 +3,28 @@
 using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public partial class SimpleQueryJetTest
+    public class NorthwindSetOperationsQueryJetTest : NorthwindSetOperationsQueryRelationalTestBase<
+        NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
+        public NorthwindSetOperationsQueryJetTest(
+            NorthwindQueryJetFixture<NoopModelCustomizer> fixture,
+            ITestOutputHelper testOutputHelper)
+            : base(fixture)
+        {
+            ClearLog();
+            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        }
+
+        protected override bool CanExecuteQueryString
+            => true;
+
         public override async Task Union(bool isAsync)
         {
             await base.Union(isAsync);
@@ -511,5 +527,11 @@ FROM (
     ORDER BY `c0`.`ContactName`
 ) AS `t0`");
         }
+
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        protected override void ClearLog()
+            => Fixture.TestSqlLoggerFactory.Clear();
     }
 }

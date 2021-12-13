@@ -23,9 +23,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <DefaultNetCoreTargetFramework>net5.0</DefaultNetCoreTargetFramework>
-    <WindowsOnlyNetCoreTargetFramework>net5.0-windows</WindowsOnlyNetCoreTargetFramework>
-    <DefaultNetCoreLegacyTargetFramework>netcoreapp5.0</DefaultNetCoreLegacyTargetFramework>
+    <DefaultNetCoreTargetFramework>net6.0</DefaultNetCoreTargetFramework>
+    <WindowsOnlyNetCoreTargetFramework>net6.0-windows</WindowsOnlyNetCoreTargetFramework>
+    <DefaultNetCoreLegacyTargetFramework>netcoreapp6.0</DefaultNetCoreLegacyTargetFramework>
     <DefaultNetStandardTargetFramework>netstandard2.1</DefaultNetStandardTargetFramework>
   </PropertyGroup>
 

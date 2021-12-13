@@ -14,7 +14,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     public class JetQuerySqlGeneratorFactory : IQuerySqlGeneratorFactory
     {
         [NotNull] private readonly QuerySqlGeneratorDependencies _dependencies;
-        [NotNull] private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         [NotNull] private readonly ITypeMappingSource _typeMappingSource;
         [NotNull] private readonly IJetOptions _options;
 
@@ -24,17 +23,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         public JetQuerySqlGeneratorFactory(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
-            [NotNull] ISqlExpressionFactory sqlExpressionFactory,
             [NotNull] ITypeMappingSource typeMappingSource,
             [NotNull] IJetOptions options)
         {
             _dependencies = dependencies;
-            _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
             _typeMappingSource = typeMappingSource;
             _options = options;
         }
 
         public virtual QuerySqlGenerator Create()
-            => new JetQuerySqlGenerator(_dependencies, _sqlExpressionFactory, _typeMappingSource, _options);
+            => new JetQuerySqlGenerator(_dependencies, _typeMappingSource, _options);
     }
 }

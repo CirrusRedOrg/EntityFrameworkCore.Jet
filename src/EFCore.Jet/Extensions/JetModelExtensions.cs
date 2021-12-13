@@ -15,7 +15,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default identity seed. </returns>
-        public static int GetIdentitySeed([NotNull] this IModel model)
+        public static int GetIdentitySeed([NotNull] this IReadOnlyModel model)
             => (int?) model[JetAnnotationNames.IdentitySeed] ?? 1;
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default identity increment. </returns>
-        public static int GetIdentityIncrement([NotNull] this IModel model)
+        public static int GetIdentityIncrement([NotNull] this IReadOnlyModel model)
             => (int?) model[JetAnnotationNames.IdentityIncrement] ?? 1;
 
         /// <summary>
@@ -93,7 +93,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default <see cref="JetValueGenerationStrategy" />. </returns>
-        public static JetValueGenerationStrategy? GetValueGenerationStrategy([NotNull] this IModel model)
+        public static JetValueGenerationStrategy? GetValueGenerationStrategy([NotNull] this IReadOnlyModel model)
             => (JetValueGenerationStrategy?) model[JetAnnotationNames.ValueGenerationStrategy];
 
         /// <summary>

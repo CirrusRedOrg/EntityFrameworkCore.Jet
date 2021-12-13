@@ -22,7 +22,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The identity seed. </returns>
-        public static int? GetIdentitySeed([NotNull] this IProperty property)
+        public static int? GetIdentitySeed([NotNull] this IReadOnlyProperty property)
             => (int?)property[JetAnnotationNames.IdentitySeed];
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The identity seed. </returns>
-        public static int? GetIdentitySeed([NotNull] this IProperty property, in StoreObjectIdentifier storeObject)
+        public static int? GetIdentitySeed([NotNull] this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentitySeed);
             if (annotation != null)
@@ -88,7 +88,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The identity increment. </returns>
-        public static int? GetIdentityIncrement([NotNull] this IProperty property)
+        public static int? GetIdentityIncrement([NotNull] this IReadOnlyProperty property)
             => (int?)property[JetAnnotationNames.IdentityIncrement];
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The identity increment. </returns>
-        public static int? GetIdentityIncrement([NotNull] this IProperty property, in StoreObjectIdentifier storeObject)
+        public static int? GetIdentityIncrement([NotNull] this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentityIncrement);
             if (annotation != null)
@@ -159,7 +159,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
-        public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IProperty property)
+        public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IReadOnlyProperty property)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
@@ -190,7 +190,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
         public static JetValueGenerationStrategy GetValueGenerationStrategy(
-            [NotNull] this IProperty property,
+            [NotNull] this IReadOnlyProperty property,
             in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
@@ -220,7 +220,7 @@ namespace Microsoft.EntityFrameworkCore
             return GetDefaultValueGenerationStrategy(property);
         }
 
-        private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IProperty property)
+        private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IReadOnlyProperty property)
         {
             var modelStrategy = property.DeclaringEntityType.Model.GetValueGenerationStrategy();
 
@@ -262,7 +262,7 @@ namespace Microsoft.EntityFrameworkCore
             return value;
         }
 
-        private static void CheckValueGenerationStrategy(IProperty property, JetValueGenerationStrategy? value)
+        private static void CheckValueGenerationStrategy(IReadOnlyProperty property, JetValueGenerationStrategy? value)
         {
             if (value != null)
             {
@@ -292,7 +292,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> <c>true</c> if compatible. </returns>
-        public static bool IsCompatibleWithValueGeneration([NotNull] IProperty property)
+        public static bool IsCompatibleWithValueGeneration([NotNull] IReadOnlyProperty property)
         {
             var type = property.ClrType;
 

@@ -37,7 +37,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly IJetOptions _options;
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         private CoreTypeMapping _boolTypeMapping;
         
@@ -47,12 +46,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         public JetQuerySqlGenerator(
             [NotNull] QuerySqlGeneratorDependencies dependencies,
-            ISqlExpressionFactory sqlExpressionFactory,
             ITypeMappingSource typeMappingSource,
             IJetOptions options)
             : base(dependencies)
         {
-            _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
             _typeMappingSource = typeMappingSource;
             _options = options;
             _sqlGenerationHelper = dependencies.SqlGenerationHelper;
@@ -250,11 +247,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return base.VisitOrdering(orderingExpression);
         }
 
+
         protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
         {
             Check.NotNull(sqlBinaryExpression, nameof(sqlBinaryExpression));
 
-            if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
+            /*if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
                 Visit(
                     _sqlExpressionFactory.Case(
@@ -266,7 +264,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         },
                         sqlBinaryExpression.Left));
                 return sqlBinaryExpression;
-            }
+            }*/
 
             return base.VisitSqlBinary(sqlBinaryExpression);
         }
@@ -288,7 +286,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
             if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
-                Visit(
+                /*Visit(
                     _sqlExpressionFactory.NullChecked(
                         convertExpression.Operand,
                         _sqlExpressionFactory.Function(
@@ -297,7 +295,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             false,
                             new[] {false}, 
                             typeMapping.ClrType)));
-
+                */
                 return convertExpression;
             }
 
@@ -322,11 +320,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         protected override Expression VisitLike(LikeExpression likeExpression)
         {
             Check.NotNull(likeExpression, nameof(likeExpression));
-
-            if (likeExpression.EscapeChar != null)
-                base.VisitLike(_sqlExpressionFactory.Like(likeExpression.Match, likeExpression.Pattern));
-            else
-                base.VisitLike(likeExpression);
+            base.VisitLike(likeExpression);
 
             return likeExpression;
         }
@@ -447,5 +441,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
             => throw new InvalidOperationException(CoreStrings.TranslationFailed(rowNumberExpression));
+
+
     }
 }

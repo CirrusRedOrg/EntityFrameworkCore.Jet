@@ -283,7 +283,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (typeMapping == null)
                 throw new InvalidOperationException(RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
-            if (_convertMappings.TryGetValue(typeMapping.ClrType.Name, out var function))
+            // We are explicitly converting to the target type (convertExpression.Type) and not the CLR type of the
+            // accociated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
+            // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
+            if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
                 Visit(
                     _sqlExpressionFactory.NullChecked(

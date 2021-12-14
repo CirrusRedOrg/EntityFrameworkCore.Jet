@@ -696,6 +696,35 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 }
             }
         }
+        
+        protected override void ColumnDefinition(
+            string schema,
+            string table,
+            string name,
+            ColumnOperation operation,
+            IModel model,
+            MigrationCommandListBuilder builder)
+        {
+            Check.NotEmpty(name, nameof(name));
+            Check.NotNull(operation, nameof(operation));
+            Check.NotNull(builder, nameof(builder));
+            
+            if (operation.ComputedColumnSql != null)
+            {
+                ComputedColumnDefinition(schema, table, name, operation, model, builder);
+                return;
+            }
+
+            var columnType = GetColumnType(schema, table, name, operation, model);
+            builder
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name))
+                .Append(" ")
+                .Append(columnType);
+
+            builder.Append(operation.IsNullable ? " NULL" : " NOT NULL");
+
+            DefaultValue(operation.DefaultValue, operation.DefaultValueSql, columnType, builder);
+        }
 
         protected override string GetColumnType(
             [CanBeNull] string schema,
@@ -704,26 +733,33 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             [NotNull] ColumnOperation operation,
             [CanBeNull] IModel model)
         {
-            var storeType = base.GetColumnType(schema, table, name, operation, model);
-
-            var identity = operation[JetAnnotationNames.Identity] as string;
-            if (identity != null
-                || operation[JetAnnotationNames.ValueGenerationStrategy] as JetValueGenerationStrategy?
-                == JetValueGenerationStrategy.IdentityColumn)
+            var storeType = operation.ColumnType;
+            
+            if (IsIdentity(operation))
             {
-                if (string.Equals(storeType, "counter", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(storeType, "identity", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(storeType, "autoincrement", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(storeType, "integer", StringComparison.OrdinalIgnoreCase))
+                // This column represents the actual identity.
+                if (storeType != null &&
+                    Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping)
                 {
                     storeType = "counter";
-
-                    if (!string.IsNullOrEmpty(identity)
-                        && identity != "1, 1")
-                    {
-                        storeType += $"({identity})";
-                    }
                 }
+            }
+            else if (storeType != null &&
+                     IsExplicitIdentityColumnType(storeType))
+            {
+                // While this column uses an identity type (e.g. counter), it is not an actual identity column, because
+                // it was not marked as one.
+                storeType = "integer";
+            }
+
+            storeType ??= base.GetColumnType(schema, table, name, operation, model);
+            
+            if (string.Equals(storeType, "counter", StringComparison.OrdinalIgnoreCase) &&
+                operation[JetAnnotationNames.Identity] is string identity &&
+                !string.IsNullOrEmpty(identity) &&
+                identity != "1, 1")
+            {
+                storeType += $"({identity})";
             }
 
             return storeType;
@@ -968,6 +1004,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             => operation[JetAnnotationNames.Identity] != null
                || operation[JetAnnotationNames.ValueGenerationStrategy] as JetValueGenerationStrategy?
                == JetValueGenerationStrategy.IdentityColumn;
+
+        private static bool IsExplicitIdentityColumnType(string columnType)
+            => string.Equals("counter", columnType, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals("identity", columnType, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals("autoincrement", columnType, StringComparison.OrdinalIgnoreCase);
 
         #region Schemas not supported
 

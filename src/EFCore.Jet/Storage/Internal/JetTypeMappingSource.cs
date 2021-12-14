@@ -25,11 +25,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetBoolTypeMapping _bit = new JetBoolTypeMapping("bit"); // JET bits are not nullable
         private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("smallint");
 
-        private readonly IntTypeMapping _counter = new IntTypeMapping("counter", DbType.Int32);
+        // We just map counter etc. to integer. Whether an integer property/column is actually a counter
+        // is determined by the value generation type.
+        private readonly IntTypeMapping _counter = new JetIntTypeMapping("integer");
         
         private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
-        private readonly IntTypeMapping _integer = new IntTypeMapping("integer", DbType.Int32);
+        private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
         // private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
 
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
@@ -97,7 +99,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"logical",                    new[] {_bit}},
                     {"logical1",                   new[] {_bit}},
                     {"yesno",                      new[] {_bit}},
-
+                    
                     {"counter",                    new[] {_counter}},
                     {"identity",                   new[] {_counter}},
                     {"autoincrement",              new[] {_counter}},
@@ -114,7 +116,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"long",                       new[] {_integer}},
                     {"int",                        new[] {_integer}},
                     {"integer4",                   new[] {_integer}},
-
+                    
                     {"single",                     new[] {_single}},
                     {"real",                       new[] {_single}},
                     {"float4",                     new[] {_single}},

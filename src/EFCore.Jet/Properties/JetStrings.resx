@@ -207,6 +207,10 @@
     <value>Found index with name: {indexName}, table: {tableName}, is unique: {isUnique}.</value>
     <comment>Debug JetEventId.IndexFound string string bool</comment>
   </data>
+  <data name="LogSkippedIndex" xml:space="preserve">
+    <value>Skipped index with name: {indexName}, table: {tableName}, is unique: {isUnique} as the name is equal to an existing foreign key and would result in a runtime error.</value>
+    <comment>Debug JetEventId.IndexSkipped string string bool</comment>
+  </data>
   <data name="LogFoundPrimaryKey" xml:space="preserve">
     <value>Found primary key with name: {primaryKeyName}, table: {tableName}.</value>
     <comment>Debug JetEventId.PrimaryKeyFound string string</comment>

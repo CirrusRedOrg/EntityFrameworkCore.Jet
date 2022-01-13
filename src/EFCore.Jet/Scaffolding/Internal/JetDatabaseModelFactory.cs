@@ -372,43 +372,52 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                             table.PrimaryKey = primaryKey;
                             indexOrKey = primaryKey;
                         }
-                        else if (indexType == "UNIQUE" &&
-                                 !nullable)
-                        {
-                            var uniqueConstraint = new DatabaseUniqueConstraint
-                            {
-                                Table = table,
-                                Name = indexName,
-                            };
-
-                            _logger.UniqueConstraintFound(indexName, tableName);
-
-                            table.UniqueConstraints.Add(uniqueConstraint);
-                            indexOrKey = uniqueConstraint;
-                        }
                         else
                         {
-                            if (table.ForeignKeys.Any(fk => fk.Name == indexName))
+                            var isUnique = indexType == "UNIQUE";
+
+                            if (isUnique &&
+                                !nullable)
                             {
-                                // In contrast to SQL Standard, MS Access will create an index together with a the FK constrains
-                                // According to https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/constraint-clause-microsoft-access-sql
-                                // this can be deactivated, however creating an index with the same name as an FK still results in an runtime error, therefor the index creation operation is skipped 
-                                _logger.IndexSkipped(indexName, tableName, indexType == "UNIQUE");
-                                continue;
+                                var uniqueConstraint = new DatabaseUniqueConstraint
+                                {
+                                    Table = table,
+                                    Name = indexName,
+                                };
+
+                                _logger.UniqueConstraintFound(indexName, tableName);
+
+                                table.UniqueConstraints.Add(uniqueConstraint);
+                                indexOrKey = uniqueConstraint;
                             }
-                            var index = new DatabaseIndex
+                            else
                             {
-                                Table = table,
-                                Name = indexName,
-                                IsUnique = indexType == "UNIQUE",
-                            };
+                                // In contrast to SQL Standard, MS Access will implicitly create an index for every FK
+                                // constraint.
+                                // According to https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/constraint-clause-microsoft-access-sql,
+                                // this behavior can be disabled, but manuall creating an index with the same name as an
+                                // FK would still results in a runtime error.
+                                // We therefore skip indexes with the same name as existing FKs. 
+                                if (table.ForeignKeys.Any(fk => fk.Name == indexName))
+                                {
+                                    _logger.IndexSkipped(indexName, tableName, isUnique);
+                                    continue;
+                                }
+                            
+                                var index = new DatabaseIndex
+                                {
+                                    Table = table,
+                                    Name = indexName,
+                                    IsUnique = isUnique,
+                                };
 
-                            _logger.IndexFound(indexName, tableName, index.IsUnique);
+                                _logger.IndexFound(indexName, tableName, index.IsUnique);
 
-                            table.Indexes.Add(index);
-                            indexOrKey = index;
+                                table.Indexes.Add(index);
+                                indexOrKey = index;
+                            }
                         }
-                        
+
                         foreach (var indexColumn in indexColumns)
                         {
                             var columnName = indexColumn.GetValueOrDefault<string>("COLUMN_NAME");

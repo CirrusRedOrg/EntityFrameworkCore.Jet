@@ -321,13 +321,9 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             var definition = JetResources.LogFoundIndex(diagnostics);
 
-            var warningBehavior = definition.GetLogBehavior(diagnostics);
-            if (warningBehavior != WarningBehavior.Ignore)
+            if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(
-                    diagnostics,
-                    warningBehavior,
-                    indexName, tableName, unique);
+                definition.Log(diagnostics, indexName, tableName, unique);
             }
 
             // No DiagnosticsSource events because these are purely design-time messages

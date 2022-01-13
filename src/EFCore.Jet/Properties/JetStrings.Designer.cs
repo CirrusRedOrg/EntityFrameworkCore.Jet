@@ -488,7 +488,30 @@ namespace EntityFrameworkCore.Jet.Internal
 
             return (EventDefinition<string, string, bool>)definition;
         }
+        
+        /// <summary>
+        ///     Skipped index with name: {indexName}, table: {tableName}, is unique: {isUnique}.
+        /// </summary>
+        public static EventDefinition<string, string, bool> LogSkippedIndex([NotNull] IDiagnosticsLogger logger)
+        {
+            var definition = ((Diagnostics.Internal.JetLoggingDefinitions)logger.Definitions).LogSkippedIndex;
+            if (definition == null)
+            {
+                definition = LazyInitializer.EnsureInitialized<EventDefinitionBase>(
+                    ref ((Diagnostics.Internal.JetLoggingDefinitions)logger.Definitions).LogSkippedIndex,
+                    () => new EventDefinition<string, string, bool>(
+                        logger.Options,
+                        JetEventId.IndexSkipped,
+                        LogLevel.Debug,
+                        "JetEventId.SkippedIndex",
+                        level => LoggerMessage.Define<string, string, bool>(
+                            level,
+                            JetEventId.IndexFound,
+                            _resourceManager.GetString("LogSkippedIndex"))));
+            }
 
+            return (EventDefinition<string, string, bool>)definition;
+        }
         /// <summary>
         ///     Found primary key with name: {primaryKeyName}, table: {tableName}.
         /// </summary>

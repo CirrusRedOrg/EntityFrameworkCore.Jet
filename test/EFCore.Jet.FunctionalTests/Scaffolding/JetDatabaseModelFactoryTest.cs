@@ -1474,7 +1474,43 @@ CREATE TABLE DependentTable (
 DROP TABLE DependentTable;
 DROP TABLE PrincipalTable;");
         }
+        /// <summary>
+        /// In contrast to SQL Standard, MS Access will create an index together with a the FK constrains
+        /// According to https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/constraint-clause-microsoft-access-sql
+        /// this can be deactivated, however creating an index with the same name as an FK still results in an runtime error
+        /// </summary>
+        [ConditionalFact]
+        public void EnsureNoForeignKeyIndexCreationOperationsAreCreated()
+        {
+            Test(
+                @"
+CREATE TABLE PrincipalTable (
+    Id int PRIMARY KEY
+);
 
+CREATE TABLE DependentTable (
+    Id int PRIMARY KEY,
+    IndexColumn int,
+    ForeignKeyId int,
+    CONSTRAINT MYFK FOREIGN KEY (ForeignKeyId) REFERENCES PrincipalTable(Id) ON DELETE CASCADE
+);
+    CREATE INDEX `IX_DependentTable_IndexColumn` ON `DependentTable` (`IndexColumn`);
+",
+                
+
+                Enumerable.Empty<string>(),
+                Enumerable.Empty<string>(),
+                dbModel =>
+                {
+                    Assert.Equal(1, dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys.Count);
+                    Assert.Equal(1, dbModel.Tables.Single(t => t.Name == "DependentTable").Indexes.Count);
+                    Assert.False(dbModel.Tables.Single(t => t.Name == "DependentTable").Indexes.Any(i => i.Name == "MYFK"));
+                },
+                @"
+DROP TABLE DependentTable;
+DROP TABLE PrincipalTable;
+");
+        }
         [ConditionalFact]
         public void Set_referential_action_for_foreign_key()
         {

@@ -313,6 +313,32 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        public static void IndexSkipped(
+            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            [NotNull] string indexName,
+            [NotNull] string tableName,
+            bool unique)
+        {
+            var definition = JetResources.LogFoundIndex(diagnostics);
+
+            var warningBehavior = definition.GetLogBehavior(diagnostics);
+            if (warningBehavior != WarningBehavior.Ignore)
+            {
+                definition.Log(
+                    diagnostics,
+                    warningBehavior,
+                    indexName, tableName, unique);
+            }
+
+            // No DiagnosticsSource events because these are purely design-time messages
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
         public static void ForeignKeyReferencesMissingPrincipalTableWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
             [CanBeNull] string foreignKeyName,

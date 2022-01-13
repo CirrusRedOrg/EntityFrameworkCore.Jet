@@ -168,8 +168,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             if (tables.Count > 0)
             {
                 GetColumns(connection, tables);
-                GetIndexes(connection, tables);
                 GetRelations(connection, tables);
+                GetIndexes(connection, tables);
             }
 
             return tables;
@@ -388,6 +388,14 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         }
                         else
                         {
+                            if (table.ForeignKeys.Any(fk => fk.Name == indexName))
+                            {
+                                // In contrast to SQL Standard, MS Access will create an index together with a the FK constrains
+                                // According to https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/constraint-clause-microsoft-access-sql
+                                // this can be deactivated, however creating an index with the same name as an FK still results in an runtime error, therefor the index creation operation is skipped 
+                                _logger.IndexSkipped(indexName, tableName, indexType == "UNIQUE");
+                                continue;
+                            }
                             var index = new DatabaseIndex
                             {
                                 Table = table,

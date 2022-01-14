@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.Data
         private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
-        private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase);
+        private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
         protected JetCommand(JetCommand source)
         {

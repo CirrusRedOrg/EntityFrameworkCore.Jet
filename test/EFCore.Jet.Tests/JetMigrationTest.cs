@@ -134,7 +134,7 @@ INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
 
 
-INSERT INTO `CookieBackery` (`CookieId`, `BackeryId`)
+INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
 
 
@@ -230,7 +230,7 @@ INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
 
 
-INSERT INTO `CookieBackery` (`CookieId`, `BackeryId`)
+INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
 
 
@@ -332,7 +332,7 @@ INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
 
 
-INSERT INTO `CookieBackery` (`CookieId`, `BackeryId`)
+INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
 
 

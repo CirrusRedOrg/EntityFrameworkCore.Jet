@@ -1,14 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,6 +30,5 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             : base(dependencies)
         {
         }
-        
     }
 }

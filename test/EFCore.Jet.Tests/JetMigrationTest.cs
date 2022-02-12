@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.Jet
             
             AssertSql(
                 $@"CREATE TABLE `Cookie` (
-    `CookieId` integer NOT NULL,
+    `CookieId` counter NOT NULL,
     `Name` longchar NULL,
     `BestServedBefore` datetime NOT NULL DEFAULT #2021-12-31#,
     CONSTRAINT `PK_Cookie` PRIMARY KEY (`CookieId`)

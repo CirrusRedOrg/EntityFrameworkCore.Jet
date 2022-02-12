@@ -744,14 +744,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         {
             var storeType = operation.ColumnType;
             
-            if (IsIdentity(operation))
+            if (IsIdentity(operation) &&
+                (storeType == null || Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping))
             {
                 // This column represents the actual identity.
-                if (storeType != null &&
-                    Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping)
-                {
-                    storeType = "counter";
-                }
+                storeType = "counter";
             }
             else if (storeType != null &&
                      IsExplicitIdentityColumnType(storeType))

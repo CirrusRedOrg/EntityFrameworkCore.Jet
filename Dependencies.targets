@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <EFCoreVersion>[3.1.15, 5.0.0)</EFCoreVersion>
-    <MicrosoftExtensionsVersion>3.1.15</MicrosoftExtensionsVersion>
+    <EFCoreVersion>[3.1.22, 5.0.0)</EFCoreVersion>
+    <MicrosoftExtensionsVersion>3.1.22</MicrosoftExtensionsVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,7 +14,7 @@
     <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="4.7.1" />
     <PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
     <PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     
     <!-- EntityFrameworkCore.Jet.Data -->
     <PackageReference Update="System.ValueTuple" Version="4.5.0" />
@@ -66,7 +66,7 @@
     <!--<PackageReference Update="System.Data.OleDb" Version="$(SystemDataOleDbVersion)" />-->
     <PackageReference Update="NetTopologySuite" Version="2.0.0" />
     <PackageReference Update="System.ComponentModel.TypeConverter" Version="4.3.0" />
-    <PackageReference Update="Castle.Core" Version="4.4.0" />
+    <PackageReference Update="Castle.Core" Version="4.4.1" />
     <!--<PackageReference Update="Microsoft.Extensions.Caching.Memory" Version="$(MicrosoftExtensionsCachingMemoryVersion)" />-->
 
     <!-- EFCore.Jet.IntegrationTests -->

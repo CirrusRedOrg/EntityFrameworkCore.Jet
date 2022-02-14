@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <DotnetRuntimeVersion>5.0.6</DotnetRuntimeVersion>
+    <DotnetRuntimeVersion>5.0.14</DotnetRuntimeVersion>
     <EFCoreVersion>[$(DotnetRuntimeVersion), 6.0.0)</EFCoreVersion>
   </PropertyGroup>
 
@@ -14,7 +14,7 @@
     <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="5.0.1" />
     <PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
     <PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     
     <!-- EntityFrameworkCore.Jet.Data -->
     <PackageReference Update="System.ValueTuple" Version="4.5.0" />
@@ -22,7 +22,7 @@
     <PackageReference Update="Microsoft.Win32.Registry" Version="5.0.0" />
     
     <!-- EFCore.Jet -->
-    <PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
+    <PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
     <PackageReference Update="Microsoft.Extensions.Configuration" Version="5.0.0" />
     <PackageReference Update="Microsoft.Extensions.Logging" Version="5.0.0" />
     <PackageReference Update="Microsoft.Bcl.AsyncInterfaces" Version="5.0.0" />
@@ -41,10 +41,10 @@
     <PackageReference Update="System.Data.OleDb" Version="5.0.0" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
-    <PackageReference Update="Microsoft.NET.Test.Sdk" Version="16.9.4" />
-    <PackageReference Update="MSTest.TestAdapter" Version="2.2.4" />
-    <PackageReference Update="MSTest.TestFramework" Version="2.2.4" />
-    <PackageReference Update="coverlet.collector" Version="3.0.3" />
+    <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+    <PackageReference Update="MSTest.TestAdapter" Version="2.2.8" />
+    <PackageReference Update="MSTest.TestFramework" Version="2.2.8" />
+    <PackageReference Update="coverlet.collector" Version="3.1.2" />
     <PackageReference Update="Newtonsoft.Json" Version="13.0.1" />
 
     <!-- EntityFrameworkCore.Jet.Data.Tests -->
@@ -81,7 +81,7 @@
     <!--<PackageReference Update="coverlet.collector" Version="$(CoverletCollector)" />-->
 
     <!-- EFCore.Jet.Tests -->
-    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="3.9.0" />
+    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.0.1" />
     <PackageReference Update="Microsoft.Extensions.DependencyModel" Version="5.0.0" />
     <PackageReference Update="Moq" Version="4.16.1" />
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftEntityFrameworkCoreDesignVersion)" />-->

@@ -29,7 +29,7 @@
     <UseVersionSuffixOverride Condition="'$(VersionSuffix)' != ''">true</UseVersionSuffixOverride>
   </PropertyGroup>
 
-  <PropertyGroup Label="Version Suffix Handling" Condition="'$(UseVersionOverride)' != 'true' And '$(UseVersionSuffixOverride)' != 'true' And '$(OfficialVersion)' == ''">
+  <PropertyGroup Label="Version Suffix Handling" Condition="'$(UseVersionOverride)' != 'true' And '$(UseVersionSuffixOverride)' != 'true' And ('$(OfficialVersion)' == '' Or $(OfficialVersion.Contains('-')))">
     <VersionSuffix>$(PreReleaseVersionLabel).$(PreReleaseVersionIteration)</VersionSuffix>
     <VersionSuffix Condition="'$(ContinuousIntegrationTimestamp)' != ''">$(VersionSuffix).ci.$(ContinuousIntegrationTimestamp)</VersionSuffix>
     <VersionSuffix Condition="'$(BuildSha)' != ''">$(VersionSuffix)+sha.$(BuildSha)</VersionSuffix>
@@ -39,7 +39,7 @@
     <Error Condition="'$(VersionPrefix)' == ''" Text="The 'VersionPrefix' property needs to be set." />
     <Error Condition="'$(PreReleaseVersionLabel)' == ''" Text="The 'PreReleaseVersionLabel' property needs to be set." />
     <Error Condition="'$(PreReleaseVersionIteration)' == ''" Text="The 'PreReleaseVersionIteration' property needs to be set." />
-    <Error Condition="'$(OfficialVersion)' != '' And '$(OfficialVersion)' != '$(VersionPrefix)'" Text="The 'OfficialVersion' property needs to be identical to the 'VersionPrefix' property." />
+    <Error Condition="'$(OfficialVersion)' != '' And '$(OfficialVersion)' != '$(VersionPrefix)' And '$(OfficialVersion)' != '$(VersionPrefix)-$(VersionSuffix)'" Text="The 'OfficialVersion' property needs to be identical to the 'VersionPrefix' property or to a combination of the 'VersionPrefix' and the 'VersionSuffix' properties." />
     <!--
     <Message Importance="high" Text="VersionPrefix: $(VersionPrefix)" />
     <Message Importance="high" Text="VersionSuffix: $(VersionSuffix)" />

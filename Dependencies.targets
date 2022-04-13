@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <DotnetRuntimeVersion>5.0.14</DotnetRuntimeVersion>
-    <EFCoreVersion>[$(DotnetRuntimeVersion), 6.0.0)</EFCoreVersion>
+    <EFCoreVersion>[$(DotnetRuntimeVersion), 7.0.0)</EFCoreVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,12 +15,12 @@
     <PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
     <PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
-    
+
     <!-- EntityFrameworkCore.Jet.Data -->
     <PackageReference Update="System.ValueTuple" Version="4.5.0" />
     <PackageReference Update="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Update="Microsoft.Win32.Registry" Version="5.0.0" />
-    
+
     <!-- EFCore.Jet -->
     <PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
     <PackageReference Update="Microsoft.Extensions.Configuration" Version="5.0.0" />
@@ -54,7 +54,7 @@
     <!--<PackageReference Update="MSTest.TestAdapter" Version="$(MSTestTestAdapter)" />-->
     <!--<PackageReference Update="MSTest.TestFramework" Version="$(MSTestTestFramework)" />-->
     <!--<PackageReference Update="coverlet.collector" Version="$(CoverletCollector)" />-->
-    
+
     <!-- EFCore.Jet.FunctionalTests -->
     <PackageReference Update="xunit.core" Version="2.4.1" />
     <PackageReference Update="xunit.assert" Version="2.4.1" />

@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <DotnetRuntimeVersion>5.0.14</DotnetRuntimeVersion>
+    <DotnetRuntimeVersion>5.0.16</DotnetRuntimeVersion>
     <EFCoreVersion>[$(DotnetRuntimeVersion), 7.0.0)</EFCoreVersion>
   </PropertyGroup>
 

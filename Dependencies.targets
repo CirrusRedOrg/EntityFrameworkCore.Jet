@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <DotnetRuntimeVersion>5.0.16</DotnetRuntimeVersion>
+    <DotnetRuntimeVersion>6.0.4</DotnetRuntimeVersion>
     <EFCoreVersion>[$(DotnetRuntimeVersion), 7.0.0)</EFCoreVersion>
   </PropertyGroup>
 
@@ -37,8 +37,8 @@
     <!--<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />-->
 
     <!-- Tests -->
-    <PackageReference Update="System.Data.Odbc" Version="5.0.0" />
-    <PackageReference Update="System.Data.OleDb" Version="5.0.0" />
+    <PackageReference Update="System.Data.Odbc" Version="6.0.0" />
+    <PackageReference Update="System.Data.OleDb" Version="6.0.0" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.0.0" />

@@ -22,13 +22,14 @@
     <RepositoryUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet.git</RepositoryUrl>
   </PropertyGroup>
 
+  <!--
   <PropertyGroup>
     <DefaultNetCoreTargetFramework>net6.0</DefaultNetCoreTargetFramework>
     <WindowsOnlyNetCoreTargetFramework>net6.0-windows</WindowsOnlyNetCoreTargetFramework>
     <DefaultNetCoreLegacyTargetFramework>netcoreapp6.0</DefaultNetCoreLegacyTargetFramework>
     <DefaultNetStandardTargetFramework>netstandard2.1</DefaultNetStandardTargetFramework>
   </PropertyGroup>
-
+  -->
   <ItemGroup>
     <EmbeddedResource Include="**\*.rd.xml" />
     <!-- <None Include="$(PackageIconFullPath)" Pack="true" PackagePath="\"/> -->

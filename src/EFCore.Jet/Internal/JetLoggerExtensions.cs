@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public static void DecimalTypeKeyWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
-            [NotNull] IProperty property)
+            [NotNull] IReadOnlyProperty property)
         {
             var definition = JetResources.LogDecimalTypeKey(diagnostics);
 
@@ -65,7 +65,7 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public static void DecimalTypeDefaultWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
-            [NotNull] IProperty property)
+            [NotNull] IReadOnlyProperty property)
         {
             var definition = JetResources.LogDefaultDecimalTypeColumn(diagnostics);
 

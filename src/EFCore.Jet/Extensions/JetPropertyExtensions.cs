@@ -159,7 +159,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
-        public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IProperty property)
+        public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IReadOnlyProperty property)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
@@ -190,7 +190,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
         public static JetValueGenerationStrategy GetValueGenerationStrategy(
-            [NotNull] this IProperty property,
+            [NotNull] this IReadOnlyProperty property,
             in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
@@ -220,7 +220,7 @@ namespace Microsoft.EntityFrameworkCore
             return GetDefaultValueGenerationStrategy(property);
         }
 
-        private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IProperty property)
+        private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IReadOnlyProperty property)
         {
             var modelStrategy = property.DeclaringEntityType.Model.GetValueGenerationStrategy();
 
@@ -262,7 +262,7 @@ namespace Microsoft.EntityFrameworkCore
             return value;
         }
 
-        private static void CheckValueGenerationStrategy(IProperty property, JetValueGenerationStrategy? value)
+        private static void CheckValueGenerationStrategy(IReadOnlyProperty property, JetValueGenerationStrategy? value)
         {
             if (value != null)
             {
@@ -292,7 +292,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> <c>true</c> if compatible. </returns>
-        public static bool IsCompatibleWithValueGeneration([NotNull] IProperty property)
+        public static bool IsCompatibleWithValueGeneration([NotNull] IReadOnlyProperty property)
         {
             var type = property.ClrType;
 

@@ -54,7 +54,11 @@ namespace System
             return props.SingleOrDefault();
         }
 
-        public static bool IsInstantiable(this Type type) => IsInstantiable(type.GetTypeInfo());
+        public static MethodInfo GetRequiredRuntimeMethod(this Type type, string name, params Type[] parameters)
+          => type.GetTypeInfo().GetRuntimeMethod(name, parameters)
+          ?? throw new InvalidOperationException($"Could not find method '{name}' on type '{type}'");
+
+    public static bool IsInstantiable(this Type type) => IsInstantiable(type.GetTypeInfo());
 
         private static bool IsInstantiable(TypeInfo type)
             => !type.IsAbstract

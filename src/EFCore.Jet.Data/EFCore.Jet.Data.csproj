@@ -1,22 +1,27 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <Description>Jet/ACE data provider for .NET used by EntityFramworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
-        <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
-        <Platforms>AnyCPU;x86;x64</Platforms>
-        <AssemblyName>EntityFrameworkCore.Jet.Data</AssemblyName>
-        <RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
-        <PackageTags>$(PackageTags);System.Data.Jet</PackageTags>
-    </PropertyGroup>
-    
-    <ItemGroup>
-        <PackageReference Include="System.ValueTuple" />
-        <PackageReference Include="Microsoft.CSharp" />
-        <PackageReference Include="Microsoft.Win32.Registry" />
-    </ItemGroup>
+  <PropertyGroup>
+    <Description>Jet/ACE data provider for .NET used by EntityFramworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
+    <!--
+      <TargetFramework>$(DefaultNetStandardTargetFramework)</TargetFramework>
+      <Platforms>AnyCPU;x86;x64</Platforms>
+    -->
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>EntityFrameworkCore.Jet.Data</AssemblyName>
+    <RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
+    <PackageTags>$(PackageTags);System.Data.Jet</PackageTags>
+  </PropertyGroup>
 
-    <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
-        <Reference Include="System.Transactions" Pack="false" />
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.ValueTuple" />
+    <PackageReference Include="Microsoft.CSharp" />
+    <PackageReference Include="Microsoft.Win32.Registry" />
+  </ItemGroup>
+
+  <!--
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
+    <Reference Include="System.Transactions" Pack="false" />
+  </ItemGroup>
+  -->
 
 </Project>

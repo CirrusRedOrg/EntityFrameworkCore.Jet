@@ -57,8 +57,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public override bool HasTables()
         {
-            return Dependencies.ExecutionStrategyFactory
-                .Create()
+            return Dependencies.ExecutionStrategy
                 .Execute(
                     _relationalConnection,
                     connection =>
@@ -82,7 +81,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public override Task<bool> HasTablesAsync(CancellationToken cancellationToken = default)
-            => Dependencies.ExecutionStrategyFactory.Create().ExecuteAsync(
+            => Dependencies.ExecutionStrategy.ExecuteAsync(
                 _relationalConnection,
                 async (connection, ct) =>
                 {

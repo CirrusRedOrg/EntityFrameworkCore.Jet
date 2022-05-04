@@ -2,7 +2,10 @@
 
   <PropertyGroup>
     <Description>Explicit ODBC support for Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
+    <!--
     <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
+    -->
+    <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>EntityFrameworkCore.Jet.Odbc</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <PackageTags>$(PackageTags);ODBC;System.Data.Odbc</PackageTags>
@@ -17,9 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.Odbc" />
+    <PackageReference Include="System.Data.Odbc" Version="6.0.0" />
   </ItemGroup>
 
+  <!--
   <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
     <Reference Include="Microsoft.EntityFrameworkCore">
       <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
@@ -28,5 +32,5 @@
       <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
     </Reference>
   </ItemGroup>
-
+  -->
 </Project>

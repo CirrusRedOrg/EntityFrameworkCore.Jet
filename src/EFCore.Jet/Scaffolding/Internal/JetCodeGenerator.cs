@@ -1,9 +1,11 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.Infrastructure;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Scaffolding;
+using System.Reflection;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -15,11 +17,19 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     /// </summary>
     public class JetCodeGenerator : ProviderCodeGenerator
     {
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="JetCodeGenerator" /> class.
-        /// </summary>
-        /// <param name="dependencies"> The dependencies. </param>
-        public JetCodeGenerator([NotNull] ProviderCodeGeneratorDependencies dependencies)
+
+    private static readonly MethodInfo UseJetMethodInfo
+         = typeof(JetDbContextOptionsBuilderExtensions).GetRequiredRuntimeMethod(
+             nameof(JetDbContextOptionsBuilderExtensions.UseJet),
+             typeof(DbContextOptionsBuilder),
+             typeof(string),
+             typeof(Action<JetDbContextOptionsBuilder>));
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="JetCodeGenerator" /> class.
+    /// </summary>
+    /// <param name="dependencies"> The dependencies. </param>
+    public JetCodeGenerator([NotNull] ProviderCodeGeneratorDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -31,12 +41,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public override MethodCallCodeFragment GenerateUseProvider(
-            string connectionString,
-            MethodCallCodeFragment providerOptions)
-            => new MethodCallCodeFragment(
-                nameof(JetDbContextOptionsBuilderExtensions.UseJet),
-                providerOptions == null
-                    ? new object[] { connectionString }
-                    : new object[] { connectionString, new NestedClosureCodeFragment("x", providerOptions) });
-    }
+          string connectionString,
+          MethodCallCodeFragment providerOptions)
+          => new(
+              UseJetMethodInfo,
+              providerOptions == null
+                ? new object[] { connectionString }
+                : new object[] { connectionString, new NestedClosureCodeFragment("x", providerOptions) });
+
+  }
 }

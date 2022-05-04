@@ -93,7 +93,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default <see cref="JetValueGenerationStrategy" />. </returns>
-        public static JetValueGenerationStrategy? GetValueGenerationStrategy([NotNull] this IModel model)
+        public static JetValueGenerationStrategy? GetValueGenerationStrategy([NotNull] this IReadOnlyModel model)
             => (JetValueGenerationStrategy?) model[JetAnnotationNames.ValueGenerationStrategy];
 
         /// <summary>

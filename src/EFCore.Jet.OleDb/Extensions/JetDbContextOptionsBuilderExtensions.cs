@@ -16,7 +16,7 @@ namespace Microsoft.EntityFrameworkCore
     public static class JetOleDbDbContextOptionsBuilderExtensions
     {
         #region Connection String
-        
+
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database using OLE DB.
         /// </summary>
@@ -29,7 +29,7 @@ namespace Microsoft.EntityFrameworkCore
         public static DbContextOptionsBuilder<TContext> UseJetOleDb<TContext>(
             [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
             [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
             => optionsBuilder.UseJet(fileNameOrConnectionString, DataAccessProviderType.OleDb, jetOptionsAction);
 
@@ -45,13 +45,13 @@ namespace Microsoft.EntityFrameworkCore
         public static DbContextOptionsBuilder UseJetOleDb(
             [NotNull] this DbContextOptionsBuilder optionsBuilder,
             [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             => optionsBuilder.UseJet(fileNameOrConnectionString, DataAccessProviderType.OleDb, jetOptionsAction);
 
         #endregion
-        
+
         #region Connection
-        
+
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database using OLE DB.
         /// </summary>
@@ -67,7 +67,7 @@ namespace Microsoft.EntityFrameworkCore
         public static DbContextOptionsBuilder<TContext> UseJetOleDb<TContext>(
             [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
             [NotNull] OleDbConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
@@ -90,14 +90,14 @@ namespace Microsoft.EntityFrameworkCore
         public static DbContextOptionsBuilder UseJetOleDb(
             [NotNull] this DbContextOptionsBuilder optionsBuilder,
             [NotNull] OleDbConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotNull(connection, nameof(connection));
 
             return optionsBuilder.UseJet(connection, jetOptionsAction);
         }
-        
+
         #endregion
     }
 }

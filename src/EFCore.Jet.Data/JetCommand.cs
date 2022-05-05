@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Diagnostics.CodeAnalysis;
 
 namespace EntityFrameworkCore.Jet.Data
 {
@@ -16,8 +17,8 @@ namespace EntityFrameworkCore.Jet.Data
         private static int _activeObjectsCount;
 #endif
         private readonly JetConnection _connection;
-        private JetTransaction _transaction;
-        
+        private JetTransaction? _transaction;
+
         private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
@@ -44,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <param name="commandText">The command text.</param>
         /// <param name="connection">The connection.</param>
         /// <param name="transaction">The transaction.</param>
-        internal JetCommand(JetConnection connection, string commandText = null, JetTransaction transaction = null)
+        internal JetCommand(JetConnection? connection, string? commandText = null, JetTransaction? transaction = null)
         {
 #if DEBUG
             Interlocked.Increment(ref _activeObjectsCount);
@@ -52,7 +53,7 @@ namespace EntityFrameworkCore.Jet.Data
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
             _transaction = transaction;
 
-            InnerCommand = connection.JetFactory.InnerFactory.CreateCommand();
+            InnerCommand = connection?.JetFactory?.InnerFactory?.CreateCommand() ?? throw new ArgumentNullException(nameof(InnerCommand));
             InnerCommand.CommandText = commandText;
         }
 
@@ -76,16 +77,17 @@ namespace EntityFrameworkCore.Jet.Data
         public override void Cancel()
             => InnerCommand.Cancel();
 
-        /// <summary>
-        /// Gets or sets the command text.
-        /// </summary>
-        /// <value>
-        /// The command text.
-        /// </value>
-        public override string CommandText
+    /// <summary>
+    /// Gets or sets the command text.
+    /// </summary>
+    /// <value>
+    /// The command text.
+    /// </value>
+    [AllowNull]
+    public override string CommandText
         {
             get => InnerCommand.CommandText;
-            set => InnerCommand.CommandText = value;
+            set => InnerCommand.CommandText = value??string.Empty;
         }
 
         /// <summary>
@@ -125,13 +127,13 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// The database connection.
         /// </value>
-        protected override DbConnection DbConnection
+        protected override DbConnection? DbConnection
         {
             get => _connection;
             set
             {
                 if (value != _connection)
-                    throw new NotSupportedException($"The {DbConnection} property cannot be changed.");
+                  throw new NotSupportedException($"The {DbConnection} property cannot be changed.");
             }
         }
 
@@ -150,10 +152,10 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// The database transaction.
         /// </value>
-        protected override DbTransaction DbTransaction
+        protected override DbTransaction? DbTransaction
         {
             get => _transaction;
-            set => _transaction = (JetTransaction) value;
+            set => _transaction = (JetTransaction?) value;
         }
 
         /// <summary>
@@ -179,7 +181,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             ExpandParameters();
 
-            var commands = SplitCommands();
+            IReadOnlyList<JetCommand> commands = SplitCommands();
 
             for (var i = 0; i < commands.Count - 1; i++)
             {
@@ -188,10 +190,10 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             return commands[commands.Count - 1]
-                .ExecuteDbDataReaderCore(behavior);
+                .ExecuteDbDataReaderCore(behavior)?? throw new NullReferenceException(nameof(ExecuteDbDataReaderCore));
         }
 
-        protected virtual DbDataReader ExecuteDbDataReaderCore(CommandBehavior behavior)
+        protected virtual DbDataReader? ExecuteDbDataReaderCore(CommandBehavior behavior)
         {
             InnerCommand.Connection = _connection.InnerConnection;
 
@@ -269,7 +271,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             FixupGlobalVariables();
-                
+
             if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
                 return 0;
 
@@ -285,7 +287,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// Executes the query and returns the first column of the first row in the result set returned by the query. All other columns and rows are ignored
         /// </summary>
         /// <returns></returns>
-        public override object ExecuteScalar()
+        public override object? ExecuteScalar()
         {
             if (Connection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
@@ -307,7 +309,7 @@ namespace EntityFrameworkCore.Jet.Data
                 .ExecuteScalarCore();
         }
 
-        protected virtual object ExecuteScalarCore()
+        protected virtual object? ExecuteScalarCore()
         {
             if (Connection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
@@ -325,7 +327,7 @@ namespace EntityFrameworkCore.Jet.Data
             if (JetInformationSchema.TryGetDataReaderFromInformationSchemaCommand(this, out var dataReader))
             {
                 // Retrieve from store schema definition.
-                if (dataReader.HasRows)
+                if (dataReader != null && dataReader.HasRows)
                 {
                     dataReader.Read();
                     return dataReader[0];
@@ -344,7 +346,7 @@ namespace EntityFrameworkCore.Jet.Data
         protected virtual IReadOnlyList<JetCommand> SplitCommands()
         {
             // At this point, all parameters have already been expanded.
-            
+
             var parser = new JetCommandParser(CommandText);
             var commandDelimiters = parser.GetStateIndices(';');
             var currentCommandStart = 0;
@@ -406,7 +408,7 @@ namespace EntityFrameworkCore.Jet.Data
             return commands.AsReadOnly();
         }
 
-        private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)
+        private DbDataReader? TryGetDataReaderForSelectRowCount(string commandText)
         {
             if (_selectRowCountRegularExpression.Match(commandText)
                 .Success)
@@ -471,13 +473,13 @@ namespace EntityFrameworkCore.Jet.Data
         protected virtual void FixupGlobalVariables()
         {
             var commandText = InnerCommand.CommandText;
-            
+
             commandText = FixupIdentity(commandText);
             commandText = FixupRowCount(commandText);
 
             InnerCommand.CommandText = commandText;
         }
-        
+
         protected virtual string FixupIdentity(string commandText)
             => FixupGlobalVariablePlaceholder(
                 commandText, "@@identity", (outerCommand, placeholder) =>
@@ -512,7 +514,7 @@ namespace EntityFrameworkCore.Jet.Data
                     newCommandText.Insert(globalVariableIndex, placeholderValue.Value);
                 }
             }
-            
+
             return newCommandText.ToString();
         }
 
@@ -545,7 +547,7 @@ namespace EntityFrameworkCore.Jet.Data
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
         }
-        
+
         private void ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader()
         {
             // We modify the TOP clause parameter of the outer most SELECT statement if a SKIP clause was also
@@ -588,7 +590,7 @@ namespace EntityFrameworkCore.Jet.Data
 
                 var parameter = ExtractParameter(InnerCommand.CommandText, match.Index, parameters);
                 _outerSelectSkipEmulationViaDataReaderSkipCount = Convert.ToInt32(parameter.Value);
-                
+
                 InnerCommand.Parameters.Clear();
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
@@ -599,11 +601,11 @@ namespace EntityFrameworkCore.Jet.Data
 
             InnerCommand.CommandText = InnerCommand.CommandText.Remove(match.Index, match.Length);
         }
-        
+
         protected virtual bool IsParameter(string fragment)
             => fragment.Equals("?") ||
                fragment.Length >= 2 && fragment[0] == '@' && fragment[1] != '@';
-        
+
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
             var indices = GetParameterIndices(commandText.Substring(0, count));
@@ -686,7 +688,7 @@ namespace EntityFrameworkCore.Jet.Data
                         throw new InvalidOperationException($"Cannot find parameter with same name as parameter placeholder \"{placeholder.Name}\".");
                     }
 
-                    var newParameter = (DbParameter) (parameter as ICloneable)?.Clone();
+                    var newParameter = (DbParameter?) (parameter as ICloneable)?.Clone();
 
                     if (newParameter == null)
                     {
@@ -711,7 +713,7 @@ namespace EntityFrameworkCore.Jet.Data
                     throw new InvalidOperationException("Invalid parameter placeholder found.");
                 }
 
-                placeholders.Add(new ParameterPlaceholder {Index = index, Name = match.Value});
+                placeholders.Add(new ParameterPlaceholder(match.Value) {Index = index });
             }
 
             return placeholders.AsReadOnly();
@@ -761,9 +763,12 @@ namespace EntityFrameworkCore.Jet.Data
 
         protected class ParameterPlaceholder
         {
+           public ParameterPlaceholder(string name) {
+              Name = name;
+           }
             public int Index { get; set; }
             public string Name { get; set; }
-            public DbParameter Parameter { get; set; }
-        }
+            public DbParameter? Parameter { get; set; }
+    }
     }
 }

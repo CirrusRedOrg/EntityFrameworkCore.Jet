@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetDoubleTypeMapping : DoubleTypeMapping
     {
         public JetDoubleTypeMapping(
-            [NotNull] string storeType)
+            string storeType)
             : base(storeType, System.Data.DbType.Double)
         {
         }

@@ -43,7 +43,7 @@ namespace System
                    || type == typeof(char);
         }
 
-        public static PropertyInfo GetAnyProperty(this Type type, string name)
+        public static PropertyInfo? GetAnyProperty(this Type type, string name)
         {
             var props = type.GetRuntimeProperties().Where(p => p.Name == name).ToList();
             if (props.Count > 1)
@@ -90,11 +90,11 @@ namespace System
             return sequenceType;
         }
 
-        public static Type TryGetSequenceType(this Type type)
+        public static Type? TryGetSequenceType(this Type type)
             => type.TryGetElementType(typeof(IEnumerable<>))
                ?? type.TryGetElementType(typeof(IAsyncEnumerable<>));
 
-        public static Type TryGetElementType(this Type type, Type interfaceOrBaseType)
+        public static Type? TryGetElementType(this Type type, Type interfaceOrBaseType)
         {
             if (!type.GetTypeInfo().IsGenericTypeDefinition)
             {
@@ -123,27 +123,27 @@ namespace System
 
         public static IEnumerable<Type> GetBaseTypes(this Type type)
         {
-            type = type.GetTypeInfo().BaseType;
+            var currentType = type.BaseType;
 
-            while (type != null)
+            while (currentType != null)
             {
-                yield return type;
+                yield return currentType;
 
-                type = type.GetTypeInfo().BaseType;
+                currentType = currentType.BaseType;
             }
         }
 
-        public static IEnumerable<Type> GetTypesInHierarchy(this Type type)
+        public static IEnumerable<Type> GetTypesInHierarchy(this Type? type)
         {
             while (type != null)
             {
                 yield return type;
 
-                type = type.GetTypeInfo().BaseType;
+                type = type.GetTypeInfo()?.BaseType;
             }
         }
 
-        public static ConstructorInfo GetDeclaredConstructor(this Type type, Type[] types)
+        public static ConstructorInfo? GetDeclaredConstructor(this Type type, Type[] types)
         {
             types = types ?? new Type[0];
 
@@ -155,24 +155,25 @@ namespace System
 
         public static IEnumerable<PropertyInfo> GetPropertiesInHierarchy(this Type type, string name)
         {
+            var currentType = type;
             do
             {
-                var typeInfo = type.GetTypeInfo();
+                var typeInfo = currentType.GetTypeInfo();
                 var propertyInfo = typeInfo.GetDeclaredProperty(name);
                 if (propertyInfo != null
-                    && !(propertyInfo.GetMethod ?? propertyInfo.SetMethod).IsStatic)
+                    && !(propertyInfo.GetMethod ?? propertyInfo.SetMethod)!.IsStatic)
                 {
                     yield return propertyInfo;
                 }
-                type = typeInfo.BaseType;
+                currentType = typeInfo.BaseType;
             }
-            while (type != null);
+            while (currentType != null);
         }
 
         public static IEnumerable<MemberInfo> GetMembersInHierarchy(this Type type, string name)
         {
             // Do the whole hierarchy for properties first since looking for fields is slower.
-            foreach (var propertyInfo in type.GetRuntimeProperties().Where(pi => pi.Name == name && !(pi.GetMethod ?? pi.SetMethod).IsStatic))
+            foreach (var propertyInfo in type.GetRuntimeProperties().Where(pi => pi.Name == name && !(pi.GetMethod ?? pi.SetMethod)!.IsStatic))
             {
                 yield return propertyInfo;
             }
@@ -202,7 +203,7 @@ namespace System
             { typeof(sbyte), default(sbyte) }
         };
 
-        public static object GetDefaultValue(this Type type)
+        public static object? GetDefaultValue(this Type type)
         {
             if (!type.GetTypeInfo().IsValueType)
             {
@@ -230,7 +231,7 @@ namespace System
             }
             catch (ReflectionTypeLoadException ex)
             {
-                return ex.Types.Where(t => t != null).Select(IntrospectionExtensions.GetTypeInfo);
+                return ex.Types.Where(t => t != null).Select(IntrospectionExtensions.GetTypeInfo!);
             }
         }
 

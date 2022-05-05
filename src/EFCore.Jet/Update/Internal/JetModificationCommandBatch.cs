@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetModificationCommandBatch(
-            [NotNull] ModificationCommandBatchFactoryDependencies dependencies)
+            ModificationCommandBatchFactoryDependencies dependencies)
             : base(dependencies)
         {
             // See https://support.office.com/en-us/article/access-specifications-0cf3c66f-9cf2-4e32-9568-98c1025bb47c

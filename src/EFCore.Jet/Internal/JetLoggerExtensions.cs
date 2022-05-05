@@ -27,8 +27,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void DecimalTypeKeyWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
-            [NotNull] IReadOnlyProperty property)
+            this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
+            IReadOnlyProperty property)
         {
             var definition = JetResources.LogDecimalTypeKey(diagnostics);
 
@@ -64,8 +64,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void DecimalTypeDefaultWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
-            [NotNull] IReadOnlyProperty property)
+            this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
+            IReadOnlyProperty property)
         {
             var definition = JetResources.LogDefaultDecimalTypeColumn(diagnostics);
 
@@ -101,8 +101,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void ByteIdentityColumnWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
-            [NotNull] IProperty property)
+            this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
+            IProperty property)
         {
             var definition = JetResources.LogByteIdentityColumn(diagnostics);
 
@@ -138,18 +138,18 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void ColumnFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string tableName,
-            [NotNull] string columnName,
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string tableName,
+            string columnName,
             int ordinal,
-            [NotNull] string dataTypeName,
+            string dataTypeName,
             int maxLength,
             int precision,
             int scale,
             bool nullable,
             bool identity,
-            [CanBeNull] string defaultValue,
-            [CanBeNull] string computedValue,
+            string? defaultValue,
+            string? computedValue,
             bool? stored)
         {
             var definition = JetResources.LogFoundColumn(diagnostics);
@@ -186,11 +186,11 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void ForeignKeyFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string foreignKeyName,
-            [NotNull] string tableName,
-            [NotNull] string principalTableName,
-            [NotNull] string onDeleteAction)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string foreignKeyName,
+            string tableName,
+            string principalTableName,
+            string onDeleteAction)
         {
             var definition = JetResources.LogFoundForeignKey(diagnostics);
 
@@ -209,8 +209,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void DefaultSchemaFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string schemaName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string schemaName)
         {
             var definition = JetResources.LogFoundDefaultSchema(diagnostics);
 
@@ -229,9 +229,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void TypeAliasFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string typeAliasName,
-            [NotNull] string systemTypeName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string typeAliasName,
+            string systemTypeName)
         {
             var definition = JetResources.LogFoundTypeAlias(diagnostics);
 
@@ -250,9 +250,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void PrimaryKeyFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string primaryKeyName,
-            [NotNull] string tableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string primaryKeyName,
+            string tableName)
         {
             var definition = JetResources.LogFoundPrimaryKey(diagnostics);
 
@@ -271,9 +271,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void UniqueConstraintFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string uniqueConstraintName,
-            [NotNull] string tableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string uniqueConstraintName,
+            string tableName)
         {
             var definition = JetResources.LogFoundUniqueConstraint(diagnostics);
 
@@ -292,9 +292,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void IndexFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string indexName,
-            [NotNull] string tableName,
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string indexName,
+            string tableName,
             bool unique)
         {
             var definition = JetResources.LogFoundIndex(diagnostics);
@@ -314,9 +314,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void IndexSkipped(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string indexName,
-            [NotNull] string tableName,
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string indexName,
+            string tableName,
             bool unique)
         {
             var definition = JetResources.LogFoundIndex(diagnostics);
@@ -336,10 +336,10 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void ForeignKeyReferencesMissingPrincipalTableWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [CanBeNull] string foreignKeyName,
-            [CanBeNull] string tableName,
-            [CanBeNull] string principalTableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string foreignKeyName,
+            string tableName,
+            string principalTableName)
         {
             var definition = JetResources.LogPrincipalTableNotInSelectionSet(diagnostics);
 
@@ -358,11 +358,11 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void ForeignKeyPrincipalColumnMissingWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string foreignKeyName,
-            [NotNull] string tableName,
-            [NotNull] string principalColumnName,
-            [NotNull] string principalTableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string foreignKeyName,
+            string tableName,
+            string principalColumnName,
+            string principalTableName)
         {
             var definition = JetResources.LogPrincipalColumnNotFound(diagnostics);
 
@@ -381,8 +381,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void MissingSchemaWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [CanBeNull] string schemaName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string schemaName)
         {
             var definition = JetResources.LogMissingSchema(diagnostics);
 
@@ -401,8 +401,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void MissingTableWarning(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [CanBeNull] string tableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string tableName)
         {
             var definition = JetResources.LogMissingTable(diagnostics);
 
@@ -421,9 +421,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void SequenceFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string sequenceName,
-            [NotNull] string sequenceTypeName,
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string sequenceName,
+            string sequenceTypeName,
             bool cyclic,
             int increment,
             long start,
@@ -458,8 +458,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void TableFound(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string tableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string tableName)
         {
             var definition = JetResources.LogFoundTable(diagnostics);
 
@@ -478,9 +478,9 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public static void ReflexiveConstraintIgnored(
-            [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [NotNull] string foreignKeyName,
-            [NotNull] string tableName)
+            this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
+            string foreignKeyName,
+            string tableName)
         {
             var definition = JetResources.LogReflexiveConstraintIgnored(diagnostics);
 

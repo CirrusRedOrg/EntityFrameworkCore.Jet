@@ -25,7 +25,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static PropertyBuilder UseIdentityColumn(
-            [NotNull] this PropertyBuilder propertyBuilder,
+            this PropertyBuilder propertyBuilder,
             int seed = 1,
             int increment = 1)
         {
@@ -49,7 +49,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static PropertyBuilder<TProperty> UseIdentityColumn<TProperty>(
-            [NotNull] this PropertyBuilder<TProperty> propertyBuilder,
+            this PropertyBuilder<TProperty> propertyBuilder,
             int seed = 1,
             int increment = 1)
             => (PropertyBuilder<TProperty>) UseIdentityColumn((PropertyBuilder) propertyBuilder, seed, increment);
@@ -64,8 +64,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder HasIdentityColumnSeed(
-            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
+        public static IConventionPropertyBuilder? HasIdentityColumnSeed(
+            this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
         {
             if (propertyBuilder.CanSetIdentityColumnSeed(seed, fromDataAnnotation))
             {
@@ -84,7 +84,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the seed for Jet IDENTITY. </returns>
         public static bool CanSetIdentityColumnSeed(
-            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
+            this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
 
@@ -101,8 +101,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder HasIdentityColumnIncrement(
-            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
+        public static IConventionPropertyBuilder? HasIdentityColumnIncrement(
+            this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
         {
             if (propertyBuilder.CanSetIdentityColumnIncrement(increment, fromDataAnnotation))
             {
@@ -121,7 +121,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the default increment for Jet IDENTITY. </returns>
         public static bool CanSetIdentityColumnIncrement(
-            [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
+            this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
 
@@ -138,8 +138,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder HasValueGenerationStrategy(
-            [NotNull] this IConventionPropertyBuilder propertyBuilder,
+        public static IConventionPropertyBuilder? HasValueGenerationStrategy(
+            this IConventionPropertyBuilder propertyBuilder,
             JetValueGenerationStrategy? valueGenerationStrategy,
             bool fromDataAnnotation = false)
         {
@@ -167,7 +167,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the default value generation strategy. </returns>
         public static bool CanSetValueGenerationStrategy(
-            [NotNull] this IConventionPropertyBuilder propertyBuilder,
+            this IConventionPropertyBuilder propertyBuilder,
             JetValueGenerationStrategy? valueGenerationStrategy,
             bool fromDataAnnotation = false)
         {

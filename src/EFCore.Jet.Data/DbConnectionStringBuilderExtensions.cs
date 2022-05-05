@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.Data
 {
     public static class DbConnectionStringBuilderExtensions
     {
-        public static string GetProvider(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+        public static string? GetProvider(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -47,14 +47,14 @@ namespace EntityFrameworkCore.Jet.Data
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
         }
-        
-        public static string GetDataSource(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+
+        public static string? GetDataSource(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
             {
                 return builder.TryGetValue("Data Source", out var value)
-                    ? (string)value
+                    ? (string?)value
                     : null;
             }
 
@@ -62,14 +62,14 @@ namespace EntityFrameworkCore.Jet.Data
                 IsOdbc(builder))
             {
                 return builder.TryGetValue("DBQ", out var value)
-                    ? (string)value
+                    ? (string?)value
                     : null;
             }
 
             return builder.TryGetValue("Data Source", out var oleDbValue)
-                ? (string)oleDbValue
+                ? (string?)oleDbValue
                 : builder.TryGetValue("DBQ", out var odbcValue)
-                    ? (string)odbcValue
+                    ? (string?)odbcValue
                     : null;
         }
 
@@ -88,8 +88,8 @@ namespace EntityFrameworkCore.Jet.Data
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
         }
-        
-        public static string GetUserId(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+
+        public static string? GetUserId(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
             if (IsOleDb(builder))
             {
@@ -113,7 +113,7 @@ namespace EntityFrameworkCore.Jet.Data
                     : null;
         }
 
-        public static void SetUserId(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
+        public static void SetUserId(this DbConnectionStringBuilder builder, string? value, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -128,8 +128,8 @@ namespace EntityFrameworkCore.Jet.Data
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
         }
-        
-        public static string GetPassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+
+        public static string? GetPassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -163,7 +163,7 @@ namespace EntityFrameworkCore.Jet.Data
                     : null;
         }
 
-        public static void SetPassword(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
+        public static void SetPassword(this DbConnectionStringBuilder builder, string? value, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -178,8 +178,8 @@ namespace EntityFrameworkCore.Jet.Data
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
         }
-        
-        public static string GetSystemDatabase(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+
+        public static string? GetSystemDatabase(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -204,7 +204,7 @@ namespace EntityFrameworkCore.Jet.Data
                     : null;
         }
 
-        public static void SetSystemDatabase(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
+        public static void SetSystemDatabase(this DbConnectionStringBuilder builder, string? value, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -220,7 +220,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
         }
 
-        public static string GetDatabasePassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
+        public static string? GetDatabasePassword(this DbConnectionStringBuilder builder, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -254,7 +254,7 @@ namespace EntityFrameworkCore.Jet.Data
                     : null;
         }
 
-        public static void SetDatabasePassword(this DbConnectionStringBuilder builder, string value, DataAccessProviderType? providerType = null)
+        public static void SetDatabasePassword(this DbConnectionStringBuilder builder, string? value, DataAccessProviderType? providerType = null)
         {
             if (providerType == DataAccessProviderType.OleDb ||
                 IsOleDb(builder))
@@ -269,21 +269,21 @@ namespace EntityFrameworkCore.Jet.Data
             else
                 throw new InvalidOperationException("This extension method only supports OdbcConnectionStringBuilder and OleDbConnectionStringBuilder.");
         }
-        
-        private static bool IsOdbc(DbConnectionStringBuilder builder)
+
+        private static bool IsOdbc(DbConnectionStringBuilder? builder)
         {
-            return builder
+            return builder?
                 .GetType()
                 .GetTypesInHierarchy()
-                .Any(t => string.Equals(t.FullName, "System.Data.Odbc.OdbcConnectionStringBuilder"));
+                .Any(t => string.Equals(t.FullName, "System.Data.Odbc.OdbcConnectionStringBuilder"))?? false;
         }
 
-        private static bool IsOleDb(DbConnectionStringBuilder builder)
+        private static bool IsOleDb(DbConnectionStringBuilder? builder)
         {
-            return builder
+            return builder?
                 .GetType()
                 .GetTypesInHierarchy()
-                .Any(t => string.Equals(t.FullName, "System.Data.OleDb.OleDbConnectionStringBuilder"));
+                .Any(t => string.Equals(t.FullName, "System.Data.OleDb.OleDbConnectionStringBuilder")) ?? false;
         }
     }
 }

@@ -35,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public JetHistoryRepository([NotNull] HistoryRepositoryDependencies dependencies)
+        public JetHistoryRepository(HistoryRepositoryDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -67,7 +67,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        protected override bool InterpretExistsResult(object value)
+        protected override bool InterpretExistsResult(object? value)
         {
             return value != DBNull.Value;
         }

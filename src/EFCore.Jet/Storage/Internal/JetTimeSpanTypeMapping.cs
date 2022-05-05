@@ -10,14 +10,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetTimeSpanTypeMapping : JetDateTimeTypeMapping
     {
-        [NotNull] private readonly IJetOptions _options;
+        //private readonly IJetOptions _options;
 
         public JetTimeSpanTypeMapping(
-                [NotNull] string storeType,
-                [NotNull] IJetOptions options)
+                string storeType,
+                IJetOptions options)
             : base(storeType, options, System.Data.DbType.Time, typeof(TimeSpan))
         {
-            _options = options;
+           // _options = options;
         }
 
         protected JetTimeSpanTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)

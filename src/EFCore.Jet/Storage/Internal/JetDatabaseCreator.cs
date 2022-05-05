@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Data;
@@ -25,9 +26,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
 
         public JetDatabaseCreator(
-            [NotNull] RelationalDatabaseCreatorDependencies dependencies,
-            [NotNull] IJetRelationalConnection relationalConnection,
-            [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder)
+            RelationalDatabaseCreatorDependencies dependencies,
+            IJetRelationalConnection relationalConnection,
+            IRawSqlCommandBuilder rawSqlCommandBuilder)
             : base(dependencies)
         {
             _relationalConnection = relationalConnection;
@@ -109,10 +110,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             var fileNameOrConnectionString = connection.ConnectionString;
             var connectionString = JetConnection.GetConnectionString(fileNameOrConnectionString, connection.DataAccessProviderFactory);
 
-            var csb = connection.JetFactory.CreateConnectionStringBuilder();
+            DbConnectionStringBuilder csb = connection?.JetFactory?.CreateConnectionStringBuilder() ?? throw new ArgumentNullException(nameof(csb));
             csb.ConnectionString = connectionString;
-            
-            var dataSource = csb.GetDataSource();
+
+            string dataSource = csb.GetDataSource() ?? throw new ArgumentNullException(nameof(dataSource));
             var databasePassword = csb.GetDatabasePassword();
 
             return Dependencies.MigrationsSqlGenerator.Generate(

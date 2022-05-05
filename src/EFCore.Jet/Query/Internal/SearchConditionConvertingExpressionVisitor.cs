@@ -551,7 +551,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             return unionExpression.Update(source1, source2);
         }
 
-        protected override Expression VisitCollate([NotNull] CollateExpression collateExpression)
+        protected override Expression VisitCollate(CollateExpression collateExpression)
         {
             Check.NotNull(collateExpression, nameof(collateExpression));
 
@@ -563,7 +563,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             return ApplyConversion(collateExpression.Update(operand), condition: false);
         }
 
-        protected override Expression VisitDistinct([NotNull] DistinctExpression distinctExpression)
+        protected override Expression VisitDistinct(DistinctExpression distinctExpression)
         {
             Check.NotNull(distinctExpression, nameof(distinctExpression));
 

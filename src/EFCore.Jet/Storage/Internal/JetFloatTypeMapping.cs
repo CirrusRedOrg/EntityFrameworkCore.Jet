@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetFloatTypeMapping : FloatTypeMapping
     {
         public JetFloatTypeMapping(
-            [NotNull] string storeType)
+            string storeType)
             : base(storeType, System.Data.DbType.Single)
         {
         }

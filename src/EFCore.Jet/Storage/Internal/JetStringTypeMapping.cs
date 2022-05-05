@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetStringTypeMapping(
-            [CanBeNull] string storeType = null,
+            string? storeType = null,
             bool unicode = false,
             int? size = null,
             bool fixedLength = false,

@@ -22,7 +22,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The identity seed. </returns>
-        public static int? GetIdentitySeed([NotNull] this IProperty property)
+        public static int? GetIdentitySeed(this IProperty property)
             => (int?)property[JetAnnotationNames.IdentitySeed];
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The identity seed. </returns>
-        public static int? GetIdentitySeed([NotNull] this IProperty property, in StoreObjectIdentifier storeObject)
+        public static int? GetIdentitySeed(this IProperty property, in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentitySeed);
             if (annotation != null)
@@ -50,7 +50,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <param name="seed"> The value to set. </param>
-        public static void SetIdentitySeed([NotNull] this IMutableProperty property, int? seed)
+        public static void SetIdentitySeed(this IMutableProperty property, int? seed)
             => property.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentitySeed,
                 seed);
@@ -63,7 +63,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> The configured value. </returns>
         public static int? SetIdentitySeed(
-            [NotNull] this IConventionProperty property,
+            this IConventionProperty property,
             int? seed,
             bool fromDataAnnotation = false)
         {
@@ -80,7 +80,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the identity seed. </returns>
-        public static ConfigurationSource? GetIdentitySeedConfigurationSource([NotNull] this IConventionProperty property)
+        public static ConfigurationSource? GetIdentitySeedConfigurationSource(this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.IdentitySeed)?.GetConfigurationSource();
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The identity increment. </returns>
-        public static int? GetIdentityIncrement([NotNull] this IProperty property)
+        public static int? GetIdentityIncrement(this IProperty property)
             => (int?)property[JetAnnotationNames.IdentityIncrement];
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The identity increment. </returns>
-        public static int? GetIdentityIncrement([NotNull] this IProperty property, in StoreObjectIdentifier storeObject)
+        public static int? GetIdentityIncrement(this IProperty property, in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentityIncrement);
             if (annotation != null)
@@ -116,7 +116,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <param name="increment"> The value to set. </param>
-        public static void SetIdentityIncrement([NotNull] this IMutableProperty property, int? increment)
+        public static void SetIdentityIncrement(this IMutableProperty property, int? increment)
             => property.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment);
@@ -129,7 +129,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> The configured value. </returns>
         public static int? SetIdentityIncrement(
-            [NotNull] this IConventionProperty property,
+            this IConventionProperty property,
             int? increment,
             bool fromDataAnnotation = false)
         {
@@ -146,7 +146,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the identity increment. </returns>
-        public static ConfigurationSource? GetIdentityIncrementConfigurationSource([NotNull] this IConventionProperty property)
+        public static ConfigurationSource? GetIdentityIncrementConfigurationSource(this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.IdentityIncrement)?.GetConfigurationSource();
 
         /// <summary>
@@ -159,12 +159,12 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
-        public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IReadOnlyProperty property)
+        public static JetValueGenerationStrategy GetValueGenerationStrategy(this IReadOnlyProperty property)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
             {
-                return (JetValueGenerationStrategy)annotation.Value;
+                return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
             }
 
             if (property.ValueGenerated != ValueGenerated.OnAdd
@@ -190,13 +190,13 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
         public static JetValueGenerationStrategy GetValueGenerationStrategy(
-            [NotNull] this IReadOnlyProperty property,
+            this IReadOnlyProperty property,
             in StoreObjectIdentifier storeObject)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
             {
-                return (JetValueGenerationStrategy)annotation.Value;
+                return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
             }
 
             var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);
@@ -236,7 +236,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="value"> The strategy to use. </param>
         public static void SetValueGenerationStrategy(
-            [NotNull] this IMutableProperty property, JetValueGenerationStrategy? value)
+            this IMutableProperty property, JetValueGenerationStrategy? value)
         {
             CheckValueGenerationStrategy(property, value);
 
@@ -251,7 +251,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> The configured value. </returns>
         public static JetValueGenerationStrategy? SetValueGenerationStrategy(
-            [NotNull] this IConventionProperty property,
+            this IConventionProperty property,
             JetValueGenerationStrategy? value,
             bool fromDataAnnotation = false)
         {
@@ -284,7 +284,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the <see cref="JetValueGenerationStrategy" />. </returns>
         public static ConfigurationSource? GetValueGenerationStrategyConfigurationSource(
-            [NotNull] this IConventionProperty property)
+            this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)?.GetConfigurationSource();
 
         /// <summary>
@@ -292,7 +292,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> <c>true</c> if compatible. </returns>
-        public static bool IsCompatibleWithValueGeneration([NotNull] IReadOnlyProperty property)
+        public static bool IsCompatibleWithValueGeneration(IReadOnlyProperty property)
         {
             var type = property.ClrType;
 

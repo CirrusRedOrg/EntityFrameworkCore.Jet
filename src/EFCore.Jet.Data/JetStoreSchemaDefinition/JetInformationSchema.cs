@@ -16,10 +16,10 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase | RegexOptions.Singleline);
         }
 
-        public static bool TryGetDataReaderFromInformationSchemaCommand(JetCommand command, out DbDataReader dataReader)
+        public static bool TryGetDataReaderFromInformationSchemaCommand(JetCommand command, out DbDataReader? dataReader)
             => (dataReader = GetDbDataReaderFromSimpleStatement(command)) != null;
-        
-        private static DbDataReader GetDbDataReaderFromSimpleStatement(JetCommand command)
+
+        private static DbDataReader? GetDbDataReaderFromSimpleStatement(JetCommand command)
         {
             // Command text format is
             // SELECT * FROM `INFORMATION_SCHEMA.<what>` [WHERE <condition>] [ORDER BY <order>]
@@ -31,12 +31,13 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             //          relations
             //          relation_columns
             //          check_constraints
-
+            if (command?.Connection is null) throw new NoNullAllowedException(nameof(command.Connection));
+ 
             var jetConnection = (JetConnection) command.Connection;
             var innerCommand = command.InnerCommand;
             var commandText = innerCommand.CommandText;
             var innerConnection = command.InnerCommand.Connection;
-            var innerConnectionState = innerConnection.State;
+            var innerConnectionState = innerConnection?.State;
 
             var match = _regExParseInformationSchemaCommand.Match(commandText);
             if (!match.Success)
@@ -48,7 +49,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             var conditions = match.Groups["conditions"].Value;
             var orderColumns = match.Groups["orderColumns"].Value;
 
-            Func<JetConnection, DataTable> schemaMethod = dbObject.ToLower() switch
+            Func<JetConnection, DataTable>? schemaMethod = dbObject.ToLower() switch
             {
                 "tables" => GetTables,
                 "columns" => GetColumns,
@@ -67,7 +68,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
             if (innerConnectionState != ConnectionState.Open)
             {
-                innerConnection.Open();
+                innerConnection?.Open();
             }
 
             DataTable dataTable;
@@ -80,7 +81,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             {
                 if (innerConnectionState != ConnectionState.Open)
                 {
-                    innerConnection.Close();
+                    innerConnection?.Close();
                 }
             }
 
@@ -102,7 +103,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 
             foreach (var row in selectedRows)
                 selectedDataTable.ImportRow(row);
-            
+
             return selectedDataTable.CreateDataReader();
         }
 
@@ -141,7 +142,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection);
             return schemaProvider.GetRelationColumns();
         }
- 
+
         private static DataTable GetCheckConstraints(JetConnection connection)
         {
             using var schemaProvider = SchemaProvider.CreateInstance(connection.SchemaProviderType, connection);

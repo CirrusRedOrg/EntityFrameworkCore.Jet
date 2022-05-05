@@ -25,11 +25,11 @@ namespace EntityFrameworkCore.Jet.Internal
             var jetOptions = options.FindExtension<JetOptionsExtension>() ?? new JetOptionsExtension();
 
             // RowNumberPagingEnabled = jetOptions.RowNumberPaging ?? false;
-            
+
             DataAccessProviderType = GetDataAccessProviderTypeFromOptions(jetOptions);
             UseOuterSelectSkipEmulationViaDataReader = jetOptions.UseOuterSelectSkipEmulationViaDataReader;
             EnableMillisecondsSupport = jetOptions.EnableMillisecondsSupport;
-            ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString;
+            ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString ?? throw new ArgumentNullException(nameof(ConnectionString));
         }
 
         /// <summary>
@@ -74,14 +74,14 @@ namespace EntityFrameworkCore.Jet.Internal
                         nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
             }
         }
-        
+
         private static DataAccessProviderType GetDataAccessProviderTypeFromOptions(JetOptionsExtension jetOptions)
         {
             if (jetOptions.DataAccessProviderFactory == null)
             {
                 throw new InvalidOperationException(JetStrings.DataAccessProviderFactory);
             }
-            
+
             if (jetOptions.DataAccessProviderFactory
                 .GetType()
                 .GetTypesInHierarchy()
@@ -106,7 +106,7 @@ namespace EntityFrameworkCore.Jet.Internal
             {
                 return DataAccessProviderType.Odbc;
             }
-            
+
             throw new InvalidOperationException("The JetConnection.DataAccessProviderFactory property needs to be set to an object of type OdbcFactory or OleDbFactory.");
         }
 
@@ -148,6 +148,6 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual string ConnectionString { get; private set; }
+        public virtual string ConnectionString { get; private set; } = string.Empty;
     }
 }

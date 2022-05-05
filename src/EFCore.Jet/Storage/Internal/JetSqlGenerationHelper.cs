@@ -1,7 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Text;
-using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 
@@ -18,7 +17,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetSqlGenerationHelper(
-            [NotNull] RelationalSqlGenerationHelperDependencies dependencies)
+            RelationalSqlGenerationHelperDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -47,7 +46,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             identifier = identifier
                 .Replace(".", "#");
-            
+
             builder.Append(identifier);
         }
 
@@ -55,7 +54,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public override string DelimitIdentifier(string identifier)
+        public override string DelimitIdentifier(string? identifier)
         {
             return $"`{EscapeIdentifier(TruncateIdentifier(Check.NotEmpty(identifier, nameof(identifier))))}`";
         }
@@ -73,24 +72,24 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             builder.Append('`');
         }
 
-        public override void DelimitIdentifier(StringBuilder builder, string name, string schema)
+        public override void DelimitIdentifier(StringBuilder builder, string name, string? schema)
         {
             // Schema is not supported in Jet
             DelimitIdentifier(builder, name);
         }
 
-        public override string DelimitIdentifier(string name, string schema)
+        public override string DelimitIdentifier(string name, string? schema)
         {
             // Schema is not supported in Jet
             return DelimitIdentifier(Check.NotEmpty(name, nameof(name)));
         }
 
-        public static string TruncateIdentifier(string identifier)
+        public static string TruncateIdentifier(string? identifier)
         {
-            if (identifier.Length <= 64)
+            if (identifier?.Length <= 64)
                 return identifier;
 
-            return identifier.Substring(0, 56) + identifier.ToLowerInvariant().GetHashCode().ToString("X8");
+            return identifier?.Substring(0, 56) + identifier?.ToLowerInvariant().GetHashCode().ToString("X8");
         }
     }
 }

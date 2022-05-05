@@ -15,16 +15,17 @@ namespace EntityFrameworkCore.Jet.Data
 
         private readonly ConnectionSetCollection _pool = new ConnectionSetCollection();
 
-        public DbConnection OpenConnection(string connectionString, DbProviderFactory dataAccessProviderFactory)
+        public DbConnection OpenConnection(string connectionString, DbProviderFactory? dataAccessProviderFactory)
         {
             connectionString ??= string.Empty;
 
             if (!JetConfiguration.UseConnectionPooling)
             {
-                var connection = dataAccessProviderFactory.CreateConnection();
+                var connection = dataAccessProviderFactory?.CreateConnection();
+                if (connection == null) throw new ArgumentNullException(nameof(connection));
                 connection.ConnectionString = connectionString;
                 connection.Open();
-                
+
                 return connection;
             }
 
@@ -34,10 +35,11 @@ namespace EntityFrameworkCore.Jet.Data
 
                 if (connectionSet == null || connectionSet.ConnectionCount == 0)
                 {
-                    var connection = dataAccessProviderFactory.CreateConnection();
+                    var connection = dataAccessProviderFactory?.CreateConnection();
+                    if (connection == null) throw new ArgumentNullException(nameof(connection));
                     connection.ConnectionString = connectionString;
                     connection.Open();
-                    
+
                     return connection;
                 }
 

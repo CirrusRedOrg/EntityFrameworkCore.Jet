@@ -12,7 +12,7 @@ namespace System.Reflection
     internal static class PropertyInfoExtensions
     {
         public static bool IsStatic(this PropertyInfo property)
-            => (property.GetMethod ?? property.SetMethod).IsStatic;
+            => (property.GetMethod ?? property.SetMethod)!.IsStatic;
 
         public static bool IsCandidateProperty(this PropertyInfo propertyInfo, bool needsWrite = true)
             => !propertyInfo.IsStatic()
@@ -21,7 +21,7 @@ namespace System.Reflection
                && (!needsWrite || propertyInfo.CanWrite)
                && propertyInfo.GetMethod != null && propertyInfo.GetMethod.IsPublic;
 
-        public static Type FindCandidateNavigationPropertyType(this PropertyInfo propertyInfo, Func<Type, bool> isPrimitiveProperty)
+        public static Type? FindCandidateNavigationPropertyType(this PropertyInfo propertyInfo, Func<Type, bool> isPrimitiveProperty)
         {
             var targetType = propertyInfo.PropertyType;
             var targetSequenceType = targetType.TryGetSequenceType();
@@ -51,6 +51,8 @@ namespace System.Reflection
 
             return Equals(propertyInfo, otherPropertyInfo)
                    || propertyInfo.Name == otherPropertyInfo.Name
+                   && propertyInfo.DeclaringType != null
+                   && otherPropertyInfo.DeclaringType != null
                    && (propertyInfo.DeclaringType == otherPropertyInfo.DeclaringType
                        || propertyInfo.DeclaringType.GetTypeInfo().IsSubclassOf(otherPropertyInfo.DeclaringType)
                        || otherPropertyInfo.DeclaringType.GetTypeInfo().IsSubclassOf(propertyInfo.DeclaringType)
@@ -58,13 +60,13 @@ namespace System.Reflection
                        || otherPropertyInfo.DeclaringType.GetTypeInfo().ImplementedInterfaces.Contains(propertyInfo.DeclaringType));
         }
 
-        public static PropertyInfo FindGetterProperty([NotNull] this PropertyInfo propertyInfo)
-            => propertyInfo.DeclaringType
+        public static PropertyInfo? FindGetterProperty(this PropertyInfo propertyInfo)
+            => propertyInfo.DeclaringType?
                 .GetPropertiesInHierarchy(propertyInfo.Name)
                 .FirstOrDefault(p => p.GetMethod != null);
 
-        public static PropertyInfo FindSetterProperty([NotNull] this PropertyInfo propertyInfo)
-            => propertyInfo.DeclaringType
+        public static PropertyInfo? FindSetterProperty(this PropertyInfo propertyInfo)
+            => propertyInfo.DeclaringType?
                 .GetPropertiesInHierarchy(propertyInfo.Name)
                 .FirstOrDefault(p => p.SetMethod != null);
     }

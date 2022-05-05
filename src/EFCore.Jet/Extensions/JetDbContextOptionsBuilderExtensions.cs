@@ -19,7 +19,7 @@ namespace Microsoft.EntityFrameworkCore
     public static class JetDbContextOptionsBuilderExtensions
     {
         #region Connection String
-        
+
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
@@ -33,9 +33,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
@@ -57,9 +57,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            string fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
@@ -77,10 +77,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [NotNull] DbProviderFactory dataAccessProviderFactory,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string fileNameOrConnectionString,
+            DbProviderFactory dataAccessProviderFactory,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
@@ -100,10 +100,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [NotNull] DbProviderFactory dataAccessProviderFactory,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            string fileNameOrConnectionString,
+            DbProviderFactory dataAccessProviderFactory,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
@@ -122,10 +122,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string fileNameOrConnectionString,
             DataAccessProviderType dataAccessProviderType,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
@@ -144,10 +144,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
+            this DbContextOptionsBuilder optionsBuilder,
+            string fileNameOrConnectionString,
             DataAccessProviderType dataAccessProviderType,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
@@ -156,17 +156,17 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         internal static DbContextOptionsBuilder UseJetWithoutPredefinedDataAccessProvider(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            string fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             => UseJetCore(optionsBuilder, fileNameOrConnectionString, null, null, jetOptionsAction);
 
         private static DbContextOptionsBuilder UseJetCore(
-            [NotNull] DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] DbProviderFactory dataAccessProviderFactory,
-            [CanBeNull] DataAccessProviderType? dataAccessProviderType,
-            Action<JetDbContextOptionsBuilder> jetOptionsAction)
+            DbContextOptionsBuilder optionsBuilder,
+            string fileNameOrConnectionString,
+            DbProviderFactory? dataAccessProviderFactory,
+            DataAccessProviderType? dataAccessProviderType,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
@@ -191,7 +191,7 @@ namespace Microsoft.EntityFrameworkCore
                 .WithConnectionString(fileNameOrConnectionString);
 
             extension = extension.WithDataAccessProviderFactory(
-                dataAccessProviderFactory ?? JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value));
+                dataAccessProviderFactory ?? JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType != null ? dataAccessProviderType.Value : throw new ArgumentNullException(nameof(dataAccessProviderType))));
 
             ((IDbContextOptionsBuilderInfrastructure) optionsBuilder).AddOrUpdateExtension(extension);
 
@@ -203,9 +203,9 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         #endregion
-        
+
         #region Connection
-        
+
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.
@@ -220,9 +220,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] DbConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            DbConnection connection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
@@ -245,9 +245,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] DbConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder> jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            DbConnection connection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotNull(connection, nameof(connection));
@@ -262,7 +262,7 @@ namespace Microsoft.EntityFrameworkCore
             {
                 var fileNameOrConnectionString = jetConnection.ConnectionString;
                 DataAccessProviderType dataAccessProviderType;
-                
+
                 if (JetConnection.IsConnectionString(fileNameOrConnectionString))
                 {
                     dataAccessProviderType = JetConnection.GetDataAccessProviderType(fileNameOrConnectionString);
@@ -295,7 +295,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         #endregion
-        
+
         private static JetOptionsExtension GetOrCreateExtension(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.Options.FindExtension<JetOptionsExtension>()
                ?? new JetOptionsExtension();

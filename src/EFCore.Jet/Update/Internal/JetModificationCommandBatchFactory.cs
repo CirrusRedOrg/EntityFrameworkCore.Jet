@@ -32,8 +32,8 @@ namespace EntityFrameworkCore.Jet.Update.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetModificationCommandBatchFactory(
-            [NotNull] ModificationCommandBatchFactoryDependencies dependencies,
-            [NotNull] IDbContextOptions options)
+            ModificationCommandBatchFactoryDependencies dependencies,
+            IDbContextOptions options)
         {
             Check.NotNull(dependencies, nameof(dependencies));
             Check.NotNull(options, nameof(options));

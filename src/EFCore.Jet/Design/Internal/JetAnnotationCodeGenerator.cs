@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Design.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public JetAnnotationCodeGenerator([NotNull] AnnotationCodeGeneratorDependencies dependencies)
+        public JetAnnotationCodeGenerator(AnnotationCodeGeneratorDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -43,11 +43,11 @@ namespace EntityFrameworkCore.Jet.Design.Internal
             // CHECK: Jet default schema handling.
             if (annotation.Name == RelationalAnnotationNames.DefaultSchema)
             {
-                return string.Equals(null, (string)annotation.Value);
+                return string.Equals(null, (string?)annotation.Value);
             }
 
             return annotation.Name == JetAnnotationNames.ValueGenerationStrategy
-                && (JetValueGenerationStrategy)annotation.Value == JetValueGenerationStrategy.IdentityColumn;
+                && (JetValueGenerationStrategy?)annotation.Value == JetValueGenerationStrategy.IdentityColumn;
         }
     }
 }

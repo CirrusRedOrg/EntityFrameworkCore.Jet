@@ -9,26 +9,27 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
+using System.Diagnostics.CodeAnalysis;
 
 namespace EntityFrameworkCore.Jet.Data
 {
     public class JetConnection : DbConnection, IDisposable, ICloneable
     {
         private ConnectionState _state;
-        private string _connectionString;
+        private string _connectionString = string.Empty;
         private bool _frozen;
 
-        internal DbConnection InnerConnection { get; private set; }
+        internal DbConnection? InnerConnection { get; private set; }
 
-        internal JetTransaction ActiveTransaction { get; set; }
-        
+        internal JetTransaction? ActiveTransaction { get; set; }
+
         internal int RowCount { get; set; }
-        
-        internal string ActiveConnectionString { get; private set; }
+
+        internal string? ActiveConnectionString { get; private set; }
         internal string FileNameOrConnectionString => ConnectionString;
 
         public const string DefaultDualTableName = "#Dual";
-        
+
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
@@ -62,9 +63,9 @@ namespace EntityFrameworkCore.Jet.Data
         /// <param name="fileNameOrConnectionString">The file name or connection string (either ODBC or OLE DB).</param>
         /// <param name="dataAccessProviderFactory">The underlying provider factory to use by Jet. Supported are
         /// `OdbcFactory` and `OleDbFactory`.</param>
-        public JetConnection(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+        public JetConnection(string? fileNameOrConnectionString, DbProviderFactory? dataAccessProviderFactory)
         {
-            ConnectionString = fileNameOrConnectionString;
+            ConnectionString = fileNameOrConnectionString ?? throw new ArgumentNullException(nameof(fileNameOrConnectionString));
 
             if (dataAccessProviderFactory != null)
                 DataAccessProviderFactory = dataAccessProviderFactory;
@@ -84,14 +85,14 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// Gets the <see cref="T:System.Data.Common.DbProviderFactory" /> for this <see cref="T:System.Data.Common.DbConnection" />.
         /// </summary>
-        protected override DbProviderFactory DbProviderFactory => JetFactory;
+        protected override DbProviderFactory? DbProviderFactory => JetFactory;
 
         /// <summary>
         /// Gets or sets an `OdbcFactory` or `OleDbFactory` object, to use as the underlying data
         /// access API. Jet uses this provider factory internally for all data access operations.
         /// </summary>
         /// <exception cref="InvalidOperationException">This property can only be set as long as the connection is closed.</exception>
-        public DbProviderFactory DataAccessProviderFactory
+        public DbProviderFactory? DataAccessProviderFactory
         {
             get => JetFactory?.InnerFactory;
             set
@@ -109,7 +110,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// Gets a `JetProviderFactory` object, that can be used to create Jet specific objects (e.g. `JetCommand`).
         /// </summary>
-        public JetFactory JetFactory { get; private set; }
+        public JetFactory? JetFactory { get; private set; }
 
         /// <summary>
         /// Starts a database transaction.
@@ -181,29 +182,32 @@ namespace EntityFrameworkCore.Jet.Data
             OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
         }
 
-        /// <summary>
-        /// Gets or sets the string used to open the connection.
-        /// </summary>
-        public override string ConnectionString
+    /// <summary>
+    /// Gets or sets the string used to open the connection.
+    /// </summary>
+    [AllowNull]
+    public override string ConnectionString
         {
             get => _connectionString;
-            set
-            {
+           //[MemberNotNull(nameof(_connectionString), nameof(PoolGroup))]
+           set
+           {
                 if (State != ConnectionState.Closed)
                     throw new InvalidOperationException(Messages.CannotChangePropertyValueInThisConnectionState(nameof(ConnectionString), State));
 
                 if (_frozen)
                     throw new InvalidOperationException($"Cannot modify \"{nameof(ConnectionString)}\" property after the connection has been frozen.");
 
-                _connectionString = value;
+                _connectionString = value ?? string.Empty;
             }
         }
 
-        /// <summary>
-        /// Gets the time to wait while establishing a connection before terminating the attempt and generating an error.
-        /// For Jet this time is unlimited
-        /// </summary>
-        public override int ConnectionTimeout
+
+    /// <summary>
+    /// Gets the time to wait while establishing a connection before terminating the attempt and generating an error.
+    /// For Jet this time is unlimited
+    /// </summary>
+    public override int ConnectionTimeout
             => 0;
 
         /// <summary>
@@ -214,12 +218,12 @@ namespace EntityFrameworkCore.Jet.Data
         /// </returns>
         protected override DbCommand CreateDbCommand()
         {
-            return CreateCommand(null);
+            return CreateCommand();
         }
 
         /// <summary>
         /// This property is always empty in Jet. Use DataSource property instead.
-        /// Gets the name of the current database after a connection is opened, or the database name specified 
+        /// Gets the name of the current database after a connection is opened, or the database name specified
         /// in the connection string before the connection is opened.
         /// </summary>
         public override string Database
@@ -229,7 +233,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// Gets the name of the file to open.
         /// </summary>
         public override string DataSource
-            => JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(_connectionString);
+            => JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(_connectionString) ?? string.Empty;
 
         /// <summary>
         /// Releases the unmanaged resources used by the <see cref="T:System.ComponentModel.Component" /> and optionally releases the managed resources.
@@ -249,7 +253,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// Enlists in the specified transaction.
         /// </summary>
         /// <param name="transaction">A reference to an existing <see cref="T:System.Transactions.Transaction" /> in which to enlist.</param>
-        public override void EnlistTransaction(System.Transactions.Transaction transaction)
+        public override void EnlistTransaction(System.Transactions.Transaction? transaction)
         {
             if (InnerConnection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
@@ -268,7 +272,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// </PermissionSet>
         public override DataTable GetSchema(string collectionName)
         {
-            if (State != ConnectionState.Open)
+            if (State != ConnectionState.Open || InnerConnection ==null)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
             return InnerConnection.GetSchema(collectionName);
         }
@@ -284,7 +288,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// </PermissionSet>
         public override DataTable GetSchema()
         {
-            if (State != ConnectionState.Open)
+            if (State != ConnectionState.Open || InnerConnection == null)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
             return InnerConnection.GetSchema();
         }
@@ -300,9 +304,9 @@ namespace EntityFrameworkCore.Jet.Data
         /// <PermissionSet>
         ///   <IPermission class="System.Security.Permissions.FileIOPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" PathDiscovery="*AllFiles*" />
         /// </PermissionSet>
-        public override DataTable GetSchema(string collectionName, string[] restrictionValues)
+        public override DataTable GetSchema(string collectionName, string?[] restrictionValues)
         {
-            if (State != ConnectionState.Open)
+            if (State != ConnectionState.Open || InnerConnection == null)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
             return InnerConnection.GetSchema(collectionName, restrictionValues);
         }
@@ -325,7 +329,7 @@ namespace EntityFrameworkCore.Jet.Data
                 : null;
 
             string connectionString;
-            
+
             if (IsConnectionString(fileNameOrConnectionString))
             {
                 // If the connection string is an actual connection string and not just a file path, then we should
@@ -354,11 +358,12 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             DataAccessProviderFactory ??= JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
-            
+
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.
             // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
-            var connectionStringBuilder = DataAccessProviderFactory.CreateConnectionStringBuilder();
+            var connectionStringBuilder = DataAccessProviderFactory?.CreateConnectionStringBuilder();
+            if (connectionStringBuilder == null) throw new ArgumentNullException(nameof(connectionStringBuilder));
             connectionStringBuilder.ConnectionString = connectionString;
 
             if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider()))
@@ -369,11 +374,11 @@ namespace EntityFrameworkCore.Jet.Data
 
                 if (provider == null)
                     throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
-                    
+
                 connectionStringBuilder.SetProvider(provider);
                 connectionString = connectionStringBuilder.ToString();
             }
-            
+
             // Enable ExtendedAnsiSQL when using ODBC to support ODBC 4.0 statements (like CREATE VIEW).
             if (dataAccessProviderType == DataAccessProviderType.Odbc)
             {
@@ -385,12 +390,12 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             connectionString = ExpandDatabaseFilePath(connectionString, DataAccessProviderFactory);
-            
+
             try
             {
                 InnerConnection = InnerConnectionFactory.Instance.OpenConnection(
                     connectionString,
-                    JetFactory.InnerFactory);
+                    JetFactory?.InnerFactory);
                 InnerConnection.StateChange += WrappedConnection_StateChange;
                 ActiveConnectionString = connectionString;
 
@@ -412,7 +417,7 @@ namespace EntityFrameworkCore.Jet.Data
         {
             get
             {
-                if (State != ConnectionState.Open)
+                if (State != ConnectionState.Open || InnerConnection == null)
                     throw new InvalidOperationException(Messages.CannotReadPropertyValueInThisConnectionState(nameof(ServerVersion), State));
                 return InnerConnection.ServerVersion;
             }
@@ -484,7 +489,7 @@ namespace EntityFrameworkCore.Jet.Data
         {
             var clone = new JetConnection();
             if (InnerConnection != null)
-                clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_connectionString, JetFactory.InnerFactory);
+                clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_connectionString, JetFactory?.InnerFactory);
             return clone;
         }
 
@@ -512,14 +517,14 @@ namespace EntityFrameworkCore.Jet.Data
         public void CreateDatabase(
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null)
+            string? databasePassword = null)
             => CreateDatabase(DataSource, version, collatingOrder, databasePassword, SchemaProviderType);
 
         public static void CreateDatabase(
             string fileNameOrConnectionString,
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null,
+            string? databasePassword = null,
             SchemaProviderType schemaProviderType = SchemaProviderType.Precise)
         {
             if (databasePassword != null &&
@@ -531,14 +536,14 @@ namespace EntityFrameworkCore.Jet.Data
             //
             // Create database:
             //
-            
+
             var databaseCreator = JetDatabaseCreator.CreateInstance(schemaProviderType);
             databaseCreator.CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
 
             //
             // Ensure dual table existence:
             //
-            
+
             var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(
                 IsConnectionString(fileNameOrConnectionString)
                     ? GetDataAccessProviderType(fileNameOrConnectionString)
@@ -548,7 +553,8 @@ namespace EntityFrameworkCore.Jet.Data
 
             if (!string.IsNullOrEmpty(databasePassword))
             {
-                var csb = dataAccessProviderFactory.CreateConnectionStringBuilder();
+                var csb = dataAccessProviderFactory?.CreateConnectionStringBuilder();
+                if (csb== null) throw new ArgumentNullException(nameof(csb));
                 csb.ConnectionString = connectionString;
                 csb.SetDatabasePassword(databasePassword);
 
@@ -557,21 +563,21 @@ namespace EntityFrameworkCore.Jet.Data
 
             using var connection = new JetConnection(connectionString, dataAccessProviderFactory);
             connection.Open();
-            
+
             using var schemaProvider = SchemaProvider.CreateInstance(schemaProviderType, connection);
             schemaProvider.EnsureDualTable();
         }
 
-        public static string GetConnectionString(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+        public static string GetConnectionString(string fileNameOrConnectionString, DbProviderFactory? dataAccessProviderFactory)
             => GetConnectionString(fileNameOrConnectionString, GetDataAccessProviderType(dataAccessProviderFactory), dataAccessProviderFactory);
 
         public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType? dataAccessProviderType = null)
         {
-            var providerType = dataAccessProviderType ?? JetConfiguration.DefaultDataAccessProviderType; 
+            var providerType = dataAccessProviderType ?? JetConfiguration.DefaultDataAccessProviderType;
             return GetConnectionString(fileNameOrConnectionString, providerType, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
         }
 
-        internal static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType, DbProviderFactory dataAccessProviderFactory)
+        internal static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType, DbProviderFactory? dataAccessProviderFactory)
             => IsConnectionString(fileNameOrConnectionString)
                 ? ExpandDatabaseFilePath(fileNameOrConnectionString, dataAccessProviderFactory)
                 : GetConnectionString(
@@ -586,10 +592,11 @@ namespace EntityFrameworkCore.Jet.Data
             => dataAccessProviderType == DataAccessProviderType.OleDb
                 ? $"Provider={provider};Data Source={JetStoreDatabaseHandling.ExpandFileName(fileName)}"
                 : $"Driver={{{provider}}};DBQ={JetStoreDatabaseHandling.ExpandFileName(fileName)}";
-        
-        private static string ExpandDatabaseFilePath(string connectionString, DbProviderFactory dataAccessProviderFactory)
+
+        private static string ExpandDatabaseFilePath(string? connectionString, DbProviderFactory? dataAccessProviderFactory)
         {
-            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            var connectionStringBuilder = dataAccessProviderFactory?.CreateConnectionStringBuilder();
+            if (connectionStringBuilder == null) throw new ArgumentNullException(nameof(connectionStringBuilder));
             connectionStringBuilder.ConnectionString = connectionString;
             connectionStringBuilder.SetDataSource(JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.GetDataSource()));
 
@@ -611,13 +618,13 @@ namespace EntityFrameworkCore.Jet.Data
 
         public bool DatabaseExists()
             => DatabaseExists(_connectionString);
-        
+
         public SchemaProviderType SchemaProviderType { get; set; }
 
         public static bool DatabaseExists(string fileNameOrConnectionString)
         {
             var fileName = JetStoreDatabaseHandling.ExpandFileName(
-                JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString)
+                JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString)?
                     .Trim('"'));
 
             if (string.IsNullOrWhiteSpace(fileName))
@@ -626,8 +633,9 @@ namespace EntityFrameworkCore.Jet.Data
             return File.Exists(fileName);
         }
 
-        public static DataAccessProviderType GetDataAccessProviderType(string connectionString)
+        public static DataAccessProviderType GetDataAccessProviderType(string? connectionString)
         {
+            if (string.IsNullOrWhiteSpace(connectionString)) throw new ArgumentNullException(nameof(connectionString));
             var isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Provider\s*=\s*\w+", RegexOptions.IgnoreCase);
             var isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase);
 
@@ -651,9 +659,9 @@ namespace EntityFrameworkCore.Jet.Data
                 : DataAccessProviderType.Odbc;
         }
 
-        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory providerFactory)
+        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory? providerFactory)
         {
-            var isOleDb = providerFactory
+            var isOleDb = providerFactory?
                 .GetType()
                 .GetTypesInHierarchy()
                 .FirstOrDefault(
@@ -662,7 +670,7 @@ namespace EntityFrameworkCore.Jet.Data
                         "System.Data.OleDb.OleDbFactory",
                         StringComparison.OrdinalIgnoreCase)) != null;
 
-            var isOdbc = providerFactory
+            var isOdbc = providerFactory?
                 .GetType()
                 .GetTypesInHierarchy()
                 .FirstOrDefault(
@@ -789,7 +797,7 @@ namespace EntityFrameworkCore.Jet.Data
         }, true);
 
         public static bool IsConnectionString(string fileNameOrConnectionString)
-            => JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString);
+            => JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString );
 
         public static bool IsFileName(string fileNameOrConnectionString)
             => JetStoreDatabaseHandling.IsFileName(fileNameOrConnectionString);

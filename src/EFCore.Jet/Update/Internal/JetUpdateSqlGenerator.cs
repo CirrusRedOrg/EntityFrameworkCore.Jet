@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
     public class JetUpdateSqlGenerator : UpdateSqlGenerator, IJetUpdateSqlGenerator
     {
         public JetUpdateSqlGenerator(
-            [NotNull] UpdateSqlGeneratorDependencies dependencies)
+            UpdateSqlGeneratorDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -63,7 +63,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>rom your code. This API may change or be removed in future releases.
-        protected override ResultSetMapping AppendSelectAffectedCountCommand(StringBuilder commandStringBuilder, string name, string schema, int commandPosition)
+        protected override ResultSetMapping AppendSelectAffectedCountCommand(StringBuilder commandStringBuilder, string name, string? schema, int commandPosition)
         {
             commandStringBuilder
                 .Append("SELECT @@ROWCOUNT")

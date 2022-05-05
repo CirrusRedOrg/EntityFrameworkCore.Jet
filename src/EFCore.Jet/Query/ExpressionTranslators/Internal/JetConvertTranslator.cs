@@ -65,7 +65,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             return _supportedMethods.Contains(method)
                 ? _sqlExpressionFactory.Convert(arguments[0], method.ReturnType)

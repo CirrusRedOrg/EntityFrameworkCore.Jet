@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetMethodCallTranslatorProvider(
-            [NotNull] RelationalMethodCallTranslatorProviderDependencies dependencies)
+            RelationalMethodCallTranslatorProviderDependencies dependencies)
             : base(dependencies)
         {
             var sqlExpressionFactory = (JetSqlExpressionFactory) dependencies.SqlExpressionFactory;

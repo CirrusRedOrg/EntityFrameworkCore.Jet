@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public static class JetTransientExceptionDetector
     {
-        public static bool ShouldRetryOn([NotNull] Exception ex)
+        public static bool ShouldRetryOn(Exception ex)
         {
             DataAccessProviderType dataAccessProviderType;
 

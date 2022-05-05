@@ -11,8 +11,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     public class JetConventionSetBuilder : RelationalConventionSetBuilder
     {
         public JetConventionSetBuilder(
-            [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
+            ProviderConventionSetBuilderDependencies dependencies,
+            RelationalConventionSetBuilderDependencies relationalDependencies)
             : base(dependencies, relationalDependencies)
         {
         }
@@ -55,7 +55,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 .BuildServiceProvider();
 
             using var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
-            using var context = serviceScope.ServiceProvider.GetService<DbContext>();
+            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
             return ConventionSet.CreateConventionSet(context);
         }
     }

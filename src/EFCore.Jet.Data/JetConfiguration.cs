@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// </summary>
         public static DateTime TimeSpanOffset { get; set; } = new DateTime(1899, 12, 30);
 
-        private static object _integerNullValue = Int32.MinValue;
+        private static object? _integerNullValue = int.MinValue;
 
         // CHECK: Replace with Nullable<Int32>
         /// <summary>
@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// The integer null value.
         /// </value>
-        public static object IntegerNullValue
+        public static object? IntegerNullValue
         {
             get => _integerNullValue;
             set
@@ -32,9 +32,9 @@ namespace EntityFrameworkCore.Jet.Data
                 _integerNullValue = value;
             }
         }
-        
-        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc; 
-        
+
+        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc;
+
         // The SQL statement
         //
         // (SELECT COUNT(*) FROM MSysRelationships)

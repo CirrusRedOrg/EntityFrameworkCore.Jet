@@ -13,9 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
     <PackageReference Include="System.ValueTuple" />
     <PackageReference Include="Microsoft.CSharp" />
     <PackageReference Include="Microsoft.Win32.Registry" />
+    -->
   </ItemGroup>
 
   <!--

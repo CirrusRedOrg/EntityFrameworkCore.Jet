@@ -24,11 +24,11 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
         /// <param name="otherValueGenerationStrategy"> The other value generation strategy. </param>
         /// <param name="property"> The property. </param>
         public ConflictingValueGenerationStrategiesEventData(
-            [NotNull] EventDefinitionBase eventDefinition,
-            [NotNull] Func<EventDefinitionBase, EventData, string> messageGenerator,
+            EventDefinitionBase eventDefinition,
+            Func<EventDefinitionBase, EventData, string> messageGenerator,
             JetValueGenerationStrategy jetValueGenerationStrategy,
-            [NotNull] string otherValueGenerationStrategy,
-            [NotNull] IProperty property)
+            string otherValueGenerationStrategy,
+            IProperty property)
             : base(eventDefinition, messageGenerator)
         {
             JetValueGenerationStrategy = jetValueGenerationStrategy;

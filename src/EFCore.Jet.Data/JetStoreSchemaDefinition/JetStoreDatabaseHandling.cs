@@ -173,7 +173,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             throw new Exception($"\"{commandText}\" is not a valid database command.");
         }
 
-        public static string ExtractFileNameFromConnectionString(string connectionString)
+        public static string? ExtractFileNameFromConnectionString(string connectionString)
         {
             if (connectionString != null)
             {
@@ -243,7 +243,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
         private static string UnescapeSingleQuotes(string value)
             => value.Replace("''", "'");
 
-        public static string ExpandFileName(string fileName)
+        public static string ExpandFileName(string? fileName)
         {
             if (fileName == null)
                 throw new ArgumentNullException(nameof(fileName));

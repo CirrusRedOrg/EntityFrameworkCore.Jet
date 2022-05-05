@@ -29,7 +29,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     ///     Initializes a new instance of the <see cref="JetCodeGenerator" /> class.
     /// </summary>
     /// <param name="dependencies"> The dependencies. </param>
-    public JetCodeGenerator([NotNull] ProviderCodeGeneratorDependencies dependencies)
+    public JetCodeGenerator(ProviderCodeGeneratorDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -42,7 +42,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         /// </summary>
         public override MethodCallCodeFragment GenerateUseProvider(
           string connectionString,
-          MethodCallCodeFragment providerOptions)
+          MethodCallCodeFragment? providerOptions)
           => new(
               UseJetMethodInfo,
               providerOptions == null

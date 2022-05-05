@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     {
         private readonly ISqlExpressionFactory _sqlExpressionFactory;
         private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
-        
+
         public JetDateTimeExpressionVisitor(
             ISqlExpressionFactory sqlExpressionFactory,
             IRelationalTypeMappingSource relationalTypeMappingSource)
@@ -39,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             // This will result in JetDataReader.GetDateTime() being called for the System.Double returned from the
             // database. JetDataReader.GetDateTime() explicitly supports this and handles the value appropriately.
             var newProjections = selectExpression.Projection.Select(
-                    projection => projection.Expression.TypeMapping.ClrType.IsTimeRelatedType()
+                    projection => projection.Expression.TypeMapping?.ClrType?.IsTimeRelatedType() ?? false
                         ? projection.Update(
                             new SqlUnaryExpression(
                                 ExpressionType.Convert,
@@ -58,7 +58,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 selectExpression.Orderings.ToList(),
                 selectExpression.Limit,
                 selectExpression.Offset);
-            
+
             return expression;
         }
     }

@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Jet.Data
     // See https://github.com/dotnet/runtime/issues/12587#issuecomment-534611966
     internal class ComObject : DynamicObject, IDisposable
     {
-        private object _instance;
+        private object? _instance;
 #if DEBUG
         private readonly Guid _trackingId = Guid.NewGuid();
 #endif
@@ -28,10 +28,10 @@ namespace EntityFrameworkCore.Jet.Data
                     }
                 }
             }
-            
+
             throw new TypeLoadException("Could not create an instance using any of the supplied ProgIDs.");
         }
-        
+
         public static ComObject CreateFirstFrom(params Guid[] clsids)
         {
             foreach (var clsid in clsids)
@@ -46,41 +46,41 @@ namespace EntityFrameworkCore.Jet.Data
                     }
                 }
             }
-            
+
             throw new TypeLoadException("Could not create an instance using any of the supplied CLSIDs.");
         }
 
-        public ComObject(object instance)
+        public ComObject(object? instance)
         {
             if (instance is ComObject)
             {
                 throw new ArgumentException("The object is already a ComObject.", nameof(instance));
             }
-            
+
             _instance = instance;
         }
 
         public ComObject(string progid)
-            : this(Activator.CreateInstance(Type.GetTypeFromProgID(progid, true)))
+            : this(Activator.CreateInstance(Type.GetTypeFromProgID(progid, true)?? throw new ArgumentNullException(nameof(progid))))
         {
         }
 
         public ComObject(Guid clsid)
-            : this(Activator.CreateInstance(Type.GetTypeFromCLSID(clsid, true)))
+            : this(Activator.CreateInstance(Type.GetTypeFromCLSID(clsid, true)?? throw new ArgumentNullException(nameof(clsid))))
         {
         }
 
-        public object Detach()
+        public object? Detach()
         {
             var instance = _instance;
             _instance = null;
             return instance;
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
             result = WrapIfRequired(
-                _instance.GetType()
+                _instance?.GetType()
                     .InvokeMember(
                         binder.Name,
                         BindingFlags.GetProperty,
@@ -91,9 +91,9 @@ namespace EntityFrameworkCore.Jet.Data
             return true;
         }
 
-        public override bool TrySetMember(SetMemberBinder binder, object value)
+        public override bool TrySetMember(SetMemberBinder binder, object? value)
         {
-            _instance.GetType()
+            _instance?.GetType()
                 .InvokeMember(
                     binder.Name,
                     BindingFlags.SetProperty,
@@ -109,10 +109,10 @@ namespace EntityFrameworkCore.Jet.Data
             return true;
         }
 
-        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+        public override bool TryInvokeMember(InvokeMemberBinder binder, object?[]? args, out object? result)
         {
             result = WrapIfRequired(
-                _instance.GetType()
+                _instance?.GetType()
                     .InvokeMember(
                         binder.Name,
                         BindingFlags.InvokeMethod,
@@ -123,11 +123,11 @@ namespace EntityFrameworkCore.Jet.Data
             return true;
         }
 
-        public override bool TryGetIndex(GetIndexBinder binder, object[] indexes, out object result)
+        public override bool TryGetIndex(GetIndexBinder binder, object?[] indexes, out object? result)
         {
             // This should work for all specific interfaces derived from `_Collection` (like `_Tables`) in ADOX.
             result = WrapIfRequired(
-                _instance.GetType()
+                _instance?.GetType()
                     .InvokeMember(
                         "Item",
                         BindingFlags.GetProperty,
@@ -139,7 +139,7 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         // See https://github.com/dotnet/runtime/issues/12587#issuecomment-578431424
-        private static object WrapIfRequired(object obj)
+        private static object? WrapIfRequired(object? obj)
             => obj != null &&
                obj.GetType().IsCOMObject
                 ? new ComObject(obj)

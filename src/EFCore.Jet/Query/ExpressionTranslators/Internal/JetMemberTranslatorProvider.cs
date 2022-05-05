@@ -15,11 +15,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetMemberTranslatorProvider([NotNull] RelationalMemberTranslatorProviderDependencies dependencies)
+        public JetMemberTranslatorProvider(RelationalMemberTranslatorProviderDependencies dependencies)
             : base(dependencies)
         {
             var sqlExpressionFactory = (JetSqlExpressionFactory)dependencies.SqlExpressionFactory;
-            
+
             // ReSharper disable once VirtualMemberCallInConstructor
             AddTranslators(new IMemberTranslator[]
             {

@@ -9,16 +9,12 @@
     <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
-    <!--
-    <Nullable>enable</Nullable>
-    -->
     <ImplicitUsings>true</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\Shared\*.cs" />
   </ItemGroup>
-
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.4" />

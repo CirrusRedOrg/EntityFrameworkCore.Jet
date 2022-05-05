@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetBoolTypeMapping : BoolTypeMapping
     {
         public JetBoolTypeMapping(
-            [NotNull] string storeType,
+            string storeType,
             DbType? dbType = System.Data.DbType.Boolean)
             : base(storeType, dbType)
         {

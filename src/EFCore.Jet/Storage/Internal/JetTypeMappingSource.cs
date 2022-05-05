@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // We just map counter etc. to integer. Whether an integer property/column is actually a counter
         // is determined by the value generation type.
         private readonly IntTypeMapping _counter = new JetIntTypeMapping("integer");
-        
+
         private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
@@ -61,9 +61,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetTypeMappingSource(
-            [NotNull] TypeMappingSourceDependencies dependencies,
-            [NotNull] RelationalTypeMappingSourceDependencies relationalDependencies,
-            [NotNull] IJetOptions options)
+            TypeMappingSourceDependencies dependencies,
+            RelationalTypeMappingSourceDependencies relationalDependencies,
+            IJetOptions options)
             : base(dependencies, relationalDependencies)
         {
             // References:
@@ -74,7 +74,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             // TODO: Check the types and their mappings against
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
-            
+
             _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
             _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
             _date = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.Date);
@@ -99,11 +99,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"logical",                    new[] {_bit}},
                     {"logical1",                   new[] {_bit}},
                     {"yesno",                      new[] {_bit}},
-                    
+
                     {"counter",                    new[] {_counter}},
                     {"identity",                   new[] {_counter}},
                     {"autoincrement",              new[] {_counter}},
-                    
+
                     {"byte",                       new[] {_byte}},
                     {"tinyint",                    new[] {_byte}},
                     {"integer1",                   new[] {_byte}},
@@ -116,7 +116,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"long",                       new[] {_integer}},
                     {"int",                        new[] {_integer}},
                     {"integer4",                   new[] {_integer}},
-                    
+
                     {"single",                     new[] {_single}},
                     {"real",                       new[] {_single}},
                     {"float4",                     new[] {_single}},
@@ -219,11 +219,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        protected override void ValidateMapping(CoreTypeMapping mapping, IProperty property)
+        protected override void ValidateMapping(CoreTypeMapping? mapping, IProperty? property)
         {
-            var relationalMapping = mapping as RelationalTypeMapping;
+            var relationalMapping = mapping as RelationalTypeMapping ?? throw new NullReferenceException(nameof(mapping));
 
-            if (_disallowedMappings.Contains(relationalMapping?.StoreType))
+            if (_disallowedMappings.Contains(relationalMapping.StoreType ))
             {
                 if (property == null)
                 {
@@ -238,14 +238,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        protected override RelationalTypeMapping FindMapping(in RelationalTypeMappingInfo mappingInfo)
+        protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
             => base.FindMapping(mappingInfo) ?? FindRawMapping(mappingInfo)?.Clone(mappingInfo);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        private RelationalTypeMapping FindRawMapping(RelationalTypeMappingInfo mappingInfo)
+        private RelationalTypeMapping? FindRawMapping(RelationalTypeMappingInfo mappingInfo)
         {
             var clrType = mappingInfo.ClrType;
             var storeTypeName = mappingInfo.StoreTypeName;
@@ -256,9 +256,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 // If the TEXT store type is used with a size argument like `TEXT(n)`, it is handled as a synonym
                 // for `VARCHAR(n)`.
                 // If the TEXT store type is used without a size argument like `TEXT`, it is handled as a synonym
-                // for `LONGCHAR`. 
+                // for `LONGCHAR`.
                 // See "Notes" in: https://support.office.com/en-us/article/equivalent-ansi-sql-data-types-7a0a6bef-ef25-45f9-8a9a-3c5f21b5c65d
-                if (storeTypeNameBase.Equals("text", StringComparison.OrdinalIgnoreCase) &&
+                if ("text".Equals(storeTypeNameBase, StringComparison.OrdinalIgnoreCase) &&
                     !mappingInfo.IsFixedLength.GetValueOrDefault())
                 {
                     return mappingInfo.Size.GetValueOrDefault() > 0
@@ -280,7 +280,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 }
 
                 // Then look for the base store type name.
-                if (_storeTypeMappings.TryGetValue(storeTypeNameBase, out mappings))
+                if (storeTypeNameBase != null && _storeTypeMappings.TryGetValue(storeTypeNameBase , out mappings))
                 {
                     return clrType == null
                         ? mappings[0]
@@ -288,7 +288,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         : mappings.FirstOrDefault(m => m.ClrType == clrType)
                             ?.Clone(in mappingInfo);
                 }
-                
+
                 // A store type name was provided, but is unknown. This could be a domain (alias) type, in which case
                 // we proceed with a CLR type lookup (if the type doesn't exist at all the failure will come later).
             }

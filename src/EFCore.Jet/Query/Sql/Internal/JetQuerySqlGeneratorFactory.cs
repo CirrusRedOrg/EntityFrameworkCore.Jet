@@ -13,20 +13,20 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     /// </summary>
     public class JetQuerySqlGeneratorFactory : IQuerySqlGeneratorFactory
     {
-        [NotNull] private readonly QuerySqlGeneratorDependencies _dependencies;
-        [NotNull] private readonly JetSqlExpressionFactory _sqlExpressionFactory;
-        [NotNull] private readonly ITypeMappingSource _typeMappingSource;
-        [NotNull] private readonly IJetOptions _options;
+        private readonly QuerySqlGeneratorDependencies _dependencies;
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private readonly ITypeMappingSource _typeMappingSource;
+        private readonly IJetOptions _options;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetQuerySqlGeneratorFactory(
-            [NotNull] QuerySqlGeneratorDependencies dependencies,
-            [NotNull] ISqlExpressionFactory sqlExpressionFactory,
-            [NotNull] ITypeMappingSource typeMappingSource,
-            [NotNull] IJetOptions options)
+            QuerySqlGeneratorDependencies dependencies,
+            ISqlExpressionFactory sqlExpressionFactory,
+            ITypeMappingSource typeMappingSource,
+            IJetOptions options)
         {
             _dependencies = dependencies;
             _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;

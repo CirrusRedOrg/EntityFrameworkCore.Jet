@@ -14,11 +14,11 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static readonly JetFactory Instance = new JetFactory(null, null);
 
-        public JetConnection Connection { get; }
+        public JetConnection? Connection { get; }
 
-        internal DbProviderFactory InnerFactory { get; }
+        internal DbProviderFactory? InnerFactory { get; }
 
-        internal JetFactory(JetConnection connection, DbProviderFactory innerFactory)
+        internal JetFactory(JetConnection? connection, DbProviderFactory? innerFactory)
         {
             if (innerFactory is JetFactory)
                 throw new ArgumentException("JetProviderFactory cannot use a JetProviderFactory as its underlying provider factory. Supported provider factories are OdbcFactory and OleDbFactory.");
@@ -50,15 +50,16 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbCommandBuilder" />.
         /// </returns>
-        public override DbCommandBuilder CreateCommandBuilder()
+        public override DbCommandBuilder? CreateCommandBuilder()
         {
             if (InnerFactory == null)
                 throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateCommandBuilder)));
 
             var commandBuilder = InnerFactory.CreateCommandBuilder();
-            commandBuilder.QuotePrefix = "`";
-            commandBuilder.QuoteSuffix = "`";
-
+            if (commandBuilder != null) {
+                commandBuilder.QuotePrefix = "`";
+                commandBuilder.QuoteSuffix = "`";
+            }
             return commandBuilder;
         }
 
@@ -79,7 +80,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbConnectionStringBuilder" />.
         /// </returns>
-        public override DbConnectionStringBuilder CreateConnectionStringBuilder()
+        public override DbConnectionStringBuilder? CreateConnectionStringBuilder()
             => InnerFactory == null
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateConnectionStringBuilder)))
                 : InnerFactory.CreateConnectionStringBuilder();
@@ -90,7 +91,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbDataAdapter" />.
         /// </returns>
-        public override DbDataAdapter CreateDataAdapter()
+        public override DbDataAdapter? CreateDataAdapter()
             => InnerFactory == null
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateDataAdapter)))
                 : InnerFactory.CreateDataAdapter();
@@ -101,7 +102,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbDataSourceEnumerator" />.
         /// </returns>
-        public override DbDataSourceEnumerator CreateDataSourceEnumerator()
+        public override DbDataSourceEnumerator? CreateDataSourceEnumerator()
             => null;
 
         /// <summary>
@@ -110,29 +111,29 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbParameter" />.
         /// </returns>
-        public override DbParameter CreateParameter()
+        public override DbParameter? CreateParameter()
             => InnerFactory == null
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateDataAdapter)))
                 : InnerFactory.CreateParameter();
 
-        public virtual DbProviderFactory GetDataAccessProviderFactory(DataAccessProviderType dataAccessProviderType)
+        public virtual DbProviderFactory? GetDataAccessProviderFactory(DataAccessProviderType dataAccessProviderType)
         {
             if (dataAccessProviderType == DataAccessProviderType.OleDb)
             {
                 try
                 {
                     var type = Type.GetType("System.Data.OleDb.OleDbFactory, System.Data.OleDb");
-                    var assemblyName = type.Assembly.GetName();
-                    var version = assemblyName.Version;
+                    var assemblyName = type?.Assembly.GetName();
+                    var version = assemblyName?.Version;
 
                     if (version < MinimumRequiredOleDbVersion &&
-                        assemblyName.Name != "System.Data") // For .NET Framework, System.Data.OleDb is just a stub that references the .NET Framework implementation.
+                        assemblyName?.Name != "System.Data") // For .NET Framework, System.Data.OleDb is just a stub that references the .NET Framework implementation.
                     {
                         throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.OleDb' is lower than the minimum required version {MinimumRequiredOleDbVersion}.");
                     }
-                    
-                    return (DbProviderFactory) type
-                        .GetField("Instance", BindingFlags.Static | BindingFlags.Public)
+
+                    return (DbProviderFactory?) type?
+                        .GetField("Instance", BindingFlags.Static | BindingFlags.Public)?
                         .GetValue(null);
                 }
                 catch (Exception e)
@@ -145,17 +146,17 @@ namespace EntityFrameworkCore.Jet.Data
                 try
                 {
                     var type = Type.GetType("System.Data.Odbc.OdbcFactory, System.Data.Odbc");
-                    var assemblyName = type.Assembly.GetName();
-                    var version = assemblyName.Version;
+                    var assemblyName = type?.Assembly.GetName();
+                    var version = assemblyName?.Version;
 
                     if (version < MinimumRequiredOdbcVersion &&
-                        assemblyName.Name != "System.Data") // For .NET Framework, System.Data.Odbc is just a stub that references the .NET Framework implementation.
+                        assemblyName?.Name != "System.Data") // For .NET Framework, System.Data.Odbc is just a stub that references the .NET Framework implementation.
                     {
                         throw new TypeLoadException($"The referenced version '{version}' of 'System.Data.Odbc' is lower than the minimum required version {MinimumRequiredOdbcVersion}.");
                     }
-                    
-                    return (DbProviderFactory) type
-                        .GetField("Instance", BindingFlags.Static | BindingFlags.Public)
+
+                    return (DbProviderFactory?) type?
+                        .GetField("Instance", BindingFlags.Static | BindingFlags.Public)?
                         .GetValue(null);
                 }
                 catch (Exception e)

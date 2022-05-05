@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public JetExecutionStrategy([NotNull] ExecutionStrategyDependencies dependencies)
+        public JetExecutionStrategy(ExecutionStrategyDependencies dependencies)
         {
             Dependencies = dependencies;
         }
@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public virtual TResult Execute<TState, TResult>(
             TState state,
             Func<DbContext, TState, TResult> operation,
-            Func<DbContext, TState, ExecutionResult<TResult>> verifySucceeded)
+            Func<DbContext, TState, ExecutionResult<TResult>>? verifySucceeded)
         {
             try
             {
@@ -69,7 +69,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public virtual async Task<TResult> ExecuteAsync<TState, TResult>(
             TState state,
             Func<DbContext, TState, CancellationToken, Task<TResult>> operation,
-            Func<DbContext, TState, CancellationToken, Task<ExecutionResult<TResult>>> verifySucceeded,
+            Func<DbContext, TState, CancellationToken, Task<ExecutionResult<TResult>>>? verifySucceeded,
             CancellationToken cancellationToken)
         {
             try

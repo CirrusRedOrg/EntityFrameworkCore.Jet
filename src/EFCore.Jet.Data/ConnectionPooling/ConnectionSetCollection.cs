@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel;
 
 namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 {
@@ -16,7 +11,7 @@ namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 
         // TryGetValue has been added in .NET Core 2.0.
         #pragma warning disable 109
-        public new bool TryGetValue(string key, out ConnectionSet connectionSet)
+        public new bool TryGetValue(string key, out ConnectionSet? connectionSet)
         {
             try
             {

@@ -25,7 +25,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
         public static ModelBuilder UseIdentityColumns(
-            [NotNull] this ModelBuilder modelBuilder,
+            this ModelBuilder modelBuilder,
             int seed = 1,
             int increment = 1)
         {
@@ -50,8 +50,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionModelBuilder HasIdentityColumnSeed(
-            [NotNull] this IConventionModelBuilder modelBuilder, int? seed, bool fromDataAnnotation = false)
+        public static IConventionModelBuilder? HasIdentityColumnSeed(
+            this IConventionModelBuilder modelBuilder, int? seed, bool fromDataAnnotation = false)
         {
             if (modelBuilder.CanSetIdentityColumnSeed(seed, fromDataAnnotation))
             {
@@ -70,7 +70,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the seed for Jet IDENTITY. </returns>
         public static bool CanSetIdentityColumnSeed(
-            [NotNull] this IConventionModelBuilder modelBuilder, int? seed, bool fromDataAnnotation = false)
+            this IConventionModelBuilder modelBuilder, int? seed, bool fromDataAnnotation = false)
         {
             Check.NotNull(modelBuilder, nameof(modelBuilder));
 
@@ -87,8 +87,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionModelBuilder HasIdentityColumnIncrement(
-            [NotNull] this IConventionModelBuilder modelBuilder, int? increment, bool fromDataAnnotation = false)
+        public static IConventionModelBuilder? HasIdentityColumnIncrement(
+            this IConventionModelBuilder modelBuilder, int? increment, bool fromDataAnnotation = false)
         {
             if (modelBuilder.CanSetIdentityColumnIncrement(increment, fromDataAnnotation))
             {
@@ -107,7 +107,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the default increment for Jet IDENTITY. </returns>
         public static bool CanSetIdentityColumnIncrement(
-            [NotNull] this IConventionModelBuilder modelBuilder, int? increment, bool fromDataAnnotation = false)
+            this IConventionModelBuilder modelBuilder, int? increment, bool fromDataAnnotation = false)
         {
             Check.NotNull(modelBuilder, nameof(modelBuilder));
 
@@ -125,8 +125,8 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionModelBuilder HasValueGenerationStrategy(
-            [NotNull] this IConventionModelBuilder modelBuilder,
+        public static IConventionModelBuilder? HasValueGenerationStrategy(
+            this IConventionModelBuilder modelBuilder,
             JetValueGenerationStrategy? valueGenerationStrategy,
             bool fromDataAnnotation = false)
         {
@@ -153,7 +153,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the default value generation strategy. </returns>
         public static bool CanSetValueGenerationStrategy(
-            [NotNull] this IConventionModelBuilder modelBuilder,
+            this IConventionModelBuilder modelBuilder,
             JetValueGenerationStrategy? valueGenerationStrategy,
             bool fromDataAnnotation = false)
         {

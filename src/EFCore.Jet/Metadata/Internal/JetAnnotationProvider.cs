@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         ///     Initializes a new instance of this class.
         /// </summary>
         /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
-        public JetAnnotationProvider([NotNull] RelationalAnnotationProviderDependencies dependencies)
+        public JetAnnotationProvider(RelationalAnnotationProviderDependencies dependencies)
             : base(dependencies)
         {
         }
@@ -41,17 +41,19 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
     /// </summary>
     public override IEnumerable<IAnnotation> For(ITableIndex index, bool designTime)
         {
+            if (!designTime)
+            {
+                yield break;
+            }
             // Model validation ensures that these facets are the same on all mapped indexes
             var modelIndex = index.MappedIndexes.First();
-
             var table = index.Table;
-
-            var includeProperties = modelIndex.GetIncludeProperties();
-            if (includeProperties != null)
+            //var includeProperties = modelIndex.GetIncludeProperties();
+            if (modelIndex.GetIncludeProperties() is IReadOnlyList<string>  includeProperties)
             {
-                var includeColumns = (IReadOnlyList<string>)includeProperties
+                var includeColumns = includeProperties
                     .Select(
-                        p => modelIndex.DeclaringEntityType.FindProperty(p)
+                        p => modelIndex.DeclaringEntityType?.FindProperty(p)!
                             .GetColumnName(StoreObjectIdentifier.Table(table.Name, table.Schema)))
                     .ToArray();
 

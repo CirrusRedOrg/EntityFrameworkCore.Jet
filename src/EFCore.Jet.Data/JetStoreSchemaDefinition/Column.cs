@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
+﻿namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     class Column
     {
-        public string Name { get; set; }
-        public string Type { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
         public bool Nullable { get; set; }
         public int? MaxLength { get; set; }
 

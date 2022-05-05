@@ -1,10 +1,6 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
@@ -21,49 +17,51 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
 
         // TODO: Translation.
-        [NotNull] private static readonly MethodInfo _concat = typeof(string).GetRuntimeMethod(nameof(string.Concat), new[] {typeof(string), typeof(string)});
+        private static readonly MethodInfo _concat = typeof(string).GetRuntimeMethod(nameof(string.Concat), new[] {typeof(string), typeof(string)})!;
 
-        [NotNull] private static readonly MethodInfo _contains = typeof(string).GetRuntimeMethod(nameof(string.Contains), new[] {typeof(string)});
+        private static readonly MethodInfo _contains = typeof(string).GetRuntimeMethod(nameof(string.Contains), new[] {typeof(string)})!;
 
-        [NotNull] private static readonly MethodInfo _startsWith = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), new[] {typeof(string)});
-        [NotNull] private static readonly MethodInfo _endsWith = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), new[] {typeof(string)});
+        private static readonly MethodInfo _startsWith = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), new[] {typeof(string)})!;
+        private static readonly MethodInfo _endsWith = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), new[] {typeof(string)})!;
 
-        [NotNull] private static readonly MethodInfo _trimWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.Trim), new Type[0]);
-        [NotNull] private static readonly MethodInfo _trimWithChars = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char[])});
-        // [NotNull] private static readonly MethodInfo _trimWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char)}); // Jet TRIM does not take arguments
+        private static readonly MethodInfo _trimWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.Trim), new Type[0])!;
+        private static readonly MethodInfo _trimWithChars = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char[])})!;
+        // private static readonly MethodInfo _trimWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char)}); // Jet TRIM does not take arguments
 
-        [NotNull] private static readonly MethodInfo _trimStartWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new Type[0]);
-        [NotNull] private static readonly MethodInfo _trimStartWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char[])});
-        // [NotNull] private static readonly MethodInfo _trimStartWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char)}); // Jet LTRIM does not take arguments
+        private static readonly MethodInfo _trimStartWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new Type[0])!;
+        private static readonly MethodInfo _trimStartWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char[])})!;
+        // private static readonly MethodInfo _trimStartWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char)}); // Jet LTRIM does not take arguments
 
-        [NotNull] private static readonly MethodInfo _trimEndWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new Type[0]);
-        [NotNull] private static readonly MethodInfo _trimEndWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char[])});
-        // [NotNull] private static readonly MethodInfo _trimEndWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char)}); // Jet LTRIM does not take arguments
+        private static readonly MethodInfo _trimEndWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new Type[0])!;
+        private static readonly MethodInfo _trimEndWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char[])})!;
+        // private static readonly MethodInfo _trimEndWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char)}); // Jet LTRIM does not take arguments
 
-        [NotNull] private static readonly MethodInfo _substring = typeof(string).GetTypeInfo()
+        private static readonly MethodInfo _substring = typeof(string).GetTypeInfo()
             .GetDeclaredMethods(nameof(string.Substring))
             .Single(
                 m => m.GetParameters()
                     .Length == 1);
 
-        [NotNull] private static readonly MethodInfo _substringWithLength = typeof(string).GetTypeInfo()
+        private static readonly MethodInfo _substringWithLength = typeof(string).GetTypeInfo()
             .GetDeclaredMethods(nameof(string.Substring))
             .Single(
                 m => m.GetParameters()
                     .Length == 2);
 
-        [NotNull] private static readonly MethodInfo _toLower = typeof(string).GetRuntimeMethod(nameof(string.ToLower), Array.Empty<Type>());
-        [NotNull] private static readonly MethodInfo _toUpper = typeof(string).GetRuntimeMethod(nameof(string.ToUpper), Array.Empty<Type>());
+        private static readonly MethodInfo _toLower = typeof(string).GetRuntimeMethod(nameof(string.ToLower), Array.Empty<Type>())!;
+        private static readonly MethodInfo _toUpper = typeof(string).GetRuntimeMethod(nameof(string.ToUpper), Array.Empty<Type>())!;
 
-        [NotNull] private static readonly MethodInfo _replace = typeof(string).GetRuntimeMethod(nameof(string.Replace), new[] {typeof(string), typeof(string)});
+        private static readonly MethodInfo _replace = typeof(string).GetRuntimeMethod(nameof(string.Replace), new[] {typeof(string), typeof(string)})!;
 
-        private static readonly MethodInfo _isNullOrWhiteSpace = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrWhiteSpace), new[] {typeof(string)});
+        private static readonly MethodInfo _isNullOrWhiteSpace = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrWhiteSpace), new[] {typeof(string)})!;
 
         public JetStringMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
+      if (instance != null) { }
+
             if (Equals(method, _contains))
             {
                 var patternExpression = arguments[0];
@@ -77,7 +75,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         new[]
                         {
                             _sqlExpressionFactory.Constant(1),
-                            instance,
+                            instance ?? throw new ArgumentNullException(nameof(instance)),
                             patternExpression,
                             _sqlExpressionFactory.Constant(0)
                         },
@@ -87,8 +85,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     _sqlExpressionFactory.Constant(0));
 
                 return patternConstantExpression != null
-                    ? (string) patternConstantExpression.Value == string.Empty
-                        ? (SqlExpression) _sqlExpressionFactory.Constant(true)
+                    ? (string?) patternConstantExpression.Value == string.Empty
+                        ? _sqlExpressionFactory.Constant(true)
                         : charIndexExpression
                     : _sqlExpressionFactory.OrElse(
                         charIndexExpression,
@@ -99,7 +97,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 return _sqlExpressionFactory.Like(
                     // ReSharper disable once AssignNullToNotNullAttribute
-                    instance,
+                    instance ?? throw new ArgumentNullException(nameof(instance)),
                     _sqlExpressionFactory.Add(arguments[0], _sqlExpressionFactory.Constant("%"))
                 );
             }
@@ -107,7 +105,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (Equals(method, _endsWith))
             {
                 return _sqlExpressionFactory.Like(
-                    instance,
+                    instance ?? throw new ArgumentNullException(nameof(instance)),
                     _sqlExpressionFactory.Add(_sqlExpressionFactory.Constant("%"), arguments[0]));
             }
 
@@ -117,7 +115,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 Equals(method, _trimWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("TRIM", new[] {instance ?? throw new ArgumentNullException(nameof(instance)) }, false, new[] {false}, method.ReturnType);
             }
 
             // Jet LTRIM does not take arguments
@@ -126,7 +124,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 Equals(method, _trimStartWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LTRIM", new[] {instance ?? throw new ArgumentNullException(nameof(instance)) }, false, new[] {false}, method.ReturnType);
             }
 
             // Jet RTRIM does not take arguments
@@ -135,17 +133,17 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 Equals(method, _trimEndWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("RTRIM", new[] {instance ?? throw new ArgumentNullException(nameof(instance)) }, false, new[] {false}, method.ReturnType);
             }
 
             if (Equals(method, _toLower))
             {
-                return _sqlExpressionFactory.Function("LCASE", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LCASE", new[] {instance ?? throw new ArgumentNullException(nameof(instance)) }, false, new[] {false}, method.ReturnType);
             }
 
             if (Equals(method, _toUpper))
             {
-                return _sqlExpressionFactory.Function("UCASE", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("UCASE", new[] {instance ?? throw new ArgumentNullException(nameof(instance)) }, false, new[] {false}, method.ReturnType);
             }
 
             if (Equals(_substring, _trimEndWithNoParam) ||
@@ -154,10 +152,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 var parameters = new List<SqlExpression>(
                     new[]
                     {
-                        instance,
+                        instance ?? throw new ArgumentNullException(nameof(instance)),
                         // Accommodate for JET assumption of 1-based string indexes
                         arguments[0] is SqlConstantExpression constantExpression
-                            ? (SqlExpression) _sqlExpressionFactory.Constant((int) constantExpression.Value + 1)
+                            ? _sqlExpressionFactory.Constant((int?) constantExpression.Value + 1)
                             : _sqlExpressionFactory.Add(
                                 arguments[0],
                                 _sqlExpressionFactory.Constant(1)),
@@ -179,7 +177,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 return _sqlExpressionFactory.Function(
                     "REPLACE",
-                    new[] {instance}.Concat(arguments),
+                    new[] {instance ?? throw new ArgumentNullException(nameof(instance)) }.Concat(arguments),
                     false, new[] {false},
                     method.ReturnType);
             }

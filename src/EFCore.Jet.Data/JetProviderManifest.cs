@@ -30,13 +30,13 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static XmlReader GetXmlResource(string resourceName)
         {
-            Assembly executingAssembly = Assembly.GetExecutingAssembly();
-            Stream stream = executingAssembly.GetManifestResourceStream(resourceName);
+            var executingAssembly = Assembly.GetExecutingAssembly();
+            var stream = executingAssembly.GetManifestResourceStream(resourceName);
             Debug.Assert(stream != null, "stream != null");
             return XmlReader.Create(stream);
         }
 
 
- 
+
     }
 }

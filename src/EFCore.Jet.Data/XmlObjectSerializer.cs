@@ -39,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
             finally
             { stream.Close(); }
-            
+
 
         }
 
@@ -49,7 +49,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <param name="xml">The xml</param>
         /// <param name="objectType">The type of the object that will be created</param>
         /// <returns>The created object</returns>
-        public static object GetObject(string xml, Type objectType)
+        public static object? GetObject(string xml, Type objectType)
         {
             XmlSerializer xmlSerializer = GetSerializer(objectType);
 
@@ -57,7 +57,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                object o = xmlSerializer.Deserialize(stream);
+                object? o = xmlSerializer.Deserialize(stream);
                 return o;
             }
             catch (Exception)
@@ -89,7 +89,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <param name="objectType">The type of the object that will be created</param>
         /// <returns>The created object</returns>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        public static object ReadFile(string path, Type objectType)
+        public static object? ReadFile(string path, Type objectType)
         {
             string fileContent = File.ReadAllText(path);
             return GetObject(fileContent, objectType);
@@ -106,12 +106,12 @@ namespace EntityFrameworkCore.Jet.Data
 
                 try
                 {
-                    xmlSerializer = xmlSerializers[objectType.FullName];
+                    xmlSerializer = xmlSerializers[objectType.FullName ?? string.Empty];
                 }
                 catch (Exception)
                 {
                     xmlSerializer = new XmlSerializer(objectType);
-                    xmlSerializers.Add(objectType.FullName, xmlSerializer);
+                    xmlSerializers.Add(objectType.FullName??string.Empty, xmlSerializer);
                 }
 
                 return xmlSerializer;

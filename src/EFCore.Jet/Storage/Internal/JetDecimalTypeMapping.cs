@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetDecimalTypeMapping(
-            [NotNull] string storeType,
+            string storeType,
             DbType? dbType = null,
             int? precision = null,
             int? scale = null,

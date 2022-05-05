@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetIntTypeMapping : IntTypeMapping
     {
-        public JetIntTypeMapping([NotNull] string storeType)
+        public JetIntTypeMapping(string storeType)
             : base(storeType, System.Data.DbType.Int32)
         {
         }

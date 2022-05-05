@@ -39,14 +39,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private readonly IJetOptions _options;
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
-        private CoreTypeMapping _boolTypeMapping;
-        
+        private CoreTypeMapping? _boolTypeMapping;
+
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetQuerySqlGenerator(
-            [NotNull] QuerySqlGeneratorDependencies dependencies,
+            QuerySqlGeneratorDependencies dependencies,
             ISqlExpressionFactory sqlExpressionFactory,
             ITypeMappingSource typeMappingSource,
             IJetOptions options)
@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return selectExpression;
             }
 
-            IDisposable subQueryIndent = null;
+            IDisposable? subQueryIndent = null;
 
             if (selectExpression.Alias != null)
             {
@@ -123,7 +123,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                     var isApplyExpression = tableExpression is CrossApplyExpression ||
                                             tableExpression is OuterApplyExpression;
-                    
+
                     var isCrossExpression = tableExpression is CrossJoinExpression ||
                                             tableExpression is CrossApplyExpression;
 
@@ -183,7 +183,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (selectExpression.Alias != null)
             {
-                subQueryIndent.Dispose();
+                subQueryIndent?.Dispose();
 
                 Sql.AppendLine()
                     .Append(")" + AliasSeparator + _sqlGenerationHelper.DelimitIdentifier(selectExpression.Alias));
@@ -220,7 +220,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private void GenerateList<T>(
             IReadOnlyList<T> items,
             Action<T> generationAction,
-            Action<IRelationalCommandBuilder> joinAction = null)
+            Action<IRelationalCommandBuilder>? joinAction = null)
         {
             joinAction ??= (isb => isb.Append(", "));
 
@@ -239,14 +239,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values
             // before the False values, which is the opposite of what .NET and other DBMS do, which are using 1 as True.
-            
+
             if (orderingExpression.Expression.TypeMapping == _boolTypeMapping)
             {
                 orderingExpression = new OrderingExpression(
                     orderingExpression.Expression,
                     !orderingExpression.IsAscending);
             }
-            
+
             return base.VisitOrdering(orderingExpression);
         }
 
@@ -295,7 +295,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             function,
                             new[] {convertExpression.Operand},
                             false,
-                            new[] {false}, 
+                            new[] {false},
                             typeMapping.ClrType)));
 
                 return convertExpression;
@@ -331,7 +331,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return likeExpression;
         }
 
-        protected override string GetOperator([NotNull] SqlBinaryExpression binaryExpression)
+        protected override string GetOperator(SqlBinaryExpression binaryExpression)
             => binaryExpression.OperatorType switch
             {
                 ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",
@@ -398,9 +398,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlFunctionExpression.Name.Equals("POW", StringComparison.OrdinalIgnoreCase))
             {
-                Visit(sqlFunctionExpression.Arguments[0]);
+                Visit(sqlFunctionExpression.Arguments?[0]);
                 Sql.Append("^");
-                Visit(sqlFunctionExpression.Arguments[1]);
+                Visit(sqlFunctionExpression.Arguments?[1]);
                 return sqlFunctionExpression;
             }
 

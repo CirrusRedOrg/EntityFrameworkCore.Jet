@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         ///     Initializes a new instance of the <see cref="JetDbContextOptionsBuilder" /> class.
         /// </summary>
         /// <param name="optionsBuilder"> The options builder. </param>
-        public JetDbContextOptionsBuilder([NotNull] DbContextOptionsBuilder optionsBuilder)
+        public JetDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder)
             : base(optionsBuilder)
         {
         }
@@ -41,7 +41,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         ///     It is recommanded to not use this option, but to switch to client evaluation instead, by inserting a
         ///     call to either `AsEnumerable()`, `AsAsyncEnumerable()`, `ToList()`, or `ToListAsync()` and only then
         ///     to use `Skip()`. This will work in all cases and independent of the specific `JetCommand.Execute()`
-        ///     method called. 
+        ///     method called.
         /// </summary>
         [Obsolete("This method exists for backward compatibility reasons only. Switch to client evaluation instead.")]
         public virtual JetDbContextOptionsBuilder UseOuterSelectSkipEmulationViaDataReader(bool enabled = true)
@@ -75,7 +75,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         public virtual JetDbContextOptionsBuilder EnableRetryOnFailure(
             int maxRetryCount,
             TimeSpan maxRetryDelay,
-            [CanBeNull] ICollection<int> errorNumbersToAdd)
+            ICollection<int>? errorNumbersToAdd)
             => ExecutionStrategy(c => new JetRetryingExecutionStrategy(c, maxRetryCount, maxRetryDelay, errorNumbersToAdd));
     }
 }

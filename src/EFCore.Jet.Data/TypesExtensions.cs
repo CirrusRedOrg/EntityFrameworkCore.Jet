@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.Jet.Data
 {
     internal static class TypesExtensions
     {
-        internal static IEnumerable<Type> GetTypesInHierarchy(this Type type)
+        internal static IEnumerable<Type> GetTypesInHierarchy(this Type? type)
         {
             while (type != null)
             {

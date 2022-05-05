@@ -3,17 +3,15 @@
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
-namespace EntityFrameworkCore.Jet.Migrations.Operations
-{
+namespace EntityFrameworkCore.Jet.Migrations.Operations {
+  /// <summary>
+  ///     A Jet-specific <see cref="MigrationOperation" /> to create a database.
+  /// </summary>
+  public class JetCreateDatabaseOperation : MigrationOperation {
     /// <summary>
-    ///     A Jet-specific <see cref="MigrationOperation" /> to create a database.
+    ///     The name of the database.
     /// </summary>
-    public class JetCreateDatabaseOperation : MigrationOperation
-    {
-        /// <summary>
-        ///     The name of the database.
-        /// </summary>
-        public virtual string Name { get; [param: NotNull] set; }
-        public virtual string Password { get; [param: CanBeNull] set; }
-    }
+    public virtual string Name { get; set; } = null!;
+    public virtual string? Password { get; set; }
+  }
 }

@@ -10,11 +10,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetDateTimeOffsetTypeMapping : JetDateTimeTypeMapping
     {
-        private readonly IJetOptions _options;
+        //private readonly IJetOptions _options;
 
         public JetDateTimeOffsetTypeMapping(
-                [NotNull] string storeType,
-                [NotNull] IJetOptions options)
+                string storeType,
+                IJetOptions options)
             : base(
                 storeType,
                 options,
@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                                         // "No mapping exists from DbType DateTimeOffset to a known OleDbType."
                                         // exception when using DbType.DateTimeOffset.
         {
-            _options = options;
+//            _options = options;
         }
 
         protected JetDateTimeOffsetTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)

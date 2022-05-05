@@ -22,60 +22,60 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         private static readonly Dictionary<MethodInfo, string> _supportedMethodTranslationsDirect = new Dictionary<MethodInfo, string>
         {
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(decimal)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(double)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(float)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(int)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(long)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(sbyte)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(short)}), "ABS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Pow), new[] {typeof(double), typeof(double)}), "POW"}, // This is handled by JetQuerySqlGenerator
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Exp), new[] {typeof(double)}), "EXP"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] {typeof(double)}), "LOG"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sqrt), new[] {typeof(double)}), "SQR"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Atan), new[] {typeof(double)}), "ATN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Cos), new[] {typeof(double)}), "COS"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sin), new[] {typeof(double)}), "SIN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Tan), new[] {typeof(double)}), "TAN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(decimal)}), "SGN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(double)}), "SGN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(float)}), "SGN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(int)}), "SGN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(long)}), "SGN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(sbyte)}), "SGN"},
-            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(short)}), "SGN"}
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(decimal)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(double)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(float)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(int)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(long)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(sbyte)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Abs), new[] {typeof(short)})!, "ABS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Pow), new[] {typeof(double), typeof(double)})!, "POW"}, // This is handled by JetQuerySqlGenerator
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Exp), new[] {typeof(double)})!, "EXP"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] {typeof(double)})!, "LOG"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sqrt), new[] {typeof(double)})!, "SQR"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Atan), new[] {typeof(double)})!, "ATN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Cos), new[] {typeof(double)})!, "COS"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sin), new[] {typeof(double)})!, "SIN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Tan), new[] {typeof(double)})!, "TAN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(decimal)})!, "SGN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(double)})!, "SGN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(float)})!, "SGN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(int)})!, "SGN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(long)})!, "SGN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(sbyte)})!, "SGN"},
+            {typeof(Math).GetRuntimeMethod(nameof(Math.Sign), new[] {typeof(short)})!, "SGN"}
         };
 
         private static readonly MethodInfo[] _supportedMethodTranslationsIndirect = {
-            typeof(Math).GetRuntimeMethod(nameof(Math.Acos), new[] {typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Asin), new[] {typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Atan2), new[] {typeof(double), typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] {typeof(decimal)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] {typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] {typeof(decimal)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] {typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Log10), new[] {typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] {typeof(double), typeof(double)})
+            typeof(Math).GetRuntimeMethod(nameof(Math.Acos), new[] {typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Asin), new[] {typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Atan2), new[] {typeof(double), typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] {typeof(decimal)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Floor), new[] {typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] {typeof(decimal)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Ceiling), new[] {typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Log10), new[] {typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Log), new[] {typeof(double), typeof(double)})!
         };
 
         private static readonly IEnumerable<MethodInfo> _truncateMethodInfos = new[]
         {
-            typeof(Math).GetRuntimeMethod(nameof(Math.Truncate), new[] {typeof(decimal)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Truncate), new[] {typeof(double)})
+            typeof(Math).GetRuntimeMethod(nameof(Math.Truncate), new[] {typeof(decimal)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Truncate), new[] {typeof(double)})!
         };
 
         private static readonly IEnumerable<MethodInfo> _roundMethodInfos = new[]
         {
-            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(decimal)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(double)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(decimal), typeof(int)}),
-            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(double), typeof(int)})
+            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(decimal)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(double)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(decimal), typeof(int)})!,
+            typeof(Math).GetRuntimeMethod(nameof(Math.Round), new[] {typeof(double), typeof(int)})!
         };
 
         public JetMathTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             Check.NotNull(method, nameof(method));
 
@@ -88,6 +88,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new[] {false},
                     method.ReturnType);
             }
+
+            var multiply = _sqlExpressionFactory.Multiply(arguments[0], arguments[0]);
+            var negate = _sqlExpressionFactory.Negate(multiply);
+            var add = _sqlExpressionFactory.Add(negate, _sqlExpressionFactory.Constant(1d));
+            var sqrt = typeof(Math).GetMethod(nameof(Math.Sqrt)) ?? throw new ArgumentNullException(nameof(Math.Sqrt));
 
             if (_supportedMethodTranslationsIndirect.Contains(method))
             {
@@ -104,21 +109,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                     _sqlExpressionFactory.Negate(arguments[0]),
                                     Translate(
                                         null,
-                                        typeof(Math).GetMethod(nameof(Math.Sqrt)),
-                                        new[]
-                                        {
-                                            _sqlExpressionFactory.Add(
-                                                _sqlExpressionFactory.Negate(
-                                                    _sqlExpressionFactory.Multiply(
-                                                        arguments[0],
-                                                        arguments[0]
-                                                    )
-                                                ),
-                                                _sqlExpressionFactory.Constant(1d)
-                                            )
-                                        },
+                                        sqrt,
+                                        new [] { add },
                                         logger
-                                    )
+                                    )!
                                 )
                             },
                             false,
@@ -134,21 +128,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 arguments[0],
                                 Translate(
                                     null,
-                                    typeof(Math).GetMethod(nameof(Math.Sqrt)),
-                                    new[]
-                                    {
-                                        _sqlExpressionFactory.Add(
-                                            _sqlExpressionFactory.Negate(
-                                                _sqlExpressionFactory.Multiply(
-                                                    arguments[0],
-                                                    arguments[0]
-                                                )
-                                            ),
-                                            _sqlExpressionFactory.Constant(1d)
-                                        )
-                                    },
+                                    sqrt,
+                                    new [] { add },
                                     logger
-                                )
+                                )!
                             )
                         },
                         false,

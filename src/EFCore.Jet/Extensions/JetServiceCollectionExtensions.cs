@@ -33,7 +33,7 @@ namespace Microsoft.Extensions.DependencyInjection
     /// </summary>
     public static class JetServiceCollectionExtensions
     {
-        public static IServiceCollection AddEntityFrameworkJet([NotNull] this IServiceCollection serviceCollection)
+        public static IServiceCollection AddEntityFrameworkJet(this IServiceCollection serviceCollection)
         {
             Check.NotNull(serviceCollection, nameof(serviceCollection));
 
@@ -46,16 +46,16 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IMigrationsAnnotationProvider, JetMigrationsAnnotationProvider>()
                 .TryAdd<IModelValidator, JetModelValidator>()
                 .TryAdd<IProviderConventionSetBuilder, JetConventionSetBuilder>()
-                .TryAdd<IUpdateSqlGenerator>(p => p.GetService<IJetUpdateSqlGenerator>())
+                .TryAdd<IUpdateSqlGenerator>(p => p.GetRequiredService<IJetUpdateSqlGenerator>())
                 .TryAdd<IModificationCommandBatchFactory, JetModificationCommandBatchFactory>()
                 .TryAdd<IValueGeneratorSelector, JetValueGeneratorSelector>()
-                .TryAdd<IRelationalConnection>(p => p.GetService<IJetRelationalConnection>())
+                .TryAdd<IRelationalConnection>(p => p.GetRequiredService<IJetRelationalConnection>())
                 .TryAdd<IMigrationsSqlGenerator, JetMigrationsSqlGenerator>()
                 .TryAdd<IRelationalDatabaseCreator, JetDatabaseCreator>()
                 .TryAdd<IHistoryRepository, JetHistoryRepository>()
                 .TryAdd<ICompiledQueryCacheKeyGenerator, JetCompiledQueryCacheKeyGenerator>()
                 .TryAdd<IExecutionStrategyFactory, JetExecutionStrategyFactory>()
-                .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetService<IJetOptions>())
+                .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetRequiredService<IJetOptions>())
                 .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
                 .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()

@@ -15,7 +15,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default identity seed. </returns>
-        public static int GetIdentitySeed([NotNull] this IModel model)
+        public static int GetIdentitySeed(this IModel model)
             => (int?) model[JetAnnotationNames.IdentitySeed] ?? 1;
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <param name="seed"> The value to set. </param>
-        public static void SetIdentitySeed([NotNull] this IMutableModel model, int? seed)
+        public static void SetIdentitySeed(this IMutableModel model, int? seed)
             => model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentitySeed,
                 seed);
@@ -34,7 +34,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="model"> The model. </param>
         /// <param name="seed"> The value to set. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
-        public static void SetIdentitySeed([NotNull] this IConventionModel model, int? seed, bool fromDataAnnotation = false)
+        public static void SetIdentitySeed(this IConventionModel model, int? seed, bool fromDataAnnotation = false)
             => model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentitySeed,
                 seed,
@@ -45,7 +45,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the default schema. </returns>
-        public static ConfigurationSource? GetIdentitySeedConfigurationSource([NotNull] this IConventionModel model)
+        public static ConfigurationSource? GetIdentitySeedConfigurationSource(this IConventionModel model)
             => model.FindAnnotation(JetAnnotationNames.IdentitySeed)?.GetConfigurationSource();
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default identity increment. </returns>
-        public static int GetIdentityIncrement([NotNull] this IModel model)
+        public static int GetIdentityIncrement(this IModel model)
             => (int?) model[JetAnnotationNames.IdentityIncrement] ?? 1;
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <param name="increment"> The value to set. </param>
-        public static void SetIdentityIncrement([NotNull] this IMutableModel model, int? increment)
+        public static void SetIdentityIncrement(this IMutableModel model, int? increment)
             => model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment);
@@ -73,7 +73,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="increment"> The value to set. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         public static void SetIdentityIncrement(
-            [NotNull] this IConventionModel model, int? increment, bool fromDataAnnotation = false)
+            this IConventionModel model, int? increment, bool fromDataAnnotation = false)
             => model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment,
@@ -84,7 +84,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the default identity increment. </returns>
-        public static ConfigurationSource? GetIdentityIncrementConfigurationSource([NotNull] this IConventionModel model)
+        public static ConfigurationSource? GetIdentityIncrementConfigurationSource(this IConventionModel model)
             => model.FindAnnotation(JetAnnotationNames.IdentityIncrement)?.GetConfigurationSource();
 
         /// <summary>
@@ -93,7 +93,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The default <see cref="JetValueGenerationStrategy" />. </returns>
-        public static JetValueGenerationStrategy? GetValueGenerationStrategy([NotNull] this IReadOnlyModel model)
+        public static JetValueGenerationStrategy? GetValueGenerationStrategy(this IReadOnlyModel model)
             => (JetValueGenerationStrategy?) model[JetAnnotationNames.ValueGenerationStrategy];
 
         /// <summary>
@@ -102,7 +102,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <param name="value"> The value to set. </param>
-        public static void SetValueGenerationStrategy([NotNull] this IMutableModel model, JetValueGenerationStrategy? value)
+        public static void SetValueGenerationStrategy(this IMutableModel model, JetValueGenerationStrategy? value)
             => model.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value);
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="value"> The value to set. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         public static void SetValueGenerationStrategy(
-            [NotNull] this IConventionModel model, JetValueGenerationStrategy? value, bool fromDataAnnotation = false)
+            this IConventionModel model, JetValueGenerationStrategy? value, bool fromDataAnnotation = false)
             => model.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value, fromDataAnnotation);
 
         /// <summary>
@@ -121,7 +121,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the default <see cref="JetValueGenerationStrategy" />. </returns>
-        public static ConfigurationSource? GetValueGenerationStrategyConfigurationSource([NotNull] this IConventionModel model)
+        public static ConfigurationSource? GetValueGenerationStrategyConfigurationSource(this IConventionModel model)
             => model.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)?.GetConfigurationSource();
     }
 }

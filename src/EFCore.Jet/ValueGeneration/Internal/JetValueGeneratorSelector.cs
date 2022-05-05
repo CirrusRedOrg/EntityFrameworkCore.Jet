@@ -33,7 +33,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetValueGeneratorSelector(
-            [NotNull] ValueGeneratorSelectorDependencies dependencies)
+            ValueGeneratorSelectorDependencies dependencies)
             : base(dependencies)
         {
         }

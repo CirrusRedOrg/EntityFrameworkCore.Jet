@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetRelationalConnection([NotNull] RelationalConnectionDependencies dependencies)
+        public JetRelationalConnection(RelationalConnectionDependencies dependencies)
             : base(dependencies)
         {
             _jetOptionsExtension = dependencies.ContextOptions.FindExtension<JetOptionsExtension>() ?? new JetOptionsExtension();

@@ -26,15 +26,15 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     /// </summary>
     public class JetDatabaseModelFactory : DatabaseModelFactory
     {
-        private static string ObjectKey([NotNull] string name)
+        private static string ObjectKey(string name)
             => "`" + name + "`";
-        
+
         private static string TableKey(DatabaseTable table)
             => TableKey(table.Name);
-        
+
         private static string TableKey(String tableName)
             => ObjectKey(tableName);
-        
+
         private static string ColumnKey(DatabaseTable table, string columnName)
             => TableKey(table) + "." + ObjectKey(columnName);
 
@@ -43,16 +43,16 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             @"(?<=^`).*(?=`$)",
             @"(?<=^\[).*(?=\]$)$",
         };
-        
+
         private static readonly Regex _defaultDateTimeValue = new Regex(@"\(*(?:#0?1/0?1/0?100#)|(?:#0?0:0?0:0?0#)|(?:(['""])(0?0:0?0:0?0)|0?100-0?1-0?1(?: \2)\1)\)*");
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
-        
+
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetDatabaseModelFactory([NotNull] IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
+        public JetDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
         {
             Check.NotNull(logger, nameof(logger));
 
@@ -99,13 +99,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             {
                 var tableList = options.Tables.ToList();
                 var tableFilter = GenerateTableFilter(tableList.Select(Parse).ToList());
-                
+
                 foreach (var table in GetTables(connection, tableFilter))
                 {
                     table.Database = databaseModel;
                     databaseModel.Tables.Add(table);
                 }
-                
+
                 return databaseModel;
             }
             finally
@@ -133,7 +133,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private IReadOnlyList<DatabaseTable> GetTables(
             DbConnection connection,
-            Func<string, string, bool> filter)
+            Func<string?, string, bool>? filter)
         {
             var tables = new List<DatabaseTable>();
 
@@ -144,11 +144,11 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
-                    var name = reader.GetValueOrDefault<string>("TABLE_NAME");
+                    string name = reader.GetValueOrDefault<string>("TABLE_NAME") ?? throw new ArgumentNullException(nameof(name));
                     var type = reader.GetValueOrDefault<string>("TABLE_TYPE");
                     var validationRule = reader.GetValueOrDefault<string>("VALIDATION_RULE");
                     var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
-                    
+
                     _logger.TableFound(name);
 
                     var table = string.Equals(type, "BASE TABLE", StringComparison.OrdinalIgnoreCase)
@@ -157,7 +157,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
                     table.Name = name;
 
-                    var isValidByFilter = filter?.Invoke(table.Schema, table.Name) ?? true;
+                    var isValidByFilter = filter?.Invoke(table.Schema , table.Name) ?? true;
                     if (isValidByFilter)
                     {
                         tables.Add(table);
@@ -174,7 +174,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
             return tables;
         }
-        
+
         private void GetColumns(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
             using var command = connection.CreateCommand();
@@ -188,8 +188,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                             tables.FirstOrDefault(t => string.Equals(t.Name, tableName, StringComparison.OrdinalIgnoreCase));
                 if (table != null)
                 {
-                    var columnName = reader.GetValueOrDefault<string>("COLUMN_NAME");
-                    var dataTypeName = reader.GetValueOrDefault<string>("DATA_TYPE");
+                    string columnName = reader.GetValueOrDefault<string>("COLUMN_NAME") ??  throw new ArgumentNullException(nameof(columnName));
+                    string dataTypeName = reader.GetValueOrDefault<string>("DATA_TYPE") ?? throw new ArgumentNullException(nameof(dataTypeName));
                     var ordinal = reader.GetValueOrDefault<int>("ORDINAL_POSITION");
                     var nullable = reader.GetValueOrDefault<bool>("IS_NULLABLE");
                     var maxLength = reader.GetValueOrDefault<int>("CHARACTER_MAXIMUM_LENGTH");
@@ -200,13 +200,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
                     var identitySeed = reader.GetValueOrDefault<int?>("IDENTITY_SEED");
                     var identityIncrement = reader.GetValueOrDefault<int?>("IDENTITY_INCREMENT");
-                    var computedValue = (string) null; // TODO: Implement support for expressions
+                    var computedValue = (string?) null; // TODO: Implement support for expressions
                                                        // (DAO Field2 (though not mentioned)).
                                                        // Might have no equivalent in ADOX.
                     var computedIsPersisted = false;
 
                     _logger.ColumnFound(
-                        tableName,
+                        table.Name,
                         columnName,
                         ordinal,
                         dataTypeName,
@@ -218,10 +218,10 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         defaultValue,
                         computedValue,
                         computedIsPersisted);
-                    
+
                     var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
                     defaultValue = FilterClrDefaults(dataTypeName, nullable, defaultValue);
-                    
+
                     var column = new DatabaseColumn
                     {
                         Table = table,
@@ -247,8 +247,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 }
             }
         }
-        
-        private static string FilterClrDefaults(string dataTypeName, bool nullable, string defaultValue)
+
+        private static string? FilterClrDefaults(string dataTypeName, bool nullable, string? defaultValue)
         {
             if (defaultValue == null)
             {
@@ -344,8 +344,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
             foreach (DataRow indexRow in indexTable.Rows)
             {
-                var tableName = indexRow.GetValueOrDefault<string>("TABLE_NAME");
-                var indexName = indexRow.GetValueOrDefault<string>("INDEX_NAME");
+                string tableName = indexRow.GetValueOrDefault<string>("TABLE_NAME") ?? throw new ArgumentNullException(nameof(tableName));
+                string indexName = indexRow.GetValueOrDefault<string>("INDEX_NAME") ?? throw new ArgumentNullException(nameof(indexName));
                 var indexType = indexRow.GetValueOrDefault<string>("INDEX_TYPE");
                 var nullable = indexRow.GetValueOrDefault<bool>("IS_NULLABLE");
                 var ignoresNulls = indexRow.GetValueOrDefault<bool>("IGNORES_NULLS");
@@ -357,8 +357,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var indexColumns = groupedIndexColumns.FirstOrDefault(g => g.Key == (tableName, indexName));
                     if (indexColumns?.Any() ?? false)
                     {
-                        object indexOrKey = null;
-                        
+                        object? indexOrKey = null;
+
                         if (indexType == "PRIMARY")
                         {
                             var primaryKey = new DatabasePrimaryKey
@@ -397,13 +397,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                 // According to https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/constraint-clause-microsoft-access-sql,
                                 // this behavior can be disabled, but manuall creating an index with the same name as an
                                 // FK would still results in a runtime error.
-                                // We therefore skip indexes with the same name as existing FKs. 
+                                // We therefore skip indexes with the same name as existing FKs.
                                 if (table.ForeignKeys.Any(fk => fk.Name == indexName))
                                 {
                                     _logger.IndexSkipped(indexName, tableName, isUnique);
                                     continue;
                                 }
-                            
+
                                 var index = new DatabaseIndex
                                 {
                                     Table = table,
@@ -432,11 +432,11 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                     case DatabasePrimaryKey primaryKey:
                                         primaryKey.Columns.Add(column);
                                         break;
-                                    
+
                                     case DatabaseUniqueConstraint uniqueConstraint:
                                         uniqueConstraint.Columns.Add(column);
                                         break;
-                                    
+
                                     case DatabaseIndex index:
                                         index.Columns.Add(column);
                                         break;
@@ -447,7 +447,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 }
             }
         }
-        
+
         private void GetRelations(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
             var relationTable = new DataTable();
@@ -473,11 +473,11 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
             foreach (DataRow relationRow in relationTable.Rows)
             {
-                var relationName = relationRow.GetValueOrDefault<string>("RELATION_NAME");
+                string relationName = relationRow.GetValueOrDefault<string>("RELATION_NAME") ?? throw new ArgumentNullException(nameof(relationName));
                 var referencingTableName = relationRow.GetValueOrDefault<string>("REFERENCING_TABLE_NAME");
-                var principalTableName = relationRow.GetValueOrDefault<string>("PRINCIPAL_TABLE_NAME");
+                string principalTableName = relationRow.GetValueOrDefault<string>("PRINCIPAL_TABLE_NAME") ?? throw new ArgumentNullException(nameof(principalTableName));
                 var relationType = relationRow.GetValueOrDefault<string>("RELATION_TYPE");
-                var onDelete = relationRow.GetValueOrDefault<string>("ON_DELETE");
+                string onDelete = relationRow.GetValueOrDefault<string>("ON_DELETE") ?? throw new ArgumentNullException(nameof(onDelete));
                 var onUpdate = relationRow.GetValueOrDefault<string>("ON_UPDATE");
                 var enforced = relationRow.GetValueOrDefault<bool>("IS_ENFORCED", true);
                 var inherited = relationRow.GetValueOrDefault<bool>("IS_INHERITED", true);
@@ -491,21 +491,21 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     {
                         _logger.ForeignKeyFound(
                             relationName,
-                            referencingTableName,
+                            referencingTable.Name,
                             principalTableName,
                             onDelete);
-                        
+
                         var principalTable = tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName)) ??
                                              tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName, StringComparison.OrdinalIgnoreCase));
                         if (principalTable == null)
                         {
                             _logger.ForeignKeyReferencesMissingPrincipalTableWarning(
                                 relationName,
-                                referencingTableName,
+                                referencingTable.Name,
                                 principalTableName);
                             continue;
                         }
-                        
+
                         var foreignKey = new DatabaseForeignKey
                         {
                             Name = relationName,
@@ -522,7 +522,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                                     referencingTable.Columns.FirstOrDefault(c => string.Equals(c.Name, referencingColumnName, StringComparison.OrdinalIgnoreCase));
                             Debug.Assert(referencingColumn != null, "referencingColumn is null.");
 
-                            var principalColumnName = relationColumn.GetValueOrDefault<string>("PRINCIPAL_COLUMN_NAME");
+                            string principalColumnName = relationColumn.GetValueOrDefault<string>("PRINCIPAL_COLUMN_NAME") ?? throw new ArgumentNullException(nameof(principalColumnName));
                             var principalColumn = principalTable.Columns.FirstOrDefault(c => c.Name == principalColumnName) ??
                                                   principalTable.Columns.FirstOrDefault(c => string.Equals(c.Name, principalColumnName, StringComparison.OrdinalIgnoreCase));
                             if (principalColumn == null)
@@ -530,7 +530,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                 invalid = true;
                                 _logger.ForeignKeyPrincipalColumnMissingWarning(
                                     relationName,
-                                    referencingTableName,
+                                    referencingTable.Name,
                                     principalColumnName,
                                     principalTableName);
                                 break;
@@ -544,12 +544,12 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         {
                             continue;
                         }
-                        
+
                         if (foreignKey.Columns.SequenceEqual(foreignKey.PrincipalColumns))
                         {
                             _logger.ReflexiveConstraintIgnored(
                                 foreignKey.Name,
-                                referencingTableName);
+                                referencingTable.Name);
                         }
                         else
                         {
@@ -583,8 +583,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     return null;
             }
         }
-        
-        protected virtual Func<string, string, bool> GenerateTableFilter(IReadOnlyList<string> tables)
-            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string, string, bool>)null;
+
+        protected virtual Func<string?, string, bool>? GenerateTableFilter(IReadOnlyList<string> tables)
+            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string?, string, bool>?)null;
     }
 }

@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.Data
         {
             _naturalOnly = naturalOnly;
         }
-        
+
         public DaoSchema(JetConnection connection, bool readOnly)
         {
             _connection = connection;
@@ -34,7 +34,8 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                var csb = connection.DataAccessProviderFactory.CreateConnectionStringBuilder();
+                var csb = connection.DataAccessProviderFactory?.CreateConnectionStringBuilder();
+                if (csb == null) throw new NullReferenceException(nameof(csb));
                 csb.ConnectionString = connection.ActiveConnectionString;
 
                 var dataSource = csb.GetDataSource();
@@ -102,7 +103,7 @@ namespace EntityFrameworkCore.Jet.Data
                 {
                     tableType = "BASE TABLE";
                 }
-                
+
                 var validationRule = (string) tableDef.ValidationRule;
                 validationRule = string.IsNullOrEmpty(validationRule)
                     ? null
@@ -162,12 +163,12 @@ namespace EntityFrameworkCore.Jet.Data
             // Therefore, either ADO has to be used, or DAO together with the GetSchema()
             // method (that contains precision and scale, but no default value when using ODBC, because again, looks
             // like someone at Microsoft just forgot to implement it).
-            Dictionary<(string TableName, string ColumnName), int?> numericScales = null;
-            
+            Dictionary<(string TableName, string ColumnName), int?>? numericScales = null;
+
             if (!_naturalOnly)
             {
-                var schemaTable = _connection.InnerConnection.GetSchema("Columns");
-                numericScales = schemaTable.Rows
+                var schemaTable = _connection.InnerConnection?.GetSchema("Columns");
+                numericScales = schemaTable?.Rows
                     .Cast<DataRow>()
                     .ToDictionary(
                         t => (TableName: (string) t["TABLE_NAME"], ColumnName: (string) t["COLUMN_NAME"]),
@@ -210,7 +211,7 @@ namespace EntityFrameworkCore.Jet.Data
                             // Looks like there is no way to get the seed and increment values through DAO.
                             var seed = isIdentity && !_naturalOnly ? (int?)1 : null;
                             var increment = isIdentity && !_naturalOnly ? (int?)1 : null;
-                            
+
                             var columnName = (string) field.Name;
                             var ordinalPosition = (int) field.OrdinalPosition;
                             var dataType = (DataTypeEnum) field.Type;
@@ -241,7 +242,7 @@ namespace EntityFrameworkCore.Jet.Data
                             validationText = string.IsNullOrEmpty(validationText)
                                 ? null
                                 : validationText;
-                            
+
                             dataTable.Rows.Add(
                                 tableName,
                                 columnName,
@@ -306,7 +307,7 @@ namespace EntityFrameworkCore.Jet.Data
                         }
                         else if (isUnique)
                         {
-                            indexType = "UNIQUE"; 
+                            indexType = "UNIQUE";
                         }
                         else
                         {
@@ -482,7 +483,7 @@ namespace EntityFrameworkCore.Jet.Data
         // DAO does not support CHECK CONSTRAINTs. Only ADOX does.
         public override DataTable GetCheckConstraints()
             => SchemaTables.GetCheckConstraintsDataTable();
-        
+
         public override void EnsureDualTable()
         {
             using var tableDefs = _database.TableDefs;
@@ -594,7 +595,7 @@ namespace EntityFrameworkCore.Jet.Data
                 _ => null
             };
 
-        protected static T GetPropertyValue<T>(dynamic properties, string name, T defaultValue = default)
+        protected static T? GetPropertyValue<T>(dynamic properties, string name, T? defaultValue = default)
         {
             try
             {
@@ -633,11 +634,11 @@ namespace EntityFrameworkCore.Jet.Data
 
             return propertyMap;
         }
-        
+
         public Dictionary<(string TableName, string ColumnName), (int OrdinalPosition, bool Nullable)> GetOrdinalPositionsAndNullables()
         {
             var ordinalPositions = new Dictionary<(string TableName, string ColumnName), (int OrdinalPosition, bool Nullable)>();
-            
+
             var objectDefsCollection = new[]
             {
                 _database.TableDefs,
@@ -665,7 +666,7 @@ namespace EntityFrameworkCore.Jet.Data
                             var columnName = (string) field.Name;
                             var ordinalPosition = (int) field.OrdinalPosition;
                             var nullable = !(bool) field.Required;
-                            
+
                             ordinalPositions.Add((tableName, columnName), (ordinalPosition, nullable));
                         }
                     }
@@ -765,7 +766,7 @@ namespace EntityFrameworkCore.Jet.Data
             dbRelationLeft = 0x01000000,
             dbRelationRight = 0x02000000,
         }
-        
+
         [Flags]
         protected enum RecordsetOptionEnum
         {

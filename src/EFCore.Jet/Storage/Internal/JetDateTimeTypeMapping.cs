@@ -16,13 +16,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         private const int MaxDateTimeDoublePrecision = 10;
         private static readonly JetDecimalTypeMapping _decimalTypeMapping = new JetDecimalTypeMapping("decimal", System.Data.DbType.Decimal, 18, 10);
-        private readonly IJetOptions _options;
+        protected readonly IJetOptions _options;
 
         public JetDateTimeTypeMapping(
-            [NotNull] string storeType,
-            [NotNull] IJetOptions options,
+            string storeType,
+            IJetOptions options,
             DbType? dbType = null,
-            [CanBeNull] Type clrType = null)
+            Type? clrType = null)
             : base(storeType, clrType ?? typeof(DateTime), dbType ?? System.Data.DbType.DateTime)
         {
             _options = options;
@@ -40,13 +40,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
-            
+
             if (_options.EnableMillisecondsSupport &&
                 parameter.Value is DateTime dateTime)
             {
                 parameter.Value = GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport);
                 parameter.ResetDbType();
-                
+
                 // Necessary to explicitly set for OLE DB, to apply the System.Decimal value as DOUBLE to Jet.
                 parameter.DbType = System.Data.DbType.Double;
             }
@@ -65,10 +65,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             {
                 return _decimalTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport));
             }
-            
+
             var literal = new StringBuilder()
                 .AppendFormat(CultureInfo.InvariantCulture, "#{0:yyyy-MM-dd}", dateTime);
-                
+
             var time = dateTime.TimeOfDay;
             if (time != TimeSpan.Zero)
             {
@@ -76,7 +76,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             }
 
             literal.Append("#");
-                
+
             if (_options.EnableMillisecondsSupport &&
                 time != TimeSpan.Zero)
             {
@@ -105,7 +105,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //
             // We are explicitly using System.Decimal here, so we get better scale results:
             //
-            
+
             var checkDateTimeValue = CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset;
 
             if (millisecondsSupportEnabled)

@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.Data
             string fileNameOrConnectionString,
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null)
+            string? databasePassword = null)
             => new DaoDatabaseCreator().CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
     }
 }

@@ -22,10 +22,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetByteArrayTypeMapping(
-            [CanBeNull] string storeType = null,
+            string? storeType = null,
             int? size = null,
             bool fixedLength = false,
-            [CanBeNull] ValueComparer comparer = null,
+            ValueComparer? comparer = null,
             StoreTypePostfix? storeTypePostfix = null)
             : base(
                 new RelationalTypeMappingParameters(
@@ -61,7 +61,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             // For strings and byte arrays, set the max length to the size facet if specified, or
             // 8000 bytes if no size facet specified, if the data will fit so as to avoid query cache
-            // fragmentation by setting lots of different Size values otherwise always set to 
+            // fragmentation by setting lots of different Size values otherwise always set to
             // -1 (unbounded) to avoid SQL client size inference.
 
             var value = parameter.Value;

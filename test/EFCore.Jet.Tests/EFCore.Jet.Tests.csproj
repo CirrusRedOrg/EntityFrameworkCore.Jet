@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
+    <TargetFramework>net6.0-windows</TargetFramework>
     <AssemblyName>EntityFrameworkCore.Jet.Tests</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <Compile Include="..\Shared\**\*.cs" />
   </ItemGroup>
@@ -25,6 +25,7 @@
     <ProjectReference Include="..\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj" />
   </ItemGroup>
 
+  <!--
   <ItemGroup>
     <PackageReference Include="xunit.core" />
     <PackageReference Include="xunit.assert" />
@@ -68,5 +69,6 @@
       <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(DefaultNetCoreLegacyTargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
     </Reference>
   </ItemGroup>
-  
+  -->
+
 </Project>

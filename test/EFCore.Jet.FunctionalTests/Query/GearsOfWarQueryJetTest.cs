@@ -1614,7 +1614,7 @@ FROM (
     WHERE `g0`.`Discriminator` IN ('Gear', 'Officer')
 ) AS `t`");
         }
-        
+
         public override async Task Select_subquery_distinct_firstordefault(bool isAsync)
         {
             await base.Select_subquery_distinct_firstordefault(isAsync);
@@ -2271,7 +2271,7 @@ LEFT JOIN (
 WHERE (`t`.`Note` <> 'K.I.A.') OR `t`.`Note` IS NULL
 ORDER BY `t0`.`SquadId`");
         }
-        
+
         public override async Task Optional_navigation_type_compensation_works_with_all(bool isAsync)
         {
             await base.Optional_navigation_type_compensation_works_with_all(isAsync);
@@ -2857,7 +2857,7 @@ WHERE NOT (EXISTS (
     ELSE False
 END");
         }
-        
+
         public override async Task Contains_with_local_nullable_guid_list_closure(bool isAsync)
         {
             await base.Contains_with_local_nullable_guid_list_closure(isAsync);
@@ -4894,7 +4894,7 @@ FROM (
 LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
 ORDER BY `t`.`FullName` DESC, `t`.`Nickname`, `t`.`SquadId`, `w`.`Name`, `w`.`Id`");
         }
-        
+
         public override async Task Null_semantics_on_nullable_bool_from_inner_join_subquery_is_fully_applied(bool isAsync)
         {
             await base.Null_semantics_on_nullable_bool_from_inner_join_subquery_is_fully_applied(isAsync);
@@ -5026,7 +5026,7 @@ OUTER APPLY (
 WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`g`.`Discriminator` = 'Officer')
 ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t1`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`");
         }
-        
+
         public override async Task Outer_parameter_in_group_join_with_DefaultIfEmpty(bool isAsync)
         {
             await base.Outer_parameter_in_group_join_with_DefaultIfEmpty(isAsync);
@@ -5246,7 +5246,7 @@ LEFT JOIN (
     LEFT JOIN `Squads` AS `s0` ON `t`.`SquadId` = `s0`.`Id`
 ) AS `t0` ON `s`.`Id` = `t0`.`Id0`");
         }
-        
+
         public override async Task Streaming_correlated_collection_issue_11403(bool isAsync)
         {
             await base.Streaming_correlated_collection_issue_11403(isAsync);
@@ -5410,7 +5410,7 @@ LEFT JOIN (
 ) AS `t` ON `s`.`Id` = `t`.`SquadId`
 ORDER BY `s`.`Id`, `t`.`Nickname`, `t`.`SquadId`");
         }
-        
+
         public override async Task Correlated_collection_order_by_constant(bool isAsync)
         {
             await base.Correlated_collection_order_by_constant(isAsync);
@@ -5458,7 +5458,7 @@ LEFT JOIN (
     WHERE `t`.`row` <= 1
 ) AS `t0` ON `s`.`Id` = `t0`.`SquadId`");
         }
-        
+
         public override async Task Include_collection_OrderBy_aggregate(bool isAsync)
         {
             await base.Include_collection_OrderBy_aggregate(isAsync);
@@ -5684,7 +5684,7 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer')");
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Gear', 'Officer')");
         }
-        
+
         public override async Task Select_subquery_distinct_singleordefault_boolean1(bool isAsync)
         {
             await base.Select_subquery_distinct_singleordefault_boolean1(isAsync);
@@ -6020,22 +6020,22 @@ GROUP BY `g`.`Nickname`
 ORDER BY `g`.`Nickname`");
         }
 
-        public override async Task Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector(bool isAsync)
-        {
-            await base.Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector(isAsync);
+        //public override async Task Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector(bool isAsync)
+        //{
+        //    await base.Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector(isAsync);
 
-            AssertSql(
-                $@"");
-        }
+        //    AssertSql(
+        //        $@"");
+        //}
 
-        public override async Task Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector_using_EF_Property(
-            bool isAsync)
-        {
-            await base.Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector_using_EF_Property(isAsync);
+        //public override async Task Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector_using_EF_Property(
+        //    bool isAsync)
+        //{
+        //    await base.Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector_using_EF_Property(isAsync);
 
-            AssertSql(
-                $@"");
-        }
+        //    AssertSql(
+        //        $@"");
+        //}
 
         public override async Task Group_by_with_include_with_entity_in_result_selector(bool isAsync)
         {
@@ -6707,9 +6707,9 @@ FROM `Factions` AS `f`
 WHERE `f`.`Discriminator` = 'LocustHorde'");
         }
 
-        public override async Task Acessing_reference_navigation_collection_composition_generates_single_query(bool isAsync)
+        public override async Task Accessing_reference_navigation_collection_composition_generates_single_query(bool isAsync)
         {
-            await base.Acessing_reference_navigation_collection_composition_generates_single_query(isAsync);
+            await base.Accessing_reference_navigation_collection_composition_generates_single_query(isAsync);
 
             AssertSql(
                 $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `t`.`IsAutomatic`, `t`.`Name`

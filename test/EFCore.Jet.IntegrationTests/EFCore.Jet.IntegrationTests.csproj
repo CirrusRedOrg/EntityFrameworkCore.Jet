@@ -1,10 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
+    <TargetFramework>net6.0-windows</TargetFramework>
     <RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
     <GenerateProgramFile>false</GenerateProgramFile>
-    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +24,10 @@
     <Compile Remove="Model65_InMemoryObjects\**" />
     <Compile Remove="Model67_DifferentProxies\**" />
     <Compile Remove="Model71_MasterDetail\**" />
+    <Compile Remove="BuiltInFunctionsTest.cs" />
+    <Compile Remove="CanonicalFunctionsTest1.cs" />
+    <Compile Remove="FunctionTest.cs" />
+    <Compile Remove="Model56_SkipTake\SqlCeTest.cs" />
     <EmbeddedResource Remove="MigrationUpDownTest\**" />
     <EmbeddedResource Remove="Model11\**" />
     <EmbeddedResource Remove="Model21_CommandInterception\**" />
@@ -42,6 +45,8 @@
     <EmbeddedResource Remove="Model65_InMemoryObjects\**" />
     <EmbeddedResource Remove="Model67_DifferentProxies\**" />
     <EmbeddedResource Remove="Model71_MasterDetail\**" />
+    <None Remove="EFCore.Jet.Integration.Test.csproj.DotSettings" />
+    <None Remove="EFCore.Jet.Integration.Test.DotSettings" />
     <None Remove="MigrationUpDownTest\**" />
     <None Remove="Model11\**" />
     <None Remove="Model21_CommandInterception\**" />
@@ -62,35 +67,27 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="BuiltInFunctionsTest.cs" />
-    <Compile Remove="CanonicalFunctionsTest1.cs" />
-    <Compile Remove="FunctionTest.cs" />
-    <Compile Remove="Model56_SkipTake\SqlCeTest.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="EFCore.Jet.Integration.Test.csproj.DotSettings" />
-    <None Remove="EFCore.Jet.Integration.Test.DotSettings" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+    <PackageReference Include="System.Data.Odbc" Version="6.0.0" />
+    <PackageReference Include="System.Data.OleDb" Version="6.0.0" />
+    <!--
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource" />
-    <PackageReference Include="System.Data.Odbc" />
-    <PackageReference Include="System.Data.OleDb" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="MSTest.TestAdapter" />
-    <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    -->
+  </ItemGroup>
 
+  <ItemGroup>
     <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <Folder Include="Properties" />
   </ItemGroup>
-  
+
 </Project>

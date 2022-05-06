@@ -1,10 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
+    <TargetFramework>net6.0-windows</TargetFramework>
     <RootNamespace>EntityFrameworkCore.Jet.FunctionalTests</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet.FunctionalTests</AssemblyName>
-    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,23 +11,44 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit.core" />
-    <PackageReference Include="xunit.assert" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="xunit.runner.console" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-    <PackageReference Include="Newtonsoft.Json" />
-    <PackageReference Include="System.Data.Odbc" />
-    <PackageReference Include="System.Data.OleDb" />
+    <PackageReference Include="xunit.core" Version="2.4.1" />
+    <PackageReference Include="xunit.assert" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.runner.console" Version="2.4.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="6.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="6.0.4" />
+
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="System.Data.Odbc" Version="6.0.0" />
+    <PackageReference Include="System.Data.OleDb" Version="6.0.0" />
+
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.1" />
+    <PackageReference Include="NetTopologySuite" Version="2.4.0" />
+    <PackageReference Include="System.ComponentModel.TypeConverter" Version="4.3.0" />
+    <PackageReference Include="Castle.Core" Version="4.4.1" />
+
+
+  </ItemGroup>
+
+    <!--
+  <ItemGroup>
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
@@ -56,11 +76,8 @@
     <Reference Include="Microsoft.EntityFrameworkCore.Specification.Tests">
       <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(DefaultNetCoreLegacyTargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
     </Reference>
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-    <PackageReference Include="NetTopologySuite" />
-    <PackageReference Include="System.ComponentModel.TypeConverter" />
-    <PackageReference Include="Castle.Core" />
   </ItemGroup>
+    -->
 
   <ItemGroup>
     <None Update="config.json">

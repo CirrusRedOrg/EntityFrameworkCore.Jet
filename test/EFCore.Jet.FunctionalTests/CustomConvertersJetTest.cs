@@ -194,6 +194,7 @@ User.Id ---> `uniqueidentifier`
 
         public class CustomConvertersJetFixture : CustomConvertersFixtureBase
         {
+            public override bool PreservesDateTimeKind => true;
             public override bool StrictEquality => true;
 
             public override bool SupportsAnsi => true;

@@ -776,14 +776,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 modelBuilder.Model.RemoveAnnotation(CoreAnnotationNames.ProductVersion);
                 buildAction(modelBuilder);
 
-                model = modelBuilder.Model;
-                var conventionSet = services.GetRequiredService<IConventionSetBuilder>().CreateConventionSet();
+                model = modelBuilder.FinalizeModel(designTime: true, skipValidation: true);
+                //model = modelBuilder.Model;
 
-                var typeMappingConvention = conventionSet.ModelFinalizingConventions.OfType<TypeMappingConvention>().FirstOrDefault();
-                typeMappingConvention.ProcessModelFinalizing(((IConventionModel)model).Builder, null);
+                //var conventionSet = services.GetRequiredService<IConventionSetBuilder>().CreateConventionSet();
 
-                var relationalModelConvention = conventionSet.ModelFinalizedConventions.OfType<RelationalModelConvention>().First();
-                model = relationalModelConvention.ProcessModelFinalized((IConventionModel)model);
+                //var typeMappingConvention = conventionSet.ModelFinalizingConventions.OfType<TypeMappingConvention>().FirstOrDefault();
+                //typeMappingConvention.ProcessModelFinalizing(((IConventionModel)model).Builder, null);
+
+                //var relationalModelConvention = conventionSet.ModelFinalizedConventions.OfType<RelationalModelConvention>().First();
+                //model = relationalModelConvention.ProcessModelFinalized((IConventionModel)model);
             }
 
             var batch = services.GetRequiredService<IMigrationsSqlGenerator>().Generate(operation, model, options);

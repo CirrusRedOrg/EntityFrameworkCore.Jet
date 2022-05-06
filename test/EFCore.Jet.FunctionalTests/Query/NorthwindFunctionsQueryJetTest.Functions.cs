@@ -1272,63 +1272,63 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
-        public override async Task Substring_with_zero_startindex(bool isAsync)
-        {
-            await base.Substring_with_zero_startindex(isAsync);
+//        public override async Task Substring_with_zero_startindex(bool isAsync)
+//        {
+//            await base.Substring_with_zero_startindex(isAsync);
 
-            // issue #15994
+//            // issue #15994
+////            AssertSql(
+////                $@"SELECT SUBSTRING(`c`.`ContactName`, 1, 3)
+////FROM `Customers` AS `c`
+////WHERE `c`.`CustomerID` = 'ALFKI'");
+//        }
+
+//        public override async Task Substring_with_zero_length(bool isAsync)
+//        {
+//            await base.Substring_with_zero_length(isAsync);
+
+//            // issue #15994
+////            AssertSql(
+////                $@"SELECT SUBSTRING(`c`.`ContactName`, 3, 0)
+////FROM `Customers` AS `c`
+////WHERE `c`.`CustomerID` = 'ALFKI'");
+//        }
+
+//        public override async Task Substring_with_constant(bool isAsync)
+//        {
+//            await base.Substring_with_constant(isAsync);
+
+//            // issue #15994
+////            AssertSql(
+////                $@"SELECT SUBSTRING(`c`.`ContactName`, 2, 3)
+////FROM `Customers` AS `c`
+////WHERE `c`.`CustomerID` = 'ALFKI'");
+//        }
+
+//        public override async Task Substring_with_closure(bool isAsync)
+//        {
+//            await base.Substring_with_closure(isAsync);
+
 //            AssertSql(
-//                $@"SELECT SUBSTRING(`c`.`ContactName`, 1, 3)
+//                $@"{AssertSqlHelper.Declaration("@__start_0='2'")}
+
+//SELECT SUBSTRING(`c`.`ContactName`, {AssertSqlHelper.Parameter("@__start_0")} + 1, 3)
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
+//        }
 
-        public override async Task Substring_with_zero_length(bool isAsync)
-        {
-            await base.Substring_with_zero_length(isAsync);
+//        public override async Task Substring_with_Index_of(bool isAsync)
+//        {
+//            await base.Substring_with_Index_of(isAsync);
 
-            // issue #15994
 //            AssertSql(
-//                $@"SELECT SUBSTRING(`c`.`ContactName`, 3, 0)
+//                $@"SELECT SUBSTRING(`c`.`ContactName`, CASE
+//    WHEN 'a' = '' THEN 0
+//    ELSE CHARINDEX('a', `c`.`ContactName`) - 1
+//END + 1, 3)
 //FROM `Customers` AS `c`
 //WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
-
-        public override async Task Substring_with_constant(bool isAsync)
-        {
-            await base.Substring_with_constant(isAsync);
-
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT SUBSTRING(`c`.`ContactName`, 2, 3)
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
-
-        public override async Task Substring_with_closure(bool isAsync)
-        {
-            await base.Substring_with_closure(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__start_0='2'")}
-
-SELECT SUBSTRING(`c`.`ContactName`, {AssertSqlHelper.Parameter("@__start_0")} + 1, 3)
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
-
-        public override async Task Substring_with_Index_of(bool isAsync)
-        {
-            await base.Substring_with_Index_of(isAsync);
-
-            AssertSql(
-                $@"SELECT SUBSTRING(`c`.`ContactName`, CASE
-    WHEN 'a' = '' THEN 0
-    ELSE CHARINDEX('a', `c`.`ContactName`) - 1
-END + 1, 3)
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
+//        }
 
         public override async Task IsNullOrEmpty_in_predicate(bool isAsync)
         {
@@ -1340,9 +1340,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`Region` IS NULL OR (`c`.`Region` = '')");
         }
 
-        public override void IsNullOrEmpty_in_projection()
+        public override async Task IsNullOrEmpty_in_projection(bool async)
         {
-            base.IsNullOrEmpty_in_projection();
+            await base.IsNullOrEmpty_in_projection(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID` AS `Id`, CASE
@@ -1352,9 +1352,9 @@ END AS `Value`
 FROM `Customers` AS `c`");
         }
 
-        public override void IsNullOrEmpty_negated_in_projection()
+        public override async Task IsNullOrEmpty_negated_in_projection(bool async)
         {
-            base.IsNullOrEmpty_negated_in_projection();
+            await base.IsNullOrEmpty_negated_in_projection(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID` AS `Id`, CASE

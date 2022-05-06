@@ -181,6 +181,7 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
 
         public class EverythingIsStringsJetFixture : BuiltInDataTypesFixtureBase
         {
+            public override bool PreservesDateTimeKind => true;
             public override bool StrictEquality => true;
 
             public override bool SupportsAnsi => true;

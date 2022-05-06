@@ -1,14 +1,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using System.Reflection;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -23,5 +22,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .UseJet("Data Source=LoggingJetTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
 
         protected override string ProviderName => "EntityFrameworkCore.Jet";
-    }
+
+        protected override string ProviderVersion => typeof(JetOptionsExtension).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+  }
 }

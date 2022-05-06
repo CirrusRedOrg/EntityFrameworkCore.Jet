@@ -33,7 +33,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                     foreach (var foreignKey in modelBuilder.Model
                         .GetEntityTypes()
-                        .SelectMany(e => MutableEntityTypeExtensions.GetDeclaredForeignKeys(e))
+                        .SelectMany(e => e.GetDeclaredForeignKeys())
                         .Where(e => e.DeleteBehavior == DeleteBehavior.Cascade))
                     {
                         foreignKey.DeleteBehavior = DeleteBehavior.ClientCascade;
@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 }
             }
         }
-        
+
         public abstract class GraphUpdatesJetTestBase<TFixture> : GraphUpdatesTestBase<TFixture>
             where TFixture : GraphUpdatesJetTestBase<TFixture>.GraphUpdatesJetFixtureBase, new()
         {

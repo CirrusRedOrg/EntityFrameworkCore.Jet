@@ -946,8 +946,8 @@ CREATE TABLE RowVersionTable (
                 dbModel =>
                 {
                     var columns = dbModel.Tables.Single().Columns;
-
-                    Assert.True((bool)columns.Single(c => c.Name == "rowversionColumn")[ScaffoldingAnnotationNames.ConcurrencyToken]);
+                  
+                    Assert.True((bool)columns.Single(c => c.Name == "rowversionColumn") ["ConcurrencyToken"]);
                 },
                 "DROP TABLE RowVersionTable;");
         }

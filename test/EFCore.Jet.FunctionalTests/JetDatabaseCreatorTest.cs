@@ -403,7 +403,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using (var testDatabase = JetTestStore.GetOrCreate("NonExisting"))
             {
                 var databaseCreator = GetDatabaseCreator(testDatabase);
-                await databaseCreator.ExecutionStrategyFactory.Create().ExecuteAsync(
+                await databaseCreator.ExecutionStrategy.ExecuteAsync(
                     databaseCreator,
                     async creator =>
                     {
@@ -848,7 +848,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 return HasTablesAsync(cancellationToken);
             }
 
-            public IExecutionStrategyFactory ExecutionStrategyFactory => Dependencies.ExecutionStrategyFactory;
+            public IExecutionStrategy ExecutionStrategy => Dependencies.ExecutionStrategy;
         }
     }
 }

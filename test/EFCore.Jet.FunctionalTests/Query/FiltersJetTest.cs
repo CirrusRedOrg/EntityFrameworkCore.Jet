@@ -1,6 +1,7 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -19,9 +20,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             //fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        public override void Count_query()
+        public override async Task Count_query(bool async)
         {
-            base.Count_query();
+            await base.Count_query(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -31,9 +32,9 @@ FROM `Customers` AS `c`
 WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))");
         }
 
-        public override void Materialized_query()
+        public override async Task Materialized_query(bool async)
         {
-            base.Materialized_query();
+            await base.Materialized_query(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -43,9 +44,9 @@ FROM `Customers` AS `c`
 WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))");
         }
 
-        public override void Find()
+        public override async Task Find(bool async)
         {
-            base.Find();
+            await base.Find(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -57,9 +58,9 @@ FROM `Customers` AS `c`
 WHERE (({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))) AND (`c`.`CustomerID` = {AssertSqlHelper.Parameter("@__p_0")})");
         }
 
-        public override void Materialized_query_parameter()
+        public override async Task Materialized_query_parameter(bool async)
         {
-            base.Materialized_query_parameter();
+            await base.Materialized_query_parameter(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='F' (Size = 4000)")}
@@ -69,9 +70,9 @@ FROM `Customers` AS `c`
 WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))");
         }
 
-        public override void Materialized_query_parameter_new_context()
+        public override async Task Materialized_query_parameter_new_context(bool async)
         {
-            base.Materialized_query_parameter_new_context();
+            await base.Materialized_query_parameter_new_context(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -87,9 +88,9 @@ FROM `Customers` AS `c`
 WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))");
         }
 
-        public override void Projection_query_parameter()
+        public override async Task Projection_query_parameter(bool async)
         {
-            base.Projection_query_parameter();
+            await base.Projection_query_parameter(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='F' (Size = 4000)")}
@@ -99,9 +100,9 @@ FROM `Customers` AS `c`
 WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))");
         }
 
-        public override void Projection_query()
+        public override async Task Projection_query(bool async)
         {
-            base.Projection_query();
+            await base.Projection_query(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -111,9 +112,9 @@ FROM `Customers` AS `c`
 WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))");
         }
 
-        public override void Include_query()
+        public override async Task Include_query(bool async)
         {
-            base.Include_query();
+            await base.Include_query(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -134,9 +135,9 @@ WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`
 ORDER BY `c`.`CustomerID`, `t0`.`OrderID`");
         }
 
-        public override void Include_query_opt_out()
+        public override async Task Include_query_opt_out(bool async)
         {
-            base.Include_query_opt_out();
+            await base.Include_query_opt_out(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -145,9 +146,9 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
         }
 
-        public override void Included_many_to_one_query()
+        public override async Task Included_many_to_one_query(bool async)
         {
-            base.Included_many_to_one_query();
+            await base.Included_many_to_one_query(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -162,9 +163,9 @@ LEFT JOIN (
 WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL");
         }
 
-        public override void Project_reference_that_itself_has_query_filter_with_another_reference()
+        public override async Task Project_reference_that_itself_has_query_filter_with_another_reference(bool async)
         {
-            base.Project_reference_that_itself_has_query_filter_with_another_reference();
+            await base.Project_reference_that_itself_has_query_filter_with_another_reference(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_1='B' (Size = 4000)")}
@@ -186,9 +187,9 @@ INNER JOIN (
 WHERE `o`.`Quantity` > {AssertSqlHelper.Parameter("@__ef_filter___quantity_0")}");
         }
 
-        public override void Navs_query()
+        public override async Task Navs_query(bool async)
         {
-            base.Navs_query();
+            await base.Navs_query(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}
@@ -218,7 +219,7 @@ WHERE (({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c
         [ConditionalFact]
         public void FromSql_is_composed()
         {
-            using (var context = CreateContext())
+            using (var context = Fixture.CreateContext())
             {
                 var results = context.Customers.FromSqlRaw("select * from Customers").ToList();
 
@@ -238,7 +239,7 @@ WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`
         [ConditionalFact]
         public void FromSql_is_composed_when_filter_has_navigation()
         {
-            using (var context = CreateContext())
+            using (var context = Fixture.CreateContext())
             {
                 var results = context.Orders.FromSqlRaw("select * from Orders").ToList();
 
@@ -282,9 +283,9 @@ FROM `Customers` AS `c`
 WHERE (({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))) AND (`c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")})");
         }
 
-        public override void Entity_Equality()
+        public override async Task Entity_Equality(bool async)
         {
-            base.Entity_Equality();
+            await base.Entity_Equality(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 4000)")}

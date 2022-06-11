@@ -61,13 +61,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             dateTime = CheckDateTimeValue(dateTime);
 
-            if (defaultClauseCompatible)
+            var literal = new StringBuilder();
+
+            if (defaultClauseCompatible &&
+                _options.EnableMillisecondsSupport)
             {
                 return _decimalTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport));
             }
-            
-            var literal = new StringBuilder()
-                .AppendFormat(CultureInfo.InvariantCulture, "#{0:yyyy-MM-dd}", dateTime);
+
+            literal.Append(
+                defaultClauseCompatible
+                    ? "'"
+                    : "#");
+
+            literal.AppendFormat(CultureInfo.InvariantCulture, "{0:yyyy-MM-dd}", dateTime);
                 
             var time = dateTime.TimeOfDay;
             if (time != TimeSpan.Zero)
@@ -75,8 +82,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 literal.AppendFormat(CultureInfo.InvariantCulture, @" {0:hh\:mm\:ss}", time);
             }
 
-            literal.Append("#");
-                
+            literal.Append(
+                defaultClauseCompatible
+                    ? "'"
+                    : "#");
+
             if (_options.EnableMillisecondsSupport &&
                 time != TimeSpan.Zero)
             {

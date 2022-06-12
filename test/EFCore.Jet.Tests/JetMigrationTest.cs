@@ -42,10 +42,8 @@ namespace EntityFrameworkCore.Jet
     CONSTRAINT `PK_Cookie` PRIMARY KEY (`CookieId`)
 );
 
-
 INSERT INTO `Cookie` (`CookieId`, `Name`)
 VALUES (1, 'Basic');
-
 
 SELECT `c`.`CookieId`, `c`.`BestServedBefore`, `c`.`Name`
 FROM `Cookie` AS `c`");
@@ -108,14 +106,12 @@ FROM `Cookie` AS `c`");
     CONSTRAINT `PK_Backery` PRIMARY KEY (`BackeryId`)
 );
 
-
 CREATE TABLE `Cookie` (
     `CookieId` counter NOT NULL,
     `Name` longchar NULL,
     `BestServedBefore` datetime NOT NULL,
     CONSTRAINT `PK_Cookie` PRIMARY KEY (`CookieId`)
 );
-
 
 CREATE TABLE `CookieBackery` (
     `CookieId` integer NOT NULL,
@@ -125,21 +121,16 @@ CREATE TABLE `CookieBackery` (
     CONSTRAINT `FK_CookieBackery_Cookie_CookieId` FOREIGN KEY (`CookieId`) REFERENCES `Cookie` (`CookieId`) ON DELETE CASCADE
 );
 
-
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
-
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
 
-
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
 
-
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
-
 
 SELECT `c`.`CookieId`, `c`.`BackeryId`, `c0`.`CookieId`, `c0`.`BestServedBefore`, `c0`.`Name`, `b`.`BackeryId`, `b`.`Name`
 FROM (`CookieBackery` AS `c`
@@ -204,14 +195,12 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
     CONSTRAINT `PK_Backery` PRIMARY KEY (`BackeryId`)
 );
 
-
 CREATE TABLE `Cookie` (
     `CookieId` counter NOT NULL,
     `Name` longchar NULL,
     `BestServedBefore` datetime NOT NULL,
     CONSTRAINT `PK_Cookie` PRIMARY KEY (`CookieId`)
 );
-
 
 CREATE TABLE `CookieBackery` (
     `CookieId` integer NOT NULL,
@@ -221,21 +210,16 @@ CREATE TABLE `CookieBackery` (
     CONSTRAINT `FK_CookieBackery_Cookie_CookieId` FOREIGN KEY (`CookieId`) REFERENCES `Cookie` (`CookieId`) ON DELETE CASCADE
 );
 
-
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
-
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
 
-
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
 
-
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
-
 
 SELECT `c`.`CookieId`, `c`.`BackeryId`, `c0`.`CookieId`, `c0`.`BestServedBefore`, `c0`.`Name`, `b`.`BackeryId`, `b`.`Name`
 FROM (`CookieBackery` AS `c`
@@ -306,14 +290,12 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
     CONSTRAINT `PK_Backery` PRIMARY KEY (`BackeryId`)
 );
 
-
 CREATE TABLE `Cookie` (
     `CookieId` counter NOT NULL,
     `Name` longchar NULL,
     `BestServedBefore` datetime NOT NULL,
     CONSTRAINT `PK_Cookie` PRIMARY KEY (`CookieId`)
 );
-
 
 CREATE TABLE `CookieBackery` (
     `CookieId` integer NOT NULL,
@@ -323,21 +305,16 @@ CREATE TABLE `CookieBackery` (
     CONSTRAINT `FK_CookieBackery_Cookie_CookieId` FOREIGN KEY (`CookieId`) REFERENCES `Cookie` (`CookieId`) ON DELETE CASCADE
 );
 
-
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
-
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
 
-
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
 
-
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
-
 
 SELECT `c`.`CookieId`, `c`.`BackeryId`, `c0`.`CookieId`, `c0`.`BestServedBefore`, `c0`.`Name`, `b`.`BackeryId`, `b`.`Name`
 FROM (`CookieBackery` AS `c`

@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <DotnetRuntimeVersion>6.0.0</DotnetRuntimeVersion>
+    <DotnetRuntimeVersion>6.0.9</DotnetRuntimeVersion>
     <EFCoreVersion>[$(DotnetRuntimeVersion), 7.0.0)</EFCoreVersion>
   </PropertyGroup>
 
@@ -11,7 +11,7 @@
     <PackageReference Update="Microsoft.Extensions.Caching.Memory" Version="6.0.0" />
     <PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
-    <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="5.0.1" />
+    <PackageReference Update="System.Diagnostics.DiagnosticSource" Version="6.0.0" />
     <PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
     <PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
@@ -37,14 +37,14 @@
     <!--<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />-->
 
     <!-- Tests -->
-    <PackageReference Update="System.Data.Odbc" Version="6.0.0" />
+    <PackageReference Update="System.Data.Odbc" Version="6.0.1" />
     <PackageReference Update="System.Data.OleDb" Version="6.0.0" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
     <PackageReference Update="Microsoft.NET.Test.Sdk" Version="16.9.4" />
-    <PackageReference Update="MSTest.TestAdapter" Version="2.2.4" />
-    <PackageReference Update="MSTest.TestFramework" Version="2.2.4" />
-    <PackageReference Update="coverlet.collector" Version="3.0.3" />
+    <PackageReference Update="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Update="MSTest.TestFramework" Version="2.2.10" />
+    <PackageReference Update="coverlet.collector" Version="3.1.2" />
     <PackageReference Update="Newtonsoft.Json" Version="13.0.1" />
 
     <!-- EntityFrameworkCore.Jet.Data.Tests -->
@@ -56,10 +56,10 @@
     <!--<PackageReference Update="coverlet.collector" Version="$(CoverletCollector)" />-->
     
     <!-- EFCore.Jet.FunctionalTests -->
-    <PackageReference Update="xunit.core" Version="2.4.1" />
-    <PackageReference Update="xunit.assert" Version="2.4.1" />
-    <PackageReference Update="xunit.runner.visualstudio" Version="2.4.3" />
-    <PackageReference Update="xunit.runner.console" Version="2.4.1" />
+    <PackageReference Update="xunit.core" Version="2.4.2" />
+    <PackageReference Update="xunit.assert" Version="2.4.2" />
+    <PackageReference Update="xunit.runner.visualstudio" Version="2.4.5" />
+    <PackageReference Update="xunit.runner.console" Version="2.4.2" />
     <PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="6.0.0" />
     <!--<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsConfigurationEnvironmentVariablesVersion)" />-->
     <!--<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />-->
@@ -81,9 +81,9 @@
     <!--<PackageReference Update="coverlet.collector" Version="$(CoverletCollector)" />-->
 
     <!-- EFCore.Jet.Tests -->
-    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="3.9.0" />
+    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" />
     <PackageReference Update="Microsoft.Extensions.DependencyModel" Version="6.0.0" />
-    <PackageReference Update="Moq" Version="4.16.1" />
+    <PackageReference Update="Moq" Version="4.18.2" />
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftEntityFrameworkCoreDesignVersion)" />-->
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />-->
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(MicrosoftEntityFrameworkCoreRelationalSpecificationTestsVersion)" />-->

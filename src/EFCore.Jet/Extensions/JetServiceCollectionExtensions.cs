@@ -3,6 +3,7 @@
 using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
+using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Internal;
 using EntityFrameworkCore.Jet.Query;
 using EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
@@ -19,6 +20,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
@@ -40,6 +42,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IDatabaseProvider, DatabaseProvider<JetOptionsExtension>>()
                 .TryAdd<IRelationalTypeMappingSource, JetTypeMappingSource>()
                 .TryAdd<ISqlGenerationHelper, JetSqlGenerationHelper>()
+                .TryAdd<IRelationalAnnotationProvider, JetAnnotationProvider>()
                 .TryAdd<IMigrationsAnnotationProvider, JetMigrationsAnnotationProvider>()
                 .TryAdd<IModelValidator, JetModelValidator>()
                 .TryAdd<IProviderConventionSetBuilder, JetConventionSetBuilder>()
@@ -58,6 +61,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()
                 .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
                 .TryAdd<IQueryTranslationPostprocessorFactory, JetQueryTranslationPostprocessorFactory>()
+                .TryAdd<IRelationalTransactionFactory, JetTransactionFactory>()
                 .TryAddProviderSpecificServices(
                     b => b
                         .TryAddSingleton<IJetOptions, JetOptions>()

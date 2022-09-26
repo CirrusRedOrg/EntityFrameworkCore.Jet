@@ -6,7 +6,7 @@
     <Product>EntityFrameworkCore.Jet</Product>
     <Authors>Laurents Meyer, Bubi</Authors>
     <Company>Bubi</Company>
-    <Copyright>Copyright © 2017-2021 Bubi</Copyright>
+    <Copyright>Copyright © 2017-$([System.DateTime]::Now.Year) Bubi</Copyright>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <LangVersion>latest</LangVersion>
     <DebugType>portable</DebugType>

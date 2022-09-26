@@ -17,8 +17,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             [NotNull] DbTransaction transaction,
             Guid transactionId,
             [NotNull] IDiagnosticsLogger<DbLoggerCategory.Database.Transaction> logger,
-            bool transactionOwned)
-            : base(connection, transaction, transactionId, logger, transactionOwned)
+            bool transactionOwned, 
+            ISqlGenerationHelper sqlGenerationHelper)
+            : base(connection, transaction, transactionId, logger, transactionOwned, sqlGenerationHelper)
         {
         }
         
@@ -35,10 +36,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => throw new NotSupportedException();
 
         /// <inheritdoc />
-        protected override string GetCreateSavepointSql(string name)
-            => throw new NotSupportedException();
-
-        /// <inheritdoc />
         public override void RollbackToSavepoint(string name)
             => throw new NotSupportedException();
 
@@ -47,19 +44,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => throw new NotSupportedException();
 
         /// <inheritdoc />
-        protected override string GetRollbackToSavepointSql(string name)
-            => throw new NotSupportedException();
-
-        /// <inheritdoc />
         public override void ReleaseSavepoint(string name)
             => throw new NotSupportedException();
 
         /// <inheritdoc />
         public override Task ReleaseSavepointAsync(string name, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        /// <inheritdoc />
-        protected override string GetReleaseSavepointSql(string name)
             => throw new NotSupportedException();
     }
 }

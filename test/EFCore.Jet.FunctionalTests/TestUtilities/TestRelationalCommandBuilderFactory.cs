@@ -1,8 +1,11 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -196,6 +199,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
                 return result;
             }
+
+            public DbCommand CreateDbCommand(
+                RelationalCommandParameterObject parameterObject,
+                Guid commandId,
+                DbCommandMethod commandMethod)
+                => throw new NotSupportedException();
+
+            public void PopulateFrom(IRelationalCommandTemplate commandTemplate)
+                => _realRelationalCommand.PopulateFrom(commandTemplate);
 
             private int? PreExecution(IRelationalConnection connection)
             {

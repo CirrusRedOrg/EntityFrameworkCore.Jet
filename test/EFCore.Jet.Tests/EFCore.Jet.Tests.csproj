@@ -4,6 +4,7 @@
     <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
     <AssemblyName>EntityFrameworkCore.Jet.Tests</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
+    <Platforms>AnyCPU;x86</Platforms>
   </PropertyGroup>
   
   <ItemGroup>

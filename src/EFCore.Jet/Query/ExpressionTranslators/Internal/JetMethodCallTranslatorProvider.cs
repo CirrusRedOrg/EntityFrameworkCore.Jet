@@ -25,7 +25,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             AddTranslators(
                 new IMethodCallTranslator[]
                 {
-                    new JetConvertTranslator(sqlExpressionFactory),
                     new JetDateTimeMethodTranslator(sqlExpressionFactory),
                     new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
                     new JetIsDateFunctionTranslator(sqlExpressionFactory), 
@@ -33,6 +32,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new JetMathTranslator(sqlExpressionFactory),
                     new JetNewGuidTranslator(sqlExpressionFactory),
                     new JetObjectToStringTranslator(sqlExpressionFactory),
+                    new JetConvertTranslator(sqlExpressionFactory),
                 });
         }
     }

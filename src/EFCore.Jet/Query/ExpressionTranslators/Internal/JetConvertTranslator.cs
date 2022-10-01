@@ -31,7 +31,17 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             [nameof(Convert.ToSingle)] = "CSNG",
             [nameof(Convert.ToDouble)] = "CDBL",
             [nameof(Convert.ToDateTime)] = "CDATE",
-            [nameof(Convert.ToString)] = "CSTR"
+            [nameof(Convert.ToString)] = "CSTR",
+
+            [nameof(Boolean.Parse)] = "CBOOL",
+            [nameof(Byte.Parse)] = "CBYTE",
+            [nameof(Int16.Parse)] = "CINT",
+            [nameof(Int32.Parse)] = "CLNG",
+            // [nameof(Convert.ToInt64)] = "CDEC", // CDEC does not work https://docs.microsoft.com/en-us/office/troubleshoot/access/cdec-function-error
+            [nameof(Decimal.Parse)] = "CCUR", // CDEC does not work https://docs.microsoft.com/en-us/office/troubleshoot/access/cdec-function-error
+            [nameof(Single.Parse)] = "CSNG",
+            [nameof(Double.Parse)] = "CDBL",
+            [nameof(DateTime.Parse)] = "CDATE"
         };
 
         private static readonly List<Type> _supportedTypes = new List<Type>
@@ -61,15 +71,139 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                          .ParameterType)))
                 .ToList();
 
+
+        private static readonly IEnumerable<MethodInfo> _supportedBoolParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Boolean).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedByteParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Byte).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedInt16ParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Int16).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedInt32ParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Int32).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedDecimalParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Decimal).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedSingleParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Single).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedDoubleParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(Double).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
+        private static readonly IEnumerable<MethodInfo> _supportedDateTimeParseMethods
+            = _functionName.Keys
+                .SelectMany(
+                    t => typeof(DateTime).GetTypeInfo()
+                        .GetDeclaredMethods(t)
+                        .Where(
+                            m => m.GetParameters()
+                                     .Length == 1
+                                 && _supportedTypes.Contains(
+                                     m.GetParameters()
+                                         .First()
+                                         .ParameterType)))
+                .ToList();
+
         public JetConvertTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
 
         public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            return _supportedMethods.Contains(method)
-                ? _sqlExpressionFactory.Convert(arguments[0], method.ReturnType)
-                : null;
+            if (_supportedMethods.Contains(method) ||
+                _supportedBoolParseMethods.Contains(method) ||
+                _supportedDateTimeParseMethods.Contains(method) || 
+                _supportedByteParseMethods.Contains(method) ||
+                _supportedDecimalParseMethods.Contains(method) ||
+                _supportedDoubleParseMethods.Contains(method) ||
+                _supportedInt16ParseMethods.Contains(method) ||
+                _supportedInt32ParseMethods.Contains(method) ||
+                _supportedSingleParseMethods.Contains(method)
+                )
+            {
+                return _sqlExpressionFactory.Convert(arguments[0], method.ReturnType);
+            }
+            return null;
         }
     }
 }

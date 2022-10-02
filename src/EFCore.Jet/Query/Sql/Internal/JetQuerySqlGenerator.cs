@@ -7,6 +7,7 @@ using EntityFrameworkCore.Jet.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore;
@@ -287,6 +288,28 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             return base.VisitSqlBinary(sqlBinaryExpression);
+        }
+
+        protected override Expression VisitIn(InExpression inExpression)
+        {
+            var valuesConstant = (SqlConstantExpression)inExpression.Values;
+            var isdt = (IEnumerable<object>)valuesConstant.Value!;
+            var enumerable = isdt.ToList();
+            if (enumerable.Any())
+            {
+                var dtf = enumerable.FirstOrDefault();
+                //Need to use a specific Jet DateTime format - when used in an IN section the mapping isn't automatic so set it up explicitly
+                if (dtf is DateTime)
+                {
+                    var newexp = new InExpression(inExpression.Item,
+                        valuesConstant.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options)),
+                        inExpression.IsNegated,
+                        new JetDateTimeTypeMapping("datetime", _options));
+                    return base.VisitIn(newexp);
+                }
+            }
+
+            return base.VisitIn(inExpression);
         }
 
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)

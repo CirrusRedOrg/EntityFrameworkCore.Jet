@@ -25,6 +25,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             AddTranslators(
                 new IMethodCallTranslator[]
                 {
+                    new JetRandomTranslator(sqlExpressionFactory),
                     new JetDateTimeMethodTranslator(sqlExpressionFactory),
                     new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
                     new JetIsDateFunctionTranslator(sqlExpressionFactory), 

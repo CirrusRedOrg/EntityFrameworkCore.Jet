@@ -444,5 +444,9 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _,
             [NotNull] string expression)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsDate)));
+
+        public static double Random(
+            [CanBeNull] this DbFunctions _)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Random)));
     }
 }

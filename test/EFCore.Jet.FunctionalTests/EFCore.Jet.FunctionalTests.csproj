@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
     <PackageReference Include="xunit.core" />
     <PackageReference Include="xunit.assert" />
     <PackageReference Include="xunit.runner.visualstudio" />
@@ -69,65 +70,20 @@
     <None Include="..\xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="BatchingTest.cs" />
-    <None Include="BuiltInDataTypesJetTest.cs" />
-    <None Include="CommandConfigurationTest.cs" />
-    <None Include="CommandInterceptionJetTest.cs" />
-    <None Include="CompositeKeyEndToEndJetTest.cs" />
-    <None Include="ComputedColumnTest.cs" />
     <None Include="ConcurrencyDetectorJetTest.cs" />
-    <None Include="ConferencePlannerJetTest.cs" />
-    <None Include="ConnectionInterceptionJetTest.cs" />
-    <None Include="ConnectionSpecificationTest.cs" />
-    <None Include="ConvertToProviderTypesJetTest.cs" />
-    <None Include="CustomConvertersJetTest.cs" />
-    <None Include="DataAnnotationJetTest.cs" />
-    <None Include="DataBindingJetTest.cs" />
-    <None Include="DbContextPoolingTest.cs" />
-    <None Include="DefaultValuesTest.cs" />
-    <None Include="EverythingIsBytesJetTest.cs" />
-    <None Include="EverythingIsStringsJetTest.cs" />
-    <None Include="ExecutionStrategyTest.cs" />
-    <None Include="ExistingConnectionTest.cs" />
-    <None Include="F1JetFixture.cs" />
-    <None Include="FieldMappingJetTest.cs" />
-    <None Include="FindJetTest.cs" />
     <None Include="GraphUpdates\GraphUpdatesJetTest.cs" />
     <None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
-    <None Include="JetComplianceTest.cs" />
-    <None Include="JetConfigPatternsTest.cs" />
-    <None Include="JetDatabaseCreatorTest.cs" />
-    <None Include="JetEndToEndTest.cs" />
-    <None Include="JetFixture.cs" />
-    <None Include="JetMigrationsSqlGeneratorTest.cs" />
-    <None Include="JetQueryTriggersTest.cs" />
-    <None Include="JetServiceCollectionExtensionsTest.cs" />
-    <None Include="JetTriggersTest.cs" />
-    <None Include="JetValueGenerationScenariosTest.cs" />
-    <None Include="LazyLoadProxyJetTest.cs" />
-    <None Include="LoadJetTest.cs" />
-    <None Include="LoggingJetTest.cs" />
-    <None Include="MigrationsInfrastructureJetTest.cs" />
-    <None Include="MigrationsJetFixture.cs" />
     <None Include="MigrationsSqlGeneratorTestBase.cs" />
-    <None Include="MonsterFixupChangedChangingJetTest.cs" />
-    <None Include="MusicStoreJetTest.cs" />
-    <None Include="NotificationEntitiesJetTest.cs" />
-    <None Include="OptimisticConcurrencyJetTest.cs" />
     <None Include="PropertyEntryJetTest.cs" />
-    <None Include="PropertyValuesJetTest.cs" />
     <None Include="Query\AsyncFromSqlQueryJetTest.cs" />
     <None Include="Query\AsyncGearsOfWarQueryJetTest.cs" />
-    <None Include="Query\ComplexNavigationsQueryJetFixture.cs" />
     <None Include="Query\ComplexNavigationsQueryJetTest.cs" />
     <None Include="Query\ComplexNavigationsWeakQueryJetFixture.cs" />
     <None Include="Query\ComplexNavigationsWeakQueryJetTest.cs" />
-    <None Include="Query\DbFunctionsJetTest.cs" />
     <None Include="Query\FiltersInheritanceQueryJetFixture.cs" />
     <None Include="Query\FiltersInheritanceQueryJetTest.cs" />
     <None Include="Query\FiltersJetTest.cs" />
     <None Include="Query\FromSqlQueryJetTest.cs" />
-    <None Include="Query\FromSqlSprocQueryJetTest.cs" />
     <None Include="Query\FunkyDataQueryJetTest.cs" />
     <None Include="Query\GearsOfWarFromSqlQueryJetTest.cs" />
     <None Include="Query\GearsOfWarQueryJetFixture.cs" />
@@ -152,7 +108,6 @@
     <None Include="Query\NorthwindKeylessEntitiesQueryJetTest.cs" />
     <None Include="Query\NorthwindMiscellaneousQueryJetTest.cs" />
     <None Include="Query\NorthwindNavigationsQueryJetTest.cs" />
-    <None Include="Query\NorthwindQueryJetFixture.cs" />
     <None Include="Query\NorthwindQueryTaggingQueryJetTest.cs" />
     <None Include="Query\NorthwindSelectQueryJetTest.cs" />
     <None Include="Query\NorthwindSetOperationsQueryJetTest.cs" />
@@ -168,17 +123,6 @@
     <None Include="Query\SqlExecutorJetTest.cs" />
     <None Include="Query\UdfDbFunctionJetTests.cs" />
     <None Include="Query\WarningsJetTest.cs" />
-    <None Include="Scaffolding\JetDatabaseModelFactoryTest.cs" />
-    <None Include="SeedingJetTest.cs" />
-    <None Include="SequentialGuidEndToEndTest.cs" />
-    <None Include="StoreGeneratedFixupJetTest.cs" />
-    <None Include="StoreGeneratedJetTest.cs" />
-    <None Include="TableSplittingJetTest.cs" />
-    <None Include="TransactionInterceptionJetTest.cs" />
-    <None Include="TransactionJetTest.cs" />
-    <None Include="UpdatesJetFixture.cs" />
-    <None Include="UpdatesJetTest.cs" />
-    <None Include="WithConstructorsJetTest.cs" />
     <None Remove="TestResults\**" />
   </ItemGroup>
 
@@ -208,65 +152,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="BatchingTest.cs" />
-    <Compile Remove="BuiltInDataTypesJetTest.cs" />
-    <Compile Remove="CommandConfigurationTest.cs" />
-    <Compile Remove="CommandInterceptionJetTest.cs" />
-    <Compile Remove="CompositeKeyEndToEndJetTest.cs" />
-    <Compile Remove="ComputedColumnTest.cs" />
     <Compile Remove="ConcurrencyDetectorJetTest.cs" />
-    <Compile Remove="ConferencePlannerJetTest.cs" />
-    <Compile Remove="ConnectionInterceptionJetTest.cs" />
-    <Compile Remove="ConnectionSpecificationTest.cs" />
-    <Compile Remove="ConvertToProviderTypesJetTest.cs" />
-    <Compile Remove="CustomConvertersJetTest.cs" />
-    <Compile Remove="DataAnnotationJetTest.cs" />
-    <Compile Remove="DataBindingJetTest.cs" />
-    <Compile Remove="DbContextPoolingTest.cs" />
-    <Compile Remove="DefaultValuesTest.cs" />
-    <Compile Remove="EverythingIsBytesJetTest.cs" />
-    <Compile Remove="EverythingIsStringsJetTest.cs" />
-    <Compile Remove="ExecutionStrategyTest.cs" />
-    <Compile Remove="ExistingConnectionTest.cs" />
-    <Compile Remove="F1JetFixture.cs" />
-    <Compile Remove="FieldMappingJetTest.cs" />
-    <Compile Remove="FindJetTest.cs" />
     <Compile Remove="GraphUpdates\GraphUpdatesJetTest.cs" />
     <Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
-    <Compile Remove="JetComplianceTest.cs" />
-    <Compile Remove="JetConfigPatternsTest.cs" />
-    <Compile Remove="JetDatabaseCreatorTest.cs" />
-    <Compile Remove="JetEndToEndTest.cs" />
-    <Compile Remove="JetFixture.cs" />
-    <Compile Remove="JetMigrationsSqlGeneratorTest.cs" />
-    <Compile Remove="JetQueryTriggersTest.cs" />
-    <Compile Remove="JetServiceCollectionExtensionsTest.cs" />
-    <Compile Remove="JetTriggersTest.cs" />
-    <Compile Remove="JetValueGenerationScenariosTest.cs" />
-    <Compile Remove="LazyLoadProxyJetTest.cs" />
-    <Compile Remove="LoadJetTest.cs" />
-    <Compile Remove="LoggingJetTest.cs" />
-    <Compile Remove="MigrationsInfrastructureJetTest.cs" />
-    <Compile Remove="MigrationsJetFixture.cs" />
     <Compile Remove="MigrationsSqlGeneratorTestBase.cs" />
-    <Compile Remove="MonsterFixupChangedChangingJetTest.cs" />
-    <Compile Remove="MusicStoreJetTest.cs" />
-    <Compile Remove="NotificationEntitiesJetTest.cs" />
-    <Compile Remove="OptimisticConcurrencyJetTest.cs" />
     <Compile Remove="PropertyEntryJetTest.cs" />
-    <Compile Remove="PropertyValuesJetTest.cs" />
     <Compile Remove="Query\AsyncFromSqlQueryJetTest.cs" />
     <Compile Remove="Query\AsyncGearsOfWarQueryJetTest.cs" />
-    <Compile Remove="Query\ComplexNavigationsQueryJetFixture.cs" />
     <Compile Remove="Query\ComplexNavigationsQueryJetTest.cs" />
     <Compile Remove="Query\ComplexNavigationsWeakQueryJetFixture.cs" />
     <Compile Remove="Query\ComplexNavigationsWeakQueryJetTest.cs" />
-    <Compile Remove="Query\DbFunctionsJetTest.cs" />
     <Compile Remove="Query\FiltersInheritanceQueryJetFixture.cs" />
     <Compile Remove="Query\FiltersInheritanceQueryJetTest.cs" />
     <Compile Remove="Query\FiltersJetTest.cs" />
     <Compile Remove="Query\FromSqlQueryJetTest.cs" />
-    <Compile Remove="Query\FromSqlSprocQueryJetTest.cs" />
     <Compile Remove="Query\FunkyDataQueryJetTest.cs" />
     <Compile Remove="Query\GearsOfWarFromSqlQueryJetTest.cs" />
     <Compile Remove="Query\GearsOfWarQueryJetFixture.cs" />
@@ -291,7 +190,6 @@
     <Compile Remove="Query\NorthwindKeylessEntitiesQueryJetTest.cs" />
     <Compile Remove="Query\NorthwindMiscellaneousQueryJetTest.cs" />
     <Compile Remove="Query\NorthwindNavigationsQueryJetTest.cs" />
-    <Compile Remove="Query\NorthwindQueryJetFixture.cs" />
     <Compile Remove="Query\NorthwindQueryTaggingQueryJetTest.cs" />
     <Compile Remove="Query\NorthwindSelectQueryJetTest.cs" />
     <Compile Remove="Query\NorthwindSetOperationsQueryJetTest.cs" />
@@ -307,17 +205,6 @@
     <Compile Remove="Query\SqlExecutorJetTest.cs" />
     <Compile Remove="Query\UdfDbFunctionJetTests.cs" />
     <Compile Remove="Query\WarningsJetTest.cs" />
-    <Compile Remove="Scaffolding\JetDatabaseModelFactoryTest.cs" />
-    <Compile Remove="SeedingJetTest.cs" />
-    <Compile Remove="SequentialGuidEndToEndTest.cs" />
-    <Compile Remove="StoreGeneratedFixupJetTest.cs" />
-    <Compile Remove="StoreGeneratedJetTest.cs" />
-    <Compile Remove="TableSplittingJetTest.cs" />
-    <Compile Remove="TransactionInterceptionJetTest.cs" />
-    <Compile Remove="TransactionJetTest.cs" />
-    <Compile Remove="UpdatesJetFixture.cs" />
-    <Compile Remove="UpdatesJetTest.cs" />
-    <Compile Remove="WithConstructorsJetTest.cs" />
   </ItemGroup>
 
 </Project>

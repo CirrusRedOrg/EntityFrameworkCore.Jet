@@ -23,5 +23,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .UseJet("Data Source=LoggingJetTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
 
         protected override string ProviderName => "EntityFrameworkCore.Jet";
+        protected override string ProviderVersion { get; }
     }
 }

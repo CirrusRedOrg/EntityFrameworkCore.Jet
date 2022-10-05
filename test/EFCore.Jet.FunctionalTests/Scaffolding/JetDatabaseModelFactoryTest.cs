@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using EntityFrameworkCore.Jet.Data;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -21,6 +22,7 @@ using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Xunit;
+using Xunit.Abstractions;
 
 // ReSharper disable InconsistentNaming
 
@@ -29,11 +31,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
     public class JetDatabaseModelFactoryTest : IClassFixture<JetDatabaseModelFactoryTest.JetDatabaseModelFixture>
     {
         protected JetDatabaseModelFixture Fixture { get; }
+        private readonly ITestOutputHelper _testOutputHelper;
 
-        public JetDatabaseModelFactoryTest(JetDatabaseModelFixture fixture)
+        public JetDatabaseModelFactoryTest(JetDatabaseModelFixture fixture, ITestOutputHelper testOutputHelper)
         {
             Fixture = fixture;
-            Fixture.ListLoggerFactory.Clear();
+            _testOutputHelper = testOutputHelper;
+            //Fixture.ListLoggerFactory.Clear();
+            Fixture.ListLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            JetConfiguration.ShowSqlStatements = true;
         }
 
         #region Model
@@ -189,7 +195,7 @@ SELECT
             Test(
                 @"
 CREATE TABLE PrimaryKeyTable (
-    Id int PRIMARY KEY
+    Id int CONSTRAINT PK__PrimaryKeyTable PRIMARY KEY
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -371,7 +377,7 @@ CREATE TABLE TypeAlias (
                     var column = Assert.Single(dbModel.Tables.Single().Columns.Where(c => c.Name == "typeAliasColumn"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("varchar(128)", column.StoreType);
+                    Assert.Equal("varchar(255)", column.StoreType);
                     Assert.False(column.IsNullable);
                 },
                 @"
@@ -986,7 +992,7 @@ CREATE TABLE NullableColumns (
 CREATE TABLE CompositePrimaryKeyTable (
     Id1 int,
     Id2 int,
-    PRIMARY KEY (Id2, Id1)
+    CONSTRAINT PK__CompositePrimaryKeyTable PRIMARY KEY (Id2, Id1)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),

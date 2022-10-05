@@ -197,6 +197,7 @@ UnicodeDataTypes.StringUnicode ---> `nullable varbinary` [MaxLength = -1]
             public override bool SupportsDecimalComparisons => true;
 
             public override DateTime DefaultDateTime => new DateTime();
+            public override bool PreservesDateTimeKind { get; }
 
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                 => base

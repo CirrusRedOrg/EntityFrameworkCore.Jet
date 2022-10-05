@@ -725,6 +725,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             }
 
             var columnType = GetColumnType(schema, table, name, operation, model);
+            //int has no size - ignore
+            if (columnType.StartsWith("int("))
+            {
+                columnType = "int";
+            }
             builder
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name))
                 .Append(" ")

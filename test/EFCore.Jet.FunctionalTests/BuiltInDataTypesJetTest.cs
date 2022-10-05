@@ -2994,7 +2994,7 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
                         NUMERIC_PRECISION,
                         NUMERIC_SCALE,
                         DATETIME_PRECISION
-                    FROM INFORMATION_SCHEMA.COLUMNS";
+                    FROM [INFORMATION_SCHEMA].[COLUMNS]";
 
             var columns = new List<ColumnInfo>();
 
@@ -3169,6 +3169,7 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
             public override bool SupportsBinaryKeys => true;
 
             public override DateTime DefaultDateTime => new DateTime();
+            public override bool PreservesDateTimeKind { get; }
         }
 
         [Flags]

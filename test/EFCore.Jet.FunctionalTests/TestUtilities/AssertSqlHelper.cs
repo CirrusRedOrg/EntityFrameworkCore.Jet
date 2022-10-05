@@ -22,10 +22,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         public static string Declaration(string fullDeclaration)
             => Declaration(fullDeclaration, DataAccessProviderType);
-
+        //TODO:confirm which way odbc and oledb do this
         public static string Declaration(string fullDeclaration, DataAccessProviderType dataAccessProviderType)
             => dataAccessProviderType == DataAccessProviderType.Odbc
-                ? string.Empty
-                : fullDeclaration;
+                ? fullDeclaration
+                : string.Empty;
     }
 }

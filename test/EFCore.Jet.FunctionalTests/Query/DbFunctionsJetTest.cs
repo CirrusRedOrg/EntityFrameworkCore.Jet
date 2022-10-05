@@ -67,7 +67,7 @@ WHERE `c`.`ContactName` LIKE '!%' ESCAPE '!'");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE DATEDIFF(YEAR, `o`.`OrderDate`, GETDATE()) = 0");
+WHERE DATEDIFF('yyyy', `o`.`OrderDate`, NOW()) = 0");
             }
         }
 
@@ -83,7 +83,7 @@ WHERE DATEDIFF(YEAR, `o`.`OrderDate`, GETDATE()) = 0");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE DATEDIFF(MONTH, `o`.`OrderDate`, GETDATE()) = 0");
+WHERE DATEDIFF('m', `o`.`OrderDate`, NOW()) = 0");
             }
         }
 
@@ -99,7 +99,7 @@ WHERE DATEDIFF(MONTH, `o`.`OrderDate`, GETDATE()) = 0");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE DATEDIFF(DAY, `o`.`OrderDate`, GETDATE()) = 0");
+WHERE DATEDIFF('d', `o`.`OrderDate`, NOW()) = 0");
             }
         }
 
@@ -115,7 +115,7 @@ WHERE DATEDIFF(DAY, `o`.`OrderDate`, GETDATE()) = 0");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE DATEDIFF(HOUR, `o`.`OrderDate`, GETDATE()) = 0");
+WHERE DATEDIFF('h', `o`.`OrderDate`, NOW()) = 0");
             }
         }
 
@@ -131,7 +131,7 @@ WHERE DATEDIFF(HOUR, `o`.`OrderDate`, GETDATE()) = 0");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE DATEDIFF(MINUTE, `o`.`OrderDate`, GETDATE()) = 0");
+WHERE DATEDIFF('n', `o`.`OrderDate`, NOW()) = 0");
             }
         }
 
@@ -147,7 +147,7 @@ WHERE DATEDIFF(MINUTE, `o`.`OrderDate`, GETDATE()) = 0");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE DATEDIFF(SECOND, `o`.`OrderDate`, GETDATE()) = 0");
+WHERE DATEDIFF('s', `o`.`OrderDate`, NOW()) = 0");
             }
         }
 

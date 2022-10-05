@@ -18,6 +18,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return context;
         }
 
+        protected override TestStore TestStore { get; }
+
         protected class SeedingJetContext : SeedingContext
         {
             public SeedingJetContext(string testId)

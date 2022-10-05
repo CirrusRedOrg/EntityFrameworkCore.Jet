@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using System.Linq;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -198,6 +199,19 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
             public override bool SupportsDecimalComparisons => true;
 
             public override DateTime DefaultDateTime => new DateTime();
+            public override bool PreservesDateTimeKind { get; }
+
+            public override string ReallyLargeString
+            {
+                get
+                {
+                    //Jet max is 255
+                    var res = string.Join("", Enumerable.Repeat("testphrase", 25));
+                    return res;
+                }
+            }
+
+            public override int LongStringLength => 255;
 
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                 => base
@@ -282,21 +296,22 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
                     }
                 }
 
+                //Note - 255 is the max short text length in Jet
                 if (clrType == typeof(string))
                 {
                     var isAnsi = mappingInfo.IsUnicode == false;
                     var isFixedLength = mappingInfo.IsFixedLength == true;
                     var baseName = isAnsi ? "varchar" : "nvarchar";
-                    var maxSize = isAnsi ? 8000 : 4000;
+                    var maxSize = 255;
 
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)(isAnsi ? 900 : 450) : null);
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)255 : 255);
                     if (size > maxSize)
                     {
                         size = isFixedLength ? maxSize : (int?)null;
                     }
 
                     return new JetStringTypeMapping(
-                        baseName + "(" + (size == null ? "max" : size.ToString()) + ")",
+                        baseName + "(" + (size == null ? "255" : size.ToString()) + ")",
                         !isAnsi,
                         size,
                         isFixedLength,

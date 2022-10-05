@@ -132,7 +132,7 @@ WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Find_string_key_from_store();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Cat' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Cat' (Size = 255)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`Foo`
 FROM `StringKey` AS `s`
@@ -144,7 +144,7 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Returns_null_for_string_key_not_in_store();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Fox' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Fox' (Size = 255)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`Foo`
 FROM `StringKey` AS `s`
@@ -164,8 +164,7 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='77'")}
-
-{AssertSqlHelper.Declaration("@__p_1='Dog' (Size = 450)")}
+{AssertSqlHelper.Declaration("@__p_1='Dog' (Size = 255)")}
 
 SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
 FROM `CompositeKey` AS `c`
@@ -178,8 +177,7 @@ WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {Asse
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='77'")}
-
-{AssertSqlHelper.Declaration("@__p_1='Fox' (Size = 450)")}
+{AssertSqlHelper.Declaration("@__p_1='Fox' (Size = 255)")}
 
 SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
 FROM `CompositeKey` AS `c`
@@ -193,6 +191,13 @@ WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {Asse
             Assert.Equal("", Sql);
         }
 
+        public override async Task Find_base_type_tracked_async()
+        {
+            await base.Find_base_type_tracked_async();
+
+            Assert.Equal("", Sql);
+        }
+
         public override void Find_base_type_from_store()
         {
             base.Find_base_type_from_store();
@@ -202,7 +207,18 @@ WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {Asse
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE `b`.`Discriminator` IN ('BaseType', 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
+        }
+
+        public override async Task Find_base_type_from_store_async()
+        {
+            await base.Find_base_type_from_store_async();
+            AssertSql(
+                $@"{AssertSqlHelper.Declaration("@__p_0='77'")}
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Returns_null_for_base_type_not_in_store()
@@ -214,7 +230,7 @@ WHERE `b`.`Discriminator` IN ('BaseType', 'DerivedType') AND (`b`.`Id` = {Assert
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE `b`.`Discriminator` IN ('BaseType', 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Find_derived_type_tracked()
@@ -288,7 +304,7 @@ WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Par
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE `b`.`Discriminator` IN ('BaseType', 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Find_shadow_key_tracked()

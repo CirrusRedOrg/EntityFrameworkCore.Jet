@@ -2,6 +2,7 @@
 
 using System;
 using System.Data;
+using System.Data.Odbc;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -597,18 +598,22 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using (var testDatabase = JetTestStore.GetOrCreate("NonExisting"))
             {
                 var creator = GetDatabaseCreator(testDatabase);
-
-                var errorNumber
-                    = async
-                        ? (await Assert.ThrowsAsync<OleDbException>(() => creator.CreateTablesAsync())).ErrorCode
-                        : Assert.Throws<OleDbException>(() => creator.CreateTables()).ErrorCode;
-
-                if (errorNumber != 233) // skip if no-process transient failure
+                var exception = async
+                    ? await Record.ExceptionAsync(() => creator.CreateTablesAsync())
+                    : Record.Exception(() => creator.CreateTables());
+                Assert.NotNull(exception);
+                var isoledbex = exception is OleDbException;
+                var isodbcex = exception is OdbcException;
+                int errorNumber = 0;
+                if (isoledbex)
                 {
-                    Assert.Equal(
-                        4060, // Login failed error number
-                        errorNumber);
+                    errorNumber = ((OleDbException)exception).ErrorCode;
                 }
+                if (isodbcex)
+                {
+                    errorNumber = ((OdbcException)exception).ErrorCode;
+                }
+                Assert.True(isoledbex || isodbcex);
             }
         }
 

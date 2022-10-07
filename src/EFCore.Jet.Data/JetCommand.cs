@@ -398,7 +398,6 @@ namespace EntityFrameworkCore.Jet.Data
                 var commandText = CommandText.Trim();
                 if (!string.IsNullOrEmpty(commandText))
                 {
-                    CommandText = commandText;
                     commands.Add(this);
                 }
             }

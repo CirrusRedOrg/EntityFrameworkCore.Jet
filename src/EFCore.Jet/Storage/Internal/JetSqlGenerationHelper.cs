@@ -92,5 +92,23 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             return identifier.Substring(0, 56) + identifier.ToLowerInvariant().GetHashCode().ToString("X8");
         }
+
+        public override string GenerateCreateSavepointStatement(string name)
+        {
+            return StatementTerminator;
+        }
+
+        public override string GenerateRollbackToSavepointStatement(string name)
+        {
+            return StatementTerminator;
+        }
+
+        public override string GenerateReleaseSavepointStatement(string name)
+        {
+            return StatementTerminator;
+        }
+
+        public override string StartTransactionStatement => StatementTerminator;
+        public override string CommitTransactionStatement => StatementTerminator;
     }
 }

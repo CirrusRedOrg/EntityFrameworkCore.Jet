@@ -376,8 +376,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         {
                             var isUnique = indexType == "UNIQUE";
 
-                            if (isUnique &&
-                                !nullable)
+                            if (isUnique)
                             {
                                 var uniqueConstraint = new DatabaseUniqueConstraint
                                 {

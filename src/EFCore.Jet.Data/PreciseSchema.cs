@@ -49,13 +49,33 @@ namespace EntityFrameworkCore.Jet.Data
             => _adoxSchema.Value.GetIndexes(); // either ADOX or DAO is fine
 
         public override DataTable GetIndexColumns()
-            => _daoSchema.Value.GetIndexColumns(); // either ADOX or DAO is fine
+            => _adoxSchema.Value.GetIndexColumns(); // either ADOX or DAO is fine
 
+        //ADOX can get more detail for the onupdate and ondelete rules (set null and set default)
+        //DAO can get the relation type (1 to 1 or 1 to many)
+        //DAO can get isenforced and isherited
         public override DataTable GetRelations()
-            => _daoSchema.Value.GetRelations(); // either ADOX or DAO is fine
+        {
+            var dataTable = _adoxSchema.Value.GetRelations();
+            var reltypes = _daoSchema.Value.GetRelationTypes();
+
+            foreach (DataRow row in dataTable.Rows)
+            {
+                var relationName = (string)row["RELATION_NAME"];
+
+                if (reltypes.TryGetValue(relationName, out var relationType))
+                {
+                    row["RELATION_TYPE"] = relationType.relationType;
+                    row["IS_ENFORCED"] = relationType.isEnforced;
+                    row["IS_INHERITED"] = relationType.isInherited;
+                }
+            }
+            dataTable.AcceptChanges();
+            return dataTable;
+        }
 
         public override DataTable GetRelationColumns()
-            => _daoSchema.Value.GetRelationColumns(); // either ADOX or DAO is fine
+            => _adoxSchema.Value.GetRelationColumns(); // either ADOX or DAO is fine
 
         public override DataTable GetCheckConstraints()
             => _adoxSchema.Value.GetCheckConstraints(); // DAO does not support CHECK CONSTRAINTs, but ADOX does

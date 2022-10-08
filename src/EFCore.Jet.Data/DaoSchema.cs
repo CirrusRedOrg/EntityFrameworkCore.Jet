@@ -682,6 +682,33 @@ namespace EntityFrameworkCore.Jet.Data
             return ordinalPositions;
         }
 
+        public Dictionary<string,(string relationType,bool isEnforced,bool isInherited)> GetRelationTypes()
+        {
+            var result = new Dictionary<string, (string,bool,bool)>();
+            using var relations = _database.Relations;
+            var relationCount = (int)relations.Count;
+
+            for (var i = 0; i < relationCount; i++)
+            {
+                using var relation = relations[i];
+
+                var relationName = (string)relation.Name;
+                var attributes = (RelationAttributeEnum)relation.Attributes;
+
+                var relationType = (attributes & RelationAttributeEnum.dbRelationUnique) == RelationAttributeEnum.dbRelationUnique
+                    ? "ONE"
+                    : "MANY";
+
+                var isEnforced = (attributes & RelationAttributeEnum.dbRelationDontEnforce) != RelationAttributeEnum.dbRelationDontEnforce;
+
+                var isInherited = (attributes & RelationAttributeEnum.dbRelationInherited) != RelationAttributeEnum.dbRelationInherited;
+
+                result.Add(relationName, (relationType,isEnforced,isInherited));
+            }
+
+            return result;
+        }
+
         public override void Dispose()
         {
             _database.Dispose();

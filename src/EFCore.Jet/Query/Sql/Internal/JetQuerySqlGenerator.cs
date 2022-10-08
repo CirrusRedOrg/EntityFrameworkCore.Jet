@@ -364,6 +364,11 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return convertExpression;
             }
 
+            if (typeMapping.ClrType.IsEnum)
+            {
+                Visit(convertExpression.Operand);
+                return convertExpression;
+            }
             throw new InvalidOperationException($"Cannot cast to CLR type '{typeMapping.ClrType.Name}' with Jet.");
         }
 

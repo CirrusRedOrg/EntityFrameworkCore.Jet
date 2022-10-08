@@ -2985,16 +2985,7 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
         public static string QueryForColumnTypes(DbContext context, params string[] tablesToIgnore)
         {
             const string query
-                = @"SELECT
-                        TABLE_NAME,
-                        COLUMN_NAME,
-                        DATA_TYPE,
-                        IS_NULLABLE,
-                        CHARACTER_MAXIMUM_LENGTH,
-                        NUMERIC_PRECISION,
-                        NUMERIC_SCALE,
-                        DATETIME_PRECISION
-                    FROM [INFORMATION_SCHEMA].[COLUMNS]";
+                = @"SELECT * FROM `INFORMATION_SCHEMA.COLUMNS`";
 
             var columns = new List<ColumnInfo>();
 
@@ -3013,12 +3004,12 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
                         {
                             TableName = reader.GetString(0),
                             ColumnName = reader.GetString(1),
-                            DataType = reader.GetString(2),
-                            IsNullable = reader.IsDBNull(3) ? null : (bool?)(reader.GetString(3) == "YES"),
-                            MaxLength = reader.IsDBNull(4) ? null : (int?)reader.GetInt32(4),
-                            NumericPrecision = reader.IsDBNull(5) ? null : (int?)reader.GetByte(5),
-                            NumericScale = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                            DateTimePrecision = reader.IsDBNull(7) ? null : (int?)reader.GetInt16(7)
+                            DataType = reader.GetString(3),
+                            IsNullable = reader.IsDBNull(4) ? null : (bool?)(reader.GetBoolean(4)),
+                            MaxLength = reader.IsDBNull(5) ? null : (int?)reader.GetInt32(5),
+                            NumericPrecision = reader.IsDBNull(6) ? null : (int?)reader.GetByte(6),
+                            NumericScale = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
+                            //DateTimePrecision = reader.IsDBNull(7) ? null : (int?)reader.GetInt16(7)
                         };
 
                         if (!tablesToIgnore.Contains(columnInfo.TableName))

@@ -13,7 +13,9 @@ using EntityFrameworkCore.Jet.Migrations.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Xunit;
+using Assert = Xunit.Assert;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -37,7 +39,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 });
 
             AssertSql(
-                @"ALTER TABLE [People] ADD [Id] int NOT NULL IDENTITY;
+                @"ALTER TABLE `People` ADD `Id` counter NOT NULL;
 ");
         }
 
@@ -46,7 +48,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_without_column_type();
 
             AssertSql(
-                @"ALTER TABLE [People] ADD [Alias] nvarchar(max) NOT NULL;
+                @"ALTER TABLE `People` ADD `Alias` nvarchar(max) NOT NULL;
 ");
         }
 
@@ -55,7 +57,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_unicode_no_model();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Name] varchar(max) NULL;
+                @"ALTER TABLE `Person` ADD `Name` varchar(max) NULL;
 ");
         }
 
@@ -64,7 +66,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_fixed_length_no_model();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Name] char(100) NULL;
+                @"ALTER TABLE `Person` ADD `Name` char(100) NULL;
 ");
         }
 
@@ -73,7 +75,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_maxLength_no_model();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Name] nvarchar(30) NULL;
+                @"ALTER TABLE `Person` ADD `Name` varchar(30) NULL;
 ");
         }
 
@@ -82,7 +84,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_maxLength_overridden();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Name] nvarchar(32) NULL;
+                @"ALTER TABLE `Person` ADD `Name` varchar(32) NULL;
 ");
         }
 
@@ -91,7 +93,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_precision_and_scale_overridden();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Pi] decimal(15,10) NOT NULL;
+                @"ALTER TABLE `Person` ADD `Pi` decimal(15,10) NOT NULL;
 ");
         }
 
@@ -100,7 +102,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_precision_and_scale_no_model();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Pi] decimal(20,7) NOT NULL;
+                @"ALTER TABLE `Person` ADD `Pi` decimal(20,7) NOT NULL;
 ");
         }
 
@@ -109,7 +111,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_unicode_overridden();
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [Name] nvarchar(max) NULL;
+                @"ALTER TABLE `Person` ADD `Name` nvarchar(max) NULL;
 ");
         }
 
@@ -128,7 +130,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 });
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [RowVersion] rowversion NULL;
+                @"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
 ");
         }
 
@@ -146,7 +148,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 });
 
             AssertSql(
-                @"ALTER TABLE [Person] ADD [RowVersion] rowversion NULL;
+                @"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
 ");
         }
 
@@ -156,12 +158,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             AssertSql(
                 @"DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
+SELECT @var0 = [d].`Name`
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'LuckyNumber');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [LuckyNumber] int NOT NULL;
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'`People`') AND [c].`Name` = 'LuckyNumber');
+IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` ALTER COLUMN [LuckyNumber] int NOT NULL;
 ");
         }
 
@@ -170,7 +172,7 @@ ALTER TABLE [People] ALTER COLUMN [LuckyNumber] int NOT NULL;
             base.AddForeignKeyOperation_without_principal_columns();
 
             AssertSql(
-                @"ALTER TABLE [People] ADD FOREIGN KEY ([SpouseId]) REFERENCES [People];
+                @"ALTER TABLE `People` ADD FOREIGN KEY (`SpouseId`) REFERENCES `People`;
 ");
         }
 
@@ -189,12 +191,12 @@ ALTER TABLE [People] ALTER COLUMN [LuckyNumber] int NOT NULL;
 
             AssertSql(
                 @"DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
+SELECT @var0 = [d].`Name`
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Id');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [Id] int NOT NULL;
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'`People`') AND [c].`Name` = 'Id');
+IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `People` ALTER COLUMN [Id] int NOT NULL;
 ");
         }
 
@@ -222,12 +224,12 @@ ALTER TABLE [People] ALTER COLUMN [Id] int NOT NULL;
 
             AssertSql(
                 @"DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
+SELECT @var0 = [d].`Name`
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Person]') AND [c].[name] = N'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Person] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Person] ALTER COLUMN [Name] nvarchar(30) NULL;
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'`Person`') AND [c].`Name` = 'Name');
+IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
 ");
         }
 
@@ -261,15 +263,15 @@ ALTER TABLE [Person] ALTER COLUMN [Name] nvarchar(30) NULL;
 
             AssertSql(
                 @"DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
+SELECT @var0 = [d].`Name`
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Person]') AND [c].[name] = N'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Person] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Person] ALTER COLUMN [Name] nvarchar(30) NULL;
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'`Person`') AND [c].`Name` = 'Name');
+IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
 GO
 
-CREATE INDEX [IX_Person_Name] ON [Person] ([Name]);
+CREATE INDEX [IX_Person_Name] ON `Person` (`Name`);
 ");
         }
 
@@ -302,15 +304,15 @@ CREATE INDEX [IX_Person_Name] ON [Person] ([Name]);
 
             AssertSql(
                 @"DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
+SELECT @var0 = [d].`Name`
 FROM [sys].[default_constraints] [d]
 INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Person]') AND [c].[name] = N'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Person] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Person] ALTER COLUMN [Name] nvarchar(450) NULL;
+WHERE ([d].[parent_object_id] = OBJECT_ID(N'`Person`') AND [c].`Name` = 'Name');
+IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];');
+ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(450) NULL;
 GO
 
-CREATE INDEX [IX_Person_Name] ON [Person] ([Name]);
+CREATE INDEX [IX_Person_Name] ON `Person` (`Name`);
 ");
         }
 
@@ -333,13 +335,8 @@ CREATE INDEX [IX_Person_Name] ON [Person] ([Name]);
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Person]') AND [c].[name] = N'Id');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Person] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Person] ALTER COLUMN [Id] bigint NOT NULL;
+                @"ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];
+ALTER TABLE `Person` ALTER COLUMN [Id] bigint NOT NULL;
 ");
         }
 
@@ -389,13 +386,7 @@ ALTER TABLE [Person] ALTER COLUMN [Id] bigint NOT NULL;
                 new JetCreateDatabaseOperation { Name = "Northwind" });
 
             AssertSql(
-                @"CREATE DATABASE [Northwind];
-GO
-
-IF SERVERPROPERTY('EngineEdition') <> 5
-BEGIN
-    ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
-END;
+                @"CREATE DATABASE `Northwind`;
 ");
         }
 
@@ -410,8 +401,8 @@ END;
 //
 //             AssertSql(
 //                 $@"CREATE DATABASE [Northwind]
-// ON (NAME = N'Narf', FILENAME = N'{expectedFile}')
-// LOG ON (NAME = N'Narf_log', FILENAME = N'{expectedLog}');
+// ON (NAME = 'Narf', FILENAME = '{expectedFile}')
+// LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
 // GO
 //
 // IF SERVERPROPERTY('EngineEdition') <> 5
@@ -434,8 +425,8 @@ END;
 //
 //             AssertSql(
 //                 $@"CREATE DATABASE [Northwind]
-// ON (NAME = N'Narf', FILENAME = N'{expectedFile}')
-// LOG ON (NAME = N'Narf_log', FILENAME = N'{expectedLog}');
+// ON (NAME = 'Narf', FILENAME = '{expectedFile}')
+// LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
 // GO
 //
 // IF SERVERPROPERTY('EngineEdition') <> 5
@@ -462,8 +453,8 @@ END;
 //
 //             AssertSql(
 //                 $@"CREATE DATABASE [Northwind]
-// ON (NAME = N'Narf', FILENAME = N'{expectedFile}')
-// LOG ON (NAME = N'Narf_log', FILENAME = N'{expectedLog}');
+// ON (NAME = 'Narf', FILENAME = '{expectedFile}')
+// LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
 // GO
 //
 // IF SERVERPROPERTY('EngineEdition') <> 5
@@ -520,17 +511,11 @@ END;
                 new JetDropDatabaseOperation { Name = "Northwind" });
 
             AssertSql(
-                @"IF SERVERPROPERTY('EngineEdition') <> 5
-BEGIN
-    ALTER DATABASE [Northwind] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-END;
-GO
-
-DROP DATABASE [Northwind];
+                @"DROP DATABASE `Northwind`;
 ");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support sequences")]
         public virtual void MoveSequenceOperation_legacy()
         {
             Generate(
@@ -558,7 +543,7 @@ DROP DATABASE [Northwind];
                 });
 
             AssertSql(
-                @"ALTER SCHEMA [hr] TRANSFER [dbo].[People];
+                @"ALTER SCHEMA [hr] TRANSFER [dbo].`People`;
 ");
         }
 
@@ -577,7 +562,7 @@ DROP DATABASE [Northwind];
             Assert.Equal(JetStrings.IndexTableRequired, ex.Message);
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support sequences")]
         public virtual void RenameSequenceOperation_legacy()
         {
             Generate(
@@ -599,7 +584,7 @@ DROP DATABASE [Northwind];
             base.RenameTableOperation_legacy();
 
             AssertSql(
-                @"EXEC sp_rename N'[dbo].[People]', N'Person';
+                @"ALTER TABLE `People` RENAME TO `Person`;
 ");
         }
 
@@ -608,7 +593,7 @@ DROP DATABASE [Northwind];
             base.RenameTableOperation();
 
             AssertSql(
-                @"EXEC sp_rename N'[dbo].[People]', N'Person';
+                @"ALTER TABLE `People` RENAME TO `Person`;
 ");
         }
 
@@ -687,9 +672,9 @@ GO
             base.InsertDataOperation_all_args_spatial();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Full Name', N'Geometry') AND [object_id] = OBJECT_ID(N'[dbo].[People]'))
-    SET IDENTITY_INSERT [dbo].[People] ON;
-INSERT INTO [dbo].[People] ([Id], [Full Name], [Geometry])
+                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id', N'Full Name', N'Geometry') AND [object_id] = OBJECT_ID(N'[dbo].`People`'))
+    SET IDENTITY_INSERT [dbo].`People` ON;
+INSERT INTO [dbo].`People` ([Id], [Full Name], [Geometry])
 VALUES (0, NULL, NULL),
 (1, 'Daenerys Targaryen', NULL),
 (2, 'John Snow', NULL),
@@ -698,8 +683,8 @@ VALUES (0, NULL, NULL),
 (5, 'The Imp', NULL),
 (6, 'The Kingslayer', NULL),
 (7, 'Aemon Targaryen', geography::Parse('GEOMETRYCOLLECTION (LINESTRING (1.1 2.2 NULL, 2.2 2.2 NULL, 2.2 1.1 NULL, 7.1 7.2 NULL), LINESTRING (7.1 7.2 NULL, 20.2 20.2 NULL, 20.2 1.1 NULL, 70.1 70.2 NULL), MULTIPOINT ((1.1 2.2 NULL), (2.2 2.2 NULL), (2.2 1.1 NULL)), POLYGON ((1.1 2.2 NULL, 2.2 2.2 NULL, 2.2 1.1 NULL, 1.1 2.2 NULL)), POLYGON ((10.1 20.2 NULL, 20.2 20.2 NULL, 20.2 10.1 NULL, 10.1 20.2 NULL)), POINT (1.1 2.2 3.3), MULTILINESTRING ((1.1 2.2 NULL, 2.2 2.2 NULL, 2.2 1.1 NULL, 7.1 7.2 NULL), (7.1 7.2 NULL, 20.2 20.2 NULL, 20.2 1.1 NULL, 70.1 70.2 NULL)), MULTIPOLYGON (((10.1 20.2 NULL, 20.2 20.2 NULL, 20.2 10.1 NULL, 10.1 20.2 NULL)), ((1.1 2.2 NULL, 2.2 2.2 NULL, 2.2 1.1 NULL, 1.1 2.2 NULL))))'));
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Full Name', N'Geometry') AND [object_id] = OBJECT_ID(N'[dbo].[People]'))
-    SET IDENTITY_INSERT [dbo].[People] OFF;
+IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id', N'Full Name', N'Geometry') AND [object_id] = OBJECT_ID(N'[dbo].`People`'))
+    SET IDENTITY_INSERT [dbo].`People` OFF;
 ");
         }
 
@@ -712,12 +697,12 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Full
             base.InsertDataOperation_required_args();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name') AND [object_id] = OBJECT_ID(N'[People]'))
-    SET IDENTITY_INSERT [People] ON;
-INSERT INTO [People] ([First Name])
+                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
+    SET IDENTITY_INSERT `People` ON;
+INSERT INTO `People` (`First Name`)
 VALUES (N'John');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name') AND [object_id] = OBJECT_ID(N'[People]'))
-    SET IDENTITY_INSERT [People] OFF;
+IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
+    SET IDENTITY_INSERT `People` OFF;
 ");
         }
 
@@ -726,12 +711,12 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name'
             base.InsertDataOperation_required_args_composite();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name', N'Last Name') AND [object_id] = OBJECT_ID(N'[People]'))
-    SET IDENTITY_INSERT [People] ON;
-INSERT INTO [People] ([First Name], [Last Name])
+                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name', N'Last Name') AND [object_id] = OBJECT_ID(N'`People`'))
+    SET IDENTITY_INSERT `People` ON;
+INSERT INTO `People` (`First Name`, `Last Name`)
 VALUES (N'John', N'Snow');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name', N'Last Name') AND [object_id] = OBJECT_ID(N'[People]'))
-    SET IDENTITY_INSERT [People] OFF;
+IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name', N'Last Name') AND [object_id] = OBJECT_ID(N'`People`'))
+    SET IDENTITY_INSERT `People` OFF;
 ");
         }
 
@@ -740,13 +725,13 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name'
             base.InsertDataOperation_required_args_multiple_rows();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name') AND [object_id] = OBJECT_ID(N'[People]'))
-    SET IDENTITY_INSERT [People] ON;
-INSERT INTO [People] ([First Name])
+                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
+    SET IDENTITY_INSERT `People` ON;
+INSERT INTO `People` (`First Name`)
 VALUES (N'John'),
 (N'Daenerys');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name') AND [object_id] = OBJECT_ID(N'[People]'))
-    SET IDENTITY_INSERT [People] OFF;
+IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
+    SET IDENTITY_INSERT `People` OFF;
 ");
         }
 
@@ -760,24 +745,24 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'First Name'
             base.DeleteDataOperation_all_args();
 
             AssertSql(
-                @"DELETE FROM [People]
-WHERE [First Name] = N'Hodor';
+                @"DELETE FROM `People`
+WHERE `First Name` = 'Hodor';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'Daenerys';
+DELETE FROM `People`
+WHERE `First Name` = 'Daenerys';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'John';
+DELETE FROM `People`
+WHERE `First Name` = 'John';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'Arya';
+DELETE FROM `People`
+WHERE `First Name` = 'Arya';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'Harry';
+DELETE FROM `People`
+WHERE `First Name` = 'Harry';
 SELECT @@ROWCOUNT;
 
 ");
@@ -788,24 +773,24 @@ SELECT @@ROWCOUNT;
             base.DeleteDataOperation_all_args_composite();
 
             AssertSql(
-                @"DELETE FROM [People]
-WHERE [First Name] = N'Hodor' AND [Last Name] IS NULL;
+                @"DELETE FROM `People`
+WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'Daenerys' AND [Last Name] = N'Targaryen';
+DELETE FROM `People`
+WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'John' AND [Last Name] = N'Snow';
+DELETE FROM `People`
+WHERE `First Name` = 'John' AND `Last Name` = 'Snow';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'Arya' AND [Last Name] = N'Stark';
+DELETE FROM `People`
+WHERE `First Name` = 'Arya' AND `Last Name` = 'Stark';
 SELECT @@ROWCOUNT;
 
-DELETE FROM [People]
-WHERE [First Name] = N'Harry' AND [Last Name] = N'Strickland';
+DELETE FROM `People`
+WHERE `First Name` = 'Harry' AND `Last Name` = 'Strickland';
 SELECT @@ROWCOUNT;
 
 ");
@@ -816,8 +801,8 @@ SELECT @@ROWCOUNT;
             base.DeleteDataOperation_required_args();
 
             AssertSql(
-                @"DELETE FROM [People]
-WHERE [Last Name] = N'Snow';
+                @"DELETE FROM `People`
+WHERE `Last Name` = 'Snow';
 SELECT @@ROWCOUNT;
 
 ");
@@ -828,8 +813,8 @@ SELECT @@ROWCOUNT;
             base.DeleteDataOperation_required_args_composite();
 
             AssertSql(
-                @"DELETE FROM [People]
-WHERE [First Name] = N'John' AND [Last Name] = N'Snow';
+                @"DELETE FROM `People`
+WHERE `First Name` = 'John' AND `Last Name` = 'Snow';
 SELECT @@ROWCOUNT;
 
 ");
@@ -840,12 +825,12 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_all_args();
 
             AssertSql(
-                @"UPDATE [People] SET [Birthplace] = N'Winterfell', [House Allegiance] = N'Stark', [Culture] = N'Northmen'
-WHERE [First Name] = N'Hodor';
+                @"UPDATE `People` SET `Birthplace` = 'Winterfell', `House Allegiance` = 'Stark', `Culture` = 'Northmen'
+WHERE `First Name` = 'Hodor';
 SELECT @@ROWCOUNT;
 
-UPDATE [People] SET [Birthplace] = N'Dragonstone', [House Allegiance] = N'Targaryen', [Culture] = N'Valyrian'
-WHERE [First Name] = N'Daenerys';
+UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
+WHERE `First Name` = 'Daenerys';
 SELECT @@ROWCOUNT;
 
 ");
@@ -856,12 +841,12 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_all_args_composite();
 
             AssertSql(
-                @"UPDATE [People] SET [House Allegiance] = N'Stark'
-WHERE [First Name] = N'Hodor' AND [Last Name] IS NULL;
+                @"UPDATE `People` SET `House Allegiance` = 'Stark'
+WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
 SELECT @@ROWCOUNT;
 
-UPDATE [People] SET [House Allegiance] = N'Targaryen'
-WHERE [First Name] = N'Daenerys' AND [Last Name] = N'Targaryen';
+UPDATE `People` SET `House Allegiance` = 'Targaryen'
+WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
 SELECT @@ROWCOUNT;
 
 ");
@@ -872,12 +857,12 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_all_args_composite_multi();
 
             AssertSql(
-                @"UPDATE [People] SET [Birthplace] = N'Winterfell', [House Allegiance] = N'Stark', [Culture] = N'Northmen'
-WHERE [First Name] = N'Hodor' AND [Last Name] IS NULL;
+                @"UPDATE `People` SET `Birthplace` = 'Winterfell', `House Allegiance` = 'Stark', `Culture` = 'Northmen'
+WHERE `First Name` = 'Hodor' AND `Last Name` IS NULL;
 SELECT @@ROWCOUNT;
 
-UPDATE [People] SET [Birthplace] = N'Dragonstone', [House Allegiance] = N'Targaryen', [Culture] = N'Valyrian'
-WHERE [First Name] = N'Daenerys' AND [Last Name] = N'Targaryen';
+UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
+WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
 SELECT @@ROWCOUNT;
 
 ");
@@ -888,8 +873,8 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_all_args_multi();
 
             AssertSql(
-                @"UPDATE [People] SET [Birthplace] = N'Dragonstone', [House Allegiance] = N'Targaryen', [Culture] = N'Valyrian'
-WHERE [First Name] = N'Daenerys';
+                @"UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
+WHERE `First Name` = 'Daenerys';
 SELECT @@ROWCOUNT;
 
 ");
@@ -900,8 +885,8 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_required_args();
 
             AssertSql(
-                @"UPDATE [People] SET [House Allegiance] = N'Targaryen'
-WHERE [First Name] = N'Daenerys';
+                @"UPDATE `People` SET `House Allegiance` = 'Targaryen'
+WHERE `First Name` = 'Daenerys';
 SELECT @@ROWCOUNT;
 
 ");
@@ -912,8 +897,8 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_required_args_composite();
 
             AssertSql(
-                @"UPDATE [People] SET [House Allegiance] = N'Targaryen'
-WHERE [First Name] = N'Daenerys' AND [Last Name] = N'Targaryen';
+                @"UPDATE `People` SET `House Allegiance` = 'Targaryen'
+WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
 SELECT @@ROWCOUNT;
 
 ");
@@ -924,8 +909,8 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_required_args_composite_multi();
 
             AssertSql(
-                @"UPDATE [People] SET [Birthplace] = N'Dragonstone', [House Allegiance] = N'Targaryen', [Culture] = N'Valyrian'
-WHERE [First Name] = N'Daenerys' AND [Last Name] = N'Targaryen';
+                @"UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
+WHERE `First Name` = 'Daenerys' AND `Last Name` = 'Targaryen';
 SELECT @@ROWCOUNT;
 
 ");
@@ -936,8 +921,8 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_required_args_multi();
 
             AssertSql(
-                @"UPDATE [People] SET [Birthplace] = N'Dragonstone', [House Allegiance] = N'Targaryen', [Culture] = N'Valyrian'
-WHERE [First Name] = N'Daenerys';
+                @"UPDATE `People` SET `Birthplace` = 'Dragonstone', `House Allegiance` = 'Targaryen', `Culture` = 'Valyrian'
+WHERE `First Name` = 'Daenerys';
 SELECT @@ROWCOUNT;
 
 ");
@@ -948,12 +933,12 @@ SELECT @@ROWCOUNT;
             base.UpdateDataOperation_required_args_multiple_rows();
 
             AssertSql(
-                @"UPDATE [People] SET [House Allegiance] = N'Stark'
-WHERE [First Name] = N'Hodor';
+                @"UPDATE `People` SET `House Allegiance` = 'Stark'
+WHERE `First Name` = 'Hodor';
 SELECT @@ROWCOUNT;
 
-UPDATE [People] SET [House Allegiance] = N'Targaryen'
-WHERE [First Name] = N'Daenerys';
+UPDATE `People` SET `House Allegiance` = 'Targaryen'
+WHERE `First Name` = 'Daenerys';
 SELECT @@ROWCOUNT;
 
 ");
@@ -965,7 +950,7 @@ SELECT @@ROWCOUNT;
 
             var storeType = isUnicode ? "nvarchar(max)" : "varchar(max)";
             var unicodePrefix = isUnicode ? "N" : string.Empty;
-            var expectedSql = @$"CREATE TABLE [dbo].[TestLineBreaks] (
+            var expectedSql = @$"CREATE TABLE `TestLineBreaks` (
     [TestDefaultValue] {storeType} NOT NULL DEFAULT CONCAT({unicodePrefix}CHAR(13), {unicodePrefix}CHAR(10), {unicodePrefix}'Various Line', {unicodePrefix}CHAR(13), {unicodePrefix}'Breaks', {unicodePrefix}CHAR(10))
 );
 ";
@@ -1000,7 +985,7 @@ SELECT @@ROWCOUNT;
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @"EXEC(N'ALTER TABLE [Table1] ADD CONSTRAINT [CK_Table1] CHECK ([Column1] BETWEEN 0 AND 100)');
+                @"ALTER TABLE `Table1` ADD CONSTRAINT `CK_Table1` CHECK ([Column1] BETWEEN 0 AND 100);
 ");
         }
 
@@ -1057,9 +1042,10 @@ SELECT @@ROWCOUNT;
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @$"EXEC(N'DELETE FROM [Table1]
-WHERE [Id] = 1;
-SELECT @@ROWCOUNT');
+                @$"DELETE FROM `Table1`
+WHERE `Id` = 1;
+SELECT @@ROWCOUNT;
+
 ");
         }
 
@@ -1077,11 +1063,11 @@ SELECT @@ROWCOUNT');
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @$"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id') AND [object_id] = OBJECT_ID(N'[Table1]'))
+                @$"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id') AND [object_id] = OBJECT_ID(N'[Table1]'))
     SET IDENTITY_INSERT [Table1] ON;
 EXEC(N'INSERT INTO [Table1] ([Id])
 VALUES (1)');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id') AND [object_id] = OBJECT_ID(N'[Table1]'))
+IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id') AND [object_id] = OBJECT_ID(N'[Table1]'))
     SET IDENTITY_INSERT [Table1] OFF;
 ");
         }
@@ -1128,7 +1114,7 @@ SELECT @@ROWCOUNT');
                 });
 
             AssertSql(
-                $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT 43466.0;
+                $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2019-01-01#;
             ");
         }
         

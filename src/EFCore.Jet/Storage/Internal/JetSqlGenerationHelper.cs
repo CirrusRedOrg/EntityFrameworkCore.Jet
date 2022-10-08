@@ -108,7 +108,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             return StatementTerminator;
         }
 
-        public override string StartTransactionStatement => StatementTerminator;
-        public override string CommitTransactionStatement => StatementTerminator;
+        public override string StartTransactionStatement => "BEGIN TRANSACTION" + StatementTerminator;
+        public override string CommitTransactionStatement => "COMMIT TRANSACTION" + StatementTerminator;
     }
 }

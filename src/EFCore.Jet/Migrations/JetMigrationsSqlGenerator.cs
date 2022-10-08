@@ -38,7 +38,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
         private IReadOnlyList<MigrationOperation> _operations;
         private RelationalTypeMapping _stringTypeMapping;
-        private RelationalTypeMapping _keepBreakingCharactersStringTypeMapping;
 
         /// <summary>
         ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
@@ -55,7 +54,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             _migrationsAnnotations = migrationsAnnotations;
             _options = options;
             _stringTypeMapping = dependencies.TypeMappingSource.FindMapping(typeof(string));
-            _keepBreakingCharactersStringTypeMapping = ((JetStringTypeMapping) _stringTypeMapping).Clone(keepLineBreakCharacters: true);
         }
 
         /// <summary>
@@ -456,13 +454,13 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             builder
                 .Append("CREATE DATABASE ")
-                .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name));
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name));
 
             if (!string.IsNullOrEmpty(operation.Password))
             {
                 builder
                     .Append(" PASSWORD ")
-                    .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Password));
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Password));
             }
 
             builder
@@ -510,7 +508,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             builder
                 .Append("DROP DATABASE ")
                 //.Append(ExpandFileName(operation.Name))
-                .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name))
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
         }

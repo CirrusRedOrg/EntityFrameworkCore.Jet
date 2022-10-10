@@ -386,7 +386,7 @@ ALTER TABLE `Person` ALTER COLUMN [Id] bigint NOT NULL;
                 new JetCreateDatabaseOperation { Name = "Northwind" });
 
             AssertSql(
-                @"CREATE DATABASE `Northwind`;
+                @"CREATE DATABASE 'Northwind';
 ");
         }
 
@@ -511,7 +511,7 @@ ALTER TABLE `Person` ALTER COLUMN [Id] bigint NOT NULL;
                 new JetDropDatabaseOperation { Name = "Northwind" });
 
             AssertSql(
-                @"DROP DATABASE `Northwind`;
+                @"DROP DATABASE 'Northwind';
 ");
         }
 

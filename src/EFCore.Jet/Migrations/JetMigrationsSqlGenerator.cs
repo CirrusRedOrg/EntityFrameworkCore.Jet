@@ -454,13 +454,13 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             builder
                 .Append("CREATE DATABASE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name));
+                .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Name));
 
             if (!string.IsNullOrEmpty(operation.Password))
             {
                 builder
                     .Append(" PASSWORD ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Password));
+                    .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Password));
             }
 
             builder
@@ -508,7 +508,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             builder
                 .Append("DROP DATABASE ")
                 //.Append(ExpandFileName(operation.Name))
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
+                .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Name))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
         }

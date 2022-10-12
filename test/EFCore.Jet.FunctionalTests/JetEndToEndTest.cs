@@ -895,7 +895,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact] // Issue #931
+        [ConditionalFact(Skip = "Jet does not support Schema")] // Issue #931
         public async Task Can_save_and_query_with_schema()
         {
             using (var testStore = JetTestStore.CreateInitialized(DatabaseName))

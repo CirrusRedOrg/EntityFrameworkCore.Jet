@@ -35,16 +35,9 @@ namespace EntityFrameworkCore.Jet.Design.Internal
 #pragma warning disable EF1001 // Internal EF Core API usage.
             new EntityFrameworkRelationalDesignServicesBuilder(serviceCollection)
                 .TryAdd<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>()
-                .TryAdd<LoggingDefinitions, JetLoggingDefinitions>()
-                .TryAdd<IRelationalTypeMappingSource, JetTypeMappingSource>()
 #pragma warning restore EF1001 // Internal EF Core API usage.
                 .TryAdd<IDatabaseModelFactory, JetDatabaseModelFactory>()
                 .TryAdd<IProviderConfigurationCodeGenerator, JetCodeGenerator>()
-                .TryAddProviderSpecificServices(
-                    b => b
-                        .TryAddSingleton<IJetOptions, JetOptions>()
-                        .TryAddSingleton<IJetUpdateSqlGenerator, JetUpdateSqlGenerator>()
-                        .TryAddScoped<IJetRelationalConnection, JetRelationalConnection>())
                 .TryAddCoreServices();
         }
     }

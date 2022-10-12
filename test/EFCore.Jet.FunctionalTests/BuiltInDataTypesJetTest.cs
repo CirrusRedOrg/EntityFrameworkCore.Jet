@@ -220,9 +220,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
                         CharAsNtext = 'H',
                         CharAsInt = 'I',
                         EnumAsNvarchar20 = StringEnumU16.Value4,
-                        EnumAsVarcharMax = StringEnum16.Value2,
-                        SqlVariantString = "Bang!",
-                        SqlVariantInt = 887876
+                        EnumAsVarcharMax = StringEnum16.Value2
                     });
 
                 Assert.Equal(1, context.SaveChanges());
@@ -380,11 +378,6 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
                 StringEnum16? param60 = StringEnum16.Value2;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.EnumAsVarcharMax == param60));
 
-                object param61 = "Bang!";
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.SqlVariantString.Equals(param61)));
-
-                object param62 = 887876;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 999 && e.SqlVariantInt.Equals(param62)));
             }
         }
 
@@ -574,11 +567,6 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
 
                 StringEnum16? param60 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.EnumAsVarcharMax == param60));
-
-                object param61 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.SqlVariantString == param61));
-                object param62 = null;
-                Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.SqlVariantInt == param62));
             }
         }
 
@@ -716,8 +704,6 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
             Assert.Equal('I', entity.CharAsInt);
             Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
-            Assert.Equal("Bang!", entity.SqlVariantString);
-            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedDataTypes CreateMappedDataTypes(int id)
@@ -772,9 +758,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
-                EnumAsVarcharMax = StringEnum16.Value2,
-                SqlVariantString = "Bang!",
-                SqlVariantInt = 887876
+                EnumAsVarcharMax = StringEnum16.Value2
             };
 
         [ConditionalFact]
@@ -902,8 +886,6 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
             Assert.Equal('I', entity.CharAsInt);
             Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
-            Assert.Equal("Bang!", entity.SqlVariantString);
-            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedNullableDataTypes CreateMappedNullableDataTypes(int id)
@@ -958,9 +940,7 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
-                EnumAsVarcharMax = StringEnum16.Value2,
-                SqlVariantString = "Bang!",
-                SqlVariantInt = 887876
+                EnumAsVarcharMax = StringEnum16.Value2
             };
 
         [ConditionalFact]
@@ -1088,8 +1068,6 @@ WHERE DATEDIFF(SECOND, `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__time
             Assert.Null(entity.CharAsInt);
             Assert.Null(entity.EnumAsNvarchar20);
             Assert.Null(entity.EnumAsVarcharMax);
-            Assert.Null(entity.SqlVariantString);
-            Assert.Null(entity.SqlVariantInt);
         }
 
         [ConditionalFact]
@@ -1525,8 +1503,6 @@ parameters,
             Assert.Equal('I', entity.CharAsInt);
             Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
-            Assert.Equal("Bang!", entity.SqlVariantString);
-            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedDataTypesWithIdentity CreateMappedDataTypesWithIdentity(int id)
@@ -1581,9 +1557,7 @@ parameters,
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
-                EnumAsVarcharMax = StringEnum16.Value2,
-                SqlVariantString = "Bang!",
-                SqlVariantInt = 887876
+                EnumAsVarcharMax = StringEnum16.Value2
             };
 
         [ConditionalFact]
@@ -1761,8 +1735,6 @@ parameters,
             Assert.Equal('I', entity.CharAsInt);
             Assert.Equal(StringEnum16.Value2, entity.EnumAsVarcharMax);
             Assert.Equal(StringEnumU16.Value4, entity.EnumAsNvarchar20);
-            Assert.Equal("Bang!", entity.SqlVariantString);
-            Assert.Equal(887876, entity.SqlVariantInt);
         }
 
         private static MappedNullableDataTypesWithIdentity CreateMappedNullableDataTypesWithIdentity(int id)
@@ -1817,9 +1789,7 @@ parameters,
                 CharAsNtext = 'H',
                 CharAsInt = 'I',
                 EnumAsNvarchar20 = StringEnumU16.Value4,
-                EnumAsVarcharMax = StringEnum16.Value2,
-                SqlVariantString = "Bang!",
-                SqlVariantInt = 887876
+                EnumAsVarcharMax = StringEnum16.Value2
             };
 
         [ConditionalFact]
@@ -1950,8 +1920,6 @@ parameters,
             Assert.Null(entity.CharAsInt);
             Assert.Null(entity.EnumAsNvarchar20);
             Assert.Null(entity.EnumAsVarcharMax);
-            Assert.Null(entity.SqlVariantString);
-            Assert.Null(entity.SqlVariantInt);
         }
 
         [ConditionalFact]
@@ -3331,11 +3299,11 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
 
-            [Column(TypeName = "sql_variant")]
+            /*[Column(TypeName = "sql_variant")]
             public object SqlVariantString { get; set; }
 
             [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }
+            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedSizedDataTypes
@@ -3598,11 +3566,12 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
 
-            [Column(TypeName = "sql_variant")]
+            //no sql_variant for Jet
+            /*[Column(TypeName = "sql_variant")]
             public object SqlVariantString { get; set; }
 
             [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }
+            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedDataTypesWithIdentity
@@ -3759,11 +3728,11 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
 
-            [Column(TypeName = "sql_variant")]
+            /*[Column(TypeName = "sql_variant")]
             public object SqlVariantString { get; set; }
 
             [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }
+            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedSizedDataTypesWithIdentity
@@ -4031,11 +4000,11 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
 
-            [Column(TypeName = "sql_variant")]
+            /*[Column(TypeName = "sql_variant")]
             public object SqlVariantString { get; set; }
 
             [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }
+            public object SqlVariantInt { get; set; }*/
         }
 
         public class ColumnInfo

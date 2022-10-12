@@ -119,9 +119,9 @@ FROM (
 WHERE CHARINDEX('z', `c`.`ContactName`) > 0");
         }
 
-        public override void FromSqlRaw_queryable_composed_compiled_with_parameter()
+        public override async Task FromSqlRaw_queryable_composed_compiled_with_parameter(bool async)
         {
-            base.FromSqlRaw_queryable_composed_compiled_with_parameter();
+            await base.FromSqlRaw_queryable_composed_compiled_with_parameter(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`

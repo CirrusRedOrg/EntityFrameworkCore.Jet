@@ -59,6 +59,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         private static readonly MethodInfo _isNullOrWhiteSpace = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrWhiteSpace), new[] {typeof(string)});
 
+
         public JetStringMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 

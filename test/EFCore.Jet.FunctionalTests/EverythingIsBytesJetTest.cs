@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using System.Linq;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -199,6 +200,18 @@ UnicodeDataTypes.StringUnicode ---> `nullable varbinary` [MaxLength = -1]
             public override DateTime DefaultDateTime => new DateTime();
             public override bool PreservesDateTimeKind { get; }
 
+            public override string ReallyLargeString
+            {
+                get
+                {
+                    //Jet max is 255
+                    var res = string.Join("", Enumerable.Repeat("testphrase", 25));
+                    return res;
+                }
+            }
+
+            public override int LongStringLength => 255;
+
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                 => base
                     .AddOptions(builder)
@@ -274,14 +287,14 @@ UnicodeDataTypes.StringUnicode ---> `nullable varbinary` [MaxLength = -1]
 
                     var isFixedLength = mappingInfo.IsFixedLength == true;
 
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)900 : null);
-                    if (size > 8000)
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)255 : null);
+                    if (size > 510)
                     {
-                        size = isFixedLength ? 8000 : (int?)null;
+                        size = isFixedLength ? 510 : (int?)null;
                     }
 
                     return new JetByteArrayTypeMapping(
-                        "varbinary(" + (size == null ? "max" : size.ToString()) + ")",
+                        "varbinary(" + (size == null ? "510" : size.ToString()) + ")",
                         size,
                         isFixedLength,
                         storeTypePostfix: size == null ? StoreTypePostfix.None : (StoreTypePostfix?)null);

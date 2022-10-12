@@ -508,7 +508,7 @@ WHERE `e`.`EmployeeID` = 1");
             AssertSql(
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE False = True");
+WHERE 0 = 1");
 
             // See issue#17498
             //Assert.Contains(
@@ -535,11 +535,11 @@ WHERE `e`.`EmployeeID` = {AssertSqlHelper.Parameter("@__p_0")}");
             AssertSql(
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE False = True",
+WHERE 0 = 1",
                 //
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE False = True");
+WHERE 0 = 1");
 
             // See issue#17498
             //Assert.Contains(
@@ -558,11 +558,11 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE False = True",
+WHERE 0 = 1",
                 //
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE False = True");
+WHERE 0 = 1");
 
             // See issue#17498
             //Assert.Contains(
@@ -888,7 +888,7 @@ FROM `Customers` AS `c`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Where_is_not_null(bool isAsync)
@@ -908,7 +908,7 @@ WHERE `c`.`City` IS NOT NULL");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Where_constant_is_not_null(bool isAsync)
@@ -1236,7 +1236,7 @@ FROM `Customers` AS `c`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Where_default(bool isAsync)

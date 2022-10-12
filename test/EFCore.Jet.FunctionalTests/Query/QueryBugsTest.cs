@@ -2397,7 +2397,7 @@ WHERE `e`.`Id` IN (
                     Assert.Equal(3, context.Cache.Count);
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__name_0='A' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__name_0='A' (Size = 255)")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -4920,7 +4920,7 @@ ORDER BY `p`.`Id`, `t0`.`Id`");
                     context.SaveChanges();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@p0='BaseEntity13079' (Nullable = false) (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@p0='BaseEntity13079' (Nullable = false) (Size = 255)")}
 
 SET NOCOUNT ON;
 INSERT INTO `BaseEntities` (`Discriminator`)
@@ -6085,7 +6085,7 @@ WHERE `f`.`String` = '1337'");
                     var query = context.Foos.Where(f => f.String == bar.Value).ToList();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__bar_Value_0='1337' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__bar_Value_0='1337' (Size = 255)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -6106,7 +6106,7 @@ WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__bar_Value_0")}");
                     var query = context.Foos.Where(f => f.String == bar.ToString()).ToList();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__ToString_0='1337' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__ToString_0='1337' (Size = 255)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -6127,7 +6127,7 @@ WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__ToString_0")}");
                     var query = context.Foos.Where(f => f.String == bar).ToList();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__p_0='1337' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__p_0='1337' (Size = 255)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`

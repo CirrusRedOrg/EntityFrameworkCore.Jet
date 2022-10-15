@@ -34,9 +34,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             { nameof(SByte), "CINT" },
             { nameof(Int16), "CINT" },
             { nameof(Int32), "CLNG" },
+            { nameof(Int64), "CLNG" },
             { nameof(Single), "CSNG" },
             { nameof(Double), "CDBL" },
-            { nameof(Decimal), "CCUR" },
+            { nameof(Decimal), "CDEC" },
             { nameof(DateTime), "CDATE" },
         };
 

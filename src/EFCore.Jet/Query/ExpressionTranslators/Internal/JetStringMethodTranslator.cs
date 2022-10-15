@@ -20,44 +20,68 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     {
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
 
-        // TODO: Translation.
-        [NotNull] private static readonly MethodInfo _concat = typeof(string).GetRuntimeMethod(nameof(string.Concat), new[] {typeof(string), typeof(string)});
+        private static readonly MethodInfo _indexOfMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.IndexOf), typeof(string));
 
-        [NotNull] private static readonly MethodInfo _contains = typeof(string).GetRuntimeMethod(nameof(string.Contains), new[] {typeof(string)});
+        private static readonly MethodInfo _replaceMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.Replace), typeof(string), typeof(string));
 
-        [NotNull] private static readonly MethodInfo _startsWith = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), new[] {typeof(string)});
-        [NotNull] private static readonly MethodInfo _endsWith = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), new[] {typeof(string)});
+        private static readonly MethodInfo _toLowerMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.ToLower), Array.Empty<Type>());
 
-        [NotNull] private static readonly MethodInfo _trimWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.Trim), new Type[0]);
-        [NotNull] private static readonly MethodInfo _trimWithChars = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char[])});
-        // [NotNull] private static readonly MethodInfo _trimWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] {typeof(char)}); // Jet TRIM does not take arguments
+        private static readonly MethodInfo _toUpperMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.ToUpper), Array.Empty<Type>());
 
-        [NotNull] private static readonly MethodInfo _trimStartWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new Type[0]);
-        [NotNull] private static readonly MethodInfo _trimStartWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char[])});
-        // [NotNull] private static readonly MethodInfo _trimStartWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] {typeof(char)}); // Jet LTRIM does not take arguments
+        private static readonly MethodInfo _substringMethodInfoWithOneArg
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.Substring), typeof(int));
 
-        [NotNull] private static readonly MethodInfo _trimEndWithNoParam = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new Type[0]);
-        [NotNull] private static readonly MethodInfo _trimEndWithChars = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char[])});
-        // [NotNull] private static readonly MethodInfo _trimEndWithSingleChar = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] {typeof(char)}); // Jet LTRIM does not take arguments
+        private static readonly MethodInfo _substringMethodInfoWithTwoArgs
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.Substring), typeof(int), typeof(int));
 
-        [NotNull] private static readonly MethodInfo _substring = typeof(string).GetTypeInfo()
-            .GetDeclaredMethods(nameof(string.Substring))
-            .Single(
-                m => m.GetParameters()
-                    .Length == 1);
+        private static readonly MethodInfo _isNullOrEmptyMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.IsNullOrEmpty), typeof(string));
 
-        [NotNull] private static readonly MethodInfo _substringWithLength = typeof(string).GetTypeInfo()
-            .GetDeclaredMethods(nameof(string.Substring))
-            .Single(
-                m => m.GetParameters()
-                    .Length == 2);
+        private static readonly MethodInfo _isNullOrWhiteSpaceMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.IsNullOrWhiteSpace), typeof(string));
 
-        [NotNull] private static readonly MethodInfo _toLower = typeof(string).GetRuntimeMethod(nameof(string.ToLower), Array.Empty<Type>());
-        [NotNull] private static readonly MethodInfo _toUpper = typeof(string).GetRuntimeMethod(nameof(string.ToUpper), Array.Empty<Type>());
+        // Method defined in netcoreapp2.0 only
+        private static readonly MethodInfo _trimStartMethodInfoWithoutArgs
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.TrimStart), Array.Empty<Type>());
 
-        [NotNull] private static readonly MethodInfo _replace = typeof(string).GetRuntimeMethod(nameof(string.Replace), new[] {typeof(string), typeof(string)});
+        private static readonly MethodInfo _trimEndMethodInfoWithoutArgs
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.TrimEnd), Array.Empty<Type>());
 
-        private static readonly MethodInfo _isNullOrWhiteSpace = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrWhiteSpace), new[] {typeof(string)});
+        private static readonly MethodInfo _trimMethodInfoWithoutArgs
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.Trim), Array.Empty<Type>());
+
+        // Method defined in netstandard2.0
+        private static readonly MethodInfo _trimStartMethodInfoWithCharArrayArg
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.TrimStart), typeof(char[]));
+
+        private static readonly MethodInfo _trimEndMethodInfoWithCharArrayArg
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.TrimEnd), typeof(char[]));
+
+        private static readonly MethodInfo _trimMethodInfoWithCharArrayArg
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.Trim), typeof(char[]));
+
+        private static readonly MethodInfo _startsWithMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.StartsWith), typeof(string));
+
+        private static readonly MethodInfo _containsMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.Contains), typeof(string));
+
+        private static readonly MethodInfo _endsWithMethodInfo
+            = typeof(string).GetRequiredRuntimeMethod(nameof(string.EndsWith), typeof(string));
+
+        private static readonly MethodInfo _firstOrDefaultMethodInfoWithoutArgs
+            = typeof(Enumerable).GetRuntimeMethods().Single(
+                m => m.Name == nameof(Enumerable.FirstOrDefault)
+                    && m.GetParameters().Length == 1).MakeGenericMethod(typeof(char));
+
+        private static readonly MethodInfo _lastOrDefaultMethodInfoWithoutArgs
+            = typeof(Enumerable).GetRuntimeMethods().Single(
+                m => m.Name == nameof(Enumerable.LastOrDefault)
+                    && m.GetParameters().Length == 1).MakeGenericMethod(typeof(char));
 
 
         public JetStringMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
@@ -65,7 +89,41 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (Equals(method, _contains))
+            if (_indexOfMethodInfo.Equals(method))
+            {
+                var argument = arguments[0];
+                var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, argument)!;
+                argument = _sqlExpressionFactory.ApplyTypeMapping(argument, stringTypeMapping);
+
+                SqlExpression charIndexExpression;
+                var storeType = stringTypeMapping.StoreType;
+                if (string.Equals(storeType, "nvarchar(max)", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(storeType, "varchar(max)", StringComparison.OrdinalIgnoreCase))
+                {
+                    charIndexExpression = _sqlExpressionFactory.Function(
+                        "INSTR",
+                        new[] { _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true },
+                        typeof(long));
+
+                    charIndexExpression = _sqlExpressionFactory.Convert(charIndexExpression, typeof(int));
+                }
+                else
+                {
+                    charIndexExpression = _sqlExpressionFactory.Function(
+                        "INSTR",
+                        new[] { _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true },
+                        method.ReturnType);
+                }
+
+                charIndexExpression = _sqlExpressionFactory.Subtract(charIndexExpression, _sqlExpressionFactory.Constant(1));
+                return charIndexExpression;
+            }
+
+            if (Equals(method, _containsMethodInfo))
             {
                 var patternExpression = arguments[0];
                 var patternConstantExpression = patternExpression as SqlConstantExpression;
@@ -96,7 +154,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         _sqlExpressionFactory.Equal(patternExpression, _sqlExpressionFactory.Constant(string.Empty)));
             }
 
-            if (Equals(method, _startsWith))
+            if (Equals(method, _startsWithMethodInfo))
             {
                 return _sqlExpressionFactory.Like(
                     // ReSharper disable once AssignNullToNotNullAttribute
@@ -105,7 +163,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 );
             }
 
-            if (Equals(method, _endsWith))
+            if (Equals(method, _endsWithMethodInfo))
             {
                 return _sqlExpressionFactory.Like(
                     instance,
@@ -114,43 +172,45 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             // Jet TRIM does not take arguments.
             // _trimWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
-            if (Equals(method, _trimWithNoParam) ||
-                Equals(method, _trimWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
+            if (Equals(method, _trimMethodInfoWithoutArgs) ||
+                Equals(method, _trimMethodInfoWithCharArrayArg) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, false, new[] {false}, method.ReturnType, instance.TypeMapping);
             }
 
             // Jet LTRIM does not take arguments
             // _trimStartWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
-            if (Equals(method, _trimStartWithNoParam) ||
-                Equals(method, _trimStartWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
+            if (Equals(method, _trimStartMethodInfoWithoutArgs) ||
+                Equals(method, _trimStartMethodInfoWithCharArrayArg) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, false, new[] {false}, method.ReturnType, instance.TypeMapping);
             }
 
             // Jet RTRIM does not take arguments
             // _trimEndWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
-            if (Equals(method, _trimEndWithNoParam) ||
-                Equals(method, _trimEndWithChars) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
+            if (Equals(method, _trimEndMethodInfoWithoutArgs) ||
+                Equals(method, _trimEndMethodInfoWithCharArrayArg) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
                  ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
             {
-                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, false, new[] {false}, method.ReturnType, instance.TypeMapping);
             }
 
-            if (Equals(method, _toLower))
+            if (_toLowerMethodInfo.Equals(method)
+                || _toUpperMethodInfo.Equals(method))
             {
-                return _sqlExpressionFactory.Function("LCASE", new[] {instance}, false, new[] {false}, method.ReturnType);
+                return _sqlExpressionFactory.Function(
+                    _toLowerMethodInfo.Equals(method) ? "LCASE" : "UCASE",
+                    new[] { instance },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true },
+                    method.ReturnType,
+                    instance.TypeMapping);
             }
 
-            if (Equals(method, _toUpper))
-            {
-                return _sqlExpressionFactory.Function("UCASE", new[] {instance}, false, new[] {false}, method.ReturnType);
-            }
-
-            if (Equals(_substring, _trimEndWithNoParam) ||
-                Equals(_substringWithLength, _trimEndWithChars))
+            if (_substringMethodInfoWithOneArg.Equals(method) ||
+                _substringMethodInfoWithTwoArgs.Equals(method))
             {
                 var parameters = new List<SqlExpression>(
                     new[]
@@ -161,31 +221,40 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             ? (SqlExpression) _sqlExpressionFactory.Constant((int) constantExpression.Value + 1)
                             : _sqlExpressionFactory.Add(
                                 arguments[0],
-                                _sqlExpressionFactory.Constant(1)),
-                        arguments[1]
+                                _sqlExpressionFactory.Constant(1))
                     });
-
-                // MID can be called with an optional `length` parameter.
                 if (arguments.Count >= 2)
+                {
                     parameters.Add(arguments[1]);
+                }
 
                 return _sqlExpressionFactory.Function(
                     "MID",
                     parameters,
                     false, new[] {false},
-                    method.ReturnType);
+                    method.ReturnType,instance.TypeMapping);
             }
 
-            if (Equals(method, _replace))
+            if (_replaceMethodInfo.Equals(method))
             {
+                var firstArgument = arguments[0];
+                var secondArgument = arguments[1];
+                var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, firstArgument, secondArgument);
+
+                instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
+                firstArgument = _sqlExpressionFactory.ApplyTypeMapping(firstArgument, stringTypeMapping);
+                secondArgument = _sqlExpressionFactory.ApplyTypeMapping(secondArgument, stringTypeMapping);
+
                 return _sqlExpressionFactory.Function(
                     "REPLACE",
-                    new[] {instance}.Concat(arguments),
-                    false, new[] {false},
-                    method.ReturnType);
+                    new[] { instance, firstArgument, secondArgument },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true, true, true },
+                    method.ReturnType,
+                    stringTypeMapping);
             }
 
-            if (Equals(method, _isNullOrWhiteSpace))
+            if (Equals(method, _isNullOrWhiteSpaceMethodInfo))
             {
                 return _sqlExpressionFactory.OrElse(
                     _sqlExpressionFactory.IsNull(arguments[0]),
@@ -196,6 +265,38 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             false, new[] {false},
                             typeof(string)),
                         _sqlExpressionFactory.Constant(string.Empty)));
+            }
+
+            if (_firstOrDefaultMethodInfoWithoutArgs.Equals(method))
+            {
+                var argument = arguments[0];
+                return _sqlExpressionFactory.Function(
+                    "MID",
+                    new[] { argument, _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1) },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true, true, true },
+                    method.ReturnType);
+            }
+
+            if (_lastOrDefaultMethodInfoWithoutArgs.Equals(method))
+            {
+                var argument = arguments[0];
+                return _sqlExpressionFactory.Function(
+                    "MID",
+                    new[]
+                    {
+                        argument,
+                        _sqlExpressionFactory.Function(
+                            "LEN",
+                            new[] { argument },
+                            nullable: true,
+                            argumentsPropagateNullability: new[] { true },
+                            typeof(int)),
+                        _sqlExpressionFactory.Constant(1)
+                    },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true, true, true },
+                    method.ReturnType);
             }
 
             return null;

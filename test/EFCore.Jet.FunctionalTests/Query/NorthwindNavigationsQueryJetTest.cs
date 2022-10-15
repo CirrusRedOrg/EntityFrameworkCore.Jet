@@ -260,7 +260,7 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_Navigations_Where_Navigations(bool isAsync)
@@ -271,7 +271,7 @@ WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phon
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_Singleton_Navigation_With_Member_Access(bool isAsync)
@@ -282,7 +282,7 @@ WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phon
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_count_plus_sum(bool isAsync)
@@ -308,7 +308,7 @@ FROM `Orders` AS `o1`");
                 $@"SELECT `c`.`City` AS `B`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(bool isAsync)
@@ -358,8 +358,8 @@ WHERE `e0`.`EmployeeID` IS NULL");
 
             AssertSql(
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Employees` AS `e`
-LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
+FROM (`Employees` AS `e`
+LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`)
 LEFT JOIN `Employees` AS `e1` ON `e0`.`ReportsTo` = `e1`.`EmployeeID`
 WHERE `e1`.`EmployeeID` IS NULL");
         }

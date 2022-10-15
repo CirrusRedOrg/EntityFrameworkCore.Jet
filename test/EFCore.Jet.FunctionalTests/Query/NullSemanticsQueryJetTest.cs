@@ -207,11 +207,11 @@ WHERE `e`.`BoolA` <> `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR `e`.`NullableBoolB` IS NULL",
+WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolB` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL",
+WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -673,7 +673,7 @@ WHERE (`e`.`NullableStringA` = 'Foo') OR `e`.`NullableStringA` IS NULL");
             await base.Where_multiple_ands_with_nullable_parameter_and_constant(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__prm3_2='Blah' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@__prm3_2='Blah' (Size = 255)")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -685,7 +685,7 @@ WHERE ((((`e`.`NullableStringA` <> 'Foo') OR `e`.`NullableStringA` IS NULL) AND 
             await base.Where_multiple_ands_with_nullable_parameter_and_constant_not_optimized(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__prm3_2='Blah' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@__prm3_2='Blah' (Size = 255)")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -896,7 +896,7 @@ WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = True");
+WHERE `e`.`NullableBoolA` = TRUE");
         }
 
         public override async Task Where_nullable_bool_equal_with_constant(bool async)
@@ -906,7 +906,7 @@ WHERE `e`.`NullableBoolA` = True");
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = True");
+WHERE `e`.`NullableBoolA` = TRUE");
         }
 
         public override async Task Where_nullable_bool_with_null_check(bool async)
@@ -1082,7 +1082,7 @@ WHERE `e`.`StringA` = `e`.`StringB`");
             await base.Projecting_nullable_bool_with_coalesce(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, IIf(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`) AS `Coalesce`
+                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`) AS `Coalesce`
 FROM `Entities1` AS `e`");
         }
 
@@ -1091,7 +1091,7 @@ FROM `Entities1` AS `e`");
             await base.Projecting_nullable_bool_with_coalesce_nested(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, IIf(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`)) AS `Coalesce`
+                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`)) AS `Coalesce`
 FROM `Entities1` AS `e`");
         }
 

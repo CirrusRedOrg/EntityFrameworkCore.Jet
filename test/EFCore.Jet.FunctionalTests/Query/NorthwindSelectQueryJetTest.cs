@@ -868,10 +868,7 @@ FROM `Orders` AS `o`");
             await base.Select_byte_constant(isAsync);
 
             AssertSql(
-                $@"SELECT CASE
-    WHEN `c`.`CustomerID` = 'ALFKI' THEN 1
-    ELSE 2
-END
+                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', 1, 2)
 FROM `Customers` AS `c`");
         }
 
@@ -880,10 +877,7 @@ FROM `Customers` AS `c`");
             await base.Select_short_constant(isAsync);
 
             AssertSql(
-                $@"SELECT CASE
-    WHEN `c`.`CustomerID` = 'ALFKI' THEN 1
-    ELSE 2
-END
+                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', 1, 2)
 FROM `Customers` AS `c`");
         }
 
@@ -892,7 +886,7 @@ FROM `Customers` AS `c`");
             await base.Select_bool_constant(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', 1, 0)
+                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE)
 FROM `Customers` AS `c`");
         }
 
@@ -940,7 +934,7 @@ FROM `Orders` AS `o`");
             await base.Select_GetValueOrDefault_on_DateTime_with_null_values(isAsync);
 
             AssertSql(
-                $@"SELECT IIf(`o`.`OrderDate` IS NULL, '01/01/1753 00:00:00', `o`.`OrderDate`)
+                $@"SELECT IIF(`o`.`OrderDate` IS NULL, '01/01/1753 00:00:00', `o`.`OrderDate`)
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
         }
@@ -950,7 +944,7 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
             await base.Cast_on_top_level_projection_brings_explicit_Cast(isAsync);
 
             AssertSql(
-                $@"SELECT IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`))
+                $@"SELECT IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`))
 FROM `Orders` AS `o`");
         }
 
@@ -969,10 +963,10 @@ FROM `Orders` AS `o`");
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+FROM (`Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE IIf(`o0`.`Discount` IS NULL, NULL, CDBL(`o0`.`Discount`)) >= 0.25E0");
+WHERE IIF(`o0`.`Discount` IS NULL, NULL, CDBL(`o0`.`Discount`)) >= 0.25");
         }
 
         public override async Task SelectMany_without_result_selector_naked_collection_navigation(bool isAsync)

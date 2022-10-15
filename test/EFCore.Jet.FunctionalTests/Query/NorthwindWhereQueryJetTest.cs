@@ -411,7 +411,7 @@ WHERE EXISTS (
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True");
+WHERE IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)");
         }
 
         public override async Task Where_bitwise_and(bool isAsync)
@@ -421,7 +421,7 @@ WHERE (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR',
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True");
+WHERE IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)");
         }
 
         public override async Task Where_bitwise_xor(bool isAsync)
@@ -457,15 +457,16 @@ WHERE `e`.`Title` = 'Sales Representative'");
         {
             await base.Where_shadow_subquery_FirstOrDefault(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-//FROM `Employees` AS `e`
-//WHERE `e`.`Title` = (
-//    SELECT TOP 1 `e2`.`Title`
-//    FROM `Employees` AS `e2`
-//    ORDER BY `e2`.`Title`
-//)");
+            AssertSql(
+                @"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE (`e`.`Title` = (
+    SELECT TOP 1 `e0`.`Title`
+    FROM `Employees` AS `e0`
+    ORDER BY `e0`.`Title`)) OR ((`e`.`Title` IS NULL) AND ((
+    SELECT TOP 1 `e0`.`Title`
+    FROM `Employees` AS `e0`
+    ORDER BY `e0`.`Title`) IS NULL))");
         }
 
         public override async Task Where_subquery_correlated(bool isAsync)
@@ -663,13 +664,7 @@ WHERE CAST(LEN(`c`.`City`) AS int) = 6");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (CASE
-    WHEN 'Sea' = '' THEN 0
-    ELSE CHARINDEX('Sea', `c`.`City`) - 1
-END <> -1) OR CASE
-    WHEN 'Sea' = '' THEN 0
-    ELSE CHARINDEX('Sea', `c`.`City`) - 1
-END IS NULL");
+WHERE ((INSTR(`c`.`City`, 'Sea') - 1) <> -1) OR (`c`.`City` IS NULL)");
         }
 
         public override async Task Where_string_replace(bool isAsync)
@@ -689,33 +684,31 @@ WHERE REPLACE(`c`.`City`, 'Sea', 'Rea') = 'Reattle'");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE SUBSTRING(`c`.`City`, 1 + 1, 2) = 'ea'");
+WHERE MID(`c`.`City`, 2, 2) = 'ea'");
         }
 
         public override async Task Where_datetime_now(bool isAsync)
         {
             await base.Where_datetime_now(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
+            AssertSql(
+                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
 
-//SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-//FROM `Customers` AS `c`
-//WHERE GETDATE() <> @__myDatetime_0");
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE GETDATE() <> @__myDatetime_0");
         }
 
         public override async Task Where_datetime_utcnow(bool isAsync)
         {
             await base.Where_datetime_utcnow(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
+            AssertSql(
+                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
 
-//SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-//FROM `Customers` AS `c`
-//WHERE GETUTCDATE() <> @__myDatetime_0");
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE GETUTCDATE() <> @__myDatetime_0");
         }
 
         public override async Task Where_datetime_today(bool isAsync)
@@ -834,22 +827,20 @@ WHERE DATEPART(millisecond, `o`.`OrderDate`) = 88");
         {
             await base.Where_datetimeoffset_now_component(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-//FROM `Orders` AS `o`
-//WHERE `o`.`OrderDate` = SYSDATETIMEOFFSET()");
+            AssertSql(
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderDate` = SYSDATETIMEOFFSET()");
         }
 
         public override async Task Where_datetimeoffset_utcnow_component(bool isAsync)
         {
             await base.Where_datetimeoffset_utcnow_component(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-//FROM `Orders` AS `o`
-//WHERE `o`.`OrderDate` = CAST(SYSUTCDATETIME() AS datetimeoffset)");
+            AssertSql(
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderDate` = CAST(SYSUTCDATETIME() AS datetimeoffset)");
         }
 
         public override async Task Where_simple_reversed(bool isAsync)
@@ -885,7 +876,7 @@ FROM `Customers` AS `c`");
         {
             await base.Where_constant_is_null(isAsync);
 
-            AssertSql(
+            AssertSql(  
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE 0 = 1");
@@ -927,7 +918,7 @@ FROM `Customers` AS `c`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`City` = `c`.`City`) OR `c`.`City` IS NULL");
+WHERE (`c`.`City` = `c`.`City`) OR (`c`.`City` IS NULL)");
         }
 
         public override async Task Where_in_optimization_multiple(bool isAsync)
@@ -938,7 +929,7 @@ WHERE (`c`.`City` = `c`.`City`) OR `c`.`City` IS NULL");
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE (((`c`.`City` = 'London') OR (`c`.`City` = 'Berlin')) OR (`c`.`CustomerID` = 'ALFKI')) OR (`c`.`CustomerID` = 'ABCDE')");
+WHERE (`c`.`City` IN ('London', 'Berlin') OR (`c`.`CustomerID` = 'ALFKI')) OR (`c`.`CustomerID` = 'ABCDE')");
         }
 
         public override async Task Where_not_in_optimization1(bool isAsync)
@@ -949,7 +940,7 @@ WHERE (((`c`.`City` = 'London') OR (`c`.`City` = 'Berlin')) OR (`c`.`CustomerID`
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`e`.`City` <> 'London') OR `e`.`City` IS NULL)");
+WHERE ((`c`.`City` <> 'London') OR (`c`.`City` IS NULL)) AND ((`e`.`City` <> 'London') OR (`e`.`City` IS NULL))");
         }
 
         public override async Task Where_not_in_optimization2(bool isAsync)
@@ -960,7 +951,7 @@ WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`e`.`City` <> 'Lond
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`c`.`City` <> 'Berlin') OR `c`.`City` IS NULL)");
+WHERE `c`.`City` NOT IN ('London', 'Berlin') OR (`c`.`City` IS NULL)");
         }
 
         public override async Task Where_not_in_optimization3(bool isAsync)
@@ -971,7 +962,7 @@ WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`c`.`City` <> 'Berl
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE (((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`c`.`City` <> 'Berlin') OR `c`.`City` IS NULL)) AND ((`c`.`City` <> 'Seattle') OR `c`.`City` IS NULL)");
+WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle') OR (`c`.`City` IS NULL)");
         }
 
         public override async Task Where_not_in_optimization4(bool isAsync)
@@ -982,7 +973,7 @@ WHERE (((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`c`.`City` <> 'Ber
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE ((((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND ((`c`.`City` <> 'Berlin') OR `c`.`City` IS NULL)) AND ((`c`.`City` <> 'Seattle') OR `c`.`City` IS NULL)) AND ((`c`.`City` <> 'Lisboa') OR `c`.`City` IS NULL)");
+WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle', 'Lisboa') OR (`c`.`City` IS NULL)");
         }
 
         public override async Task Where_select_many_and(bool isAsync)
@@ -1018,29 +1009,18 @@ WHERE `t`.`EmployeeID` = 5");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` = True");
+WHERE `p`.`Discontinued`");
         }
 
         public override async Task Where_bool_member_false(bool isAsync)
         {
             await base.Where_bool_member_false(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-//FROM `Products` AS `p`
-//WHERE `p`.`Discontinued` = False");
+            AssertSql(
+                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE NOT (`p`.`Discontinued`)");
         }
-
-        //        public override async Task Where_bool_client_side_negated(bool isAsync)
-        //        {
-        //            await base.Where_bool_client_side_negated(isAsync);
-
-        //            AssertSql(
-        //                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-        //FROM `Products` AS `p`
-        //WHERE `p`.`Discontinued` = 1");
-        //        }
 
         public override async Task Where_bool_member_negated_twice(bool isAsync)
         {
@@ -1049,7 +1029,7 @@ WHERE `p`.`Discontinued` = True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` = True");
+WHERE `p`.`Discontinued`");
         }
 
         public override async Task Where_bool_member_shadow(bool isAsync)
@@ -1059,7 +1039,7 @@ WHERE `p`.`Discontinued` = True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` = True");
+WHERE `p`.`Discontinued`");
         }
 
         public override async Task Where_bool_member_false_shadow(bool isAsync)
@@ -1069,7 +1049,7 @@ WHERE `p`.`Discontinued` = True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> True");
+WHERE NOT (`p`.`Discontinued`)");
         }
 
         public override async Task Where_bool_member_equals_constant(bool isAsync)
@@ -1079,7 +1059,7 @@ WHERE `p`.`Discontinued` <> True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` = True");
+WHERE `p`.`Discontinued`");
         }
 
         public override async Task Where_bool_member_in_complex_predicate(bool isAsync)
@@ -1089,7 +1069,7 @@ WHERE `p`.`Discontinued` = True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE ((`p`.`ProductID` > 100) AND (`p`.`Discontinued` = True)) OR (`p`.`Discontinued` = True)");
+WHERE ((`p`.`ProductID` > 100) AND `p`.`Discontinued`) OR `p`.`Discontinued`");
         }
 
         public override async Task Where_bool_member_compared_to_binary_expression(bool isAsync)
@@ -1099,7 +1079,7 @@ WHERE ((`p`.`ProductID` > 100) AND (`p`.`Discontinued` = True)) OR (`p`.`Discont
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` = IIF(`p`.`ProductID` > 50, 1, 0)");
+WHERE `p`.`Discontinued` = IIF(`p`.`ProductID` > 50, TRUE, FALSE)");
         }
 
         public override async Task Where_not_bool_member_compared_to_not_bool_member(bool isAsync)
@@ -1177,7 +1157,7 @@ END");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE (`p`.`Discontinued` <> True) AND (`p`.`ProductID` >= 20)");
+WHERE NOT (`p`.`Discontinued`) AND (`p`.`ProductID` >= 20)");
         }
 
         public override async Task Where_de_morgan_and_optimized(bool isAsync)
@@ -1187,7 +1167,7 @@ WHERE (`p`.`Discontinued` <> True) AND (`p`.`ProductID` >= 20)");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE (`p`.`Discontinued` <> True) OR (`p`.`ProductID` >= 20)");
+WHERE NOT (`p`.`Discontinued`) OR (`p`.`ProductID` >= 20)");
         }
 
         public override async Task Where_complex_negated_expression_optimized(bool isAsync)
@@ -1197,7 +1177,7 @@ WHERE (`p`.`Discontinued` <> True) OR (`p`.`ProductID` >= 20)");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE ((`p`.`Discontinued` <> True) AND (`p`.`ProductID` < 60)) AND (`p`.`ProductID` > 30)");
+WHERE (NOT (`p`.`Discontinued`) AND (`p`.`ProductID` < 60)) AND (`p`.`ProductID` > 30)");
         }
 
         public override async Task Where_short_member_comparison(bool isAsync)
@@ -1356,54 +1336,44 @@ WHERE `p`.`UnitsInStock` >= 20");
         {
             await base.Where_ternary_boolean_condition_false(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__flag_0='False'")}
-
-//SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-//FROM `Products` AS `p`
-//WHERE ((@__flag_0 = True) AND (`p`.`UnitsInStock` >= 20)) OR ((@__flag_0 <> True) AND (`p`.`UnitsInStock` < 20))");
+            AssertSql(
+                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`UnitsInStock` < 20");
         }
 
         public override async Task Where_ternary_boolean_condition_with_another_condition(bool isAsync)
         {
             await base.Where_ternary_boolean_condition_with_another_condition(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__productId_0='15'")}
+            AssertSql(
+                $@"{AssertSqlHelper.Declaration("@__productId_0='15'")}
 
-//@__flag_1='True'
+@__flag_1='True'
 
-//SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-//FROM `Products` AS `p`
-//WHERE (`p`.`ProductID` < @__productId_0) AND (((@__flag_1 = True) AND (`p`.`UnitsInStock` >= 20)) OR ((@__flag_1 <> True) AND (`p`.`UnitsInStock` < 20)))");
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE (`p`.`ProductID` < @__productId_0) AND (((@__flag_1 = True) AND (`p`.`UnitsInStock` >= 20)) OR ((@__flag_1 <> True) AND (`p`.`UnitsInStock` < 20)))");
         }
 
         public override async Task Where_ternary_boolean_condition_with_false_as_result_true(bool isAsync)
         {
             await base.Where_ternary_boolean_condition_with_false_as_result_true(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__flag_0='True'")}
-
-//SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-//FROM `Products` AS `p`
-//WHERE (@__flag_0 = True) AND (`p`.`UnitsInStock` >= 20)");
+            AssertSql(
+                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`UnitsInStock` >= 20");
         }
 
         public override async Task Where_ternary_boolean_condition_with_false_as_result_false(bool isAsync)
         {
             await base.Where_ternary_boolean_condition_with_false_as_result_false(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__flag_0='False'")}
-
-//SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-//FROM `Products` AS `p`
-//WHERE (@__flag_0 = True) AND (`p`.`UnitsInStock` >= 20)");
+            AssertSql(
+                @"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE 0 = 1");
         }
 
         public override async Task Where_compare_constructed_equal(bool isAsync)
@@ -1494,7 +1464,7 @@ FROM `Customers` AS `c`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`City` IS NULL AND (`c`.`Country` = 'UK')");
+WHERE (`c`.`City` IS NULL) AND (`c`.`Country` = 'UK')");
         }
 
         public override async Task Where_Is_on_same_type(bool isAsync)
@@ -1528,7 +1498,7 @@ FROM (
     WHERE `c`.`CustomerID` = 'ALFKI'
 ) AS `t`
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`, `o`.`OrderID`",
+ORDER BY `t`.`CustomerID`",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
@@ -1552,19 +1522,24 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__p_0")}");
         {
             await base.Where_multiple_contains_in_subquery_with_or(isAsync);
 
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
-//FROM `Order Details` AS `od`
-//WHERE `od`.`ProductID` IN (
-//    SELECT TOP 1 `p`.`ProductID`
-//    FROM `Products` AS `p`
-//    ORDER BY `p`.`ProductID`
-//) OR `od`.`OrderID` IN (
-//    SELECT TOP 1 `o`.`OrderID`
-//    FROM `Orders` AS `o`
-//    ORDER BY `o`.`OrderID`
-//)");
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP 1 `p`.`ProductID`
+        FROM `Products` AS `p`
+        ORDER BY `p`.`ProductID`
+    ) AS `t`
+    WHERE `t`.`ProductID` = `o`.`ProductID`) OR EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP 1 `o0`.`OrderID`
+        FROM `Orders` AS `o0`
+        ORDER BY `o0`.`OrderID`
+    ) AS `t0`
+    WHERE `t0`.`OrderID` = `o`.`OrderID`)");
         }
 
         public override async Task Where_multiple_contains_in_subquery_with_and(bool isAsync)
@@ -1574,16 +1549,21 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__p_0")}");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`ProductID` IN (
-    SELECT TOP 20 `p`.`ProductID`
-    FROM `Products` AS `p`
-    ORDER BY `p`.`ProductID`
-)
- AND `o`.`OrderID` IN (
-    SELECT TOP 10 `o0`.`OrderID`
-    FROM `Orders` AS `o0`
-    ORDER BY `o0`.`OrderID`
-)");
+WHERE EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP 20 `p`.`ProductID`
+        FROM `Products` AS `p`
+        ORDER BY `p`.`ProductID`
+    ) AS `t`
+    WHERE `t`.`ProductID` = `o`.`ProductID`) AND EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP 10 `o0`.`OrderID`
+        FROM `Orders` AS `o0`
+        ORDER BY `o0`.`OrderID`
+    ) AS `t0`
+    WHERE `t0`.`OrderID` = `o`.`OrderID`)");
         }
 
         public override async Task Where_contains_on_navigation(bool isAsync)
@@ -1609,13 +1589,12 @@ WHERE EXISTS (
             await base.Where_subquery_FirstOrDefault_is_null(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (
-    SELECT TOP 1 `o`.`OrderID`
+WHERE NOT (EXISTS (
+    SELECT 1
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-    ORDER BY `o`.`OrderID`) IS NULL");
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
         }
 
         public override async Task Where_subquery_FirstOrDefault_compared_to_entity(bool isAsync)
@@ -1660,10 +1639,7 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE CASE
-    WHEN True = True THEN False
-    ELSE True
-END = True");
+WHERE FALSE");
         }
 
         public override async Task Enclosing_class_settable_member_generates_parameter(bool isAsync)
@@ -1713,7 +1689,7 @@ WHERE `o`.`OrderID` = 1");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`City` IN ('Seattle')");
+WHERE `c`.`City` = 'Seattle'");
         }
         
         public override async Task Filter_non_nullable_value_after_FirstOrDefault_on_empty_collection(bool isAsync)
@@ -1747,6 +1723,644 @@ WHERE CONVERT(VARCHAR(11), `o`.`OrderID`) LIKE '%20%'");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE CAST(`o`.`OrderID` AS nvarchar(max)) LIKE '%20%'");
+        }
+
+        public override async Task Using_same_parameter_twice_in_query_generates_one_sql_parameter(bool async)
+        {
+            await base.Using_same_parameter_twice_in_query_generates_one_sql_parameter(async);
+
+            AssertSql(
+                @"@__i_0='10'
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE ((CAST(@__i_0 AS nchar(5)) + `c`.`CustomerID`) + CAST(@__i_0 AS nchar(5))) = `c`.`CompanyName`");
+        }
+
+        public override async Task Where_Queryable_ToList_Count(bool async)
+        {
+            await base.Where_Queryable_ToList_Count(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_ToList_Contains(bool async)
+        {
+            await base.Where_Queryable_ToList_Contains(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`CustomerID`, `o0`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`o`.`CustomerID` = `c`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI'))
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_ToArray_Count(bool async)
+        {
+            await base.Where_Queryable_ToArray_Count(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_ToArray_Contains(bool async)
+        {
+            await base.Where_Queryable_ToArray_Contains(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`CustomerID`, `o0`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`o`.`CustomerID` = `c`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI'))
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_AsEnumerable_Count(bool async)
+        {
+            await base.Where_Queryable_AsEnumerable_Count(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_AsEnumerable_Contains(bool async)
+        {
+            await base.Where_Queryable_AsEnumerable_Contains(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`CustomerID`, `o0`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`o`.`CustomerID` = `c`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI'))
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_AsEnumerable_Contains_negated(bool async)
+        {
+            await base.Where_Queryable_AsEnumerable_Contains_negated(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`CustomerID`, `o0`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`o`.`CustomerID` = `c`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI')))
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_ToList_Count_member(bool async)
+        {
+            await base.Where_Queryable_ToList_Count_member(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_Queryable_ToArray_Length_member(bool async)
+        {
+            await base.Where_Queryable_ToArray_Length_member(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`");
+        }
+
+        public override async Task Where_collection_navigation_ToList_Count(bool async)
+        {
+            await base.Where_collection_navigation_ToList_Count(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE (`o`.`OrderID` < 10300) AND ((
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 0)
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_ToList_Contains(bool async)
+        {
+            await base.Where_collection_navigation_ToList_Contains(async);
+
+            AssertSql(
+                @"@__entity_equality_order_0_OrderID='10248' (Nullable = true)
+SELECT `c`.`CustomerID`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM `Orders` AS `o0`
+) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` = @__entity_equality_order_0_OrderID))
+ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_ToArray_Count(bool async)
+        {
+            await base.Where_collection_navigation_ToArray_Count(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE (`o`.`OrderID` < 10300) AND ((
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 0)
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_ToArray_Contains(bool async)
+        {
+            await base.Where_collection_navigation_ToArray_Contains(async);
+
+            AssertSql(
+                @"@__entity_equality_order_0_OrderID='10248' (Nullable = true)
+SELECT `c`.`CustomerID`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM `Orders` AS `o0`
+) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` = @__entity_equality_order_0_OrderID))
+ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_AsEnumerable_Count(bool async)
+        {
+            await base.Where_collection_navigation_AsEnumerable_Count(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE (`o`.`OrderID` < 10300) AND ((
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 0)
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_AsEnumerable_Contains(bool async)
+        {
+            await base.Where_collection_navigation_AsEnumerable_Contains(async);
+
+            AssertSql(
+                @"@__entity_equality_order_0_OrderID='10248' (Nullable = true)
+SELECT `c`.`CustomerID`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM `Orders` AS `o0`
+) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` = @__entity_equality_order_0_OrderID))
+ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_ToList_Count_member(bool async)
+        {
+            await base.Where_collection_navigation_ToList_Count_member(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE (`o`.`OrderID` < 10300) AND ((
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 0)
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`");
+        }
+
+        public override async Task Where_collection_navigation_ToArray_Length_member(bool async)
+        {
+            await base.Where_collection_navigation_ToArray_Length_member(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE (`o`.`OrderID` < 10300) AND ((
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 0)
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`");
+        }
+
+        public override async Task Where_list_object_contains_over_value_type(bool async)
+        {
+            await base.Where_list_object_contains_over_value_type(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` IN (10248, 10249)");
+        }
+
+        public override async Task Where_array_of_object_contains_over_value_type(bool async)
+        {
+            await base.Where_array_of_object_contains_over_value_type(async);
+
+            AssertSql(
+                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` IN (10248, 10249)");
+        }
+
+        public override async Task Multiple_OrElse_on_same_column_converted_to_in_with_overlap(bool async)
+        {
+            await base.Multiple_OrElse_on_same_column_converted_to_in_with_overlap(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR', 'ANTON')");
+        }
+
+        public override async Task Multiple_OrElse_on_same_column_with_null_constant_comparison_converted_to_in(bool async)
+        {
+            await base.Multiple_OrElse_on_same_column_with_null_constant_comparison_converted_to_in(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`Region` IN ('WA', 'OR', 'BC') OR (`c`.`Region` IS NULL)");
+        }
+
+        public override async Task Constant_array_Contains_OrElse_comparison_with_constant_gets_combined_to_one_in(bool async)
+        {
+            await base.Constant_array_Contains_OrElse_comparison_with_constant_gets_combined_to_one_in(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR', 'ANTON')");
+        }
+
+        public override async Task Constant_array_Contains_OrElse_comparison_with_constant_gets_combined_to_one_in_with_overlap(bool async)
+        {
+            await base.Constant_array_Contains_OrElse_comparison_with_constant_gets_combined_to_one_in_with_overlap(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR', 'ANTON')");
+        }
+
+        public override async Task Constant_array_Contains_OrElse_another_Contains_gets_combined_to_one_in_with_overlap(bool async)
+        {
+            await base.Constant_array_Contains_OrElse_another_Contains_gets_combined_to_one_in_with_overlap(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR', 'ANTON')");
+        }
+
+        public override async Task Constant_array_Contains_AndAlso_another_Contains_gets_combined_to_one_in_with_overlap(bool async)
+        {
+            await base.Constant_array_Contains_AndAlso_another_Contains_gets_combined_to_one_in_with_overlap(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` NOT IN ('ALFKI', 'ANATR', 'ANTON')");
+        }
+
+        public override async Task Multiple_AndAlso_on_same_column_converted_to_in_using_parameters(bool async)
+        {
+            await base.Multiple_AndAlso_on_same_column_converted_to_in_using_parameters(async);
+
+            // issue #21462
+            AssertSql(
+                @"@__prm1_0='ALFKI' (Size = 5) (DbType = StringFixedLength)
+@__prm2_1='ANATR' (Size = 5) (DbType = StringFixedLength)
+@__prm3_2='ANTON' (Size = 5) (DbType = StringFixedLength)
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE ((`c`.`CustomerID` <> @__prm1_0) AND (`c`.`CustomerID` <> @__prm2_1)) AND (`c`.`CustomerID` <> @__prm3_2)");
+        }
+
+        public override async Task Array_of_parameters_Contains_OrElse_comparison_with_constant_gets_combined_to_one_in(bool async)
+        {
+            await base.Array_of_parameters_Contains_OrElse_comparison_with_constant_gets_combined_to_one_in(async);
+
+            // issue #21462
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR') OR (`c`.`CustomerID` = 'ANTON')");
+        }
+
+        public override async Task Multiple_OrElse_on_same_column_with_null_parameter_comparison_converted_to_in(bool async)
+        {
+            await base.Multiple_OrElse_on_same_column_with_null_parameter_comparison_converted_to_in(async);
+
+            // issue #21462
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (`c`.`Region` IN ('WA', 'OR') OR (`c`.`Region` IS NULL)) OR (`c`.`Region` = 'BC')");
+        }
+
+        public override async Task Parameter_array_Contains_OrElse_comparison_with_constant(bool async)
+        {
+            await base.Parameter_array_Contains_OrElse_comparison_with_constant(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR') OR (`c`.`CustomerID` = 'ANTON')");
+        }
+
+        public override async Task Parameter_array_Contains_OrElse_comparison_with_parameter_with_overlap(bool async)
+        {
+            await base.Parameter_array_Contains_OrElse_comparison_with_parameter_with_overlap(async);
+
+            AssertSql(
+                @"@__prm1_0='ANTON' (Size = 5) (DbType = StringFixedLength)
+@__prm2_2='ALFKI' (Size = 5) (DbType = StringFixedLength)
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE ((`c`.`CustomerID` = @__prm1_0) OR `c`.`CustomerID` IN (N'ALFKI', N'ANATR')) OR (`c`.`CustomerID` = @__prm2_2)");
+        }
+
+        public override async Task Two_sets_of_comparison_combine_correctly(bool async)
+        {
+            await base.Two_sets_of_comparison_combine_correctly(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ANATR'");
+        }
+
+        public override async Task Two_sets_of_comparison_combine_correctly2(bool async)
+        {
+            await base.Two_sets_of_comparison_combine_correctly2(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (`c`.`Region` <> 'WA') AND (`c`.`Region` IS NOT NULL)");
+        }
+
+        public override async Task Filter_with_EF_Property_using_closure_for_property_name(bool async)
+        {
+            await base.Filter_with_EF_Property_using_closure_for_property_name(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'");
+        }
+
+        public override async Task Filter_with_EF_Property_using_function_for_property_name(bool async)
+        {
+            await base.Filter_with_EF_Property_using_function_for_property_name(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'");
+        }
+
+        public override async Task FirstOrDefault_over_scalar_projection_compared_to_null(bool async)
+        {
+            await base.FirstOrDefault_over_scalar_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) IS NULL");
+        }
+
+        public override async Task FirstOrDefault_over_scalar_projection_compared_to_not_null(bool async)
+        {
+            await base.FirstOrDefault_over_scalar_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) IS NOT NULL");
+        }
+
+        public override async Task FirstOrDefault_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.FirstOrDefault_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
+        }
+
+        public override async Task FirstOrDefault_over_custom_projection_compared_to_not_null(bool async)
+        {
+            await base.FirstOrDefault_over_custom_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)");
+        }
+
+        public override async Task SingleOrDefault_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.SingleOrDefault_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
+        }
+
+        public override async Task SingleOrDefault_over_custom_projection_compared_to_not_null(bool async)
+        {
+            await base.SingleOrDefault_over_custom_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)");
+        }
+
+        public override async Task LastOrDefault_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.LastOrDefault_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
+        }
+
+        public override async Task LastOrDefault_over_custom_projection_compared_to_not_null(bool async)
+        {
+            await base.LastOrDefault_over_custom_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)");
+        }
+
+        public override async Task First_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.First_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
+        }
+
+        public override async Task First_over_custom_projection_compared_to_not_null(bool async)
+        {
+            await base.First_over_custom_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)");
+        }
+
+        public override async Task Single_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.Single_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
+        }
+
+        public override async Task Single_over_custom_projection_compared_to_not_null(bool async)
+        {
+            await base.Single_over_custom_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)");
+        }
+
+        public override async Task Last_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.Last_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT (EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))");
+        }
+
+        public override async Task Last_over_custom_projection_compared_to_not_null(bool async)
+        {
+            await base.Last_over_custom_projection_compared_to_not_null(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)");
         }
 
         private void AssertSql(params string[] expected)

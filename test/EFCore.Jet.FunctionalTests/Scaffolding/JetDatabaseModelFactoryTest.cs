@@ -124,6 +124,7 @@ DROP TABLE `JustTableName`;");
 
         #region Table
 
+        //Note - No table or column comments in Jet
         [ConditionalFact]
         public void Create_columns()
         {
@@ -145,15 +146,15 @@ CREATE TABLE `Blogs` (
                         {
                             Assert.Null(c.Table.Schema);
                             Assert.Equal("Blogs", c.Table.Name);
-                            Assert.Equal(
+                            /*Assert.Equal(
                                 @"Blog table comment.
-On multiple lines.", c.Table.Comment);
+On multiple lines.", c.Table.Comment);*/
                         });
 
                     Assert.Single(table.Columns.Where(c => c.Name == "Id"));
                     Assert.Single(table.Columns.Where(c => c.Name == "Name"));
-                    Assert.Single(table.Columns.Where(c => c.Comment == "Blog.Id column comment."));
-                    Assert.Single(table.Columns.Where(c => c.Comment != null));
+                    //Assert.Single(table.Columns.Where(c => c.Comment == "Blog.Id column comment."));
+                    //Assert.Single(table.Columns.Where(c => c.Comment != null));
                 },
                 "DROP TABLE `Blogs`");
         }
@@ -332,7 +333,7 @@ DROP TABLE PrincipalTable;");
 
         #region ColumnFacets
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support type aliases")]
         public void Column_with_type_alias_assigns_underlying_store_type()
         {
             Fixture.TestStore.ExecuteNonQuery(
@@ -813,7 +814,7 @@ DROP TABLE NoFacetTypes;
 DROP TABLE RowversionType;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support storing computed values")]
         public void Default_and_computed_values_are_stored()
         {
             Test(

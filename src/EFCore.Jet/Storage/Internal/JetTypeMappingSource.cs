@@ -33,7 +33,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
-        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("decimal");
+        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("integer");//a long and integer are the same in Jet
 
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");

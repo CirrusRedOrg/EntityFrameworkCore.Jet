@@ -1076,7 +1076,7 @@ ORDER BY `t`.`c`, `t`.`CustomerID`, `o`.`OrderID`");
             await base.Include_is_not_ignored_when_projection_contains_client_method_and_complex_expression(async);
 
             AssertSql(
-                $@"SELECT IIF(`e0`.`EmployeeID` IS NOT NULL, 1, 0), `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
+                $@"SELECT IIF(`e0`.`EmployeeID` IS NOT NULL, TRUE, FALSE), `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM `Employees` AS `e`
 LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
 WHERE (`e`.`EmployeeID` = 1) OR (`e`.`EmployeeID` = 2)");

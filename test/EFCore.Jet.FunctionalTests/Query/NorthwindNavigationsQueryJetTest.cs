@@ -521,7 +521,7 @@ FROM `Customers` AS `c`
 WHERE NOT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND ((`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL))");
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND ((`o`.`CustomerID` <> 'ALFKI') OR (`o`.`CustomerID` IS NULL)))");
         }
 
         public override async Task Collection_select_nav_prop_count(bool isAsync)
@@ -775,8 +775,8 @@ WHERE `c`.`City` IN ('Novigrad', 'Seattle')");
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `c`.`City` IN ('Novigrad', 'Seattle')");
         }
@@ -787,8 +787,8 @@ WHERE `c`.`City` IN ('Novigrad', 'Seattle')");
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `c`.`Country` IN ('USA', 'Redania')");
         }
@@ -951,9 +951,9 @@ WHERE (
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM `Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+FROM ((`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE `c`.`City` = 'London'");
         }

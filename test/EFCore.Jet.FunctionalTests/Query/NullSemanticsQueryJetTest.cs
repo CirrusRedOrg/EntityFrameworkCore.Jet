@@ -39,7 +39,7 @@ WHERE `e`.`NullableBoolA` = `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)");
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NULL))");
         }
 
         public override async Task Compare_negated_bool_with_bool_equal(bool async)
@@ -119,15 +119,15 @@ WHERE `e`.`BoolA` <> `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR `e`.`NullableBoolB` IS NULL",
+WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolB` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL",
+WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)");
+WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
         }
 
         public override async Task Compare_negated_bool_with_bool_equal_negated(bool async)
@@ -215,7 +215,7 @@ WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)");
+WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
         }
 
         public override async Task Compare_negated_bool_with_bool_not_equal(bool async)
@@ -295,7 +295,7 @@ WHERE `e`.`BoolA` = `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` = `e`.`NullableBoolB`) AND `e`.`NullableBoolB` IS NOT NULL",
+WHERE `e`.`BoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -391,7 +391,7 @@ WHERE `e`.`NullableBoolA` = `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)");
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NULL))");
         }
 
         public override async Task Compare_equals_method_static(bool async)
@@ -413,7 +413,7 @@ WHERE `e`.`NullableBoolA` = `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)");
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NULL))");
         }
 
         public override async Task Compare_equals_method_negated(bool async)
@@ -427,15 +427,15 @@ WHERE `e`.`BoolA` <> `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR `e`.`NullableBoolB` IS NULL",
+WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolB` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL",
+WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)");
+WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
         }
 
         public override async Task Compare_equals_method_negated_static(bool async)
@@ -449,15 +449,15 @@ WHERE `e`.`BoolA` <> `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR `e`.`NullableBoolB` IS NULL",
+WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolB` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL",
+WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)");
+WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
         }
 
         public override async Task Compare_complex_equal_equal_equal(bool async)
@@ -467,15 +467,15 @@ WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS N
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` = `e`.`BoolB`, 1, 0) = IIF(`e`.`IntA` = `e`.`IntB`, 1, 0)",
+WHERE IIF(`e`.`BoolA` = `e`.`BoolB`, TRUE, FALSE) = IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` = `e`.`BoolB`) AND `e`.`NullableBoolA` IS NOT NULL, 1, 0) = IIF((`e`.`IntA` = `e`.`NullableIntB`) AND `e`.`NullableIntB` IS NOT NULL, 1, 0)",
+WHERE IIF((`e`.`NullableBoolA` = `e`.`BoolB`) AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) = IIF((`e`.`IntA` = `e`.`NullableIntB`) AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(((`e`.`NullableBoolA` = `e`.`NullableBoolB`) AND (`e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL)) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), 1, 0) = IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), 1, 0)");
+WHERE IIF(((`e`.`NullableBoolA` = `e`.`NullableBoolB`) AND (`e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL)) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) = IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)");
         }
 
         public override async Task Compare_complex_equal_not_equal_equal(bool async)
@@ -485,15 +485,15 @@ WHERE IIF(((`e`.`NullableBoolA` = `e`.`NullableBoolB`) AND (`e`.`NullableBoolA` 
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` = `e`.`BoolB`, 1, 0) <> IIF(`e`.`IntA` = `e`.`IntB`, 1, 0)",
+WHERE IIF(`e`.`BoolA` = `e`.`BoolB`, TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` = `e`.`BoolB`) AND `e`.`NullableBoolA` IS NOT NULL, 1, 0) <> IIF((`e`.`IntA` = `e`.`NullableIntB`) AND `e`.`NullableIntB` IS NOT NULL, 1, 0)",
+WHERE IIF((`e`.`NullableBoolA` = `e`.`BoolB`) AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) <> IIF((`e`.`IntA` = `e`.`NullableIntB`) AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(((`e`.`NullableBoolA` = `e`.`NullableBoolB`) AND (`e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL)) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), 1, 0) <> IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), 1, 0)");
+WHERE IIF(((`e`.`NullableBoolA` = `e`.`NullableBoolB`) AND (`e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL)) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) <> IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)");
         }
 
         public override async Task Compare_complex_not_equal_equal_equal(bool async)
@@ -503,15 +503,15 @@ WHERE IIF(((`e`.`NullableBoolA` = `e`.`NullableBoolB`) AND (`e`.`NullableBoolA` 
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, 1, 0) = IIF(`e`.`IntA` = `e`.`IntB`, 1, 0)",
+WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) = IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL, 1, 0) = IIF((`e`.`IntA` = `e`.`NullableIntB`) AND `e`.`NullableIntB` IS NOT NULL, 1, 0)",
+WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL), TRUE, FALSE) = IIF((`e`.`IntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntB` IS NOT NULL), TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), 1, 0) = IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), 1, 0)");
+WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR (`e`.`NullableBoolB` IS NULL))) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) = IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)");
         }
 
         public override async Task Compare_complex_not_equal_not_equal_equal(bool async)
@@ -521,15 +521,15 @@ WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` 
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, 1, 0) <> IIF(`e`.`IntA` = `e`.`IntB`, 1, 0)",
+WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL, 1, 0) <> IIF((`e`.`IntA` = `e`.`NullableIntB`) AND `e`.`NullableIntB` IS NOT NULL, 1, 0)",
+WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL), TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`NullableIntB` AND (`e`.`NullableIntB` IS NOT NULL), TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), 1, 0) <> IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL)) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), 1, 0)");
+WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL)), TRUE, FALSE) <> IIF(((`e`.`NullableIntA` = `e`.`NullableIntB`) AND ((`e`.`NullableIntA` IS NOT NULL) AND (`e`.`NullableIntB` IS NOT NULL))) OR ((`e`.`NullableIntA` IS NULL) AND (`e`.`NullableIntB` IS NULL)), TRUE, FALSE)");
         }
 
         public override async Task Compare_complex_not_equal_equal_not_equal(bool async)
@@ -539,15 +539,15 @@ WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` 
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, 1, 0) = IIF(`e`.`IntA` <> `e`.`IntB`, 1, 0)",
+WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) = IIF(`e`.`IntA` <> `e`.`IntB`, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL, 1, 0) = IIF((`e`.`IntA` <> `e`.`NullableIntB`) OR `e`.`NullableIntB` IS NULL, 1, 0)",
+WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL), TRUE, FALSE) = IIF((`e`.`IntA` <> `e`.`NullableIntB`) OR (`e`.`NullableIntB` IS NULL), TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), 1, 0) = IIF(((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR (`e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL)) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL), 1, 0)");
+WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL)), TRUE, FALSE) = IIF(((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR ((`e`.`NullableIntA` IS NULL) OR (`e`.`NullableIntB` IS NULL))) AND ((`e`.`NullableIntA` IS NOT NULL) OR (`e`.`NullableIntB` IS NOT NULL)), TRUE, FALSE)");
         }
 
         public override async Task Compare_complex_not_equal_not_equal_not_equal(bool async)
@@ -557,15 +557,15 @@ WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` 
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, 1, 0) <> IIF(`e`.`IntA` <> `e`.`IntB`, 1, 0)",
+WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) <> IIF(`e`.`IntA` <> `e`.`IntB`, TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR `e`.`NullableBoolA` IS NULL, 1, 0) <> IIF((`e`.`IntA` <> `e`.`NullableIntB`) OR `e`.`NullableIntB` IS NULL, 1, 0)",
+WHERE IIF((`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL), TRUE, FALSE) <> IIF((`e`.`IntA` <> `e`.`NullableIntB`) OR (`e`.`NullableIntB` IS NULL), TRUE, FALSE)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), 1, 0) <> IIF(((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR (`e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL)) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL), 1, 0)");
+WHERE IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL)), TRUE, FALSE) <> IIF(((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR ((`e`.`NullableIntA` IS NULL) OR (`e`.`NullableIntB` IS NULL))) AND ((`e`.`NullableIntA` IS NOT NULL) OR (`e`.`NullableIntB` IS NOT NULL)), TRUE, FALSE)");
         }
 
         public override async Task Compare_nullable_with_null_parameter_equal(bool async)
@@ -583,7 +583,7 @@ WHERE `e`.`NullableStringA` IS NULL");
             await base.Compare_nullable_with_non_null_parameter_not_equal(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__prm_0='Foo' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@__prm_0='Foo' (Size = 255)")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -605,9 +605,9 @@ INNER JOIN `Entities2` AS `e0` ON `e`.`NullableIntA` = `e0`.`NullableIntB`");
             await base.Contains_with_local_array_closure_with_null(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IN ('Foo') OR `e`.`NullableStringA` IS NULL");
+WHERE (`e`.`NullableStringA` = 'Foo') OR (`e`.`NullableStringA` IS NULL)");
         }
 
         public override async Task Contains_with_local_array_closure_false_with_null(bool async)
@@ -615,9 +615,9 @@ WHERE `e`.`NullableStringA` IN ('Foo') OR `e`.`NullableStringA` IS NULL");
             await base.Contains_with_local_array_closure_false_with_null(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` NOT IN ('Foo') AND `e`.`NullableStringA` IS NOT NULL");
+WHERE (`e`.`NullableStringA` <> 'Foo') AND (`e`.`NullableStringA` IS NOT NULL)");
         }
 
         public override async Task Contains_with_local_nullable_array_closure_negated(bool async)
@@ -625,7 +625,9 @@ WHERE `e`.`NullableStringA` NOT IN ('Foo') AND `e`.`NullableStringA` IS NOT NULL
             await base.Contains_with_local_nullable_array_closure_negated(async);
 
             AssertSql(
-                $@"");
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableStringA` <> 'Foo') OR (`e`.`NullableStringA` IS NULL)");
         }
 
         public override async Task Contains_with_local_array_closure_with_multiple_nulls(bool async)
@@ -633,9 +635,9 @@ WHERE `e`.`NullableStringA` NOT IN ('Foo') AND `e`.`NullableStringA` IS NOT NULL
             await base.Contains_with_local_array_closure_with_multiple_nulls(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IN ('Foo') OR `e`.`NullableStringA` IS NULL");
+WHERE (`e`.`NullableStringA` = 'Foo') OR (`e`.`NullableStringA` IS NULL)");
         }
 
         public override async Task Where_multiple_ors_with_null(bool async)
@@ -643,9 +645,9 @@ WHERE `e`.`NullableStringA` IN ('Foo') OR `e`.`NullableStringA` IS NULL");
             await base.Where_multiple_ors_with_null(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableStringA` = 'Foo') OR (`e`.`NullableStringA` = 'Blah')) OR `e`.`NullableStringA` IS NULL");
+WHERE `e`.`NullableStringA` IN ('Foo', 'Blah') OR (`e`.`NullableStringA` IS NULL)");
         }
 
         public override async Task Where_multiple_ands_with_null(bool async)
@@ -653,9 +655,9 @@ WHERE ((`e`.`NullableStringA` = 'Foo') OR (`e`.`NullableStringA` = 'Blah')) OR `
             await base.Where_multiple_ands_with_null(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (((`e`.`NullableStringA` <> 'Foo') OR `e`.`NullableStringA` IS NULL) AND ((`e`.`NullableStringA` <> 'Blah') OR `e`.`NullableStringA` IS NULL)) AND `e`.`NullableStringA` IS NOT NULL");
+WHERE `e`.`NullableStringA` NOT IN ('Foo', 'Blah') AND (`e`.`NullableStringA` IS NOT NULL)");
         }
 
         public override async Task Where_multiple_ors_with_nullable_parameter(bool async)
@@ -665,7 +667,7 @@ WHERE (((`e`.`NullableStringA` <> 'Foo') OR `e`.`NullableStringA` IS NULL) AND (
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableStringA` = 'Foo') OR `e`.`NullableStringA` IS NULL");
+WHERE (`e`.`NullableStringA` = 'Foo') OR (`e`.`NullableStringA` IS NULL)");
         }
 
         public override async Task Where_multiple_ands_with_nullable_parameter_and_constant(bool async)
@@ -699,7 +701,7 @@ WHERE (((`e`.`NullableStringB` IS NOT NULL AND ((`e`.`NullableStringA` <> 'Foo')
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIf(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`) = True");
+WHERE IIF(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`)");
         }
 
         public override async Task Where_equal_nullable_with_null_value_parameter(bool async)
@@ -729,7 +731,7 @@ WHERE `e`.`NullableStringA` IS NOT NULL");
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (IIf(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) = `e`.`NullableStringC`) OR ((`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) AND `e`.`NullableStringC` IS NULL)");
+WHERE (IIF(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) = `e`.`NullableStringC`) OR ((`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) AND `e`.`NullableStringC` IS NULL)");
         }
 
         public override async Task Where_not_equal_with_coalesce(bool async)
@@ -739,7 +741,7 @@ WHERE (IIf(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) = `e`.`Nu
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((IIf(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) <> `e`.`NullableStringC`) OR ((`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) OR `e`.`NullableStringC` IS NULL)) AND ((`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL) OR `e`.`NullableStringC` IS NOT NULL)");
+WHERE ((IIF(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) <> `e`.`NullableStringC`) OR ((`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) OR `e`.`NullableStringC` IS NULL)) AND ((`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL) OR `e`.`NullableStringC` IS NOT NULL)");
         }
 
         public override async Task Where_equal_with_coalesce_both_sides(bool async)
@@ -749,7 +751,7 @@ WHERE ((IIf(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) <> `e`.`
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIf(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) = IIf(`e`.`StringA` IS NULL, NULL, `e`.`StringA`)");
+WHERE IIF(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) = IIF(`e`.`StringA` IS NULL, NULL, `e`.`StringA`)");
         }
 
         public override async Task Where_not_equal_with_coalesce_both_sides(bool async)
@@ -759,7 +761,7 @@ WHERE IIf(`e`.`NullableStringA` IS NULL, NULL, `e`.`NullableStringA`) = IIf(`e`.
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((IIf(`e`.`NullableIntA` IS NULL, NULL, `e`.`NullableIntA`) <> IIf(`e`.`NullableIntC` IS NULL, NULL, `e`.`NullableIntC`)) OR ((`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL) OR (`e`.`NullableIntC` IS NULL AND `e`.`NullableIntB` IS NULL))) AND ((`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntC` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL))");
+WHERE ((IIF(`e`.`NullableIntA` IS NULL, NULL, `e`.`NullableIntA`) <> IIF(`e`.`NullableIntC` IS NULL, NULL, `e`.`NullableIntC`)) OR ((`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL) OR (`e`.`NullableIntC` IS NULL AND `e`.`NullableIntB` IS NULL))) AND ((`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntC` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL))");
         }
 
         public override async Task Where_equal_with_conditional(bool async)
@@ -826,7 +828,7 @@ WHERE ((`e`.`NullableStringB` = '') OR (CHARINDEX(`e`.`NullableStringB`, `e`.`Nu
             await base.Null_comparison_in_selector_with_relational_nulls(async);
 
             AssertSql(
-                $@"SELECT IIF(`e`.`NullableStringA` <> 'Foo', 1, 0)
+                $@"SELECT IIF((`e`.`NullableStringA` <> 'Foo') OR (`e`.`NullableStringA` IS NULL), TRUE, FALSE)
 FROM `Entities1` AS `e`");
         }
 
@@ -916,7 +918,7 @@ WHERE `e`.`NullableBoolA` = TRUE");
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` IS NOT NULL AND (`e`.`NullableBoolA` = True)");
+WHERE (`e`.`NullableBoolA` IS NOT NULL) AND `e`.`NullableBoolA`");
         }
 
         public override void Where_equal_using_relational_null_semantics_with_parameter()
@@ -936,7 +938,7 @@ WHERE `e`.`NullableBoolA` IS NULL");
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`)");
         }
 
         public override void Where_not_equal_using_relational_null_semantics()
@@ -978,13 +980,13 @@ WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`");
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
+WHERE {AssertSqlHelper.Parameter("@__p_0")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
+WHERE {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override async Task Where_comparison_null_constant_and_nonnull_parameter(bool async)
@@ -996,13 +998,13 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
+WHERE {AssertSqlHelper.Parameter("@__p_0")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
+WHERE {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override async Task Where_comparison_nonnull_constant_and_null_parameter(bool async)
@@ -1014,13 +1016,13 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
+WHERE {AssertSqlHelper.Parameter("@__p_0")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
+WHERE {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override async Task Where_comparison_null_semantics_optimization_works_with_complex_predicates(bool async)
@@ -1040,7 +1042,7 @@ WHERE `e`.`NullableStringA` IS NULL");
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)",
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NULL))",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
@@ -1056,13 +1058,13 @@ WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True",
+WHERE {AssertSqlHelper.Parameter("@__p_0")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
+WHERE {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void From_sql_composed_with_relational_null_comparison()
@@ -1070,11 +1072,11 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
             base.From_sql_composed_with_relational_null_comparison();
 
             AssertSql(
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `m`.`Id`, `m`.`BoolA`, `m`.`BoolB`, `m`.`BoolC`, `m`.`IntA`, `m`.`IntB`, `m`.`IntC`, `m`.`NullableBoolA`, `m`.`NullableBoolB`, `m`.`NullableBoolC`, `m`.`NullableIntA`, `m`.`NullableIntB`, `m`.`NullableIntC`, `m`.`NullableStringA`, `m`.`NullableStringB`, `m`.`NullableStringC`, `m`.`StringA`, `m`.`StringB`, `m`.`StringC`
 FROM (
     SELECT * FROM ""Entities1""
-) AS `e`
-WHERE `e`.`StringA` = `e`.`StringB`");
+) AS `m`
+WHERE `m`.`StringA` = `m`.`StringB`");
         }
 
         public override async Task Projecting_nullable_bool_with_coalesce(bool async)
@@ -1154,19 +1156,19 @@ WHERE ((REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStrin
             AssertSql(
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = IIf(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`)",
+WHERE `e`.`NullableBoolA` = IIF(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` = IIf(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`)) OR (`e`.`NullableBoolA` IS NULL AND (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL))",
+WHERE (`e`.`NullableBoolA` = IIF(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`)) OR (`e`.`NullableBoolA` IS NULL AND (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL))",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (IIf(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`) <> `e`.`NullableBoolA`) OR `e`.`NullableBoolA` IS NULL",
+WHERE (IIF(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`) <> `e`.`NullableBoolA`) OR `e`.`NullableBoolA` IS NULL",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((IIf(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`) <> `e`.`NullableBoolA`) OR ((`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL) OR `e`.`NullableBoolA` IS NULL)) AND ((`e`.`NullableBoolB` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL) OR `e`.`NullableBoolA` IS NOT NULL)");
+WHERE ((IIF(`e`.`NullableBoolB` IS NULL, NULL, `e`.`NullableBoolB`) <> `e`.`NullableBoolA`) OR ((`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL) OR `e`.`NullableBoolA` IS NULL)) AND ((`e`.`NullableBoolB` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL) OR `e`.`NullableBoolA` IS NOT NULL)");
         }
 
         public override async Task Null_semantics_conditional(bool async)
@@ -1192,10 +1194,10 @@ END = `e`.`BoolA`",
 FROM `Entities1` AS `e`
 WHERE CASE
     WHEN CASE
-        WHEN `e`.`BoolA` = True THEN IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), 1, 0)
+        WHEN `e`.`BoolA` = True THEN IIF(((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL)) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE)
         ELSE `e`.`BoolC`
     END <> `e`.`BoolB` THEN `e`.`BoolA`
-    ELSE IIF(((`e`.`NullableBoolB` = `e`.`NullableBoolC`) AND (`e`.`NullableBoolB` IS NOT NULL AND `e`.`NullableBoolC` IS NOT NULL)) OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL), 1, 0)
+    ELSE IIF(((`e`.`NullableBoolB` = `e`.`NullableBoolC`) AND (`e`.`NullableBoolB` IS NOT NULL AND `e`.`NullableBoolC` IS NOT NULL)) OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL), TRUE, FALSE)
 END = True");
         }
 
@@ -1213,9 +1215,13 @@ WHERE ((SUBSTRING(`e`.`NullableStringA`, 0 + 1, `e`.`IntA`) <> `e`.`NullableStri
         {
             await base.Null_semantics_join_with_composite_key(async);
 
-            // issue #15994
-            //AssertSql(
-            //    $@"");
+            AssertSql(
+                @"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`, `e0`.`Id`, `e0`.`BoolA`, `e0`.`BoolB`, `e0`.`BoolC`, `e0`.`IntA`, `e0`.`IntB`, `e0`.`IntC`, `e0`.`NullableBoolA`, `e0`.`NullableBoolB`, `e0`.`NullableBoolC`, `e0`.`NullableIntA`, `e0`.`NullableIntB`, `e0`.`NullableIntC`, `e0`.`NullableStringA`, `e0`.`NullableStringB`, `e0`.`NullableStringC`, `e0`.`StringA`, `e0`.`StringB`, `e0`.`StringC`
+FROM `Entities1` AS `e`
+INNER JOIN `Entities2` AS `e0` ON ((`e`.`NullableStringA` = `e0`.`NullableStringB`) OR ((`e`.`NullableStringA` IS NULL) AND (`e0`.`NullableStringB` IS NULL))) AND (CASE
+    WHEN ((`e`.`NullableStringB` <> `e`.`NullableStringC`) OR ((`e`.`NullableStringB` IS NULL) OR (`e`.`NullableStringC` IS NULL))) AND ((`e`.`NullableStringB` IS NOT NULL) OR (`e`.`NullableStringC` IS NOT NULL)) THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
+END = COALESCE(`e0`.`NullableBoolA`, `e0`.`BoolC`))");
         }
 
         public override async Task Null_semantics_contains(bool async)
@@ -1223,7 +1229,37 @@ WHERE ((SUBSTRING(`e`.`NullableStringA`, 0 + 1, `e`.`IntA`) <> `e`.`NullableStri
             await base.Null_semantics_contains(async);
 
             AssertSql(
-                $@"");
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) OR (`e`.`NullableIntA` IS NULL)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2) OR (`e`.`NullableIntA` IS NULL)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) AND (`e`.`NullableIntA` IS NOT NULL)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) OR (`e`.`NullableIntA` IS NULL)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2) OR (`e`.`NullableIntA` IS NULL)",
+                //
+                @"SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) AND (`e`.`NullableIntA` IS NOT NULL)");
         }
 
         public override async Task Null_semantics_with_null_check_simple(bool async)
@@ -1231,25 +1267,25 @@ WHERE ((SUBSTRING(`e`.`NullableStringA`, 0 + 1, `e`.`IntA`) <> `e`.`NullableStri
             await base.Null_semantics_with_null_check_simple(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NOT NULL AND (`e`.`NullableIntA` = `e`.`NullableIntB`)",
+WHERE (`e`.`NullableIntA` IS NOT NULL) AND (`e`.`NullableIntA` = `e`.`NullableIntB`)",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NOT NULL AND ((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR `e`.`NullableIntB` IS NULL)",
+WHERE (`e`.`NullableIntA` IS NOT NULL) AND ((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR (`e`.`NullableIntB` IS NULL))",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NOT NULL AND (`e`.`NullableIntA` = `e`.`IntC`)",
+WHERE (`e`.`NullableIntA` IS NOT NULL) AND (`e`.`NullableIntA` = `e`.`IntC`)",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) AND (`e`.`NullableIntA` = `e`.`NullableIntB`)",
+WHERE ((`e`.`NullableIntA` IS NOT NULL) AND (`e`.`NullableIntB` IS NOT NULL)) AND (`e`.`NullableIntA` = `e`.`NullableIntB`)",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) AND (`e`.`NullableIntA` <> `e`.`NullableIntB`)");
+WHERE ((`e`.`NullableIntA` IS NOT NULL) AND (`e`.`NullableIntB` IS NOT NULL)) AND (`e`.`NullableIntA` <> `e`.`NullableIntB`)");
         }
 
         public override async Task Null_semantics_with_null_check_complex(bool async)
@@ -1257,17 +1293,17 @@ WHERE (`e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) AND (`
             await base.Null_semantics_with_null_check_complex(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NOT NULL AND (((`e`.`NullableIntC` <> `e`.`NullableIntA`) OR `e`.`NullableIntC` IS NULL) OR (`e`.`NullableIntB` IS NOT NULL AND (`e`.`NullableIntA` <> `e`.`NullableIntB`)))",
+WHERE (`e`.`NullableIntA` IS NOT NULL) AND (((`e`.`NullableIntC` <> `e`.`NullableIntA`) OR (`e`.`NullableIntC` IS NULL)) OR ((`e`.`NullableIntB` IS NOT NULL) AND (`e`.`NullableIntA` <> `e`.`NullableIntB`)))",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NOT NULL AND (((`e`.`NullableIntC` <> `e`.`NullableIntA`) OR `e`.`NullableIntC` IS NULL) OR ((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR `e`.`NullableIntB` IS NULL))",
+WHERE (`e`.`NullableIntA` IS NOT NULL) AND (((`e`.`NullableIntC` <> `e`.`NullableIntA`) OR (`e`.`NullableIntC` IS NULL)) OR ((`e`.`NullableIntA` <> `e`.`NullableIntB`) OR (`e`.`NullableIntB` IS NULL)))",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL) AND ((`e`.`NullableIntA` = `e`.`NullableIntC`) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntC` IS NULL))");
+WHERE ((`e`.`NullableIntA` IS NOT NULL) OR (`e`.`NullableIntB` IS NOT NULL)) AND ((`e`.`NullableIntA` = `e`.`NullableIntC`) OR ((`e`.`NullableIntA` IS NULL) AND (`e`.`NullableIntC` IS NULL)))");
         }
 
         public override async Task IsNull_on_complex_expression(bool async)
@@ -1275,21 +1311,21 @@ WHERE (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL) AND ((`
             await base.IsNull_on_complex_expression(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE `e`.`NullableIntA` IS NOT NULL",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL",
+WHERE (`e`.`NullableIntA` IS NULL) OR (`e`.`NullableIntB` IS NULL)",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL",
+WHERE (`e`.`NullableIntA` IS NULL) AND (`e`.`NullableIntB` IS NULL)",
                 //
-                $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+                @"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL");
+WHERE (`e`.`NullableIntA` IS NOT NULL) OR (`e`.`NullableIntB` IS NOT NULL)");
         }
 
         private void AssertSql(params string[] expected)

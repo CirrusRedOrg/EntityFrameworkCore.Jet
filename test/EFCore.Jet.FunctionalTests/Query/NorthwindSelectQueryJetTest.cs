@@ -79,7 +79,7 @@ FROM `Customers` AS `c`");
                 $@"SELECT `c`.`CustomerID`, `o`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
+ORDER BY `c`.`CustomerID`");
         }
 
         public override async Task Project_to_object_array(bool isAsync)
@@ -121,7 +121,8 @@ ORDER BY `o`.`OrderID`");
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`");
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`");
         }
 
         public override async Task Project_to_int_array(bool isAsync)
@@ -186,7 +187,7 @@ FROM `Customers` AS `c`");
             await base.Select_anonymous_bool_constant_true(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, True AS `ConstantTrue`
+                $@"SELECT `c`.`CustomerID`, TRUE AS `ConstantTrue`
 FROM `Customers` AS `c`");
         }
 
@@ -204,7 +205,7 @@ FROM `Customers` AS `c`");
             await base.Select_anonymous_conditional_expression(isAsync);
 
             AssertSql(
-                $@"SELECT `p`.`ProductID`, IIF(`p`.`UnitsInStock` > 0, 1, 0) AS `IsAvailable`
+                $@"SELECT `p`.`ProductID`, IIF(`p`.`UnitsInStock` > 0, TRUE, FALSE) AS `IsAvailable`
 FROM `Products` AS `p`");
         }
 
@@ -273,10 +274,15 @@ WHERE `c`.`City` = 'London'");
             await base.Select_nested_collection(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`
+                $@"SELECT `c`.`CustomerID`, `t`.`OrderID`
 FROM `Customers` AS `c`
-WHERE `c`.`City` = 'London'
-ORDER BY `c`.`CustomerID`",
+LEFT JOIN (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE DATEPART(year, `o`.`OrderDate`) = 1997
+) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+WHERE `c`.`City` = N'London'
+ORDER BY `c`.`CustomerID`, `t`.`OrderID`",
                 //
                 $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='AROUT' (Size = 5)")}
 
@@ -1079,7 +1085,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` > 11000
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'
-ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
+ORDER BY `c`.`CustomerID`");
         }
 
         public override async Task Filtered_collection_projection_with_to_list_is_tracked(bool isAsync)
@@ -1095,7 +1101,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` > 11000
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'
-ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
+ORDER BY `c`.`CustomerID`");
         }
 
         public override async Task SelectMany_with_collection_being_correlated_subquery_which_references_inner_and_outer_entity(
@@ -1155,7 +1161,7 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
             await base.Select_entity_compared_to_null(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(`c`.`CustomerID` IS NULL, 1, 0)
+                $@"SELECT IIF(`c`.`CustomerID` IS NULL, TRUE, FALSE)
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'");

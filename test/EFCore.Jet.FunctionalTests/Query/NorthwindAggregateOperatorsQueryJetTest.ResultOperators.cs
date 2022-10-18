@@ -76,7 +76,7 @@ FROM `Orders` AS `o`");
             await base.Sum_with_division_on_decimal(isAsync);
 
             AssertSql(
-                $@"SELECT SUM(IIf(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.09)
+                $@"SELECT SUM(IIF(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.09)
 FROM `Order Details` AS `o`");
         }
 
@@ -85,7 +85,7 @@ FROM `Order Details` AS `o`");
             await base.Sum_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
-                $@"SELECT SUM(IIf(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.0)
+                $@"SELECT SUM(IIF(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.0)
 FROM `Order Details` AS `o`");
         }
 
@@ -94,7 +94,7 @@ FROM `Order Details` AS `o`");
             await base.Sum_with_coalesce(isAsync);
 
             AssertSql(
-                $@"SELECT SUM(IIf(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
+                $@"SELECT SUM(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
 FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
@@ -133,7 +133,7 @@ FROM `Customers` AS `c`");
             await base.Sum_on_float_column(isAsync);
 
             AssertSql(
-                $@"SELECT IIf(SUM(`o`.`Discount`) IS NULL, NULL, CSNG(SUM(`o`.`Discount`)))
+                $@"SELECT IIF(SUM(`o`.`Discount`) IS NULL, NULL, CSNG(SUM(`o`.`Discount`)))
 FROM `Order Details` AS `o`
 WHERE `o`.`ProductID` = 1");
         }
@@ -144,7 +144,7 @@ WHERE `o`.`ProductID` = 1");
 
             AssertSql(
                 $@"SELECT `o0`.`OrderID`, (
-    SELECT IIf(SUM(`o`.`Discount`) IS NULL, NULL, CSNG(SUM(`o`.`Discount`)))
+    SELECT IIF(SUM(`o`.`Discount`) IS NULL, NULL, CSNG(SUM(`o`.`Discount`)))
     FROM `Order Details` AS `o`
     WHERE `o0`.`OrderID` = `o`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o0`
@@ -156,7 +156,7 @@ WHERE `o0`.`OrderID` < 10300");
             await base.Average_with_no_arg(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)))
+                $@"SELECT AVG(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)))
 FROM `Orders` AS `o`");
         }
 
@@ -165,7 +165,7 @@ FROM `Orders` AS `o`");
             await base.Average_with_binary_expression(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`o`.`OrderID` * 2 IS NULL, NULL, CDBL(`o`.`OrderID` * 2)))
+                $@"SELECT AVG(IIF(`o`.`OrderID` * 2 IS NULL, NULL, CDBL(`o`.`OrderID` * 2)))
 FROM `Orders` AS `o`");
         }
 
@@ -174,7 +174,7 @@ FROM `Orders` AS `o`");
             await base.Average_with_arg(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)))
+                $@"SELECT AVG(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)))
 FROM `Orders` AS `o`");
         }
 
@@ -183,7 +183,7 @@ FROM `Orders` AS `o`");
             await base.Average_with_arg_expression(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`o`.`OrderID` + `o`.`OrderID` IS NULL, NULL, CDBL((`o`.`OrderID` + `o`.`OrderID`))))
+                $@"SELECT AVG(IIF(`o`.`OrderID` + `o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID` + `o`.`OrderID`)))
 FROM `Orders` AS `o`");
         }
 
@@ -192,7 +192,7 @@ FROM `Orders` AS `o`");
             await base.Average_with_division_on_decimal(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.09)
+                $@"SELECT AVG(IIF(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.09)
 FROM `Order Details` AS `o`");
         }
 
@@ -201,7 +201,7 @@ FROM `Order Details` AS `o`");
             await base.Average_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.0)
+                $@"SELECT AVG(IIF(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.0)
 FROM `Order Details` AS `o`");
         }
 
@@ -210,7 +210,7 @@ FROM `Order Details` AS `o`");
             await base.Average_with_coalesce(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
+                $@"SELECT AVG(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
 FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
@@ -255,7 +255,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Average_on_float_column(isAsync);
 
             AssertSql(
-                $@"SELECT IIf(AVG(`o`.`Discount`) IS NULL, NULL, CSNG(AVG(`o`.`Discount`)))
+                $@"SELECT IIF(AVG(`o`.`Discount`) IS NULL, NULL, CSNG(AVG(`o`.`Discount`)))
 FROM `Order Details` AS `o`
 WHERE `o`.`ProductID` = 1");
         }
@@ -266,7 +266,7 @@ WHERE `o`.`ProductID` = 1");
 
             AssertSql(
                 $@"SELECT `o0`.`OrderID`, (
-    SELECT IIf(AVG(`o`.`Discount`) IS NULL, NULL, CSNG(AVG(`o`.`Discount`)))
+    SELECT IIF(AVG(`o`.`Discount`) IS NULL, NULL, CSNG(AVG(`o`.`Discount`)))
     FROM `Order Details` AS `o`
     WHERE `o0`.`OrderID` = `o`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o0`
@@ -279,7 +279,7 @@ WHERE `o0`.`OrderID` < 10300");
 
             AssertSql(
                 $@"SELECT `o0`.`OrderID`, (
-    SELECT IIf(AVG(`o`.`Discount`) IS NULL, NULL, CSNG(AVG(`o`.`Discount`)))
+    SELECT IIF(AVG(`o`.`Discount`) IS NULL, NULL, CSNG(AVG(`o`.`Discount`)))
     FROM `Order Details` AS `o`
     WHERE `o0`.`OrderID` = `o`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o0`
@@ -309,7 +309,7 @@ FROM `Orders` AS `o`");
             await base.Min_with_coalesce(isAsync);
 
             AssertSql(
-                $@"SELECT MIN(IIf(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
+                $@"SELECT MIN(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
 FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
@@ -374,7 +374,7 @@ FROM `Orders` AS `o`");
             await base.Max_with_coalesce(isAsync);
 
             AssertSql(
-                $@"SELECT MAX(IIf(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
+                $@"SELECT MAX(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
 FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
@@ -1018,7 +1018,7 @@ ORDER BY `o`.`OrderID`");
             await base.Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(CAST(`o`.`OrderID` AS bigint) IS NULL, NULL, CDBL(CAST(`o`.`OrderID` AS bigint))))
+                $@"SELECT AVG(IIF(CAST(`o`.`OrderID` AS bigint) IS NULL, NULL, CDBL(CAST(`o`.`OrderID` AS bigint))))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')");
         }
@@ -1286,7 +1286,7 @@ FROM `Customers` AS `c`");
 
             AssertSql(
                 $@"SELECT (
-    SELECT AVG(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)))
+    SELECT AVG(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`)
 FROM `Customers` AS `c`");

@@ -946,7 +946,7 @@ CREATE TABLE ValueGeneratedProperties (
                 @"
 CREATE TABLE RowVersionTable (
     Id int,
-    rowversionColumn rowversion
+    rowversionColumn varbinary(8)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),

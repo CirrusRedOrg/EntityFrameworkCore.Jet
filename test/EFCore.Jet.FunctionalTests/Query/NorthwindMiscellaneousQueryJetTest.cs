@@ -2715,9 +2715,9 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_or()
+        public override async Task Select_bitwise_or(bool async)
         {
-            base.Select_bitwise_or();
+            await base.Select_bitwise_or(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0) AS `Value`
@@ -2725,9 +2725,9 @@ FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_or_multiple()
+        public override async Task Select_bitwise_or_multiple(bool async)
         {
-            base.Select_bitwise_or_multiple();
+            await base.Select_bitwise_or_multiple(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) BOR IIF(`c`.`CustomerID` = 'ANTON', 1, 0) AS `Value`
@@ -2735,9 +2735,9 @@ FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_and()
+        public override async Task Select_bitwise_and(bool async)
         {
-            base.Select_bitwise_and();
+            await base.Select_bitwise_and(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0) AS `Value`
@@ -2745,9 +2745,9 @@ FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_and_or()
+        public override async Task Select_bitwise_and_or(bool async)
         {
-            base.Select_bitwise_and_or();
+            await base.Select_bitwise_and_or(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) BOR IIF(`c`.`CustomerID` = 'ANTON', 1, 0) AS `Value`
@@ -2795,9 +2795,9 @@ FROM `Customers` AS `c`
 WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) OR (`c`.`CustomerID` = 'ANTON')");
         }
 
-        public override void Select_bitwise_or_with_logical_or()
+        public override async Task Select_bitwise_or_with_logical_or(bool async)
         {
-            base.Select_bitwise_or_with_logical_or();
+            await base.Select_bitwise_or_with_logical_or(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, IIF(((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) OR (`c`.`CustomerID` = 'ANTON'), 1, 0) AS `Value`
@@ -2805,9 +2805,9 @@ FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_and_with_logical_and()
+        public override async Task Select_bitwise_and_with_logical_and(bool async)
         {
-            base.Select_bitwise_and_with_logical_and();
+            await base.Select_bitwise_and_with_logical_and(async);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, IIF(((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) AND (`c`.`CustomerID` = 'ANTON'), 1, 0) AS `Value`
@@ -3072,9 +3072,9 @@ FROM `Orders` AS `o`
 WHERE `o`.`OrderDate` IS NOT NULL AND (DATEPART('yyyy', `o`.`OrderDate`) < {AssertSqlHelper.Parameter("@__nextYear_0")})");
         }
 
-        public override void DefaultIfEmpty_without_group_join()
+        public override async Task DefaultIfEmpty_without_group_join(bool async)
         {
-            base.DefaultIfEmpty_without_group_join();
+            await base.DefaultIfEmpty_without_group_join(async);
 
             AssertSql(
                 $@"SELECT `t`.`CustomerID`

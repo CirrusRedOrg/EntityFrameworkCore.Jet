@@ -75,21 +75,7 @@
     <None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
     <None Include="MigrationsSqlGeneratorTestBase.cs" />
     <None Include="PropertyEntryJetTest.cs" />
-    <None Include="Query\AsyncFromSqlQueryJetTest.cs" />
-    <None Include="Query\AsyncGearsOfWarQueryJetTest.cs" />
-    <None Include="Query\ComplexNavigationsQueryJetTest.cs" />
-    <None Include="Query\ComplexNavigationsWeakQueryJetFixture.cs" />
-    <None Include="Query\ComplexNavigationsWeakQueryJetTest.cs" />
-    <None Include="Query\FiltersInheritanceQueryJetFixture.cs" />
-    <None Include="Query\FiltersInheritanceQueryJetTest.cs" />
-    <None Include="Query\FiltersJetTest.cs" />
     <None Include="Query\FromSqlQueryJetTest.cs" />
-    <None Include="Query\GearsOfWarQueryJetTest.cs" />
-    <None Include="Query\NorthwindAsyncSimpleQueryJetTest.cs" />
-    <None Include="Query\NorthwindFunctionsQueryJetTest.Functions.cs" />
-    <None Include="Query\NorthwindMiscellaneousQueryJetTest.cs" />
-    <None Include="Query\NorthwindSetOperationsQueryJetTest.cs" />
-    <None Include="Query\QueryFilterFuncletizationJetTest.cs" />
     <None Remove="TestResults\**" />
   </ItemGroup>
 
@@ -124,21 +110,7 @@
     <Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
     <Compile Remove="MigrationsSqlGeneratorTestBase.cs" />
     <Compile Remove="PropertyEntryJetTest.cs" />
-    <Compile Remove="Query\AsyncFromSqlQueryJetTest.cs" />
-    <Compile Remove="Query\AsyncGearsOfWarQueryJetTest.cs" />
-    <Compile Remove="Query\ComplexNavigationsQueryJetTest.cs" />
-    <Compile Remove="Query\ComplexNavigationsWeakQueryJetFixture.cs" />
-    <Compile Remove="Query\ComplexNavigationsWeakQueryJetTest.cs" />
-    <Compile Remove="Query\FiltersInheritanceQueryJetFixture.cs" />
-    <Compile Remove="Query\FiltersInheritanceQueryJetTest.cs" />
-    <Compile Remove="Query\FiltersJetTest.cs" />
     <Compile Remove="Query\FromSqlQueryJetTest.cs" />
-    <Compile Remove="Query\GearsOfWarQueryJetTest.cs" />
-    <Compile Remove="Query\NorthwindAsyncSimpleQueryJetTest.cs" />
-    <Compile Remove="Query\NorthwindFunctionsQueryJetTest.Functions.cs" />
-    <Compile Remove="Query\NorthwindMiscellaneousQueryJetTest.cs" />
-    <Compile Remove="Query\NorthwindSetOperationsQueryJetTest.cs" />
-    <Compile Remove="Query\QueryFilterFuncletizationJetTest.cs" />
   </ItemGroup>
 
 </Project>

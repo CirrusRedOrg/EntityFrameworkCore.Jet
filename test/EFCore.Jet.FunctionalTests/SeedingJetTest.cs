@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return context;
         }
 
-        protected override TestStore TestStore { get; }
+        protected override TestStore TestStore => JetTestStore.Create("SeedingTest");
 
         protected class SeedingJetContext : SeedingContext
         {

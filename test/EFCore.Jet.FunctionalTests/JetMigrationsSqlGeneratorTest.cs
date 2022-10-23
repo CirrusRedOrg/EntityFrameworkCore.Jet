@@ -20,6 +20,7 @@ using Assert = Xunit.Assert;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
+    //Idempotent is ignored
     public class JetMigrationsSqlGeneratorTest : MigrationsSqlGeneratorTestBase
     {
         [ConditionalFact]
@@ -48,7 +49,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_without_column_type();
 
             AssertSql(
-                @"ALTER TABLE `People` ADD `Alias` nvarchar(max) NOT NULL;
+                @"ALTER TABLE `People` ADD `Alias` longchar NOT NULL;
 ");
         }
 
@@ -57,7 +58,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_unicode_no_model();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` varchar(max) NULL;
+                @"ALTER TABLE `Person` ADD `Name` longchar NULL;
 ");
         }
 
@@ -111,7 +112,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AddColumnOperation_with_unicode_overridden();
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `Name` nvarchar(max) NULL;
+                @"ALTER TABLE `Person` ADD `Name` longchar NULL;
 ");
         }
 
@@ -130,7 +131,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 });
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
+                @"ALTER TABLE `Person` ADD `RowVersion` varbinary(8) NULL;
 ");
         }
 
@@ -148,7 +149,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 });
 
             AssertSql(
-                @"ALTER TABLE `Person` ADD `RowVersion` rowversion NULL;
+                @"ALTER TABLE `Person` ADD `RowVersion` varbinary(8) NULL;
 ");
         }
 
@@ -157,13 +158,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.AlterColumnOperation_without_column_type();
 
             AssertSql(
-                @"DECLARE @var0 sysname;
-SELECT @var0 = [d].`Name`
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'`People`') AND [c].`Name` = 'LuckyNumber');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `People` ALTER COLUMN [LuckyNumber] int NOT NULL;
+                @"ALTER TABLE `People` ALTER COLUMN `LuckyNumber` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `LuckyNumber` integer NOT NULL;
 ");
         }
 
@@ -190,13 +186,8 @@ ALTER TABLE `People` ALTER COLUMN [LuckyNumber] int NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
-SELECT @var0 = [d].`Name`
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'`People`') AND [c].`Name` = 'Id');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `People` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `People` ALTER COLUMN [Id] int NOT NULL;
+                @"ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
 ");
         }
 
@@ -223,13 +214,8 @@ ALTER TABLE `People` ALTER COLUMN [Id] int NOT NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
-SELECT @var0 = [d].`Name`
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'`Person`') AND [c].`Name` = 'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
+                @"ALTER TABLE `Person` ALTER COLUMN `Name` DROP DEFAULT;
+ALTER TABLE `Person` ALTER COLUMN `Name` varchar(30) NULL;
 ");
         }
 
@@ -262,16 +248,11 @@ ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
-SELECT @var0 = [d].`Name`
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'`Person`') AND [c].`Name` = 'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(30) NULL;
+                @"ALTER TABLE `Person` ALTER COLUMN `Name` DROP DEFAULT;
+ALTER TABLE `Person` ALTER COLUMN `Name` varchar(30) NULL;
 GO
 
-CREATE INDEX [IX_Person_Name] ON `Person` (`Name`);
+CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
 ");
         }
 
@@ -303,16 +284,11 @@ CREATE INDEX [IX_Person_Name] ON `Person` (`Name`);
                 });
 
             AssertSql(
-                @"DECLARE @var0 sysname;
-SELECT @var0 = [d].`Name`
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'`Person`') AND [c].`Name` = 'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE `Person` ALTER COLUMN `Name` nvarchar(450) NULL;
+                @"ALTER TABLE `Person` ALTER COLUMN `Name` DROP DEFAULT;
+ALTER TABLE `Person` ALTER COLUMN `Name` varchar(255) NULL;
 GO
 
-CREATE INDEX [IX_Person_Name] ON `Person` (`Name`);
+CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
 ");
         }
 
@@ -335,8 +311,8 @@ CREATE INDEX [IX_Person_Name] ON `Person` (`Name`);
                 });
 
             AssertSql(
-                @"ALTER TABLE `Person` DROP CONSTRAINT [' + @var0 + '];
-ALTER TABLE `Person` ALTER COLUMN [Id] bigint NOT NULL;
+                @"ALTER TABLE `Person` ALTER COLUMN `Id` DROP DEFAULT;
+ALTER TABLE `Person` ALTER COLUMN `Id` integer NOT NULL;
 ");
         }
 
@@ -697,12 +673,8 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id', N'Full
             base.InsertDataOperation_required_args();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
-    SET IDENTITY_INSERT `People` ON;
-INSERT INTO `People` (`First Name`)
-VALUES (N'John');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
-    SET IDENTITY_INSERT `People` OFF;
+                @"INSERT INTO `People` (`First Name`)
+VALUES ('John');
 ");
         }
 
@@ -711,12 +683,8 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name'
             base.InsertDataOperation_required_args_composite();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name', N'Last Name') AND [object_id] = OBJECT_ID(N'`People`'))
-    SET IDENTITY_INSERT `People` ON;
-INSERT INTO `People` (`First Name`, `Last Name`)
-VALUES (N'John', N'Snow');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name', N'Last Name') AND [object_id] = OBJECT_ID(N'`People`'))
-    SET IDENTITY_INSERT `People` OFF;
+                @"INSERT INTO `People` (`First Name`, `Last Name`)
+VALUES ('John', 'Snow');
 ");
         }
 
@@ -725,13 +693,9 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name'
             base.InsertDataOperation_required_args_multiple_rows();
 
             AssertSql(
-                @"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
-    SET IDENTITY_INSERT `People` ON;
-INSERT INTO `People` (`First Name`)
-VALUES (N'John'),
-(N'Daenerys');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'First Name') AND [object_id] = OBJECT_ID(N'`People`'))
-    SET IDENTITY_INSERT `People` OFF;
+                @"INSERT INTO `People` (`First Name`)
+VALUES ('John'),
+('Daenerys');
 ");
         }
 
@@ -948,10 +912,20 @@ SELECT @@ROWCOUNT;
         {
             base.DefaultValue_with_line_breaks(isUnicode);
 
-            var storeType = isUnicode ? "nvarchar(max)" : "varchar(max)";
-            var unicodePrefix = isUnicode ? "N" : string.Empty;
             var expectedSql = @$"CREATE TABLE `TestLineBreaks` (
-    [TestDefaultValue] {storeType} NOT NULL DEFAULT CONCAT({unicodePrefix}CHAR(13), {unicodePrefix}CHAR(10), {unicodePrefix}'Various Line', {unicodePrefix}CHAR(13), {unicodePrefix}'Breaks', {unicodePrefix}CHAR(10))
+    `TestDefaultValue` longchar NOT NULL DEFAULT '' & CHR(13) & '' & CHR(10) & 'Various Line' & CHR(13) & 'Breaks' & CHR(10) & ''
+);
+";
+            AssertSql(expectedSql);
+        }
+
+        public override void DefaultValue_with_line_breaks_2(bool isUnicode)
+        {
+            base.DefaultValue_with_line_breaks_2(isUnicode);
+
+            var unicodePrefixForType = string.Empty;
+            var expectedSql = @$"CREATE TABLE `TestLineBreaks` (
+    `TestDefaultValue` longchar NOT NULL DEFAULT '0' & CHR(13) & '' & CHR(10) & '1' & CHR(13) & '' & CHR(10) & '2' & CHR(13) & '' & CHR(10) & '3' & CHR(13) & '' & CHR(10) & '4' & CHR(13) & '' & CHR(10) & '5' & CHR(13) & '' & CHR(10) & '6' & CHR(13) & '' & CHR(10) & '7' & CHR(13) & '' & CHR(10) & '8' & CHR(13) & '' & CHR(10) & '9' & CHR(13) & '' & CHR(10) & '10' & CHR(13) & '' & CHR(10) & '11' & CHR(13) & '' & CHR(10) & '12' & CHR(13) & '' & CHR(10) & '13' & CHR(13) & '' & CHR(10) & '14' & CHR(13) & '' & CHR(10) & '15' & CHR(13) & '' & CHR(10) & '16' & CHR(13) & '' & CHR(10) & '17' & CHR(13) & '' & CHR(10) & '18' & CHR(13) & '' & CHR(10) & '19' & CHR(13) & '' & CHR(10) & '20' & CHR(13) & '' & CHR(10) & '21' & CHR(13) & '' & CHR(10) & '22' & CHR(13) & '' & CHR(10) & '23' & CHR(13) & '' & CHR(10) & '24' & CHR(13) & '' & CHR(10) & '25' & CHR(13) & '' & CHR(10) & '26' & CHR(13) & '' & CHR(10) & '27' & CHR(13) & '' & CHR(10) & '28' & CHR(13) & '' & CHR(10) & '29' & CHR(13) & '' & CHR(10) & '30' & CHR(13) & '' & CHR(10) & '31' & CHR(13) & '' & CHR(10) & '32' & CHR(13) & '' & CHR(10) & '33' & CHR(13) & '' & CHR(10) & '34' & CHR(13) & '' & CHR(10) & '35' & CHR(13) & '' & CHR(10) & '36' & CHR(13) & '' & CHR(10) & '37' & CHR(13) & '' & CHR(10) & '38' & CHR(13) & '' & CHR(10) & '39' & CHR(13) & '' & CHR(10) & '40' & CHR(13) & '' & CHR(10) & '41' & CHR(13) & '' & CHR(10) & '42' & CHR(13) & '' & CHR(10) & '43' & CHR(13) & '' & CHR(10) & '44' & CHR(13) & '' & CHR(10) & '45' & CHR(13) & '' & CHR(10) & '46' & CHR(13) & '' & CHR(10) & '47' & CHR(13) & '' & CHR(10) & '48' & CHR(13) & '' & CHR(10) & '49' & CHR(13) & '' & CHR(10) & '50' & CHR(13) & '' & CHR(10) & '51' & CHR(13) & '' & CHR(10) & '52' & CHR(13) & '' & CHR(10) & '53' & CHR(13) & '' & CHR(10) & '54' & CHR(13) & '' & CHR(10) & '55' & CHR(13) & '' & CHR(10) & '56' & CHR(13) & '' & CHR(10) & '57' & CHR(13) & '' & CHR(10) & '58' & CHR(13) & '' & CHR(10) & '59' & CHR(13) & '' & CHR(10) & '60' & CHR(13) & '' & CHR(10) & '61' & CHR(13) & '' & CHR(10) & '62' & CHR(13) & '' & CHR(10) & '63' & CHR(13) & '' & CHR(10) & '64' & CHR(13) & '' & CHR(10) & '65' & CHR(13) & '' & CHR(10) & '66' & CHR(13) & '' & CHR(10) & '67' & CHR(13) & '' & CHR(10) & '68' & CHR(13) & '' & CHR(10) & '69' & CHR(13) & '' & CHR(10) & '70' & CHR(13) & '' & CHR(10) & '71' & CHR(13) & '' & CHR(10) & '72' & CHR(13) & '' & CHR(10) & '73' & CHR(13) & '' & CHR(10) & '74' & CHR(13) & '' & CHR(10) & '75' & CHR(13) & '' & CHR(10) & '76' & CHR(13) & '' & CHR(10) & '77' & CHR(13) & '' & CHR(10) & '78' & CHR(13) & '' & CHR(10) & '79' & CHR(13) & '' & CHR(10) & '80' & CHR(13) & '' & CHR(10) & '81' & CHR(13) & '' & CHR(10) & '82' & CHR(13) & '' & CHR(10) & '83' & CHR(13) & '' & CHR(10) & '84' & CHR(13) & '' & CHR(10) & '85' & CHR(13) & '' & CHR(10) & '86' & CHR(13) & '' & CHR(10) & '87' & CHR(13) & '' & CHR(10) & '88' & CHR(13) & '' & CHR(10) & '89' & CHR(13) & '' & CHR(10) & '90' & CHR(13) & '' & CHR(10) & '91' & CHR(13) & '' & CHR(10) & '92' & CHR(13) & '' & CHR(10) & '93' & CHR(13) & '' & CHR(10) & '94' & CHR(13) & '' & CHR(10) & '95' & CHR(13) & '' & CHR(10) & '96' & CHR(13) & '' & CHR(10) & '97' & CHR(13) & '' & CHR(10) & '98' & CHR(13) & '' & CHR(10) & '99' & CHR(13) & '' & CHR(10) & '100' & CHR(13) & '' & CHR(10) & '101' & CHR(13) & '' & CHR(10) & '102' & CHR(13) & '' & CHR(10) & '103' & CHR(13) & '' & CHR(10) & '104' & CHR(13) & '' & CHR(10) & '105' & CHR(13) & '' & CHR(10) & '106' & CHR(13) & '' & CHR(10) & '107' & CHR(13) & '' & CHR(10) & '108' & CHR(13) & '' & CHR(10) & '109' & CHR(13) & '' & CHR(10) & '110' & CHR(13) & '' & CHR(10) & '111' & CHR(13) & '' & CHR(10) & '112' & CHR(13) & '' & CHR(10) & '113' & CHR(13) & '' & CHR(10) & '114' & CHR(13) & '' & CHR(10) & '115' & CHR(13) & '' & CHR(10) & '116' & CHR(13) & '' & CHR(10) & '117' & CHR(13) & '' & CHR(10) & '118' & CHR(13) & '' & CHR(10) & '119' & CHR(13) & '' & CHR(10) & '120' & CHR(13) & '' & CHR(10) & '121' & CHR(13) & '' & CHR(10) & '122' & CHR(13) & '' & CHR(10) & '123' & CHR(13) & '' & CHR(10) & '124' & CHR(13) & '' & CHR(10) & '125' & CHR(13) & '' & CHR(10) & '126' & CHR(13) & '' & CHR(10) & '127' & CHR(13) & '' & CHR(10) & '128' & CHR(13) & '' & CHR(10) & '129' & CHR(13) & '' & CHR(10) & '130' & CHR(13) & '' & CHR(10) & '131' & CHR(13) & '' & CHR(10) & '132' & CHR(13) & '' & CHR(10) & '133' & CHR(13) & '' & CHR(10) & '134' & CHR(13) & '' & CHR(10) & '135' & CHR(13) & '' & CHR(10) & '136' & CHR(13) & '' & CHR(10) & '137' & CHR(13) & '' & CHR(10) & '138' & CHR(13) & '' & CHR(10) & '139' & CHR(13) & '' & CHR(10) & '140' & CHR(13) & '' & CHR(10) & '141' & CHR(13) & '' & CHR(10) & '142' & CHR(13) & '' & CHR(10) & '143' & CHR(13) & '' & CHR(10) & '144' & CHR(13) & '' & CHR(10) & '145' & CHR(13) & '' & CHR(10) & '146' & CHR(13) & '' & CHR(10) & '147' & CHR(13) & '' & CHR(10) & '148' & CHR(13) & '' & CHR(10) & '149' & CHR(13) & '' & CHR(10) & '150' & CHR(13) & '' & CHR(10) & '151' & CHR(13) & '' & CHR(10) & '152' & CHR(13) & '' & CHR(10) & '153' & CHR(13) & '' & CHR(10) & '154' & CHR(13) & '' & CHR(10) & '155' & CHR(13) & '' & CHR(10) & '156' & CHR(13) & '' & CHR(10) & '157' & CHR(13) & '' & CHR(10) & '158' & CHR(13) & '' & CHR(10) & '159' & CHR(13) & '' & CHR(10) & '160' & CHR(13) & '' & CHR(10) & '161' & CHR(13) & '' & CHR(10) & '162' & CHR(13) & '' & CHR(10) & '163' & CHR(13) & '' & CHR(10) & '164' & CHR(13) & '' & CHR(10) & '165' & CHR(13) & '' & CHR(10) & '166' & CHR(13) & '' & CHR(10) & '167' & CHR(13) & '' & CHR(10) & '168' & CHR(13) & '' & CHR(10) & '169' & CHR(13) & '' & CHR(10) & '170' & CHR(13) & '' & CHR(10) & '171' & CHR(13) & '' & CHR(10) & '172' & CHR(13) & '' & CHR(10) & '173' & CHR(13) & '' & CHR(10) & '174' & CHR(13) & '' & CHR(10) & '175' & CHR(13) & '' & CHR(10) & '176' & CHR(13) & '' & CHR(10) & '177' & CHR(13) & '' & CHR(10) & '178' & CHR(13) & '' & CHR(10) & '179' & CHR(13) & '' & CHR(10) & '180' & CHR(13) & '' & CHR(10) & '181' & CHR(13) & '' & CHR(10) & '182' & CHR(13) & '' & CHR(10) & '183' & CHR(13) & '' & CHR(10) & '184' & CHR(13) & '' & CHR(10) & '185' & CHR(13) & '' & CHR(10) & '186' & CHR(13) & '' & CHR(10) & '187' & CHR(13) & '' & CHR(10) & '188' & CHR(13) & '' & CHR(10) & '189' & CHR(13) & '' & CHR(10) & '190' & CHR(13) & '' & CHR(10) & '191' & CHR(13) & '' & CHR(10) & '192' & CHR(13) & '' & CHR(10) & '193' & CHR(13) & '' & CHR(10) & '194' & CHR(13) & '' & CHR(10) & '195' & CHR(13) & '' & CHR(10) & '196' & CHR(13) & '' & CHR(10) & '197' & CHR(13) & '' & CHR(10) & '198' & CHR(13) & '' & CHR(10) & '199' & CHR(13) & '' & CHR(10) & '200' & CHR(13) & '' & CHR(10) & '201' & CHR(13) & '' & CHR(10) & '202' & CHR(13) & '' & CHR(10) & '203' & CHR(13) & '' & CHR(10) & '204' & CHR(13) & '' & CHR(10) & '205' & CHR(13) & '' & CHR(10) & '206' & CHR(13) & '' & CHR(10) & '207' & CHR(13) & '' & CHR(10) & '208' & CHR(13) & '' & CHR(10) & '209' & CHR(13) & '' & CHR(10) & '210' & CHR(13) & '' & CHR(10) & '211' & CHR(13) & '' & CHR(10) & '212' & CHR(13) & '' & CHR(10) & '213' & CHR(13) & '' & CHR(10) & '214' & CHR(13) & '' & CHR(10) & '215' & CHR(13) & '' & CHR(10) & '216' & CHR(13) & '' & CHR(10) & '217' & CHR(13) & '' & CHR(10) & '218' & CHR(13) & '' & CHR(10) & '219' & CHR(13) & '' & CHR(10) & '220' & CHR(13) & '' & CHR(10) & '221' & CHR(13) & '' & CHR(10) & '222' & CHR(13) & '' & CHR(10) & '223' & CHR(13) & '' & CHR(10) & '224' & CHR(13) & '' & CHR(10) & '225' & CHR(13) & '' & CHR(10) & '226' & CHR(13) & '' & CHR(10) & '227' & CHR(13) & '' & CHR(10) & '228' & CHR(13) & '' & CHR(10) & '229' & CHR(13) & '' & CHR(10) & '230' & CHR(13) & '' & CHR(10) & '231' & CHR(13) & '' & CHR(10) & '232' & CHR(13) & '' & CHR(10) & '233' & CHR(13) & '' & CHR(10) & '234' & CHR(13) & '' & CHR(10) & '235' & CHR(13) & '' & CHR(10) & '236' & CHR(13) & '' & CHR(10) & '237' & CHR(13) & '' & CHR(10) & '238' & CHR(13) & '' & CHR(10) & '239' & CHR(13) & '' & CHR(10) & '240' & CHR(13) & '' & CHR(10) & '241' & CHR(13) & '' & CHR(10) & '242' & CHR(13) & '' & CHR(10) & '243' & CHR(13) & '' & CHR(10) & '244' & CHR(13) & '' & CHR(10) & '245' & CHR(13) & '' & CHR(10) & '246' & CHR(13) & '' & CHR(10) & '247' & CHR(13) & '' & CHR(10) & '248' & CHR(13) & '' & CHR(10) & '249' & CHR(13) & '' & CHR(10) & '250' & CHR(13) & '' & CHR(10) & '251' & CHR(13) & '' & CHR(10) & '252' & CHR(13) & '' & CHR(10) & '253' & CHR(13) & '' & CHR(10) & '254' & CHR(13) & '' & CHR(10) & '255' & CHR(13) & '' & CHR(10) & '256' & CHR(13) & '' & CHR(10) & '257' & CHR(13) & '' & CHR(10) & '258' & CHR(13) & '' & CHR(10) & '259' & CHR(13) & '' & CHR(10) & '260' & CHR(13) & '' & CHR(10) & '261' & CHR(13) & '' & CHR(10) & '262' & CHR(13) & '' & CHR(10) & '263' & CHR(13) & '' & CHR(10) & '264' & CHR(13) & '' & CHR(10) & '265' & CHR(13) & '' & CHR(10) & '266' & CHR(13) & '' & CHR(10) & '267' & CHR(13) & '' & CHR(10) & '268' & CHR(13) & '' & CHR(10) & '269' & CHR(13) & '' & CHR(10) & '270' & CHR(13) & '' & CHR(10) & '271' & CHR(13) & '' & CHR(10) & '272' & CHR(13) & '' & CHR(10) & '273' & CHR(13) & '' & CHR(10) & '274' & CHR(13) & '' & CHR(10) & '275' & CHR(13) & '' & CHR(10) & '276' & CHR(13) & '' & CHR(10) & '277' & CHR(13) & '' & CHR(10) & '278' & CHR(13) & '' & CHR(10) & '279' & CHR(13) & '' & CHR(10) & '280' & CHR(13) & '' & CHR(10) & '281' & CHR(13) & '' & CHR(10) & '282' & CHR(13) & '' & CHR(10) & '283' & CHR(13) & '' & CHR(10) & '284' & CHR(13) & '' & CHR(10) & '285' & CHR(13) & '' & CHR(10) & '286' & CHR(13) & '' & CHR(10) & '287' & CHR(13) & '' & CHR(10) & '288' & CHR(13) & '' & CHR(10) & '289' & CHR(13) & '' & CHR(10) & '290' & CHR(13) & '' & CHR(10) & '291' & CHR(13) & '' & CHR(10) & '292' & CHR(13) & '' & CHR(10) & '293' & CHR(13) & '' & CHR(10) & '294' & CHR(13) & '' & CHR(10) & '295' & CHR(13) & '' & CHR(10) & '296' & CHR(13) & '' & CHR(10) & '297' & CHR(13) & '' & CHR(10) & '298' & CHR(13) & '' & CHR(10) & '299' & CHR(13) & '' & CHR(10) & ''
 );
 ";
             AssertSql(expectedSql);
@@ -1002,7 +976,7 @@ SELECT @@ROWCOUNT;
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @"EXEC(N'CREATE INDEX [IX_Table1_Column1] ON [Table1] ([Column1]) WHERE [Column1] IS NOT NULL');
+                @"CREATE INDEX `IX_Table1_Column1` ON `Table1` (`Column1`) WHERE [Column1] IS NOT NULL;
 ");
         }
 
@@ -1024,7 +998,7 @@ SELECT @@ROWCOUNT;
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @"EXEC(N'CREATE UNIQUE INDEX [IX_Table1_Column1] ON [Table1] ([Column1]) WHERE [Column1] IS NOT NULL');
+                @"CREATE UNIQUE INDEX `IX_Table1_Column1` ON `Table1` (`Column1`) WHERE `Column1` IS NOT NULL';
 ");
         }
 
@@ -1048,7 +1022,7 @@ SELECT @@ROWCOUNT;
 
 ");
         }
-
+        //ignores possibility of inserting identity
         [ConditionalFact]
         public virtual void InsertData_generates_exec_when_idempotent()
         {
@@ -1063,12 +1037,8 @@ SELECT @@ROWCOUNT;
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @$"IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id') AND [object_id] = OBJECT_ID(N'[Table1]'))
-    SET IDENTITY_INSERT [Table1] ON;
-EXEC(N'INSERT INTO [Table1] ([Id])
-VALUES (1)');
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id') AND [object_id] = OBJECT_ID(N'[Table1]'))
-    SET IDENTITY_INSERT [Table1] OFF;
+                @$"INSERT INTO `Table1` (`Id`)
+VALUES (1);
 ");
         }
 
@@ -1092,9 +1062,10 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE `Name` IN (N'Id') AND [o
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @$"EXEC(N'UPDATE [Table1] SET [Column1] = 2
-WHERE [Id] = 1;
-SELECT @@ROWCOUNT');
+                @$"UPDATE `Table1` SET `Column1` = 2
+WHERE `Id` = 1;
+SELECT @@ROWCOUNT;
+
 ");
         }
 
@@ -1115,7 +1086,7 @@ SELECT @@ROWCOUNT');
 
             AssertSql(
                 $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2019-01-01#;
-            ");
+");
         }
         
         public JetMigrationsSqlGeneratorTest()

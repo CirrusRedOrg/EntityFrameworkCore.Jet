@@ -625,7 +625,7 @@ WHERE 10 < `o`.`ProductID`");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CEILING(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0");
+WHERE CEILING(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0");
         }
 
         public override async Task Where_math_ceiling2(bool isAsync)
@@ -655,7 +655,7 @@ WHERE FLOOR(`o`.`UnitPrice`) > 10.0");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE POWER(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`)), 2.0E0) > 0.05000000074505806E0");
+WHERE POWER(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`)), 2.0E0) > 0.05000000074505806E0");
         }
 
         public override async Task Where_math_round(bool isAsync)
@@ -673,7 +673,7 @@ WHERE ROUND(`o`.`UnitPrice`, 0) > 10.0");
             await base.Select_math_round_int(isAsync);
 
             AssertSql(
-                $@"SELECT ROUND(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0) AS `A`
+                $@"SELECT ROUND(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0) AS `A`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10250");
         }
@@ -683,7 +683,7 @@ WHERE `o`.`OrderID` < 10250");
             await base.Select_math_truncate_int(isAsync);
 
             AssertSql(
-                $@"SELECT ROUND(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
+                $@"SELECT ROUND(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10250");
         }
@@ -715,7 +715,7 @@ WHERE ROUND(`o`.`UnitPrice`, 0, 1) > 10.0");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (EXP(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 1.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (EXP(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 1.0E0)");
         }
 
         public override async Task Where_math_log10(bool isAsync)
@@ -725,7 +725,7 @@ WHERE (`o`.`OrderID` = 11077) AND (EXP(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIf(0 IS NULL, NULL, CSNG(0)))) AND (LOG10(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) < 0.0E0)");
+WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIF(0 IS NULL, NULL, CSNG(0)))) AND (LOG10(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) < 0.0E0)");
         }
 
         public override async Task Where_math_log(bool isAsync)
@@ -735,7 +735,7 @@ WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIf(0 IS NULL, NULL, CSNG(0
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIf(0 IS NULL, NULL, CSNG(0)))) AND (LOG(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) < 0.0E0)");
+WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIF(0 IS NULL, NULL, CSNG(0)))) AND (LOG(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) < 0.0E0)");
         }
 
         public override async Task Where_math_log_new_base(bool isAsync)
@@ -745,7 +745,7 @@ WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIf(0 IS NULL, NULL, CSNG(0
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIf(0 IS NULL, NULL, CSNG(0)))) AND (LOG(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`)), 7.0E0) < 0.0E0)");
+WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIF(0 IS NULL, NULL, CSNG(0)))) AND (LOG(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`)), 7.0E0) < 0.0E0)");
         }
 
         public override async Task Where_math_sqrt(bool isAsync)
@@ -755,7 +755,7 @@ WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > IIf(0 IS NULL, NULL, CSNG(0
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (SQRT(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (SQRT(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
         }
 
         public override async Task Where_math_acos(bool isAsync)
@@ -765,7 +765,7 @@ WHERE (`o`.`OrderID` = 11077) AND (SQRT(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ACOS(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 1.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (ACOS(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 1.0E0)");
         }
 
         public override async Task Where_math_asin(bool isAsync)
@@ -775,7 +775,7 @@ WHERE (`o`.`OrderID` = 11077) AND (ACOS(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ASIN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (ASIN(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
         }
 
         public override async Task Where_math_atan(bool isAsync)
@@ -785,7 +785,7 @@ WHERE (`o`.`OrderID` = 11077) AND (ASIN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ATAN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (ATAN(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
         }
 
         public override async Task Where_math_atan2(bool isAsync)
@@ -795,7 +795,7 @@ WHERE (`o`.`OrderID` = 11077) AND (ATAN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ATN2(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`)), 1.0E0) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (ATN2(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`)), 1.0E0) > 0.0E0)");
         }
 
         public override async Task Where_math_cos(bool isAsync)
@@ -805,7 +805,7 @@ WHERE (`o`.`OrderID` = 11077) AND (ATN2(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (COS(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (COS(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
         }
 
         public override async Task Where_math_sin(bool isAsync)
@@ -815,7 +815,7 @@ WHERE (`o`.`OrderID` = 11077) AND (COS(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (SIN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (SIN(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
         }
 
         public override async Task Where_math_tan(bool isAsync)
@@ -825,7 +825,7 @@ WHERE (`o`.`OrderID` = 11077) AND (SIN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (TAN(IIf(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
+WHERE (`o`.`OrderID` = 11077) AND (TAN(IIF(`o`.`Discount` IS NULL, NULL, CDBL(`o`.`Discount`))) > 0.0E0)");
         }
 
         public override async Task Where_math_sign(bool isAsync)
@@ -881,7 +881,7 @@ WHERE LCASE(`c`.`CustomerID`) = 'alfki'");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE POWER(IIf(CAST(LEN(`c`.`CustomerID`) AS int) IS NULL, NULL, CDBL(CAST(LEN(`c`.`CustomerID`) AS int))), 2.0E0) = 25.0E0");
+WHERE POWER(IIF(CAST(LEN(`c`.`CustomerID`) AS int) IS NULL, NULL, CDBL(CAST(LEN(`c`.`CustomerID`) AS int))), 2.0E0) = 25.0E0");
         }
 
         public override async Task Convert_ToByte(bool isAsync)
@@ -910,31 +910,31 @@ WHERE POWER(IIf(CAST(LEN(`c`.`CustomerID`) AS int) IS NULL, NULL, CDBL(CAST(LEN(
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CBYTE(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CBYTE(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CBYTE(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CBYTE((`o`.`OrderID` MOD 1 & ''))) >= 0)");
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CBYTE((`o`.`OrderID` MOD 1 & ''))) >= 0)");
         }
 
         public override async Task Convert_ToDecimal(bool isAsync)
@@ -963,31 +963,31 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CCUR(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CCUR(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CCUR(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CCUR((`o`.`OrderID` MOD 1 & ''))) >= 0.0)");
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CCUR((`o`.`OrderID` MOD 1 & ''))) >= 0.0)");
         }
 
         public override async Task Convert_ToDouble(bool isAsync)
@@ -1016,31 +1016,31 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CDBL(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CDBL(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0.0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CDBL(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0.0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CDBL((`o`.`OrderID` MOD 1 & ''))) >= 0.0)");
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CDBL((`o`.`OrderID` MOD 1 & ''))) >= 0.0)");
         }
 
         public override async Task Convert_ToInt16(bool isAsync)
@@ -1069,31 +1069,31 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CINT(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CINT(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CINT(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CINT((`o`.`OrderID` MOD 1 & ''))) >= 0)");
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CINT((`o`.`OrderID` MOD 1 & ''))) >= 0)");
         }
 
         public override async Task Convert_ToInt32(bool isAsync)
@@ -1122,31 +1122,31 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CLNG(IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))) IS NULL, NULL, CLNG(IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)))))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) IS NULL, NULL, CLNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CLNG((`o`.`OrderID` MOD 1 & ''))) >= 0)");        }
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, NULL, CLNG((`o`.`OrderID` MOD 1 & ''))) >= 0)");        }
 
         [ConditionalTheory(Skip = "Int64 support has not been implemented yet.")]
         public override async Task Convert_ToInt64(bool isAsync)
@@ -1156,27 +1156,27 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIf((`o`.`OrderID` MOD 1 & '') IS NULL, 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1))) >= 0)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1))) >= 0)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -1214,27 +1214,27 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, CONVERT(nvarchar(max), `
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) & '') IS NULL)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CBYTE(`o`.`OrderID` MOD 1)) & '') IS NULL)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) & '') IS NULL)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CCUR(`o`.`OrderID` MOD 1)) & '') IS NULL)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) & '') IS NULL)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) & '') IS NULL)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND ((CONVERT(nvarchar(max), IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))))) <> '10') OR CONVERT(nvarchar(max), IIf(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))))) IS NULL)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND ((CONVERT(nvarchar(max), IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))))) <> '10') OR CONVERT(nvarchar(max), IIF(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1)) IS NULL, NULL, CSNG(IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CDBL(`o`.`OrderID` MOD 1))))) IS NULL)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) & '') IS NULL)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CINT(`o`.`OrderID` MOD 1)) & '') IS NULL)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIf(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) & '') IS NULL)",
+WHERE (`o`.`CustomerID` = 'ALFKI') AND (((IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) & '') <> '10') OR (IIF(`o`.`OrderID` MOD 1 IS NULL, NULL, CLNG(`o`.`OrderID` MOD 1)) & '') IS NULL)",
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -1272,59 +1272,97 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
-        public override async Task Substring_with_zero_startindex(bool isAsync)
+        public override async Task Replace_using_property_arguments(bool async)
         {
-            await base.Substring_with_zero_startindex(isAsync);
-
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT SUBSTRING(`c`.`ContactName`, 1, 3)
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
-
-        public override async Task Substring_with_zero_length(bool isAsync)
-        {
-            await base.Substring_with_zero_length(isAsync);
-
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT SUBSTRING(`c`.`ContactName`, 3, 0)
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
-
-        public override async Task Substring_with_constant(bool isAsync)
-        {
-            await base.Substring_with_constant(isAsync);
-
-            // issue #15994
-//            AssertSql(
-//                $@"SELECT SUBSTRING(`c`.`ContactName`, 2, 3)
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` = 'ALFKI'");
-        }
-
-        public override async Task Substring_with_closure(bool isAsync)
-        {
-            await base.Substring_with_closure(isAsync);
+            await base.Replace_using_property_arguments(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__start_0='2'")}
-
-SELECT SUBSTRING(`c`.`ContactName`, {AssertSqlHelper.Parameter("@__start_0")} + 1, 3)
+                @"SELECT REPLACE(`c`.`ContactName`, `c`.`ContactName`, `c`.`CustomerID`)
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
-        public override async Task Substring_with_Index_of(bool isAsync)
+        public override async Task Substring_with_one_arg_with_zero_startindex(bool async)
         {
-            await base.Substring_with_Index_of(isAsync);
+            await base.Substring_with_one_arg_with_zero_startindex(async);
 
             AssertSql(
-                $@"SELECT SUBSTRING(`c`.`ContactName`, CASE
-    WHEN 'a' = '' THEN 0
-    ELSE CHARINDEX('a', `c`.`ContactName`) - 1
+                @"SELECT `c`.`ContactName`
+FROM `Customers` AS `c`
+WHERE SUBSTRING(`c`.`CustomerID`, 0 + 1, LEN(`c`.`CustomerID`)) = 'ALFKI'");
+        }
+
+        public override async Task Substring_with_one_arg_with_constant(bool async)
+        {
+            await base.Substring_with_one_arg_with_constant(async);
+
+            AssertSql(
+                @"SELECT `c`.`ContactName`
+FROM `Customers` AS `c`
+WHERE SUBSTRING(`c`.`CustomerID`, 1 + 1, LEN(`c`.`CustomerID`)) = 'LFKI'");
+        }
+
+        public override async Task Substring_with_one_arg_with_closure(bool async)
+        {
+            await base.Substring_with_one_arg_with_closure(async);
+
+            AssertSql(
+                @"@__start_0='2'
+SELECT `c`.`ContactName`
+FROM `Customers` AS `c`
+WHERE SUBSTRING(`c`.`CustomerID`, @__start_0 + 1, LEN(`c`.`CustomerID`)) = 'FKI'");
+        }
+
+        public override async Task Substring_with_two_args_with_zero_startindex(bool async)
+        {
+            await base.Substring_with_two_args_with_zero_startindex(async);
+
+            AssertSql(
+                @"SELECT SUBSTRING(`c`.`ContactName`, 0 + 1, 3)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'");
+        }
+
+        public override async Task Substring_with_two_args_with_zero_length(bool async)
+        {
+            await base.Substring_with_two_args_with_zero_length(async);
+
+            AssertSql(
+                @"SELECT SUBSTRING(`c`.`ContactName`, 2 + 1, 0)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'");
+        }
+
+        public override async Task Substring_with_two_args_with_constant(bool async)
+        {
+            await base.Substring_with_two_args_with_constant(async);
+
+            AssertSql(
+                @"SELECT SUBSTRING(`c`.`ContactName`, 1 + 1, 3)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'");
+        }
+
+        public override async Task Substring_with_two_args_with_closure(bool async)
+        {
+            await base.Substring_with_two_args_with_closure(async);
+
+            AssertSql(
+                @"@__start_0='2'
+
+SELECT SUBSTRING(`c`.`ContactName`, @__start_0 + 1, 3)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'");
+        }
+
+        public override async Task Substring_with_two_args_with_Index_of(bool async)
+        {
+            await base.Substring_with_two_args_with_Index_of(async);
+
+            AssertSql(
+                @"SELECT SUBSTRING(`c`.`ContactName`, CASE
+    WHEN N'a' = N'' THEN 0
+    ELSE CAST(CHARINDEX(N'a', `c`.`ContactName`) AS int) - 1
 END + 1, 3)
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
@@ -1337,29 +1375,39 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`Region` IS NULL OR (`c`.`Region` = '')");
+WHERE (`c`.`Region` IS NULL) OR (`c`.`Region` = '')");
         }
 
-        public override void IsNullOrEmpty_in_projection()
+        public override async Task IsNullOrEmpty_in_projection(bool async)
         {
-            base.IsNullOrEmpty_in_projection();
+            await base.IsNullOrEmpty_in_projection(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID` AS `Id`, CASE
-    WHEN `c`.`Region` IS NULL OR ((`c`.`Region` = '') AND `c`.`Region` IS NOT NULL) THEN 1
-    ELSE 0
+                @"SELECT `c`.`CustomerID` AS `Id`, CASE
+    WHEN (`c`.`Region` IS NULL) OR (`c`.`Region` LIKE '') THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
 END AS `Value`
 FROM `Customers` AS `c`");
         }
 
-        public override void IsNullOrEmpty_negated_in_projection()
+        public override async Task IsNullOrEmpty_negated_in_predicate(bool async)
         {
-            base.IsNullOrEmpty_negated_in_projection();
+            await base.IsNullOrEmpty_negated_in_predicate(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID` AS `Id`, CASE
-    WHEN `c`.`Region` IS NOT NULL AND ((`c`.`Region` <> '') OR `c`.`Region` IS NULL) THEN 1
-    ELSE 0
+                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (`c`.`Region` IS NOT NULL) AND NOT (`c`.`Region` LIKE N'')");
+        }
+
+        public override async Task IsNullOrEmpty_negated_in_projection(bool async)
+        {
+            await base.IsNullOrEmpty_negated_in_projection(async);
+
+            AssertSql(
+                @"SELECT `c`.`CustomerID` AS `Id`, CASE
+    WHEN (`c`.`Region` IS NOT NULL) AND NOT (`c`.`Region` LIKE N'') THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
 END AS `Value`
 FROM `Customers` AS `c`");
         }
@@ -1474,7 +1522,7 @@ WHERE `c`.`CustomerID` = 'ANATR'");
             await base.Static_equals_nullable_datetime_compared_to_non_nullable(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__arg_0='1996-07-04T00:00:00'")}
+                $@"{AssertSqlHelper.Declaration("@__arg_0='1996-07-04T00:00:00.0000000' (DbType = DateTime)")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
@@ -1497,7 +1545,7 @@ WHERE 0 = 1");
 
             // issue #16038
 //            AssertSql(
-//                $@"SELECT ROUND(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
+//                $@"SELECT ROUND(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
 //FROM `Orders` AS `o`
 //WHERE `o`.`OrderID` < 10250
 //ORDER BY `A`");
@@ -1509,7 +1557,7 @@ WHERE 0 = 1");
 
             // issue #16038
 //            AssertSql(
-//                $@"SELECT ROUND(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
+//                $@"SELECT ROUND(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
 //FROM `Orders` AS `o`
 //WHERE `o`.`OrderID` < 10250
 //ORDER BY `A` DESC");
@@ -1521,7 +1569,7 @@ WHERE 0 = 1");
 
             // issue #16038
 //            AssertSql(
-//                $@"SELECT ROUND(IIf(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
+//                $@"SELECT ROUND(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`)), 0, 1) AS `A`
 //FROM `Orders` AS `o`
 //WHERE `o`.`OrderID` < 10250
 //ORDER BY `A` DESC");

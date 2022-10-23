@@ -6020,23 +6020,6 @@ GROUP BY `g`.`Nickname`
 ORDER BY `g`.`Nickname`");
         }
 
-        public override async Task Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector(bool isAsync)
-        {
-            await base.Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector(isAsync);
-
-            AssertSql(
-                $@"");
-        }
-
-        public override async Task Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector_using_EF_Property(
-            bool isAsync)
-        {
-            await base.Group_by_entity_key_with_include_on_that_entity_with_key_in_result_selector_using_EF_Property(isAsync);
-
-            AssertSql(
-                $@"");
-        }
-
         public override async Task Group_by_with_include_with_entity_in_result_selector(bool isAsync)
         {
             await base.Group_by_with_include_with_entity_in_result_selector(isAsync);
@@ -6706,10 +6689,9 @@ WHERE `g`.`Discriminator` = 'Officer'");
 FROM `Factions` AS `f`
 WHERE `f`.`Discriminator` = 'LocustHorde'");
         }
-
-        public override async Task Acessing_reference_navigation_collection_composition_generates_single_query(bool isAsync)
+        public override async Task Accessing_reference_navigation_collection_composition_generates_single_query(bool isAsync)
         {
-            await base.Acessing_reference_navigation_collection_composition_generates_single_query(isAsync);
+            await base.Accessing_reference_navigation_collection_composition_generates_single_query(isAsync);
 
             AssertSql(
                 $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `t`.`IsAutomatic`, `t`.`Name`

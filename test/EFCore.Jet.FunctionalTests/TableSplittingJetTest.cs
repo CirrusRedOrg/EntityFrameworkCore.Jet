@@ -5,6 +5,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
+using Microsoft.EntityFrameworkCore.TestModels.TransportationModel;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
@@ -266,6 +267,42 @@ SET NOCOUNT ON;
 UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}
 WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
 SELECT @@ROWCOUNT;");
+        }
+
+        public override async Task Optional_dependent_materialized_when_no_properties()
+        {
+            await base.Optional_dependent_materialized_when_no_properties();
+
+            AssertSql(
+                @"SELECT TOP 1 `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `v`.`AttachedVehicleName`, `t`.`Name`, `t`.`Operator_Discriminator`, `t`.`Operator_Name`, `t`.`LicenseType`, `t0`.`Name`, `t0`.`Active`, `t0`.`Type`
+FROM `Vehicles` AS `v`
+LEFT JOIN (
+    SELECT `v0`.`Name`, `v0`.`Operator_Discriminator`, `v0`.`Operator_Name`, `v0`.`LicenseType`
+    FROM `Vehicles` AS `v0`
+    INNER JOIN `Vehicles` AS `v1` ON `v0`.`Name` = `v1`.`Name`
+) AS `t` ON `v`.`Name` = `t`.`Name`
+LEFT JOIN (
+    SELECT `v2`.`Name`, `v2`.`Active`, `v2`.`Type`
+    FROM `Vehicles` AS `v2`
+    INNER JOIN (
+        SELECT `v3`.`Name`
+        FROM `Vehicles` AS `v3`
+        INNER JOIN `Vehicles` AS `v4` ON `v3`.`Name` = `v4`.`Name`
+    ) AS `t1` ON `v2`.`Name` = `t1`.`Name`
+    WHERE `v2`.`Active` IS NOT NULL
+) AS `t0` ON `t`.`Name` = CASE
+    WHEN `t0`.`Active` IS NOT NULL THEN `t0`.`Name`
+END
+WHERE `v`.`Name` = 'AIM-9M Sidewinder'
+ORDER BY `v`.`Name`");
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Engine>().ToTable("Vehicles")
+                .Property(e => e.Computed).HasComputedColumnSql("1", stored: true);
         }
     }
 }

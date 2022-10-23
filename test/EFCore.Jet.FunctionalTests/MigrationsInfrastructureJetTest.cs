@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.AspNetIdentity;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseCreator;
 
@@ -18,9 +19,9 @@ using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseC
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     [JetCondition(JetCondition.IsNotCI)]
-    public class MigrationsInfrastructureJetTest : MigrationsInfrastructureTestBase<MigrationsJetFixture>
+    public class MigrationsInfrastructureJetTest : MigrationsInfrastructureTestBase<MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture>
     {
-        public MigrationsInfrastructureJetTest(MigrationsJetFixture fixture)
+        public MigrationsInfrastructureJetTest(MigrationsInfrastructureJetFixture fixture)
             : base(fixture)
         {
         }
@@ -30,16 +31,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Can_generate_migration_from_initial_database_to_initial();
 
             Assert.Equal(
-                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
-BEGIN
-    CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` nvarchar(150) NOT NULL,
-        `ProductVersion` nvarchar(32) NOT NULL,
+                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` varchar(150) NOT NULL,
+        `ProductVersion` varchar(32) NOT NULL,
         CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
-END;
-
-GO
+;
 
 ",
                 Sql,
@@ -51,16 +48,12 @@ GO
             base.Can_generate_no_migration_script();
 
             Assert.Equal(
-                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
-BEGIN
-    CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` nvarchar(150) NOT NULL,
-        `ProductVersion` nvarchar(32) NOT NULL,
+                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` varchar(150) NOT NULL,
+        `ProductVersion` varchar(32) NOT NULL,
         CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
-END;
-
-GO
+;
 
 ",
                 Sql,
@@ -72,51 +65,41 @@ GO
             base.Can_generate_up_scripts();
 
             Assert.Equal(
-                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
-BEGIN
-    CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` nvarchar(150) NOT NULL,
-        `ProductVersion` nvarchar(32) NOT NULL,
+                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` varchar(150) NOT NULL,
+        `ProductVersion` varchar(32) NOT NULL,
         CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
-END;
+;
 
-GO
+BEGIN TRANSACTION;
 
 CREATE TABLE `Table1` (
-    `Id` int NOT NULL,
-    `Foo` int NOT NULL,
+    `Id` integer NOT NULL,
+    `Foo` integer NOT NULL,
     CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
 );
-
-GO
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000001_Migration1', '7.0.0-test');
 
-GO
+COMMIT TRANSACTION;
 
-EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
+BEGIN TRANSACTION;
 
-GO
+ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
-GO
+COMMIT TRANSACTION;
 
-CREATE DATABASE TransactionSuppressed;
-
-GO
-
-DROP DATABASE TransactionSuppressed;
-
-GO
+BEGIN TRANSACTION;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000003_Migration3', '7.0.0-test');
 
-GO
+COMMIT TRANSACTION;
 
 ",
                 Sql,
@@ -128,14 +111,14 @@ GO
             base.Can_generate_one_up_script();
 
             Assert.Equal(
-                @"EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
+                @"BEGIN TRANSACTION;
 
-GO
+ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
-GO
+COMMIT TRANSACTION;
 
 ",
                 Sql,
@@ -147,14 +130,14 @@ GO
             base.Can_generate_up_script_using_names();
 
             Assert.Equal(
-                @"EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
+                @"BEGIN TRANSACTION;
 
-GO
+ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
-GO
+COMMIT TRANSACTION;
 
 ",
                 Sql,
@@ -243,23 +226,23 @@ GO
             base.Can_generate_down_scripts();
 
             Assert.Equal(
-                @"EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
+                @"BEGIN TRANSACTION;
 
-GO
+ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
 
 DELETE FROM `__EFMigrationsHistory`
 WHERE `MigrationId` = '00000000000002_Migration2';
 
-GO
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
 
 DROP TABLE `Table1`;
-
-GO
 
 DELETE FROM `__EFMigrationsHistory`
 WHERE `MigrationId` = '00000000000001_Migration1';
 
-GO
+COMMIT TRANSACTION;
 
 ",
                 Sql,
@@ -311,14 +294,14 @@ GO
             base.Can_generate_one_down_script();
 
             Assert.Equal(
-                @"EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
+                @"BEGIN TRANSACTION;
 
-GO
+ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
 
 DELETE FROM `__EFMigrationsHistory`
 WHERE `MigrationId` = '00000000000002_Migration2';
 
-GO
+COMMIT TRANSACTION;
 
 ",
                 Sql,
@@ -330,14 +313,14 @@ GO
             base.Can_generate_down_script_using_names();
 
             Assert.Equal(
-                @"EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
+                @"BEGIN TRANSACTION;
 
-GO
+ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
 
 DELETE FROM `__EFMigrationsHistory`
 WHERE `MigrationId` = '00000000000002_Migration2';
 
-GO
+COMMIT TRANSACTION;
 
 ",
                 Sql,
@@ -467,10 +450,8 @@ GO
 
         public override void Can_diff_against_2_1_ASP_NET_Identity_model()
         {
-            using (var context = new ApplicationDbContext())
-            {
-                DiffSnapshot(new AspNetIdentity21ModelSnapshot(), context);
-            }
+            using var context = new ApplicationDbContext();
+            DiffSnapshot(new AspNetIdentity21ModelSnapshot(), context);
         }
 
         public class AspNetIdentity21ModelSnapshot : ModelSnapshot
@@ -502,7 +483,7 @@ GO
 
                         b.HasIndex("NormalizedName")
                             .IsUnique()
-                            .HasName("RoleNameIndex")
+                            .HasName("RoleNameIndex") // Don't change to HasDatabaseName
                             .HasFilter("`NormalizedName` IS NOT NULL");
 
                         b.ToTable("AspNetRoles");
@@ -710,10 +691,8 @@ GO
 
         public override void Can_diff_against_2_2_ASP_NET_Identity_model()
         {
-            using (var context = new ApplicationDbContext())
-            {
-                DiffSnapshot(new AspNetIdentity22ModelSnapshot(), context);
-            }
+            using var context = new ApplicationDbContext();
+            DiffSnapshot(new AspNetIdentity22ModelSnapshot(), context);
         }
 
         public class AspNetIdentity22ModelSnapshot : ModelSnapshot
@@ -953,10 +932,8 @@ GO
 
         public override void Can_diff_against_3_0_ASP_NET_Identity_model()
         {
-            using (var context = new ApplicationDbContext())
-            {
-                DiffSnapshot(new AspNetIdentity30ModelSnapshot(), context);
-            }
+            using var context = new ApplicationDbContext();
+            DiffSnapshot(new AspNetIdentity30ModelSnapshot(), context);
         }
 
         public class AspNetIdentity30ModelSnapshot : ModelSnapshot
@@ -973,19 +950,19 @@ GO
                     "Microsoft.AspNetCore.Identity.IdentityRole", b =>
                     {
                         b.Property<string>("Id")
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.Property<string>("ConcurrencyStamp")
                             .IsConcurrencyToken()
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("Name")
-                            .HasColumnType("nvarchar(256)")
-                            .HasMaxLength(256);
+                            .HasColumnType("longchar")
+                            .HasMaxLength(255);
 
                         b.Property<string>("NormalizedName")
-                            .HasColumnType("nvarchar(256)")
-                            .HasMaxLength(256);
+                            .HasColumnType("longchar")
+                            .HasMaxLength(255);
 
                         b.HasKey("Id");
 
@@ -1006,14 +983,14 @@ GO
                             .HasAnnotation("Jet:ValueGenerationStrategy", JetValueGenerationStrategy.IdentityColumn);
 
                         b.Property<string>("ClaimType")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("ClaimValue")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("RoleId")
                             .IsRequired()
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.HasKey("Id");
 
@@ -1026,54 +1003,54 @@ GO
                     "Microsoft.AspNetCore.Identity.IdentityUser", b =>
                     {
                         b.Property<string>("Id")
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.Property<int>("AccessFailedCount")
                             .HasColumnType("int");
 
                         b.Property<string>("ConcurrencyStamp")
                             .IsConcurrencyToken()
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("Email")
-                            .HasColumnType("nvarchar(256)")
-                            .HasMaxLength(256);
+                            .HasColumnType("longchar")
+                            .HasMaxLength(255);
 
                         b.Property<bool>("EmailConfirmed")
-                            .HasColumnType("bit");
+                            .HasColumnType("smallint");
 
                         b.Property<bool>("LockoutEnabled")
-                            .HasColumnType("bit");
+                            .HasColumnType("smallint");
 
                         b.Property<DateTimeOffset?>("LockoutEnd")
-                            .HasColumnType("datetimeoffset");
+                            .HasColumnType("datetime");
 
                         b.Property<string>("NormalizedEmail")
-                            .HasColumnType("nvarchar(256)")
-                            .HasMaxLength(256);
+                            .HasColumnType("longchar")
+                            .HasMaxLength(255);
 
                         b.Property<string>("NormalizedUserName")
-                            .HasColumnType("nvarchar(256)")
-                            .HasMaxLength(256);
+                            .HasColumnType("longchar")
+                            .HasMaxLength(255);
 
                         b.Property<string>("PasswordHash")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("PhoneNumber")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<bool>("PhoneNumberConfirmed")
-                            .HasColumnType("bit");
+                            .HasColumnType("smallint");
 
                         b.Property<string>("SecurityStamp")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<bool>("TwoFactorEnabled")
-                            .HasColumnType("bit");
+                            .HasColumnType("smallint");
 
                         b.Property<string>("UserName")
-                            .HasColumnType("nvarchar(256)")
-                            .HasMaxLength(256);
+                            .HasColumnType("longchar")
+                            .HasMaxLength(255);
 
                         b.HasKey("Id");
 
@@ -1097,14 +1074,14 @@ GO
                             .HasAnnotation("Jet:ValueGenerationStrategy", JetValueGenerationStrategy.IdentityColumn);
 
                         b.Property<string>("ClaimType")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("ClaimValue")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("UserId")
                             .IsRequired()
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.HasKey("Id");
 
@@ -1117,19 +1094,19 @@ GO
                     "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                     {
                         b.Property<string>("LoginProvider")
-                            .HasColumnType("nvarchar(128)")
+                            .HasColumnType("varchar(128)")
                             .HasMaxLength(128);
 
                         b.Property<string>("ProviderKey")
-                            .HasColumnType("nvarchar(128)")
+                            .HasColumnType("varchar(128)")
                             .HasMaxLength(128);
 
                         b.Property<string>("ProviderDisplayName")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.Property<string>("UserId")
                             .IsRequired()
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.HasKey("LoginProvider", "ProviderKey");
 
@@ -1142,10 +1119,10 @@ GO
                     "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
                     {
                         b.Property<string>("UserId")
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.Property<string>("RoleId")
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.HasKey("UserId", "RoleId");
 
@@ -1158,18 +1135,18 @@ GO
                     "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                     {
                         b.Property<string>("UserId")
-                            .HasColumnType("nvarchar(450)");
+                            .HasColumnType("varchar(255)");
 
                         b.Property<string>("LoginProvider")
-                            .HasColumnType("nvarchar(128)")
+                            .HasColumnType("varchar(128)")
                             .HasMaxLength(128);
 
                         b.Property<string>("Name")
-                            .HasColumnType("nvarchar(128)")
+                            .HasColumnType("varchar(128)")
                             .HasMaxLength(128);
 
                         b.Property<string>("Value")
-                            .HasColumnType("nvarchar(max)");
+                            .HasColumnType("longchar");
 
                         b.HasKey("UserId", "LoginProvider", "Name");
 
@@ -1232,6 +1209,29 @@ GO
                             .IsRequired();
                     });
 #pragma warning restore 612, 618
+            }
+        }
+
+
+        public class MigrationsInfrastructureJetFixture : MigrationsInfrastructureFixtureBase
+        {
+            protected override ITestStoreFactory TestStoreFactory
+                => JetTestStoreFactory.Instance;
+
+            public override async Task InitializeAsync()
+            {
+                await base.InitializeAsync();
+                await ((JetTestStore)TestStore).ExecuteNonQueryAsync(
+                    @"DROP DATABASE TransactionSuppressed");
+            }
+
+            public override MigrationsContext CreateContext()
+            {
+                var options = AddOptions(TestStore.AddProviderOptions(new DbContextOptionsBuilder()))
+                    .UseJet(TestStore.ConnectionString, b => b.ApplyConfiguration())
+                    .UseInternalServiceProvider(ServiceProvider)
+                    .Options;
+                return new MigrationsContext(options);
             }
         }
     }

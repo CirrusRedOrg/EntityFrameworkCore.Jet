@@ -630,9 +630,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     + _eol
                     + "    `Key1` varchar(255) NOT NULL,"
                     + _eol
-                    + "    `Key2` varbinary(900) NOT NULL,"
+                    + "    `Key2` varbinary(510) NOT NULL,"
                     + _eol
-                    + "    `Cheese` varchar(max) NULL,"
+                    + "    `Cheese` longchar NULL,"
                     + _eol
                     + "    `ErMilan` int NOT NULL,"
                     + _eol

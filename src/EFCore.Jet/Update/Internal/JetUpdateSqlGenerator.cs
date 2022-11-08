@@ -1,9 +1,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
+using EntityFrameworkCore.Jet.Metadata;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Update;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,12 +26,41 @@ namespace EntityFrameworkCore.Jet.Update.Internal
     ///         This service cannot depend on services registered as <see cref="ServiceLifetime.Scoped" />.
     ///     </para>
     /// </summary>
-    public class JetUpdateSqlGenerator : UpdateSqlGenerator, IJetUpdateSqlGenerator
+    public class JetUpdateSqlGenerator : UpdateAndSelectSqlGenerator, IJetUpdateSqlGenerator
     {
         public JetUpdateSqlGenerator(
             [NotNull] UpdateSqlGeneratorDependencies dependencies)
             : base(dependencies)
         {
+        }
+
+        public ResultSetMapping AppendBulkInsertOperation(StringBuilder commandStringBuilder, IReadOnlyList<IReadOnlyModificationCommand> modificationCommands, int commandPosition, out bool requiresTransaction)
+        {
+            var firstCommand = modificationCommands[0];
+            var table = StoreObjectIdentifier.Table(firstCommand.TableName, modificationCommands[0].Schema);
+
+            var readOperations = firstCommand.ColumnModifications.Where(o => o.IsRead).ToList();
+            var writeOperations = firstCommand.ColumnModifications.Where(o => o.IsWrite).ToList();
+            var keyOperations = firstCommand.ColumnModifications.Where(o => o.IsKey).ToList();
+
+            var writableOperations = modificationCommands[0].ColumnModifications
+                .Where(
+                    o =>
+                        o.Property?.GetValueGenerationStrategy(table) != JetValueGenerationStrategy.IdentityColumn
+                        && o.Property?.GetComputedColumnSql() is null
+                        && o.Property?.GetColumnType() is not "rowversion" and not "timestamp")
+                .ToList();
+
+            requiresTransaction = modificationCommands.Count > 1;
+            foreach (var modification in modificationCommands)
+            {
+                AppendInsertOperation(commandStringBuilder, modification, commandPosition++, out var localRequiresTransaction);
+                requiresTransaction = requiresTransaction || localRequiresTransaction;
+            }
+
+            return readOperations.Count == 0
+                ? ResultSetMapping.NoResults
+                : ResultSetMapping.LastInResultSet;
         }
 
         /// <summary>

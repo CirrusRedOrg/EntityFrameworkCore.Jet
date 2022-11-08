@@ -96,10 +96,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
         public static string GetTestDirectory()
         {
-            return System.IO.Path.GetDirectoryName(
-                System.Reflection.Assembly.GetExecutingAssembly()
-                    .GetName()
-                    .CodeBase.Replace("file:///", ""));
+            return System.AppDomain.CurrentDomain.BaseDirectory;
         }
 
         public static string GetJetStorePath(string storeName = null)

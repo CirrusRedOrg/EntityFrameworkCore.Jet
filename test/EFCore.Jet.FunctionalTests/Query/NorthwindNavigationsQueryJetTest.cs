@@ -836,9 +836,9 @@ WHERE EXISTS (
     ) AS `t1` ON (`t0`.`OrderID` = `t1`.`OrderID`) AND (`t0`.`ProductID` = `t1`.`ProductID`))");
         }
 
-        public override void Navigation_in_subquery_referencing_outer_query()
+        public override async Task Navigation_in_subquery_referencing_outer_query(bool isAsync)
         {
-            base.Navigation_in_subquery_referencing_outer_query();
+            await base.Navigation_in_subquery_referencing_outer_query(isAsync);
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`

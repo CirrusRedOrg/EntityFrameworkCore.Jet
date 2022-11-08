@@ -25,6 +25,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .UseInternalServiceProvider(services.AddEntityFrameworkJet().BuildServiceProvider())
                 .UseJet("Data Source=LoggingJetTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
 
+        protected override TestLogger CreateTestLogger()
+        => new TestLogger<JetLoggingDefinitions>();
         protected override string DefaultOptions => "DataAccessProviderFactory";
         protected override string ProviderName => "EntityFrameworkCore.Jet";
         protected override string ProviderVersion

@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.Odbc" />
+    <PackageReference Include="System.Data.Odbc" Version="7.0.0-rc.2.22472.3" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

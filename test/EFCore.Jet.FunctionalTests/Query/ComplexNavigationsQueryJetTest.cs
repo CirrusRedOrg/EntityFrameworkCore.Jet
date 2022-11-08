@@ -156,9 +156,9 @@ INNER JOIN `LevelOne` AS `l0` ON `l`.`Level1_Required_Id` = `l0`.`Id`
 WHERE `l0`.`Id` IN (1, 2)");
         }
 
-        public override void Multi_level_include_with_short_circuiting()
+        public override async Task Multi_level_include_with_short_circuiting(bool isAsync)
         {
-            base.Multi_level_include_with_short_circuiting();
+            await base.Multi_level_include_with_short_circuiting(isAsync);
 
             AssertSql(
                 $@"SELECT `f`.`Name`, `f`.`LabelDefaultText`, `f`.`PlaceholderDefaultText`, `m`.`DefaultText`, `m0`.`DefaultText`, `t`.`Text`, `t`.`ComplexNavigationStringDefaultText`, `t`.`LanguageName`, `t`.`Name`, `t`.`CultureString`, `t0`.`Text`, `t0`.`ComplexNavigationStringDefaultText`, `t0`.`LanguageName`, `t0`.`Name`, `t0`.`CultureString`
@@ -2792,9 +2792,9 @@ LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse2Id
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Optional_Id`");
         }
 
-        public override void Include17()
+        public override async Task Include17(bool isAsync)
         {
-            base.Include17();
+            await base.Include17(isAsync);
 
             AssertSql(
                 $@"SELECT `t`.`Id`, `t`.`Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Optional_Self_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToMany_Required_Self_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `t`.`Id0`, `t`.`Date0`, `t`.`Level1_Optional_Id0`, `t`.`Level1_Required_Id0`, `t`.`Name0`, `t`.`OneToMany_Optional_Inverse2Id0`, `t`.`OneToMany_Optional_Self_Inverse2Id0`, `t`.`OneToMany_Required_Inverse2Id0`, `t`.`OneToMany_Required_Self_Inverse2Id0`, `t`.`OneToOne_Optional_PK_Inverse2Id0`, `t`.`OneToOne_Optional_Self2Id0`
@@ -2851,9 +2851,9 @@ FROM (
 LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`");
         }
 
-        public override void Include18_3()
+        public override async Task Include18_3(bool isAsync)
         {
-            base.Include18_3();
+            await base.Include18_3(isAsync);
 
             // issue #15783
             AssertSql(
@@ -2868,9 +2868,9 @@ LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`
 ORDER BY `t`.`Name0`");
         }
 
-        public override void Include18_3_1()
+        public override async Task Include18_3_1(bool isAsync)
         {
-            base.Include18_3_1();
+            await base.Include18_3_1(isAsync);
 
             // issue #15783
             AssertSql(
@@ -2885,9 +2885,9 @@ LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`
 ORDER BY `t`.`Name0`");
         }
 
-        public override void Include18_3_2()
+        public override async Task Include18_3_2(bool isAsync)
         {
-            base.Include18_3_2();
+            await base.Include18_3_2(isAsync);
 
             // issue #15783
             AssertSql(
@@ -2916,9 +2916,9 @@ FROM (
 LEFT JOIN `LevelThree` AS `l1` ON `t`.`Id` = `l1`.`Level2_Optional_Id`");
         }
 
-        public override void Include18_4()
+        public override async Task Include18_4(bool isAsync)
         {
-            base.Include18_4();
+            await base.Include18_4(isAsync);
 
             // issue #15783
             AssertSql(
@@ -2931,9 +2931,9 @@ LEFT JOIN `LevelTwo` AS `l0` ON `t`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`");
         }
 
-        public override void Include18()
+        public override async Task Include18(bool isAsync)
         {
-            base.Include18();
+            await base.Include18(isAsync);
 
             AssertSql(
                 @"SELECT `t`.`Id`, `t`.`Date`, `t`.`Name`, `t`.`OneToMany_Optional_Self_Inverse1Id`, `t`.`OneToMany_Required_Self_Inverse1Id`, `t`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
@@ -2947,9 +2947,9 @@ LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`
 ORDER BY `t`.`Id`");
         }
 
-        public override void Include19()
+        public override async Task Include19(bool isAsync)
         {
-            base.Include19();
+            await base.Include19(isAsync);
 
             AssertSql(
                 @"SELECT `t`.`Id`, `t`.`Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Optional_Self_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToMany_Required_Self_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t`.`OneToOne_Optional_Self2Id`, `t`.`Id0`, `t`.`Date0`, `t`.`Level1_Optional_Id0`, `t`.`Level1_Required_Id0`, `t`.`Name0`, `t`.`OneToMany_Optional_Inverse2Id0`, `t`.`OneToMany_Optional_Self_Inverse2Id0`, `t`.`OneToMany_Required_Inverse2Id0`, `t`.`OneToMany_Required_Self_Inverse2Id0`, `t`.`OneToOne_Optional_PK_Inverse2Id0`, `t`.`OneToOne_Optional_Self2Id0`
@@ -2986,9 +2986,9 @@ INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`");
         }
 
-        public override void Join_with_navigations_in_the_result_selector2()
+        public override async Task Join_with_navigations_in_the_result_selector2(bool isAsync)
         {
-            base.Join_with_navigations_in_the_result_selector2();
+            await base.Join_with_navigations_in_the_result_selector2(isAsync);
 
             AssertSql(
                 @"SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l0`.`Id`, `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`
@@ -2999,9 +2999,9 @@ LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`OneToMany_Optional_Inverse3I
 ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`");
         }
 
-        public override void Member_pushdown_chain_3_levels_deep()
+        public override async Task Member_pushdown_chain_3_levels_deep(bool isAsync)
         {
-            base.Member_pushdown_chain_3_levels_deep();
+            await base.Member_pushdown_chain_3_levels_deep(isAsync);
 
             AssertSql(
                 @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
@@ -3034,9 +3034,9 @@ WHERE ((
 ORDER BY `l`.`Id`");
         }
 
-        public override void Member_pushdown_chain_3_levels_deep_entity()
+        public override async Task Member_pushdown_chain_3_levels_deep_entity(bool isAsync)
         {
-            base.Member_pushdown_chain_3_levels_deep_entity();
+            await base.Member_pushdown_chain_3_levels_deep_entity(isAsync);
 
             AssertSql(
                 @"SELECT `t0`.`c`, `t1`.`c`, `t3`.`Id`, `t3`.`Level3_Optional_Id`, `t3`.`Level3_Required_Id`, `t3`.`Name`, `t3`.`OneToMany_Optional_Inverse4Id`, `t3`.`OneToMany_Optional_Self_Inverse4Id`, `t3`.`OneToMany_Required_Inverse4Id`, `t3`.`OneToMany_Required_Self_Inverse4Id`, `t3`.`OneToOne_Optional_PK_Inverse4Id`, `t3`.`OneToOne_Optional_Self4Id`
@@ -3068,9 +3068,9 @@ LEFT JOIN (
 ORDER BY `l`.`Id`");
         }
 
-        public override void Member_pushdown_with_collection_navigation_in_the_middle()
+        public override async Task Member_pushdown_with_collection_navigation_in_the_middle(bool isAsync)
         {
-            base.Member_pushdown_with_collection_navigation_in_the_middle();
+            await base.Member_pushdown_with_collection_navigation_in_the_middle(isAsync);
 
             AssertSql(
                 @"SELECT (

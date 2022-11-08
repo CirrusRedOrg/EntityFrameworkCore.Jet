@@ -23,9 +23,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        public override void Shaper_command_caching_when_parameter_names_different()
+        public override async Task Shaper_command_caching_when_parameter_names_different(bool isAsync)
         {
-            base.Shaper_command_caching_when_parameter_names_different();
+            await base.Shaper_command_caching_when_parameter_names_different(isAsync);
 
             AssertSql(
                 $@"SELECT COUNT(*)
@@ -37,9 +37,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
-        public override void Can_convert_manually_build_expression_with_default()
+        public override async Task Can_convert_manually_build_expression_with_default(bool isAsync)
         {
-            base.Can_convert_manually_build_expression_with_default();
+            await base.Can_convert_manually_build_expression_with_default(isAsync);
 
             // issue #15994
 //            AssertSql(
@@ -52,9 +52,9 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
 //WHERE `c`.`CustomerID` IS NOT NULL");
         }
 
-        public override void Lifting_when_subquery_nested_order_by_anonymous()
+        public override async Task Lifting_when_subquery_nested_order_by_anonymous(bool isAsync)
         {
-            base.Lifting_when_subquery_nested_order_by_anonymous();
+            await base.Lifting_when_subquery_nested_order_by_anonymous(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
@@ -73,9 +73,9 @@ INNER JOIN (
 ORDER BY `t0`.`CustomerID`");
         }
 
-        public override void Lifting_when_subquery_nested_order_by_simple()
+        public override async Task Lifting_when_subquery_nested_order_by_simple(bool isAsync)
         {
-            base.Lifting_when_subquery_nested_order_by_simple();
+            await base.Lifting_when_subquery_nested_order_by_simple(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
@@ -703,9 +703,9 @@ WHERE (`t`.`FirstName` = (
 //)");
         }
 
-        public override void Select_Subquery_Single()
+        public override async Task Select_Subquery_Single(bool isAsync)
         {
-            base.Select_Subquery_Single();
+            await base.Select_Subquery_Single(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
@@ -729,9 +729,9 @@ WHERE {AssertSqlHelper.Parameter("@_outer_OrderID")} = `o`.`OrderID`
 ORDER BY `o`.`OrderID`");
         }
 
-        public override void Select_Where_Subquery_Deep_Single()
+        public override async Task Select_Where_Subquery_Deep_Single(bool isAsync)
         {
-            base.Select_Where_Subquery_Deep_Single();
+            await base.Select_Where_Subquery_Deep_Single(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
@@ -747,9 +747,9 @@ WHERE (`o`.`OrderID` = 10344) AND ((
     WHERE `o`.`OrderID` = `o0`.`OrderID`) = 'Seattle')");
         }
 
-        public override void Select_Where_Subquery_Deep_First()
+        public override async Task Select_Where_Subquery_Deep_First(bool isAsync)
         {
-            base.Select_Where_Subquery_Deep_First();
+            await base.Select_Where_Subquery_Deep_First(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='2'")}
@@ -765,9 +765,9 @@ WHERE (
     WHERE `o`.`OrderID` = `o0`.`OrderID`) = 'Seattle'");
         }
 
-        public override void Select_Where_Subquery_Equality()
+        public override async Task Select_Where_Subquery_Equality(bool isAsync)
         {
-            base.Select_Where_Subquery_Equality();
+            await base.Select_Where_Subquery_Equality(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
@@ -924,9 +924,9 @@ ORDER BY IIF(`p`.`UnitsInStock` > 0, 1, 0), `p`.`ProductID`");
 //END, `p`.`ProductID`");
         }
 
-        public override void OrderBy_any()
+        public override async Task OrderBy_any(bool isAsync)
         {
-            base.OrderBy_any();
+            await base.OrderBy_any(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -1402,9 +1402,9 @@ WHERE EXISTS (
     WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
         }
 
-        public override void Any_with_multiple_conditions_still_uses_exists()
+        public override async Task Any_with_multiple_conditions_still_uses_exists(bool isAsync)
         {
-            base.Any_with_multiple_conditions_still_uses_exists();
+            await base.Any_with_multiple_conditions_still_uses_exists(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -2243,9 +2243,9 @@ WHERE EXISTS (
 ORDER BY `e`.`EmployeeID`");
         }
 
-        public override void Select_DTO_distinct_translated_to_server()
+        public override async Task Select_DTO_distinct_translated_to_server(bool isAsync)
         {
-            base.Select_DTO_distinct_translated_to_server();
+            await base.Select_DTO_distinct_translated_to_server(isAsync);
 
             AssertSql(
                 $@"SELECT DISTINCT 1
@@ -2253,9 +2253,9 @@ FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10300");
         }
 
-        public override void Select_DTO_constructor_distinct_translated_to_server()
+        public override async Task Select_DTO_constructor_distinct_translated_to_server(bool isAsync)
         {
-            base.Select_DTO_constructor_distinct_translated_to_server();
+            await base.Select_DTO_constructor_distinct_translated_to_server(isAsync);
 
             AssertSql(
                 $@"SELECT DISTINCT `o`.`CustomerID`
@@ -2263,9 +2263,9 @@ FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10300");
         }
 
-        public override void Select_DTO_constructor_distinct_with_navigation_translated_to_server()
+        public override async Task Select_DTO_constructor_distinct_with_navigation_translated_to_server(bool isAsync)
         {
-            base.Select_DTO_constructor_distinct_with_navigation_translated_to_server();
+            await base.Select_DTO_constructor_distinct_with_navigation_translated_to_server(isAsync);
 
             AssertSql(
                 $@"SELECT DISTINCT `c`.`City`
@@ -2274,9 +2274,9 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`OrderID` < 10300");
         }
 
-        public override void Select_DTO_with_member_init_distinct_translated_to_server()
+        public override async Task Select_DTO_with_member_init_distinct_translated_to_server(bool isAsync)
         {
-            base.Select_DTO_with_member_init_distinct_translated_to_server();
+            await base.Select_DTO_with_member_init_distinct_translated_to_server(isAsync);
 
             AssertSql(
                 $@"SELECT DISTINCT `o`.`CustomerID` AS `Id`, `o`.`OrderID` AS `Count`
@@ -2284,9 +2284,9 @@ FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10300");
         }
 
-        public override void Select_nested_collection_count_using_DTO()
+        public override async Task Select_nested_collection_count_using_DTO(bool isAsync)
         {
-            base.Select_nested_collection_count_using_DTO();
+            await base.Select_nested_collection_count_using_DTO(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID` AS `Id`, (
@@ -2325,9 +2325,9 @@ FROM (
 INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
         }
 
-        public override void Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server()
+        public override async Task Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server(bool isAsync)
         {
-            base.Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server();
+            await base.Select_DTO_with_member_init_distinct_in_subquery_used_in_projection_translated_to_server(isAsync);
 
             // issue #15994
 //            AssertSql(
@@ -2622,9 +2622,9 @@ ORDER BY `t`.`c`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}");
         }
 
-        public override void Selected_column_can_coalesce()
+        public override async Task Selected_column_can_coalesce(bool isAsync)
         {
-            base.Selected_column_can_coalesce();
+            await base.Selected_column_can_coalesce(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -4298,30 +4298,6 @@ ORDER BY `c`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY");
         }
 
-        public override void Streaming_chained_sync_query()
-        {
-            base.Streaming_chained_sync_query();
-
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`
-FROM `Customers` AS `c`",
-                //
-                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
-
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}",
-                //
-                $@"SELECT [y.Customer].`CustomerID`, [y.Customer].`Address`, [y.Customer].`City`, [y.Customer].`CompanyName`, [y.Customer].`ContactName`, [y.Customer].`ContactTitle`, [y.Customer].`Country`, [y.Customer].`Fax`, [y.Customer].`Phone`, [y.Customer].`PostalCode`, [y.Customer].`Region`
-FROM `Customers` AS [y.Customer]",
-                //
-                $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ANATR' (Size = 5)")}
-
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = {AssertSqlHelper.Parameter("@_outer_CustomerID")}");
-        }
-
         public override async Task Join_take_count_works(bool isAsync)
         {
             await base.Join_take_count_works(isAsync);
@@ -4360,9 +4336,9 @@ FROM `Customers` AS `c`");
 FROM `Customers` AS `c`");
         }
 
-        public override void Manual_expression_tree_typed_null_equality()
+        public override async Task Manual_expression_tree_typed_null_equality(bool isAsync)
         {
-            base.Manual_expression_tree_typed_null_equality();
+            await base.Manual_expression_tree_typed_null_equality(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`City`

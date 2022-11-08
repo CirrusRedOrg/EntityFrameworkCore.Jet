@@ -380,9 +380,9 @@ FROM `Employees` AS `e`
 WHERE CAST(`e`.`ReportsTo` AS bigint) = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
-        public override void Where_subquery_closure_via_query_cache()
+        public override async Task Where_subquery_closure_via_query_cache(bool isAsync)
         {
-            base.Where_subquery_closure_via_query_cache();
+            await base.Where_subquery_closure_via_query_cache(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__customerID_0='ALFKI' (Size = 5)")}
@@ -1486,9 +1486,9 @@ FROM `Orders` AS `o`
 WHERE (`o`.`CustomerID` = 'QUICK') AND (`o`.`OrderDate` > #1998-01-01#)");
         }
 
-        public override void Where_navigation_contains()
+        public override async Task Where_navigation_contains(bool isAsync)
         {
-            base.Where_navigation_contains();
+            await base.Where_navigation_contains(isAsync);
 
             AssertSql(
                 $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`

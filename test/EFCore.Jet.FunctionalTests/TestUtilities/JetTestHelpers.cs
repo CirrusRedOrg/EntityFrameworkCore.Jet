@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public override IServiceCollection AddProviderServices(IServiceCollection services)
             => services.AddEntityFrameworkJet();
 
-        public override void UseProviderOptions(DbContextOptionsBuilder optionsBuilder)
+        public override DbContextOptionsBuilder UseProviderOptions(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseJet(new JetConnection("Database=DummyDatabase"));
 
         public override LoggingDefinitions LoggingDefinitions { get; } = new JetLoggingDefinitions();

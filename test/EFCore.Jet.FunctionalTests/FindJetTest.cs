@@ -23,11 +23,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
             }
 
-            protected override TEntity Find<TEntity>(DbContext context, params object[] keyValues)
-                => context.Set<TEntity>().Find(keyValues);
-
-            protected override ValueTask<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
-                => context.Set<TEntity>().FindAsync(keyValues);
+            protected override TestFinder Finder { get; } = new FindViaSetFinder();
         }
 
         public class FindJetTestContext : FindJetTest
@@ -37,11 +33,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
             }
 
-            protected override TEntity Find<TEntity>(DbContext context, params object[] keyValues)
-                => context.Find<TEntity>(keyValues);
-
-            protected override ValueTask<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
-                => context.FindAsync<TEntity>(keyValues);
+            protected override TestFinder Finder { get; } = new FindViaContextFinder();
         }
 
         public class FindJetTestNonGeneric : FindJetTest
@@ -51,11 +43,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
             }
 
-            protected override TEntity Find<TEntity>(DbContext context, params object[] keyValues)
-                => (TEntity)context.Find(typeof(TEntity), keyValues);
-
-            protected override async ValueTask<TEntity> FindAsync<TEntity>(DbContext context, params object[] keyValues)
-                => (TEntity)await context.FindAsync(typeof(TEntity), keyValues);
+            protected override TestFinder Finder { get; } = new FindViaNonGenericContextFinder();
         }
 
         public override void Find_int_key_tracked()
@@ -191,9 +179,9 @@ WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {Asse
             Assert.Equal("", Sql);
         }
 
-        public override async Task Find_base_type_tracked_async()
+        public override async Task Find_base_type_tracked_async(CancellationType cancellationType)
         {
-            await base.Find_base_type_tracked_async();
+            await base.Find_base_type_tracked_async(cancellationType);
 
             Assert.Equal("", Sql);
         }
@@ -210,9 +198,9 @@ FROM `BaseType` AS `b`
 WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
-        public override async Task Find_base_type_from_store_async()
+        public override async Task Find_base_type_from_store_async(CancellationType cancellationType)
         {
-            await base.Find_base_type_from_store_async();
+            await base.Find_base_type_from_store_async(cancellationType);
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='77'")}
 

@@ -22,10 +22,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
         protected override bool CanExecuteQueryString
             => true;
-
-        public override void Select_All()
+        
+        public override async Task Select_All(bool async)
         {
-            base.Select_All();
+            await base.Select_All(async);
 
             AssertSql(
                 @"SELECT IIF(NOT EXISTS (
@@ -988,9 +988,9 @@ FROM `Order Details` AS `o`",
 FROM `Order Details` AS `o`");
         }
 
-        public override void OfType_Select()
+        public override async Task OfType_Select(bool async)
         {
-            base.OfType_Select();
+            await base.OfType_Select(async);
 
             AssertSql(
                 $@"SELECT TOP 1 `c`.`City`
@@ -999,9 +999,9 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 ORDER BY `o`.`OrderID`");
         }
 
-        public override void OfType_Select_OfType_Select()
+        public override async Task OfType_Select_OfType_Select(bool async)
         {
-            base.OfType_Select_OfType_Select();
+            await base.OfType_Select_OfType_Select(async);
 
             AssertSql(
                 $@"SELECT TOP 1 `c`.`City`
@@ -1072,9 +1072,9 @@ FROM (
 ORDER BY `t`.`CustomerID` DESC");
         }
 
-        public override void Contains_over_entityType_should_rewrite_to_identity_equality()
+        public override async Task Contains_over_entityType_should_rewrite_to_identity_equality(bool async)
         {
-            base.Contains_over_entityType_should_rewrite_to_identity_equality();
+            await base.Contains_over_entityType_should_rewrite_to_identity_equality(async);
 
             AssertSql(
                 $@"SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`

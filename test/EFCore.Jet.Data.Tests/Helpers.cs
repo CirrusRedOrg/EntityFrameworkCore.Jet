@@ -100,10 +100,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
 
         private static string GetTestDirectory()
         {
-            return System.IO.Path.GetDirectoryName(
-                System.Reflection.Assembly.GetExecutingAssembly()
-                    .GetName()
-                    .CodeBase.Replace("file:///", ""));
+            return System.AppDomain.CurrentDomain.BaseDirectory;
         }
 
         public static string[] GetQueries(string s)

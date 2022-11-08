@@ -224,6 +224,23 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 : selectExpression;
         }
 
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitAtTimeZone(AtTimeZoneExpression atTimeZoneExpression)
+        {
+            var parentSearchCondition = _isSearchCondition;
+            _isSearchCondition = false;
+            var operand = (SqlExpression)Visit(atTimeZoneExpression.Operand);
+            var timeZone = (SqlExpression)Visit(atTimeZoneExpression.TimeZone);
+            _isSearchCondition = parentSearchCondition;
+
+            return atTimeZoneExpression.Update(operand, timeZone);
+        }
+
         protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
         {
             Check.NotNull(sqlBinaryExpression, nameof(sqlBinaryExpression));
@@ -563,6 +580,15 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             return ApplyConversion(collateExpression.Update(operand), condition: false);
         }
 
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitDelete(DeleteExpression deleteExpression)
+            => deleteExpression.Update((SelectExpression)Visit(deleteExpression.SelectExpression));
+
         protected override Expression VisitDistinct([NotNull] DistinctExpression distinctExpression)
         {
             Check.NotNull(distinctExpression, nameof(distinctExpression));
@@ -574,5 +600,50 @@ namespace EntityFrameworkCore.Jet.Query.Internal
 
             return ApplyConversion(distinctExpression.Update(operand), condition: false);
         }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitUpdate(UpdateExpression updateExpression)
+        {
+            var selectExpression = (SelectExpression)Visit(updateExpression.SelectExpression);
+            var parentSearchCondition = _isSearchCondition;
+            _isSearchCondition = false;
+            List<ColumnValueSetter>? columnValueSetters = null;
+            for (var (i, n) = (0, updateExpression.ColumnValueSetters.Count); i < n; i++)
+            {
+                var columnValueSetter = updateExpression.ColumnValueSetters[i];
+                var newValue = (SqlExpression)Visit(columnValueSetter.Value);
+                if (columnValueSetters != null)
+                {
+                    columnValueSetters.Add(new ColumnValueSetter(columnValueSetter.Column, newValue));
+                }
+                else if (!ReferenceEquals(newValue, columnValueSetter.Value))
+                {
+                    columnValueSetters = new List<ColumnValueSetter>();
+                    for (var j = 0; j < i; j++)
+                    {
+                        columnValueSetters.Add(updateExpression.ColumnValueSetters[j]);
+                    }
+
+                    columnValueSetters.Add(new ColumnValueSetter(columnValueSetter.Column, newValue));
+                }
+            }
+
+            _isSearchCondition = parentSearchCondition;
+            return updateExpression.Update(selectExpression, columnValueSetters ?? updateExpression.ColumnValueSetters);
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
+            => jsonScalarExpression;
     }
 }

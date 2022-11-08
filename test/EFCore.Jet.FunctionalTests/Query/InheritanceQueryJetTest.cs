@@ -33,15 +33,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 var cokeType = context.Model.FindEntityType(typeof(Coke));
                 var teaType = context.Model.FindEntityType(typeof(Tea));
 
-                Assert.Equal("SugarGrams", cokeType.FindProperty("SugarGrams").GetColumnBaseName());
-                Assert.Equal("CaffeineGrams", cokeType.FindProperty("CaffeineGrams").GetColumnBaseName());
-                Assert.Equal("CokeCO2", cokeType.FindProperty("Carbonation").GetColumnBaseName());
+                Assert.Equal("SugarGrams", cokeType.FindProperty("SugarGrams").GetColumnName());
+                Assert.Equal("CaffeineGrams", cokeType.FindProperty("CaffeineGrams").GetColumnName());
+                Assert.Equal("CokeCO2", cokeType.FindProperty("Carbonation").GetColumnName());
 
-                Assert.Equal("SugarGrams", liltType.FindProperty("SugarGrams").GetColumnBaseName());
-                Assert.Equal("LiltCO2", liltType.FindProperty("Carbonation").GetColumnBaseName());
+                Assert.Equal("SugarGrams", liltType.FindProperty("SugarGrams").GetColumnName());
+                Assert.Equal("LiltCO2", liltType.FindProperty("Carbonation").GetColumnName());
 
-                Assert.Equal("CaffeineGrams", teaType.FindProperty("CaffeineGrams").GetColumnBaseName());
-                Assert.Equal("HasMilk", teaType.FindProperty("HasMilk").GetColumnBaseName());
+                Assert.Equal("CaffeineGrams", teaType.FindProperty("CaffeineGrams").GetColumnName());
+                Assert.Equal("HasMilk", teaType.FindProperty("HasMilk").GetColumnName());
             }
         }
 

@@ -6308,17 +6308,17 @@ LEFT JOIN `Tags` AS `t0` ON (`g`.`Nickname` = `t0`.`GearNickName`) AND (`g`.`Squ
 WHERE ((`g`.`Discriminator` IN ('Gear', 'Officer') AND ((`t`.`Note` <> 'Foo') OR `t`.`Note` IS NULL)) AND (`g`.`Discriminator` = 'Officer')) AND ((`t0`.`Note` <> 'Bar') OR `t0`.`Note` IS NULL)");
         }
 
-        public override void Nav_rewrite_Distinct_with_convert()
+        public override async Task Nav_rewrite_Distinct_with_convert()
         {
-            base.Nav_rewrite_Distinct_with_convert();
+            await base.Nav_rewrite_Distinct_with_convert();
 
             AssertSql(
                 $@"");
         }
 
-        public override void Nav_rewrite_Distinct_with_convert_anonymous()
+        public override async Task Nav_rewrite_Distinct_with_convert_anonymous()
         {
-            base.Nav_rewrite_Distinct_with_convert_anonymous();
+            await base.Nav_rewrite_Distinct_with_convert_anonymous();
 
             AssertSql(
                 $@"");

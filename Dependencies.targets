@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <DotnetRuntimeVersion>6.0.10</DotnetRuntimeVersion>
-    <EFCoreVersion>[$(DotnetRuntimeVersion), 7.0.0)</EFCoreVersion>
+    <EFCoreVersion>[7.0.0-rc.2.22472.11, 8.0.0)</EFCoreVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,7 +24,7 @@
     <!-- EFCore.Jet -->
     <PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
     <PackageReference Update="Microsoft.Extensions.Configuration" Version="6.0.0" />
-    <PackageReference Update="Microsoft.Extensions.Logging" Version="6.0.0" />
+    <PackageReference Update="Microsoft.Extensions.Logging" Version="7.0.0-rc.2.22472.3" />
     <PackageReference Update="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
     <PackageReference Update="Microsoft.Bcl.HashCode" Version="1.1.1" />
     <PackageReference Update="System.Collections.Immutable" Version="6.0.0" />
@@ -82,7 +82,7 @@
 
     <!-- EFCore.Jet.Tests -->
     <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" />
-    <PackageReference Update="Microsoft.Extensions.DependencyModel" Version="6.0.0" />
+    <PackageReference Update="Microsoft.Extensions.DependencyModel" Version="7.0.0-rc.2.22472.3" />
     <PackageReference Update="Moq" Version="4.18.2" />
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftEntityFrameworkCoreDesignVersion)" />-->
     <!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />-->

@@ -285,9 +285,9 @@ WHERE `c`.`City` = 'London'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
         }
 
-        public override void Select_nested_collection_multi_level()
+        public override async Task Select_nested_collection_multi_level(bool isAsync)
         {
-            base.Select_nested_collection_multi_level();
+            await base.Select_nested_collection_multi_level(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `t`.`OrderDate`, `t`.`OrderID`
@@ -301,9 +301,9 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
         }
 
-        public override void Select_nested_collection_multi_level2()
+        public override async Task Select_nested_collection_multi_level2(bool isAsync)
         {
-            base.Select_nested_collection_multi_level2();
+            await base.Select_nested_collection_multi_level2(isAsync);
 
             AssertSql(
                 $@"SELECT (
@@ -314,9 +314,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
-        public override void Select_nested_collection_multi_level3()
+        public override async Task Select_nested_collection_multi_level3(bool isAsync)
         {
-            base.Select_nested_collection_multi_level3();
+            await base.Select_nested_collection_multi_level3(isAsync);
 
             AssertSql(
                 $@"SELECT (
@@ -327,9 +327,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
-        public override void Select_nested_collection_multi_level4()
+        public override async Task Select_nested_collection_multi_level4(bool isAsync)
         {
-            base.Select_nested_collection_multi_level4();
+            await base.Select_nested_collection_multi_level4(isAsync);
 
             AssertSql(
                 $@"SELECT (
@@ -343,9 +343,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
-        public override void Select_nested_collection_multi_level5()
+        public override async Task Select_nested_collection_multi_level5(bool isAsync)
         {
-            base.Select_nested_collection_multi_level5();
+            await base.Select_nested_collection_multi_level5(isAsync);
 
             AssertSql(
                 $@"SELECT (
@@ -365,9 +365,9 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
-        public override void Select_nested_collection_multi_level6()
+        public override async Task Select_nested_collection_multi_level6(bool isAsync)
         {
-            base.Select_nested_collection_multi_level6();
+            await base.Select_nested_collection_multi_level6(isAsync);
 
             AssertSql(
                 $@"SELECT (

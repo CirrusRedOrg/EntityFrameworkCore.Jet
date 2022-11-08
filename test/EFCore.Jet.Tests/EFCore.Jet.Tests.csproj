@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>$(WindowsOnlyNetCoreTargetFramework)</TargetFramework>
+    <TargetFramework>net7.0-windows7.0</TargetFramework>
     <AssemblyName>EntityFrameworkCore.Jet.Tests</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <Platforms>AnyCPU;x86</Platforms>
@@ -31,9 +31,9 @@
     <PackageReference Include="xunit.assert" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="xunit.runner.console" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
-    <PackageReference Include="Microsoft.Extensions.DependencyModel" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0-preview-20221003-04" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0-4.final" />
+    <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="7.0.0-rc.2.22472.3" />
     <PackageReference Include="Moq" />
   </ItemGroup>
 

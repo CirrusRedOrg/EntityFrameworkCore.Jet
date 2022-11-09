@@ -2629,7 +2629,7 @@ WHERE `l0`.`Id` IS NOT NULL");
                 @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE `l0`.`Name` NOT IN ('Name1', 'Name2') OR (`l0`.`Name` IS NULL)");
+WHERE `l0`.`Name` NOT IN ('Name1', 'Name2') OR `l0`.`Name` IS NULL");
         }
 
         public override async Task Include1(bool isAsync)

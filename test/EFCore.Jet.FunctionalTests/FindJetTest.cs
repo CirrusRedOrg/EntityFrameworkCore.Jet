@@ -156,7 +156,7 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
 
 SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
 FROM `CompositeKey` AS `c`
-WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {AssertSqlHelper.Parameter("@__p_1")})");
+WHERE `c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`Id2` = {AssertSqlHelper.Parameter("@__p_1")}");
         }
 
         public override void Returns_null_for_composite_key_not_in_store()
@@ -169,7 +169,7 @@ WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {Asse
 
 SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
 FROM `CompositeKey` AS `c`
-WHERE (`c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`.`Id2` = {AssertSqlHelper.Parameter("@__p_1")})");
+WHERE `c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`Id2` = {AssertSqlHelper.Parameter("@__p_1")}");
         }
 
         public override void Find_base_type_tracked()
@@ -237,7 +237,7 @@ WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Returns_null_for_derived_type_not_in_store()
@@ -249,7 +249,7 @@ WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Par
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Find_base_type_using_derived_set_tracked()
@@ -261,7 +261,7 @@ WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Par
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Find_base_type_using_derived_set_from_store()
@@ -273,7 +273,7 @@ WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Par
 
 SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
 FROM `BaseType` AS `b`
-WHERE (`b`.`Discriminator` = 'DerivedType') AND (`b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")})");
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
         }
 
         public override void Find_derived_type_using_base_set_tracked()

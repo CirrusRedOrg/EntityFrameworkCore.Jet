@@ -20,9 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.Odbc" Version="7.0.0-rc.2.22472.3" />
-    <PackageReference Include="System.Data.OleDb" Version="7.0.0-rc.2.22472.3" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0-preview-20221003-04" />
+    <PackageReference Include="System.Data.Odbc" Version="7.0.0" />
+    <PackageReference Include="System.Data.OleDb" Version="7.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="2.3.0-preview-20220810-02" />
     <PackageReference Include="MSTest.TestFramework" Version="2.3.0-preview-20220810-02" />
     <PackageReference Include="coverlet.collector" Version="3.2.0">

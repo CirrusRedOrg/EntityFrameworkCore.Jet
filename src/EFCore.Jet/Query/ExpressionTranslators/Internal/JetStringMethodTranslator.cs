@@ -101,7 +101,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     || string.Equals(storeType, "varchar(max)", StringComparison.OrdinalIgnoreCase))
                 {
                     charIndexExpression = _sqlExpressionFactory.Function(
-                        "INSTR",
+                        "InStr",
                         new[] { _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument },
                         nullable: true,
                         argumentsPropagateNullability: new[] { true, true },
@@ -112,7 +112,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 else
                 {
                     charIndexExpression = _sqlExpressionFactory.Function(
-                        "INSTR",
+                        "InStr",
                         new[] { _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument },
                         nullable: true,
                         argumentsPropagateNullability: new[] { true, true },
@@ -120,7 +120,17 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 }
 
                 charIndexExpression = _sqlExpressionFactory.Subtract(charIndexExpression, _sqlExpressionFactory.Constant(1));
-                return charIndexExpression;
+
+                return _sqlExpressionFactory.Case(
+                    new[]
+                    {
+                            new CaseWhenClause(
+                                _sqlExpressionFactory.Equal(
+                                    instance,
+                                    _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping)),
+                                _sqlExpressionFactory.Constant(0))
+                    },
+                    charIndexExpression);
             }
 
             if (Equals(method, _containsMethodInfo))
@@ -138,7 +148,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             _sqlExpressionFactory.Constant(1),
                             instance,
                             patternExpression,
-                            _sqlExpressionFactory.Constant(0)
+                            _sqlExpressionFactory.Constant(1)
                         },
                         false,
                         new[] {false},

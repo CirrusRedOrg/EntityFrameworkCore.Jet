@@ -44,6 +44,7 @@ namespace EntityFrameworkCore.Jet
 
 INSERT INTO `Cookie` (`CookieId`, `Name`)
 VALUES (1, 'Basic');
+SELECT @@ROWCOUNT;
 
 SELECT `c`.`CookieId`, `c`.`BestServedBefore`, `c`.`Name`
 FROM `Cookie` AS `c`");
@@ -123,12 +124,15 @@ CREATE TABLE `CookieBackery` (
 
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
+SELECT @@ROWCOUNT;
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
+SELECT @@ROWCOUNT;
 
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
+SELECT @@ROWCOUNT;
 
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
 
@@ -212,12 +216,15 @@ CREATE TABLE `CookieBackery` (
 
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
+SELECT @@ROWCOUNT;
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
+SELECT @@ROWCOUNT;
 
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
+SELECT @@ROWCOUNT;
 
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
 
@@ -307,12 +314,15 @@ CREATE TABLE `CookieBackery` (
 
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
+SELECT @@ROWCOUNT;
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
+SELECT @@ROWCOUNT;
 
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
+SELECT @@ROWCOUNT;
 
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
 

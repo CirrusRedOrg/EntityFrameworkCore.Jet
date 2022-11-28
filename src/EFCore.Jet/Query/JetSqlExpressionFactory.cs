@@ -14,9 +14,9 @@ namespace EntityFrameworkCore.Jet.Query
 
         #region Expression factory methods
 
-        public SqlBinaryExpression NullChecked(
+        public SqlBinaryExpression? NullChecked(
             SqlExpression sqlExpression,
-            RelationalTypeMapping typeMapping = null)
+            RelationalTypeMapping? typeMapping = null)
             => MakeBinary(
                 ExpressionType.Coalesce,
                 sqlExpression,

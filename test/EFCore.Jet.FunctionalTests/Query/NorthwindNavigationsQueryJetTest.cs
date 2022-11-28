@@ -291,13 +291,13 @@ WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Pho
 
             AssertSql(
                 $@"SELECT (
-    SELECT SUM(CAST(`o`.`Quantity` AS int))
-    FROM `Order Details` AS `o`
-    WHERE `o1`.`OrderID` = `o`.`OrderID`) + (
-    SELECT COUNT(*)
+    SELECT IIF(SUM(CLNG(`o0`.`Quantity`)) IS NULL, 0, SUM(CLNG(`o0`.`Quantity`)))
     FROM `Order Details` AS `o0`
-    WHERE `o1`.`OrderID` = `o0`.`OrderID`) AS `Total`
-FROM `Orders` AS `o1`");
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) + (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o1`
+    WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `Total`
+FROM `Orders` AS `o`");
         }
 
         public override async Task Singleton_Navigation_With_Member_Access(bool isAsync)
@@ -383,7 +383,7 @@ WHERE `e0`.`EmployeeID` IS NULL");
                 $@"SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
         }
 
@@ -397,7 +397,7 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -409,7 +409,7 @@ ORDER BY `c`.`CustomerID`");
                 $@"SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
         }
 
@@ -624,7 +624,7 @@ WHERE `o3`.`CustomerID` IS NOT NULL AND (`o3`.`CustomerID` LIKE 'A' & '%')");
 
             AssertSql(
                 $@"SELECT (
-    SELECT SUM(`o`.`OrderID`)
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
 FROM `Customers` AS `c`");
@@ -635,7 +635,11 @@ FROM `Customers` AS `c`");
             await base.Collection_select_nav_prop_sum_plus_one(isAsync);
 
             AssertSql(
-                $@"");
+                $@"SELECT (
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) + 1 AS `Sum`
+FROM `Customers` AS `c`");
         }
 
         public override async Task Collection_where_nav_prop_sum(bool isAsync)
@@ -646,7 +650,7 @@ FROM `Customers` AS `c`");
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE (
-    SELECT SUM(`o`.`OrderID`)
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1000");
         }

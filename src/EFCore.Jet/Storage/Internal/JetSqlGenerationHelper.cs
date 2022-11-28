@@ -73,13 +73,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             builder.Append('`');
         }
 
-        public override void DelimitIdentifier(StringBuilder builder, string name, string schema)
+        public override void DelimitIdentifier(StringBuilder builder, string name, string? schema)
         {
             // Schema is not supported in Jet
             DelimitIdentifier(builder, name);
         }
 
-        public override string DelimitIdentifier(string name, string schema)
+        public override string DelimitIdentifier(string name, string? schema)
         {
             // Schema is not supported in Jet
             return DelimitIdentifier(Check.NotEmpty(name, nameof(name)));

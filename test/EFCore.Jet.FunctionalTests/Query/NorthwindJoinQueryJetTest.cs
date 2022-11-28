@@ -41,7 +41,7 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task Join_select_many(bool isAsync)
@@ -53,7 +53,7 @@ WHERE `c`.`CustomerID` LIKE 'F' & '%'");
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`,
 `Employees` AS `e`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task Client_Join_select_many(bool isAsync)
@@ -244,7 +244,7 @@ INNER JOIN `Customers` AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Orders` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F' & '%')");
+WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')");
         }
 
         public override async Task GroupJoin_simple(bool isAsync)
@@ -255,7 +255,7 @@ WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F' & '%')");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task GroupJoin_simple2(bool isAsync)
@@ -286,7 +286,7 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`City`");
         }
 
@@ -314,7 +314,7 @@ INNER JOIN (
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task GroupJoin_DefaultIfEmpty_multiple(bool isAsync)
@@ -326,7 +326,7 @@ WHERE `c`.`CustomerID` LIKE 'F' & '%'");
 FROM (`Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task GroupJoin_DefaultIfEmpty2(bool isAsync)
@@ -339,7 +339,7 @@ FROM `Employees` AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
-    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F' & '%')
+    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')
 ) AS `t` ON `e`.`EmployeeID` = `t`.`EmployeeID`");
         }
 
@@ -451,7 +451,7 @@ LEFT JOIN (
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` > 5
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task GroupJoin_SelectMany_subquery_with_filter_orderby_and_DefaultIfEmpty(bool isAsync)
@@ -481,7 +481,7 @@ INNER JOIN (
         FROM `Orders` AS `o`
         ORDER BY `o`.`OrderID`
     ) AS `t`
-    WHERE `t`.`CustomerID` IS NOT NULL AND (`t`.`CustomerID` LIKE 'A' & '%')
+    WHERE `t`.`CustomerID` IS NOT NULL AND (`t`.`CustomerID` LIKE 'A%')
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`");
         }
 

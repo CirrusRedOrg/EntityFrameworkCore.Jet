@@ -39,8 +39,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         public override void ProcessPropertyAnnotationChanged(
             IConventionPropertyBuilder propertyBuilder,
             string name,
-            IConventionAnnotation annotation,
-            IConventionAnnotation oldAnnotation,
+            IConventionAnnotation? annotation,
+            IConventionAnnotation? oldAnnotation,
             IConventionContext<IConventionAnnotation> context)
         {
             if (annotation == null

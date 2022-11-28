@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Jet.Data
             return instance;
         }
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
             result = WrapIfRequired(
                 _instance.GetType()
@@ -91,7 +91,7 @@ namespace EntityFrameworkCore.Jet.Data
             return true;
         }
 
-        public override bool TrySetMember(SetMemberBinder binder, object value)
+        public override bool TrySetMember(SetMemberBinder binder, object? value)
         {
             _instance.GetType()
                 .InvokeMember(
@@ -109,7 +109,7 @@ namespace EntityFrameworkCore.Jet.Data
             return true;
         }
 
-        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+        public override bool TryInvokeMember(InvokeMemberBinder binder, object?[]? args, out object? result)
         {
             result = WrapIfRequired(
                 _instance.GetType()

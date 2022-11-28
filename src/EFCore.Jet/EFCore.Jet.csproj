@@ -6,6 +6,7 @@
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
     <Platforms>AnyCPU;x86;x64</Platforms>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

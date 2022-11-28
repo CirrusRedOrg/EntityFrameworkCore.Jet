@@ -18,14 +18,14 @@ namespace EntityFrameworkCore.Jet.Data
         private string _connectionString;
         private bool _frozen;
 
-        internal DbConnection InnerConnection { get; private set; }
+        internal DbConnection? InnerConnection { get; private set; }
 
-        internal JetTransaction ActiveTransaction { get; set; }
+        internal JetTransaction? ActiveTransaction { get; set; }
         
         internal int RowCount { get; set; }
         
-        internal string ActiveConnectionString { get; private set; }
-        internal string FileNameOrConnectionString => ConnectionString;
+        internal string? ActiveConnectionString { get; private set; }
+        internal string? FileNameOrConnectionString => ConnectionString;
 
         public const string DefaultDualTableName = "#Dual";
         
@@ -41,7 +41,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
         /// <param name="fileNameOrConnectionString">The file name or connection string (either ODBC or OLE DB).</param>
-        public JetConnection(string fileNameOrConnectionString)
+        public JetConnection(string? fileNameOrConnectionString)
             : this(fileNameOrConnectionString, null)
         {
         }
@@ -62,7 +62,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <param name="fileNameOrConnectionString">The file name or connection string (either ODBC or OLE DB).</param>
         /// <param name="dataAccessProviderFactory">The underlying provider factory to use by Jet. Supported are
         /// `OdbcFactory` and `OleDbFactory`.</param>
-        public JetConnection(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+        public JetConnection(string? fileNameOrConnectionString, DbProviderFactory? dataAccessProviderFactory)
         {
             ConnectionString = fileNameOrConnectionString;
 
@@ -249,7 +249,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// Enlists in the specified transaction.
         /// </summary>
         /// <param name="transaction">A reference to an existing <see cref="T:System.Transactions.Transaction" /> in which to enlist.</param>
-        public override void EnlistTransaction(System.Transactions.Transaction transaction)
+        public override void EnlistTransaction(System.Transactions.Transaction? transaction)
         {
             if (InnerConnection == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
@@ -300,7 +300,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <PermissionSet>
         ///   <IPermission class="System.Security.Permissions.FileIOPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" PathDiscovery="*AllFiles*" />
         /// </PermissionSet>
-        public override DataTable GetSchema(string collectionName, string[] restrictionValues)
+        public override DataTable GetSchema(string collectionName, string?[] restrictionValues)
         {
             if (State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
@@ -456,7 +456,7 @@ namespace EntityFrameworkCore.Jet.Data
             return tableExists;
         }
 
-        public DbCommand CreateCommand(string commandText, int? commandTimeout = null)
+        public DbCommand CreateCommand(string? commandText, int? commandTimeout = null)
         {
             if (JetFactory == null)
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(DataAccessProviderFactory)));
@@ -512,14 +512,14 @@ namespace EntityFrameworkCore.Jet.Data
         public void CreateDatabase(
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null)
+            string? databasePassword = null)
             => CreateDatabase(DataSource, version, collatingOrder, databasePassword, SchemaProviderType);
 
         public static void CreateDatabase(
             string fileNameOrConnectionString,
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null,
+            string? databasePassword = null,
             SchemaProviderType schemaProviderType = SchemaProviderType.Precise)
         {
             if (databasePassword != null &&

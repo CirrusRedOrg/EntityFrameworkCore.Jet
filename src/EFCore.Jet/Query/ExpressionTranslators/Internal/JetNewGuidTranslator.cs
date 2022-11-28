@@ -16,13 +16,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     /// </summary>
     public class JetNewGuidTranslator : IMethodCallTranslator
     {
-        private static readonly MethodInfo _methodInfo = typeof(Guid).GetRuntimeMethod(nameof(Guid.NewGuid), Array.Empty<Type>());
+        private static readonly MethodInfo _methodInfo = typeof(Guid).GetRuntimeMethod(nameof(Guid.NewGuid), Array.Empty<Type>())!;
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
 
         public JetNewGuidTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             return _methodInfo.Equals(method)
                 ? _sqlExpressionFactory.Function(

@@ -13,6 +13,6 @@ namespace EntityFrameworkCore.Jet.Data
                 _ => throw new ArgumentOutOfRangeException(nameof(schemaProviderType))
             };
 
-        public abstract void CreateDatabase(string fileNameOrConnectionString, DatabaseVersion version = DatabaseVersion.NewestSupported, CollatingOrder collatingOrder = CollatingOrder.General, string databasePassword = null);
+        public abstract void CreateDatabase(string fileNameOrConnectionString, DatabaseVersion version = DatabaseVersion.NewestSupported, CollatingOrder collatingOrder = CollatingOrder.General, string? databasePassword = null);
     }
 }

@@ -162,7 +162,7 @@ namespace EntityFrameworkCore.Jet.Data
             // Therefore, either ADO has to be used, or DAO together with the GetSchema()
             // method (that contains precision and scale, but no default value when using ODBC, because again, looks
             // like someone at Microsoft just forgot to implement it).
-            Dictionary<(string TableName, string ColumnName), int?> numericScales = null;
+            Dictionary<(string TableName, string ColumnName), int?>? numericScales = null;
             
             if (!_naturalOnly)
             {

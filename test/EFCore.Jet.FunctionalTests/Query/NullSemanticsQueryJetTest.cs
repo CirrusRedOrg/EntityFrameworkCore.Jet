@@ -39,7 +39,7 @@ WHERE `e`.`NullableBoolA` = `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NULL))");
+WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB` OR ((`e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NULL))");
         }
 
         public override async Task Compare_negated_bool_with_bool_equal(bool async)
@@ -119,15 +119,15 @@ WHERE `e`.`BoolA` <> `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolB` IS NULL)",
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolB` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB` OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
+WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL)) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
         }
 
         public override async Task Compare_negated_bool_with_bool_equal_negated(bool async)
@@ -207,15 +207,15 @@ WHERE `e`.`BoolA` <> `e`.`BoolB`",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolA` <> `e`.`NullableBoolB`) OR (`e`.`NullableBoolB` IS NULL)",
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolB` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableBoolA` <> `e`.`BoolB`) OR (`e`.`NullableBoolA` IS NULL)",
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB` OR (`e`.`NullableBoolA` IS NULL)",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE ((`e`.`NullableBoolA` <> `e`.`NullableBoolB`) OR ((`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL))) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
+WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL) OR (`e`.`NullableBoolB` IS NULL)) AND ((`e`.`NullableBoolA` IS NOT NULL) OR (`e`.`NullableBoolB` IS NOT NULL))");
         }
 
         public override async Task Compare_negated_bool_with_bool_not_equal(bool async)
@@ -869,7 +869,7 @@ WHERE `e`.`StringA` IN ('Foo', 'Bar')",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`StringA` LIKE 'A' & '%'");
+WHERE `e`.`StringA` LIKE 'A%'");
         }
 
         public override async Task Where_nested_conditional_search_condition_in_result(bool async)

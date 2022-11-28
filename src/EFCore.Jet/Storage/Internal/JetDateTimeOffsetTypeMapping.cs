@@ -29,6 +29,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected JetDateTimeOffsetTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
             : base(parameters, options)
         {
+            _options = options;
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)

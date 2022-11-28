@@ -22,36 +22,37 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         private readonly Dictionary<MethodInfo, string> _methodInfoDatePartMapping = new Dictionary<MethodInfo, string>
         {
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddYears), new[] {typeof(int)}), "yyyy"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMonths), new[] {typeof(int)}), "m"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddDays), new[] {typeof(double)}), "d"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddHours), new[] {typeof(double)}), "h"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMinutes), new[] {typeof(double)}), "n"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddSeconds), new[] {typeof(double)}), "s"},
-            // {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMilliseconds), new[] {typeof(double)}), "millisecond"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddYears), new[] {typeof(int)}), "yyyy"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMonths), new[] {typeof(int)}), "m"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddDays), new[] {typeof(double)}), "d"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddHours), new[] {typeof(double)}), "h"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMinutes), new[] {typeof(double)}), "n"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), new[] {typeof(double)}), "s"},
-            // {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), new[] {typeof(double)}), "millisecond"}
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddYears), new[] {typeof(int)})!, "yyyy"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMonths), new[] {typeof(int)})!, "m"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddDays), new[] {typeof(double)})!, "d"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddHours), new[] {typeof(double)})!, "h"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMinutes), new[] {typeof(double)})!, "n"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddSeconds), new[] {typeof(double)})!, "s"},
+            // {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMilliseconds), new[] {typeof(double)})!, "millisecond"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddYears), new[] {typeof(int)})!, "yyyy"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMonths), new[] {typeof(int)})!, "m"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddDays), new[] {typeof(double)})!, "d"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddHours), new[] {typeof(double)})!, "h"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMinutes), new[] {typeof(double)})!, "n"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), new[] {typeof(double)})!, "s"},
+            // {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), new[] {typeof(double)})!, "millisecond"}
         };
 
         public JetDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (_methodInfoDatePartMapping.TryGetValue(method, out var datePart))
+            if (_methodInfoDatePartMapping.TryGetValue(method, out var datePart) && instance != null)
             {
                 var amountToAdd = arguments.First();
 
                 if (!datePart.Equals("yyyy")
                     && !datePart.Equals("m")
                     && amountToAdd is SqlConstantExpression constantExpression
-                    && ((double) constantExpression.Value >= int.MaxValue
-                        || (double) constantExpression.Value <= int.MinValue))
+                    && constantExpression.Value is double doubleValue
+                    && (doubleValue >= int.MaxValue
+                        || doubleValue <= int.MinValue))
                 {
                     return null;
                 }
@@ -64,9 +65,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         amountToAdd,
                         instance
                     },
-                    false,
-                    new[] {false},
-                    method.ReturnType);
+                    true,
+                    argumentsPropagateNullability: new[] { false, true, true },
+                    instance.Type,
+                    instance.TypeMapping);
             }
 
             return null;

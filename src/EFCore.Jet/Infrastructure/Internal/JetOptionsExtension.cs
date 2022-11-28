@@ -18,10 +18,10 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
     /// </summary>
     public class JetOptionsExtension : RelationalOptionsExtension
     {
-        private DbContextOptionsExtensionInfo _info;
+        private DbContextOptionsExtensionInfo? _info;
 
         // private bool? _rowNumberPaging;
-        private DbProviderFactory _dataAccessProviderFactory;
+        private DbProviderFactory? _dataAccessProviderFactory;
         private bool _useOuterSelectSkipEmulationViaDataReader;
         private bool _enableMillisecondsSupport;
 
@@ -101,7 +101,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual DbProviderFactory DataAccessProviderFactory => _dataAccessProviderFactory;
+        public virtual DbProviderFactory? DataAccessProviderFactory => _dataAccessProviderFactory;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -176,7 +176,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         private sealed class ExtensionInfo : RelationalExtensionInfo
         {
             private int? _serviceProviderHash;
-            private string _logFragment;
+            private string? _logFragment;
 
             public ExtensionInfo(IDbContextOptionsExtension extension)
                 : base(extension)

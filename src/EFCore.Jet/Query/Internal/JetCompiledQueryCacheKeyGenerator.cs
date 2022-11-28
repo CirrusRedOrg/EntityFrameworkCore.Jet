@@ -57,7 +57,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 _relationalCompiledQueryCacheKey = relationalCompiledQueryCacheKey;
             }
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
                 => !(obj is null)
                    && obj is JetCompiledQueryCacheKey key
                    && Equals(key);

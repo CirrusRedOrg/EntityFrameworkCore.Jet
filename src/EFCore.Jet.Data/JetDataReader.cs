@@ -113,7 +113,7 @@ namespace EntityFrameworkCore.Jet.Data
             return (byte) value;
         }
 
-        public override long GetBytes(int ordinal, long dataOffset, byte[] buffer, int bufferOffset, int length)
+        public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
             => JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                _wrappedDataReader.IsDBNull(ordinal)
                 ? 0
@@ -128,7 +128,7 @@ namespace EntityFrameworkCore.Jet.Data
                 : (char) value;
         }
 
-        public override long GetChars(int ordinal, long dataOffset, char[] buffer, int bufferOffset, int length)
+        public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
         {
             if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                 _wrappedDataReader.IsDBNull(ordinal))

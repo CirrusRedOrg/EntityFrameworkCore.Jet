@@ -960,7 +960,7 @@ LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
 FROM (
     SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'A' & '%'
+    WHERE `c`.`CustomerID` LIKE 'A%'
 ) AS `t`
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `t`.`CustomerID`, `o`.`OrderID`");

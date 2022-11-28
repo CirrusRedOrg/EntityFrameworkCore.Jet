@@ -43,11 +43,11 @@ namespace EntityFrameworkCore.Jet.Design.Internal
             // CHECK: Jet default schema handling.
             if (annotation.Name == RelationalAnnotationNames.DefaultSchema)
             {
-                return string.Equals(null, (string)annotation.Value);
+                return string.Equals(null, (string?)annotation.Value);
             }
 
             return annotation.Name == JetAnnotationNames.ValueGenerationStrategy
-                && (JetValueGenerationStrategy)annotation.Value == JetValueGenerationStrategy.IdentityColumn;
+                && (JetValueGenerationStrategy)annotation.Value! == JetValueGenerationStrategy.IdentityColumn;
         }
     }
 }

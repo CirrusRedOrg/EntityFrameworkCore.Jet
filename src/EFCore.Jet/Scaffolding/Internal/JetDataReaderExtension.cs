@@ -15,11 +15,11 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public static T GetValueOrDefault<T>([NotNull] this DbDataReader reader, [NotNull] string name, T defaultValue = default)
+        public static T? GetValueOrDefault<T>([NotNull] this DbDataReader reader, [NotNull] string name)
         {
             var idx = reader.GetOrdinal(name);
             return reader.IsDBNull(idx)
-                ? defaultValue
+                ? default
                 : reader.GetFieldValue<T>(idx);
         }
     }

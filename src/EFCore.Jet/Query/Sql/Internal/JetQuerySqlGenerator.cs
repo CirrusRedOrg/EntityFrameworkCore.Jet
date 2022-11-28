@@ -46,7 +46,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         //private readonly JetSqlExpressionFactory _sqlExpressionFactory;
-        private CoreTypeMapping _boolTypeMapping;
+        private CoreTypeMapping? _boolTypeMapping;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -80,7 +80,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return selectExpression;
             }
 
-            IDisposable subQueryIndent = null;
+            IDisposable? subQueryIndent = null;
 
             if (selectExpression.Alias != null)
             {
@@ -192,7 +192,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (selectExpression.Alias != null)
             {
-                subQueryIndent.Dispose();
+                subQueryIndent!.Dispose();
 
                 Sql.AppendLine()
                     .Append(")" + AliasSeparator + _sqlGenerationHelper.DelimitIdentifier(selectExpression.Alias));
@@ -230,7 +230,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private void GenerateList<T>(
             IReadOnlyList<T> items,
             Action<T> generationAction,
-            Action<IRelationalCommandBuilder> joinAction = null)
+            Action<IRelationalCommandBuilder>? joinAction = null)
         {
             joinAction ??= (isb => isb.Append(", "));
 
@@ -293,20 +293,23 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitIn(InExpression inExpression)
         {
-            var valuesConstant = (SqlConstantExpression)inExpression.Values;
-            var isdt = (IEnumerable<object>)valuesConstant.Value!;
-            var enumerable = isdt.ToList();
-            if (enumerable.Any())
+            var valuesConstant = (SqlConstantExpression?)inExpression.Values;
+            if (valuesConstant != null)
             {
-                var dtf = enumerable.FirstOrDefault();
-                //Need to use a specific Jet DateTime format - when used in an IN section the mapping isn't automatic so set it up explicitly
-                if (dtf is DateTime)
+                var isdt = (IEnumerable<object>)valuesConstant?.Value!;
+                var enumerable = isdt.ToList();
+                if (enumerable.Any())
                 {
-                    var newexp = new InExpression(inExpression.Item,
-                        valuesConstant.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options)),
-                        inExpression.IsNegated,
-                        new JetDateTimeTypeMapping("datetime", _options));
-                    return base.VisitIn(newexp);
+                    var dtf = enumerable.FirstOrDefault();
+                    //Need to use a specific Jet DateTime format - when used in an IN section the mapping isn't automatic so set it up explicitly
+                    if (dtf is DateTime)
+                    {
+                        var newexp = new InExpression(inExpression.Item,
+                            valuesConstant!.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options)),
+                            inExpression.IsNegated,
+                            new JetDateTimeTypeMapping("datetime", _options));
+                        return base.VisitIn(newexp);
+                    }
                 }
             }
 
@@ -344,7 +347,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 SqlExpression checksqlexp = convertExpression.Operand;
 
                 SqlFunctionExpression notnullsqlexp = new SqlFunctionExpression(function, new SqlExpression[] { convertExpression.Operand },
-                  false, new[] { false }, typeMapping.ClrType, null);
+                  true, new[] { true }, typeMapping.ClrType, null);
 
                 SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
@@ -353,8 +356,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     new CaseWhenClause(isnullexp, nullcons)
                 };
                 CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
-                Visit(caseexp);
-                return convertExpression;
+                //Visit(caseexp);
+                Visit(notnullsqlexp);
+                return notnullsqlexp;
             }
 
             if (typeMapping.ClrType.Name == nameof(String))
@@ -454,7 +458,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            if (sqlFunctionExpression.Name.Equals("POW", StringComparison.OrdinalIgnoreCase))
+            if (sqlFunctionExpression.Name.Equals("POW", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null)
             {
                 Visit(sqlFunctionExpression.Arguments[0]);
                 Sql.Append("^");
@@ -462,7 +466,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase))
+            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null)
             {
                 SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlFunctionExpression.Arguments[0], typeof(bool), null);

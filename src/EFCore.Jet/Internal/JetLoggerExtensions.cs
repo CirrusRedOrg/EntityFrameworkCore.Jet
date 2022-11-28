@@ -148,8 +148,8 @@ namespace EntityFrameworkCore.Jet.Internal
             int scale,
             bool nullable,
             bool identity,
-            [CanBeNull] string defaultValue,
-            [CanBeNull] string computedValue,
+            [CanBeNull] string? defaultValue,
+            [CanBeNull] string? computedValue,
             bool? stored)
         {
             var definition = JetResources.LogFoundColumn(diagnostics);
@@ -337,9 +337,9 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public static void ForeignKeyReferencesMissingPrincipalTableWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [CanBeNull] string foreignKeyName,
-            [CanBeNull] string tableName,
-            [CanBeNull] string principalTableName)
+            [CanBeNull] string? foreignKeyName,
+            [CanBeNull] string? tableName,
+            [CanBeNull] string? principalTableName)
         {
             var definition = JetResources.LogPrincipalTableNotInSelectionSet(diagnostics);
 
@@ -382,7 +382,7 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public static void MissingSchemaWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [CanBeNull] string schemaName)
+            [CanBeNull] string? schemaName)
         {
             var definition = JetResources.LogMissingSchema(diagnostics);
 
@@ -402,7 +402,7 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public static void MissingTableWarning(
             [NotNull] this IDiagnosticsLogger<DbLoggerCategory.Scaffolding> diagnostics,
-            [CanBeNull] string tableName)
+            [CanBeNull] string? tableName)
         {
             var definition = JetResources.LogMissingTable(diagnostics);
 

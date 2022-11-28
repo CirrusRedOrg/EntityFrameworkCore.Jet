@@ -6,6 +6,7 @@
     <AssemblyName>EntityFrameworkCore.Jet.Odbc</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <PackageTags>$(PackageTags);ODBC;System.Data.Odbc</PackageTags>
+	  <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

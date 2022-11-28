@@ -6,6 +6,7 @@
     <AssemblyName>EntityFrameworkCore.Jet.OleDb</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <PackageTags>$(PackageTags);OLE DB;OLEDB;System.Data.OleDb</PackageTags>
+	<Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

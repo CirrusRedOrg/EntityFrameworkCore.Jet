@@ -28,8 +28,6 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="database"> The facade from <see cref="DbContext.Database" />. </param>
         /// <returns> True if Jet is being used; false otherwise. </returns>
         public static bool IsJet([NotNull] this DatabaseFacade database)
-            => database.ProviderName.Equals(
-                typeof(JetOptionsExtension).GetTypeInfo().Assembly.GetName().Name,
-                StringComparison.Ordinal);
+            => database.ProviderName == typeof(JetOptionsExtension).Assembly.GetName().Name;
     }
 }

@@ -4084,22 +4084,22 @@ WHERE (`t`.`Name` <> 'Bar') OR `t`.`Name` IS NULL");
                         $@"SELECT AVG(`p`.`Price`)
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT IIf(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
+                        $@"SELECT IIF(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT IIf(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
+                        $@"SELECT IIF(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
 FROM `Prices` AS `p`",
                         //
                         $@"SELECT AVG(`p`.`DoubleColumn`)
@@ -4990,7 +4990,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
                     var result = context.InventoryPools.Sum(p => (decimal)p.Quantity);
 
                     AssertSql(
-                        $@"SELECT SUM(IIf(`i`.`Quantity` IS NULL, NULL, CCUR(`i`.`Quantity`)))
+                        $@"SELECT SUM(IIF(`i`.`Quantity` IS NULL, NULL, CCUR(`i`.`Quantity`)))
 FROM `InventoryPools` AS `i`");
                 }
             }

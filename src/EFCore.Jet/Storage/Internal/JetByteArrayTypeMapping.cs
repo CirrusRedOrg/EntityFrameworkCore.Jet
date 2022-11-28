@@ -22,10 +22,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetByteArrayTypeMapping(
-            [CanBeNull] string storeType = null,
+            [CanBeNull] string? storeType = null,
             int? size = null,
             bool fixedLength = false,
-            [CanBeNull] ValueComparer comparer = null,
+            [CanBeNull] ValueComparer? comparer = null,
             StoreTypePostfix? storeTypePostfix = null)
             : base(
                 new RelationalTypeMappingParameters(

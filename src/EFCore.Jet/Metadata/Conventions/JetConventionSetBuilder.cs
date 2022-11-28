@@ -55,7 +55,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 .BuildServiceProvider();
 
             using var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
-            using var context = serviceScope.ServiceProvider.GetService<DbContext>();
+            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
             return ConventionSet.CreateConventionSet(context);
         }
     }

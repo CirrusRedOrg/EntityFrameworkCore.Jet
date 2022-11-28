@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
     /// </summary>
     public interface IJetOptions : ISingletonOptions
     {
-        string ConnectionString { get; }
+        string? ConnectionString { get; }
         DataAccessProviderType DataAccessProviderType { get; }
         bool UseOuterSelectSkipEmulationViaDataReader { get; }
         bool EnableMillisecondsSupport { get; }

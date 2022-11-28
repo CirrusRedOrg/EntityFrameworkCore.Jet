@@ -1309,7 +1309,7 @@ WHERE (`t1`.`Nickname` = `t2`.`Nickname`) OR (`t1`.`Nickname` IS NULL AND `t2`.`
             await base.Optional_Navigation_Null_Coalesce_To_Clr_Type(isAsync);
 
             AssertSql(
-                $@"SELECT TOP 1 IIf(`w0`.`IsAutomatic` IS NULL, False, `w0`.`IsAutomatic`) AS `IsAutomatic`
+                $@"SELECT TOP 1 IIF(`w0`.`IsAutomatic` IS NULL, False, `w0`.`IsAutomatic`) AS `IsAutomatic`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
 ORDER BY `w`.`Id`");
@@ -2033,7 +2033,7 @@ ORDER BY `t3`.`FullName0`, `t3`.`FullName`");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIf(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True");
+WHERE IIF(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True");
         }
 
         public override async Task Coalesce_operator_in_predicate_with_other_conditions(bool isAsync)
@@ -2043,7 +2043,7 @@ WHERE IIf(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE (`w`.`AmmunitionType` = 1) AND (IIf(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True)");
+WHERE (`w`.`AmmunitionType` = 1) AND (IIF(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True)");
         }
 
         public override async Task Coalesce_operator_in_projection_with_other_conditions(bool isAsync)
@@ -2051,7 +2051,7 @@ WHERE (`w`.`AmmunitionType` = 1) AND (IIf(`w`.`IsAutomatic` IS NULL, False, `w`.
             await base.Coalesce_operator_in_projection_with_other_conditions(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(((`w`.`AmmunitionType` = 1) AND `w`.`AmmunitionType` IS NOT NULL) AND (IIf(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True), 1, 0)
+                $@"SELECT IIF(((`w`.`AmmunitionType` = 1) AND `w`.`AmmunitionType` IS NOT NULL) AND (IIF(`w`.`IsAutomatic` IS NULL, False, `w`.`IsAutomatic`) = True), 1, 0)
 FROM `Weapons` AS `w`");
         }
 
@@ -5055,7 +5055,7 @@ ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t1`.`Id`");
                 $@"SELECT CASE
     WHEN CASE
         WHEN `t0`.`HasSoulPatch` = True THEN True
-        ELSE IIf(`t0`.`HasSoulPatch` IS NULL, True, `t0`.`HasSoulPatch`)
+        ELSE IIF(`t0`.`HasSoulPatch` IS NULL, True, `t0`.`HasSoulPatch`)
     END <> True THEN True
     ELSE False
 END AS `c`
@@ -5958,7 +5958,7 @@ FROM `Missions` AS `m`");
             await base.GroupBy_Property_Include_Select_Average(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`g`.`SquadId` IS NULL, NULL, CDBL(`g`.`SquadId`)))
+                $@"SELECT AVG(IIF(`g`.`SquadId` IS NULL, NULL, CDBL(`g`.`SquadId`)))
 FROM `Gears` AS `g`
 WHERE `g`.`Discriminator` IN ('Gear', 'Officer')
 GROUP BY `g`.`Rank`");
@@ -6133,7 +6133,7 @@ END");
             await base.GetValueOrDefault_in_projection(isAsync);
 
             AssertSql(
-                $@"SELECT IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`)
+                $@"SELECT IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`)
 FROM `Weapons` AS `w`");
         }
 
@@ -6144,7 +6144,7 @@ FROM `Weapons` AS `w`");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 0");
+WHERE IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 0");
         }
 
         public override async Task GetValueOrDefault_in_filter_non_nullable_column(bool isAsync)
@@ -6154,7 +6154,7 @@ WHERE IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 0");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIf(`w`.`Id` IS NULL, 0, `w`.`Id`) = 0");
+WHERE IIF(`w`.`Id` IS NULL, 0, `w`.`Id`) = 0");
         }
 
         public override async Task GetValueOrDefault_in_order_by(bool isAsync)
@@ -6164,7 +6164,7 @@ WHERE IIf(`w`.`Id` IS NULL, 0, `w`.`Id`) = 0");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-ORDER BY IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`), `w`.`Id`");
+ORDER BY IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`), `w`.`Id`");
         }
 
         public override async Task GetValueOrDefault_with_argument(bool isAsync)
@@ -6174,7 +6174,7 @@ ORDER BY IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`), `w`.`Id`");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 1");
+WHERE IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 1");
         }
 
         public override async Task GetValueOrDefault_with_argument_complex(bool isAsync)
@@ -6184,7 +6184,7 @@ WHERE IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 1");
             AssertSql(
                 $@"SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIf(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) AS int) + 42) > 10");
+WHERE IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) AS int) + 42) > 10");
         }
 
         public override async Task Filter_with_complex_predicate_containing_subquery(bool isAsync)

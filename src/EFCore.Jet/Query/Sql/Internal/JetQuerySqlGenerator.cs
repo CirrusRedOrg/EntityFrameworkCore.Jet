@@ -353,8 +353,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     new CaseWhenClause(isnullexp, nullcons)
                 };
                 CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
-                Visit(caseexp);
-                return convertExpression;
+                //Visit(caseexp);
+                Visit(notnullsqlexp);
+                return notnullsqlexp;
             }
 
             if (typeMapping.ClrType.Name == nameof(String))

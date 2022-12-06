@@ -284,8 +284,15 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     return null;
                 }
             }
-            else if ((dataTypeName == "datetime" && _defaultDateTimeValue.IsMatch(defaultValue)) ||
-                     (dataTypeName == "guid" && defaultValue == "'00000000-0000-0000-0000-000000000000'"))
+            else if ((defaultValue == "('1900-01-01T00:00:00.000')" && (dataTypeName == "datetime" || dataTypeName == "smalldatetime")) ||
+                     (dataTypeName == "guid" && defaultValue == "'00000000-0000-0000-0000-000000000000'") ||
+                     (defaultValue == "('0001-01-01')" && dataTypeName == "date") ||
+                     (defaultValue == "('0001-01-01')" && dataTypeName == "date") ||
+                     (defaultValue == "('0001-01-01T00:00:00.000')" && dataTypeName == "datetime2") ||
+                     (defaultValue == "('0001-01-01T00:00:00.000+00:00')" && dataTypeName == "datetimeoffset") ||
+                     (defaultValue == "('00:00:00')" && dataTypeName == "time") ||
+                     (defaultValue == "('00000000-0000-0000-0000-000000000000')" && dataTypeName == "uniqueidentifier")
+                    )
             {
                 return null;
             }

@@ -226,7 +226,7 @@ INNER JOIN (
     FROM `Order Details` AS `o0`
     WHERE `o0`.`Quantity` > {AssertSqlHelper.Parameter("@__ef_filter___quantity_1")}
 ) AS `t1` ON `t0`.`OrderID` = `t1`.`OrderID`
-WHERE (({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR ((`c`.`CompanyName` IS NOT NULL) AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))) AND (`t1`.`Discount` < IIf(10 IS NULL, NULL, CSNG(10)))");
+WHERE (({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR ((`c`.`CompanyName` IS NOT NULL) AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))) AND (`t1`.`Discount` < IIF(10 IS NULL, NULL, CSNG(10)))");
         }
 
         [ConditionalFact]

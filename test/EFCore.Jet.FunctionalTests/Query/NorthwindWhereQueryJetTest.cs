@@ -740,7 +740,7 @@ WHERE CONVERT(date, `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__myDatetime
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE DATEPART('yyyy', DATEADD('yyyy', CAST(-1 AS int), `o`.`OrderDate`)) = 1997");
+WHERE DATEPART('yyyy', DATEADD('yyyy', -1, `o`.`OrderDate`)) = 1997");
         }
 
         public override async Task Where_datetime_year_component(bool isAsync)
@@ -770,7 +770,7 @@ WHERE DATEPART('m', `o`.`OrderDate`) = 4");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE DATEPART(dayofyear, `o`.`OrderDate`) = 68");
+WHERE DATEPART('y', `o`.`OrderDate`) = 68");
         }
 
         public override async Task Where_datetime_day_component(bool isAsync)

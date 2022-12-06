@@ -116,7 +116,7 @@ WHERE CHARINDEX({AssertSqlHelper.Parameter("@__prm8_0")}, `f`.`FirstName`) <= 0"
                 $@"SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 0) > 0) OR (`f0`.`LastName` = '')");
+WHERE (`f0`.`LastName` LIKE '') OR (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0)");
         }
 
         public override async Task String_contains_on_argument_with_wildcard_column_negated(bool isAsync)
@@ -127,7 +127,7 @@ WHERE (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 0) > 0) OR (`f0`.`LastName` = 
                 $@"SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE ((`f0`.`LastName` <> '') OR `f0`.`LastName` IS NULL) AND (CHARINDEX(`f0`.`LastName`, `f`.`FirstName`) <= 0)");
+WHERE NOT ((`f0`.`LastName` LIKE '') OR (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0))");
         }
 
         public override async Task String_starts_with_on_argument_with_wildcard_constant(bool isAsync)

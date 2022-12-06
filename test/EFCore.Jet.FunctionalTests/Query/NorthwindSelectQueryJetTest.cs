@@ -99,7 +99,7 @@ WHERE `e`.`EmployeeID` = 1");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -297,7 +297,7 @@ OUTER APPLY (
     FROM `Orders` AS `o`
     WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500)
 ) AS `t`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
         }
 
@@ -311,7 +311,7 @@ ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
     FROM `Orders` AS `o`
     WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500)) AS `OrderDates`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override void Select_nested_collection_multi_level3()
@@ -324,7 +324,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
     FROM `Orders` AS `o`
     WHERE (`o`.`OrderID` < 10500) AND (`c`.`CustomerID` = `o`.`CustomerID`)) AS `OrderDates`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override void Select_nested_collection_multi_level4()
@@ -340,7 +340,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
     FROM `Orders` AS `o0`
     WHERE (`c`.`CustomerID` = `o0`.`CustomerID`) AND (`o0`.`OrderID` < 10500)) AS `Order`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override void Select_nested_collection_multi_level5()
@@ -362,7 +362,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
     FROM `Orders` AS `o1`
     WHERE (`c`.`CustomerID` = `o1`.`CustomerID`) AND (`o1`.`OrderID` < 10500)) AS `Order`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override void Select_nested_collection_multi_level6()
@@ -378,7 +378,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
     FROM `Orders` AS `o0`
     WHERE (`c`.`CustomerID` = `o0`.`CustomerID`) AND (`o0`.`OrderID` < 10500)) AS `Order`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Select_nested_collection_count_using_anonymous_type(bool isAsync)
@@ -391,7 +391,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task New_date_time_in_anonymous_type_works(bool isAsync)
@@ -401,7 +401,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
             AssertSql(
                 $@"SELECT 1
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Select_non_matching_value_types_int_to_long_introduces_explicit_cast(bool isAsync)
@@ -908,7 +908,7 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
             await base.Cast_on_top_level_projection_brings_explicit_Cast(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`))
+                $@"SELECT CDBL(`o`.`OrderID`)
 FROM `Orders` AS `o`");
         }
 
@@ -930,7 +930,7 @@ FROM `Orders` AS `o`");
 FROM (`Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE IIF(`o0`.`Discount` IS NULL, NULL, CDBL(`o0`.`Discount`)) >= 0.25");
+WHERE CDBL(`o0`.`Discount`) >= 0.25");
         }
 
         public override async Task SelectMany_without_result_selector_naked_collection_navigation(bool isAsync)
@@ -1046,7 +1046,7 @@ LEFT JOIN (
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` > 11000
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -1062,7 +1062,7 @@ LEFT JOIN (
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` > 11000
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -1170,7 +1170,7 @@ FROM `Customers` AS `c`");
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task LastOrDefault_member_access_in_projection_translates_to_server(bool isAsync)
@@ -1184,7 +1184,7 @@ WHERE `c`.`CustomerID` LIKE 'A' & '%'");
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderID`) AS `OrderDate`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Projection_with_parameterized_constructor(bool async)
@@ -1646,7 +1646,7 @@ LEFT JOIN (
     WHERE `t1`.`row` <= 1
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
 LEFT JOIN `Order Details` AS `o2` ON `t0`.`OrderID` = `o2`.`OrderID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`, `t`.`ProductID`, `t0`.`OrderID`, `o2`.`OrderID`");
         }
 
@@ -1660,7 +1660,7 @@ SELECT `t`.`CustomerID`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`C
 FROM (
     SELECT TOP(@__p_0) `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F' & '%'
+    WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 OUTER APPLY (
@@ -1685,7 +1685,7 @@ ORDER BY `t`.`CustomerID`, `t0`.`OrderID`");
 FROM (
     SELECT TOP 1 `o`.`OrderID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
-    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F' & '%')
+    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')
 ) AS `t`
 OUTER APPLY (
     SELECT `t1`.`OrderID`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `t1`.`UnitPrice` AS `UnitPrice0`, `t1`.`ProductID` AS `ProductID0`
@@ -1710,7 +1710,7 @@ ORDER BY `t`.`OrderID`, `t0`.`OrderID` DESC, `t0`.`ProductID0`");
 FROM (
     SELECT TOP 1 `c`.`CustomerID`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F' & '%'
+    WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 OUTER APPLY (
@@ -1757,7 +1757,7 @@ ORDER BY `t`.`CustomerID`");
     FROM `Orders` AS `o`
     WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 11000)), `c`.`City`, 'test' & IIF(`c`.`City` IS NULL, '', `c`.`City`)
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'");
+WHERE `c`.`CustomerID` LIKE 'F%'");
         }
 
         public override async Task MemberInit_in_projection_without_arguments(bool async)
@@ -1768,7 +1768,7 @@ WHERE `c`.`CustomerID` LIKE 'F' & '%'");
                 @"SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -1784,7 +1784,7 @@ LEFT JOIN (
     FROM `Orders` AS `o`
     LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F' & '%'
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`");
         }
 

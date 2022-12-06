@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -83,198 +84,255 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 m => m.Name == nameof(Enumerable.LastOrDefault)
                     && m.GetParameters().Length == 1).MakeGenericMethod(typeof(char));
 
+        private const char LikeEscapeChar = '\\';
+        private const string LikeEscapeString = "\\";
 
         public JetStringMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (_indexOfMethodInfo.Equals(method))
+            if (instance != null)
             {
-                var argument = arguments[0];
-                var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, argument)!;
-                argument = _sqlExpressionFactory.ApplyTypeMapping(argument, stringTypeMapping);
-
-                SqlExpression charIndexExpression;
-                var storeType = stringTypeMapping.StoreType;
-                if (string.Equals(storeType, "nvarchar(max)", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(storeType, "varchar(max)", StringComparison.OrdinalIgnoreCase))
+                if (_indexOfMethodInfo.Equals(method))
                 {
-                    charIndexExpression = _sqlExpressionFactory.Function(
-                        "InStr",
-                        new[] { _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument },
-                        nullable: true,
-                        argumentsPropagateNullability: new[] { true, true },
-                        typeof(long));
+                    var argument = arguments[0];
+                    var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, argument)!;
+                    argument = _sqlExpressionFactory.ApplyTypeMapping(argument, stringTypeMapping);
 
-                    charIndexExpression = _sqlExpressionFactory.Convert(charIndexExpression, typeof(int));
-                }
-                else
-                {
-                    charIndexExpression = _sqlExpressionFactory.Function(
-                        "InStr",
-                        new[] { _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument },
-                        nullable: true,
-                        argumentsPropagateNullability: new[] { true, true },
-                        method.ReturnType);
-                }
-
-                charIndexExpression = _sqlExpressionFactory.Subtract(charIndexExpression, _sqlExpressionFactory.Constant(1));
-
-                return _sqlExpressionFactory.Case(
-                    new[]
+                    SqlExpression charIndexExpression;
+                    var storeType = stringTypeMapping.StoreType;
+                    if (string.Equals(storeType, "nvarchar(max)", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(storeType, "varchar(max)", StringComparison.OrdinalIgnoreCase))
                     {
+                        charIndexExpression = _sqlExpressionFactory.Function(
+                            "InStr",
+                            new[]
+                            {
+                                _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument,
+                                _sqlExpressionFactory.Constant(1)
+                            },
+                            nullable: true,
+                            argumentsPropagateNullability: new[] { true, true, true },
+                            typeof(long));
+
+                        charIndexExpression = _sqlExpressionFactory.Convert(charIndexExpression, typeof(int));
+                    }
+                    else
+                    {
+                        charIndexExpression = _sqlExpressionFactory.Function(
+                            "InStr",
+                            new[]
+                            {
+                                _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping), argument,
+                                _sqlExpressionFactory.Constant(1)
+                            },
+                            nullable: true,
+                            argumentsPropagateNullability: new[] { true, true, true },
+                            method.ReturnType);
+                    }
+
+                    charIndexExpression =
+                        _sqlExpressionFactory.Subtract(charIndexExpression, _sqlExpressionFactory.Constant(1));
+
+                    return _sqlExpressionFactory.Case(
+                        new[]
+                        {
                             new CaseWhenClause(
                                 _sqlExpressionFactory.Equal(
                                     instance,
                                     _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping)),
                                 _sqlExpressionFactory.Constant(0))
-                    },
-                    charIndexExpression);
-            }
-
-            if (Equals(method, _containsMethodInfo))
-            {
-                var patternExpression = arguments[0];
-                var patternConstantExpression = patternExpression as SqlConstantExpression;
-
-                // CHECK: Index usage. It is likely needed to switch to the SQL Server approach of pre-searching
-                //        with LIKE first to narrow down the results and use INSTR only for whatever remains.
-                var charIndexExpression = _sqlExpressionFactory.GreaterThan(
-                    _sqlExpressionFactory.Function(
-                        "INSTR",
-                        new[]
-                        {
-                            _sqlExpressionFactory.Constant(1),
-                            instance,
-                            patternExpression,
-                            _sqlExpressionFactory.Constant(1)
                         },
-                        false,
-                        new[] {false},
-                        typeof(int)),
-                    _sqlExpressionFactory.Constant(0));
-
-                return patternConstantExpression != null
-                    ? (string) patternConstantExpression.Value == string.Empty
-                        ? (SqlExpression) _sqlExpressionFactory.Constant(true)
-                        : charIndexExpression
-                    : _sqlExpressionFactory.OrElse(
-                        charIndexExpression,
-                        _sqlExpressionFactory.Equal(patternExpression, _sqlExpressionFactory.Constant(string.Empty)));
-            }
-
-            if (Equals(method, _startsWithMethodInfo))
-            {
-                return _sqlExpressionFactory.Like(
-                    // ReSharper disable once AssignNullToNotNullAttribute
-                    instance,
-                    _sqlExpressionFactory.Add(arguments[0], _sqlExpressionFactory.Constant("%"))
-                );
-            }
-
-            if (Equals(method, _endsWithMethodInfo))
-            {
-                return _sqlExpressionFactory.Like(
-                    instance,
-                    _sqlExpressionFactory.Add(_sqlExpressionFactory.Constant("%"), arguments[0]));
-            }
-
-            // Jet TRIM does not take arguments.
-            // _trimWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
-            if (Equals(method, _trimMethodInfoWithoutArgs) ||
-                Equals(method, _trimMethodInfoWithCharArrayArg) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
-                 ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
-            {
-                return _sqlExpressionFactory.Function("TRIM", new[] {instance}, false, new[] {false}, method.ReturnType, instance.TypeMapping);
-            }
-
-            // Jet LTRIM does not take arguments
-            // _trimStartWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
-            if (Equals(method, _trimStartMethodInfoWithoutArgs) ||
-                Equals(method, _trimStartMethodInfoWithCharArrayArg) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
-                 ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
-            {
-                return _sqlExpressionFactory.Function("LTRIM", new[] {instance}, false, new[] {false}, method.ReturnType, instance.TypeMapping);
-            }
-
-            // Jet RTRIM does not take arguments
-            // _trimEndWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
-            if (Equals(method, _trimEndMethodInfoWithoutArgs) ||
-                Equals(method, _trimEndMethodInfoWithCharArrayArg) && ((arguments[0] as SqlConstantExpression)?.Value == null ||
-                 ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
-            {
-                return _sqlExpressionFactory.Function("RTRIM", new[] {instance}, false, new[] {false}, method.ReturnType, instance.TypeMapping);
-            }
-
-            if (_toLowerMethodInfo.Equals(method)
-                || _toUpperMethodInfo.Equals(method))
-            {
-                return _sqlExpressionFactory.Function(
-                    _toLowerMethodInfo.Equals(method) ? "LCASE" : "UCASE",
-                    new[] { instance },
-                    nullable: true,
-                    argumentsPropagateNullability: new[] { true },
-                    method.ReturnType,
-                    instance.TypeMapping);
-            }
-
-            if (_substringMethodInfoWithOneArg.Equals(method) ||
-                _substringMethodInfoWithTwoArgs.Equals(method))
-            {
-                var parameters = new List<SqlExpression>(
-                    new[]
-                    {
-                        instance,
-                        // Accommodate for JET assumption of 1-based string indexes
-                        arguments[0] is SqlConstantExpression constantExpression
-                            ? (SqlExpression) _sqlExpressionFactory.Constant((int) constantExpression.Value + 1)
-                            : _sqlExpressionFactory.Add(
-                                arguments[0],
-                                _sqlExpressionFactory.Constant(1))
-                    });
-                if (arguments.Count >= 2)
-                {
-                    parameters.Add(arguments[1]);
+                        charIndexExpression);
                 }
 
-                return _sqlExpressionFactory.Function(
-                    "MID",
-                    parameters,
-                    false, new[] {false},
-                    method.ReturnType,instance.TypeMapping);
+                if (_replaceMethodInfo.Equals(method))
+                {
+                    var firstArgument = arguments[0];
+                    var secondArgument = arguments[1];
+                    var stringTypeMapping =
+                        ExpressionExtensions.InferTypeMapping(instance, firstArgument, secondArgument);
+
+                    instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
+                    firstArgument = _sqlExpressionFactory.ApplyTypeMapping(firstArgument, stringTypeMapping);
+                    secondArgument = _sqlExpressionFactory.ApplyTypeMapping(secondArgument, stringTypeMapping);
+
+                    return _sqlExpressionFactory.Function(
+                        "REPLACE",
+                        new[] { instance, firstArgument, secondArgument },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true, true },
+                        method.ReturnType,
+                        stringTypeMapping);
+                }
+
+                if (_toLowerMethodInfo.Equals(method)
+                    || _toUpperMethodInfo.Equals(method))
+                {
+                    return _sqlExpressionFactory.Function(
+                        _toLowerMethodInfo.Equals(method) ? "LCASE" : "UCASE",
+                        new[] { instance },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true },
+                        method.ReturnType,
+                        instance.TypeMapping);
+                }
+
+                if (_substringMethodInfoWithOneArg.Equals(method))
+                {
+                    return _sqlExpressionFactory.Function(
+                        "MID",
+                        new[]
+                        {
+                            instance,
+                            _sqlExpressionFactory.Add(
+                                arguments[0],
+                                _sqlExpressionFactory.Constant(1)),
+                            _sqlExpressionFactory.Function(
+                                "LEN",
+                                new[] { instance },
+                                nullable: true,
+                                argumentsPropagateNullability: new[] { true },
+                                typeof(int))
+                        },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true, true },
+                        method.ReturnType,
+                        instance.TypeMapping);
+                }
+
+                if (_substringMethodInfoWithTwoArgs.Equals(method))
+                {
+                    return _sqlExpressionFactory.Function(
+                        "MID",
+                        new[]
+                        {
+                            instance,
+                            _sqlExpressionFactory.Add(
+                                arguments[0],
+                                _sqlExpressionFactory.Constant(1)),
+                            arguments[1]
+                        },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true, true },
+                        method.ReturnType,
+                        instance.TypeMapping);
+                }
+
+                if (_trimStartMethodInfoWithoutArgs?.Equals(method) == true
+                    || (_trimStartMethodInfoWithCharArrayArg.Equals(method)
+                        && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
+                {
+                    return _sqlExpressionFactory.Function(
+                        "LTRIM",
+                        new[] { instance },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true },
+                        instance.Type,
+                        instance.TypeMapping);
+                }
+
+                if (_trimEndMethodInfoWithoutArgs?.Equals(method) == true
+                    || (_trimEndMethodInfoWithCharArrayArg.Equals(method)
+                        && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
+                {
+                    return _sqlExpressionFactory.Function(
+                        "RTRIM",
+                        new[] { instance },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true },
+                        instance.Type,
+                        instance.TypeMapping);
+                }
+
+                if (_trimMethodInfoWithoutArgs?.Equals(method) == true
+                    || (_trimMethodInfoWithCharArrayArg.Equals(method)
+                        && ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0))
+                {
+                    return _sqlExpressionFactory.Function(
+                        "TRIM",
+                        new[] { instance },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true },
+                        instance.Type,
+                        instance.TypeMapping);
+                }
+
+                if (_containsMethodInfo.Equals(method))
+                {
+                    var pattern = arguments[0];
+                    var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, pattern);
+                    instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
+                    pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
+
+                    if (pattern is SqlConstantExpression constantPattern)
+                    {
+                        if (!(constantPattern.Value is string patternValue))
+                        {
+                            return _sqlExpressionFactory.Like(
+                                instance,
+                                _sqlExpressionFactory.Constant(null, stringTypeMapping));
+                        }
+
+                        if (patternValue.Length == 0)
+                        {
+                            return _sqlExpressionFactory.Constant(true);
+                        }
+
+                        return patternValue.Any(IsLikeWildChar)
+                            ? _sqlExpressionFactory.Like(
+                                instance,
+                                _sqlExpressionFactory.Constant($"%{EscapeLikePattern(patternValue)}%"),
+                                _sqlExpressionFactory.Constant(LikeEscapeString))
+                            : _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant($"%{patternValue}%"));
+                    }
+
+                    return _sqlExpressionFactory.OrElse(
+                        _sqlExpressionFactory.Like(
+                            pattern,
+                            _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping)),
+                        _sqlExpressionFactory.GreaterThan(
+                            _sqlExpressionFactory.Function(
+                                "INSTR",
+                                new[] { _sqlExpressionFactory.Constant(1), instance, pattern, _sqlExpressionFactory.Constant(1) },
+                                nullable: true,
+                                argumentsPropagateNullability: new[] { true, true, true, true },
+                                typeof(int)),
+                            _sqlExpressionFactory.Constant(0)));
+                }
+
+                if (_startsWithMethodInfo.Equals(method))
+                {
+                    return TranslateStartsEndsWith(instance, arguments[0], true);
+                }
+
+                if (_endsWithMethodInfo.Equals(method))
+                {
+                    return TranslateStartsEndsWith(instance, arguments[0], false);
+                }
             }
 
-            if (_replaceMethodInfo.Equals(method))
+            if (_isNullOrEmptyMethodInfo.Equals(method))
             {
-                var firstArgument = arguments[0];
-                var secondArgument = arguments[1];
-                var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, firstArgument, secondArgument);
+                var argument = arguments[0];
 
-                instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
-                firstArgument = _sqlExpressionFactory.ApplyTypeMapping(firstArgument, stringTypeMapping);
-                secondArgument = _sqlExpressionFactory.ApplyTypeMapping(secondArgument, stringTypeMapping);
-
-                return _sqlExpressionFactory.Function(
-                    "REPLACE",
-                    new[] { instance, firstArgument, secondArgument },
-                    nullable: true,
-                    argumentsPropagateNullability: new[] { true, true, true },
-                    method.ReturnType,
-                    stringTypeMapping);
-            }
-
-            if (Equals(method, _isNullOrWhiteSpaceMethodInfo))
-            {
                 return _sqlExpressionFactory.OrElse(
-                    _sqlExpressionFactory.IsNull(arguments[0]),
-                    _sqlExpressionFactory.Equal(
-                        _sqlExpressionFactory.Function(
-                            "TRIM",
-                            new[] {arguments[0]},
-                            false, new[] {false},
-                            typeof(string)),
+                    _sqlExpressionFactory.IsNull(argument),
+                    _sqlExpressionFactory.Like(
+                        argument,
                         _sqlExpressionFactory.Constant(string.Empty)));
+            }
+
+            if (_isNullOrWhiteSpaceMethodInfo.Equals(method))
+            {
+                var argument = arguments[0];
+
+                return _sqlExpressionFactory.OrElse(
+                    _sqlExpressionFactory.IsNull(argument),
+                    _sqlExpressionFactory.Equal(
+                        argument,
+                        _sqlExpressionFactory.Constant(string.Empty, argument.TypeMapping)));
             }
 
             if (_firstOrDefaultMethodInfoWithoutArgs.Equals(method))
@@ -308,8 +366,103 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     argumentsPropagateNullability: new[] { true, true, true },
                     method.ReturnType);
             }
-
             return null;
+        }
+
+        private SqlExpression TranslateStartsEndsWith(SqlExpression instance, SqlExpression pattern, bool startsWith)
+        {
+            var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, pattern);
+
+            instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
+            pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
+
+            if (pattern is SqlConstantExpression constantExpression)
+            {
+                // The pattern is constant. Aside from null or empty, we escape all special characters (%, _, \)
+                // in C# and send a simple LIKE
+                if (!(constantExpression.Value is string patternValue))
+                {
+                    return _sqlExpressionFactory.Like(
+                        instance,
+                        _sqlExpressionFactory.Constant(null, stringTypeMapping));
+                }
+
+                return patternValue.Any(IsLikeWildChar)
+                    ? _sqlExpressionFactory.Like(
+                        instance,
+                        _sqlExpressionFactory.Constant(
+                            startsWith
+                                ? EscapeLikePattern(patternValue) + '%'
+                                : '%' + EscapeLikePattern(patternValue)),
+                        _sqlExpressionFactory.Constant(LikeEscapeString))
+                    : _sqlExpressionFactory.Like(
+                        instance,
+                        _sqlExpressionFactory.Constant(startsWith ? patternValue + '%' : '%' + patternValue));
+            }
+
+            // The pattern is non-constant, we use LEFT or RIGHT to extract substring and compare.
+            if (startsWith)
+            {
+                return _sqlExpressionFactory.Equal(
+                    _sqlExpressionFactory.Function(
+                        "LEFT",
+                        new[]
+                        {
+                            instance,
+                            _sqlExpressionFactory.Function(
+                                "LEN",
+                                new[] { pattern },
+                                nullable: true,
+                                argumentsPropagateNullability: new[] { true },
+                                typeof(int))
+                        },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true },
+                        typeof(string),
+                        stringTypeMapping),
+                    pattern);
+            }
+
+            return _sqlExpressionFactory.Equal(
+                _sqlExpressionFactory.Function(
+                    "RIGHT",
+                    new[]
+                    {
+                        instance,
+                        _sqlExpressionFactory.Function(
+                            "LEN",
+                            new[] { pattern },
+                            nullable: true,
+                            argumentsPropagateNullability: new[] { true },
+                            typeof(int))
+                    },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true, true },
+                    typeof(string),
+                    stringTypeMapping),
+                pattern);
+        }
+
+        // See https://docs.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql
+        private bool IsLikeWildChar(char c)
+            => c == '%' || c == '_' || c == '[';
+
+        private string EscapeLikePattern(string pattern)
+        {
+            var builder = new StringBuilder();
+            for (var i = 0; i < pattern.Length; i++)
+            {
+                var c = pattern[i];
+                if (IsLikeWildChar(c)
+                    || c == LikeEscapeChar)
+                {
+                    builder.Append(LikeEscapeChar);
+                }
+
+                builder.Append(c);
+            }
+
+            return builder.ToString();
         }
     }
 }

@@ -236,7 +236,7 @@ WHERE `l0`.`Id` > 5");
                 $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`
-WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L' & '%')");
+WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L%')");
         }
 
         public override async Task Navigation_inside_method_call_translated_to_join2(bool isAsync)
@@ -244,10 +244,10 @@ WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L' & '%')");
             await base.Navigation_inside_method_call_translated_to_join2(isAsync);
 
             AssertSql(
-                @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
-FROM `LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L' & '%')");
+                @"SELECT `l`.`Id`, `l`.`Level2_Optional_Id`, `l`.`Level2_Required_Id`, `l`.`Name`, `l`.`OneToMany_Optional_Inverse3Id`, `l`.`OneToMany_Optional_Self_Inverse3Id`, `l`.`OneToMany_Required_Inverse3Id`, `l`.`OneToMany_Required_Self_Inverse3Id`, `l`.`OneToOne_Optional_PK_Inverse3Id`, `l`.`OneToOne_Optional_Self3Id`
+FROM `LevelThree` AS `l`
+INNER JOIN `LevelTwo` AS `l0` ON `l`.`Level2_Required_Id` = `l0`.`Id`
+WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L%')");
         }
 
         public override async Task Optional_navigation_inside_method_call_translated_to_join(bool isAsync)
@@ -258,7 +258,7 @@ WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L' & '%')");
                 @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L' & '%')");
+WHERE (`l0`.`Name` IS NOT NULL) AND (`l0`.`Name` LIKE 'L%')");
         }
 
         public override async Task Optional_navigation_inside_property_method_translated_to_join(bool isAsync)
@@ -280,7 +280,7 @@ WHERE `l0`.`Name` = 'L2 01'");
                 @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE (`l0`.`Name` IS NOT NULL) AND (UCASE(`l0`.`Name`) LIKE 'L' & '%')");
+WHERE (`l0`.`Name` IS NOT NULL) AND (UCASE(`l0`.`Name`) LIKE 'L%')");
         }
 
         public override async Task Method_call_on_optional_navigation_translates_to_null_conditional_properly_for_arguments(bool isAsync)
@@ -288,10 +288,10 @@ WHERE (`l0`.`Name` IS NOT NULL) AND (UCASE(`l0`.`Name`) LIKE 'L' & '%')");
             await base.Method_call_on_optional_navigation_translates_to_null_conditional_properly_for_arguments(isAsync);
 
             AssertSql(
-                $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
+                @"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE (`l0`.`Name` = '') OR ((`l0`.`Name` IS NOT NULL) AND ((`l0`.`Name` IS NOT NULL) AND (LEFT(`l0`.`Name`, LEN(`l0`.`Name`)) = `l0`.`Name`)))");
+WHERE (`l0`.`Name` = '') OR ((`l0`.`Name` IS NOT NULL) AND (LEFT(`l0`.`Name`, LEN(`l0`.`Name`)) = `l0`.`Name`))");
         }
 
         public override async Task Optional_navigation_inside_method_call_translated_to_join_keeps_original_nullability(bool isAsync)
@@ -1598,10 +1598,10 @@ INNER JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Id`");
 
             AssertSql(
                 @"SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l3`.`Id`, `l3`.`Date`, `l3`.`Level1_Optional_Id`, `l3`.`Level1_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse2Id`, `l3`.`OneToMany_Optional_Self_Inverse2Id`, `l3`.`OneToMany_Required_Inverse2Id`, `l3`.`OneToMany_Required_Self_Inverse2Id`, `l3`.`OneToOne_Optional_PK_Inverse2Id`, `l3`.`OneToOne_Optional_Self2Id`
-FROM `LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`
-LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`
-LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Required_Inverse4Id`
+FROM (((`LevelOne` AS `l`
+LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
+LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
+LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Required_Inverse4Id`)
 LEFT JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Id`");
         }
 

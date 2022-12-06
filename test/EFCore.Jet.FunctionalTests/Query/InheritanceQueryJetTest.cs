@@ -371,7 +371,7 @@ VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, 
                 //
                 $@"SELECT TOP 2 `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%' & 'owenii')",
+WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%owenii')",
 //
                 $@"{ AssertSqlHelper.Declaration("@p0='Aquila chrysaetos canadensis' (Size = 100)")}
 {AssertSqlHelper.Declaration("@p1='Apteryx owenii' (Nullable = false) (Size = 100)")}
@@ -382,7 +382,7 @@ SELECT @@ROWCOUNT;",
                 //
                 $@"SELECT TOP 2 `a`.`Species`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%' & 'owenii')",
+WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%owenii')",
                 //
                 $@"{AssertSqlHelper.Declaration("@p0='Apteryx owenii' (Nullable = false) (Size = 100)")}
 
@@ -392,7 +392,7 @@ SELECT @@ROWCOUNT;",
                 //
                 $@"SELECT COUNT(*)
 FROM `Animals` AS `a`
-WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%' & 'owenii')");
+WHERE (`a`.`Discriminator` = 'Kiwi') AND (`a`.`Species` LIKE '%owenii')");
         }
 
         public override async Task Byte_enum_value_constant_used_in_projection(bool async)

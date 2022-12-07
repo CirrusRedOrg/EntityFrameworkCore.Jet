@@ -744,11 +744,9 @@ WHERE CDBL(`o`.`Discount`)^3.0 > 0.004999999888241291");
             await base.Where_math_square(async);
 
             AssertSql(
-                """
-SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CDBL(`o`.`Discount`)^2.0 > 0.05000000074505806
-""");
+WHERE CDBL(`o`.`Discount`)^2.0 > 0.05000000074505806");
         }
 
         public override async Task Where_math_round(bool isAsync)
@@ -1213,53 +1211,37 @@ WHERE CDBL(CLNG(LEN(`c`.`CustomerID`)))^2.0 = 25.0");
             await base.Convert_ToBoolean(async);
 
             AssertSql(
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(bit, `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(bit, `o`.`OrderID` % 3)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(tinyint, `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(tinyint, `o`.`OrderID` % 3)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(decimal(18, 2), `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(decimal(18, 2), `o`.`OrderID` % 3)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(float, `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(float, `o`.`OrderID` % 3)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CAST(CONVERT(float, `o`.`OrderID` % 3) AS real)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CAST(CONVERT(float, `o`.`OrderID` % 3) AS real)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(smallint, `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(smallint, `o`.`OrderID` % 3)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(int, `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""",
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(int, `o`.`OrderID` % 3)) = CAST(1 AS bit)",
                 //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(bigint, `o`.`OrderID` % 3)) = CAST(1 AS bit)
-""");
+WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(bigint, `o`.`OrderID` % 3)) = CAST(1 AS bit)");
         }
 
         public override async Task Convert_ToByte(bool isAsync)

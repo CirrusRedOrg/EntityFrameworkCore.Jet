@@ -769,7 +769,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 ? TestHelpers.CreateContextServices(CustomServices, ContextOptions)
                 : TestHelpers.CreateContextServices(CustomServices);
 
-            IModel model = null;
+            IMutableModel model = null;
             if (buildAction != null)
             {
                 var modelBuilder = TestHelpers.CreateConventionBuilder();

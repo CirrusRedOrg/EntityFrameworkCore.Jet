@@ -26,13 +26,14 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 new IMethodCallTranslator[]
                 {
                     new JetConvertTranslator(sqlExpressionFactory),
-                    new JetDateTimeMethodTranslator(sqlExpressionFactory),
                     new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
-                    new JetIsDateFunctionTranslator(sqlExpressionFactory), 
-                    new JetStringMethodTranslator(sqlExpressionFactory),
+                    new JetDateTimeMethodTranslator(sqlExpressionFactory),
+                    new JetIsDateFunctionTranslator(sqlExpressionFactory),
                     new JetMathTranslator(sqlExpressionFactory),
                     new JetNewGuidTranslator(sqlExpressionFactory),
                     new JetObjectToStringTranslator(sqlExpressionFactory),
+                    new JetStringMethodTranslator(sqlExpressionFactory),
+                    new JetRandomTranslator(sqlExpressionFactory),
                 });
         }
     }

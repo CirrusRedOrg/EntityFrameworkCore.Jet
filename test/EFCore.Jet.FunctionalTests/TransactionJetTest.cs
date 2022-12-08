@@ -1,10 +1,12 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
@@ -31,6 +33,30 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .UseInternalServiceProvider(Fixture.ServiceProvider);
 
             return new DbContext(options.Options);
+        }
+
+        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public override Task Savepoint_can_be_released(bool async)
+        {
+            return base.Savepoint_can_be_released(async);
+        }
+
+        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public override Task Savepoint_can_be_rolled_back(bool async)
+        {
+            return base.Savepoint_can_be_rolled_back(async);
+        }
+
+        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public override Task Savepoint_name_is_quoted(bool async)
+        {
+            return base.Savepoint_name_is_quoted(async);
         }
 
         public class TransactionJetFixture : TransactionFixtureBase

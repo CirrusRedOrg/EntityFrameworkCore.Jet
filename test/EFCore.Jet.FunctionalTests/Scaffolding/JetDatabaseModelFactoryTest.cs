@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using EntityFrameworkCore.Jet.Data;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -21,6 +22,7 @@ using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Xunit;
+using Xunit.Abstractions;
 
 // ReSharper disable InconsistentNaming
 
@@ -29,11 +31,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
     public class JetDatabaseModelFactoryTest : IClassFixture<JetDatabaseModelFactoryTest.JetDatabaseModelFixture>
     {
         protected JetDatabaseModelFixture Fixture { get; }
+        private readonly ITestOutputHelper _testOutputHelper;
 
-        public JetDatabaseModelFactoryTest(JetDatabaseModelFixture fixture)
+        public JetDatabaseModelFactoryTest(JetDatabaseModelFixture fixture, ITestOutputHelper testOutputHelper)
         {
             Fixture = fixture;
-            Fixture.ListLoggerFactory.Clear();
+            _testOutputHelper = testOutputHelper;
+            //Fixture.ListLoggerFactory.Clear();
+            Fixture.ListLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            JetConfiguration.ShowSqlStatements = true;
         }
 
         #region Model
@@ -118,6 +124,7 @@ DROP TABLE `JustTableName`;");
 
         #region Table
 
+        //Note - No table or column comments in Jet
         [ConditionalFact]
         public void Create_columns()
         {
@@ -139,15 +146,15 @@ CREATE TABLE `Blogs` (
                         {
                             Assert.Null(c.Table.Schema);
                             Assert.Equal("Blogs", c.Table.Name);
-                            Assert.Equal(
+                            /*Assert.Equal(
                                 @"Blog table comment.
-On multiple lines.", c.Table.Comment);
+On multiple lines.", c.Table.Comment);*/
                         });
 
                     Assert.Single(table.Columns.Where(c => c.Name == "Id"));
                     Assert.Single(table.Columns.Where(c => c.Name == "Name"));
-                    Assert.Single(table.Columns.Where(c => c.Comment == "Blog.Id column comment."));
-                    Assert.Single(table.Columns.Where(c => c.Comment != null));
+                    //Assert.Single(table.Columns.Where(c => c.Comment == "Blog.Id column comment."));
+                    //Assert.Single(table.Columns.Where(c => c.Comment != null));
                 },
                 "DROP TABLE `Blogs`");
         }
@@ -189,7 +196,7 @@ SELECT
             Test(
                 @"
 CREATE TABLE PrimaryKeyTable (
-    Id int PRIMARY KEY
+    Id int CONSTRAINT PK__PrimaryKeyTable PRIMARY KEY
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -213,7 +220,7 @@ CREATE TABLE PrimaryKeyTable (
                 @"
 CREATE TABLE UniqueConstraint (
     Id int,
-    Name int Unique,
+    Name int CONSTRAINT UQ__UniqueConstraint UNIQUE,
     IndexProperty int
 );
 
@@ -326,7 +333,7 @@ DROP TABLE PrincipalTable;");
 
         #region ColumnFacets
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support type aliases")]
         public void Column_with_type_alias_assigns_underlying_store_type()
         {
             Fixture.TestStore.ExecuteNonQuery(
@@ -371,7 +378,7 @@ CREATE TABLE TypeAlias (
                     var column = Assert.Single(dbModel.Tables.Single().Columns.Where(c => c.Name == "typeAliasColumn"));
 
                     // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("varchar(128)", column.StoreType);
+                    Assert.Equal("varchar(255)", column.StoreType);
                     Assert.False(column.IsNullable);
                 },
                 @"
@@ -472,15 +479,15 @@ CREATE TABLE LengthColumns (
 
                     Assert.Equal("char(10)", columns.Single(c => c.Name == "char10Column").StoreType);
                     Assert.Equal("varchar(66)", columns.Single(c => c.Name == "varchar66Column").StoreType);
-                    Assert.Equal("nchar(99)", columns.Single(c => c.Name == "nchar99Column").StoreType);
+                    Assert.Equal("char(99)", columns.Single(c => c.Name == "nchar99Column").StoreType);
                     Assert.Equal("varchar(100)", columns.Single(c => c.Name == "varchar100Column").StoreType);
-                    Assert.Equal("binary(111)", columns.Single(c => c.Name == "binary111Column").StoreType);
+                    Assert.Equal("varbinary(111)", columns.Single(c => c.Name == "binary111Column").StoreType);//seems to return varbinary even if binary is used
                     Assert.Equal("varbinary(123)", columns.Single(c => c.Name == "varbinary123Column").StoreType);
                     Assert.Equal("varbinary(133)", columns.Single(c => c.Name == "binaryVarying133Column").StoreType);
                     Assert.Equal("varchar(144)", columns.Single(c => c.Name == "charVarying144Column").StoreType);
                     Assert.Equal("char(155)", columns.Single(c => c.Name == "character155Column").StoreType);
                     Assert.Equal("varchar(166)", columns.Single(c => c.Name == "characterVarying166Column").StoreType);
-                    Assert.Equal("nchar(171)", columns.Single(c => c.Name == "nationalCharacter171Column").StoreType);
+                    Assert.Equal("char(171)", columns.Single(c => c.Name == "nationalCharacter171Column").StoreType);
                     Assert.Equal("varchar(177)", columns.Single(c => c.Name == "nationalCharVarying177Column").StoreType);
                     Assert.Equal("varchar(188)", columns.Single(c => c.Name == "nationalCharacterVarying188Column").StoreType);
                 },
@@ -518,7 +525,7 @@ CREATE TABLE DefaultRequiredLengthBinaryColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthCharColumns (
     Id int,
-    charColumn char(8000)
+    charColumn char(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -526,7 +533,7 @@ CREATE TABLE DefaultRequiredLengthCharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("char(8000)", columns.Single(c => c.Name == "charColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "charColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthCharColumns;");
         }
@@ -538,7 +545,7 @@ CREATE TABLE DefaultRequiredLengthCharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthCharColumns (
     Id int,
-    characterColumn character(8000)
+    characterColumn character(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -546,7 +553,7 @@ CREATE TABLE DefaultRequiredLengthCharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("char(8000)", columns.Single(c => c.Name == "characterColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "characterColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthCharColumns;");
         }
@@ -558,9 +565,9 @@ CREATE TABLE DefaultRequiredLengthCharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthVarcharColumns (
     Id int,
-    charVaryingColumn char varying(8000),
-    characterVaryingColumn character varying(8000),
-    varcharColumn varchar(8000)
+    charVaryingColumn char varying(255),
+    characterVaryingColumn character varying(255),
+    varcharColumn varchar(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -568,9 +575,9 @@ CREATE TABLE DefaultRequiredLengthVarcharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("varchar(8000)", columns.Single(c => c.Name == "charVaryingColumn").StoreType);
-                    Assert.Equal("varchar(8000)", columns.Single(c => c.Name == "characterVaryingColumn").StoreType);
-                    Assert.Equal("varchar(8000)", columns.Single(c => c.Name == "varcharColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "charVaryingColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "characterVaryingColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "varcharColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthVarcharColumns;");
         }
@@ -582,7 +589,7 @@ CREATE TABLE DefaultRequiredLengthVarcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNcharColumns (
     Id int,
-    nationalCharColumn national char(4000)
+    nationalCharColumn national char(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -590,7 +597,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("nchar(4000)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthNcharColumns;");
         }
@@ -602,7 +609,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNcharColumns (
     Id int,
-    nationalCharacterColumn national character(4000)
+    nationalCharacterColumn national character(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -610,7 +617,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("nchar(4000)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthNcharColumns;");
         }
@@ -622,7 +629,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 @"
 CREATE TABLE DefaultRequiredLengthNcharColumns (
     Id int,
-    ncharColumn nchar(4000)
+    ncharColumn nchar(255)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -630,7 +637,7 @@ CREATE TABLE DefaultRequiredLengthNcharColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("nchar(4000)", columns.Single(c => c.Name == "ncharColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "ncharColumn").StoreType);
                 },
                 "DROP TABLE DefaultRequiredLengthNcharColumns;");
         }
@@ -807,7 +814,7 @@ DROP TABLE NoFacetTypes;
 DROP TABLE RowversionType;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support storing computed values")]
         public void Default_and_computed_values_are_stored()
         {
             Test(
@@ -873,7 +880,7 @@ CREATE TABLE DefaultValues (
     IgnoredDefault20 numeric NOT NULL DEFAULT 0.0,
     IgnoredDefault21 real NOT NULL DEFAULT 0.0,
     IgnoredDefault22 smallmoney NOT NULL DEFAULT 0.0,
-    IgnoredDefault23 real NOT NULL DEFAULT IIf(0 IS NULL, NULL, CSNG(0)),
+    IgnoredDefault23 real NOT NULL DEFAULT IIF(0 IS NULL, NULL, CSNG(0)),
     IgnoredDefault24 float NOT NULL DEFAULT 0.0E0,
     IgnoredDefault25 date NOT NULL DEFAULT '0001-01-01',
     IgnoredDefault26 datetime NOT NULL DEFAULT #1900-01-01 00:00:00#,
@@ -939,7 +946,7 @@ CREATE TABLE ValueGeneratedProperties (
                 @"
 CREATE TABLE RowVersionTable (
     Id int,
-    rowversionColumn rowversion
+    rowversionColumn varbinary(8)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -986,7 +993,7 @@ CREATE TABLE NullableColumns (
 CREATE TABLE CompositePrimaryKeyTable (
     Id1 int,
     Id2 int,
-    PRIMARY KEY (Id2, Id1)
+    CONSTRAINT PK__CompositePrimaryKeyTable PRIMARY KEY (Id2, Id1)
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1003,7 +1010,7 @@ CREATE TABLE CompositePrimaryKeyTable (
                 "DROP TABLE CompositePrimaryKeyTable;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support clustered")]
         public void Set_clustered_false_for_non_clustered_primary_key()
         {
             Test(
@@ -1027,7 +1034,7 @@ CREATE TABLE NonClusteredPrimaryKeyTable (
                 "DROP TABLE NonClusteredPrimaryKeyTable;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support clustered")]
         public void Set_clustered_false_for_primary_key_if_different_clustered_index()
         {
             Test(
@@ -1053,7 +1060,7 @@ CREATE CLUSTERED INDEX ClusteredIndex ON NonClusteredPrimaryKeyTableWithClustere
                 "DROP TABLE NonClusteredPrimaryKeyTableWithClusteredIndex;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support clustered")]
         public void Set_clustered_false_for_primary_key_if_different_clustered_constraint()
         {
             Test(
@@ -1133,7 +1140,7 @@ CREATE TABLE CompositeUniqueConstraintTable (
                 "DROP TABLE CompositeUniqueConstraintTable;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support clustered")]
         public void Set_clustered_true_for_clustered_unique_constraint()
         {
             Test(
@@ -1215,7 +1222,7 @@ CREATE INDEX IX_COMPOSITE ON CompositeIndexTable ( Id2, Id1 );",
                 "DROP TABLE CompositeIndexTable;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support clustered")]
         public void Set_clustered_true_for_clustered_index()
         {
             Test(
@@ -1271,7 +1278,7 @@ CREATE UNIQUE INDEX IX_UNIQUE ON UniqueIndexTable ( Id2 );",
                 "DROP TABLE UniqueIndexTable;");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support filtered index")]
         public void Set_filter_for_filtered_index()
         {
             Test(

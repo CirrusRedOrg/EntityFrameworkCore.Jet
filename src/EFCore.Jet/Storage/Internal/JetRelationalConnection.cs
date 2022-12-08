@@ -65,7 +65,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 .UseJet(connection, b => b.CommandTimeout(CommandTimeout ?? DefaultMasterConnectionCommandTimeout))
                 .Options;
 
-            return new JetRelationalConnection(Dependencies.With(contextOptions));
+            return new JetRelationalConnection(Dependencies with { ContextOptions = contextOptions });
         }
 
         /// <summary>

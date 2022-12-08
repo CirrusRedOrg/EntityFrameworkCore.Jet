@@ -424,8 +424,8 @@ namespace EntityFrameworkCore.Jet.Data
                         referencingTableName,
                         principalTableName,
                         relationType,
-                        onUpdate,
                         onDelete,
+                        onUpdate,
                         isEnforced,
                         isInherited);
                 }

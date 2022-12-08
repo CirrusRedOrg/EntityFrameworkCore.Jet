@@ -237,7 +237,7 @@ WHERE (`o`.`OrderID` = 10248) AND (`o`.`ProductID` = 11)");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Entity_equality_null_composite_key(bool isAsync)
@@ -247,7 +247,7 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Entity_equality_not_null(bool isAsync)
@@ -314,7 +314,7 @@ WHERE (
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Entity_equality_orderby(bool isAsync)
@@ -886,7 +886,7 @@ ORDER BY `c`.`CustomerID`");
     ELSE False
 END AS `hasOrders`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -907,7 +907,7 @@ ORDER BY `e`.`EmployeeID` - `e`.`EmployeeID`");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-ORDER BY IIF(`p`.`UnitsInStock` > 0, 1, 0), `p`.`ProductID`");
+ORDER BY IIF(`p`.`UnitsInStock` > 0, TRUE, FALSE), `p`.`ProductID`");
         }
 
         public override async Task OrderBy_ternary_conditions(bool isAsync)
@@ -1306,7 +1306,7 @@ FROM (
             AssertSql(
                 $@"SELECT IIF(EXISTS (
         SELECT 1
-        FROM `Customers` AS `c`), 1, 0)
+        FROM `Customers` AS `c`), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
         }
 
@@ -1319,7 +1319,7 @@ FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
     WHEN EXISTS (
         SELECT 1
         FROM `Customers` AS `c`
-        WHERE `c`.`ContactName` IS NOT NULL AND (`c`.`ContactName` LIKE 'A' & '%')) THEN True
+        WHERE `c`.`ContactName` IS NOT NULL AND (`c`.`ContactName` LIKE 'A%')) THEN True
     ELSE False
 END");
         }
@@ -1334,7 +1334,7 @@ FROM `Customers` AS `c`
 WHERE NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')))");
         }
 
         public override async Task Any_nested_negated2(bool isAsync)
@@ -1347,7 +1347,7 @@ FROM `Customers` AS `c`
 WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')))");
         }
 
         public override async Task Any_nested_negated3(bool isAsync)
@@ -1360,7 +1360,7 @@ FROM `Customers` AS `c`
 WHERE NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%'))) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%'))) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
         }
 
         public override async Task Any_nested(bool isAsync)
@@ -1373,7 +1373,7 @@ FROM `Customers` AS `c`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%'))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%'))");
         }
 
         public override async Task Any_nested2(bool isAsync)
@@ -1386,7 +1386,7 @@ FROM `Customers` AS `c`
 WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%'))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%'))");
         }
 
         public override async Task Any_nested3(bool isAsync)
@@ -1399,7 +1399,7 @@ FROM `Customers` AS `c`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
         }
 
         public override void Any_with_multiple_conditions_still_uses_exists()
@@ -1425,7 +1425,7 @@ WHERE (`c`.`City` = 'London') AND EXISTS (
 //    WHEN NOT EXISTS (
 //        SELECT 1
 //        FROM `Customers` AS `c`
-//        WHERE NOT (`c`.`ContactName` LIKE 'A' & '%'))
+//        WHERE NOT (`c`.`ContactName` LIKE 'A%'))
 //    THEN True ELSE False
 //END");
         }
@@ -1994,7 +1994,7 @@ SELECT CASE
             ORDER BY `c`.`CustomerID`
             SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
         ) AS `t`
-        WHERE NOT (`t`.`CustomerID` LIKE 'B' & '%')) THEN True
+        WHERE NOT (`t`.`CustomerID` LIKE 'B%')) THEN True
     ELSE False
 END");
         }
@@ -2014,7 +2014,7 @@ SELECT CASE
             FROM `Customers` AS `c`
             ORDER BY `c`.`CustomerID`
         ) AS `t`
-        WHERE NOT (`t`.`CustomerID` LIKE 'A' & '%')) THEN True
+        WHERE NOT (`t`.`CustomerID` LIKE 'A%')) THEN True
     ELSE False
 END");
         }
@@ -2037,7 +2037,7 @@ SELECT CASE
             ORDER BY `c`.`CustomerID`
             SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
         ) AS `t`
-        WHERE `t`.`CustomerID` LIKE 'C' & '%') THEN True
+        WHERE `t`.`CustomerID` LIKE 'C%') THEN True
     ELSE False
 END");
         }
@@ -2057,7 +2057,7 @@ SELECT CASE
             FROM `Customers` AS `c`
             ORDER BY `c`.`CustomerID`
         ) AS `t`
-        WHERE `t`.`CustomerID` LIKE 'B' & '%') THEN True
+        WHERE `t`.`CustomerID` LIKE 'B%') THEN True
     ELSE False
 END");
         }
@@ -2165,7 +2165,7 @@ ORDER BY `e`.`Title`, `e`.`EmployeeID`");
             AssertSql(
                 $@"SELECT `c`.`City`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`Country`, `c`.`City`");
         }
 
@@ -2189,7 +2189,7 @@ END");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY CASE
     WHEN EXISTS (
         SELECT 1
@@ -2294,7 +2294,7 @@ WHERE `o`.`OrderID` < 10300");
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Select_DTO_with_member_init_distinct_in_subquery_translated_to_server(bool isAsync)
@@ -2338,7 +2338,7 @@ INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
 //    FROM `Orders` AS `o`
 //    WHERE `o`.`OrderID` < 10300
 //) AS `t`
-//WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+//WHERE `c`.`CustomerID` LIKE 'A%'");
         }
         
         public override async Task Select_correlated_subquery_filtered(bool isAsync)
@@ -2348,7 +2348,7 @@ INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`",
                 //
                 $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
@@ -2441,7 +2441,7 @@ FROM `Customers` AS `c`,
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`), `c`.`CustomerID`");
+ORDER BY IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`), `c`.`CustomerID`");
         }
 
         public override async Task Select_null_coalesce_operator(bool isAsync)
@@ -2450,7 +2450,7 @@ ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`), `c`.`CustomerID`");
 
             // issue #16038
 //            AssertSql(
-//                $@"SELECT `c`.`CustomerID`, `c`.`CompanyName`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `Region`
+//                $@"SELECT `c`.`CustomerID`, `c`.`CompanyName`, IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `Region`
 //FROM `Customers` AS `c`
 //ORDER BY `Region`, `c`.`CustomerID`");
         }
@@ -2516,7 +2516,7 @@ ORDER BY (`c`.`Region` = 'ASK') AND `c`.`Region` IS NOT NULL");
             await base.Projection_null_coalesce_operator(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`CompanyName`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `Region`
+                $@"SELECT `c`.`CustomerID`, `c`.`CompanyName`, IIF(`c`.`Region` IS NULL, 'ZZ', `c`.`Region`) AS `Region`
 FROM `Customers` AS `c`");
         }
 
@@ -2527,7 +2527,7 @@ FROM `Customers` AS `c`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIf(`c`.`CompanyName` IS NULL, NULL, `c`.`CompanyName`) = 'The Big Cheese'");
+WHERE IIF(`c`.`CompanyName` IS NULL, NULL, `c`.`CompanyName`) = 'The Big Cheese'");
         }
 
         public override async Task Take_skip_null_coalesce_operator(bool isAsync)
@@ -2543,9 +2543,9 @@ SELECT DISTINCT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyNam
 FROM (
     SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
     FROM (
-        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
+        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
         FROM `Customers` AS `c`
-        ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`)
+        ORDER BY IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`)
     ) AS `t`
     ORDER BY `t`.`c`
     SKIP {AssertSqlHelper.Parameter("@__p_1")}
@@ -2560,7 +2560,7 @@ FROM (
 //            AssertSql(
 //                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
 
-//SELECT TOP @__p_0 `c`.`CustomerID`, `c`.`CompanyName`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `Region`
+//SELECT TOP @__p_0 `c`.`CustomerID`, `c`.`CompanyName`, IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `Region`
 //FROM `Customers` AS `c`
 //ORDER BY `Region`");
         }
@@ -2576,9 +2576,9 @@ FROM (
 
 SELECT `t`.`CustomerID`, `t`.`CompanyName`, `t`.`c` AS `Region`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`CompanyName`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`CompanyName`, IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
     FROM `Customers` AS `c`
-    ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`)
+    ORDER BY IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`)
 ) AS `t`
 ORDER BY `t`.`c`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}");
@@ -2595,9 +2595,9 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")}");
 
 SELECT `t`.`CustomerID`, `t`.`CompanyName`, `t`.`Region`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`CompanyName`, `c`.`Region`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`CompanyName`, `c`.`Region`, IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
     FROM `Customers` AS `c`
-    ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`)
+    ORDER BY IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`)
 ) AS `t`
 ORDER BY `t`.`c`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}");
@@ -2614,9 +2614,9 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")}");
 
 SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`) AS `c`
     FROM `Customers` AS `c`
-    ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`)
+    ORDER BY IIF(`c`.`Region` IS NULL, NULL, `c`.`Region`)
 ) AS `t`
 ORDER BY `t`.`c`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}");
@@ -2629,7 +2629,7 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")}");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY IIf(`c`.`Region` IS NULL, NULL, `c`.`Region`)");
+ORDER BY IIF(`c`.`Region` IS NULL, 'ZZ', `c`.`Region`)");
         }
 
         public override async Task DateTime_parse_is_inlined(bool isAsync)
@@ -2715,42 +2715,42 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_or()
+        public override async Task Select_bitwise_or(bool async)
         {
-            base.Select_bitwise_or();
+            await base.Select_bitwise_or(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0) AS `Value`
+                $@"SELECT `c`.`CustomerID`, IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_or_multiple()
+        public override async Task Select_bitwise_or_multiple(bool async)
         {
-            base.Select_bitwise_or_multiple();
+            await base.Select_bitwise_or_multiple(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) BOR IIF(`c`.`CustomerID` = 'ANTON', 1, 0) AS `Value`
+                $@"SELECT `c`.`CustomerID`, (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) BOR IIF(`c`.`CustomerID` = 'ANTON', TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_and()
+        public override async Task Select_bitwise_and(bool async)
         {
-            base.Select_bitwise_and();
+            await base.Select_bitwise_and(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0) AS `Value`
+                $@"SELECT `c`.`CustomerID`, IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_and_or()
+        public override async Task Select_bitwise_and_or(bool async)
         {
-            base.Select_bitwise_and_or();
+            await base.Select_bitwise_and_or(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, (IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) BOR IIF(`c`.`CustomerID` = 'ANTON', 1, 0) AS `Value`
+                $@"SELECT `c`.`CustomerID`, (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) BOR IIF(`c`.`CustomerID` = 'ANTON', TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
@@ -2762,7 +2762,7 @@ ORDER BY `c`.`CustomerID`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) OR (`c`.`CustomerID` = 'ANTON')");
+WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = True) OR (`c`.`CustomerID` = 'ANTON')");
         }
 
         public override async Task Where_bitwise_and_with_logical_and(bool isAsync)
@@ -2772,7 +2772,7 @@ WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR'
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) AND (`c`.`CustomerID` = 'ANTON')");
+WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = True) AND (`c`.`CustomerID` = 'ANTON')");
         }
 
         public override async Task Where_bitwise_or_with_logical_and(bool isAsync)
@@ -2782,7 +2782,7 @@ WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) AND (`c`.`Country` = 'Germany')");
+WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = True) AND (`c`.`Country` = 'Germany')");
         }
 
         public override async Task Where_bitwise_and_with_logical_or(bool isAsync)
@@ -2792,25 +2792,25 @@ WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR'
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) OR (`c`.`CustomerID` = 'ANTON')");
+WHERE ((IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = True) OR (`c`.`CustomerID` = 'ANTON')");
         }
 
-        public override void Select_bitwise_or_with_logical_or()
+        public override async Task Select_bitwise_or_with_logical_or(bool async)
         {
-            base.Select_bitwise_or_with_logical_or();
+            await base.Select_bitwise_or_with_logical_or(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, IIF(((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BOR IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) OR (`c`.`CustomerID` = 'ANTON'), 1, 0) AS `Value`
+                $@"SELECT `c`.`CustomerID`, IIF(((IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = True) OR (`c`.`CustomerID` = 'ANTON'), TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override void Select_bitwise_and_with_logical_and()
+        public override async Task Select_bitwise_and_with_logical_and(bool async)
         {
-            base.Select_bitwise_and_with_logical_and();
+            await base.Select_bitwise_and_with_logical_and(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, IIF(((IIF(`c`.`CustomerID` = 'ALFKI', 1, 0) BAND IIF(`c`.`CustomerID` = 'ANATR', 1, 0)) = True) AND (`c`.`CustomerID` = 'ANTON'), 1, 0) AS `Value`
+                $@"SELECT `c`.`CustomerID`, IIF(((IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = True) AND (`c`.`CustomerID` = 'ANTON'), TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
@@ -2860,7 +2860,7 @@ WHERE (`o`.`OrderID` < 10400) AND ((`o`.`OrderDate` IS NOT NULL AND (DATEPART('m
                 //
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Parameter_extraction_short_circuits_3(bool isAsync)
@@ -3055,7 +3055,7 @@ WHERE `o`.`OrderDate` IS NOT NULL");
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__millisecondsPerDay_0='86400000'")}
 
-SELECT DATEADD(millisecond, IIf(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) MOD {AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}) IS NULL, NULL, CDBL(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) MOD 1{AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}))) AS int), DATEADD('d', IIf(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) / {AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}) IS NULL, NULL, CDBL(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) / {AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}))) AS int), `o`.`OrderDate`)) AS `OrderDate`
+SELECT DATEADD(millisecond, IIF(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) MOD {AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}) IS NULL, NULL, CDBL(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) MOD 1{AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}))) AS int), DATEADD('d', IIF(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) / {AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}) IS NULL, NULL, CDBL(CAST((CAST(DATEPART(millisecond, `o`.`OrderDate`) AS bigint) / {AssertSqlHelper.Parameter("@__millisecondsPerDay_0")}))) AS int), `o`.`OrderDate`)) AS `OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderDate` IS NOT NULL");
         }
@@ -3072,9 +3072,9 @@ FROM `Orders` AS `o`
 WHERE `o`.`OrderDate` IS NOT NULL AND (DATEPART('yyyy', `o`.`OrderDate`) < {AssertSqlHelper.Parameter("@__nextYear_0")})");
         }
 
-        public override void DefaultIfEmpty_without_group_join()
+        public override async Task DefaultIfEmpty_without_group_join(bool async)
         {
-            base.DefaultIfEmpty_without_group_join();
+            await base.DefaultIfEmpty_without_group_join(async);
 
             AssertSql(
                 $@"SELECT `t`.`CustomerID`
@@ -3288,9 +3288,9 @@ FROM (
 
 SELECT DISTINCT `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIf(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
+    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
     FROM `Products` AS `p`
-    ORDER BY IIf(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
+    ORDER BY IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
 ) AS `t`");
         }
 
@@ -3305,9 +3305,9 @@ FROM (
 
 SELECT DISTINCT `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
 FROM (
-    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIf(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
+    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
     FROM `Products` AS `p`
-    ORDER BY IIf(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
+    ORDER BY IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
     SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
 ) AS `t`");
         }
@@ -3323,9 +3323,9 @@ FROM (
 
 SELECT DISTINCT TOP {AssertSqlHelper.Parameter("@__p_0")} `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
 FROM (
-    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIf(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
+    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
     FROM `Products` AS `p`
-    ORDER BY IIf(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
+    ORDER BY IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
     SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
 ) AS `t`");
         }
@@ -3506,7 +3506,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`CustomerID` LIKE 'A' & '%'");
+WHERE `t`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Anonymous_complex_distinct_where(bool isAsync)
@@ -3542,7 +3542,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID` + `c`.`City` AS `c`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A' & '%')");
+WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A%')");
         }
 
         public override async Task Anonymous_complex_orderby(bool isAsync)
@@ -3610,7 +3610,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`CustomerID` LIKE 'A' & '%'");
+WHERE `t`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task DTO_complex_distinct_where(bool isAsync)
@@ -3646,7 +3646,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID` + `c`.`City` AS `c`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A' & '%')");
+WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A%')");
         }
 
         public override async Task DTO_complex_orderby(bool isAsync)
@@ -3748,7 +3748,7 @@ WHERE (
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
-SELECT AVG(IIf(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`)))
+SELECT AVG(CDBL(`t`.`OrderID`))
 FROM (
     SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`
     FROM `Orders` AS `o`
@@ -3866,7 +3866,7 @@ FROM (
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
 
-SELECT AVG(IIf(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`)))
+SELECT AVG(IIF(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`)))
 FROM (
     SELECT `o`.`OrderID`
     FROM `Orders` AS `o`
@@ -3992,7 +3992,7 @@ FROM (
             await base.Select_distinct_average(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIf(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`)))
+                $@"SELECT AVG(CDBL(`t`.`OrderID`))
 FROM (
     SELECT DISTINCT `o`.`OrderID`
     FROM `Orders` AS `o`
@@ -4091,7 +4091,7 @@ ORDER BY `c`.`CustomerID`");
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`,
 `Orders` AS `o`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Comparing_entity_to_null_using_Equals(bool isAsync)
@@ -4101,7 +4101,7 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -4116,7 +4116,7 @@ FROM `Orders` AS `o`,
 `Orders` AS `o0`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
+WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
         }
 
@@ -4130,7 +4130,7 @@ FROM `Orders` AS `o`,
 `Orders` AS `o0`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
+WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
         }
 
@@ -4142,7 +4142,7 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
                 $@"SELECT `c`.`CustomerID` AS `Id1`, `o`.`OrderID` AS `Id2`
 FROM `Customers` AS `c`,
 `Orders` AS `o`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Comparing_non_matching_collection_navigations_using_Equals(bool isAsync)
@@ -4153,7 +4153,7 @@ WHERE False = True");
                 $@"SELECT `c`.`CustomerID` AS `Id1`, `o`.`OrderID` AS `Id2`
 FROM `Customers` AS `c`,
 `Orders` AS `o`
-WHERE False = True");
+WHERE FALSE");
         }
 
         public override async Task Comparing_collection_navigation_to_null(bool isAsync)
@@ -4187,7 +4187,7 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Compare_two_collection_navigations_with_different_query_sources(bool isAsync)
@@ -4233,7 +4233,7 @@ WHERE ((`c`.`CustomerID` = 'ALFKI') AND (`c0`.`CustomerID` = 'ALFKI')) AND (`c`.
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -4244,7 +4244,7 @@ ORDER BY `c`.`CustomerID`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID` DESC");
         }
 
@@ -4398,7 +4398,7 @@ WHERE EXISTS (
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderDate`) AS `OrderDate`
 FROM `Customers` AS `c`
-WHERE (`c`.`CustomerID` LIKE 'A' & '%') AND (
+WHERE (`c`.`CustomerID` LIKE 'A%') AND (
     SELECT TOP 1 `o0`.`OrderID`
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`
@@ -4416,7 +4416,7 @@ WHERE (`c`.`CustomerID` LIKE 'A' & '%') AND (
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderDate`) AS `A`
 FROM `Customers` AS `c`
-WHERE (`c`.`CustomerID` LIKE 'A' & '%') AND (((
+WHERE (`c`.`CustomerID` LIKE 'A%') AND (((
     SELECT TOP 1 `o0`.`OrderID`
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`
@@ -4464,7 +4464,7 @@ WHERE (
 //            AssertSql(
 //                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` LIKE 'A' & '%' AND ((
+//WHERE `c`.`CustomerID` LIKE 'A%' AND ((
 //    SELECT TOP 1 `o`.`OrderID`
 //    FROM `Orders` AS `o`
 //    WHERE `o`.`OrderID` < 10300

@@ -12,12 +12,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
     <PackageReference Include="xunit.core" />
     <PackageReference Include="xunit.assert" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="xunit.runner.console" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="6.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Newtonsoft.Json" />
@@ -69,6 +70,12 @@
     <None Include="..\xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="ConcurrencyDetectorJetTest.cs" />
+    <None Include="GraphUpdates\GraphUpdatesJetTest.cs" />
+    <None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
+    <None Include="MigrationsSqlGeneratorTestBase.cs" />
+    <None Include="PropertyEntryJetTest.cs" />
+    <None Include="Query\FromSqlQueryJetTest.cs" />
     <None Remove="TestResults\**" />
   </ItemGroup>
 
@@ -95,6 +102,15 @@
 
   <ItemGroup>
     <Compile Remove="TestResults\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ConcurrencyDetectorJetTest.cs" />
+    <Compile Remove="GraphUpdates\GraphUpdatesJetTest.cs" />
+    <Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
+    <Compile Remove="MigrationsSqlGeneratorTestBase.cs" />
+    <Compile Remove="PropertyEntryJetTest.cs" />
+    <Compile Remove="Query\FromSqlQueryJetTest.cs" />
   </ItemGroup>
 
 </Project>

@@ -9,6 +9,9 @@ using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using System.Reflection;
+using EntityFrameworkCore.Jet.Diagnostics.Internal;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -22,6 +25,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .UseInternalServiceProvider(services.AddEntityFrameworkJet().BuildServiceProvider())
                 .UseJet("Data Source=LoggingJetTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
 
+        protected override string DefaultOptions => "DataAccessProviderFactory";
         protected override string ProviderName => "EntityFrameworkCore.Jet";
+        protected override string ProviderVersion
+            => typeof(JetOptionsExtension).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
     }
 }

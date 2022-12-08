@@ -121,7 +121,7 @@ SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
 FROM (
     SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F' & '%'
+    WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 LEFT JOIN (
@@ -146,7 +146,7 @@ SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
 FROM (
     SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F' & '%'
+    WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 LEFT JOIN (
@@ -260,7 +260,7 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_Navigations_Where_Navigations(bool isAsync)
@@ -271,7 +271,7 @@ WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phon
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_Singleton_Navigation_With_Member_Access(bool isAsync)
@@ -282,7 +282,7 @@ WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phon
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_count_plus_sum(bool isAsync)
@@ -308,7 +308,7 @@ FROM `Orders` AS `o1`");
                 $@"SELECT `c`.`City` AS `B`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR `c`.`Phone` IS NULL)");
+WHERE (`c`.`City` = 'Seattle') AND ((`c`.`Phone` <> '555 555 5555') OR (`c`.`Phone` IS NULL))");
         }
 
         public override async Task Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(bool isAsync)
@@ -338,7 +338,7 @@ FROM `Orders` AS `o`,
 `Orders` AS `o0`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE ((`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND (`o0`.`CustomerID` IS NOT NULL AND (`o0`.`CustomerID` LIKE 'A' & '%'))) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))");
+WHERE ((`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND (`o0`.`CustomerID` IS NOT NULL AND (`o0`.`CustomerID` LIKE 'A%'))) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))");
         }
 
         public override async Task Select_Where_Navigation_Null(bool isAsync)
@@ -358,8 +358,8 @@ WHERE `e0`.`EmployeeID` IS NULL");
 
             AssertSql(
                 $@"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Employees` AS `e`
-LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
+FROM (`Employees` AS `e`
+LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`)
 LEFT JOIN `Employees` AS `e1` ON `e0`.`ReportsTo` = `e1`.`EmployeeID`
 WHERE `e1`.`EmployeeID` IS NULL");
         }
@@ -383,7 +383,7 @@ WHERE `e0`.`EmployeeID` IS NULL");
                 $@"SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
         }
 
@@ -397,7 +397,7 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -409,7 +409,7 @@ ORDER BY `c`.`CustomerID`");
                 $@"SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
         }
 
@@ -521,7 +521,7 @@ FROM `Customers` AS `c`
 WHERE NOT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND ((`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL))");
+    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND ((`o`.`CustomerID` <> 'ALFKI') OR (`o`.`CustomerID` IS NULL)))");
         }
 
         public override async Task Collection_select_nav_prop_count(bool isAsync)
@@ -615,7 +615,7 @@ END AS `all`, (
     FROM `Order Details` AS `o2`
     WHERE `o3`.`OrderID` = `o2`.`OrderID`) AS `collection2`
 FROM `Orders` AS `o3`
-WHERE `o3`.`CustomerID` IS NOT NULL AND (`o3`.`CustomerID` LIKE 'A' & '%')");
+WHERE `o3`.`CustomerID` IS NOT NULL AND (`o3`.`CustomerID` LIKE 'A%')");
         }
 
         public override async Task Collection_select_nav_prop_sum(bool isAsync)
@@ -686,7 +686,7 @@ LEFT JOIN (
     ) AS `t`
     WHERE `t`.`row` <= 1
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID0`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -701,7 +701,7 @@ ORDER BY `c`.`CustomerID`");
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     WHERE `o`.`CustomerID` = 'ALFKI')
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Collection_select_nav_prop_single_or_default_then_nav_prop_nested(bool isAsync)
@@ -715,7 +715,7 @@ WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     WHERE `o`.`OrderID` = 10643)
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method(bool isAsync)
@@ -729,7 +729,7 @@ WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     WHERE `o`.`CustomerID` = 'ALFKI')
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby(bool isAsync)
@@ -744,7 +744,7 @@ WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
     WHERE `o`.`CustomerID` = 'ALFKI'
     ORDER BY `o`.`CustomerID`)
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Navigation_fk_based_inside_contains(bool isAsync)
@@ -775,8 +775,8 @@ WHERE `c`.`City` IN ('Novigrad', 'Seattle')");
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `c`.`City` IN ('Novigrad', 'Seattle')");
         }
@@ -787,8 +787,8 @@ WHERE `c`.`City` IN ('Novigrad', 'Seattle')");
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `c`.`Country` IN ('USA', 'Redania')");
         }
@@ -880,7 +880,7 @@ LEFT JOIN (
     ) AS `t`
     WHERE `t`.`row` <= 1
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -951,9 +951,9 @@ WHERE (
 
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM `Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+FROM ((`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE `c`.`City` = 'London'");
         }

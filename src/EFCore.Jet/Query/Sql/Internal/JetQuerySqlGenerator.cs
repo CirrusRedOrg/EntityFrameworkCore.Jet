@@ -2,17 +2,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using ExpressionExtensions = Microsoft.EntityFrameworkCore.Internal.ExpressionExtensions;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
@@ -24,39 +29,41 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     {
         private static readonly Dictionary<string, string> _convertMappings = new Dictionary<string, string>
         {
-            {nameof(Boolean), "CBOOL"},
-            {nameof(Byte), "CBYTE"},
-            {nameof(SByte), "CINT"},
-            {nameof(Int16), "CINT"},
-            {nameof(Int32), "CLNG"},
-            {nameof(Single), "CSNG"},
-            {nameof(Double), "CDBL"},
-            {nameof(Decimal), "CCUR"},
-            {nameof(DateTime), "CDATE"},
+            { nameof(Boolean), "CBOOL" },
+            { nameof(Byte), "CBYTE" },
+            { nameof(SByte), "CINT" },
+            { nameof(Int16), "CINT" },
+            { nameof(Int32), "CLNG" },
+            { nameof(Int64), "CLNG" },
+            { nameof(Single), "CSNG" },
+            { nameof(Double), "CDBL" },
+            { nameof(Decimal), "CDEC" },
+            { nameof(DateTime), "CDATE" },
         };
 
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly IJetOptions _options;
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
+        //private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private CoreTypeMapping _boolTypeMapping;
-        
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetQuerySqlGenerator(
-            [NotNull] QuerySqlGeneratorDependencies dependencies,
-            ISqlExpressionFactory sqlExpressionFactory,
-            ITypeMappingSource typeMappingSource,
+            [JetBrains.Annotations.NotNull] QuerySqlGeneratorDependencies dependencies,
+            //ISqlExpressionFactory sqlExpressionFactory,
+            [JetBrains.Annotations.NotNull] ITypeMappingSource typeMappingSource,
             IJetOptions options)
             : base(dependencies)
         {
-            _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
+            //_sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
             _typeMappingSource = typeMappingSource;
             _options = options;
             _sqlGenerationHelper = dependencies.SqlGenerationHelper;
             _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool));
+            //_jetSqlExpressionFactory = jetSqlExpressionFactory;
         }
 
         protected override Expression VisitSelect(SelectExpression selectExpression)
@@ -68,7 +75,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (IsNonComposedSetOperation(selectExpression))
             {
                 // Naked set operation
-                GenerateSetOperation((SetOperationBase) selectExpression.Tables[0]);
+                GenerateSetOperation((SetOperationBase)selectExpression.Tables[0]);
 
                 return selectExpression;
             }
@@ -115,7 +122,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             0,
                             selectExpression
                                 .Tables
-                                .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) - maxTablesWithoutBrackets)));
+                                .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) -
+                            maxTablesWithoutBrackets)));
 
                 for (var index = 0; index < selectExpression.Tables.Count; index++)
                 {
@@ -123,13 +131,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                     var isApplyExpression = tableExpression is CrossApplyExpression ||
                                             tableExpression is OuterApplyExpression;
-                    
+
                     var isCrossExpression = tableExpression is CrossJoinExpression ||
                                             tableExpression is CrossApplyExpression;
 
                     if (isApplyExpression)
                     {
-                        throw new InvalidOperationException("Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                        throw new InvalidOperationException(
+                            "Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
                     }
 
                     if (index > 0)
@@ -205,7 +214,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                && selectExpression.Projection.Count == setOperation.Source1.Projection.Count
                && selectExpression.Projection.Select(
                        (pe, index) => pe.Expression is ColumnExpression column
-                                      && string.Equals(column.Table.Alias, setOperation.Alias, StringComparison.OrdinalIgnoreCase)
+                                      && string.Equals(column.Table.Alias, setOperation.Alias,
+                                          StringComparison.OrdinalIgnoreCase)
                                       && string.Equals(
                                           column.Name, setOperation.Source1.Projection[index]
                                               .Alias, StringComparison.OrdinalIgnoreCase))
@@ -239,14 +249,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values
             // before the False values, which is the opposite of what .NET and other DBMS do, which are using 1 as True.
-            
+
             if (orderingExpression.Expression.TypeMapping == _boolTypeMapping)
             {
                 orderingExpression = new OrderingExpression(
                     orderingExpression.Expression,
                     !orderingExpression.IsAscending);
             }
-            
+
             return base.VisitOrdering(orderingExpression);
         }
 
@@ -256,19 +266,51 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                Visit(
-                    _sqlExpressionFactory.Case(
-                        new[]
-                        {
-                            new CaseWhenClause(
-                                _sqlExpressionFactory.IsNull(sqlBinaryExpression.Left),
-                                sqlBinaryExpression.Right)
-                        },
-                        sqlBinaryExpression.Left));
+                //Visit(
+                /*_sqlExpressionFactory.Case(
+                    new[]
+                    {
+                        new CaseWhenClause(
+                            _sqlExpressionFactory.IsNull(sqlBinaryExpression.Left),
+                            sqlBinaryExpression.Right)
+                    },
+                    sqlBinaryExpression.Left));
+            return sqlBinaryExpression;*/
+
+                SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
+                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
+                List<CaseWhenClause> whenclause = new List<CaseWhenClause>
+                {
+                    new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)
+                };
+                CaseExpression caseexp = new CaseExpression(whenclause, sqlBinaryExpression.Left);
+                Visit(caseexp);
                 return sqlBinaryExpression;
             }
 
             return base.VisitSqlBinary(sqlBinaryExpression);
+        }
+
+        protected override Expression VisitIn(InExpression inExpression)
+        {
+            var valuesConstant = (SqlConstantExpression)inExpression.Values;
+            var isdt = (IEnumerable<object>)valuesConstant.Value!;
+            var enumerable = isdt.ToList();
+            if (enumerable.Any())
+            {
+                var dtf = enumerable.FirstOrDefault();
+                //Need to use a specific Jet DateTime format - when used in an IN section the mapping isn't automatic so set it up explicitly
+                if (dtf is DateTime)
+                {
+                    var newexp = new InExpression(inExpression.Item,
+                        valuesConstant.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options)),
+                        inExpression.IsNegated,
+                        new JetDateTimeTypeMapping("datetime", _options));
+                    return base.VisitIn(newexp);
+                }
+            }
+
+            return base.VisitIn(inExpression);
         }
 
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
@@ -281,24 +323,39 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             var typeMapping = convertExpression.TypeMapping;
 
             if (typeMapping == null)
-                throw new InvalidOperationException(RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
+                throw new InvalidOperationException(
+                    RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
             // We are explicitly converting to the target type (convertExpression.Type) and not the CLR type of the
             // accociated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
             // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
             if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
-                Visit(
+                /*  Visit(
                     _sqlExpressionFactory.NullChecked(
                         convertExpression.Operand,
                         _sqlExpressionFactory.Function(
                             function,
-                            new[] {convertExpression.Operand},
+                            new[] { convertExpression.Operand },
                             false,
-                            new[] {false}, 
+                            new[] { false },
                             typeMapping.ClrType)));
+                */
+                SqlExpression checksqlexp = convertExpression.Operand;
 
-                return convertExpression;
+                SqlFunctionExpression notnullsqlexp = new SqlFunctionExpression(function, new SqlExpression[] { convertExpression.Operand },
+                  false, new[] { false }, typeMapping.ClrType, null);
+
+                SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
+                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
+                List<CaseWhenClause> whenclause = new List<CaseWhenClause>
+                {
+                    new CaseWhenClause(isnullexp, nullcons)
+                };
+                CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
+                //Visit(caseexp);
+                Visit(notnullsqlexp);
+                return notnullsqlexp;
             }
 
             if (typeMapping.ClrType.Name == nameof(String))
@@ -309,6 +366,11 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return convertExpression;
             }
 
+            if (typeMapping.ClrType.IsEnum)
+            {
+                Visit(convertExpression.Operand);
+                return convertExpression;
+            }
             throw new InvalidOperationException($"Cannot cast to CLR type '{typeMapping.ClrType.Name}' with Jet.");
         }
 
@@ -322,16 +384,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         protected override Expression VisitLike(LikeExpression likeExpression)
         {
             Check.NotNull(likeExpression, nameof(likeExpression));
-
-            if (likeExpression.EscapeChar != null)
-                base.VisitLike(_sqlExpressionFactory.Like(likeExpression.Match, likeExpression.Pattern));
-            else
-                base.VisitLike(likeExpression);
+            base.VisitLike(likeExpression);
 
             return likeExpression;
         }
 
-        protected override string GetOperator([NotNull] SqlBinaryExpression binaryExpression)
+        protected override string GetOperator([JetBrains.Annotations.NotNull] SqlBinaryExpression binaryExpression)
             => binaryExpression.OperatorType switch
             {
                 ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",
@@ -363,7 +421,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 }
                 else
                 {
-                    throw new InvalidOperationException("Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                    throw new InvalidOperationException(
+                        "Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
                 }
             }
 
@@ -401,6 +460,19 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Visit(sqlFunctionExpression.Arguments[0]);
                 Sql.Append("^");
                 Visit(sqlFunctionExpression.Arguments[1]);
+                return sqlFunctionExpression;
+            }
+
+            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase))
+            {
+                SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
+                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlFunctionExpression.Arguments[0], typeof(bool), null);
+                List<CaseWhenClause> whenclause = new List<CaseWhenClause>
+                {
+                    new CaseWhenClause(isnullexp, sqlFunctionExpression.Arguments[1])
+                };
+                CaseExpression caseexp = new CaseExpression(whenclause, sqlFunctionExpression.Arguments[0]);
+                Visit(caseexp);
                 return sqlFunctionExpression;
             }
 

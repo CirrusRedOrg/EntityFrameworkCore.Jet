@@ -108,7 +108,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model_MainTests
         //[TestMethod]
         public void OrderBy_correlated_subquery_lol()
         {
-            // After the issue IIf => true or false has been removed
+            // After the issue IIF => true or false has been removed
             // The generated query is below.
             // The query does not work in Access
             //

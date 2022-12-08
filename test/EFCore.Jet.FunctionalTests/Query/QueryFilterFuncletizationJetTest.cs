@@ -25,7 +25,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__Field_0='False'")}
-
 {AssertSqlHelper.Declaration("@__Field_0='False'")}
 
 SELECT `f`.`Id`, `f`.`IsEnabled`
@@ -147,28 +146,25 @@ WHERE `m`.`Tenant` = {AssertSqlHelper.Parameter("@__ef_filter__p_0")}");
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__Property_0='False'")}
-
 {AssertSqlHelper.Declaration("@__ef_filter__p_1='True'")}
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = True)",
+WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__Property_0='True'")}
-
 {AssertSqlHelper.Declaration("@__ef_filter__p_1='True'")}
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = True)",
+WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__Property_0='True'")}
-
 {AssertSqlHelper.Declaration("@__ef_filter__p_1='False'")}
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = True)");
+WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")}");
         }
 
         public override void DbContext_property_based_filter_does_not_short_circuit()
@@ -177,26 +173,24 @@ WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='False'")}
-
 {AssertSqlHelper.Declaration("@__ef_filter__IsModerated_1='True' (Nullable = true)")}
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE (`s`.`IsDeleted` <> True) AND (({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = True) OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
+WHERE NOT (`s`.`IsDeleted`) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='False'")}
-
 {AssertSqlHelper.Declaration("@__ef_filter__IsModerated_1='False' (Nullable = true)")}
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE (`s`.`IsDeleted` <> True) AND (({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = True) OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
+WHERE NOT (`s`.`IsDeleted`) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='True'")}
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE (`s`.`IsDeleted` <> True) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = True)");
+WHERE NOT (`s`.`IsDeleted`) AND {AssertSqlHelper.Parameter("@__ef_filter__p_0")}");
         }
 
         public override void EntityTypeConfiguration_DbContext_field_is_parameterized()
@@ -399,7 +393,7 @@ WHERE `d`.`UserId` <> 1");
             AssertSql(
                 $@"SELECT `s`.`Id`, `s`.`IsEnabled`
 FROM `StaticMemberFilter` AS `s`
-WHERE `s`.`IsEnabled` = True");
+WHERE `s`.`IsEnabled`");
         }
 
         public override void Local_variable_from_OnModelCreating_is_inlined()
@@ -409,7 +403,7 @@ WHERE `s`.`IsEnabled` = True");
             AssertSql(
                 $@"SELECT `l`.`Id`, `l`.`IsEnabled`
 FROM `LocalVariableFilter` AS `l`
-WHERE `l`.`IsEnabled` = True");
+WHERE `l`.`IsEnabled`");
         }
 
         public override void Method_parameter_is_inlined()

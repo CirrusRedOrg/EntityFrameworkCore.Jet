@@ -38,7 +38,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
         private IReadOnlyList<MigrationOperation> _operations;
         private RelationalTypeMapping _stringTypeMapping;
-        private RelationalTypeMapping _keepBreakingCharactersStringTypeMapping;
 
         /// <summary>
         ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
@@ -55,7 +54,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             _migrationsAnnotations = migrationsAnnotations;
             _options = options;
             _stringTypeMapping = dependencies.TypeMappingSource.FindMapping(typeof(string));
-            _keepBreakingCharactersStringTypeMapping = ((JetStringTypeMapping) _stringTypeMapping).Clone(keepLineBreakCharacters: true);
         }
 
         /// <summary>
@@ -456,13 +454,13 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             builder
                 .Append("CREATE DATABASE ")
-                .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name));
+                .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Name));
 
             if (!string.IsNullOrEmpty(operation.Password))
             {
                 builder
                     .Append(" PASSWORD ")
-                    .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Password));
+                    .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Password));
             }
 
             builder
@@ -510,7 +508,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             builder
                 .Append("DROP DATABASE ")
                 //.Append(ExpandFileName(operation.Name))
-                .Append(_keepBreakingCharactersStringTypeMapping.GenerateSqlLiteral(operation.Name))
+                .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Name))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
         }
@@ -725,6 +723,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             }
 
             var columnType = GetColumnType(schema, table, name, operation, model);
+            //int has no size - ignore
+            if (columnType.StartsWith("int("))
+            {
+                columnType = "int";
+            }
             builder
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name))
                 .Append(" ")

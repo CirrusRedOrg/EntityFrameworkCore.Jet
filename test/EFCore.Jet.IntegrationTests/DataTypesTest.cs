@@ -49,7 +49,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
         protected override DbConnection GetConnection()
         {
-            return AssemblyInitialization.Connection;
+            return Helpers.GetJetConnection();
         }
     }
 }

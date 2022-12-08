@@ -160,7 +160,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 using (JetTestStore.GetNorthwindStore())
                 {
                     Assert.Equal(
-                        CoreStrings.NoProviderConfigured,
+                        "The JetConnection has been configured without specifying a DataAccessProviderFactory. This property needs to be set to an object of type OdbcFactory or OleDbFactory.",
                         Assert.Throws<InvalidOperationException>(
                             () =>
                             {

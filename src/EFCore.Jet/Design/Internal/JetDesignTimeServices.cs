@@ -5,7 +5,9 @@ using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Scaffolding.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.Jet.Update.Internal;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -28,12 +30,15 @@ namespace EntityFrameworkCore.Jet.Design.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
-            => serviceCollection
-                .AddSingleton<LoggingDefinitions, JetLoggingDefinitions>()
-                .AddSingleton<IRelationalTypeMappingSource, JetTypeMappingSource>()
-                .AddSingleton<IDatabaseModelFactory, JetDatabaseModelFactory>()
-                .AddSingleton<IProviderConfigurationCodeGenerator, JetCodeGenerator>()
-                .AddSingleton<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>()
-                .AddSingleton<IJetOptions, JetOptions>();
+        {
+            serviceCollection.AddEntityFrameworkJet();
+#pragma warning disable EF1001 // Internal EF Core API usage.
+            new EntityFrameworkRelationalDesignServicesBuilder(serviceCollection)
+                .TryAdd<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>()
+#pragma warning restore EF1001 // Internal EF Core API usage.
+                .TryAdd<IDatabaseModelFactory, JetDatabaseModelFactory>()
+                .TryAdd<IProviderConfigurationCodeGenerator, JetCodeGenerator>()
+                .TryAddCoreServices();
+        }
     }
 }

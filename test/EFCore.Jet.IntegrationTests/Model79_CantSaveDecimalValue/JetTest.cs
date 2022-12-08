@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model79_CantSaveDecimalValue
     {
         protected override DbConnection GetConnection()
         {
-            return Helpers.GetJetConnection();
+            return Helpers.CreateAndOpenJetDatabase();
         }
     }
 }

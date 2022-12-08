@@ -61,6 +61,7 @@ namespace EntityFramework.Jet.FunctionalTests
                 b.Property(e => e.ChipperId)
                     .IsRequired()
                     .HasDefaultValue("Default");
+
             });
     }
 

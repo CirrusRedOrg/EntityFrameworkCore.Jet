@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using NetTopologySuite.Geometries;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -25,25 +26,23 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Insert_with_Identity_column()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+            using (var context = new BlogContextIdentity(testStore.Name))
             {
-                using (var context = new BlogContextIdentity(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+                context.Database.EnsureCreatedResiliently();
 
-                    context.AddRange(
-                        new Blog { Name = "One Unicorn" }, new Blog { Name = "Two Unicorns" });
+                context.AddRange(
+                    new Blog { Name = "One Unicorn" }, new Blog { Name = "Two Unicorns" });
 
-                    context.SaveChanges();
-                }
+                context.SaveChanges();
+            }
 
-                using (var context = new BlogContextIdentity(testStore.Name))
-                {
-                    var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
+            using (var context = new BlogContextIdentity(testStore.Name))
+            {
+                var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
-                    Assert.Equal(1, blogs[0].Id);
-                    Assert.Equal(2, blogs[1].Id);
-                }
+                Assert.Equal(1, blogs[0].Id);
+                Assert.Equal(2, blogs[1].Id);
             }
         }
 
@@ -58,25 +57,23 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Insert_with_explicit_non_default_keys()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+            using (var context = new BlogContextNoKeyGeneration(testStore.Name))
             {
-                using (var context = new BlogContextNoKeyGeneration(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+                context.Database.EnsureCreatedResiliently();
 
-                    context.AddRange(
-                        new Blog { Id = 66, Name = "One Unicorn" }, new Blog { Id = 67, Name = "Two Unicorns" });
+                context.AddRange(
+                    new Blog { Id = 66, Name = "One Unicorn" }, new Blog { Id = 67, Name = "Two Unicorns" });
 
-                    context.SaveChanges();
-                }
+                context.SaveChanges();
+            }
 
-                using (var context = new BlogContextNoKeyGeneration(testStore.Name))
-                {
-                    var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
+            using (var context = new BlogContextNoKeyGeneration(testStore.Name))
+            {
+                var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
-                    Assert.Equal(66, blogs[0].Id);
-                    Assert.Equal(67, blogs[1].Id);
-                }
+                Assert.Equal(66, blogs[0].Id);
+                Assert.Equal(67, blogs[1].Id);
             }
         }
 
@@ -99,26 +96,24 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Insert_with_explicit_with_default_keys()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+            using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name))
             {
-                using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+                context.Database.EnsureCreatedResiliently();
 
-                    context.AddRange(
-                        new NullableKeyBlog { Id = 0, Name = "One Unicorn" },
-                        new NullableKeyBlog { Id = 1, Name = "Two Unicorns" });
+                context.AddRange(
+                    new NullableKeyBlog { Id = 0, Name = "One Unicorn" },
+                    new NullableKeyBlog { Id = 1, Name = "Two Unicorns" });
 
-                    context.SaveChanges();
-                }
+                context.SaveChanges();
+            }
 
-                using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name))
-                {
-                    var blogs = context.NullableKeyBlogs.OrderBy(e => e.Id).ToList();
+            using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name))
+            {
+                var blogs = context.NullableKeyBlogs.OrderBy(e => e.Id).ToList();
 
-                    Assert.Equal(0, blogs[0].Id);
-                    Assert.Equal(1, blogs[1].Id);
-                }
+                Assert.Equal(0, blogs[0].Id);
+                Assert.Equal(1, blogs[1].Id);
             }
         }
 
@@ -141,48 +136,56 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Insert_with_non_key_default_value()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+
+            using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
             {
-                using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+                context.Database.EnsureCreatedResiliently();
 
-                    var blogs = new List<Blog>
+                var blogs = new List<Blog>
+                {
+                    new() { Name = "One Unicorn" },
+                    new()
                     {
-                        new Blog { Name = "One Unicorn" },
-                        new Blog { Name = "Two Unicorns", CreatedOn = new DateTime(1969, 8, 3, 0, 10, 0) }
-                    };
+                        Name = "Two Unicorns",
+                        CreatedOn = new DateTime(1969, 8, 3, 0, 10, 0)
+                    }
+                };
 
-                    context.AddRange(blogs);
+                context.AddRange(blogs);
 
-                    context.SaveChanges();
+                context.SaveChanges();
 
-                    Assert.NotEqual(new DateTime(), blogs[0].CreatedOn);
-                    Assert.NotEqual(new DateTime(), blogs[1].CreatedOn);
-                    Assert.Null(blogs[0].OtherId);
-                    Assert.Null(blogs[1].OtherId);
-                }
+                Assert.NotEqual(new DateTime(), blogs[0].CreatedOn);
+                Assert.NotEqual(new DateTime(), blogs[1].CreatedOn);
+            }
 
-                using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
-                {
-                    var blogs = context.Blogs.OrderBy(e => e.Name).ToList();
+            using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
+            {
+                var blogs = context.Blogs.OrderBy(e => e.Name).ToList();
+                Assert.Equal(3, blogs.Count);
 
-                    Assert.NotEqual(new DateTime(), blogs[0].CreatedOn);
-                    Assert.Equal(new DateTime(1969, 8, 3, 0, 10, 0), blogs[1].CreatedOn);
+                Assert.NotEqual(new DateTime(), blogs[0].CreatedOn);
+                Assert.Equal(new DateTime(1969, 8, 3, 0, 10, 0), blogs[1].CreatedOn);
+                Assert.Equal(new DateTime(1974, 8, 3, 0, 10, 0), blogs[2].CreatedOn);
 
-                    blogs[0].CreatedOn = new DateTime(1973, 9, 3, 0, 10, 0);
-                    blogs[1].Name = "Zwo Unicorns";
+                blogs[0].CreatedOn = new DateTime(1973, 9, 3, 0, 10, 0);
 
-                    context.SaveChanges();
-                }
+                blogs[1].Name = "X Unicorns";
 
-                using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
-                {
-                    var blogs = context.Blogs.OrderBy(e => e.Name).ToList();
+                blogs[2].Name = "Y Unicorns";
 
-                    Assert.Equal(new DateTime(1969, 8, 3, 0, 10, 0), blogs[1].CreatedOn);
-                    Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 0), blogs[0].CreatedOn);
-                }
+                context.SaveChanges();
+            }
+
+            using (var context = new BlogContextNonKeyDefaultValue(testStore.Name))
+            {
+                var blogs = context.Blogs.OrderBy(e => e.Name).ToList();
+                Assert.Equal(3, blogs.Count);
+
+                Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 0), blogs[0].CreatedOn);
+                Assert.Equal(new DateTime(1969, 8, 3, 0, 10, 0), blogs[1].CreatedOn);
+                Assert.Equal(new DateTime(1974, 8, 3, 0, 10, 0), blogs[2].CreatedOn);
             }
         }
 
@@ -199,10 +202,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     b =>
                     {
                         b.Property(e => e.CreatedOn)
-                            .HasDefaultValueSql("getdate()");
+                            .HasDefaultValueSql("now()");
 
-                        b.Property(e => e.OtherId)
-                            .HasDefaultValue();
+                        b.HasData(
+                            new Blog
+                            {
+                                Id = 9979,
+                                Name = "W Unicorns",
+                                CreatedOn = new DateTime(1974, 8, 3, 0, 10, 0)
+                            });
                     });
             }
         }
@@ -263,7 +271,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 modelBuilder.Entity<Blog>()
                     .Property(e => e.CreatedOn)
-                    .HasDefaultValueSql("getdate()")
+                    .HasDefaultValueSql("now()")
                     .Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Throw);
             }
         }
@@ -583,9 +591,9 @@ END");
                         eb =>
                         {
                             eb.Property(e => e.Id)
-                                .HasDefaultValueSql("newsequentialid()");
+                                .HasDefaultValueSql("newguid()");
                             eb.Property(e => e.NotId)
-                                .HasDefaultValueSql("newsequentialid()");
+                                .HasDefaultValueSql("newguid()");
                         });
             }
         }
@@ -594,45 +602,40 @@ END");
         [ConditionalFact]
         public void Insert_with_explicit_non_default_keys_by_default()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
-            {
-                using (var context = new BlogContext(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+            using var context = new BlogContext(testStore.Name);
+            context.Database.EnsureCreatedResiliently();
 
-                    context.AddRange(
-                        new Blog { Id = 1, Name = "One Unicorn" }, new Blog { Id = 2, Name = "Two Unicorns" });
+            context.AddRange(
+                new Blog { Id = 1, Name = "One Unicorn" }, new Blog { Id = 2, Name = "Two Unicorns" });
 
-                    // DbUpdateException : An error occurred while updating the entries. See the
-                    // inner exception for details.
-                    // OleDbException : Cannot insert explicit value for identity column in table
-                    // 'Blog' when IDENTITY_INSERT is set to OFF.
-                    context.Database.CreateExecutionStrategy().Execute(
-                        context, c =>
-                            Assert.Throws<DbUpdateException>(() => c.SaveChanges()));
-                }
-            }
+            // DbUpdateException : An error occurred while updating the entries. See the
+            // inner exception for details.
+            // SqlException : Cannot insert explicit value for identity column in table
+            // 'Blog' when IDENTITY_INSERT is set to OFF.
+            context.Database.CreateExecutionStrategy().Execute(
+                context, c => {
+                    var updateException = Assert.Throws<DbUpdateException>(() => c.SaveChanges());
+                    Assert.Single(updateException.Entries);
+                });
         }
 
         [ConditionalFact]
         public void Insert_with_explicit_default_keys()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
-            {
-                using (var context = new BlogContext(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+            using var context = new BlogContext(testStore.Name);
+            context.Database.EnsureCreatedResiliently();
 
-                    context.AddRange(
-                        new Blog { Id = 0, Name = "One Unicorn" }, new Blog { Id = 1, Name = "Two Unicorns" });
+            context.AddRange(
+                new Blog { Id = 0, Name = "One Unicorn" }, new Blog { Id = 1, Name = "Two Unicorns" });
 
-                    // DbUpdateException : An error occurred while updating the entries. See the
-                    // inner exception for details.
-                    // OleDbException : Cannot insert explicit value for identity column in table
-                    // 'Blog' when IDENTITY_INSERT is set to OFF.
-                    Assert.Throws<DbUpdateException>(() => context.SaveChanges());
-                }
-            }
+            // DbUpdateException : An error occurred while updating the entries. See the
+            // inner exception for details.
+            // SqlException : Cannot insert explicit value for identity column in table
+            // 'Blog' when IDENTITY_INSERT is set to OFF.
+            var updateException = Assert.Throws<DbUpdateException>(() => context.SaveChanges());
+            Assert.Single(updateException.Entries);
         }
 
         public class BlogContext : ContextBase
@@ -766,43 +769,37 @@ END");
         [ConditionalFact]
         public void Resolve_concurrency()
         {
-            using (var testStore = JetTestStore.CreateInitialized(DatabaseName))
+            using var testStore = JetTestStore.CreateInitialized(DatabaseName);
+            using var context = new BlogContextConcurrencyWithRowversion(testStore.Name);
+            context.Database.EnsureCreatedResiliently();
+
+            var blog = context.Add(
+                new ConcurrentBlog { Name = "One Unicorn" }).Entity;
+
+            context.SaveChanges();
+
+            using var innerContext = new BlogContextConcurrencyWithRowversion(testStore.Name);
+            var updatedBlog = innerContext.ConcurrentBlogs.Single();
+            updatedBlog.Name = "One Pegasus";
+            innerContext.SaveChanges();
+            var currentTimestamp = updatedBlog.Timestamp.ToArray();
+
+            try
             {
-                using (var context = new BlogContextConcurrencyWithRowversion(testStore.Name))
-                {
-                    context.Database.EnsureCreatedResiliently();
+                blog.Name = "One Earth Pony";
+                context.SaveChanges();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Update original values (and optionally any current values)
+                // Would normally do this with just one method call
+                context.Entry(blog).Property(e => e.Id).OriginalValue = updatedBlog.Id;
+                context.Entry(blog).Property(e => e.Name).OriginalValue = updatedBlog.Name;
+                context.Entry(blog).Property(e => e.Timestamp).OriginalValue = updatedBlog.Timestamp;
 
-                    var blog = context.Add(
-                        new ConcurrentBlog { Name = "One Unicorn" }).Entity;
+                context.SaveChanges();
 
-                    context.SaveChanges();
-
-                    using (var innerContext = new BlogContextConcurrencyWithRowversion(testStore.Name))
-                    {
-                        var updatedBlog = innerContext.ConcurrentBlogs.Single();
-                        updatedBlog.Name = "One Pegasus";
-                        innerContext.SaveChanges();
-                        var currentTimestamp = updatedBlog.Timestamp.ToArray();
-
-                        try
-                        {
-                            blog.Name = "One Earth Pony";
-                            context.SaveChanges();
-                        }
-                        catch (DbUpdateConcurrencyException)
-                        {
-                            // Update original values (and optionally any current values)
-                            // Would normally do this with just one method call
-                            context.Entry(blog).Property(e => e.Id).OriginalValue = updatedBlog.Id;
-                            context.Entry(blog).Property(e => e.Name).OriginalValue = updatedBlog.Name;
-                            context.Entry(blog).Property(e => e.Timestamp).OriginalValue = updatedBlog.Timestamp;
-
-                            context.SaveChanges();
-
-                            Assert.NotEqual(blog.Timestamp, currentTimestamp);
-                        }
-                    }
-                }
+                Assert.NotEqual(blog.Timestamp, currentTimestamp);
             }
         }
 

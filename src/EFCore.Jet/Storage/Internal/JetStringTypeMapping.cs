@@ -34,8 +34,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     storeType ?? GetStoreName(fixedLength),
                     storeTypePostfix ?? StoreTypePostfix.Size,
                     (fixedLength
-                        ? System.Data.DbType.String
-                        : (DbType?) null),
+                        ? System.Data.DbType.StringFixedLength
+                        : (DbType?) System.Data.DbType.String),
                     unicode,
                     size,
                     fixedLength),

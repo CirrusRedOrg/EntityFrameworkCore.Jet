@@ -201,7 +201,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Lazy_load_many_to_one_reference_to_principal_alternate_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
@@ -213,7 +213,7 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Lazy_load_one_to_one_reference_to_principal_alternate_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
@@ -225,7 +225,7 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Lazy_load_one_to_one_reference_to_dependent_alternate_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `s`.`Id`, `s`.`ParentId`
 FROM `SingleAk` AS `s`
@@ -313,8 +313,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             base.Lazy_load_collection_composite_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
@@ -327,8 +326,7 @@ WHERE (`c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`
             base.Lazy_load_many_to_one_reference_to_principal_composite_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707'")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
@@ -341,8 +339,7 @@ WHERE (`p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`p`.`Id` 
             base.Lazy_load_one_to_one_reference_to_principal_composite_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707'")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
@@ -355,8 +352,7 @@ WHERE (`p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`p`.`Id` 
             base.Lazy_load_one_to_one_reference_to_dependent_composite_key(state);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
 
 SELECT `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
@@ -543,7 +539,7 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_one_to_one_reference_to_principal_using_Query_null_FK(EntityState state, bool async)
@@ -553,7 +549,7 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_collection_not_found(EntityState state, bool async)
@@ -1046,7 +1042,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_collection_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `c`.`Id`, `c`.`ParentId`
 FROM `ChildAk` AS `c`
@@ -1058,7 +1054,7 @@ WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_many_to_one_reference_to_principal_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
@@ -1070,7 +1066,7 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_one_to_one_reference_to_principal_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
@@ -1082,7 +1078,7 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_one_to_one_reference_to_dependent_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `s`.`Id`, `s`.`ParentId`
 FROM `SingleAk` AS `s`
@@ -1094,7 +1090,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_collection_using_Query_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT `c`.`Id`, `c`.`ParentId`
 FROM `ChildAk` AS `c`
@@ -1106,7 +1102,7 @@ WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_many_to_one_reference_to_principal_using_Query_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
@@ -1118,7 +1114,7 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_one_to_one_reference_to_principal_using_Query_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
@@ -1130,7 +1126,7 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Load_one_to_one_reference_to_dependent_using_Query_alternate_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentId`
 FROM `SingleAk` AS `s`
@@ -1158,7 +1154,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_one_to_one_reference_to_principal_using_Query_null_FK_alternate_key(EntityState state, bool async)
@@ -1168,7 +1164,7 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_collection_shadow_fk(EntityState state, bool async)
@@ -1288,7 +1284,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_one_to_one_reference_to_principal_using_Query_null_FK_shadow_fk(EntityState state, bool async)
@@ -1298,7 +1294,7 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_collection_composite_key(EntityState state, bool async)
@@ -1306,8 +1302,7 @@ WHERE False = True");
             await base.Load_collection_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
@@ -1320,8 +1315,7 @@ WHERE (`c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`
             await base.Load_many_to_one_reference_to_principal_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707'")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
@@ -1334,8 +1328,7 @@ WHERE (`p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`p`.`Id` 
             await base.Load_one_to_one_reference_to_principal_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707'")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
@@ -1348,8 +1341,7 @@ WHERE (`p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`p`.`Id` 
             await base.Load_one_to_one_reference_to_dependent_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
 
 SELECT `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
@@ -1362,8 +1354,7 @@ WHERE (`s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`s`
             await base.Load_collection_using_Query_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
@@ -1376,8 +1367,7 @@ WHERE (`c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`c`
             await base.Load_many_to_one_reference_to_principal_using_Query_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707'")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
@@ -1390,8 +1380,7 @@ WHERE (`p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`p`.`Id` 
             await base.Load_one_to_one_reference_to_principal_using_Query_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707'")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
@@ -1404,8 +1393,7 @@ WHERE (`p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`p`.`Id` 
             await base.Load_one_to_one_reference_to_dependent_using_Query_composite_key(state, async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 450)")}
-
+                $@"{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
@@ -1434,7 +1422,7 @@ WHERE (`s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`s`
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         public override async Task Load_one_to_one_reference_to_principal_using_Query_null_FK_composite_key(EntityState state, bool async)
@@ -1444,7 +1432,7 @@ WHERE False = True");
             AssertSql(
                 $@"SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE False = True");
+WHERE 0 = 1");
         }
 
         protected override void ClearLog() => Fixture.TestSqlLoggerFactory.Clear();

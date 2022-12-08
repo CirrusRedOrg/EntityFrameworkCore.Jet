@@ -27,63 +27,70 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         /// </summary>
         public SqlExpression Translate(SqlExpression instance, MemberInfo member, Type returnType, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (member.DeclaringType != typeof(DateTime) ||
-                member.DeclaringType != typeof(DateTimeOffset))
-                return null;
-
-            if (instance == null)
+            if (member.DeclaringType == typeof(DateTime) ||
+                member.DeclaringType == typeof(DateTimeOffset))
             {
+                if (instance == null)
+                {
+                    return member.Name switch
+                    {
+                        nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                            false, new[] { false }, returnType),
+                        nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                            false, new[] { false }, returnType),
+                        _ => null,
+                    };
+                }
+
                 return member.Name switch
                 {
-                    nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),false, new[] {false}, returnType),
-                    nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new[] {false}, returnType),
-                    _ => null,
-                };
-            }
-
-            return member.Name switch
-            {
-                nameof(DateTime.Today) => _sqlExpressionFactory.Function(
+                    nameof(DateTime.Today) => _sqlExpressionFactory.Function(
                         "DATEVALUE",
-                        new[] {_sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new[] {false}, returnType)},
+                        new[]
+                        {
+                            _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new[] { false },
+                                returnType)
+                        },
                         false,
-                        new[] {false},
+                        new[] { false },
                         returnType),
 
-                nameof(DateTime.Year) => GetDatePartExpression(instance, returnType, "yyyy"),
-                nameof(DateTime.Month) => GetDatePartExpression(instance, returnType, "m"),
-                nameof(DateTime.DayOfYear) => GetDatePartExpression(instance, returnType, "y"),
-                nameof(DateTime.Day) => GetDatePartExpression(instance, returnType, "d"),
-                nameof(DateTime.Hour) => GetDatePartExpression(instance, returnType, "h"),
-                nameof(DateTime.Minute) => GetDatePartExpression(instance, returnType, "n"),
-                nameof(DateTime.Second) => GetDatePartExpression(instance, returnType, "s"),
-                nameof(DateTime.Millisecond) => null, // Not supported in Jet
+                    nameof(DateTime.Year) => GetDatePartExpression(instance, returnType, "yyyy"),
+                    nameof(DateTime.Month) => GetDatePartExpression(instance, returnType, "m"),
+                    nameof(DateTime.DayOfYear) => GetDatePartExpression(instance, returnType, "y"),
+                    nameof(DateTime.Day) => GetDatePartExpression(instance, returnType, "d"),
+                    nameof(DateTime.Hour) => GetDatePartExpression(instance, returnType, "h"),
+                    nameof(DateTime.Minute) => GetDatePartExpression(instance, returnType, "n"),
+                    nameof(DateTime.Second) => GetDatePartExpression(instance, returnType, "s"),
+                    nameof(DateTime.Millisecond) => null, // Not supported in Jet
 
-                nameof(DateTime.DayOfWeek) => _sqlExpressionFactory.Subtract(
-                    GetDatePartExpression(instance, returnType, "w"),
-                    _sqlExpressionFactory.Constant(1)),
+                    nameof(DateTime.DayOfWeek) => _sqlExpressionFactory.Subtract(
+                        GetDatePartExpression(instance, returnType, "w"),
+                        _sqlExpressionFactory.Constant(1)),
 
-                nameof(DateTime.Date) => _sqlExpressionFactory.NullChecked(
-                    instance,
-                    _sqlExpressionFactory.Function(
-                        "DATEVALUE",
-                        new[] {instance},
-                        false,
-                        new[] {false},
-                        returnType)),
-                nameof(DateTime.TimeOfDay) => _sqlExpressionFactory.NullChecked(
-                    instance,
-                    _sqlExpressionFactory.Function(
-                        "TIMEVALUE",
-                        new[] {instance},
-                        false,
-                        new[] {false},
-                        returnType)),
+                    nameof(DateTime.Date) => _sqlExpressionFactory.NullChecked(
+                        instance,
+                        _sqlExpressionFactory.Function(
+                            "DATEVALUE",
+                            new[] { instance },
+                            false,
+                            new[] { false },
+                            returnType)),
+                    nameof(DateTime.TimeOfDay) => _sqlExpressionFactory.NullChecked(
+                        instance,
+                        _sqlExpressionFactory.Function(
+                            "TIMEVALUE",
+                            new[] { instance },
+                            false,
+                            new[] { false },
+                            returnType)),
 
-                nameof(DateTime.Ticks) => null,
+                    nameof(DateTime.Ticks) => null,
 
-                _ => null
-            };
+                    _ => null
+                };
+            }
+            return null;
         }
 
         private SqlExpression GetDatePartExpression(

@@ -2397,7 +2397,7 @@ WHERE `e`.`Id` IN (
                     Assert.Equal(3, context.Cache.Count);
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__name_0='A' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__name_0='A' (Size = 255)")}
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
@@ -4084,22 +4084,22 @@ WHERE (`t`.`Name` <> 'Bar') OR `t`.`Name` IS NULL");
                         $@"SELECT AVG(`p`.`Price`)
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIf(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
+                        $@"SELECT AVG(IIF(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT IIf(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
+                        $@"SELECT IIF(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT IIf(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
+                        $@"SELECT IIF(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
 FROM `Prices` AS `p`",
                         //
                         $@"SELECT AVG(`p`.`DoubleColumn`)
@@ -4920,7 +4920,7 @@ ORDER BY `p`.`Id`, `t0`.`Id`");
                     context.SaveChanges();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@p0='BaseEntity13079' (Nullable = false) (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@p0='BaseEntity13079' (Nullable = false) (Size = 255)")}
 
 SET NOCOUNT ON;
 INSERT INTO `BaseEntities` (`Discriminator`)
@@ -4990,7 +4990,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = scope_identity();");
                     var result = context.InventoryPools.Sum(p => (decimal)p.Quantity);
 
                     AssertSql(
-                        $@"SELECT SUM(IIf(`i`.`Quantity` IS NULL, NULL, CCUR(`i`.`Quantity`)))
+                        $@"SELECT SUM(IIF(`i`.`Quantity` IS NULL, NULL, CCUR(`i`.`Quantity`)))
 FROM `InventoryPools` AS `i`");
                 }
             }
@@ -6085,7 +6085,7 @@ WHERE `f`.`String` = '1337'");
                     var query = context.Foos.Where(f => f.String == bar.Value).ToList();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__bar_Value_0='1337' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__bar_Value_0='1337' (Size = 255)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -6106,7 +6106,7 @@ WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__bar_Value_0")}");
                     var query = context.Foos.Where(f => f.String == bar.ToString()).ToList();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__ToString_0='1337' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__ToString_0='1337' (Size = 255)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
@@ -6127,7 +6127,7 @@ WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__ToString_0")}");
                     var query = context.Foos.Where(f => f.String == bar).ToList();
 
                     AssertSql(
-                        $@"{AssertSqlHelper.Declaration("@__p_0='1337' (Size = 4000)")}
+                        $@"{AssertSqlHelper.Declaration("@__p_0='1337' (Size = 255)")}
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`

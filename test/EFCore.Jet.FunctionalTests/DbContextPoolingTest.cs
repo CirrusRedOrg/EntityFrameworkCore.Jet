@@ -570,24 +570,58 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         }
 
         [ConditionalTheory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void Double_dispose_does_not_enter_pool_twice(bool useInterface)
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public async Task Double_dispose_does_not_enter_pool_twice(bool useInterface, bool async)
         {
             var serviceProvider = useInterface
                 ? BuildServiceProvider<IPooledContext, PooledContext>()
                 : BuildServiceProvider<PooledContext>();
 
-            var contextPool = serviceProvider.GetService<DbContextPool<PooledContext>>();
+            var scope = serviceProvider.CreateScope();
+            var lease = scope.ServiceProvider.GetRequiredService<IScopedDbContextLease<PooledContext>>();
+            var context = lease.Context;
 
-            var context = contextPool.Rent();
+            await Dispose(scope, async);
 
-            context.Dispose();
-            context.Dispose();
+            await Dispose(scope, async);
 
-            var context1 = contextPool.Rent();
-            var context2 = contextPool.Rent();
+            using var scope1 = serviceProvider.CreateScope();
+            var lease1 = scope1.ServiceProvider.GetRequiredService<IScopedDbContextLease<PooledContext>>();
 
+            using var scope2 = serviceProvider.CreateScope();
+            var lease2 = scope2.ServiceProvider.GetRequiredService<IScopedDbContextLease<PooledContext>>();
+
+            Assert.Same(context, lease1.Context);
+            Assert.NotSame(lease1.Context, lease2.Context);
+        }
+
+        [ConditionalTheory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public async Task Double_dispose_with_standalone_lease_does_not_enter_pool_twice(bool useInterface, bool async)
+        {
+            var serviceProvider = useInterface
+                ? BuildServiceProvider<IPooledContext, PooledContext>()
+                : BuildServiceProvider<PooledContext>();
+
+            var pool = serviceProvider.GetRequiredService<IDbContextPool<PooledContext>>();
+            var lease = new DbContextLease(pool, standalone: true);
+            var context = (PooledContext)lease.Context;
+            ((IDbContextPoolable)context).SetLease(lease);
+
+            await Dispose(context, async);
+
+            await Dispose(context, async);
+
+            using var context1 = new DbContextLease(pool, standalone: true).Context;
+            using var context2 = new DbContextLease(pool, standalone: true).Context;
+
+            Assert.Same(context, context1);
             Assert.NotSame(context1, context2);
         }
 
@@ -757,6 +791,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                     _stopwatch.Stop();
                 }
+            }
+        }
+
+        private async Task Dispose(IDisposable disposable, bool async)
+        {
+            if (async)
+            {
+                await ((IAsyncDisposable)disposable).DisposeAsync();
+            }
+            else
+            {
+                disposable.Dispose();
             }
         }
 

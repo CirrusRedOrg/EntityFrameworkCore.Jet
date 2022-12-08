@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Data.Common;
+using System.Data.Odbc;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Data;
 using System.Data.OleDb;
@@ -53,9 +54,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.Query_with_parameters();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
@@ -95,15 +95,13 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_dbParameters_mixed();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
-
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
 {AssertSqlHelper.Declaration("@contactTitle='Sales Representative' (Nullable = false) (Size = 20)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@contactTitle")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
-
-{AssertSqlHelper.Declaration("@p0='Sales Representative' (Size = 4000)")}
+{AssertSqlHelper.Declaration("@p0='Sales Representative' (Size = 255)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p0")}");
         }
@@ -113,9 +111,8 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             base.Query_with_parameters_interpolated();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
@@ -125,9 +122,8 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             await base.Query_with_parameters_async();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
@@ -137,15 +133,14 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             await base.Query_with_parameters_interpolated_async();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
 
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
 
         protected override DbParameter CreateDbParameter(string name, object value)
-            => new OleDbParameter { ParameterName = name, Value = value };
+            => new OdbcParameter { ParameterName = name, Value = value };
 
         protected override string TenMostExpensiveProductsSproc => "`Ten Most Expensive Products`";
         protected override string CustomerOrderHistorySproc => "`CustOrderHist` @CustomerID";

@@ -100,6 +100,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
         }
 
-
+        protected override DbConnection GetConnection()
+            => Helpers.GetJetConnection();
     }
 }

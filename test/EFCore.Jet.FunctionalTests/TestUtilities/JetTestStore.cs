@@ -103,7 +103,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
-            => builder.UseJet(Connection, b => b.ApplyConfiguration());
+            => builder.UseJet(Connection, b => b.ApplyConfiguration()).EnableSensitiveDataLogging().EnableDetailedErrors();
 
         private bool CreateDatabase(Action<DbContext> clean)
         {

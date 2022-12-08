@@ -175,7 +175,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 
         private sealed class ExtensionInfo : RelationalExtensionInfo
         {
-            private long? _serviceProviderHash;
+            private int? _serviceProviderHash;
             private string _logFragment;
 
             public ExtensionInfo(IDbContextOptionsExtension extension)
@@ -227,12 +227,12 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                 }
             }
 
-            public override long GetServiceProviderHashCode()
+            public override int GetServiceProviderHashCode()
             {
                 if (_serviceProviderHash == null)
                 {
                     _serviceProviderHash = (base.GetServiceProviderHashCode() * 397) ^
-                                           (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0L) ^
+                                           (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0) ^
                                            (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) ^
                                            (Extension._enableMillisecondsSupport.GetHashCode() * 397)/* ^
                                            (Extension._rowNumberPaging?.GetHashCode() ?? 0L)*/;

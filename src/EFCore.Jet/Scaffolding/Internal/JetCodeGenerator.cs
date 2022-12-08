@@ -1,5 +1,8 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
+using System.Reflection;
+using EntityFrameworkCore.Jet.Infrastructure;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -15,6 +18,12 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     /// </summary>
     public class JetCodeGenerator : ProviderCodeGenerator
     {
+        private static readonly MethodInfo _useJetMethodInfo
+            = typeof(JetDbContextOptionsBuilderExtensions).GetRequiredRuntimeMethod(
+                nameof(JetDbContextOptionsBuilderExtensions.UseJet),
+                typeof(DbContextOptionsBuilder),
+                typeof(string),
+                typeof(Action<JetDbContextOptionsBuilder>));
         /// <summary>
         ///     Initializes a new instance of the <see cref="JetCodeGenerator" /> class.
         /// </summary>
@@ -33,8 +42,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         public override MethodCallCodeFragment GenerateUseProvider(
             string connectionString,
             MethodCallCodeFragment providerOptions)
-            => new MethodCallCodeFragment(
-                nameof(JetDbContextOptionsBuilderExtensions.UseJet),
+            => new(_useJetMethodInfo,
                 providerOptions == null
                     ? new object[] { connectionString }
                     : new object[] { connectionString, new NestedClosureCodeFragment("x", providerOptions) });

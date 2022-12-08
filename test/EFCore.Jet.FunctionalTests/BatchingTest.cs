@@ -226,7 +226,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     {
                         b.Property(e => e.Id).ValueGeneratedOnAdd();
                         b.Property(e => e.Version).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
-                        b.Property(e => e.Name).HasColumnType("nvarchar(450)");
+                        b.Property(e => e.Name).HasColumnType("nvarchar(255)");
                     });
                 modelBuilder.Entity<Blog>(
                     b =>

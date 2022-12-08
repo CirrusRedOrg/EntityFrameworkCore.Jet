@@ -275,11 +275,11 @@ FROM (
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CompanyName` IS NOT NULL AND (`c`.`CompanyName` LIKE 'A' & '%')
+    WHERE `c`.`CompanyName` IS NOT NULL AND (`c`.`CompanyName` LIKE 'A%')
     UNION
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
-    WHERE `c0`.`CompanyName` IS NOT NULL AND (`c0`.`CompanyName` LIKE 'B' & '%')
+    WHERE `c0`.`CompanyName` IS NOT NULL AND (`c0`.`CompanyName` LIKE 'B%')
 ) AS `t`");
         }
 
@@ -296,7 +296,7 @@ FROM (
     SELECT `p`.`ProductName` AS `ContactName`
     FROM `Products` AS `p`
 ) AS `t`
-WHERE `t`.`ContactName` IS NOT NULL AND (`t`.`ContactName` LIKE 'C' & '%')
+WHERE `t`.`ContactName` IS NOT NULL AND (`t`.`ContactName` LIKE 'C%')
 ORDER BY `t`.`ContactName`");
         }
 
@@ -425,87 +425,6 @@ FROM `Customers` AS `c`
 UNION ALL
 SELECT NULL AS `c`
 FROM `Customers` AS `c0`");
-        }
-
-        public override async Task Union_over_different_projection_types(bool isAsync, string leftType, string rightType)
-        {
-            await base.Union_over_different_projection_types(isAsync, leftType, rightType);
-
-            var leftSql = GenerateSql(leftType);
-            var rightSql = GenerateSql(rightType);
-
-            switch (leftType)
-            {
-                case "Column":
-                    leftSql = leftSql.Replace("{Alias}", "");
-                    break;
-
-                case "Binary":
-                case "Constant":
-                case "Function":
-                case "ScalarSubquery":
-                case "Unary":
-                    leftSql = leftSql.Replace("{Alias}", " AS `c`");
-                    break;
-
-                default:
-                    throw new ArgumentException("Unexpected type: " + leftType);
-            }
-
-            switch (rightType)
-            {
-                case "Column":
-                    rightSql = rightSql.Replace("{Alias}", leftType == "Column" ? "" : " AS `c`");
-                    break;
-
-                case "Binary":
-                case "Constant":
-                case "Function":
-                case "ScalarSubquery":
-                case "Unary":
-                    rightSql = rightSql.Replace("{Alias}", leftType == "Column" ? " AS `OrderID`" : " AS `c`");
-                    break;
-                default:
-                    throw new ArgumentException("Unexpected type: " + rightType);
-            }
-
-            // Fix up right-side SQL as table aliases shift
-            rightSql = leftType == "ScalarSubquery"
-                ? rightSql.Replace("`o`", "`o1`").Replace("`o0`", "`o2`")
-                : rightSql.Replace("`o0`", "`o1`").Replace("`o`", "`o0`");
-
-            AssertSql(leftSql + Environment.NewLine + "UNION" + Environment.NewLine + rightSql);
-
-            static string GenerateSql(string expressionType)
-            {
-                switch (expressionType)
-                {
-                    case "Column":
-                        return @"SELECT `o`.`OrderID`{Alias}
-FROM `Orders` AS `o`";
-                    case "Function":
-                        return @"SELECT COUNT(*){Alias}
-FROM `Orders` AS `o`
-GROUP BY `o`.`OrderID`";
-                    case "Constant":
-                        return @"SELECT 8{Alias}
-FROM `Orders` AS `o`";
-                    case "Unary":
-                        return @"SELECT -`o`.`OrderID`{Alias}
-FROM `Orders` AS `o`";
-                    case "Binary":
-                        return @"SELECT `o`.`OrderID` + 1{Alias}
-FROM `Orders` AS `o`";
-                    case "ScalarSubquery":
-                        return @"SELECT (
-    SELECT COUNT(*)
-    FROM `Order Details` AS `o`
-    WHERE `o0`.`OrderID` = `o`.`OrderID`){Alias}
-FROM `Orders` AS `o0`";
-                    default:
-                        throw new ArgumentException("Unexpected type: " + expressionType);
-                }
-            }
         }
 
         public override async Task OrderBy_Take_Union(bool isAsync)

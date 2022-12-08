@@ -20,6 +20,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         private readonly JetByteArrayTypeMapping _fixedLengthBinary = new JetByteArrayTypeMapping("binary");
         private readonly JetByteArrayTypeMapping _variableLengthBinary = new JetByteArrayTypeMapping("varbinary");
+        private readonly JetByteArrayTypeMapping _variableLengthMaxBinary = new JetByteArrayTypeMapping("varbinary(max)", storeTypePostfix: StoreTypePostfix.None);
         private readonly JetByteArrayTypeMapping _unboundedBinary = new JetByteArrayTypeMapping("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
         private readonly JetBoolTypeMapping _bit = new JetBoolTypeMapping("bit"); // JET bits are not nullable
@@ -32,7 +33,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
-        // private readonly JetDecimalTypeMapping _bigint = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 28, scale: 0, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("integer");//a long and integer are the same in Jet
 
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");
@@ -47,6 +48,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString = new JetStringTypeMapping("char", unicode: true);
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
+        private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new JetStringTypeMapping("varchar(max)", unicode: true, storeTypePostfix: StoreTypePostfix.None);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
 
         private readonly GuidTypeMapping _guid = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
@@ -86,6 +88,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"binary",                     new[] {_fixedLengthBinary}},
 
                     {"varbinary",                  new[] {_variableLengthBinary}},
+                    {"varbinary(max)",                  new[] {_variableLengthMaxBinary}},
                     {"binary varying",             new[] {_variableLengthBinary}},
                     {"bit varying",                new[] {_variableLengthBinary}},
 
@@ -113,7 +116,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"integer2",                   new[] {_smallint}},
 
                     {"integer",                    new[] {_integer}},
-                    {"long",                       new[] {_integer}},
+                    {"long",                       new[] {_bigint}},
                     {"int",                        new[] {_integer}},
                     {"integer4",                   new[] {_integer}},
                     
@@ -153,6 +156,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"national char varying",      new[] {_variableLengthUnicodeString}},
                     {"national character varying", new[] {_variableLengthUnicodeString}},
 
+                    {"varchar(max)",                    new[] {_variableLengthMaxUnicodeString}},
+                    {"string(max)",                     new[] {_variableLengthMaxUnicodeString}},
+                    {"char varying(max)",               new[] {_variableLengthMaxUnicodeString}},
+                    {"character varying(max)",          new[] {_variableLengthMaxUnicodeString}},
+                    {"national char varying(max)",      new[] {_variableLengthMaxUnicodeString}},
+                    {"national character varying(max)", new[] {_variableLengthMaxUnicodeString}},
+
                     {"longchar",                   new[] {_unboundedUnicodeString}},
                     {"longtext",                   new[] {_unboundedUnicodeString}},
                     {"memo",                       new[] {_unboundedUnicodeString}},
@@ -175,7 +185,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {typeof(sbyte), _smallint},
                     {typeof(short), _smallint},
                     {typeof(int), _integer},
-                    // {typeof(long), _bigint}, // uses DECIMAL(28,0)
+                    {typeof(long), _bigint},
                     {typeof(float), _single},
                     {typeof(double), _double},
                     {typeof(decimal), _decimal}, // CHECK: Is this supported or do we need to use CURRENCY?
@@ -195,7 +205,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     "binary",
 
                     "varbinary",
-                    "image",
                     "binary varying",
                     "bit varying",
 

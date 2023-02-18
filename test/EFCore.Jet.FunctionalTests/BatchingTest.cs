@@ -231,7 +231,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 modelBuilder.Entity<Blog>(
                     b =>
                     {
-                        b.Property(e => e.Id).HasDefaultValueSql("NEWID()");
+                        b.Property(e => e.Id).HasDefaultValueSql("GenGUID()");
                         b.Property(e => e.Version).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
                     });
             }
@@ -273,7 +273,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.Database.ExecuteSqlRaw(
                     @"
 ALTER TABLE Owners
-    ALTER COLUMN Name nvarchar(MAX);");
+    ALTER COLUMN Name nvarchar(255);");
             }
 
             public DbContext CreateContext(int minBatchSize)

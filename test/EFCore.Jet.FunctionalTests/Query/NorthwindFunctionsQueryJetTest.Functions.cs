@@ -1380,7 +1380,7 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (NEWID() <> '00000000-0000-0000-0000-000000000000') OR NEWID() IS NULL");
+WHERE (GenGUID() <> '00000000-0000-0000-0000-000000000000') OR GenGUID() IS NULL");
         }
 
         public override async Task Where_string_to_upper(bool isAsync)

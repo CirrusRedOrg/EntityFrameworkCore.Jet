@@ -1,6 +1,7 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -32,7 +33,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         SELECT 1
         FROM `Orders` AS `o`
         WHERE (`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
-FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+FROM (SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDualTableName) ? JetConfiguration.DetectedDualTableName : JetConfiguration.CustomDualTableName) + "`)");
         }
 
         public override async Task Sum_with_no_arg(bool isAsync)

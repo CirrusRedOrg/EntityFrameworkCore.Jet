@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
@@ -1307,7 +1308,7 @@ FROM (
                 $@"SELECT IIF(EXISTS (
         SELECT 1
         FROM `Customers` AS `c`), TRUE, FALSE)
-FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+FROM (SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDualTableName) ? JetConfiguration.DetectedDualTableName : JetConfiguration.CustomDualTableName) + "`)");
         }
 
         public override async Task Any_predicate(bool isAsync)

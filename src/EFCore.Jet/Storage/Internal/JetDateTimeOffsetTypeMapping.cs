@@ -40,13 +40,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
-                parameter.Value = dateTimeOffset.UtcDateTime;
+                parameter.Value = dateTimeOffset.DateTime;
             }
 
             base.ConfigureParameter(parameter);
         }
 
         protected override DateTime ConvertToDateTimeCompatibleValue(object value)
-            => ((DateTimeOffset) value).UtcDateTime;
+            => ((DateTimeOffset) value).DateTime;
     }
 }

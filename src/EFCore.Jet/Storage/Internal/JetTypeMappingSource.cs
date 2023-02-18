@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetByteArrayTypeMapping _unboundedBinary = new JetByteArrayTypeMapping("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
         private readonly JetBoolTypeMapping _bit = new JetBoolTypeMapping("bit"); // JET bits are not nullable
-        private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("bit");
+        private readonly JetBoolTypeMapping _bool = new JetBoolTypeMapping("smallint");
 
         // We just map counter etc. to integer. Whether an integer property/column is actually a counter
         // is determined by the value generation type.

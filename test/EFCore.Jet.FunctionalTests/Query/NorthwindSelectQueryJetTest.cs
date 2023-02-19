@@ -297,7 +297,7 @@ OUTER APPLY (
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
 ) AS `t`
-WHERE `c`.`CustomerID` LIKE 'A%'
+WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
         }
 
@@ -311,7 +311,7 @@ ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500 AS `OrderDates`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'");
+WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
         public override async Task Select_nested_collection_multi_level3(bool isAsync)
@@ -324,7 +324,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10500 AND `c`.`CustomerID` = `o`.`CustomerID`) AS `OrderDates`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'");
+WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
         public override async Task Select_nested_collection_multi_level4(bool isAsync)
@@ -340,7 +340,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID` AND `o0`.`OrderID` < 10500) AS `Order`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'");
+WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
         public override async Task Select_nested_collection_multi_level5(bool isAsync)
@@ -362,7 +362,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
     FROM `Orders` AS `o1`
     WHERE (`c`.`CustomerID` = `o1`.`CustomerID`) AND (`o1`.`OrderID` < 10500)) AS `Order`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'");
+WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
 
         public override async Task Select_nested_collection_multi_level6(bool isAsync)
@@ -1646,7 +1646,7 @@ LEFT JOIN (
     WHERE `t1`.`row` <= 1
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
 LEFT JOIN `Order Details` AS `o2` ON `t0`.`OrderID` = `o2`.`OrderID`
-WHERE `c`.`CustomerID` LIKE 'F%'
+WHERE `c`.`CustomerID` LIKE 'F' & '%'
 ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`, `t`.`ProductID`, `t0`.`OrderID`, `o2`.`OrderID`");
         }
 
@@ -1660,7 +1660,7 @@ SELECT `t`.`CustomerID`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`C
 FROM (
     SELECT TOP(@__p_0) `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F%'
+    WHERE `c`.`CustomerID` LIKE 'F' & '%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 OUTER APPLY (
@@ -1685,7 +1685,7 @@ ORDER BY `t`.`CustomerID`, `t0`.`OrderID`");
 FROM (
     SELECT TOP 1 `o`.`OrderID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
-    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')
+    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F' & '%')
 ) AS `t`
 OUTER APPLY (
     SELECT `t1`.`OrderID`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `t1`.`UnitPrice` AS `UnitPrice0`, `t1`.`ProductID` AS `ProductID0`
@@ -1710,7 +1710,7 @@ ORDER BY `t`.`OrderID`, `t0`.`OrderID` DESC, `t0`.`ProductID0`");
 FROM (
     SELECT TOP 1 `c`.`CustomerID`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F%'
+    WHERE `c`.`CustomerID` LIKE 'F' & '%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 OUTER APPLY (

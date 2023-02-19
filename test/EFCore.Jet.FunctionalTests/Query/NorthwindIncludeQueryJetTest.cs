@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Include_list(async);
 
             AssertSql(
-                @"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `t`.`OrderID`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t`.`OrderID0`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `t`.`OrderID`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t`.`OrderID0`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM `Products` AS `p`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
@@ -41,7 +41,7 @@ ORDER BY `p`.`ProductID`, `t`.`OrderID`, `t`.`ProductID`");
             await base.Include_reference(async);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')");
@@ -52,11 +52,11 @@ WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')");
             await base.Include_when_result_operator(async);
 
             AssertSql(
-                @"SELECT CASE
+                $@"SELECT CASE
     WHEN EXISTS (
         SELECT 1
-        FROM `Customers` AS `c`) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
+        FROM `Customers` AS `c`) THEN True
+    ELSE False
 END");
         }
 
@@ -65,7 +65,7 @@ END");
             await base.Include_collection(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
@@ -77,7 +77,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Include_collection_with_last(async);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -253,7 +253,7 @@ ORDER BY `t`.`OrderID`, `t0`.`OrderID`, `t0`.`ProductID`");
             await base.Include_collection_alias_generation(async);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM `Orders` AS `o`
 LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')
@@ -273,7 +273,7 @@ FROM (
         WHERE `c`.`CustomerID` = `o`.`CustomerID`
         ORDER BY `o`.`OrderDate` DESC) AS `c`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'W%'
+    WHERE `c`.`CustomerID` LIKE 'W' & '%'
     ORDER BY (
         SELECT TOP 1 `o`.`OrderDate`
         FROM `Orders` AS `o`
@@ -289,7 +289,7 @@ ORDER BY `t`.`c` DESC, `t`.`CustomerID`, `o0`.`OrderID`");
             await base.Include_collection_order_by_key(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
@@ -301,7 +301,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Include_collection_order_by_non_key(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
@@ -340,7 +340,7 @@ FROM (
     SKIP {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `t`
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`ContactTitle`, `t`.`CustomerID`");
+ORDER BY `t`.`ContactTitle`, `t`.`CustomerID`, `o`.`OrderID`");
             }
         }
 
@@ -431,7 +431,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Include_collection_then_include_collection(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
@@ -446,7 +446,7 @@ ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`");
             await base.Include_collection_then_include_collection_then_include_reference(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`, `t0`.`ProductID0`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice0`, `t0`.`UnitsInStock`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`, `t0`.`ProductID0`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice0`, `t0`.`UnitsInStock`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`OrderID` AS `OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t`.`ProductID0`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice0`, `t`.`UnitsInStock`
@@ -664,7 +664,7 @@ WHERE (`o`.`OrderID` MOD 23) = 13");
             await base.Include_reference_alias_generation(async);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 WHERE (`o`.`OrderID` MOD 23) = 13");
@@ -785,11 +785,11 @@ WHERE `o`.`CustomerID` = 'ALFKI'");
             await base.Include_collection_dependent_already_tracked(async);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'",
                 //
-                @"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT TOP 2 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -833,7 +833,7 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
             await base.Include_with_complex_projection_does_not_change_ordering_of_projection(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID` AS `Id`, (
+                $@"SELECT `c`.`CustomerID` AS `Id`, (
     SELECT COUNT(*)
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `TotalOrders`
@@ -918,7 +918,7 @@ FROM (
         WHERE `c`.`CustomerID` = `o`.`CustomerID`
         ORDER BY `o`.`OrderDate` DESC) AS `c`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'W%'
+    WHERE `c`.`CustomerID` LIKE 'W' & '%'
     ORDER BY (
         SELECT TOP 1 `o`.`OrderDate`
         FROM `Orders` AS `o`
@@ -995,21 +995,21 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'
+WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY (SELECT 1), `c`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
-SELECT `c.Orders].`OrderID`, `c.Orders].`CustomerID`, `c.Orders].`EmployeeID`, `c.Orders].`OrderDate`
-FROM `Orders` AS `c.Orders]
+SELECT [c.Orders].`OrderID`, [c.Orders].`CustomerID`, [c.Orders].`EmployeeID`, [c.Orders].`OrderDate`
+FROM `Orders` AS [c.Orders]
 INNER JOIN (
     SELECT `c0`.`CustomerID`, False AS `c`
     FROM `Customers` AS `c0`
-    WHERE `c0`.`CustomerID` LIKE 'A%'
+    WHERE `c0`.`CustomerID` LIKE 'A' & '%'
     ORDER BY `c`, `c0`.`CustomerID`
     SKIP {AssertSqlHelper.Parameter("@__p_1")}
-) AS `t` ON `c.Orders].`CustomerID` = `t`.`CustomerID`
+) AS `t` ON [c.Orders].`CustomerID` = `t`.`CustomerID`
 ORDER BY `t`.`c`, `t`.`CustomerID`");
         }
 
@@ -1022,21 +1022,21 @@ ORDER BY `t`.`c`, `t`.`CustomerID`");
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'
+WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY (SELECT 1), `c`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_1='1'")}
 
-SELECT `c.Orders].`OrderID`, `c.Orders].`CustomerID`, `c.Orders].`EmployeeID`, `c.Orders].`OrderDate`
-FROM `Orders` AS `c.Orders]
+SELECT [c.Orders].`OrderID`, [c.Orders].`CustomerID`, [c.Orders].`EmployeeID`, [c.Orders].`OrderDate`
+FROM `Orders` AS [c.Orders]
 INNER JOIN (
     SELECT `c0`.`CustomerID`, True AS `c`
     FROM `Customers` AS `c0`
-    WHERE `c0`.`CustomerID` LIKE 'A%'
+    WHERE `c0`.`CustomerID` LIKE 'A' & '%'
     ORDER BY `c`, `c0`.`CustomerID`
     SKIP {AssertSqlHelper.Parameter("@__p_1")}
-) AS `t` ON `c.Orders].`CustomerID` = `t`.`CustomerID`
+) AS `t` ON [c.Orders].`CustomerID` = `t`.`CustomerID`
 ORDER BY `t`.`c`, `t`.`CustomerID`");
         }
 
@@ -1051,7 +1051,7 @@ SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`Cont
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(`c`.`CustomerID` IN ('ALFKI'), 1, 0) AS `c`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'A%'
+    WHERE `c`.`CustomerID` LIKE 'A' & '%'
     ORDER BY IIF(`c`.`CustomerID` IN ('ALFKI'), 1, 0)
     SKIP {AssertSqlHelper.Parameter("@__p_1")}
 ) AS `t`
@@ -1070,7 +1070,7 @@ SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`Cont
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(`c`.`CustomerID` NOT IN ('ALFKI'), 1, 0) AS `c`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'A%'
+    WHERE `c`.`CustomerID` LIKE 'A' & '%'
     ORDER BY IIF(`c`.`CustomerID` NOT IN ('ALFKI'), 1, 0)
     SKIP {AssertSqlHelper.Parameter("@__p_1")}
 ) AS `t`

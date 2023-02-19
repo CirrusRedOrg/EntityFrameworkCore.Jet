@@ -764,7 +764,7 @@ WHERE ABS(`p`.`ProductID`) > 10");
             await base.Where_math_abs2(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`UnitPrice` < 7.0 AND ABS(`o`.`Quantity`) > 10");
         }
@@ -774,7 +774,7 @@ WHERE `o`.`UnitPrice` < 7.0 AND ABS(`o`.`Quantity`) > 10");
             await base.Where_math_abs3(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`Quantity` < 5 AND ABS(`o`.`UnitPrice`) > 10.0");
         }
@@ -1006,7 +1006,7 @@ WHERE `o`.`OrderID` = 11077 AND SQR(CDBL(`o`.`Discount`)) > 0.0");
             await base.Where_math_acos(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 11077 AND (1.5707963267948966 + ATN(-CDBL(`o`.`Discount`) / SQR(-(CDBL(`o`.`Discount`) * CDBL(`o`.`Discount`)) + 1.0))) > 1.0");
         }
@@ -1016,7 +1016,7 @@ WHERE `o`.`OrderID` = 11077 AND (1.5707963267948966 + ATN(-CDBL(`o`.`Discount`) 
             await base.Where_math_asin(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 11077 AND ATN(CDBL(`o`.`Discount`) / SQR(-(CDBL(`o`.`Discount`) * CDBL(`o`.`Discount`)) + 1.0)) > 0.0");
         }
@@ -1371,237 +1371,6 @@ SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`Unit
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0
 """);
-        }
-
-        public override async Task Where_mathf_abs1(bool async)
-        {
-            await base.Where_mathf_abs1(async);
-
-            AssertSql(
-                @"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM `Products` AS `p`
-WHERE ABS(CSNG(`p`.`ProductID`)) > 10");
-        }
-
-        public override async Task Where_mathf_ceiling1(bool async)
-        {
-            await base.Where_mathf_ceiling1(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE `o`.`UnitPrice` < 7.0 AND CEILING(`o`.`Discount`) > CAST(0 AS real)");
-        }
-
-        public override async Task Where_mathf_floor(bool async)
-        {
-            await base.Where_mathf_floor(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` < CAST(5 AS smallint) AND FLOOR(CAST(`o`.`UnitPrice` AS real)) > CAST(10 AS real)");
-        }
-
-        public override async Task Where_mathf_power(bool async)
-        {
-            await base.Where_mathf_power(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE `o`.`Discount`^3 > 0.005");
-        }
-
-        public override async Task Where_mathf_square(bool async)
-        {
-            await base.Where_mathf_square(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE `o`.`Discount`^2 > 0.05");
-        }
-
-        public override async Task Where_mathf_round2(bool async)
-        {
-            await base.Where_mathf_round2(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE CSNG(ROUND(CSNG(`o`.`UnitPrice`), 2)) > 100");
-        }
-
-        public override async Task Select_mathf_round(bool async)
-        {
-            await base.Select_mathf_round(async);
-
-            AssertSql(
-                @"SELECT CSNG(ROUND(CSNG(`o`.`OrderID`), 0))
-FROM `Orders` AS `o`
-WHERE `o`.`OrderID` < 10250");
-        }
-
-        public override async Task Select_mathf_round2(bool async)
-        {
-            await base.Select_mathf_round2(async);
-
-            AssertSql(
-                @"SELECT CSNG(ROUND(CSNG(`o`.`UnitPrice`), 2))
-FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` < 5");
-        }
-
-        public override async Task Where_mathf_truncate(bool async)
-        {
-            await base.Where_mathf_truncate(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`Quantity` < 5) AND (CSNG(INT(CSNG(`o`.`UnitPrice`))) > 10)");
-        }
-
-        public override async Task Select_mathf_truncate(bool async)
-        {
-            await base.Select_mathf_truncate(async);
-
-            AssertSql(
-                @"SELECT CSNG(INT(CSNG(`o`.`UnitPrice`)))
-FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` < 5");
-        }
-
-        public override async Task Where_mathf_exp(bool async)
-        {
-            await base.Where_mathf_exp(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (EXP(`o`.`Discount`) > 1)");
-        }
-
-        public override async Task Where_mathf_log10(bool async)
-        {
-            await base.Where_mathf_log10(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > 0)) AND ((LOG(`o`.`Discount`) / 2.3025851) < 0)");
-        }
-
-        public override async Task Where_mathf_log(bool async)
-        {
-            await base.Where_mathf_log(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > 0)) AND (LOG(`o`.`Discount`) < 0)");
-        }
-
-        public override async Task Where_mathf_log_new_base(bool async)
-        {
-            await base.Where_mathf_log_new_base(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE ((`o`.`OrderID` = 11077) AND (`o`.`Discount` > 0)) AND ((LOG(`o`.`Discount`) / LOG(7)) < 0)");
-        }
-
-        public override async Task Where_mathf_sqrt(bool async)
-        {
-            await base.Where_mathf_sqrt(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (SQR(`o`.`Discount`) > 0)");
-        }
-
-        public override async Task Where_mathf_acos(bool async)
-        {
-            await base.Where_mathf_acos(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND ((1.5707963267948966 + ATN(-`o`.`Discount` / SQR(-(`o`.`Discount` * `o`.`Discount`) + 1))) > 1.0)");
-
-        }
-
-        public override async Task Where_mathf_asin(bool async)
-        {
-            await base.Where_mathf_asin(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ATN(`o`.`Discount` / SQR(-(`o`.`Discount` * `o`.`Discount`) + 1)) > 0)");
-        }
-
-        public override async Task Where_mathf_atan(bool async)
-        {
-            await base.Where_mathf_atan(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ATN(`o`.`Discount`) > 0)");
-        }
-
-        public override async Task Where_mathf_atan2(bool async)
-        {
-            await base.Where_mathf_atan2(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND ATN2(`o`.`Discount`, CAST(1 AS real)) > CAST(0 AS real)");
-        }
-
-        public override async Task Where_mathf_cos(bool async)
-        {
-            await base.Where_mathf_cos(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (COS(`o`.`Discount`) > 0)");
-        }
-
-        public override async Task Where_mathf_sin(bool async)
-        {
-            await base.Where_mathf_sin(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (SIN(`o`.`Discount`) > 0)");
-        }
-
-        public override async Task Where_mathf_tan(bool async)
-        {
-            await base.Where_mathf_tan(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (TAN(`o`.`Discount`) > 0)");
-        }
-
-        public override async Task Where_mathf_sign(bool async)
-        {
-            await base.Where_mathf_sign(async);
-
-            AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (SGN(`o`.`Discount`) > 0)");
         }
 
         public override async Task Where_guid_newguid(bool isAsync)

@@ -922,12 +922,16 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Skip_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"SELECT MAX(`t`.`OrderID`)
+                $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
+
+{AssertSqlHelper.Declaration("@__p_1='500'")}
+
+SELECT MAX(`t`.`OrderID`)
 FROM (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-    SKIP 80 FETCH NEXT 50 ROWS ONLY
+    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
 ) AS `t`
 GROUP BY `t`.`CustomerID`");
         }
@@ -1217,7 +1221,7 @@ ORDER BY COUNT(*), `o`.`CustomerID`");
             await base.GroupBy_aggregate_Contains(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -1358,7 +1362,7 @@ INNER JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`");
             await base.Join_GroupBy_Aggregate_single_join(isAsync);
 
             AssertSql(
-            $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
@@ -1389,7 +1393,7 @@ INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`");
             await base.Join_GroupBy_Aggregate_in_subquery(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
 FROM `Orders` AS `o`
 INNER JOIN (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -1478,7 +1482,7 @@ ORDER BY `t`.`CustomerID`");
     END
 ), `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'",
+WHERE `c`.`CustomerID` LIKE 'A' & '%'",
                 //
                 $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
 
@@ -1680,14 +1684,14 @@ FROM (
             await base.MinMax_after_GroupBy_aggregate(isAsync);
 
             AssertSql(
-                @"SELECT MIN(`t`.`c`)
+                $@"SELECT MIN(`t`.`c`)
 FROM (
     SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `c`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
 ) AS `t`",
                 //
-                @"SELECT MAX(`t`.`c`)
+                $@"SELECT MAX(`t`.`c`)
 FROM (
     SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `c`
     FROM `Orders` AS `o`

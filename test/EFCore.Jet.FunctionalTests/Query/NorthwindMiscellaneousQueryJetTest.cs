@@ -887,7 +887,7 @@ ORDER BY `c`.`CustomerID`");
     ELSE False
 END AS `hasOrders`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'
+WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -1320,7 +1320,7 @@ FROM (SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDua
     WHEN EXISTS (
         SELECT 1
         FROM `Customers` AS `c`
-        WHERE `c`.`ContactName` IS NOT NULL AND (`c`.`ContactName` LIKE 'A%')) THEN True
+        WHERE `c`.`ContactName` IS NOT NULL AND (`c`.`ContactName` LIKE 'A' & '%')) THEN True
     ELSE False
 END");
         }
@@ -1335,7 +1335,7 @@ FROM `Customers` AS `c`
 WHERE NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')))");
         }
 
         public override async Task Any_nested_negated2(bool isAsync)
@@ -1348,7 +1348,7 @@ FROM `Customers` AS `c`
 WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')))");
         }
 
         public override async Task Any_nested_negated3(bool isAsync)
@@ -1361,7 +1361,7 @@ FROM `Customers` AS `c`
 WHERE NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%'))) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%'))) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
         }
 
         public override async Task Any_nested(bool isAsync)
@@ -1374,7 +1374,7 @@ FROM `Customers` AS `c`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%'))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%'))");
         }
 
         public override async Task Any_nested2(bool isAsync)
@@ -1387,7 +1387,7 @@ FROM `Customers` AS `c`
 WHERE ((`c`.`City` <> 'London') OR `c`.`City` IS NULL) AND EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%'))");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%'))");
         }
 
         public override async Task Any_nested3(bool isAsync)
@@ -1400,7 +1400,7 @@ FROM `Customers` AS `c`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
+    WHERE `o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`City` <> 'London') OR `c`.`City` IS NULL)");
         }
 
         public override async Task Any_with_multiple_conditions_still_uses_exists(bool isAsync)
@@ -1426,7 +1426,7 @@ WHERE (`c`.`City` = 'London') AND EXISTS (
 //    WHEN NOT EXISTS (
 //        SELECT 1
 //        FROM `Customers` AS `c`
-//        WHERE NOT (`c`.`ContactName` LIKE 'A%'))
+//        WHERE NOT (`c`.`ContactName` LIKE 'A' & '%'))
 //    THEN True ELSE False
 //END");
         }
@@ -1995,7 +1995,7 @@ SELECT CASE
             ORDER BY `c`.`CustomerID`
             SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
         ) AS `t`
-        WHERE NOT (`t`.`CustomerID` LIKE 'B%')) THEN True
+        WHERE NOT (`t`.`CustomerID` LIKE 'B' & '%')) THEN True
     ELSE False
 END");
         }
@@ -2015,7 +2015,7 @@ SELECT CASE
             FROM `Customers` AS `c`
             ORDER BY `c`.`CustomerID`
         ) AS `t`
-        WHERE NOT (`t`.`CustomerID` LIKE 'A%')) THEN True
+        WHERE NOT (`t`.`CustomerID` LIKE 'A' & '%')) THEN True
     ELSE False
 END");
         }
@@ -2038,7 +2038,7 @@ SELECT CASE
             ORDER BY `c`.`CustomerID`
             SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
         ) AS `t`
-        WHERE `t`.`CustomerID` LIKE 'C%') THEN True
+        WHERE `t`.`CustomerID` LIKE 'C' & '%') THEN True
     ELSE False
 END");
         }
@@ -2058,7 +2058,7 @@ SELECT CASE
             FROM `Customers` AS `c`
             ORDER BY `c`.`CustomerID`
         ) AS `t`
-        WHERE `t`.`CustomerID` LIKE 'B%') THEN True
+        WHERE `t`.`CustomerID` LIKE 'B' & '%') THEN True
     ELSE False
 END");
         }
@@ -2190,7 +2190,7 @@ END");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'
+WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY CASE
     WHEN EXISTS (
         SELECT 1
@@ -2339,7 +2339,7 @@ INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
 //    FROM `Orders` AS `o`
 //    WHERE `o`.`OrderID` < 10300
 //) AS `t`
-//WHERE `c`.`CustomerID` LIKE 'A%'");
+//WHERE `c`.`CustomerID` LIKE 'A' & '%'");
         }
         
         public override async Task Select_correlated_subquery_filtered(bool isAsync)
@@ -2349,7 +2349,7 @@ INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'
+WHERE `c`.`CustomerID` LIKE 'A' & '%'
 ORDER BY `c`.`CustomerID`",
                 //
                 $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
@@ -3507,7 +3507,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`CustomerID` LIKE 'A%'");
+WHERE `t`.`CustomerID` LIKE 'A' & '%'");
         }
 
         public override async Task Anonymous_complex_distinct_where(bool isAsync)
@@ -3543,7 +3543,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID` + `c`.`City` AS `c`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A%')");
+WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A' & '%')");
         }
 
         public override async Task Anonymous_complex_orderby(bool isAsync)
@@ -3611,7 +3611,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`CustomerID` LIKE 'A%'");
+WHERE `t`.`CustomerID` LIKE 'A' & '%'");
         }
 
         public override async Task DTO_complex_distinct_where(bool isAsync)
@@ -3647,7 +3647,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID` + `c`.`City` AS `c`
     FROM `Customers` AS `c`
 ) AS `t`
-WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A%')");
+WHERE `t`.`c` IS NOT NULL AND (`t`.`c` LIKE 'A' & '%')");
         }
 
         public override async Task DTO_complex_orderby(bool isAsync)
@@ -4101,7 +4101,7 @@ FROM `Orders` AS `o`,
 `Orders` AS `o0`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
+WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
         }
 
@@ -4115,7 +4115,7 @@ FROM `Orders` AS `o`,
 `Orders` AS `o0`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
+WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
         }
 
@@ -4359,7 +4359,7 @@ WHERE EXISTS (
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderDate`) AS `OrderDate`
 FROM `Customers` AS `c`
-WHERE (`c`.`CustomerID` LIKE 'A%') AND (
+WHERE (`c`.`CustomerID` LIKE 'A' & '%') AND (
     SELECT TOP 1 `o0`.`OrderID`
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`
@@ -4377,7 +4377,7 @@ WHERE (`c`.`CustomerID` LIKE 'A%') AND (
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderDate`) AS `A`
 FROM `Customers` AS `c`
-WHERE (`c`.`CustomerID` LIKE 'A%') AND (((
+WHERE (`c`.`CustomerID` LIKE 'A' & '%') AND (((
     SELECT TOP 1 `o0`.`OrderID`
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`
@@ -4425,7 +4425,7 @@ WHERE (
 //            AssertSql(
 //                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 //FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` LIKE 'A%' AND ((
+//WHERE `c`.`CustomerID` LIKE 'A' & '%' AND ((
 //    SELECT TOP 1 `o`.`OrderID`
 //    FROM `Orders` AS `o`
 //    WHERE `o`.`OrderID` < 10300

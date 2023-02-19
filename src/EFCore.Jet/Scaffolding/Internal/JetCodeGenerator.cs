@@ -19,11 +19,9 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     public class JetCodeGenerator : ProviderCodeGenerator
     {
         private static readonly MethodInfo _useJetMethodInfo
-            = typeof(JetDbContextOptionsBuilderExtensions).GetRequiredRuntimeMethod(
+            = typeof(JetDbContextOptionsBuilderExtensions).GetRuntimeMethod(
                 nameof(JetDbContextOptionsBuilderExtensions.UseJet),
-                typeof(DbContextOptionsBuilder),
-                typeof(string),
-                typeof(Action<JetDbContextOptionsBuilder>));
+                new[] { typeof(DbContextOptionsBuilder), typeof(string), typeof(Action<JetDbContextOptionsBuilder>) })!;
         /// <summary>
         ///     Initializes a new instance of the <see cref="JetCodeGenerator" /> class.
         /// </summary>
@@ -41,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         /// </summary>
         public override MethodCallCodeFragment GenerateUseProvider(
             string connectionString,
-            MethodCallCodeFragment providerOptions)
+            MethodCallCodeFragment? providerOptions)
             => new(_useJetMethodInfo,
                 providerOptions == null
                     ? new object[] { connectionString }

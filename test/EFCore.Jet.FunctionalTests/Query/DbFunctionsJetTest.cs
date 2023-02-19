@@ -165,9 +165,9 @@ WHERE DATEDIFF('s', `o`.`OrderDate`, NOW()) = 0");
                 Assert.False(actual);
 
                 AssertSql(
-                    $@"SELECT TOP 1 CAST(ISDATE(`o`.`CustomerID`) AS bit)
+                    $@"SELECT TOP 1 CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
-WHERE CAST(ISDATE(`o`.`CustomerID`) AS bit) <> True");
+WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))");
             }
         }
 
@@ -185,9 +185,9 @@ WHERE CAST(ISDATE(`o`.`CustomerID`) AS bit) <> True");
                 Assert.True(actual);
 
                 AssertSql(
-                    $@"SELECT TOP 1 CAST(ISDATE(CONVERT(VARCHAR(100), `o`.`OrderDate`)) AS bit)
+                    $@"SELECT TOP 1 CBOOL(ISDATE((`o`.`OrderDate` & '')))
 FROM `Orders` AS `o`
-WHERE CAST(ISDATE(CONVERT(VARCHAR(100), `o`.`OrderDate`)) AS bit) = True");
+WHERE CBOOL(ISDATE((`o`.`OrderDate` & '')))");
             }
         }
 
@@ -203,7 +203,7 @@ WHERE CAST(ISDATE(CONVERT(VARCHAR(100), `o`.`OrderDate`)) AS bit) = True");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE CAST(ISDATE(`o`.`CustomerID` + CAST(`o`.`OrderID` AS nchar(5))) AS bit) = True");
+WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & '')))");
             }
         }
 

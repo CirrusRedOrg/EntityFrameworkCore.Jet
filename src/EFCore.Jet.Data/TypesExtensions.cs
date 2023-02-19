@@ -8,11 +8,13 @@ namespace EntityFrameworkCore.Jet.Data
     {
         internal static IEnumerable<Type> GetTypesInHierarchy(this Type type)
         {
-            while (type != null)
-            {
-                yield return type;
+            var currentType = type;
 
-                type = type.GetTypeInfo().BaseType;
+            while (currentType != null)
+            {
+                yield return currentType;
+
+                currentType = currentType.BaseType;
             }
         }
     }

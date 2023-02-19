@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.Data
 {
     internal class JetTransaction : DbTransaction
     {
-        private JetConnection _connection;
+        private JetConnection? _connection;
         private bool _disposed;
 
         internal virtual DbTransaction WrappedTransaction { get; }
@@ -35,7 +35,7 @@ namespace EntityFrameworkCore.Jet.Data
             _connection.ActiveTransaction = null;
         }
 
-        protected override DbConnection DbConnection
+        protected override DbConnection? DbConnection
             => _connection;
 
         public override IsolationLevel IsolationLevel

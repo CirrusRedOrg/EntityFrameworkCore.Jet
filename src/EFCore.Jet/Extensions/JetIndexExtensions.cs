@@ -85,8 +85,10 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="index"> The index. </param>
         /// <returns> The included property names, or <c>null</c> if they have not been specified. </returns>
-        public static IReadOnlyList<string> GetIncludeProperties([NotNull] this IIndex index)
-            => (string[])index[JetAnnotationNames.Include];
+        public static IReadOnlyList<string>? GetIncludeProperties([NotNull] this IReadOnlyIndex index)
+            => (index is RuntimeIndex)
+                ? throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData)
+                : (string[]?)index[JetAnnotationNames.Include];
 
         /// <summary>
         ///     Sets included property names.

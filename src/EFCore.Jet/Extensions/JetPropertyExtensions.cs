@@ -164,7 +164,7 @@ namespace Microsoft.EntityFrameworkCore
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
             {
-                return (JetValueGenerationStrategy)annotation.Value;
+                return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
             }
 
             if (property.ValueGenerated != ValueGenerated.OnAdd
@@ -196,7 +196,7 @@ namespace Microsoft.EntityFrameworkCore
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
             {
-                return (JetValueGenerationStrategy)annotation.Value;
+                return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
             }
 
             var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);

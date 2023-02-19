@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -16,7 +17,7 @@ namespace Microsoft.EntityFrameworkCore
     /// </summary>
     public class JetRetryingExecutionStrategy : ExecutionStrategy
     {
-        private readonly ICollection<int> _additionalErrorNumbers;
+        private readonly HashSet<int>? _additionalErrorNumbers;
 
         /// <summary>
         ///     Creates a new instance of <see cref="JetRetryingExecutionStrategy" />.
@@ -76,12 +77,14 @@ namespace Microsoft.EntityFrameworkCore
             [NotNull] DbContext context,
             int maxRetryCount,
             TimeSpan maxRetryDelay,
-            [CanBeNull] ICollection<int> errorNumbersToAdd)
+            IEnumerable<int>? errorNumbersToAdd)
             : base(
                 context,
                 maxRetryCount,
                 maxRetryDelay)
-            => _additionalErrorNumbers = errorNumbersToAdd;
+        {
+            _additionalErrorNumbers = errorNumbersToAdd?.ToHashSet();
+        }
 
         /// <summary>
         ///     Creates a new instance of <see cref="JetRetryingExecutionStrategy" />.
@@ -94,9 +97,11 @@ namespace Microsoft.EntityFrameworkCore
             [NotNull] ExecutionStrategyDependencies dependencies,
             int maxRetryCount,
             TimeSpan maxRetryDelay,
-            [CanBeNull] ICollection<int> errorNumbersToAdd)
+            IEnumerable<int>? errorNumbersToAdd)
             : base(dependencies, maxRetryCount, maxRetryDelay)
-            => _additionalErrorNumbers = errorNumbersToAdd;
+        {
+            _additionalErrorNumbers = errorNumbersToAdd?.ToHashSet();
+        }
 
         /// <summary>
         ///     Determines whether the specified exception represents a transient failure that can be

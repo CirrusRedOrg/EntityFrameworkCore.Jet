@@ -191,7 +191,7 @@ GROUP BY `o`.`CustomerID`");
             await base.GroupBy_Property_Select_Key_with_constant(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`Name`, `t`.`CustomerID` AS `Value`, COUNT(*) AS `Count`
+                $@"SELECT `t`.`Name`, `t`.`CustomerID` AS `Value`, COUNT(*) AS `Count`
 FROM (
     SELECT `o`.`CustomerID`, 'CustomerID' AS `Name`
     FROM `Orders` AS `o`
@@ -576,7 +576,7 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_Constant_with_element_selector_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                @"SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, `t`.`Key`
+                $@"SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, `t`.`Key`
 FROM (
     SELECT `o`.`OrderID`, 2 AS `Key`
     FROM `Orders` AS `o`
@@ -589,10 +589,14 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__a_0='2'")}
+                $@"@__a_0='2'
 
-SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `Sum`, MIN(`o`.`OrderID`) AS `Min`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`, MAX(`o`.`OrderID`) AS `Max`, AVG(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`))) AS `Avg`
-FROM `Orders` AS `o`");
+SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, MIN(`t`.`OrderID`) AS `Min`, `t`.`Key`, MAX(`t`.`OrderID`) AS `Max`, AVG(CAST(`t`.`OrderID` AS float)) AS `Avg`
+FROM (
+    SELECT `o`.`OrderID`, ? AS `Key`
+    FROM `Orders` AS `o`
+) AS `t`
+GROUP BY `t`.`Key`");
         }
 
         public override async Task GroupBy_param_with_element_selector_Select_Sum(bool isAsync)
@@ -600,7 +604,7 @@ FROM `Orders` AS `o`");
             await base.GroupBy_param_with_element_selector_Select_Sum(isAsync);
 
             AssertSql(
-                @"@__a_0='2'
+                $@"@__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
@@ -615,7 +619,7 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum2(isAsync);
 
             AssertSql(
-                @"@__a_0='2'
+                $@"@__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
@@ -630,7 +634,7 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum3(isAsync);
 
             AssertSql(
-                @"@__a_0='2'
+                $@"@__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
@@ -645,10 +649,13 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__a_0='2'")}
-
-SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `Sum`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`
-FROM `Orders` AS `o`");
+                $@"@__a_0='2'
+SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, `t`.`Key`
+FROM (
+    SELECT `o`.`OrderID`, ? AS `Key`
+    FROM `Orders` AS `o`
+) AS `t`
+GROUP BY `t`.`Key`");
         }
 
         public override async Task GroupBy_anonymous_key_type_mismatch_with_aggregate(bool isAsync)
@@ -656,10 +663,13 @@ FROM `Orders` AS `o`");
             await base.GroupBy_anonymous_key_type_mismatch_with_aggregate(isAsync);
 
             AssertSql(
-                $@"SELECT COUNT(*) AS `I0`, DATEPART('yyyy', `o`.`OrderDate`) AS `I1`
-FROM `Orders` AS `o`
-GROUP BY DATEPART('yyyy', `o`.`OrderDate`)
-ORDER BY DATEPART('yyyy', `o`.`OrderDate`)");
+                $@"SELECT COUNT(*) AS `I0`, `t`.`I0` AS `I1`
+FROM (
+    SELECT DATEPART('yyyy', `o`.`OrderDate`) AS `I0`
+    FROM `Orders` AS `o`
+) AS `t`
+GROUP BY `t`.`I0`
+ORDER BY `t`.`I0`");
         }
 
         public override async Task GroupBy_Property_scalar_element_selector_Average(bool isAsync)
@@ -847,7 +857,7 @@ GROUP BY `o`.`CustomerID`");
             await base.GroupBy_empty_key_Aggregate(isAsync);
 
             AssertSql(
-                @"SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`))
+                $@"SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`))
 FROM (
     SELECT `o`.`OrderID`, 1 AS `Key`
     FROM `Orders` AS `o`
@@ -860,7 +870,7 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_empty_key_Aggregate_Key(isAsync);
 
             AssertSql(
-                @"SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
+                $@"SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
     SELECT `o`.`OrderID`, 1 AS `Key`
     FROM `Orders` AS `o`
@@ -898,7 +908,7 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                @"SELECT MIN(`t`.`OrderID`)
+                $@"SELECT MIN(`t`.`OrderID`)
 FROM (
     SELECT TOP 500 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
@@ -912,12 +922,16 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Skip_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"SELECT MAX(`t`.`OrderID`)
+                $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
+
+{AssertSqlHelper.Declaration("@__p_1='500'")}
+
+SELECT MAX(`t`.`OrderID`)
 FROM (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-    SKIP 80 FETCH NEXT 50 ROWS ONLY
+    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
 ) AS `t`
 GROUP BY `t`.`CustomerID`");
         }
@@ -992,7 +1006,7 @@ GROUP BY `o0`.`CustomerID`");
 
 {AssertSqlHelper.Declaration("@__p_2='50'")}
 
-SELECT `t0`.`CustomerID` AS `Key`, AVG(CDBL(`t`.`OrderID`)) AS `Count`
+SELECT `t0`.`CustomerID` AS `Key`, AVG(IIF(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`))) AS `Count`
 FROM (
     SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
@@ -1087,7 +1101,7 @@ GROUP BY `c`.`Country`");
 
 {AssertSqlHelper.Declaration("@__p_2='100'")}
 
-SELECT `t0`.`CustomerID` AS `Key`, AVG(IIF(`t0`.`OrderID` IS NULL, NULL, CDBL(`t0`.`OrderID`))) AS `Count`
+SELECT `t0`.`CustomerID` AS `Key`, AVG(CDBL(`t0`.`OrderID`)) AS `Count`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
@@ -1207,13 +1221,13 @@ ORDER BY COUNT(*), `o`.`CustomerID`");
             await base.GroupBy_aggregate_Contains(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
     GROUP BY `o0`.`CustomerID`
-    HAVING (COUNT(*) > 30) AND ((`o0`.`CustomerID` = `o`.`CustomerID`) OR ((`o0`.`CustomerID` IS NULL) AND (`o`.`CustomerID` IS NULL))))");
+    HAVING COUNT(*) > 30 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR ((`o0`.`CustomerID` IS NULL) AND (`o`.`CustomerID` IS NULL))))");
         }
 
         public override async Task GroupBy_aggregate_Pushdown(bool isAsync)
@@ -1318,15 +1332,13 @@ ORDER BY COUNT(*), `o`.`CustomerID`");
             await base.GroupBy_Aggregate_Join(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM ((
-    SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`Count`
+FROM (
+    SELECT `o`.`CustomerID` AS `Key`, COUNT(*) AS `Count`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
-    HAVING COUNT(*) > 5
 ) AS `t`
-INNER JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`)
-INNER JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`");
+INNER JOIN `Customers` AS `c` ON `t`.`Key` = `c`.`CustomerID`");
         }
 
         public override async Task Join_GroupBy_Aggregate_multijoins(bool isAsync)
@@ -1334,7 +1346,7 @@ INNER JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`");
             await base.Join_GroupBy_Aggregate_multijoins(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (`Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
@@ -1350,7 +1362,7 @@ INNER JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`");
             await base.Join_GroupBy_Aggregate_single_join(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
@@ -1365,7 +1377,7 @@ INNER JOIN (
             await base.Join_GroupBy_Aggregate_with_another_join(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`, `o0`.`OrderID`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`, `o0`.`OrderID`
 FROM (`Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
@@ -1381,13 +1393,13 @@ INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`");
             await base.Join_GroupBy_Aggregate_in_subquery(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
 FROM `Orders` AS `o`
 INNER JOIN (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     INNER JOIN (
-        SELECT `o0`.`CustomerID`
+        SELECT `o0`.`CustomerID`, MAX(`o0`.`OrderID`) AS `LastOrderID`
         FROM `Orders` AS `o0`
         GROUP BY `o0`.`CustomerID`
         HAVING COUNT(*) > 5
@@ -1401,7 +1413,7 @@ WHERE `o`.`OrderID` < 10400");
             await base.Join_GroupBy_Aggregate_on_key(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`LastOrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID` AS `Key`, MAX(`o`.`OrderID`) AS `LastOrderID`
@@ -1470,7 +1482,7 @@ ORDER BY `t`.`CustomerID`");
     END
 ), `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'",
+WHERE `c`.`CustomerID` LIKE 'A' & '%'",
                 //
                 $@"{AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
 
@@ -1584,9 +1596,12 @@ ORDER BY `o0`.`CustomerID`");
             await base.GroupBy_with_aggregate_through_navigation_property(isAsync);
 
             AssertSql(
-                @"SELECT MAX(`c`.`Region`) AS `max`
+                $@"SELECT (
+    SELECT MAX(`c`.`Region`)
+    FROM `Orders` AS `o0`
+    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+    WHERE `o`.`EmployeeID` = `o0`.`EmployeeID` OR ((`o`.`EmployeeID` IS NULL) AND (`o0`.`EmployeeID` IS NULL))) AS `max`
 FROM `Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 GROUP BY `o`.`EmployeeID`");
         }
         
@@ -1595,12 +1610,12 @@ GROUP BY `o`.`EmployeeID`");
             await base.GroupBy_Shadow(isAsync);
 
             AssertSql(
-                @"SELECT (
+                $@"SELECT (
     SELECT TOP 1 `e0`.`Title`
     FROM `Employees` AS `e0`
-    WHERE ((`e0`.`Title` = 'Sales Representative') AND (`e0`.`EmployeeID` = 1)) AND ((`e`.`Title` = `e0`.`Title`) OR ((`e`.`Title` IS NULL) AND (`e0`.`Title` IS NULL))))
+    WHERE `e0`.`Title` = 'Sales Representative' AND `e0`.`EmployeeID` = 1 AND (`e`.`Title` = `e0`.`Title` OR ((`e`.`Title` IS NULL) AND (`e0`.`Title` IS NULL))))
 FROM `Employees` AS `e`
-WHERE (`e`.`Title` = 'Sales Representative') AND (`e`.`EmployeeID` = 1)
+WHERE `e`.`Title` = 'Sales Representative' AND `e`.`EmployeeID` = 1
 GROUP BY `e`.`Title`");
         }
 
@@ -1609,11 +1624,11 @@ GROUP BY `e`.`Title`");
             await base.GroupBy_Shadow2(isAsync);
 
             AssertSql(
-                @"SELECT `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
+                $@"SELECT `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
 FROM (
     SELECT `e`.`Title`
     FROM `Employees` AS `e`
-    WHERE (`e`.`Title` = 'Sales Representative') AND (`e`.`EmployeeID` = 1)
+    WHERE `e`.`Title` = 'Sales Representative' AND `e`.`EmployeeID` = 1
     GROUP BY `e`.`Title`
 ) AS `t`
 LEFT JOIN (
@@ -1621,7 +1636,7 @@ LEFT JOIN (
     FROM (
         SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, ROW_NUMBER() OVER(PARTITION BY `e0`.`Title` ORDER BY `e0`.`EmployeeID`) AS `row`
         FROM `Employees` AS `e0`
-        WHERE (`e0`.`Title` = 'Sales Representative') AND (`e0`.`EmployeeID` = 1)
+        WHERE `e0`.`Title` = 'Sales Representative' AND `e0`.`EmployeeID` = 1
     ) AS `t1`
     WHERE `t1`.`row` <= 1
 ) AS `t0` ON `t`.`Title` = `t0`.`Title`");
@@ -1632,10 +1647,10 @@ LEFT JOIN (
             await base.GroupBy_Shadow3(isAsync);
 
             AssertSql(
-                @"SELECT (
+                $@"SELECT (
     SELECT TOP 1 `e0`.`Title`
     FROM `Employees` AS `e0`
-    WHERE (`e0`.`EmployeeID` = 1) AND (`e`.`EmployeeID` = `e0`.`EmployeeID`))
+    WHERE `e0`.`EmployeeID` = 1 AND `e`.`EmployeeID` = `e0`.`EmployeeID`)
 FROM `Employees` AS `e`
 WHERE `e`.`EmployeeID` = 1
 GROUP BY `e`.`EmployeeID`");
@@ -1669,14 +1684,14 @@ FROM (
             await base.MinMax_after_GroupBy_aggregate(isAsync);
 
             AssertSql(
-                @"SELECT MIN(`t`.`c`)
+                $@"SELECT MIN(`t`.`c`)
 FROM (
     SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `c`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
 ) AS `t`",
                 //
-                @"SELECT MAX(`t`.`c`)
+                $@"SELECT MAX(`t`.`c`)
 FROM (
     SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `c`
     FROM `Orders` AS `o`
@@ -1732,8 +1747,7 @@ END");
         {
             await base.Count_after_GroupBy_without_aggregate(isAsync);
 
-            AssertSql(
-                @"SELECT COUNT(*)
+            AssertSql($@"SELECT COUNT(*)
 FROM (
     SELECT `o`.`CustomerID`
     FROM `Orders` AS `o`
@@ -1741,12 +1755,27 @@ FROM (
 ) AS `t`");
         }
 
+        public override async Task Count_with_predicate_after_GroupBy_without_aggregate(bool async)
+        {
+            await base.Count_with_predicate_after_GroupBy_without_aggregate(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM (
+    SELECT `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING COUNT(*) > 1
+) AS `t`
+""");
+        }
+
         public override async Task LongCount_after_GroupBy_without_aggregate(bool isAsync)
         {
             await base.LongCount_after_GroupBy_without_aggregate(isAsync);
 
-            AssertSql(
-                @"SELECT COUNT(*)
+            AssertSql($@"SELECT COUNT(*)
 FROM (
     SELECT `o`.`CustomerID`
     FROM `Orders` AS `o`
@@ -1769,7 +1798,7 @@ GROUP BY `c`.`City`");
             await base.GroupBy_based_on_renamed_property_complex(isAsync);
 
             AssertSql(
-                @"SELECT `t`.`Renamed` AS `Key`, COUNT(*) AS `Count`
+                $@"SELECT `t`.`Renamed` AS `Key`, COUNT(*) AS `Count`
 FROM (
     SELECT DISTINCT `c`.`City` AS `Renamed`, `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1805,7 +1834,10 @@ GROUP BY `c`.`Country`");
             await base.GroupBy_with_group_key_being_navigation(isAsync);
 
             AssertSql(
-                $@"");
+                $@"SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `Aggregate`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+GROUP BY `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`");
         }
 
         public override async Task GroupBy_with_group_key_being_nested_navigation(bool isAsync)
@@ -1813,7 +1845,11 @@ GROUP BY `c`.`Country`");
             await base.GroupBy_with_group_key_being_nested_navigation(isAsync);
 
             AssertSql(
-                $@"");
+                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `Aggregate`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`");
         }
 
         public override async Task GroupBy_with_group_key_being_navigation_with_entity_key_projection(bool isAsync)
@@ -1821,7 +1857,10 @@ GROUP BY `c`.`Country`");
             await base.GroupBy_with_group_key_being_navigation_with_entity_key_projection(isAsync);
 
             AssertSql(
-                $@"");
+                $@"SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+GROUP BY `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`");
         }
 
         public override async Task GroupBy_with_group_key_being_navigation_with_complex_projection(bool isAsync)
@@ -1866,9 +1905,12 @@ GROUP BY `t`.`CustomerID`");
             await base.GroupBy_with_grouping_key_using_Like(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(`o`.`CustomerID` LIKE 'A%', TRUE, FALSE) AS `Key`, COUNT(*) AS `Count`
-FROM `Orders` AS `o`
-GROUP BY IIF(`o`.`CustomerID` LIKE 'A%', TRUE, FALSE)");
+                $@"SELECT `t`.`Key`, COUNT(*) AS `Count`
+FROM (
+    SELECT IIF(`o`.`CustomerID` LIKE 'A%', TRUE, FALSE) AS `Key`
+    FROM `Orders` AS `o`
+) AS `t`
+GROUP BY `t`.`Key`");
         }
 
         public override async Task GroupBy_with_grouping_key_DateTime_Day(bool isAsync)
@@ -1876,9 +1918,12 @@ GROUP BY IIF(`o`.`CustomerID` LIKE 'A%', TRUE, FALSE)");
             await base.GroupBy_with_grouping_key_DateTime_Day(isAsync);
 
             AssertSql(
-                $@"SELECT DATEPART('d', `o`.`OrderDate`) AS `Key`, COUNT(*) AS `Count`
-FROM `Orders` AS `o`
-GROUP BY DATEPART('d', `o`.`OrderDate`)");
+                $@"SELECT `t`.`Key`, COUNT(*) AS `Count`
+FROM (
+    SELECT DATEPART('d', `o`.`OrderDate`) AS `Key`
+    FROM `Orders` AS `o`
+) AS `t`
+GROUP BY `t`.`Key`");
         }
 
         public override async Task GroupBy_with_cast_inside_grouping_aggregate(bool isAsync)

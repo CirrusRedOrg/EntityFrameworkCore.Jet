@@ -14,12 +14,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
         private static readonly MethodInfo _methodInfo = typeof(JetDbFunctionsExtensions)
-            .GetRuntimeMethod(nameof(JetDbFunctionsExtensions.IsDate), new[] { typeof(DbFunctions), typeof(string) });
+            .GetRuntimeMethod(nameof(JetDbFunctionsExtensions.IsDate), new[] { typeof(DbFunctions), typeof(string) })!;
 
         public JetIsDateFunctionTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             return _methodInfo.Equals(method)
                 ? _sqlExpressionFactory.Convert(

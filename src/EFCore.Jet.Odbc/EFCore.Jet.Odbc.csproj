@@ -6,6 +6,7 @@
     <AssemblyName>EntityFrameworkCore.Jet.Odbc</AssemblyName>
     <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
     <PackageTags>$(PackageTags);ODBC;System.Data.Odbc</PackageTags>
+	  <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.Odbc" />
+    <PackageReference Include="System.Data.Odbc" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

@@ -9,7 +9,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class UpdatesJetTest : UpdatesRelationalTestBase<UpdatesJetFixture>
+    public class UpdatesJetTest : UpdatesJetTestBase<UpdatesJetFixture>
     {
         // ReSharper disable once UnusedParameter.Local
         public UpdatesJetTest(UpdatesJetFixture fixture, ITestOutputHelper testOutputHelper)

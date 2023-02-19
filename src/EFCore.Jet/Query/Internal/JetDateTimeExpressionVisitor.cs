@@ -39,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             // This will result in JetDataReader.GetDateTime() being called for the System.Double returned from the
             // database. JetDataReader.GetDateTime() explicitly supports this and handles the value appropriately.
             var newProjections = selectExpression.Projection.Select(
-                    projection => projection.Expression.TypeMapping.ClrType.IsTimeRelatedType()
+                    projection => projection.Expression.TypeMapping!.ClrType.IsTimeRelatedType()
                         ? projection.Update(
                             new SqlUnaryExpression(
                                 ExpressionType.Convert,

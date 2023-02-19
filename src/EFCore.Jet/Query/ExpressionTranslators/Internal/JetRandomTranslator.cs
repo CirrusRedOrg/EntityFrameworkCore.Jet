@@ -22,18 +22,18 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             typeof(DbFunctionsExtensions).GetRuntimeMethod(nameof(DbFunctionsExtensions.Random), new[]
             {
                 typeof(DbFunctions)
-            }),
+            })!,
             typeof(JetDbFunctionsExtensions).GetRuntimeMethod(nameof(JetDbFunctionsExtensions.Random), new[]
             {
                 typeof(DbFunctions)
-            })
+            })!
         };
         private readonly JetSqlExpressionFactory _sqlExpressionFactory;
 
         public JetRandomTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        public SqlExpression Translate(SqlExpression instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+        public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             return _methodInfo.Contains(method)
                 ? _sqlExpressionFactory.Function(

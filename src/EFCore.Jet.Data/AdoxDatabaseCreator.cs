@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet.Data
             string fileNameOrConnectionString,
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null)
+            string? databasePassword = null)
         {
             if (databasePassword != null &&
                 databasePassword.Length > 20)
@@ -40,7 +40,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
         
-        private static string GetConnectionString(string filePath, DatabaseVersion version, CollatingOrder collatingOrder, string databasePassword)
+        private static string GetConnectionString(string filePath, DatabaseVersion version, CollatingOrder collatingOrder, string? databasePassword)
         {
             var connectionString = JetConnection.GetConnectionString(filePath, DataAccessProviderType.OleDb);
 

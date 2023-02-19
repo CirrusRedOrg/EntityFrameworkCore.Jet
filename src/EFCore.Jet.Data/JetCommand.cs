@@ -15,8 +15,8 @@ namespace EntityFrameworkCore.Jet.Data
 #if DEBUG
         private static int _activeObjectsCount;
 #endif
-        private readonly JetConnection _connection;
-        private JetTransaction _transaction;
+        private JetConnection? _connection;
+        private JetTransaction? _transaction;
         
         private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
@@ -44,7 +44,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <param name="commandText">The command text.</param>
         /// <param name="connection">The connection.</param>
         /// <param name="transaction">The transaction.</param>
-        internal JetCommand(JetConnection connection, string commandText = null, JetTransaction transaction = null)
+        internal JetCommand(JetConnection connection, string? commandText = null, JetTransaction? transaction = null)
         {
 #if DEBUG
             Interlocked.Increment(ref _activeObjectsCount);
@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// The database connection.
         /// </value>
-        protected override DbConnection DbConnection
+        protected override DbConnection? DbConnection
         {
             get => _connection;
             set
@@ -150,10 +150,10 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// The database transaction.
         /// </value>
-        protected override DbTransaction DbTransaction
+        protected override DbTransaction? DbTransaction
         {
             get => _transaction;
-            set => _transaction = (JetTransaction) value;
+            set => _transaction = (JetTransaction?) value;
         }
 
         /// <summary>

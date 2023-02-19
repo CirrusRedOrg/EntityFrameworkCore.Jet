@@ -22,8 +22,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => new JetBoolTypeMapping(parameters);
 
         protected override string GenerateNonNullSqlLiteral(object value)
-            => (bool) value
+        {
+            return (bool)value
                 ? "TRUE"
                 : "FALSE";
+        }
     }
 }

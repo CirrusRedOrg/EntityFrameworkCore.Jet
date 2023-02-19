@@ -64,7 +64,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder HasIdentityColumnSeed(
+        public static IConventionPropertyBuilder? HasIdentityColumnSeed(
             [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
         {
             if (propertyBuilder.CanSetIdentityColumnSeed(seed, fromDataAnnotation))
@@ -101,7 +101,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder HasIdentityColumnIncrement(
+        public static IConventionPropertyBuilder? HasIdentityColumnIncrement(
             [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
         {
             if (propertyBuilder.CanSetIdentityColumnIncrement(increment, fromDataAnnotation))
@@ -138,7 +138,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder HasValueGenerationStrategy(
+        public static IConventionPropertyBuilder? HasValueGenerationStrategy(
             [NotNull] this IConventionPropertyBuilder propertyBuilder,
             JetValueGenerationStrategy? valueGenerationStrategy,
             bool fromDataAnnotation = false)

@@ -29,7 +29,7 @@ namespace EntityFrameworkCore.Jet.Internal
             DataAccessProviderType = GetDataAccessProviderTypeFromOptions(jetOptions);
             UseOuterSelectSkipEmulationViaDataReader = jetOptions.UseOuterSelectSkipEmulationViaDataReader;
             EnableMillisecondsSupport = jetOptions.EnableMillisecondsSupport;
-            ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString;
+            ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString!;
         }
 
         /// <summary>
@@ -148,6 +148,6 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        public virtual string ConnectionString { get; private set; }
+        public virtual string? ConnectionString { get; private set; }
     }
 }

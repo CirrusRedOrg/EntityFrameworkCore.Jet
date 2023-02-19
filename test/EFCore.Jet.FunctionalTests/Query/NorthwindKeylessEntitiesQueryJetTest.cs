@@ -46,9 +46,9 @@ FROM (
 WHERE `c`.`City` = 'London'");
         }
 
-        public override void KeylessEntity_by_database_view()
+        public override async Task KeylessEntity_by_database_view(bool isAsync)
         {
-            base.KeylessEntity_by_database_view();
+            await base.KeylessEntity_by_database_view(isAsync);
 
             // See issue#17804
             // when we have defining query and ToView, defining query wins
@@ -61,9 +61,9 @@ FROM `Products` AS `p`
 WHERE `p`.`Discontinued` <> True");
         }
 
-        public override void KeylessEntity_with_nav_defining_query()
+        public override async Task KeylessEntity_with_nav_defining_query(bool isAsync)
         {
-            base.KeylessEntity_with_nav_defining_query();
+            await base.KeylessEntity_with_nav_defining_query(isAsync);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__ef_filter___searchTerm_0='A' (Size = 4000)")}
@@ -150,9 +150,9 @@ WHERE EXISTS (
         }
 
         [ConditionalFact]
-        public override void Auto_initialized_view_set()
+        public override async Task Auto_initialized_view_set(bool isAsync)
         {
-            base.Auto_initialized_view_set();
+            await base.Auto_initialized_view_set(isAsync);
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");

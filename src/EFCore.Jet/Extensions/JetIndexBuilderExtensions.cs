@@ -191,7 +191,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </returns>
         public static IConventionIndexBuilder? IncludeProperties(
             this IConventionIndexBuilder indexBuilder,
-            IReadOnlyList<string>? propertyNames,
+            IReadOnlyList<string> propertyNames,
             bool fromDataAnnotation = false)
         {
             if (indexBuilder.CanSetIncludeProperties(propertyNames, fromDataAnnotation))

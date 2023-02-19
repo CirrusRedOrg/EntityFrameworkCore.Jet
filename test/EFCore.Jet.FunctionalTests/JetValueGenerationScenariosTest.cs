@@ -591,9 +591,9 @@ END");
                         eb =>
                         {
                             eb.Property(e => e.Id)
-                                .HasDefaultValueSql("newguid()");
+                                .HasDefaultValueSql("GenGUID()");
                             eb.Property(e => e.NotId)
-                                .HasDefaultValueSql("newguid()");
+                                .HasDefaultValueSql("GenGUID()");
                         });
             }
         }

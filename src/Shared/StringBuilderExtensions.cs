@@ -1,17 +1,22 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace System.Text
 {
     internal static class StringBuilderExtensions
     {
         public static StringBuilder AppendJoin(
-            this StringBuilder stringBuilder, IEnumerable<string> values, string separator = ", ")
-            => stringBuilder.AppendJoin(values, (sb, value) => sb.Append(value), separator);
+        this StringBuilder stringBuilder,
+        IEnumerable<string> values,
+        string separator = ", ")
+        => stringBuilder.AppendJoin(values, (sb, value) => sb.Append(value), separator);
 
         public static StringBuilder AppendJoin(
-            this StringBuilder stringBuilder, string separator, params string[] values)
+            this StringBuilder stringBuilder,
+            string separator,
+            params string[] values)
             => stringBuilder.AppendJoin(values, (sb, value) => sb.Append(value), separator);
 
         public static StringBuilder AppendJoin<T>(
@@ -27,6 +32,31 @@ namespace System.Text
                 joinAction(stringBuilder, value);
                 stringBuilder.Append(separator);
                 appended = true;
+            }
+
+            if (appended)
+            {
+                stringBuilder.Length -= separator.Length;
+            }
+
+            return stringBuilder;
+        }
+
+        public static StringBuilder AppendJoin<T>(
+            this StringBuilder stringBuilder,
+            IEnumerable<T> values,
+            Func<StringBuilder, T, bool> joinFunc,
+            string separator = ", ")
+        {
+            var appended = false;
+
+            foreach (var value in values)
+            {
+                if (joinFunc(stringBuilder, value))
+                {
+                    stringBuilder.Append(separator);
+                    appended = true;
+                }
             }
 
             if (appended)
@@ -61,29 +91,22 @@ namespace System.Text
             return stringBuilder;
         }
 
-        public static StringBuilder AppendJoin<T, TParam1, TParam2>(
-            this StringBuilder stringBuilder,
-            IEnumerable<T> values,
-            TParam1 param1,
-            TParam2 param2,
-            Action<StringBuilder, T, TParam1, TParam2> joinAction,
-            string separator = ", ")
+        public static void AppendBytes(this StringBuilder builder, byte[] bytes)
         {
-            var appended = false;
+            builder.Append("'0x");
 
-            foreach (var value in values)
+            for (var i = 0; i < bytes.Length; i++)
             {
-                joinAction(stringBuilder, value, param1, param2);
-                stringBuilder.Append(separator);
-                appended = true;
+                if (i > 31)
+                {
+                    builder.Append("...");
+                    break;
+                }
+
+                builder.Append(bytes[i].ToString("X2", CultureInfo.InvariantCulture));
             }
 
-            if (appended)
-            {
-                stringBuilder.Length -= separator.Length;
-            }
-
-            return stringBuilder;
+            builder.Append('\'');
         }
     }
 }

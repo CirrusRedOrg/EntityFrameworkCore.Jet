@@ -14,11 +14,11 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static readonly JetFactory Instance = new JetFactory(null, null);
 
-        public JetConnection Connection { get; }
+        public JetConnection? Connection { get; }
 
-        internal DbProviderFactory InnerFactory { get; }
+        internal DbProviderFactory? InnerFactory { get; }
 
-        internal JetFactory(JetConnection connection, DbProviderFactory innerFactory)
+        internal JetFactory(JetConnection? connection, DbProviderFactory? innerFactory)
         {
             if (innerFactory is JetFactory)
                 throw new ArgumentException("JetProviderFactory cannot use a JetProviderFactory as its underlying provider factory. Supported provider factories are OdbcFactory and OleDbFactory.");
@@ -101,7 +101,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbDataSourceEnumerator" />.
         /// </returns>
-        public override DbDataSourceEnumerator CreateDataSourceEnumerator()
+        public override DbDataSourceEnumerator? CreateDataSourceEnumerator()
             => null;
 
         /// <summary>

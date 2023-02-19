@@ -42,6 +42,11 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         /// </summary>
         public override IEnumerable<IAnnotation> For(ITableIndex index, bool designTime)
         {
+            if (!designTime)
+            {
+                yield break;
+            }
+
             // Model validation ensures that these facets are the same on all mapped indexes
             var modelIndex = index.MappedIndexes.First();
 
@@ -50,9 +55,9 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             var includeProperties = modelIndex.GetIncludeProperties();
             if (includeProperties != null)
             {
-                var includeColumns = (IReadOnlyList<string>)includeProperties
+                var includeColumns = (IReadOnlyList<string?>)includeProperties
                     .Select(
-                        p => modelIndex.DeclaringEntityType.FindProperty(p)
+                        p => modelIndex.DeclaringEntityType.FindProperty(p)!
                             .GetColumnName(StoreObjectIdentifier.Table(table.Name, table.Schema)))
                     .ToArray();
 
@@ -70,10 +75,16 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         /// </summary>
         public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
         {
+            //Need to do this in both design and runtime
+            /*if (!designTime)
+            {
+                yield break;
+            }*/
+
             var table = StoreObjectIdentifier.Table(column.Table.Name, column.Table.Schema);
             var property = column.PropertyMappings.Where(
                     m =>
-                        m.TableMapping.IsSharedTablePrincipal && m.TableMapping.EntityType == m.Property.DeclaringEntityType)
+                        (m.TableMapping.IsSharedTablePrincipal ?? true) && m.TableMapping.EntityType == m.Property.DeclaringEntityType)
                 .Select(m => m.Property)
                 .FirstOrDefault(
                     p => p.GetValueGenerationStrategy(table)

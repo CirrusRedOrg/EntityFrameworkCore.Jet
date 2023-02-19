@@ -147,7 +147,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private IReadOnlyList<DatabaseTable> GetTables(
             DbConnection connection,
-            Func<string, string, bool> filter)
+            Func<string, string, bool>? filter)
         {
             var tables = new List<DatabaseTable>();
 
@@ -163,15 +163,15 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var validationRule = reader.GetValueOrDefault<string>("VALIDATION_RULE");
                     var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
                     
-                    _logger.TableFound(name);
+                    _logger.TableFound(name!);
 
                     var table = string.Equals(type, "BASE TABLE", StringComparison.OrdinalIgnoreCase)
                         ? new DatabaseTable()
                         : new DatabaseView();
 
-                    table.Name = name;
+                    table.Name = name!;
 
-                    var isValidByFilter = filter?.Invoke(table.Schema, table.Name) ?? true;
+                    var isValidByFilter = filter?.Invoke(table.Schema!, table.Name) ?? true;
                     if (isValidByFilter)
                     {
                         tables.Add(table);
@@ -214,16 +214,16 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
                     var identitySeed = reader.GetValueOrDefault<int?>("IDENTITY_SEED");
                     var identityIncrement = reader.GetValueOrDefault<int?>("IDENTITY_INCREMENT");
-                    var computedValue = (string) null; // TODO: Implement support for expressions
+                    var computedValue = (string?) null; // TODO: Implement support for expressions
                                                        // (DAO Field2 (though not mentioned)).
                                                        // Might have no equivalent in ADOX.
                     var computedIsPersisted = false;
 
                     _logger.ColumnFound(
-                        tableName,
-                        columnName,
+                        tableName!,
+                        columnName!,
                         ordinal,
-                        dataTypeName,
+                        dataTypeName!,
                         maxLength,
                         precision,
                         scale,
@@ -233,13 +233,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         computedValue,
                         computedIsPersisted);
                     
-                    var storeType = GetStoreType(dataTypeName, precision, scale, maxLength);
-                    defaultValue = FilterClrDefaults(dataTypeName, nullable, defaultValue);
+                    var storeType = GetStoreType(dataTypeName!, precision, scale, maxLength);
+                    defaultValue = FilterClrDefaults(dataTypeName!, nullable, defaultValue);
                     
                     var column = new DatabaseColumn
                     {
                         Table = table,
-                        Name = columnName,
+                        Name = columnName!,
                         StoreType = storeType,
                         IsNullable = nullable,
                         DefaultValueSql = defaultValue,
@@ -262,7 +262,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             }
         }
         
-        private static string FilterClrDefaults(string dataTypeName, bool nullable, string defaultValue)
+        private static string? FilterClrDefaults(string dataTypeName, bool nullable, string? defaultValue)
         {
             if (defaultValue == null)
             {
@@ -306,7 +306,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                      (defaultValue == "('0001-01-01T00:00:00.000+00:00')" && dataTypeName == "datetimeoffset") ||
                      (defaultValue == "('00:00:00')" && dataTypeName == "time") ||
                      (defaultValue == "('00000000-0000-0000-0000-000000000000')" && dataTypeName == "uniqueidentifier")
-                    )
+                     )
             {
                 return null;
             }
@@ -378,7 +378,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var indexColumns = groupedIndexColumns.FirstOrDefault(g => g.Key == (tableName, indexName));
                     if (indexColumns?.Any() ?? false)
                     {
-                        object indexOrKey = null;
+                        object? indexOrKey = null;
                         
                         if (indexType == "PRIMARY")
                         {
@@ -388,7 +388,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                 Name = indexName,
                             };
 
-                            _logger.PrimaryKeyFound(indexName, tableName);
+                            _logger.PrimaryKeyFound(indexName!, tableName!);
 
                             table.PrimaryKey = primaryKey;
                             indexOrKey = primaryKey;
@@ -405,7 +405,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                     Name = indexName,
                                 };
 
-                                _logger.UniqueConstraintFound(indexName, tableName);
+                                _logger.UniqueConstraintFound(indexName!, tableName!);
 
                                 table.UniqueConstraints.Add(uniqueConstraint);
                                 indexOrKey = uniqueConstraint;
@@ -420,7 +420,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                 // We therefore skip indexes with the same name as existing FKs. 
                                 if (table.ForeignKeys.Any(fk => fk.Name == indexName))
                                 {
-                                    _logger.IndexSkipped(indexName, tableName, isUnique);
+                                    _logger.IndexSkipped(indexName!, tableName!, isUnique);
                                     continue;
                                 }
                             
@@ -431,7 +431,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                     IsUnique = isUnique,
                                 };
 
-                                _logger.IndexFound(indexName, tableName, index.IsUnique);
+                                _logger.IndexFound(indexName!, tableName!, index.IsUnique);
 
                                 table.Indexes.Add(index);
                                 indexOrKey = index;
@@ -510,10 +510,10 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     if (relationColumns?.Any() ?? false)
                     {
                         _logger.ForeignKeyFound(
-                            relationName,
-                            referencingTableName,
-                            principalTableName,
-                            onDelete);
+                            relationName!,
+                            referencingTableName!,
+                            principalTableName!,
+                            onDelete!);
                         
                         var principalTable = tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName)) ??
                                              tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName, StringComparison.OrdinalIgnoreCase));
@@ -531,7 +531,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                             Name = relationName,
                             Table = referencingTable,
                             PrincipalTable = principalTable,
-                            OnDelete = ConvertToReferentialAction(onDelete),
+                            OnDelete = ConvertToReferentialAction(onDelete!),
                         };
 
                         var invalid = false;
@@ -549,10 +549,10 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                             {
                                 invalid = true;
                                 _logger.ForeignKeyPrincipalColumnMissingWarning(
-                                    relationName,
-                                    referencingTableName,
-                                    principalColumnName,
-                                    principalTableName);
+                                    relationName!,
+                                    referencingTableName!,
+                                    principalColumnName!,
+                                    principalTableName!);
                                 break;
                             }
 
@@ -568,8 +568,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         if (foreignKey.Columns.SequenceEqual(foreignKey.PrincipalColumns))
                         {
                             _logger.ReflexiveConstraintIgnored(
-                                foreignKey.Name,
-                                referencingTableName);
+                                foreignKey.Name!,
+                                referencingTableName!);
                         }
                         else
                         {
@@ -604,7 +604,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             }
         }
         
-        protected virtual Func<string, string, bool> GenerateTableFilter(IReadOnlyList<string> tables)
-            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string, string, bool>)null;
+        protected virtual Func<string, string, bool>? GenerateTableFilter(IReadOnlyList<string> tables)
+            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string, string, bool>?)null;
     }
 }

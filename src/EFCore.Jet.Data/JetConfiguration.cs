@@ -33,8 +33,8 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
         
-        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc;
-
+        public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc; 
+        
         // The SQL statement
         //
         // (SELECT COUNT(*) FROM MSysRelationships)
@@ -64,7 +64,6 @@ namespace EntityFrameworkCore.Jet.Data
         //(SELECT COUNT(*) FROM MSysAccessStorage)
 
         public static string DetectedDualTableName = "#Dual";
-
         /// <summary>
         /// Gets or sets a value indicating whether show SQL statements.
         /// </summary>

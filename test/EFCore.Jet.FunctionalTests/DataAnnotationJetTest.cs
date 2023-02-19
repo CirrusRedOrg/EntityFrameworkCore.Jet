@@ -30,6 +30,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
             => facade.UseTransaction(transaction.GetDbTransaction());
 
+        protected override TestHelpers TestHelpers
+        => JetTestHelpers.Instance;
+
         [ConditionalFact]
         public virtual ModelBuilder Default_for_key_string_column_throws()
         {
@@ -54,7 +57,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             var modelBuilder = base.Non_public_annotations_are_enabled();
 
             var relational = GetProperty<PrivateMemberAnnotationClass>(modelBuilder, "PersonFirstName");
-            Assert.Equal("dsdsd", relational.GetColumnBaseName());
+            Assert.Equal("dsdsd", relational.GetColumnName());
             Assert.Equal("nvarchar(128)", relational.GetColumnType());
 
             return modelBuilder;
@@ -65,7 +68,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             var modelBuilder = base.Field_annotations_are_enabled();
 
             var relational = GetProperty<FieldAnnotationClass>(modelBuilder, "_personFirstName");
-            Assert.Equal("dsdsd", relational.GetColumnBaseName());
+            Assert.Equal("dsdsd", relational.GetColumnName());
             Assert.Equal("nvarchar(128)", relational.GetColumnType());
 
             return modelBuilder;
@@ -76,7 +79,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             var modelBuilder = base.Key_and_column_work_together();
 
             var relational = GetProperty<ColumnKeyAnnotationClass1>(modelBuilder, "PersonFirstName");
-            Assert.Equal("dsdsd", relational.GetColumnBaseName());
+            Assert.Equal("dsdsd", relational.GetColumnName());
             Assert.Equal("nvarchar(128)", relational.GetColumnType());
 
             return modelBuilder;
@@ -127,11 +130,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return modelBuilder;
         }
 
-        public override ModelBuilder DatabaseGeneratedOption_Identity_does_not_throw_on_noninteger_properties()
+        public override IModel DatabaseGeneratedOption_Identity_does_not_throw_on_noninteger_properties()
         {
             var modelBuilder = base.DatabaseGeneratedOption_Identity_does_not_throw_on_noninteger_properties();
 
-            var entity = modelBuilder.Model.FindEntityType(typeof(GeneratedEntityNonInteger));
+            var entity = modelBuilder.FindEntityType(typeof(GeneratedEntityNonInteger));
 
             var stringProperty = entity.FindProperty(nameof(GeneratedEntityNonInteger.String));
             Assert.Equal(JetValueGenerationStrategy.None, stringProperty.GetValueGenerationStrategy());

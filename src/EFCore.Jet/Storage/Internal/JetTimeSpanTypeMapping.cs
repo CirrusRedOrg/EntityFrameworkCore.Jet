@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public JetTimeSpanTypeMapping(
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)
-            : base(storeType, options, System.Data.DbType.Time, typeof(TimeSpan))
+            : base(storeType, options, System.Data.DbType.DateTime, typeof(TimeSpan))
         {
             _options = options;
         }

@@ -231,7 +231,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 modelBuilder.Entity<Blog>(
                     b =>
                     {
-                        b.Property(e => e.Id).HasDefaultValueSql("NEWID()");
+                        b.Property(e => e.Id).HasDefaultValueSql("GenGUID()");
                         b.Property(e => e.Version).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
                     });
             }

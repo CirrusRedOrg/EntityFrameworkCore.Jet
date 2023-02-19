@@ -224,7 +224,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         protected override void GeneratePseudoFromClause()
         {
             Sql.AppendLine()
-                .Append("FROM " + JetConfiguration.DUAL);
+                .Append("FROM " + "(SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDualTableName) ? JetConfiguration.DetectedDualTableName : JetConfiguration.CustomDualTableName) + "`)");
         }
 
         private void GenerateList<T>(

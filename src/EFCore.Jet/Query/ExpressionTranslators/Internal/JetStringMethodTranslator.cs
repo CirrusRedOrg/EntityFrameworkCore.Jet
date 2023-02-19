@@ -485,5 +485,101 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             return builder.ToString();
         }
+
+        private SqlExpression TranslateStartsEndsWith(SqlExpression instance, SqlExpression pattern, bool startsWith)
+        {
+            var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, pattern);
+
+            instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
+            pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
+
+            if (pattern is SqlConstantExpression constantExpression)
+            {
+                // The pattern is constant. Aside from null or empty, we escape all special characters (%, _, \)
+                // in C# and send a simple LIKE
+                if (!(constantExpression.Value is string patternValue))
+                {
+                    return _sqlExpressionFactory.Like(
+                        instance,
+                        _sqlExpressionFactory.Constant(null, stringTypeMapping));
+                }
+
+                return patternValue.Any(IsLikeWildChar)
+                    ? _sqlExpressionFactory.Like(
+                        instance,
+                        _sqlExpressionFactory.Constant(
+                            startsWith
+                                ? EscapeLikePattern(patternValue) + '%'
+                                : '%' + EscapeLikePattern(patternValue)),
+                        _sqlExpressionFactory.Constant(LikeEscapeString))
+                    : _sqlExpressionFactory.Like(
+                        instance,
+                        _sqlExpressionFactory.Constant(startsWith ? patternValue + '%' : '%' + patternValue));
+            }
+
+            // The pattern is non-constant, we use LEFT or RIGHT to extract substring and compare.
+            if (startsWith)
+            {
+                return _sqlExpressionFactory.Equal(
+                    _sqlExpressionFactory.Function(
+                        "LEFT",
+                        new[]
+                        {
+                            instance,
+                            _sqlExpressionFactory.Function(
+                                "LEN",
+                                new[] { pattern },
+                                nullable: true,
+                                argumentsPropagateNullability: new[] { true },
+                                typeof(int))
+                        },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true },
+                        typeof(string),
+                        stringTypeMapping),
+                    pattern);
+            }
+
+            return _sqlExpressionFactory.Equal(
+                _sqlExpressionFactory.Function(
+                    "RIGHT",
+                    new[]
+                    {
+                        instance,
+                        _sqlExpressionFactory.Function(
+                            "LEN",
+                            new[] { pattern },
+                            nullable: true,
+                            argumentsPropagateNullability: new[] { true },
+                            typeof(int))
+                    },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true, true },
+                    typeof(string),
+                    stringTypeMapping),
+                pattern);
+        }
+
+        // See https://docs.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql
+        private bool IsLikeWildChar(char c)
+            => c == '%' || c == '_' || c == '[';
+
+        private string EscapeLikePattern(string pattern)
+        {
+            var builder = new StringBuilder();
+            for (var i = 0; i < pattern.Length; i++)
+            {
+                var c = pattern[i];
+                if (IsLikeWildChar(c)
+                    || c == LikeEscapeChar)
+                {
+                    builder.Append(LikeEscapeChar);
+                }
+
+                builder.Append(c);
+            }
+
+            return builder.ToString();
+        }
     }
 }

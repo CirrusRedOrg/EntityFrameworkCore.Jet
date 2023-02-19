@@ -202,7 +202,7 @@ FROM `Order Details` AS `o`");
             await base.Average_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(IIF(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.0)
+                $@"SELECT AVG(CCUR(`o`.`Quantity`) / 2.0)
 FROM `Order Details` AS `o`");
         }
 

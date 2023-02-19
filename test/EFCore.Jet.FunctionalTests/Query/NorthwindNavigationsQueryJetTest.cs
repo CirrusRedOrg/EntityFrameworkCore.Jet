@@ -121,7 +121,7 @@ SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
 FROM (
     SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F' & '%'
+    WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 LEFT JOIN (
@@ -146,7 +146,7 @@ SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
 FROM (
     SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F' & '%'
+    WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`CustomerID`
 ) AS `t`
 LEFT JOIN (
@@ -338,7 +338,7 @@ FROM `Orders` AS `o`,
 `Orders` AS `o0`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE ((`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND (`o0`.`CustomerID` IS NOT NULL AND (`o0`.`CustomerID` LIKE 'A' & '%'))) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))");
+WHERE ((`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A%')) AND (`o0`.`CustomerID` IS NOT NULL AND (`o0`.`CustomerID` LIKE 'A%'))) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))");
         }
 
         public override async Task Select_Where_Navigation_Null(bool isAsync)
@@ -615,7 +615,7 @@ END AS `all`, (
     FROM `Order Details` AS `o2`
     WHERE `o3`.`OrderID` = `o2`.`OrderID`) AS `collection2`
 FROM `Orders` AS `o3`
-WHERE `o3`.`CustomerID` IS NOT NULL AND (`o3`.`CustomerID` LIKE 'A' & '%')");
+WHERE `o3`.`CustomerID` IS NOT NULL AND (`o3`.`CustomerID` LIKE 'A%')");
         }
 
         public override async Task Collection_select_nav_prop_sum(bool isAsync)
@@ -690,7 +690,7 @@ LEFT JOIN (
     ) AS `t`
     WHERE `t`.`row` <= 1
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID0`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -705,7 +705,7 @@ ORDER BY `c`.`CustomerID`");
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     WHERE `o`.`CustomerID` = 'ALFKI')
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Collection_select_nav_prop_single_or_default_then_nav_prop_nested(bool isAsync)
@@ -719,7 +719,7 @@ WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     WHERE `o`.`OrderID` = 10643)
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested_using_property_method(bool isAsync)
@@ -733,7 +733,7 @@ WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     WHERE `o`.`CustomerID` = 'ALFKI')
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby(bool isAsync)
@@ -748,7 +748,7 @@ WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
     WHERE `o`.`CustomerID` = 'ALFKI'
     ORDER BY `o`.`CustomerID`)
 FROM `Customers` AS `c0`
-WHERE `c0`.`CustomerID` LIKE 'A' & '%'");
+WHERE `c0`.`CustomerID` LIKE 'A%'");
         }
 
         public override async Task Navigation_fk_based_inside_contains(bool isAsync)
@@ -884,7 +884,7 @@ LEFT JOIN (
     ) AS `t`
     WHERE `t`.`row` <= 1
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
+WHERE `c`.`CustomerID` LIKE 'A%'
 ORDER BY `c`.`CustomerID`");
         }
 

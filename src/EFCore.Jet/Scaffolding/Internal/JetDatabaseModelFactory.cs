@@ -105,7 +105,21 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     table.Database = databaseModel;
                     databaseModel.Tables.Add(table);
                 }
-                
+
+                var tableNames = databaseModel.Tables.Select(t => t.Name).ToList();
+                if (tableNames.Contains("MSysAccessStorage"))
+                {
+                    JetConfiguration.DetectedDualTableName = "MSysAccessStorage";
+                }
+                else if (tableNames.Contains("MSysRelationships"))
+                {
+                    JetConfiguration.DetectedDualTableName = "MSysRelationships";
+                }
+                else if (tableNames.Contains("#Dual"))
+                {
+                    JetConfiguration.DetectedDualTableName = "#Dual";
+                }
+
                 return databaseModel;
             }
             finally

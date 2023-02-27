@@ -415,5 +415,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
             return connectionStringBuilder.ToString();
         }
+
+        public override string NormalizeDelimitersInRawString(string sql)
+            => sql.Replace("[", "`").Replace("]", "`");
     }
 }

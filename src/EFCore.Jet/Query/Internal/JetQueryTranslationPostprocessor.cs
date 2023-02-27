@@ -27,8 +27,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         public override Expression Process(Expression query)
         {
             query = base.Process(query);
-            
-            query = new SearchConditionConvertingExpressionVisitor(RelationalDependencies.SqlExpressionFactory).Visit(query);
 
             if (_options.EnableMillisecondsSupport)
             {

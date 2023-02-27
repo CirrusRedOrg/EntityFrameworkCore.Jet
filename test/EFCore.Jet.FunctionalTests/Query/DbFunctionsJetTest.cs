@@ -167,7 +167,7 @@ WHERE DATEDIFF('s', `o`.`OrderDate`, NOW()) = 0");
                 AssertSql(
                     $@"SELECT TOP 1 CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
-WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))");
+WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE");
             }
         }
 
@@ -187,7 +187,7 @@ WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))");
                 AssertSql(
                     $@"SELECT TOP 1 CBOOL(ISDATE((`o`.`OrderDate` & '')))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE((`o`.`OrderDate` & '')))");
+WHERE CBOOL(ISDATE((`o`.`OrderDate` & ''))) = TRUE");
             }
         }
 
@@ -203,7 +203,7 @@ WHERE CBOOL(ISDATE((`o`.`OrderDate` & '')))");
                 AssertSql(
                     $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & '')))");
+WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))) = TRUE");
             }
         }
 

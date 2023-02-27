@@ -117,7 +117,7 @@ FROM (
     FROM `Customers` AS `c0`
     WHERE `c0`.`City` = 'London'
 ) AS `t`
-WHERE CHARINDEX('Thomas', `t`.`ContactName`) > 0");
+WHERE `t`.`ContactName` LIKE '%Thomas%'");
         }
 
         public override async Task Union_Skip_Take_OrderBy_ThenBy_Where(bool isAsync)
@@ -248,7 +248,7 @@ FROM (
     FROM `Customers` AS `c0`
     WHERE `c0`.`City` = 'London'
 ) AS `t`
-WHERE CHARINDEX('Hanover', `t`.`Address`) > 0");
+WHERE `t`.`Address` LIKE '%Hanover%'");
         }
 
         public override async Task Union_Select_scalar(bool isAsync)
@@ -275,11 +275,11 @@ FROM (
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CompanyName` IS NOT NULL AND (`c`.`CompanyName` LIKE 'A' & '%')
+    WHERE (`c`.`CompanyName` IS NOT NULL) AND (`c`.`CompanyName` LIKE 'A%')
     UNION
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
-    WHERE `c0`.`CompanyName` IS NOT NULL AND (`c0`.`CompanyName` LIKE 'B' & '%')
+    WHERE (`c0`.`CompanyName` IS NOT NULL) AND (`c0`.`CompanyName` LIKE 'B%')
 ) AS `t`");
         }
 
@@ -288,16 +288,18 @@ FROM (
             await base.Select_Union_unrelated(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`ContactName`
+                """
+SELECT `t`.`CompanyName`
 FROM (
-    SELECT `c`.`ContactName`
+    SELECT `c`.`CompanyName`
     FROM `Customers` AS `c`
     UNION
-    SELECT `p`.`ProductName` AS `ContactName`
+    SELECT `p`.`ProductName` AS `CompanyName`
     FROM `Products` AS `p`
 ) AS `t`
-WHERE `t`.`ContactName` IS NOT NULL AND (`t`.`ContactName` LIKE 'C' & '%')
-ORDER BY `t`.`ContactName`");
+WHERE (`t`.`CompanyName` IS NOT NULL) AND (`t`.`CompanyName` LIKE 'C%')
+ORDER BY `t`.`CompanyName`
+""");
         }
 
         public override async Task Select_Union_different_fields_in_anonymous_with_subquery(bool isAsync)
@@ -344,7 +346,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `t`
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
+ORDER BY `t`.`CustomerID`");
         }
 
         public override async Task Include_Union(bool isAsync)
@@ -363,7 +365,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `t`
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`, `o`.`OrderID`");
+ORDER BY `t`.`CustomerID`");
         }
 
         public override async Task Select_Except_reference_projection(bool isAsync)

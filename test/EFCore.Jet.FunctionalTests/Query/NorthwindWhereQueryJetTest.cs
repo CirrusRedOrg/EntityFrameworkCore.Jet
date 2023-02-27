@@ -411,7 +411,7 @@ WHERE EXISTS (
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)");
+WHERE (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = TRUE");
         }
 
         public override async Task Where_bitwise_and(bool isAsync)
@@ -421,7 +421,7 @@ WHERE IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = 'A
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)");
+WHERE (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = TRUE");
         }
 
         public override async Task Where_bitwise_xor(bool isAsync)
@@ -1011,7 +1011,7 @@ WHERE `t`.`EmployeeID` = 5");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued`");
+WHERE `p`.`Discontinued` = TRUE");
         }
 
         public override async Task Where_bool_member_false(bool isAsync)
@@ -1021,7 +1021,7 @@ WHERE `p`.`Discontinued`");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE NOT (`p`.`Discontinued`)");
+WHERE `p`.`Discontinued` <> TRUE");
         }
 
         public override async Task Where_bool_member_negated_twice(bool isAsync)
@@ -1031,7 +1031,7 @@ WHERE NOT (`p`.`Discontinued`)");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued`");
+WHERE `p`.`Discontinued` = TRUE");
         }
 
         public override async Task Where_bool_member_shadow(bool isAsync)
@@ -1041,7 +1041,7 @@ WHERE `p`.`Discontinued`");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued`");
+WHERE `p`.`Discontinued` = TRUE");
         }
 
         public override async Task Where_bool_member_false_shadow(bool isAsync)
@@ -1051,7 +1051,7 @@ WHERE `p`.`Discontinued`");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE NOT (`p`.`Discontinued`)");
+WHERE `p`.`Discontinued` <> TRUE");
         }
 
         public override async Task Where_bool_member_equals_constant(bool isAsync)
@@ -1061,7 +1061,7 @@ WHERE NOT (`p`.`Discontinued`)");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued`");
+WHERE `p`.`Discontinued` = TRUE");
         }
 
         public override async Task Where_bool_member_in_complex_predicate(bool isAsync)
@@ -1071,7 +1071,7 @@ WHERE `p`.`Discontinued`");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE (`p`.`ProductID` > 100 AND `p`.`Discontinued`) OR `p`.`Discontinued`");
+WHERE (`p`.`ProductID` > 100 AND `p`.`Discontinued` = TRUE) OR `p`.`Discontinued` = TRUE");
         }
 
         public override async Task Where_bool_member_compared_to_binary_expression(bool isAsync)
@@ -1113,7 +1113,7 @@ WHERE IIF(`p`.`ProductID` <= 50, TRUE, FALSE) = IIF(`p`.`ProductID` <= 20, TRUE,
                 """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE IIF(NOT (`p`.`Discontinued`), TRUE, FALSE) = IIF(`p`.`ProductID` > 50, TRUE, FALSE)
+WHERE `p`.`Discontinued` <> IIF(`p`.`ProductID` > 50, TRUE, FALSE)
 """);
         }
 
@@ -1163,7 +1163,7 @@ END");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE NOT (`p`.`Discontinued`) AND `p`.`ProductID` >= 20");
+WHERE `p`.`Discontinued` <> TRUE AND `p`.`ProductID` >= 20");
         }
 
         public override async Task Where_de_morgan_and_optimized(bool isAsync)
@@ -1173,7 +1173,7 @@ WHERE NOT (`p`.`Discontinued`) AND `p`.`ProductID` >= 20");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE NOT (`p`.`Discontinued`) OR `p`.`ProductID` >= 20");
+WHERE `p`.`Discontinued` <> TRUE OR `p`.`ProductID` >= 20");
         }
 
         public override async Task Where_complex_negated_expression_optimized(bool isAsync)
@@ -1183,7 +1183,7 @@ WHERE NOT (`p`.`Discontinued`) OR `p`.`ProductID` >= 20");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE NOT (`p`.`Discontinued`) AND `p`.`ProductID` < 60 AND `p`.`ProductID` > 30");
+WHERE `p`.`Discontinued` <> TRUE AND `p`.`ProductID` < 60 AND `p`.`ProductID` > 30");
         }
 
         public override async Task Where_short_member_comparison(bool isAsync)
@@ -1637,7 +1637,7 @@ FROM `Orders` AS `o`");
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
+WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
         }
 
         public override async Task Where_is_conditional(bool isAsync)
@@ -1647,7 +1647,7 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = True");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task Enclosing_class_settable_member_generates_parameter(bool isAsync)

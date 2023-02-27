@@ -37,52 +37,52 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.TimeSpan_Compare_to_simple_zero(async, compareTo);
 
             AssertSql(
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = ?
+WHERE `o`.`OrderDate` = {AssertSqlHelper.Parameter("@__myDatetime_0")}
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <> ? OR (`o`.`OrderDate` IS NULL)
+WHERE `o`.`OrderDate` <> {AssertSqlHelper.Parameter("@__myDatetime_0")} OR (`o`.`OrderDate` IS NULL)
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > ?
+WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__myDatetime_0")}
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= ?
+WHERE `o`.`OrderDate` <= {AssertSqlHelper.Parameter("@__myDatetime_0")}
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > ?
+WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__myDatetime_0")}
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= ?
+WHERE `o`.`OrderDate` <= {AssertSqlHelper.Parameter("@__myDatetime_0")}
 """);
         }
 
@@ -219,13 +219,13 @@ WHERE `c`.`ContactName` LIKE '%     %'
             await base.String_Contains_parameter_with_whitespace(async);
 
             AssertSql(
-                """
+                $"""
 @__pattern_0='     ' (Size = 255)
 @__pattern_0='     ' (Size = 255)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (? LIKE '') OR INSTR(1, `c`.`ContactName`, ?, 1) > 0
+WHERE ({AssertSqlHelper.Parameter("@__pattern_0")} LIKE '') OR INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 1) > 0
 """);
         }
 
@@ -1887,14 +1887,14 @@ WHERE (InStr(3, `c`.`ContactName`, 'a', 1) - 1) = 4
         public override async Task Indexof_with_parameter_starting_position(bool async)
         {
             await base.Indexof_with_parameter_starting_position(async);
-
+            
             AssertSql(
-    """
+    $"""
 @__start_0='2'
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (InStr(? + 1, `c`.`ContactName`, 'a', 1) - 1) = 4
+WHERE (InStr({AssertSqlHelper.Parameter("@__start_0")} + 1, `c`.`ContactName`, 'a', 1) - 1) = 4
 """);
         }
 
@@ -1943,11 +1943,11 @@ WHERE MID(`c`.`CustomerID`, 1 + 1, LEN(`c`.`CustomerID`)) = 'LFKI'");
             await base.Substring_with_one_arg_with_closure(async);
 
             AssertSql(
-                @"@__start_0='2'
+                $@"@__start_0='2'
 
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`CustomerID`, ? + 1, LEN(`c`.`CustomerID`)) = 'FKI'");
+WHERE MID(`c`.`CustomerID`, {AssertSqlHelper.Parameter("@__start_0")} + 1, LEN(`c`.`CustomerID`)) = 'FKI'");
         }
 
         public override async Task Substring_with_two_args_with_zero_startindex(bool async)
@@ -1985,9 +1985,9 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Substring_with_two_args_with_closure(async);
 
             AssertSql(
-                @"@__start_0='2'
+                $@"@__start_0='2'
 
-SELECT MID(`c`.`ContactName`, ? + 1, 3)
+SELECT MID(`c`.`ContactName`, {AssertSqlHelper.Parameter("@__start_0")} + 1, 3)
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }

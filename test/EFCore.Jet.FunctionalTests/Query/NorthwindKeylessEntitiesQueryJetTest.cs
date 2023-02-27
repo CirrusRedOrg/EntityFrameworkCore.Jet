@@ -39,26 +39,24 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.KeylessEntity_where_simple(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
+                """
+SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`
 FROM (
-    SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`
-) AS `c`
-WHERE `c`.`City` = 'London'");
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`
+) AS `m`
+WHERE `m`.`City` = 'London'
+""");
         }
 
         public override async Task KeylessEntity_by_database_view(bool isAsync)
         {
             await base.KeylessEntity_by_database_view(isAsync);
 
-            // See issue#17804
-            // when we have defining query and ToView, defining query wins
-            //            AssertSql(
-            //                $@"SELECT `a`.`CategoryName`, `a`.`ProductID`, `a`.`ProductName`
-            //FROM `Alphabetical list of products` AS `a`");
             AssertSql(
-                $@"SELECT `p`.`ProductID`, `p`.`ProductName`, 'Food' AS `CategoryName`
-FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> True");
+                """
+SELECT `a`.`CategoryName`, `a`.`ProductID`, `a`.`ProductName`
+FROM `Alphabetical list of products` AS `a`
+""");
         }
 
         public override async Task KeylessEntity_with_nav_defining_query(bool isAsync)
@@ -109,15 +107,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'");
         {
             await base.KeylessEntity_with_defining_query_and_correlated_collection(isAsync);
 
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM (
-    select * from ""Orders""
-) AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE `o`.`CustomerID` = 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`");
+            AssertSql();
         }
 
         public override async Task KeylessEntity_select_where_navigation(bool isAsync)

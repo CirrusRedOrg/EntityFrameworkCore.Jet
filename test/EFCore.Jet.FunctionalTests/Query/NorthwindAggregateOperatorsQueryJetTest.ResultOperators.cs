@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 @"SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE (`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
+        WHERE `o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL)), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDualTableName) ? JetConfiguration.DetectedDualTableName : JetConfiguration.CustomDualTableName) + "`)");
         }
 
@@ -826,7 +826,7 @@ WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI')");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task Contains_with_local_list_inline(bool isAsync)
@@ -947,7 +947,7 @@ WHERE `c`.`CustomerID` IN ('ALFKI', 'ABC'')); GO; DROP TABLE Orders; GO; --') OR
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task Contains_with_local_collection_empty_inline(bool isAsync)
@@ -1072,7 +1072,7 @@ FROM (
 ORDER BY `t`.`CustomerID` DESC");
         }
 
-        public override async Task Contains_over_entityType_should_rewrite_to_identity_equality(bool async)
+            public override async Task Contains_over_entityType_should_rewrite_to_identity_equality(bool async)
         {
             await base.Contains_over_entityType_should_rewrite_to_identity_equality(async);
 
@@ -1083,15 +1083,11 @@ WHERE `o`.`OrderID` = 10248",
                 //
                 $@"{AssertSqlHelper.Declaration("@__entity_equality_p_0_OrderID='10248' (Nullable = true)")}
 
-SELECT CASE
-    WHEN {AssertSqlHelper.Parameter("@__entity_equality_p_0_OrderID")} IN (
-        SELECT `o`.`OrderID`
+SELECT IIF(EXISTS (
+        SELECT 1
         FROM `Orders` AS `o`
-        WHERE `o`.`CustomerID` = 'VINET'
-    )
-     THEN True
-    ELSE False
-END");
+        WHERE `o`.`CustomerID` = 'VINET' AND `o`.`OrderID` = {AssertSqlHelper.Parameter("@__entity_equality_p_0_OrderID")}), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)");
         }
 
         public override async Task List_Contains_over_entityType_should_rewrite_to_identity_equality(bool isAsync)

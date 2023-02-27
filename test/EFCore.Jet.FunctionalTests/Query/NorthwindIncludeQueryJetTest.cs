@@ -52,12 +52,10 @@ WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')");
             await base.Include_when_result_operator(async);
 
             AssertSql(
-                $@"SELECT CASE
-    WHEN EXISTS (
+                $@"SELECT IIF(EXISTS (
         SELECT 1
-        FROM `Customers` AS `c`) THEN True
-    ELSE False
-END");
+        FROM `Customers` AS `c`), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)");
         }
 
         public override async Task Include_collection(bool async)

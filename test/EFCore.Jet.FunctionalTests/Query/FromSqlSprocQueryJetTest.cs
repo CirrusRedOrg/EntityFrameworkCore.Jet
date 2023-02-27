@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             await base.From_sql_queryable_stored_procedure_projection(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql();
         }
 
         public override async Task From_sql_queryable_stored_procedure_with_parameter(bool async)

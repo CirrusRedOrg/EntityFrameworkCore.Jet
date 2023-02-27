@@ -192,7 +192,7 @@ WHERE {AssertSqlHelper.Parameter("@__prm2_0")} = '' OR ((`f`.`FirstName` IS NOT 
                 //
                 $@"SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE FALSE",
+WHERE 0 = 1",
                 //
                 $@"{AssertSqlHelper.Declaration("@__prm4_0='' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__prm4_0='' (Size = 255)")}
@@ -228,7 +228,7 @@ WHERE {AssertSqlHelper.Parameter("@__prm7_0")} <> '' AND (`f`.`FirstName` IS NOT
                 //
                 $@"SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task String_starts_with_on_argument_with_bracket(bool isAsync)
@@ -353,7 +353,7 @@ WHERE {AssertSqlHelper.Parameter("@__prm2_0")} = '' OR ((`f`.`FirstName` IS NOT 
                 //
                 $@"SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE FALSE",
+WHERE 0 = 1",
                 //
                 $@"{AssertSqlHelper.Declaration("@__prm4_0='' (Size = 255)")}
 {AssertSqlHelper.Declaration("@__prm4_0='' (Size = 255)")}
@@ -389,7 +389,7 @@ WHERE {AssertSqlHelper.Parameter("@__prm7_0")} <> '' AND (`f`.`FirstName` IS NOT
                 //
                 $@"SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task String_ends_with_on_argument_with_wildcard_column(bool isAsync)
@@ -422,7 +422,7 @@ WHERE (`f0`.`LastName` <> '' OR (`f0`.`LastName` IS NULL)) AND (`f`.`FirstName` 
                 $@"SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f0`.`LastName` = '' OR ((`f`.`FirstName` IS NOT NULL) AND (`f0`.`LastName` IS NOT NULL) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`), TRUE, FALSE)");
+WHERE IIF(`f0`.`LastName` = '' OR ((`f`.`FirstName` IS NOT NULL) AND (`f0`.`LastName` IS NOT NULL) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`), TRUE, FALSE) = TRUE");
         }
 
         public override async Task String_ends_with_inside_conditional_negated(bool isAsync)
@@ -433,7 +433,7 @@ WHERE IIF(`f0`.`LastName` = '' OR ((`f`.`FirstName` IS NOT NULL) AND (`f0`.`Last
                 $@"SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF((`f0`.`LastName` <> '' OR (`f0`.`LastName` IS NULL)) AND (`f`.`FirstName` IS NOT NULL) AND (`f0`.`LastName` IS NOT NULL) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) <> `f0`.`LastName`, TRUE, FALSE)");
+WHERE IIF((`f0`.`LastName` <> '' OR (`f0`.`LastName` IS NULL)) AND (`f`.`FirstName` IS NOT NULL) AND (`f0`.`LastName` IS NOT NULL) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) <> `f0`.`LastName`, TRUE, FALSE) = TRUE");
         }
 
         public override async Task String_ends_with_equals_nullable_column(bool isAsync)
@@ -444,7 +444,7 @@ WHERE IIF((`f0`.`LastName` <> '' OR (`f0`.`LastName` IS NULL)) AND (`f`.`FirstNa
                 $@"SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(((`f0`.`LastName` = '') AND `f0`.`LastName` IS NOT NULL) OR (`f`.`FirstName` IS NOT NULL AND (`f0`.`LastName` IS NOT NULL AND ((RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) IS NOT NULL))), 1, 0) = `f`.`NullableBool`");
+WHERE IIF((`f0`.`LastName` = '' AND (`f0`.`LastName` IS NOT NULL)) OR ((`f`.`FirstName` IS NOT NULL) AND (`f0`.`LastName` IS NOT NULL) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`), TRUE, FALSE) = `f`.`NullableBool`");
         }
 
         public override async Task String_ends_with_not_equals_nullable_column(bool isAsync)
@@ -455,7 +455,7 @@ WHERE IIF(((`f0`.`LastName` = '') AND `f0`.`LastName` IS NOT NULL) OR (`f`.`Firs
                 $@"SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (IIF(((`f0`.`LastName` = '') AND `f0`.`LastName` IS NOT NULL) OR (`f`.`FirstName` IS NOT NULL AND (`f0`.`LastName` IS NOT NULL AND ((RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) IS NOT NULL))), 1, 0) <> `f`.`NullableBool`) OR `f`.`NullableBool` IS NULL");
+WHERE IIF((`f0`.`LastName` = '' AND (`f0`.`LastName` IS NOT NULL)) OR ((`f`.`FirstName` IS NOT NULL) AND (`f0`.`LastName` IS NOT NULL) AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`), TRUE, FALSE) <> `f`.`NullableBool` OR (`f`.`NullableBool` IS NULL)");
         }
 
         protected override void ClearLog()

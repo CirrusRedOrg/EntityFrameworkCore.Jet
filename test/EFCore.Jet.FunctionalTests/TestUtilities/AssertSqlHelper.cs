@@ -24,8 +24,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             => Declaration(fullDeclaration, DataAccessProviderType);
         //TODO:confirm which way odbc and oledb do this
         public static string Declaration(string fullDeclaration, DataAccessProviderType dataAccessProviderType)
-            => dataAccessProviderType == DataAccessProviderType.Odbc
-                ? fullDeclaration
-                : string.Empty;
+            => fullDeclaration;
     }
 }

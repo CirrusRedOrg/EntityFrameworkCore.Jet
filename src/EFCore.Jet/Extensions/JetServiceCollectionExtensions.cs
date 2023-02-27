@@ -62,6 +62,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
                 .TryAdd<IQueryTranslationPostprocessorFactory, JetQueryTranslationPostprocessorFactory>()
                 .TryAdd<IRelationalTransactionFactory, JetTransactionFactory>()
+                .TryAdd<IRelationalParameterBasedSqlProcessorFactory, JetParameterBasedSqlProcessorFactory>()
                 .TryAddProviderSpecificServices(
                     b => b
                         .TryAddSingleton<IJetOptions, JetOptions>()

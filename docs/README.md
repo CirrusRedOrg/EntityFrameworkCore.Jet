@@ -1,6 +1,7 @@
 # EntityFrameworkCore.Jet
 [![Build Status](https://bubibubi.visualstudio.com/EntityFrameworkCore.Jet/_apis/build/status/bubibubi.EntityFrameworkCore.Jet?branchName=master)](https://bubibubi.visualstudio.com/EntityFrameworkCore.Jet/_build/latest?definitionId=1&branchName=master)
 [![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.Jet.svg?style=flat-square&label=nuget)](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
+[![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/EntityFrameworkCore.Jet?style=flat-square)](https://www.nuget.org/packages/EntityFrameworkCore.Jet/)
 
 `EntityFrameworkCore.Jet` is an Entity Framework Core provider for Microsoft Jet/ACE databases (supporting the Microsoft Access database file formats `MDB` and `ACCDB`).
 

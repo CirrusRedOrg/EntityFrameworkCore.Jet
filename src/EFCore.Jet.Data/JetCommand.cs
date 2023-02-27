@@ -499,7 +499,7 @@ namespace EntityFrameworkCore.Jet.Data
             where T : struct
         {
             var parser = new JetCommandParser(commandText);
-            var globalVariableIndices = parser.GetStateIndices('$');
+            var globalVariableIndices = parser.GetStateIndices('$').Reverse();
             var placeholderValue = new Lazy<T>(() => valueFactory(this, placeholder));
             var newCommandText = new StringBuilder(commandText);
 

@@ -102,7 +102,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new InvalidOperationException("CREATE DATABASE statement is missing database file name.");
                 
-                JetConnection.CreateDatabase(fileName, databasePassword: databasePassword);
+                JetConnection.CreateDatabase(fileName, databasePassword: databasePassword, dataAccessProviderType:JetConnection.GetDataAccessProviderType(((JetConnection)command.Connection)?.DataAccessProviderFactory));
                 return true;
             }
 
@@ -114,7 +114,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 if (string.IsNullOrWhiteSpace(fileName))
                     throw new InvalidOperationException("CREATE DATABASE statement is missing database file name or connection string.");
                 
-                JetConnection.CreateDatabase(fileName);
+                JetConnection.CreateDatabase(fileName, dataAccessProviderType: JetConnection.GetDataAccessProviderType(((JetConnection)command.Connection)?.DataAccessProviderFactory));
                 return true;
             }
             

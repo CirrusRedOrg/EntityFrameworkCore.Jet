@@ -519,8 +519,9 @@ namespace EntityFrameworkCore.Jet.Data
             string fileNameOrConnectionString,
             DatabaseVersion version = DatabaseVersion.NewestSupported,
             CollatingOrder collatingOrder = CollatingOrder.General,
-            string databasePassword = null,
-            SchemaProviderType schemaProviderType = SchemaProviderType.Precise)
+            string? databasePassword = null,
+            SchemaProviderType schemaProviderType = SchemaProviderType.Precise,
+            DataAccessProviderType? dataAccessProviderType = null)
         {
             if (databasePassword != null &&
                 databasePassword.Length > 20)
@@ -538,11 +539,13 @@ namespace EntityFrameworkCore.Jet.Data
             //
             // Ensure dual table existence:
             //
-            
+            DataAccessProviderType dbType = JetConfiguration.DefaultDataAccessProviderType;
+
+            if (dataAccessProviderType != null) dbType = dataAccessProviderType.Value;
             var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(
                 IsConnectionString(fileNameOrConnectionString)
                     ? GetDataAccessProviderType(fileNameOrConnectionString)
-                    : JetConfiguration.DefaultDataAccessProviderType);
+                    : dbType);
 
             var connectionString = GetConnectionString(fileNameOrConnectionString, dataAccessProviderFactory);
 

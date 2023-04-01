@@ -155,7 +155,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 )
                             },
                             true,
-                            new[] {true},
+                            new[] { true },
                             method.ReturnType)),
 
                     // Arcsin(X) = Atn(X / Sqr(-X * X + 1))
@@ -185,20 +185,26 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             )
                         },
                         true,
-                        new[] {true},
+                        new[] { true },
                         method.ReturnType),
 
                     // Logn(x) = Log(x) / Log(n)
                     nameof(Math.Log10) => _sqlExpressionFactory.Divide(
-                        _sqlExpressionFactory.Function("LOG", new[] {arguments[0]}, true, new[] {true}, method.ReturnType),
+                        _sqlExpressionFactory.Function("LOG", new[] { arguments[0] }, true, new[] { true }, method.ReturnType),
                         _sqlExpressionFactory.Constant(Math.Log(10))
                     ),
 
                     // Math.Log(x, n) //Logn(x) = Log(x) / Log(n)
                     nameof(Math.Log) => _sqlExpressionFactory.Divide(
-                        _sqlExpressionFactory.Function("LOG", new[] {arguments[0]}, true, new[] {true}, method.ReturnType),
-                        _sqlExpressionFactory.Function("LOG", new[] {arguments[1]}, true, new[] {true}, method.ReturnType)
+                        _sqlExpressionFactory.Function("LOG", new[] { arguments[0] }, true, new[] { true }, method.ReturnType),
+                        _sqlExpressionFactory.Function("LOG", new[] { arguments[1] }, true, new[] { true }, method.ReturnType)
                     ),
+
+                    nameof(Math.Floor) => CreateFix(arguments, method.ReturnType),
+                    nameof(Math.Ceiling) => CreateCeiling(arguments, method.ReturnType),
+
+
+
 
                     _ => null,
                 };
@@ -241,6 +247,45 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             }
 
             return null;
+        }
+
+        private SqlExpression CreateCeiling(IReadOnlyList<SqlExpression> arguments, Type methodReturnType)
+        {
+            SqlFunctionExpression fixExpression = (SqlFunctionExpression)CreateFix(arguments, methodReturnType);
+            var addoneexp = _sqlExpressionFactory.Add(fixExpression, _sqlExpressionFactory.Constant(1));
+            return _sqlExpressionFactory.Case(
+                new[]
+                {
+                    new CaseWhenClause(
+                        _sqlExpressionFactory.Equal(
+                            fixExpression,
+                            arguments[0]),
+                        fixExpression)
+                },
+                addoneexp);
+        }
+
+        private SqlExpression CreateFix(IReadOnlyList<SqlExpression> arguments, Type methodReturnType)
+        {
+            var typeMapping = arguments.Count == 1
+                ? ExpressionExtensions.InferTypeMapping(arguments[0])
+                : ExpressionExtensions.InferTypeMapping(arguments[0], arguments[1]);
+
+            var newArguments = new SqlExpression[arguments.Count];
+            newArguments[0] = _sqlExpressionFactory.ApplyTypeMapping(arguments[0], typeMapping);
+
+            if (arguments.Count == 2)
+            {
+                newArguments[1] = _sqlExpressionFactory.ApplyTypeMapping(arguments[1], typeMapping);
+            }
+
+            return _sqlExpressionFactory.Function(
+                "FIX",
+                newArguments,
+                nullable: true,
+                argumentsPropagateNullability: newArguments.Select(_ => true).ToArray(),
+                methodReturnType,
+                typeMapping);
         }
     }
 }

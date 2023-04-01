@@ -1,12 +1,14 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -29,7 +31,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // We just map counter etc. to integer. Whether an integer property/column is actually a counter
         // is determined by the value generation type.
         private readonly IntTypeMapping _counter = new JetIntTypeMapping("integer");
-        
+
         private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
@@ -52,7 +54,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
 
         private readonly GuidTypeMapping _guid = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
-        private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8);
+        private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8,
+            comparer: new ValueComparer<byte[]>(
+                (v1, v2) => StructuralComparisons.StructuralEqualityComparer.Equals(v1, v2),
+                v => StructuralComparisons.StructuralEqualityComparer.GetHashCode(v),
+                v => v.ToArray()));
 
         private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
@@ -76,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             // TODO: Check the types and their mappings against
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
-            
+
             _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
             _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
             _date = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.Date);
@@ -102,11 +108,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"logical",                    _bit},
                     {"logical1",                   _bit},
                     {"yesno",                      _bit},
-                    
+
                     {"counter",                    _counter},
                     {"identity",                   _counter},
                     {"autoincrement",              _counter},
-                    
+
                     {"byte",                       _byte},
                     {"tinyint",                    _byte},
                     {"integer1",                   _byte},
@@ -119,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"long",                       _bigint},
                     {"int",                        _integer},
                     {"integer4",                   _integer},
-                    
+
                     {"single",                     _single},
                     {"real",                       _single},
                     {"float4",                     _single},
@@ -304,10 +310,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     const int maxCharColumnSize = 255;
                     const int maxIndexedCharColumnSize = 255;
 
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?) maxIndexedCharColumnSize : null);
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxIndexedCharColumnSize : null);
                     if (size > maxCharColumnSize)
                     {
-                        size = isFixedLength ? maxCharColumnSize : (int?) null;
+                        size = isFixedLength ? maxCharColumnSize : (int?)null;
                     }
 
                     return size == null
@@ -331,10 +337,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
                     const int maxBinaryColumnSize = 510;
 
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?) maxBinaryColumnSize : null);
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
                     if (size > maxBinaryColumnSize)
                     {
-                        size = isFixedLength ? maxBinaryColumnSize : (int?) null;
+                        size = isFixedLength ? maxBinaryColumnSize : (int?)null;
                     }
 
                     return size == null

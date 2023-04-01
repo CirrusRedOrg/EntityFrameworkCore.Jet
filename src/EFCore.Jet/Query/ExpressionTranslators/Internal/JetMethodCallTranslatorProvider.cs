@@ -19,12 +19,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             [NotNull] RelationalMethodCallTranslatorProviderDependencies dependencies)
             : base(dependencies)
         {
-            var sqlExpressionFactory = (JetSqlExpressionFactory) dependencies.SqlExpressionFactory;
+            var sqlExpressionFactory = (JetSqlExpressionFactory)dependencies.SqlExpressionFactory;
 
             // ReSharper disable once VirtualMemberCallInConstructor
             AddTranslators(
                 new IMethodCallTranslator[]
                 {
+                    new JetByteArrayMethodTranslator(sqlExpressionFactory),
                     new JetConvertTranslator(sqlExpressionFactory),
                     new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
                     new JetDateTimeMethodTranslator(sqlExpressionFactory),

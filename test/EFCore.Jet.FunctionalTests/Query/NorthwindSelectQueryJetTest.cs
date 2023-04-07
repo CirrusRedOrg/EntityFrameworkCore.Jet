@@ -196,7 +196,7 @@ FROM `Customers` AS `c`");
             await base.Select_anonymous_constant_in_expression(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, CAST(LEN(`c`.`CustomerID`) AS int) + 5 AS `Expression`
+                $@"SELECT `c`.`CustomerID`, CLNG(LEN(`c`.`CustomerID`)) + 5 AS `Expression`
 FROM `Customers` AS `c`");
         }
 
@@ -332,13 +332,19 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
             base.Select_nested_collection_multi_level4();
 
             AssertSql(
-                $@"SELECT (
-    SELECT TOP 1 (
-        SELECT COUNT(*)
-        FROM `Order Details` AS `o`
-        WHERE (`o0`.`OrderID` = `o`.`OrderID`) AND (`o`.`OrderID` > 10))
-    FROM `Orders` AS `o0`
-    WHERE (`c`.`CustomerID` = `o0`.`CustomerID`) AND (`o0`.`OrderID` < 10500)) AS `Order`
+                $@"SELECT IIF((
+        SELECT TOP 1 (
+            SELECT COUNT(*)
+            FROM `Order Details` AS `o0`
+            WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND (`o0`.`OrderID` > 10))
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500)) IS NULL, 0, (
+        SELECT TOP 1 (
+            SELECT COUNT(*)
+            FROM `Order Details` AS `o0`
+            WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND (`o0`.`OrderID` > 10))
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500))) AS `Order`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'");
         }
@@ -348,19 +354,49 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
             base.Select_nested_collection_multi_level5();
 
             AssertSql(
-                $@"SELECT (
-    SELECT TOP 1 (
-        SELECT TOP 1 `o`.`ProductID`
-        FROM `Order Details` AS `o`
-        WHERE (`o1`.`OrderID` = `o`.`OrderID`) AND ((`o`.`OrderID` <> (
-            SELECT COUNT(*)
-            FROM `Orders` AS `o0`
-            WHERE `c`.`CustomerID` = `o0`.`CustomerID`)) OR (
-            SELECT COUNT(*)
-            FROM `Orders` AS `o0`
-            WHERE `c`.`CustomerID` = `o0`.`CustomerID`) IS NULL))
-    FROM `Orders` AS `o1`
-    WHERE (`c`.`CustomerID` = `o1`.`CustomerID`) AND (`o1`.`OrderID` < 10500)) AS `Order`
+                $@"SELECT IIF((
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND ((`o0`.`OrderID` <> (
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`)) OR ((
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND ((`o0`.`OrderID` <> (
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`)) OR ((
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))))
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500)) IS NULL, 0, (
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND ((`o0`.`OrderID` <> (
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`)) OR ((
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND ((`o0`.`OrderID` <> (
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`)) OR ((
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o1`
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))))
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500))) AS `Order`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'");
         }
@@ -370,13 +406,25 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
             base.Select_nested_collection_multi_level6();
 
             AssertSql(
-                $@"SELECT (
-    SELECT TOP 1 (
-        SELECT TOP 1 `o`.`ProductID`
-        FROM `Order Details` AS `o`
-        WHERE (`o0`.`OrderID` = `o`.`OrderID`) AND ((`o`.`OrderID` <> CAST(LEN(`c`.`CustomerID`) AS int)) OR LEN(`c`.`CustomerID`) IS NULL))
-    FROM `Orders` AS `o0`
-    WHERE (`c`.`CustomerID` = `o0`.`CustomerID`) AND (`o0`.`OrderID` < 10500)) AS `Order`
+                $@"SELECT IIF((
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND (`o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`)))) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND (`o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`)))))
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500)) IS NULL, 0, (
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND (`o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`)))) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE (`o`.`OrderID` = `o0`.`OrderID`) AND (`o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`)))))
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` < 10500))) AS `Order`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'");
         }
@@ -409,7 +457,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'");
             await base.Select_non_matching_value_types_int_to_long_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST(`o`.`OrderID` AS bigint)
+                $@"SELECT CLNG(`o`.`OrderID`)
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -420,7 +468,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_nullable_int_to_long_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST(`o`.`EmployeeID` AS bigint)
+                $@"SELECT CLNG(`o`.`EmployeeID`)
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -453,7 +501,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_binary_expression_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST((`o`.`OrderID` + `o`.`OrderID`) AS bigint)
+                $@"SELECT CLNG(`o`.`OrderID` + `o`.`OrderID`)
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -465,7 +513,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_binary_expression_nested_introduces_top_level_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST((CAST(`o`.`OrderID` AS bigint) + CAST(`o`.`OrderID` AS bigint)) AS smallint)
+                $@"SELECT CINT(CLNG(`o`.`OrderID`) + CLNG(`o`.`OrderID`))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -476,7 +524,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_unary_expression_introduces_explicit_cast1(isAsync);
 
             AssertSql(
-                $@"SELECT CAST(-`o`.`OrderID` AS bigint)
+                $@"SELECT CLNG(-`o`.`OrderID`)
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -487,7 +535,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_unary_expression_introduces_explicit_cast2(isAsync);
 
             AssertSql(
-                $@"SELECT -CAST(`o`.`OrderID` AS bigint)
+                $@"SELECT -CLNG(`o`.`OrderID`)
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -498,7 +546,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_length_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST(CAST(LEN(`o`.`CustomerID`) AS int) AS bigint)
+                $@"SELECT CLNG(CLNG(LEN(`o`.`CustomerID`)))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -509,7 +557,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_method_call_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST(ABS(`o`.`OrderID`) AS bigint)
+                $@"SELECT CLNG(ABS(`o`.`OrderID`))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -520,7 +568,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_anonymous_type_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CAST(`o`.`OrderID` AS bigint) AS `LongOrder`, CAST(`o`.`OrderID` AS smallint) AS `ShortOrder`, `o`.`OrderID` AS `Order`
+                $@"SELECT CLNG(`o`.`OrderID`) AS `LongOrder`, CINT(`o`.`OrderID`) AS `ShortOrder`, `o`.`OrderID` AS `Order`
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`");
@@ -531,10 +579,7 @@ ORDER BY `o`.`OrderID`");
             await base.Select_conditional_with_null_comparison_in_test(isAsync);
 
             AssertSql(
-                $@"SELECT CASE
-    WHEN `o`.`CustomerID` IS NULL THEN True
-    ELSE IIF(`o`.`OrderID` < 100, 1, 0)
-END
+                $@"SELECT IIF(`o`.`CustomerID` IS NULL, TRUE, IIF(`o`.`OrderID` < 100, TRUE, FALSE))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'");
         }
@@ -917,7 +962,7 @@ FROM `Orders` AS `o`");
             await base.Projecting_nullable_struct(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID`, IIF((`o`.`CustomerID` = 'ALFKI') AND `o`.`CustomerID` IS NOT NULL, 1, 0), `o`.`OrderID`, CAST(LEN(`o`.`CustomerID`) AS int)
+                $@"SELECT `o`.`CustomerID`, IIF((`o`.`CustomerID` = 'ALFKI') AND (`o`.`CustomerID` IS NOT NULL), TRUE, FALSE), `o`.`OrderID`, CLNG(LEN(`o`.`CustomerID`))
 FROM `Orders` AS `o`");
         }
 
@@ -1108,11 +1153,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Select_chained_entity_navigation_doesnt_materialize_intermittent_entities(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM `Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+                $@"SELECT `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM (`Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
+ORDER BY `o`.`OrderID`, `c`.`CustomerID`");
         }
 
         public override async Task Select_entity_compared_to_null(bool isAsync)
@@ -1125,7 +1170,7 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'");
         }
-        
+
         public override async Task SelectMany_whose_selector_references_outer_source(bool isAsync)
         {
             await base.SelectMany_whose_selector_references_outer_source(isAsync);
@@ -1223,7 +1268,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Coalesce_over_nullable_uint(async);
 
             AssertSql(
-                @"SELECT COALESCE(`o`.`EmployeeID`, 0)
+                @"SELECT IIF(`o`.`EmployeeID` IS NULL, 0, `o`.`EmployeeID`)
 FROM `Orders` AS `o`");
         }
 
@@ -1291,10 +1336,10 @@ LEFT JOIN (
     FROM `Orders` AS `o0`
     WHERE `o0`.`OrderID` < 10750
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-WHERE (`c`.`CustomerID` LIKE 'A%') AND ((
+WHERE (`c`.`CustomerID` LIKE 'A%') AND (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
-    WHERE (`o`.`CustomerID` = `c`.`CustomerID`) AND (`o`.`OrderID` < 11000)) > 0)
+    WHERE `o`.`CustomerID` = `c`.`CustomerID` AND `o`.`OrderID` < 11000) > 0
 ORDER BY `c`.`CustomerID`");
         }
 
@@ -1303,10 +1348,7 @@ ORDER BY `c`.`CustomerID`");
             await base.Projection_custom_type_in_both_sides_of_ternary(async);
 
             AssertSql(
-                @"SELECT CASE
-    WHEN (`c`.`City` = 'Seattle') AND (`c`.`City` IS NOT NULL) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+                @"SELECT IIF((`c`.`City` = 'Seattle') AND (`c`.`City` IS NOT NULL), TRUE, FALSE)
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
@@ -1340,7 +1382,7 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP 1 CAST(LEN(`o`.`CustomerID`) AS int)
+    SELECT TOP 1 CLNG(LEN(`o`.`CustomerID`))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderID`)
@@ -1413,9 +1455,9 @@ OFFSET @__p_0 ROWS");
             await base.Projection_Distinct_projection_preserves_columns_used_for_distinct_in_subquery(async);
 
             AssertSql(
-                @"SELECT (COALESCE(`t`.`FirstLetter`, '') + ' ') + `t`.`Foo` AS `Aggregate`
+                @"SELECT (IIF(`t`.`FirstLetter` IS NULL, '', `t`.`FirstLetter`) & ' ') & `t`.`Foo` AS `Aggregate`
 FROM (
-    SELECT DISTINCT `c`.`CustomerID`, SUBSTRING(`c`.`CustomerID`, 0 + 1, 1) AS `FirstLetter`, 'Foo' AS `Foo`
+    SELECT DISTINCT `c`.`CustomerID`, MID(`c`.`CustomerID`, 0 + 1, 1) AS `FirstLetter`, 'Foo' AS `Foo`
     FROM `Customers` AS `c`
 ) AS `t`");
         }
@@ -1473,13 +1515,7 @@ ORDER BY `o`.`OrderID`, `t`.`OrderID`, `t`.`ProductID`, `t`.`ProductID0`, `t0`.`
             await base.Ternary_in_client_eval_assigns_correct_types(async);
 
             AssertSql(
-                @"SELECT `o`.`CustomerID`, CASE
-    WHEN `o`.`OrderDate` IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, `o`.`OrderDate`, `o`.`OrderID` - 10000, CASE
-    WHEN `o`.`OrderDate` IS NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+                @"SELECT `o`.`CustomerID`, IIF(`o`.`OrderDate` IS NOT NULL, TRUE, FALSE), `o`.`OrderDate`, `o`.`OrderID` - 10000, IIF(`o`.`OrderDate` IS NULL, TRUE, FALSE)
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 10300
 ORDER BY `o`.`OrderID`");
@@ -1736,7 +1772,7 @@ ORDER BY `t`.`CustomerID`, `t0`.`OrderDate`, `t0`.`OrderID`");
             AssertSql(
                 @"SELECT `t`.`CustomerID`, `t`.`City`, `o0`.`OrderID`, `o0`.`OrderDate`, `t`.`c`
 FROM (
-    SELECT TOP(2) `c`.`CustomerID`, `c`.`City`, (
+    SELECT TOP 2 `c`.`CustomerID`, `c`.`City`, (
         SELECT COUNT(*)
         FROM `Orders` AS `o`
         WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`

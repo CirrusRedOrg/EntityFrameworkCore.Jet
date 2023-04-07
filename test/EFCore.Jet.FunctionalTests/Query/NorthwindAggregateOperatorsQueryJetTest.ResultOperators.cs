@@ -31,8 +31,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 @"SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE (`o`.`CustomerID` <> 'ALFKI') OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
-FROM (SELECT COUNT(*) FROM MSysAccessStorage)");
+        WHERE (`o`.`CustomerID` <> 'ALFKI') OR (`o`.`CustomerID` IS NULL)), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)");
         }
 
         public override async Task Sum_with_no_arg(bool isAsync)
@@ -572,14 +572,14 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.FirstOrDefault_inside_subquery_gets_server_evaluated(isAsync);
 
             // issue #15994
-//            AssertSql(
-//                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-//FROM `Customers` AS `c`
-//WHERE (`c`.`CustomerID` = 'ALFKI') AND ((
-//    SELECT TOP 1 `o`.`CustomerID`
-//    FROM `Orders` AS `o`
-//    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI')
-//) = 'ALFKI')");
+            //            AssertSql(
+            //                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            //FROM `Customers` AS `c`
+            //WHERE (`c`.`CustomerID` = 'ALFKI') AND ((
+            //    SELECT TOP 1 `o`.`CustomerID`
+            //    FROM `Orders` AS `o`
+            //    WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`CustomerID` = 'ALFKI')
+            //) = 'ALFKI')");
         }
 
         public override async Task Multiple_collection_navigation_with_FirstOrDefault_chained(bool isAsync)
@@ -621,20 +621,20 @@ ORDER BY `od`.`ProductID`");
             await base.Multiple_collection_navigation_with_FirstOrDefault_chained_projecting_scalar(isAsync);
 
             // issue #15994
-//            AssertSql(
-//                $@"SELECT (
-//    SELECT TOP 1 `od`.`ProductID`
-//    FROM `Order Details` AS `od`
-//    WHERE `od`.`OrderID` = COALESCE((
-//        SELECT TOP 1 `o`.`OrderID`
-//        FROM `Orders` AS `o`
-//        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-//        ORDER BY `o`.`OrderID`
-//    ), 0)
-//    ORDER BY `od`.`ProductID`
-//)
-//FROM `Customers` AS `c`
-//ORDER BY `c`.`CustomerID`");
+            //            AssertSql(
+            //                $@"SELECT (
+            //    SELECT TOP 1 `od`.`ProductID`
+            //    FROM `Order Details` AS `od`
+            //    WHERE `od`.`OrderID` = COALESCE((
+            //        SELECT TOP 1 `o`.`OrderID`
+            //        FROM `Orders` AS `o`
+            //        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+            //        ORDER BY `o`.`OrderID`
+            //    ), 0)
+            //    ORDER BY `od`.`ProductID`
+            //)
+            //FROM `Customers` AS `c`
+            //ORDER BY `c`.`CustomerID`");
         }
 
         public override async Task First_inside_subquery_gets_client_evaluated(bool isAsync)
@@ -826,7 +826,7 @@ WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI')");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task Contains_with_local_list_inline(bool isAsync)
@@ -902,10 +902,10 @@ WHERE `c`.`CustomerID` IN ('ALFKI', 'ABCDE') AND `c`.`CustomerID` IN ('ABCDE', '
             await base.Contains_with_local_collection_complex_predicate_or(isAsync);
 
             // issue #15994
-//            AssertSql(
-//                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI', 'ALFKI', 'ABCDE')");
+            //            AssertSql(
+            //                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            //FROM `Customers` AS `c`
+            //WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI', 'ALFKI', 'ABCDE')");
         }
 
         public override async Task Contains_with_local_collection_complex_predicate_not_matching_ins1(bool isAsync)
@@ -913,10 +913,10 @@ WHERE `c`.`CustomerID` IN ('ALFKI', 'ABCDE') AND `c`.`CustomerID` IN ('ABCDE', '
             await base.Contains_with_local_collection_complex_predicate_not_matching_ins1(isAsync);
 
             // issue #15994
-//            AssertSql(
-//                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` IN ('ALFKI', 'ABCDE') OR `c`.`CustomerID` NOT IN ('ABCDE', 'ALFKI')");
+            //            AssertSql(
+            //                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            //FROM `Customers` AS `c`
+            //WHERE `c`.`CustomerID` IN ('ALFKI', 'ABCDE') OR `c`.`CustomerID` NOT IN ('ABCDE', 'ALFKI')");
         }
 
         public override async Task Contains_with_local_collection_complex_predicate_not_matching_ins2(bool isAsync)
@@ -924,10 +924,10 @@ WHERE `c`.`CustomerID` IN ('ALFKI', 'ABCDE') AND `c`.`CustomerID` IN ('ABCDE', '
             await base.Contains_with_local_collection_complex_predicate_not_matching_ins2(isAsync);
 
             // issue #15944
-//            AssertSql(
-//                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-//FROM `Customers` AS `c`
-//WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI') AND `c`.`CustomerID` NOT IN ('ALFKI', 'ABCDE')");
+            //            AssertSql(
+            //                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            //FROM `Customers` AS `c`
+            //WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI') AND `c`.`CustomerID` NOT IN ('ALFKI', 'ABCDE')");
         }
 
         public override async Task Contains_with_local_collection_sql_injection(bool isAsync)
@@ -947,7 +947,7 @@ WHERE `c`.`CustomerID` IN ('ALFKI', 'ABC'')); GO; DROP TABLE Orders; GO; --') OR
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE FALSE");
+WHERE 0 = 1");
         }
 
         public override async Task Contains_with_local_collection_empty_inline(bool isAsync)
@@ -964,16 +964,16 @@ FROM `Customers` AS `c`");
             await base.Contains_top_level(isAsync);
 
             // issue #15994
-//            AssertSql(
-//                $@"{AssertSqlHelper.Declaration("@__p_0='ALFKI' (Size = 4000)")}
+            //            AssertSql(
+            //                $@"{AssertSqlHelper.Declaration("@__p_0='ALFKI' (Size = 4000)")}
 
-//SELECT CASE
-//    WHEN @__p_0 IN (
-//        SELECT `c`.`CustomerID`
-//        FROM `Customers` AS `c`
-//    )
-//    THEN True ELSE False
-//END");
+            //SELECT CASE
+            //    WHEN @__p_0 IN (
+            //        SELECT `c`.`CustomerID`
+            //        FROM `Customers` AS `c`
+            //    )
+            //    THEN True ELSE False
+            //END");
         }
 
         public override async Task Contains_with_local_anonymous_type_array_closure(bool isAsync)
@@ -1010,7 +1010,7 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 ORDER BY `o`.`OrderID`");
         }
 
-        
+
         public override async Task Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(bool isAsync)
         {
             await base.Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(isAsync);
@@ -1169,7 +1169,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'");
         }
-        
+
         public override async Task Project_constant_Sum(bool isAsync)
         {
             await base.Project_constant_Sum(isAsync);

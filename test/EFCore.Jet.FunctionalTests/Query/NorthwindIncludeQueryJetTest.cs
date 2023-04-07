@@ -52,12 +52,10 @@ WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')");
             await base.Include_when_result_operator(async);
 
             AssertSql(
-                @"SELECT CASE
-    WHEN EXISTS (
+                $@"SELECT IIF(EXISTS (
         SELECT 1
-        FROM `Customers` AS `c`) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END");
+        FROM `Customers` AS `c`), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)");
         }
 
         public override async Task Include_collection(bool async)
@@ -382,7 +380,7 @@ FROM (
 LEFT JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`
 ORDER BY `t`.`c`, `t`.`CustomerID`");
         }
-        
+
         public override async Task Include_collection_principal_already_tracked(bool async)
         {
             await base.Include_collection_principal_already_tracked(async);
@@ -401,7 +399,7 @@ FROM (
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `t`.`CustomerID`");
         }
-        
+
         public override async Task Include_collection_with_filter(bool async)
         {
             await base.Include_collection_with_filter(async);
@@ -470,7 +468,7 @@ ORDER BY `c`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID0`, `t0`.`ProductID`");
                 $@"SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`");
         }
-        
+
         public override async Task Include_collection_on_additional_from_clause_with_filter(bool async)
         {
             await base.Include_collection_on_additional_from_clause_with_filter(async);
@@ -577,7 +575,7 @@ LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`");
         }
-        
+
         public override async Task Include_collection_on_additional_from_clause2(bool async)
         {
             await base.Include_collection_on_additional_from_clause2(async);
@@ -781,7 +779,7 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'");
         }
-        
+
         public override async Task Include_collection_dependent_already_tracked(bool async)
         {
             await base.Include_collection_dependent_already_tracked(async);
@@ -815,7 +813,7 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'");
         }
-        
+
         public override async Task Include_with_complex_projection(bool async)
         {
             await base.Include_with_complex_projection(async);
@@ -1088,7 +1086,7 @@ LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
 WHERE `e`.`EmployeeID` IN (1, 2)
 ORDER BY `e`.`EmployeeID`");
         }
-        
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

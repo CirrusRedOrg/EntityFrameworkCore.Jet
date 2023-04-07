@@ -216,13 +216,13 @@ WHERE `c`.`CustomerID` LIKE 'F%'");
 
             AssertSql(
                 @"SELECT `c`.`CustomerID`
-FROM `Customers` AS `c`
-CROSS JOIN (
+FROM `Customers` AS `c`,
+(
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10250
 ) AS `t`
-WHERE `c`.`CustomerID` = N'ALFKI'");
+WHERE `c`.`CustomerID` = 'ALFKI'");
         }
 
         public override async Task Join_same_collection_multiple(bool isAsync)
@@ -413,7 +413,7 @@ WHERE `o2`.`OrderID` IS NOT NULL AND (`o2`.`CustomerID` = 'ALFKI')");
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
         }
-        
+
         public override async Task GroupJoin_SelectMany_subquery_with_filter(bool isAsync)
         {
             await base.GroupJoin_SelectMany_subquery_with_filter(isAsync);
@@ -490,7 +490,7 @@ INNER JOIN (
         {
             return base.GroupJoin_subquery_projection_outer_mixed(isAsync);
         }
-        
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

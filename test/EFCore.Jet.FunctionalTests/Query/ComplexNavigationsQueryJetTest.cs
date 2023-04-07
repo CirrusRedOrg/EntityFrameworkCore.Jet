@@ -1211,7 +1211,7 @@ WHERE EXISTS (
         SELECT 1
         FROM `LevelThree` AS `l1`))");
         }
-        
+
         public override async Task SelectMany_where_with_subquery(bool isAsync)
         {
             await base.SelectMany_where_with_subquery(isAsync);
@@ -1899,7 +1899,7 @@ LEFT JOIN (
     LEFT JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
 ) AS `t` ON `l`.`Id` = `t`.`Level1_Required_Id`");
         }
-        
+
         public override async Task GroupJoin_on_a_subquery_containing_another_GroupJoin_projecting_outer(bool isAsync)
         {
             await base.GroupJoin_on_a_subquery_containing_another_GroupJoin_projecting_outer(isAsync);
@@ -2067,7 +2067,7 @@ WHERE (
     LEFT JOIN `LevelTwo` AS `l2_inner0` ON `l1_inner0`.`Id` = `l2_inner0`.`Level1_Optional_Id`
 ) > 7");
         }
-        
+
         public override async Task GroupJoin_client_method_on_outer(bool isAsync)
         {
             await base.GroupJoin_client_method_on_outer(isAsync);
@@ -2251,7 +2251,7 @@ INNER JOIN `LevelTwo` AS `l0` ON (`l`.`OneToMany_Optional_Self_Inverse1Id` = `l0
 FROM `LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON ((`l`.`OneToMany_Optional_Self_Inverse1Id` = `l0`.`Level1_Optional_Id`) OR ((`l`.`OneToMany_Optional_Self_Inverse1Id` IS NULL) AND (`l0`.`Level1_Optional_Id` IS NULL))) AND ((`l`.`OneToOne_Optional_Self1Id` = `l0`.`OneToMany_Optional_Self_Inverse2Id`) OR ((`l`.`OneToOne_Optional_Self1Id` IS NULL) AND (`l0`.`OneToMany_Optional_Self_Inverse2Id` IS NULL)))");
         }
-        
+
         public override async Task Nested_group_join_with_take(bool isAsync)
         {
             await base.Nested_group_join_with_take(isAsync);
@@ -2966,13 +2966,11 @@ FROM (
             await base.Include_with_all_method_include_gets_ignored(isAsnc);
 
             AssertSql(
-                $@"SELECT CASE
-    WHEN NOT EXISTS (
+                $@"SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `LevelOne` AS `l`
-        WHERE (`l`.`Name` = 'Foo') AND `l`.`Name` IS NOT NULL) THEN True
-    ELSE False
-END");
+        WHERE (`l`.`Name` = 'Foo') AND (`l`.`Name` IS NOT NULL)), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)");
         }
 
         public override async Task Join_with_navigations_in_the_result_selector1(bool isAsync)

@@ -68,7 +68,7 @@ WHERE `d`.`Discriminator` = 'Tea'");
             base.FromSql_on_root();
 
             AssertSql(
-                @"select * from ""Animals""");
+                @"select * from `Animals`");
         }
 
         public override void FromSql_on_derived()
@@ -78,7 +78,7 @@ WHERE `d`.`Discriminator` = 'Tea'");
             AssertSql(
                 @"SELECT `m`.`Species`, `m`.`CountryId`, `m`.`Discriminator`, `m`.`Name`, `m`.`EagleId`, `m`.`IsFlightless`, `m`.`Group`
 FROM (
-    select * from ""Animals""
+    select * from `Animals`
 ) AS `m`
 WHERE `m`.`Discriminator` = 'Eagle'");
         }

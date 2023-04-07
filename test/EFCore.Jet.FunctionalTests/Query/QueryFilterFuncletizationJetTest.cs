@@ -150,21 +150,21 @@ WHERE `m`.`Tenant` = {AssertSqlHelper.Parameter("@__ef_filter__p_0")}");
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")}",
+WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE)",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__Property_0='True'")}
 {AssertSqlHelper.Declaration("@__ef_filter__p_1='True'")}
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")}",
+WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE)",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__Property_0='True'")}
 {AssertSqlHelper.Declaration("@__ef_filter__p_1='False'")}
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")}");
+WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE)");
         }
 
         public override void DbContext_property_based_filter_does_not_short_circuit()
@@ -177,20 +177,20 @@ WHERE (`c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")}
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE NOT (`s`.`IsDeleted`) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
+WHERE (`s`.`IsDeleted` <> TRUE) AND (({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = TRUE) OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='False'")}
 {AssertSqlHelper.Declaration("@__ef_filter__IsModerated_1='False' (Nullable = true)")}
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE NOT (`s`.`IsDeleted`) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
+WHERE (`s`.`IsDeleted` <> TRUE) AND (({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = TRUE) OR ({AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`))",
                 //
                 $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='True'")}
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE NOT (`s`.`IsDeleted`) AND {AssertSqlHelper.Parameter("@__ef_filter__p_0")}");
+WHERE (`s`.`IsDeleted` <> TRUE) AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = TRUE)");
         }
 
         public override void EntityTypeConfiguration_DbContext_field_is_parameterized()
@@ -393,7 +393,7 @@ WHERE `d`.`UserId` <> 1");
             AssertSql(
                 $@"SELECT `s`.`Id`, `s`.`IsEnabled`
 FROM `StaticMemberFilter` AS `s`
-WHERE `s`.`IsEnabled`");
+WHERE `s`.`IsEnabled` = TRUE");
         }
 
         public override void Local_variable_from_OnModelCreating_is_inlined()
@@ -403,7 +403,7 @@ WHERE `s`.`IsEnabled`");
             AssertSql(
                 $@"SELECT `l`.`Id`, `l`.`IsEnabled`
 FROM `LocalVariableFilter` AS `l`
-WHERE `l`.`IsEnabled`");
+WHERE `l`.`IsEnabled` = TRUE");
         }
 
         public override void Method_parameter_is_inlined()

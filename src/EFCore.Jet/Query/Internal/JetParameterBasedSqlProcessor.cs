@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -36,25 +37,25 @@ public class JetParameterBasedSqlProcessor : RelationalParameterBasedSqlProcesso
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public override Expression Optimize(
-        Expression queryExpression,
-        IReadOnlyDictionary<string, object?> parametersValues,
+    public override SelectExpression Optimize(
+        SelectExpression selectExpression,
+        IReadOnlyDictionary<string, object> parametersValues,
         out bool canCache)
     {
-        var optimizedQueryExpression = base.Optimize(queryExpression, parametersValues, out canCache);
+        var optimizedSelectExpression = base.Optimize(selectExpression, parametersValues, out canCache);
 
-        /*optimizedQueryExpression = new SkipTakeCollapsingExpressionVisitor(Dependencies.SqlExpressionFactory)
-            .Process(optimizedQueryExpression, parametersValues, out var canCache2);*/
+        /*optimizedSelectExpression = new SkipTakeCollapsingExpressionVisitor(Dependencies.SqlExpressionFactory)
+            .Process(optimizedSelectExpression, parametersValues, out var canCache2);*/
 
         //canCache &= canCache2;
 
-        return new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory).Visit(optimizedQueryExpression);
+        return (SelectExpression)new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory).Visit(optimizedSelectExpression);
     }
 
     /// <inheritdoc />
-    protected override Expression ProcessSqlNullability(
-        Expression selectExpression,
-        IReadOnlyDictionary<string, object?> parametersValues,
+    protected override SelectExpression ProcessSqlNullability(
+        SelectExpression selectExpression,
+        IReadOnlyDictionary<string, object> parametersValues,
         out bool canCache)
     {
         Check.NotNull(selectExpression, nameof(selectExpression));

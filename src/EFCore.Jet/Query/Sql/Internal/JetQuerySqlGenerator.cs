@@ -473,6 +473,32 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
+            if (sqlFunctionExpression.Name.Equals("MID", StringComparison.OrdinalIgnoreCase) &&
+                sqlFunctionExpression.Arguments != null && sqlFunctionExpression.Arguments.Count > 2)
+            {
+                if (sqlFunctionExpression.Arguments[2] is ColumnExpression { IsNullable: true })
+                {
+                    Sql.Append("IIF(");
+                    Visit(sqlFunctionExpression.Arguments[2]);
+                    Sql.Append(" IS NULL, NULL, ");
+                    base.VisitSqlFunction(sqlFunctionExpression);
+                    Sql.Append(")");
+                    return sqlFunctionExpression;
+                }
+                if (sqlFunctionExpression.Arguments[2] is SqlUnaryExpression { OperatorType: ExpressionType.Convert } unaryExpression)
+                {
+                    if (unaryExpression.Operand is ColumnExpression { IsNullable: true } || unaryExpression.Operand is SqlFunctionExpression { IsNullable: true })
+                    {
+                        Sql.Append("IIF(");
+                        Visit(unaryExpression.Operand);
+                        Sql.Append(" IS NULL, NULL, ");
+                        base.VisitSqlFunction(sqlFunctionExpression);
+                        Sql.Append(")");
+                        return sqlFunctionExpression;
+                    }
+                }
+            }
+
             return base.VisitSqlFunction(sqlFunctionExpression);
         }
 

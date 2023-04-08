@@ -1101,8 +1101,8 @@ ORDER BY `t`.`Nickname`");
             await base.Select_null_propagation_negative6(isAsync);
 
             AssertSql(
-"""
-SELECT IIF(`g`.`LeaderNickname` IS NOT NULL, FALSE, NULL)
+                """
+SELECT IIF(`g`.`LeaderNickname` IS NOT NULL, IIF(CLNG(LEN(`g`.`LeaderNickname`)) <> CLNG(LEN(`g`.`LeaderNickname`)), TRUE, FALSE), NULL)
 FROM `Gears` AS `g`
 """);
         }
@@ -6223,7 +6223,12 @@ WHERE `g`.`FullName` <> 'Dom' AND EXISTS (
             await base.Null_semantics_is_correctly_applied_for_function_comparisons_that_take_arguments_from_optional_navigation(isAsync);
 
             AssertSql(
-                $@"");
+                """
+    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+    FROM `Tags` AS `t`
+    LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
+    WHERE IIF(`g`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `g`.`SquadId`)) = `t`.`GearNickName` OR (((`t`.`Note` IS NULL) OR (`g`.`SquadId` IS NULL)) AND (`t`.`GearNickName` IS NULL))
+    """);
         }
 
         public override async Task
@@ -6233,15 +6238,13 @@ WHERE `g`.`FullName` <> 'Dom' AND EXISTS (
                 isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`
-FROM `Tags` AS `t`
-LEFT JOIN (
-    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
-    FROM `Gears` AS `g`
-    WHERE `g`.`Discriminator` IN ('Gear', 'Officer')
-) AS `t0` ON (`t`.`GearNickName` = `t0`.`Nickname`) AND (`t`.`GearSquadId` = `t0`.`SquadId`)
-LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`
-WHERE (SUBSTRING(`t`.`Note`, 0 + 1, CAST(LEN(`s`.`Name`) AS int)) = `t`.`GearNickName`) OR (SUBSTRING(`t`.`Note`, 0 + 1, CAST(LEN(`s`.`Name`) AS int)) IS NULL AND `t`.`GearNickName` IS NULL)");
+                """
+    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+    FROM (`Tags` AS `t`
+    LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`)
+    LEFT JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
+    WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, CLNG(LEN(`s`.`Name`)))) = `t`.`GearNickName` OR (((`t`.`Note` IS NULL) OR (`s`.`Name` IS NULL)) AND (`t`.`GearNickName` IS NULL))
+    """);
         }
 
         public override async Task Filter_with_new_Guid(bool isAsync)

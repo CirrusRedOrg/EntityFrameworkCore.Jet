@@ -59,6 +59,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
                 .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()
+                .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, JetSqlTranslatingExpressionVisitorFactory>()
                 .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
                 .TryAdd<IQueryTranslationPostprocessorFactory, JetQueryTranslationPostprocessorFactory>()
                 .TryAdd<IRelationalTransactionFactory, JetTransactionFactory>()

@@ -39,15 +39,30 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 });
         }
 
-        public new ISetSource GetExpectedData()
+
+        /*
+         * We need to workaround a different behaviour with Jet.
+         * When working with a foreign key declaration over multiple fields, each field must meet the condition.
+         * This is different to other databases where if any field is null, the foreign key constaint is not required
+         * PostgreSql call this MATCH SIMPLE and MATCH FULL is where each field individually must meet the constraint
+         * SQL Server operates in MATCH SIMPLE mode
+         * Jet differs and operates in MATCH FULL mode
+         */
+        public override ISetSource GetExpectedData()
         {
             var data = (GearsOfWarData)base.GetExpectedData();
 
-            foreach (var mission in data.Missions)
+            /*foreach (var mission in data.Missions)
             {
                 mission.Timeline = mission.Timeline.AddYears(100);
             }
-
+            */
+            foreach (var gear in data.Gears)
+            {
+                if (gear.LeaderSquadId != 0) continue;
+                gear.LeaderSquadId = 1;
+                gear.LeaderNickname = "Marcus";
+            }
             return data;
         }
 
@@ -63,16 +78,23 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             var locustLeaders = GearsOfWarData.CreateLocustLeaders();
             var factions = GearsOfWarData.CreateFactions();
             var locustHighCommands = GearsOfWarData.CreateHighCommands();
-            foreach (var mission in missions)
+            /*foreach (var mission in missions)
             {
                 mission.Timeline = new DateTimeOffset(new DateTime(1753, 1, 1));
-            }
+            }*/
             GearsOfWarData.WireUp(
                 squads, missions, squadMissions, cities, weapons, tags, gears, locustLeaders, factions, locustHighCommands);
 
-            foreach (var tag in tags)
+            /*foreach (var tag in tags)
             {
                 tag.IssueDate = new DateTime(1750, 1, 1);
+            }*/
+
+            foreach (var gear in gears)
+            {
+                if (gear.LeaderSquadId != 0) continue;
+                gear.LeaderSquadId = 1;
+                gear.LeaderNickname = "Marcus";
             }
             context.Squads.AddRange(squads);
             context.Missions.AddRange(missions);

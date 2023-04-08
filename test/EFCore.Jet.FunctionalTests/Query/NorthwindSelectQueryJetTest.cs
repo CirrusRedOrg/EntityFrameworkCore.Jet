@@ -899,8 +899,10 @@ FROM `Orders` AS `o`");
             await base.Select_datetime_millisecond_component(isAsync);
 
             AssertSql(
-                $@"SELECT DATEPART(millisecond, `o`.`OrderDate`)
-FROM `Orders` AS `o`");
+"""
+SELECT `o`.`OrderDate`
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_byte_constant(bool isAsync)

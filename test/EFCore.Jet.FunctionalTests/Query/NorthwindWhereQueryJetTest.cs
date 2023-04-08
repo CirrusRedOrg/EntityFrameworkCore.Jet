@@ -1499,19 +1499,23 @@ WHERE `o`.`CustomerID` = 'QUICK' AND `o`.`OrderDate` > #1998-01-01#");
             await base.Where_navigation_contains(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT TOP 2 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` = 'ALFKI'
 ) AS `t`
 LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`",
+ORDER BY `t`.`CustomerID`
+""",
                 //
-                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+"""
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE `o0`.`OrderID` IN (10643, 10692, 10702, 10835, 10952, 11011)");
+WHERE `o0`.`OrderID` IN (10643, 10952, 10692, 10835, 11011, 10702)
+""");
         }
 
         public override async Task Where_array_index(bool isAsync)

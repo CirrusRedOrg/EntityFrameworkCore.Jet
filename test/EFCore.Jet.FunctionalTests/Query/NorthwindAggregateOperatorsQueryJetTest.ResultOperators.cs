@@ -105,28 +105,72 @@ WHERE `p`.`ProductID` < 40");
             await base.Sum_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"SELECT (
-    SELECT SUM(`o`.`OrderID`)
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-)
-FROM `Customers` AS `c`");
+"""
+SELECT IIF(SUM((
+        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
+        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Sum_over_nested_subquery_is_client_eval(bool isAsync)
         {
             await base.Sum_over_nested_subquery_is_client_eval(isAsync);
             AssertSql(
-                $@"SELECT `c`.`CustomerID`
-FROM `Customers` AS `c`");
+"""
+SELECT IIF(SUM((
+        SELECT IIF(SUM(5 + (
+                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
+                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
+        SELECT IIF(SUM(5 + (
+                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
+                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Sum_over_min_subquery_is_client_eval(bool isAsync)
         {
             await base.Sum_over_min_subquery_is_client_eval(isAsync);
             AssertSql(
-                $@"SELECT `c`.`CustomerID`
-FROM `Customers` AS `c`");
+"""
+SELECT IIF(SUM((
+        SELECT IIF(SUM(5 + (
+                SELECT MIN(`o0`.`ProductID`)
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
+                SELECT MIN(`o0`.`ProductID`)
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
+        SELECT IIF(SUM(5 + (
+                SELECT MIN(`o0`.`ProductID`)
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
+                SELECT MIN(`o0`.`ProductID`)
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Sum_on_float_column(bool isAsync)
@@ -319,12 +363,13 @@ WHERE `p`.`ProductID` < 40");
             await base.Min_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"SELECT (
-    SELECT SUM(`o`.`OrderID`)
+"""
+SELECT MIN((
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-)
-FROM `Customers` AS `c`");
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Min_over_nested_subquery_is_client_eval(bool isAsync)
@@ -332,11 +377,20 @@ FROM `Customers` AS `c`");
             await base.Min_over_nested_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+"""
+SELECT MIN((
+    SELECT MIN(5 + (
+        SELECT MIN(`o0`.`ProductID`)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+FROM (
+    SELECT TOP 3 `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `t`
+""");
         }
 
         public override async Task Min_over_max_subquery_is_client_eval(bool isAsync)
@@ -344,11 +398,20 @@ ORDER BY `c`.`CustomerID`");
             await base.Min_over_max_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+"""
+SELECT MIN((
+    SELECT MIN(5 + (
+        SELECT MAX(`o0`.`ProductID`)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+FROM (
+    SELECT TOP 3 `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `t`
+""");
         }
 
         public override async Task Max_with_no_arg(bool isAsync)
@@ -384,12 +447,13 @@ WHERE `p`.`ProductID` < 40");
             await base.Max_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"SELECT (
-    SELECT SUM(`o`.`OrderID`)
+"""
+SELECT MAX((
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-)
-FROM `Customers` AS `c`");
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`))
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Max_over_nested_subquery_is_client_eval(bool isAsync)
@@ -397,11 +461,20 @@ FROM `Customers` AS `c`");
             await base.Max_over_nested_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+"""
+SELECT MAX((
+    SELECT MAX(5 + (
+        SELECT MAX(`o0`.`ProductID`)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+FROM (
+    SELECT TOP 3 `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `t`
+""");
         }
 
         public override async Task Max_over_sum_subquery_is_client_eval(bool isAsync)
@@ -409,11 +482,20 @@ ORDER BY `c`.`CustomerID`");
             await base.Max_over_sum_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+"""
+SELECT MAX((
+    SELECT MAX(5 + (
+        SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+FROM (
+    SELECT TOP 3 `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `t`
+""");
         }
 
         public override async Task Count_with_predicate(bool isAsync)

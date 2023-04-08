@@ -272,10 +272,15 @@ WHERE `c`.`ContactName` LIKE '%M%'");
             await base.String_Join_over_non_nullable_column(async);
 
             AssertSql(
-                """
-SELECT `c`.`City`, COALESCE(STRING_AGG(`c`.`CustomerID`, '|'), '') AS `Customers`
-FROM `Customers` AS `c`
-GROUP BY `c`.`City`
+"""
+SELECT `t`.`City`, `c0`.`CustomerID`
+FROM (
+    SELECT `c`.`City`
+    FROM `Customers` AS `c`
+    GROUP BY `c`.`City`
+) AS `t`
+LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
+ORDER BY `t`.`City`
 """);
         }
 
@@ -284,10 +289,15 @@ GROUP BY `c`.`City`
             await base.String_Join_over_nullable_column(async);
 
             AssertSql(
-                """
-SELECT `c`.`City`, COALESCE(STRING_AGG(COALESCE(`c`.`Region`, ''), '|'), '') AS `Regions`
-FROM `Customers` AS `c`
-GROUP BY `c`.`City`
+"""
+SELECT `t`.`City`, `c0`.`Region`, `c0`.`CustomerID`
+FROM (
+    SELECT `c`.`City`
+    FROM `Customers` AS `c`
+    GROUP BY `c`.`City`
+) AS `t`
+LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
+ORDER BY `t`.`City`
 """);
         }
 
@@ -296,12 +306,19 @@ GROUP BY `c`.`City`
             await base.String_Join_with_predicate(async);
 
             AssertSql(
-                """
-SELECT `c`.`City`, COALESCE(STRING_AGG(CASE
-    WHEN CAST(LEN(`c`.`ContactName`) AS int) > 10 THEN `c`.`CustomerID`
-END, '|'), '') AS `Customers`
-FROM `Customers` AS `c`
-GROUP BY `c`.`City`
+"""
+SELECT `t`.`City`, `t0`.`CustomerID`
+FROM (
+    SELECT `c`.`City`
+    FROM `Customers` AS `c`
+    GROUP BY `c`.`City`
+) AS `t`
+LEFT JOIN (
+    SELECT `c0`.`CustomerID`, `c0`.`City`
+    FROM `Customers` AS `c0`
+    WHERE CLNG(LEN(`c0`.`ContactName`)) > 10
+) AS `t0` ON `t`.`City` = `t0`.`City`
+ORDER BY `t`.`City`
 """);
         }
 
@@ -310,10 +327,15 @@ GROUP BY `c`.`City`
             await base.String_Join_with_ordering(async);
 
             AssertSql(
-                """
-SELECT `c`.`City`, COALESCE(STRING_AGG(`c`.`CustomerID`, '|') WITHIN GROUP (ORDER BY `c`.`CustomerID` DESC), '') AS `Customers`
-FROM `Customers` AS `c`
-GROUP BY `c`.`City`
+"""
+SELECT `t`.`City`, `c0`.`CustomerID`
+FROM (
+    SELECT `c`.`City`
+    FROM `Customers` AS `c`
+    GROUP BY `c`.`City`
+) AS `t`
+LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
+ORDER BY `t`.`City`, `c0`.`CustomerID` DESC
 """);
         }
 
@@ -322,10 +344,15 @@ GROUP BY `c`.`City`
             await base.String_Concat(async);
 
             AssertSql(
-                """
-SELECT `c`.`City`, COALESCE(STRING_AGG(`c`.`CustomerID`, ''), '') AS `Customers`
-FROM `Customers` AS `c`
-GROUP BY `c`.`City`
+"""
+SELECT `t`.`City`, `c0`.`CustomerID`
+FROM (
+    SELECT `c`.`City`
+    FROM `Customers` AS `c`
+    GROUP BY `c`.`City`
+) AS `t`
+LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
+ORDER BY `t`.`City`
 """);
         }
 

@@ -1074,7 +1074,10 @@ FROM `Entities1` AS `e`");
             await base.Projecting_nullable_bool_with_coalesce_nested(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, NULL, `e`.`NullableBoolA`)) AS `Coalesce`
+                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
+FROM `Entities1` AS `e`",
+                //
+                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
 FROM `Entities1` AS `e`");
         }
 
@@ -1083,18 +1086,18 @@ FROM `Entities1` AS `e`");
             await base.Null_semantics_applied_when_comparing_function_with_nullable_argument_to_a_nullable_column(async);
 
             // issue #15994
-//            AssertSql(
-//                $@"SELECT `e`.`Id`
-//FROM `Entities1` AS `e`
-//WHERE ((CHARINDEX('oo', `e`.`NullableStringA`) - 1) = `e`.`NullableIntA`) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableIntA` IS NULL)",
-//                //
-//                $@"SELECT `e`.`Id`
-//FROM `Entities1` AS `e`
-//WHERE ((CHARINDEX('ar', `e`.`NullableStringA`) - 1) = `e`.`NullableIntA`) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableIntA` IS NULL)",
-//                //
-//                $@"SELECT `e`.`Id`
-//FROM `Entities1` AS `e`
-//WHERE (((CHARINDEX('oo', `e`.`NullableStringA`) - 1) <> `e`.`NullableIntB`) OR (`e`.`NullableStringA` IS NULL OR `e`.`NullableIntB` IS NULL)) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)");
+            //            AssertSql(
+            //                $@"SELECT `e`.`Id`
+            //FROM `Entities1` AS `e`
+            //WHERE ((CHARINDEX('oo', `e`.`NullableStringA`) - 1) = `e`.`NullableIntA`) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableIntA` IS NULL)",
+            //                //
+            //                $@"SELECT `e`.`Id`
+            //FROM `Entities1` AS `e`
+            //WHERE ((CHARINDEX('ar', `e`.`NullableStringA`) - 1) = `e`.`NullableIntA`) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableIntA` IS NULL)",
+            //                //
+            //                $@"SELECT `e`.`Id`
+            //FROM `Entities1` AS `e`
+            //WHERE (((CHARINDEX('oo', `e`.`NullableStringA`) - 1) <> `e`.`NullableIntB`) OR (`e`.`NullableStringA` IS NULL OR `e`.`NullableIntB` IS NULL)) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)");
         }
 
         public override async Task Null_semantics_applied_when_comparing_two_functions_with_nullable_arguments(bool async)
@@ -1102,18 +1105,18 @@ FROM `Entities1` AS `e`");
             await base.Null_semantics_applied_when_comparing_two_functions_with_nullable_arguments(async);
 
             // issue #15994
-//            AssertSql(
-//                $@"SELECT `e`.`Id`
-//FROM `Entities1` AS `e`
-//WHERE ((CHARINDEX('oo', `e`.`NullableStringA`) - 1) = (CHARINDEX('ar', `e`.`NullableStringB`) - 1)) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)",
-//                //
-//                $@"SELECT `e`.`Id`
-//FROM `Entities1` AS `e`
-//WHERE (((CHARINDEX('oo', `e`.`NullableStringA`) - 1) <> (CHARINDEX('ar', `e`.`NullableStringB`) - 1)) OR (`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL)) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)",
-//                //
-//                $@"SELECT `e`.`Id`
-//FROM `Entities1` AS `e`
-//WHERE (((CHARINDEX('oo', `e`.`NullableStringA`) - 1) <> (CHARINDEX('ar', `e`.`NullableStringA`) - 1)) OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL");
+            //            AssertSql(
+            //                $@"SELECT `e`.`Id`
+            //FROM `Entities1` AS `e`
+            //WHERE ((CHARINDEX('oo', `e`.`NullableStringA`) - 1) = (CHARINDEX('ar', `e`.`NullableStringB`) - 1)) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)",
+            //                //
+            //                $@"SELECT `e`.`Id`
+            //FROM `Entities1` AS `e`
+            //WHERE (((CHARINDEX('oo', `e`.`NullableStringA`) - 1) <> (CHARINDEX('ar', `e`.`NullableStringB`) - 1)) OR (`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL)) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)",
+            //                //
+            //                $@"SELECT `e`.`Id`
+            //FROM `Entities1` AS `e`
+            //WHERE (((CHARINDEX('oo', `e`.`NullableStringA`) - 1) <> (CHARINDEX('ar', `e`.`NullableStringA`) - 1)) OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL");
         }
 
         public override async Task Null_semantics_applied_when_comparing_two_functions_with_multiple_nullable_arguments(bool async)

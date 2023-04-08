@@ -44,10 +44,19 @@ ORDER BY `c`.`CustomerID`");
             base.Query_ending_with_include();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
+ORDER BY `c`.`CustomerID`
+""",
+                //
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override void Untyped_context()
@@ -139,13 +148,17 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
             base.Query_with_contains();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` IN ('ALFKI')",
+WHERE `c`.`CustomerID` = 'ALFKI'
+""",
                 //
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` IN ('ANATR')");
+WHERE `c`.`CustomerID` = 'ANATR'
+""");
         }
 
         public override void Query_with_closure()
@@ -167,9 +180,13 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Keyless_query_async();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`",
+"""
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+""",
                 //
-                $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
+"""
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+""");
         }
 
         public override void Keyless_query_first()
@@ -177,11 +194,13 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             base.Keyless_query_first();
 
             AssertSql(
-                $@"SELECT TOP 1 `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
+"""
+SELECT TOP 1 `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`
 FROM (
-    SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`
-) AS `c`
-ORDER BY `c`.`CompanyName`");
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+) AS `m`
+ORDER BY `m`.`CompanyName`
+""");
         }
 
         public override async Task Keyless_query_first_async()
@@ -189,11 +208,13 @@ ORDER BY `c`.`CompanyName`");
             await base.Keyless_query_first_async();
 
             AssertSql(
-                $@"SELECT TOP 1 `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`
+"""
+SELECT TOP 1 `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`
 FROM (
-    SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`
-) AS `c`
-ORDER BY `c`.`CompanyName`");
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+) AS `m`
+ORDER BY `m`.`CompanyName`
+""");
         }
 
         public override void Keyless_query()
@@ -201,9 +222,13 @@ ORDER BY `c`.`CompanyName`");
             base.Keyless_query();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`",
+"""
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+""",
                 //
-                $@"SELECT `c`.`CustomerID` + '' as `CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
+"""
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+""");
         }
 
         public override void Compiled_query_when_does_not_end_in_query_operator()

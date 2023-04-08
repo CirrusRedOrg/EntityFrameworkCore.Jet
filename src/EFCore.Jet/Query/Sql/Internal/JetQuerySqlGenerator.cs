@@ -266,17 +266,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                //Visit(
-                /*_sqlExpressionFactory.Case(
-                    new[]
-                    {
-                        new CaseWhenClause(
-                            _sqlExpressionFactory.IsNull(sqlBinaryExpression.Left),
-                            sqlBinaryExpression.Right)
-                    },
-                    sqlBinaryExpression.Left));
-            return sqlBinaryExpression;*/
-
                 SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
                 List<CaseWhenClause> whenclause = new List<CaseWhenClause>
@@ -466,16 +455,21 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null)
+            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null && sqlFunctionExpression.Arguments.Count > 1)
             {
-                SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
-                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlFunctionExpression.Arguments[0], typeof(bool), null);
-                List<CaseWhenClause> whenclause = new List<CaseWhenClause>
+                int start = sqlFunctionExpression.Arguments.Count - 1;
+                CaseExpression? lastcaseexp = null;
+                for (int A = start; A >= 1; A--)
                 {
-                    new CaseWhenClause(isnullexp, sqlFunctionExpression.Arguments[1])
-                };
-                CaseExpression caseexp = new CaseExpression(whenclause, sqlFunctionExpression.Arguments[0]);
-                Visit(caseexp);
+                    SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlFunctionExpression.Arguments[A - 1], typeof(bool), null);
+                    List<CaseWhenClause> whenclause = new List<CaseWhenClause>
+                    {
+                        new CaseWhenClause(isnullexp, lastcaseexp ?? sqlFunctionExpression.Arguments[A])
+                    };
+                    lastcaseexp = new CaseExpression(whenclause, sqlFunctionExpression.Arguments[A - 1]);
+                }
+
+                Visit(lastcaseexp);
                 return sqlFunctionExpression;
             }
 

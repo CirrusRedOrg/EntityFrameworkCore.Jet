@@ -18,9 +18,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             base.OnModelCreating(modelBuilder, context);
 
-            /*modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
+            modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
 
-            modelBuilder.Entity<Mission>(
+            /*modelBuilder.Entity<Mission>(
                 b =>
                 {
                     // Full-text binary search
@@ -34,8 +34,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 {
                     b.Ignore(m => m.Date);
                     b.Ignore(m => m.Time);
-                    b.Ignore(m => m.Timeline);
-                    b.Ignore(m => m.Duration);
+                    //b.Ignore(m => m.Timeline);
+                    //b.Ignore(m => m.Duration);
                 });
         }
 

@@ -1944,7 +1944,7 @@ WHERE 'Unknown' = `c`.`Location`");
 
             AssertSql(
 """
-@__value_0='Unknown' (Size = 255)
+@__value_0='Unknown' (Size = 100)
 
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
@@ -3057,6 +3057,7 @@ ORDER BY `t`.`Rank`");
         public override async Task Take_without_orderby_followed_by_orderBy_is_pushed_down1(bool isAsync)
         {
             await base.Take_without_orderby_followed_by_orderBy_is_pushed_down1(isAsync);
+
             AssertSql(
                 """
 SELECT `t`.`FullName`
@@ -5925,7 +5926,7 @@ ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & 'Marcus'' Lancer'
 
             AssertSql(
 """
-SELECT ('HasSoulPatch ' & (`g`.`HasSoulPatch` & '')) & ' HasSoulPatch', ('Rank ' & (`g`.`Rank` & '')) & ' Rank', ('SquadId ' & (`g`.`SquadId` & '')) & ' SquadId', ('Rating ' & IIF((`m`.`Rating` & '') IS NULL, '', (`m`.`Rating` & ''))) & ' Rating', `m`.`Id`, `m`.`CodeName`, `m`.`Rating`
+SELECT ('HasSoulPatch ' & (`g`.`HasSoulPatch` & '')) & ' HasSoulPatch' AS `HasSoulPatch`, ('Rank ' & (`g`.`Rank` & '')) & ' Rank' AS `Rank`, ('SquadId ' & (`g`.`SquadId` & '')) & ' SquadId' AS `SquadId`, ('Rating ' & IIF((`m`.`Rating` & '') IS NULL, '', (`m`.`Rating` & ''))) & ' Rating' AS `Rating`, ('Timeline ' & (`m`.`Timeline` & '')) & ' Timeline' AS `Timeline`
 FROM `Gears` AS `g`,
 `Missions` AS `m`
 ORDER BY `g`.`Nickname`, `m`.`Id`
@@ -7430,8 +7431,8 @@ WHERE CBYTE(`l`.`ThreatLevel`) >= 5
             await base.TimeSpan_Hours(async);
 
             AssertSql(
-    """
-SELECT DATEPART(hour, `m`.`Duration`)
+                """
+SELECT DATEPART('h', `m`.`Duration`)
 FROM `Missions` AS `m`
 """);
         }
@@ -7441,8 +7442,8 @@ FROM `Missions` AS `m`
             await base.TimeSpan_Minutes(async);
 
             AssertSql(
-    """
-SELECT DATEPART(minute, `m`.`Duration`)
+                """
+SELECT DATEPART('n', `m`.`Duration`)
 FROM `Missions` AS `m`
 """);
         }
@@ -7452,8 +7453,8 @@ FROM `Missions` AS `m`
             await base.TimeSpan_Seconds(async);
 
             AssertSql(
-    """
-SELECT DATEPART(second, `m`.`Duration`)
+            """
+SELECT DATEPART('s', `m`.`Duration`)
 FROM `Missions` AS `m`
 """);
         }
@@ -7474,10 +7475,10 @@ FROM `Missions` AS `m`
             await base.Where_TimeSpan_Hours(async);
 
             AssertSql(
-    """
-SELECT `m`.`Id`, `m`.`BriefingDocument`, `m`.`BriefingDocumentFileExtension`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART(hour, `m`.`Duration`) = 1
+WHERE DATEPART('h', `m`.`Duration`) = 1
 """);
         }
 
@@ -7486,10 +7487,10 @@ WHERE DATEPART(hour, `m`.`Duration`) = 1
             await base.Where_TimeSpan_Minutes(async);
 
             AssertSql(
-    """
-SELECT `m`.`Id`, `m`.`BriefingDocument`, `m`.`BriefingDocumentFileExtension`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART(minute, `m`.`Duration`) = 1
+WHERE DATEPART('n', `m`.`Duration`) = 1
 """);
         }
 
@@ -7498,10 +7499,10 @@ WHERE DATEPART(minute, `m`.`Duration`) = 1
             await base.Where_TimeSpan_Seconds(async);
 
             AssertSql(
-    """
-SELECT `m`.`Id`, `m`.`BriefingDocument`, `m`.`BriefingDocumentFileExtension`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART(second, `m`.`Duration`) = 1
+WHERE DATEPART('s', `m`.`Duration`) = 1
 """);
         }
 
@@ -8775,11 +8776,11 @@ WHERE `g`.`HasSoulPatch` = TRUE AND `g`.`HasSoulPatch` IN (FALSE, TRUE)
             AssertSql(
 """
 @__place_0='Seattle' (Size = 255)
-@__place_0='Seattle' (Size = 255)
+@__place_0_1='Seattle' (Size = 100)
 
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
-WHERE `c`.`Nation` = @__place_0 OR `c`.`Location` = @__place_0
+WHERE `c`.`Nation` = @__place_0 OR `c`.`Location` = @__place_0_1
 """);
         }
 

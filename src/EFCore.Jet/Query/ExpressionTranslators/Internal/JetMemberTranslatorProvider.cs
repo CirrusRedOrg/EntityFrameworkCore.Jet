@@ -19,12 +19,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             : base(dependencies)
         {
             var sqlExpressionFactory = (JetSqlExpressionFactory)dependencies.SqlExpressionFactory;
-            
+
             // ReSharper disable once VirtualMemberCallInConstructor
             AddTranslators(new IMemberTranslator[]
             {
                 new JetStringMemberTranslator(sqlExpressionFactory),
                 new JetDateTimeMemberTranslator(sqlExpressionFactory),
+                new JetTimeSpanMemberTranslator(sqlExpressionFactory)
             });
         }
     }

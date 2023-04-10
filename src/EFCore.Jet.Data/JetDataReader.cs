@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.Data
 #endif
             _wrappedDataReader = dataReader;
         }
-        
+
         public JetDataReader(DbDataReader dataReader, int skipCount)
             : this(dataReader)
         {
@@ -50,8 +50,8 @@ namespace EntityFrameworkCore.Jet.Data
         public override bool GetBoolean(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            
-            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && 
+
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                 Convert.IsDBNull(value))
             {
                 return default;
@@ -77,40 +77,40 @@ namespace EntityFrameworkCore.Jet.Data
                 return ulongValue != 0;
             if (value is decimal decimalValue)
                 return decimalValue != 0;
-            
-            return (bool) value;
+
+            return (bool)value;
         }
 
         public override byte GetByte(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            
-            if (JetConfiguration.UseDefaultValueOnDBNullConversionError && 
+
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                 Convert.IsDBNull(value))
             {
                 return default;
             }
-            
+
             if (value is byte byteValue)
                 return byteValue;
             if (value is sbyte sbyteValue)
-                return checked((byte) sbyteValue);
+                return checked((byte)sbyteValue);
             if (value is short shortValue)
-                return checked((byte) shortValue);
+                return checked((byte)shortValue);
             if (value is ushort ushortValue)
-                return checked((byte) ushortValue);
+                return checked((byte)ushortValue);
             if (value is int intValue)
-                return checked((byte) intValue);
+                return checked((byte)intValue);
             if (value is uint uintValue)
-                return checked((byte) uintValue);
+                return checked((byte)uintValue);
             if (value is long longValue)
-                return checked((byte) longValue);
+                return checked((byte)longValue);
             if (value is ulong ulongValue)
-                return checked((byte) ulongValue);
+                return checked((byte)ulongValue);
             if (value is decimal decimalValue)
-                return (byte) decimalValue;
-            
-            return (byte) value;
+                return (byte)decimalValue;
+
+            return (byte)value;
         }
 
         public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Data
             return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                    Convert.IsDBNull(value)
                 ? default
-                : (char) value;
+                : (char)value;
         }
 
         public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
@@ -135,7 +135,7 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 return 0;
             }
-            
+
             return _wrappedDataReader.GetChars(ordinal, dataOffset, buffer, bufferOffset, length);
         }
 
@@ -148,7 +148,7 @@ namespace EntityFrameworkCore.Jet.Data
             // Since DATETIME values are really just DOUBLE values internally in Jet, we explicitly convert those vales
             // to DOUBLE in the most outer SELECT projections as a workaround.
             var value = _wrappedDataReader.GetValue(ordinal);
-            
+
             if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                 Convert.IsDBNull(value))
                 return default;
@@ -158,15 +158,15 @@ namespace EntityFrameworkCore.Jet.Data
                 // Round to milliseconds.
                 return new DateTime(
                     JetConfiguration.TimeSpanOffset.Ticks +
-                    (long) (Math.Round(
-                                (decimal) (long) ((decimal) doubleValue * TimeSpan.TicksPerDay) /
+                    (long)(Math.Round(
+                                (decimal)(long)((decimal)doubleValue * TimeSpan.TicksPerDay) /
                                 TimeSpan.TicksPerMillisecond,
                                 0,
                                 MidpointRounding.AwayFromZero) *
                             TimeSpan.TicksPerMillisecond));
             }
 
-            return (DateTime) value;
+            return (DateTime)value;
         }
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
@@ -261,7 +261,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override int GetOrdinal(string name)
             => _wrappedDataReader.GetOrdinal(name);
-        
+
         public override DataTable GetSchemaTable()
             => _wrappedDataReader.GetSchemaTable();
 
@@ -271,13 +271,13 @@ namespace EntityFrameworkCore.Jet.Data
             return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
                    Convert.IsDBNull(value)
                 ? string.Empty
-                : (string) value;
+                : (string)value;
         }
 
         public override object GetValue(int ordinal)
         {
             var fieldType = GetFieldType(ordinal);
-            
+
             if (fieldType == typeof(bool))
                 return GetBoolean(ordinal);
             if (fieldType == typeof(byte))
@@ -325,10 +325,10 @@ namespace EntityFrameworkCore.Jet.Data
         public override int GetValues(object[] values)
         {
             var count = Math.Min((values ?? throw new ArgumentNullException(nameof(values))).Length, FieldCount);
-            
+
             for (var i = 0; i < count; i++)
                 values[i] = GetValue(i);
-            
+
             return count;
         }
 
@@ -340,7 +340,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override bool IsDBNull(int ordinal)
             => _wrappedDataReader.IsDBNull(ordinal) ||
-               JetConfiguration.IntegerNullValue != null && ((int) JetConfiguration.IntegerNullValue).Equals(GetValue(ordinal));
+               JetConfiguration.IntegerNullValue != null && ((int)JetConfiguration.IntegerNullValue).Equals(GetValue(ordinal));
 
         public override bool NextResult()
             => _wrappedDataReader.NextResult();
@@ -356,5 +356,23 @@ namespace EntityFrameworkCore.Jet.Data
 
         public override object this[int ordinal]
             => _wrappedDataReader[ordinal];
+
+        public override T GetFieldValue<T>(int ordinal)
+        {
+            if (typeof(T) == typeof(DateTime))
+            {
+                return (T)(object)GetDateTime(ordinal);
+            }
+            if (typeof(T) == typeof(TimeSpan))
+            {
+                return (T)(object)GetTimeSpan(ordinal);
+            }
+            if (typeof(T) == typeof(DateTimeOffset))
+            {
+                return (T)(object)GetDateTimeOffset(ordinal);
+            }
+
+            return (T)GetValue(ordinal);
+        }
     }
 }

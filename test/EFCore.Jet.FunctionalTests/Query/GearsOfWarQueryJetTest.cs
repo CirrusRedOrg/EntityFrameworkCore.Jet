@@ -355,7 +355,7 @@ INNER JOIN (
     WHERE `g`.`Discriminator` = 'Officer'
 ) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
 LEFT JOIN `Gears` AS `g0` ON `t0`.`Nickname` = `g0`.`LeaderNickname` AND `t0`.`SquadId` = `g0`.`LeaderSquadId`
-ORDER BY `t0`.`HasSoulPatch`, `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadId`, `g0`.`Nickname`
+ORDER BY `t0`.`HasSoulPatch` DESC, `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadId`, `g0`.`Nickname`
 """);
         }
 
@@ -2870,10 +2870,10 @@ WHERE `t`.`Note` <> 'Foo' OR (`t`.`Note` IS NULL)
 
             AssertSql(
                 """
-    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
-    FROM `Tags` AS `t`
-    WHERE `t`.`Id` IN ('d2c26679-562b-44d1-ab96-23d1775e0926', '23cbcf9b-ce14-45cf-aafa-2c2667ebfdd3', 'ab1b82d7-88db-42bd-a132-7eef9aa68af4')
-    """);
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
+WHERE `t`.`Id` IN ('{d2c26679-562b-44d1-ab96-23d1775e0926}', '{23cbcf9b-ce14-45cf-aafa-2c2667ebfdd3}', '{ab1b82d7-88db-42bd-a132-7eef9aa68af4}')
+""");
         }
 
         public override async Task Unnecessary_include_doesnt_get_added_complex_when_projecting_EF_Property(bool isAsync)
@@ -4214,7 +4214,7 @@ WHERE `g`.`Discriminator` = 'Officer' AND EXISTS (
     SELECT 1
     FROM `Gears` AS `g0`
     WHERE `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`)
-ORDER BY `g`.`HasSoulPatch` DESC, `t`.`Note`
+ORDER BY `g`.`HasSoulPatch`, `t`.`Note`
 """);
         }
 
@@ -4288,7 +4288,7 @@ WHERE `g`.`Discriminator` = 'Officer' AND EXISTS (
     SELECT 1
     FROM `Gears` AS `g0`
     WHERE `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`)
-ORDER BY `g`.`HasSoulPatch` DESC, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`Id` DESC, `t0`.`c`, `t0`.`Nickname`
+ORDER BY `g`.`HasSoulPatch`, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`Id` DESC, `t0`.`c`, `t0`.`Nickname`
 """);
         }
 
@@ -6203,10 +6203,10 @@ WHERE `g`.`FullName` <> 'Dom' AND EXISTS (
 
             AssertSql(
                 """
-    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
-    FROM `Tags` AS `t`
-    WHERE `t`.`Id` = 'df36f493-463f-4123-83f9-6b135deeb7ba'
-    """);
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
+WHERE `t`.`Id` = '{df36f493-463f-4123-83f9-6b135deeb7ba}'
+""");
         }
 
         public override async Task Filter_with_new_Guid_closure(bool isAsync)

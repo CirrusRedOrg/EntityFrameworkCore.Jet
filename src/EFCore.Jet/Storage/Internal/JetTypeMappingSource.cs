@@ -53,7 +53,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new JetStringTypeMapping("varchar(max)", unicode: true, storeTypePostfix: StoreTypePostfix.None);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
 
-        private readonly GuidTypeMapping _guid = new GuidTypeMapping("uniqueidentifier", DbType.Guid);
+        private readonly JetGuidTypeMapping _guid = new JetGuidTypeMapping("uniqueidentifier", DbType.Guid);
         private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8,
             comparer: new ValueComparer<byte[]>(
                 (v1, v2) => StructuralComparisons.StructuralEqualityComparer.Equals(v1, v2),

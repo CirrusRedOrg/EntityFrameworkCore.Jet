@@ -259,13 +259,17 @@ ORDER BY `t`.`Id`, `g`.`Nickname`, `g`.`SquadId`
             await base.Include_where_list_contains_navigation(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`Id`
-FROM `Tags` AS `t`",
+                """
+SELECT `t`.`Id`
+FROM `Tags` AS `t`
+""",
                 //
-                $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`
+                """
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
 FROM `Gears` AS `g`
-LEFT JOIN `Tags` AS `t` ON (`g`.`Nickname` = `t`.`GearNickName`) AND (`g`.`SquadId` = `t`.`GearSquadId`)
-WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`t`.`Id` IS NOT NULL AND `t`.`Id` IN ('34c8d86e-a4ac-4be5-827f-584dda348a07', 'df36f493-463f-4123-83f9-6b135deeb7ba', 'a8ad98f9-e023-4e2a-9a70-c2728455bd34', '70534e05-782c-4052-8720-c2c54481ce5f', 'a7be028a-0cf2-448f-ab55-ce8bc5d8cf69', 'b39a6fba-9026-4d69-828e-fd7068673e57'))");
+LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
+WHERE (`t`.`Id` IS NOT NULL) AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd7068673e57}', '{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{df36f493-463f-4123-83f9-6b135deeb7ba}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}')
+""");
         }
 
         public override async Task Include_where_list_contains_navigation2(bool isAsync)
@@ -273,14 +277,18 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`t`.`Id` IS NOT NULL AND `
             await base.Include_where_list_contains_navigation2(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`Id`
-FROM `Tags` AS `t`",
+                """
+SELECT `t`.`Id`
+FROM `Tags` AS `t`
+""",
                 //
-                $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`Note`
-FROM `Gears` AS `g`
-INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
-LEFT JOIN `Tags` AS `t` ON (`g`.`Nickname` = `t`.`GearNickName`) AND (`g`.`SquadId` = `t`.`GearSquadId`)
-WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`c`.`Location` IS NOT NULL AND `t`.`Id` IN ('34c8d86e-a4ac-4be5-827f-584dda348a07', 'df36f493-463f-4123-83f9-6b135deeb7ba', 'a8ad98f9-e023-4e2a-9a70-c2728455bd34', '70534e05-782c-4052-8720-c2c54481ce5f', 'a7be028a-0cf2-448f-ab55-ce8bc5d8cf69', 'b39a6fba-9026-4d69-828e-fd7068673e57'))");
+                """
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM (`Gears` AS `g`
+INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`)
+LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
+WHERE (`c`.`Location` IS NOT NULL) AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd7068673e57}', '{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{df36f493-463f-4123-83f9-6b135deeb7ba}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}')
+""");
         }
 
         public override async Task Navigation_accessed_twice_outside_and_inside_subquery(bool isAsync)
@@ -288,13 +296,17 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`c`.`Location` IS NOT NULL
             await base.Navigation_accessed_twice_outside_and_inside_subquery(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`Id`
-FROM `Tags` AS `t`",
+                """
+SELECT `t`.`Id`
+FROM `Tags` AS `t`
+""",
                 //
-                $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+                """
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
-LEFT JOIN `Tags` AS `t` ON (`g`.`Nickname` = `t`.`GearNickName`) AND (`g`.`SquadId` = `t`.`GearSquadId`)
-WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`t`.`Id` IS NOT NULL AND `t`.`Id` IN ('34c8d86e-a4ac-4be5-827f-584dda348a07', 'df36f493-463f-4123-83f9-6b135deeb7ba', 'a8ad98f9-e023-4e2a-9a70-c2728455bd34', '70534e05-782c-4052-8720-c2c54481ce5f', 'a7be028a-0cf2-448f-ab55-ce8bc5d8cf69', 'b39a6fba-9026-4d69-828e-fd7068673e57'))");
+LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
+WHERE (`t`.`Id` IS NOT NULL) AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd7068673e57}', '{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{df36f493-463f-4123-83f9-6b135deeb7ba}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}')
+""");
         }
 
         public override async Task Include_with_join_multi_level(bool isAsync)

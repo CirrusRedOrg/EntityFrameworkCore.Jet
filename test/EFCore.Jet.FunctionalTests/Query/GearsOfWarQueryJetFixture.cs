@@ -62,6 +62,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 if (gear.LeaderSquadId != 0) continue;
                 gear.LeaderSquadId = 1;
                 gear.LeaderNickname = "Marcus";
+                ((Officer)gear).Reports.Add(gear);
             }
             return data;
         }
@@ -82,6 +83,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             {
                 mission.Timeline = new DateTimeOffset(new DateTime(1753, 1, 1));
             }*/
+            foreach (var gear in gears)
+            {
+                if (gear.LeaderSquadId != 0) continue;
+                gear.LeaderSquadId = 1;
+                gear.LeaderNickname = "Marcus";
+            }
             GearsOfWarData.WireUp(
                 squads, missions, squadMissions, cities, weapons, tags, gears, locustLeaders, factions, locustHighCommands);
 
@@ -90,12 +97,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 tag.IssueDate = new DateTime(1750, 1, 1);
             }*/
 
-            foreach (var gear in gears)
-            {
-                if (gear.LeaderSquadId != 0) continue;
-                gear.LeaderSquadId = 1;
-                gear.LeaderNickname = "Marcus";
-            }
+
             context.Squads.AddRange(squads);
             context.Missions.AddRange(missions);
             context.SquadMissions.AddRange(squadMissions);

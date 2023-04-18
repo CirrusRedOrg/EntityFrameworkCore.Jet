@@ -253,8 +253,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (orderingExpression.Expression.TypeMapping?.GetType() == _boolTypeMapping?.GetType())
             {
                 orderingExpression = new OrderingExpression(
-                    orderingExpression.Expression,
-                    !orderingExpression.IsAscending);
+                    new SqlUnaryExpression(
+                        ExpressionType.Not,
+                        orderingExpression.Expression,
+                        orderingExpression.Expression.Type,
+                        orderingExpression.Expression.TypeMapping),
+                    orderingExpression.IsAscending);
             }
 
             return base.VisitOrdering(orderingExpression);
@@ -388,6 +392,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 ExpressionType.And => " BAND ",
                 ExpressionType.Modulo => " MOD ",
                 ExpressionType.Or => " BOR ",
+                ExpressionType.Divide when binaryExpression.Type == typeof(Int32) => " \\ ",
                 _ => base.GetOperator(binaryExpression),
             };
 

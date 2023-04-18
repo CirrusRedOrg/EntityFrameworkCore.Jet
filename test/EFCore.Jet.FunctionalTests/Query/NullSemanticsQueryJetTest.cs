@@ -820,7 +820,7 @@ FROM `Entities1` AS `e`");
             AssertSql(
                 $@"SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-ORDER BY IIF(`e`.`NullableStringA` <> 'Foo' OR (`e`.`NullableStringA` IS NULL), TRUE, FALSE) DESC, IIF(`e`.`NullableIntB` <> 10 OR (`e`.`NullableIntB` IS NULL), TRUE, FALSE) DESC");
+ORDER BY NOT (IIF(`e`.`NullableStringA` <> 'Foo' OR (`e`.`NullableStringA` IS NULL), TRUE, FALSE)), NOT (IIF(`e`.`NullableIntB` <> 10 OR (`e`.`NullableIntB` IS NULL), TRUE, FALSE))");
         }
 
         public override async Task Null_comparison_in_join_key_with_relational_nulls(bool async)

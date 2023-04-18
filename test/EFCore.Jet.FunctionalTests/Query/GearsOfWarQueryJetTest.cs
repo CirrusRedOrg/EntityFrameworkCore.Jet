@@ -355,7 +355,7 @@ INNER JOIN (
     WHERE `g`.`Discriminator` = 'Officer'
 ) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
 LEFT JOIN `Gears` AS `g0` ON `t0`.`Nickname` = `g0`.`LeaderNickname` AND `t0`.`SquadId` = `g0`.`LeaderSquadId`
-ORDER BY `t0`.`HasSoulPatch` DESC, `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadId`, `g0`.`Nickname`
+ORDER BY NOT (`t0`.`HasSoulPatch`), `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadId`, `g0`.`Nickname`
 """);
         }
 
@@ -4205,6 +4205,7 @@ ORDER BY `g`.`FullName`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `t0`.`FullName
         public override async Task Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys(bool isAsync)
         {
             await base.Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys(isAsync);
+
             AssertSql(
                 """
 SELECT `g`.`FullName`
@@ -4214,7 +4215,7 @@ WHERE `g`.`Discriminator` = 'Officer' AND EXISTS (
     SELECT 1
     FROM `Gears` AS `g0`
     WHERE `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`)
-ORDER BY `g`.`HasSoulPatch`, `t`.`Note`
+ORDER BY NOT (`g`.`HasSoulPatch`) DESC, `t`.`Note`
 """);
         }
 
@@ -4237,7 +4238,7 @@ WHERE `g`.`Discriminator` = 'Officer' AND EXISTS (
     SELECT 1
     FROM `Gears` AS `g0`
     WHERE `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`)
-ORDER BY `g`.`HasSoulPatch`, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`IsAutomatic` DESC, `t0`.`Nickname` DESC, `t0`.`Id`
+ORDER BY NOT (`g`.`HasSoulPatch`) DESC, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, NOT (`t0`.`IsAutomatic`), `t0`.`Nickname` DESC, `t0`.`Id`
 """);
         }
 
@@ -4261,7 +4262,7 @@ WHERE `g`.`Discriminator` = 'Officer' AND EXISTS (
     SELECT 1
     FROM `Gears` AS `g0`
     WHERE `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`)
-ORDER BY `g`.`HasSoulPatch`, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`IsAutomatic` DESC, `t0`.`Nickname` DESC, `t0`.`Id`
+ORDER BY NOT (`g`.`HasSoulPatch`) DESC, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, NOT (`t0`.`IsAutomatic`), `t0`.`Nickname` DESC, `t0`.`Id`
 """);
         }
 
@@ -4271,7 +4272,7 @@ ORDER BY `g`.`HasSoulPatch`, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`
             await base.Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys_inside_subquery_complex_orderings(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `g`.`FullName`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`, `t0`.`Nickname`, `t0`.`SquadId`
 FROM ((`Gears` AS `g`
 LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`)
@@ -4288,7 +4289,7 @@ WHERE `g`.`Discriminator` = 'Officer' AND EXISTS (
     SELECT 1
     FROM `Gears` AS `g0`
     WHERE `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`)
-ORDER BY `g`.`HasSoulPatch`, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`Id` DESC, `t0`.`c`, `t0`.`Nickname`
+ORDER BY NOT (`g`.`HasSoulPatch`) DESC, `t`.`Note`, `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `g1`.`Nickname`, `g1`.`SquadId`, `t0`.`Id` DESC, `t0`.`c`, `t0`.`Nickname`
 """);
         }
 
@@ -5003,7 +5004,7 @@ SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`Owner
 FROM (`Weapons` AS `w`
 LEFT JOIN `Gears` AS `g` ON `w`.`OwnerFullName` = `g`.`FullName`)
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY `w`.`IsAutomatic` DESC, `g`.`Nickname` DESC, `g`.`SquadId` DESC, `w0`.`Id`, `w`.`Name`
+ORDER BY NOT (`w`.`IsAutomatic`), `g`.`Nickname` DESC, `g`.`SquadId` DESC, `w0`.`Id`, `w`.`Name`
 """);
         }
 
@@ -5761,10 +5762,12 @@ WHERE `g`.`HasSoulPatch` = TRUE
             await base.Double_order_by_on_nullable_bool_coming_from_optional_navigation(isAsync);
 
             AssertSql(
-                $@"SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+                """
+SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY `w0`.`IsAutomatic`, `w0`.`Id`");
+ORDER BY NOT (`w0`.`IsAutomatic`), `w0`.`Id`
+""");
         }
 
         public override async Task Double_order_by_on_Like(bool isAsync)
@@ -5772,11 +5775,11 @@ ORDER BY `w0`.`IsAutomatic`, `w0`.`Id`");
             await base.Double_order_by_on_Like(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY IIF(`w0`.`Name` LIKE '%Lancer', TRUE, FALSE) DESC
+ORDER BY NOT (IIF(`w0`.`Name` LIKE '%Lancer', TRUE, FALSE))
 """);
         }
 
@@ -5786,11 +5789,11 @@ ORDER BY IIF(`w0`.`Name` LIKE '%Lancer', TRUE, FALSE) DESC
 
             AssertSql(
                 """
-    SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
-    FROM `Weapons` AS `w`
-    LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-    ORDER BY IIF(`w0`.`Name` IS NULL, TRUE, FALSE) DESC
-    """);
+SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+FROM `Weapons` AS `w`
+LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+ORDER BY NOT (IIF(`w0`.`Name` IS NULL, TRUE, FALSE))
+""");
         }
 
         public override async Task Double_order_by_on_string_compare(bool isAsync)
@@ -5801,7 +5804,7 @@ ORDER BY IIF(`w0`.`Name` LIKE '%Lancer', TRUE, FALSE) DESC
                 """
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-ORDER BY IIF(`w`.`Name` = 'Marcus'' Lancer' AND (`w`.`Name` IS NOT NULL), TRUE, FALSE) DESC, `w`.`Id`
+ORDER BY NOT (IIF(`w`.`Name` = 'Marcus'' Lancer' AND (`w`.`Name` IS NOT NULL), TRUE, FALSE)), `w`.`Id`
 """);
         }
 
@@ -5826,7 +5829,7 @@ ORDER BY IIF(`w`.`Name` = 'Marcus'' Lancer' AND (`w`.`Name` IS NOT NULL), TRUE, 
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY IIF(`w0`.`Name` = 'Marcus'' Lancer' AND (`w0`.`Name` IS NOT NULL), TRUE, FALSE) DESC
+ORDER BY NOT (IIF(`w0`.`Name` = 'Marcus'' Lancer' AND (`w0`.`Name` IS NOT NULL), TRUE, FALSE))
 """);
         }
 
@@ -5836,11 +5839,11 @@ ORDER BY IIF(`w0`.`Name` = 'Marcus'' Lancer' AND (`w0`.`Name` IS NOT NULL), TRUE
 
             AssertSql(
                 """
-    SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
-    FROM `Weapons` AS `w`
-    LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-    ORDER BY IIF('Marcus'' Lancer' = `w0`.`Name` AND (`w0`.`Name` IS NOT NULL), TRUE, FALSE) DESC
-    """);
+SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+FROM `Weapons` AS `w`
+LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+ORDER BY NOT (IIF('Marcus'' Lancer' = `w0`.`Name` AND (`w0`.`Name` IS NOT NULL), TRUE, FALSE))
+""");
         }
 
         public override async Task String_concat_with_null_conditional_argument(bool isAsync)
@@ -6065,10 +6068,10 @@ ORDER BY `s`.`Id`, `t`.`Nickname`, `t`.`SquadId`, `t`.`Id`");
             await base.OrderBy_same_expression_containing_IsNull_correctly_deduplicates_the_ordering(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT IIF(`g`.`LeaderNickname` IS NOT NULL, IIF(CLNG(LEN(`g`.`Nickname`)) = 5, TRUE, FALSE), NULL)
 FROM `Gears` AS `g`
-ORDER BY IIF(IIF(`g`.`LeaderNickname` IS NOT NULL, IIF(CLNG(LEN(`g`.`Nickname`)) = 5, TRUE, FALSE), NULL) IS NOT NULL, TRUE, FALSE) DESC
+ORDER BY NOT (IIF(IIF(`g`.`LeaderNickname` IS NOT NULL, IIF(CLNG(LEN(`g`.`Nickname`)) = 5, TRUE, FALSE), NULL) IS NOT NULL, TRUE, FALSE))
 """);
 
         }
@@ -7251,11 +7254,11 @@ END = CAST(1 AS bit)
             await base.OrderBy_bool_coming_from_optional_navigation(async);
 
             AssertSql(
-    """
+                """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY `w0`.`IsAutomatic`
+ORDER BY NOT (`w0`.`IsAutomatic`)
 """);
         }
 

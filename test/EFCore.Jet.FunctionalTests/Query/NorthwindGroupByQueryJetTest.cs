@@ -35,7 +35,7 @@ GROUP BY `o`.`CustomerID`");
                 "The LINQ expression 'GroupBy(`o`.CustomerID, `o`)' could not be translated and will be evaluated locally.",
                 Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
         }
-        
+
         public override async Task GroupBy_Property_Select_Count(bool isAsync)
         {
             await base.GroupBy_Property_Select_Count(isAsync);
@@ -204,13 +204,7 @@ GROUP BY `t`.`Name`, `t`.`CustomerID`");
             await base.GroupBy_aggregate_projecting_conditional_expression(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderDate` AS `Key`, CASE
-    WHEN COUNT(*) = 0 THEN 1
-    ELSE SUM(CASE
-        WHEN (`o`.`OrderID` MOD 2) = 0 THEN 1
-        ELSE 0
-    END) / COUNT(*)
-END AS `SomeValue`
+                $@"SELECT `o`.`OrderDate` AS `Key`, IIF(COUNT(*) = 0, 1, IIF(SUM(IIF((`o`.`OrderID` MOD 2) = 0, 1, 0)) IS NULL, 0, SUM(IIF((`o`.`OrderID` MOD 2) = 0, 1, 0))) \ COUNT(*)) AS `SomeValue`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderDate`");
         }
@@ -1292,7 +1286,7 @@ FROM (
 ORDER BY `t`.`CustomerID`
 SKIP {AssertSqlHelper.Parameter("@__p_1")}");
         }
-        
+
         public override async Task GroupBy_filter_key(bool isAsync)
         {
             await base.GroupBy_filter_key(isAsync);
@@ -1529,7 +1523,7 @@ ORDER BY `o1`.`OrderID`");
         HAVING `o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL)), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)");
         }
-        
+
         public override async Task GroupBy_Key_as_part_of_element_selector(bool isAsync)
         {
             await base.GroupBy_Key_as_part_of_element_selector(isAsync);
@@ -1549,14 +1543,14 @@ GROUP BY `o`.`OrderID`");
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`, `o`.`CustomerID`");
         }
-        
+
         public override async Task GroupBy_SelectMany(bool isAsync)
         {
             await base.GroupBy_SelectMany(isAsync);
 
             AssertSql();
         }
-        
+
         public override async Task OrderBy_GroupBy_SelectMany(bool isAsync)
         {
             await base.OrderBy_GroupBy_SelectMany(isAsync);
@@ -1570,21 +1564,21 @@ GROUP BY `o`.`OrderID`, `o`.`CustomerID`");
 
             AssertSql();
         }
-        
+
         public override async Task GroupBy_with_orderby_take_skip_distinct_followed_by_group_key_projection(bool isAsync)
         {
             await base.GroupBy_with_orderby_take_skip_distinct_followed_by_group_key_projection(isAsync);
 
             AssertSql();
         }
-        
+
         public override async Task GroupBy_Distinct(bool isAsync)
         {
             await base.GroupBy_Distinct(isAsync);
 
             AssertSql();
         }
-        
+
         public override async Task GroupBy_with_aggregate_through_navigation_property(bool isAsync)
         {
             await base.GroupBy_with_aggregate_through_navigation_property(isAsync);
@@ -1598,7 +1592,7 @@ GROUP BY `o`.`OrderID`, `o`.`CustomerID`");
 FROM `Orders` AS `o`
 GROUP BY `o`.`EmployeeID`");
         }
-        
+
         public override async Task GroupBy_Shadow(bool isAsync)
         {
             await base.GroupBy_Shadow(isAsync);
@@ -1649,14 +1643,14 @@ FROM `Employees` AS `e`
 WHERE `e`.`EmployeeID` = 1
 GROUP BY `e`.`EmployeeID`");
         }
-        
+
         public override async Task Select_GroupBy_SelectMany(bool isAsync)
         {
             await base.Select_GroupBy_SelectMany(isAsync);
 
             AssertSql();
         }
-        
+
         public override async Task Count_after_GroupBy_aggregate(bool isAsync)
         {
             await base.Count_after_GroupBy_aggregate(isAsync);
@@ -1669,7 +1663,7 @@ FROM (
     GROUP BY `o`.`CustomerID`
 ) AS `t`");
         }
-        
+
         public override async Task MinMax_after_GroupBy_aggregate(bool isAsync)
         {
             await base.MinMax_after_GroupBy_aggregate(isAsync);
@@ -1944,7 +1938,7 @@ GROUP BY `o`.`CustomerID`");
             AssertSql(
                 $@"");
         }
-        
+
         public override async Task Group_by_with_arithmetic_operation_inside_aggregate(bool isAsync)
         {
             await base.Group_by_with_arithmetic_operation_inside_aggregate(isAsync);

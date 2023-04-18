@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Projection_when_arithmetic_expression_precedence(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID` / (`o`.`OrderID` / 2) AS `A`, (`o`.`OrderID` / `o`.`OrderID`) / 2 AS `B`
+                $@"SELECT `o`.`OrderID` \ (`o`.`OrderID` \ 2) AS `A`, (`o`.`OrderID` \ `o`.`OrderID`) \ 2 AS `B`
 FROM `Orders` AS `o`");
         }
 
@@ -37,7 +37,7 @@ FROM `Orders` AS `o`");
             await base.Projection_when_arithmetic_expressions(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`OrderID` * 2 AS `Double`, `o`.`OrderID` + 23 AS `Add`, 100000 - `o`.`OrderID` AS `Sub`, `o`.`OrderID` / (`o`.`OrderID` / 2) AS `Divide`, 42 AS `Literal`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                $@"SELECT `o`.`OrderID`, `o`.`OrderID` * 2 AS `Double`, `o`.`OrderID` + 23 AS `Add`, 100000 - `o`.`OrderID` AS `Sub`, `o`.`OrderID` \ (`o`.`OrderID` \ 2) AS `Divide`, 42 AS `Literal`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`");
         }
 
@@ -1205,7 +1205,7 @@ FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'");
         }
-        
+
         public override async Task SelectMany_whose_selector_references_outer_source(bool isAsync)
         {
             await base.SelectMany_whose_selector_references_outer_source(isAsync);

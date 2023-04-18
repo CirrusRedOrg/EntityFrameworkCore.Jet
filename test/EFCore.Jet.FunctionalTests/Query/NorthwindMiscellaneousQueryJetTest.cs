@@ -890,7 +890,7 @@ ORDER BY `e`.`EmployeeID` - `e`.`EmployeeID`");
             AssertSql(
                 $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-ORDER BY IIF(`p`.`UnitsInStock` > 0, TRUE, FALSE) DESC, `p`.`ProductID`");
+ORDER BY NOT (IIF(`p`.`UnitsInStock` > 0, TRUE, FALSE)), `p`.`ProductID`");
         }
 
         public override async Task OrderBy_ternary_conditions(bool isAsync)
@@ -2400,7 +2400,7 @@ ORDER BY `c`.`City`");
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY IIF(`c`.`Region` = 'ASK' AND (`c`.`Region` IS NOT NULL), TRUE, FALSE) DESC");
+ORDER BY NOT (IIF(`c`.`Region` = 'ASK' AND (`c`.`Region` IS NOT NULL), TRUE, FALSE))");
         }
 
         public override async Task Projection_null_coalesce_operator(bool isAsync)

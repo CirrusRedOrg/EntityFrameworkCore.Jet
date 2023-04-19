@@ -54,6 +54,16 @@ FROM `Customers` AS `c`
 WHERE `c`.`ContactName` LIKE '!%' ESCAPE '!'");
         }
 
+        public override Task Like_all_literals(bool async)
+        {
+            return base.Like_all_literals(async);
+        }
+
+        public override Task Like_all_literals_with_escape(bool async)
+        {
+            return base.Like_all_literals_with_escape(async);
+        }
+
         [ConditionalFact]
         public virtual void DateDiff_Year()
         {

@@ -22,36 +22,52 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.String_contains_on_argument_with_wildcard_constant(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE CHARINDEX('%B', `f`.`FirstName`) > 0",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE `f`.`FirstName` LIKE '%[%]B%'
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE CHARINDEX('a_', `f`.`FirstName`) > 0",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE `f`.`FirstName` LIKE '%a[_]%'
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE CHARINDEX(NULL, `f`.`FirstName`) > 0",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE `f`.`FirstName` LIKE NULL
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE CHARINDEX('_Ba_', `f`.`FirstName`) > 0",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE `f`.`FirstName` LIKE '%[_]Ba[_]%'
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE CHARINDEX('%B%a%r', `f`.`FirstName`) <= 0",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE NOT (`f`.`FirstName` LIKE '%[%]B[%]a[%]r%')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE CHARINDEX(NULL, `f`.`FirstName`) <= 0");
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE NOT (`f`.`FirstName` LIKE NULL)
+    """);
         }
 
         public override async Task String_contains_on_argument_with_wildcard_parameter(bool isAsync)
@@ -137,36 +153,52 @@ WHERE NOT ((`f0`.`LastName` LIKE '') OR INSTR(1, `f`.`FirstName`, `f0`.`LastName
             await base.String_starts_with_on_argument_with_wildcard_constant(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '\%B%' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE '[%]B%')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'a\_%' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE 'a[_]%')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '\_Ba\_%' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE '[_]Ba[_]%')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND NOT (`f`.`FirstName` LIKE '\%B\%a\%r%' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND NOT (`f`.`FirstName` LIKE '[%]B[%]a[%]r%')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True");
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """);
         }
 
         public override async Task String_starts_with_on_argument_with_wildcard_parameter(bool isAsync)
@@ -236,39 +268,59 @@ WHERE 0 = 1");
             await base.String_starts_with_on_argument_with_bracket(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '\[%' ESCAPE '\')",
-                //
-                $@"SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'B\[%' ESCAPE '\')",
-                //
-                $@"SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'B\[\[a^%' ESCAPE '\')",
-                //
-                $@"{AssertSqlHelper.Declaration("@__prm1_0='[' (Size = 4000)")}
-
-SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE ({AssertSqlHelper.Parameter("@__prm1_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm1_0")})) = {AssertSqlHelper.Parameter("@__prm1_0")}))",
-                //
-                $@"{AssertSqlHelper.Declaration("@__prm2_0='B[' (Size = 4000)")}
-
-SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE ({AssertSqlHelper.Parameter("@__prm2_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm2_0")})) = {AssertSqlHelper.Parameter("@__prm2_0")}))",
-                //
-                $@"{AssertSqlHelper.Declaration("@__prm3_0='B[[a^' (Size = 4000)")}
-
-SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE ({AssertSqlHelper.Parameter("@__prm3_0")} = '') OR (`f`.`FirstName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm3_0")})) = {AssertSqlHelper.Parameter("@__prm3_0")}))",
-                //
-                $@"SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
-FROM `FunkyCustomers` AS `f`
-WHERE (`f`.`LastName` = '') OR (`f`.`FirstName` IS NOT NULL AND (`f`.`LastName` IS NOT NULL AND (LEFT(`f`.`FirstName`, LEN(`f`.`LastName`)) = `f`.`LastName`)))");
+    """
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE '[[]%')
+    """,
+                    //
+                    """
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE 'B[[]%')
+    """,
+                    //
+                    """
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE 'B[[][[]a[^]%')
+    """,
+                    //
+                    """
+    @__prm1_0='[' (Size = 255)
+    @__prm1_0='[' (Size = 255)
+    @__prm1_0='[' (Size = 255)
+    
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE @__prm1_0 = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(@__prm1_0)) = @__prm1_0)
+    """,
+                    //
+                    """
+    @__prm2_0='B[' (Size = 255)
+    @__prm2_0='B[' (Size = 255)
+    @__prm2_0='B[' (Size = 255)
+    
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE @__prm2_0 = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(@__prm2_0)) = @__prm2_0)
+    """,
+                    //
+                    """
+    @__prm3_0='B[[a^' (Size = 255)
+    @__prm3_0='B[[a^' (Size = 255)
+    @__prm3_0='B[[a^' (Size = 255)
+    
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE @__prm3_0 = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(@__prm3_0)) = @__prm3_0)
+    """,
+                    //
+                    """
+    SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
+    FROM `FunkyCustomers` AS `f`
+    WHERE `f`.`LastName` = '' OR ((`f`.`FirstName` IS NOT NULL) AND (`f`.`LastName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(`f`.`LastName`)) = `f`.`LastName`)
+    """);
         }
 
         public override async Task String_starts_with_on_argument_with_wildcard_column(bool isAsync)
@@ -298,36 +350,52 @@ WHERE (`f0`.`LastName` <> '' OR (`f0`.`LastName` IS NULL)) AND (`f`.`FirstName` 
             await base.String_ends_with_on_argument_with_wildcard_constant(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '%\%B' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE '%[%]B')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '%a\_' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE '%a[_]')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '%\_Ba\_' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE '%[_]Ba[_]')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND NOT (`f`.`FirstName` LIKE '%\%B\%a\%r' ESCAPE '\')",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE (`f`.`FirstName` IS NOT NULL) AND NOT (`f`.`FirstName` LIKE '%[%]B[%]a[%]r')
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True",
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """,
                 //
-                $@"SELECT `f`.`FirstName`
-FROM `FunkyCustomers` AS `f`
-WHERE False = True");
+                """
+    SELECT `f`.`FirstName`
+    FROM `FunkyCustomers` AS `f`
+    WHERE 0 = 1
+    """);
         }
 
         public override async Task String_ends_with_on_argument_with_wildcard_parameter(bool isAsync)

@@ -2,6 +2,7 @@
 
 using System;
 using System.Data;
+using System.Data.Common;
 using System.Data.Odbc;
 using System.Linq;
 using System.Threading;
@@ -325,7 +326,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'").ToList();
                     Assert.Single(tables);
                     Assert.Equal("Blogs", tables.Single());
-                        
+
                     /*var dcolumns = testDatabase.ExecuteScalar<>()<DataTable>(
                             "SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` WHERE TABLE_NAME = 'Blogs' ORDER BY TABLE_NAME, COLUMN_NAME")
                         .ToArray();*/
@@ -412,10 +413,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     async creator =>
                     {
                         var errorNumber = async
-                            ? (await Assert.ThrowsAsync<OdbcException>(() => creator.HasTablesAsyncBase())).ErrorCode
-                            : Assert.Throws<OdbcException>(() => creator.HasTablesBase()).ErrorCode;
+                            ? (await Assert.ThrowsAnyAsync<DbException>(() => creator.HasTablesAsyncBase())).ErrorCode
+                            : Assert.ThrowsAny<DbException>(() => creator.HasTablesBase()).ErrorCode;
 
-                        Assert.NotEqual(errorNumber,0);
+                        Assert.NotEqual(errorNumber, 0);
                     });
             }
         }
@@ -509,11 +510,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 if (async)
                 {
-                    await Assert.ThrowsAsync<OleDbException>(() => creator.DeleteAsync());
+                    await Assert.ThrowsAnyAsync<DbException>(() => creator.DeleteAsync());
                 }
                 else
                 {
-                    Assert.Throws<OleDbException>(() => creator.Delete());
+                    Assert.ThrowsAny<DbException>(() => creator.Delete());
                 }
             }
         }

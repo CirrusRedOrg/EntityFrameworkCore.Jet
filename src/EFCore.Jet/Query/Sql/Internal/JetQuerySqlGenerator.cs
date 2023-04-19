@@ -250,7 +250,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values
             // before the False values, which is the opposite of what .NET and other DBMS do, which are using 1 as True.
 
-            if (orderingExpression.Expression.TypeMapping?.GetType() == _boolTypeMapping?.GetType())
+            if (orderingExpression.Expression.TypeMapping?.GetType() == typeof(JetBoolTypeMapping))
             {
                 orderingExpression = new OrderingExpression(
                     new SqlUnaryExpression(

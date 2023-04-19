@@ -132,7 +132,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             ? _sqlExpressionFactory.Like(
                                 instance,
                                 _sqlExpressionFactory.Constant($"%{EscapeLikePattern(patternValue)}%"),
-                                _sqlExpressionFactory.Constant(LikeEscapeString))
+                                null)
                             : _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant($"%{patternValue}%"));
                     }
 
@@ -145,7 +145,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 "INSTR",
                                 new[] { _sqlExpressionFactory.Constant(1), instance, pattern, _sqlExpressionFactory.Constant(1) },
                                 nullable: true,
-                                argumentsPropagateNullability: new[] { true,true, true, true },
+                                argumentsPropagateNullability: new[] { true, true, true, true },
                                 typeof(int)),
                             _sqlExpressionFactory.Constant(0)));
                 }
@@ -186,7 +186,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     Equals(method, _trimEndMethodInfoWithCharArrayArg) &&
                     ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
                 {
-                    return _sqlExpressionFactory.Function("RTRIM", new[] { instance }, true, new[] { true }, 
+                    return _sqlExpressionFactory.Function("RTRIM", new[] { instance }, true, new[] { true },
                         instance.Type, instance.TypeMapping);
                 }
 
@@ -346,7 +346,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             startsWith
                                 ? EscapeLikePattern(patternValue) + '%'
                                 : '%' + EscapeLikePattern(patternValue)),
-                        _sqlExpressionFactory.Constant(LikeEscapeString))
+                        null)
                     : _sqlExpressionFactory.Like(
                         instance,
                         _sqlExpressionFactory.Constant(startsWith ? patternValue + '%' : '%' + patternValue));
@@ -405,7 +405,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             searchExpression = _sqlExpressionFactory.ApplyTypeMapping(searchExpression, stringTypeMapping);
             instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
 
-            var charIndexArguments = new List<SqlExpression> { instance, searchExpression};
+            var charIndexArguments = new List<SqlExpression> { instance, searchExpression };
 
             if (startIndex is not null)
             {
@@ -465,22 +465,29 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 charIndexExpression);
         }
 
+        //Extra resources
+        // https://support.microsoft.com/en-us/office/like-operator-b2f7ef03-9085-4ffb-9829-eef18358e931
+        // https://support.microsoft.com/en-us/office/access-wildcard-character-reference-af00c501-7972-40ee-8889-e18abaad12d1
+        // https://support.microsoft.com/en-us/office/use-wildcards-in-queries-and-parameters-in-access-ec057a45-78b1-4d16-8c20-242cde582e0b
+        //These are the characters to escape in LIKE pattern
         private static bool IsLikeWildChar(char c)
-            => c == '%' || c == '_' || c == '[';
+            => c == '%' || c == '_' || c == '[' || c == '^' || c == '?' || c == '#' || c == '*';
 
         private static string EscapeLikePattern(string pattern)
         {
             var builder = new StringBuilder();
-            for (var i = 0; i < pattern.Length; i++)
+            foreach (var c in pattern)
             {
-                var c = pattern[i];
-                if (IsLikeWildChar(c)
-                    || c == LikeEscapeChar)
+                if (IsLikeWildChar(c))
                 {
-                    builder.Append(LikeEscapeChar);
+                    builder.Append('[');
+                    builder.Append(c);
+                    builder.Append(']');
                 }
-
-                builder.Append(c);
+                else
+                {
+                    builder.Append(c);
+                }
             }
 
             return builder.ToString();

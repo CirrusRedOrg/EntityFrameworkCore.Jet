@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         // is determined by the value generation type.
         private readonly IntTypeMapping _counter = new JetIntTypeMapping("integer");
 
-        private readonly ByteTypeMapping _byte = new ByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
+        private readonly JetByteTypeMapping _byte = new JetByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
         private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("integer");//a long and integer are the same in Jet

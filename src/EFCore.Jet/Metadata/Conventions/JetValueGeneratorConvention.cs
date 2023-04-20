@@ -5,6 +5,7 @@ using EntityFrameworkCore.Jet.Metadata.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
+using System.Linq;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
@@ -60,25 +61,28 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <returns> The store value generation strategy to set for the given property. </returns>
         protected override ValueGenerated? GetValueGenerated(IConventionProperty property)
         {
-            var tableName = property.DeclaringEntityType.GetTableName();
-            if (tableName == null)
+            var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
+            if (declaringTable.Name == null)
             {
                 return null;
             }
 
-            return GetValueGenerated(property, StoreObjectIdentifier.Table(tableName, property.DeclaringEntityType.GetSchema()));
+            // If the first mapping can be value generated then we'll consider all mappings to be value generated
+            // as this is a client-side configuration and can't be specified per-table.
+            return GetValueGenerated(property, declaringTable);
         }
 
         /// <summary>
         ///     Returns the store value generation strategy to set for the given property.
         /// </summary>
-        /// <param name="property"> The property. </param>
-        /// <param name="storeObject"> The identifier of the store object. </param>
-        /// <returns> The store value generation strategy to set for the given property. </returns>
-        public static ValueGenerated? GetValueGenerated([NotNull] IProperty property, in StoreObjectIdentifier storeObject)
+        /// <param name="property">The property.</param>
+        /// <param name="storeObject">The identifier of the store object.</param>
+        /// <returns>The store value generation strategy to set for the given property.</returns>
+        public new static ValueGenerated? GetValueGenerated(IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
             => RelationalValueGenerationConvention.GetValueGenerated(property, storeObject)
-                ?? (property.GetValueGenerationStrategy(storeObject) != JetValueGenerationStrategy.None
-                    ? ValueGenerated.OnAdd
-                    : (ValueGenerated?)null);
+               ?? (property.GetValueGenerationStrategy(storeObject) != JetValueGenerationStrategy.None
+                   ? ValueGenerated.OnAdd
+                   : null);
+
     }
 }

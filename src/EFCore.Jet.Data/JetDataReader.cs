@@ -93,6 +93,8 @@ namespace EntityFrameworkCore.Jet.Data
 
             if (value is byte byteValue)
                 return byteValue;
+            if (value is byte[] byteArrayValue)
+                return byteArrayValue[0];
             if (value is sbyte sbyteValue)
                 return checked((byte)sbyteValue);
             if (value is short shortValue)

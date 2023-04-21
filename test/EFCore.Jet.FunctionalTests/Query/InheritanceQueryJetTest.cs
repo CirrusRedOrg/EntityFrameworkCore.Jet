@@ -359,7 +359,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'");
             await base.Byte_enum_value_constant_used_in_projection(async);
 
             AssertSql(
-                @"SELECT IIF(`a`.`IsFlightless` = TRUE, 0, 1)
+                @"SELECT IIF(`a`.`IsFlightless` = TRUE, 0x00, 0x01)
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'");
         }

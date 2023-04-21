@@ -910,7 +910,7 @@ FROM `Orders` AS `o`
             await base.Select_byte_constant(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', 1, 2)
+                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', 0x01, 0x02)
 FROM `Customers` AS `c`");
         }
 

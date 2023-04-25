@@ -38,22 +38,11 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
         {
         }
 
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        public override ValueGenerator Create(IProperty property, IEntityType entityType)
-        {
-            Check.NotNull(property, nameof(property));
-            Check.NotNull(entityType, nameof(entityType));
-
-            return property.ClrType.UnwrapNullableType() == typeof(Guid)
+        protected override ValueGenerator? FindForType(IProperty property, IEntityType entityType, Type clrType)
+            => property.ClrType.UnwrapNullableType() == typeof(Guid)
                 ? property.ValueGenerated == ValueGenerated.Never || property.GetDefaultValueSql() != null
-                    ? (ValueGenerator) new TemporaryGuidValueGenerator()
+                    ? new TemporaryGuidValueGenerator()
                     : new SequentialGuidValueGenerator()
-                : base.Create(property, entityType);
-        }
+                : base.FindForType(property, entityType, clrType);
     }
 }

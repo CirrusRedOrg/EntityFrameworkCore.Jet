@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             DbType? dbType = null,
             int? precision = null,
             int? scale = null,
-            StoreTypePostfix storeTypePostfix = StoreTypePostfix.None)
+            StoreTypePostfix storeTypePostfix = StoreTypePostfix.PrecisionAndScale)
             : base(
                 new RelationalTypeMappingParameters(
                         new CoreTypeMappingParameters(typeof(decimal)),
@@ -69,6 +69,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 && Size.Value != -1)
             {
                 parameter.Size = Size.Value;
+            }
+
+            if (Precision.HasValue)
+            {
+                parameter.Precision = unchecked((byte)Precision.Value);
+            }
+
+            if (Scale.HasValue)
+            {
+                parameter.Scale = unchecked((byte)Scale.Value);
             }
         }
     }

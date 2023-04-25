@@ -40,7 +40,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");
 
-        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 10, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         private readonly JetCurrencyTypeMapping _currency = new JetCurrencyTypeMapping("currency");
 
         private readonly JetDateTimeTypeMapping _datetime;
@@ -181,14 +181,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"timestamp",                  _rowversion},
                 };
 
-            // Note: sbyte, ushort, uint, char, long and ulong type mappings are not supported by Jet.
-            // We would need the type conversions feature to allow this to work - see https://github.com/aspnet/EntityFramework/issues/242.
             _clrTypeMappings
                 = new Dictionary<Type, RelationalTypeMapping>
                 {
                     {typeof(bool), _bool},
                     {typeof(byte), _byte},
-                    {typeof(sbyte), _smallint},
                     {typeof(short), _smallint},
                     {typeof(int), _integer},
                     {typeof(long), _bigint},

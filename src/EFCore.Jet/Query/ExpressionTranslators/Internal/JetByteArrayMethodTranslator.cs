@@ -44,7 +44,7 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.Contains) } 
+        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.Contains) }
             && arguments[0].Type == typeof(byte[]))
         {
             var source = arguments[0];
@@ -56,20 +56,20 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
 
             return _sqlExpressionFactory.GreaterThan(
                 _sqlExpressionFactory.Function(
-                    "INSTR",
-                    new[] { _sqlExpressionFactory.Constant(1), source, value, _sqlExpressionFactory.Constant(1) },
+                    "INSTRB",
+                    new[] { _sqlExpressionFactory.Constant(1), source, value, _sqlExpressionFactory.Constant(0) },
                     nullable: true,
                     argumentsPropagateNullability: new[] { true, true },
                     typeof(int)),
                 _sqlExpressionFactory.Constant(0));
         }
 
-        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.First) } && method.GetParameters().Length == 1 
+        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.First) } && method.GetParameters().Length == 1
             && arguments[0].Type == typeof(byte[]))
         {
             return _sqlExpressionFactory.Convert(
                 _sqlExpressionFactory.Function(
-                    "MID",
+                    "MIDB",
                     new[] { arguments[0], _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1) },
                     nullable: true,
                     argumentsPropagateNullability: new[] { true, true, true },

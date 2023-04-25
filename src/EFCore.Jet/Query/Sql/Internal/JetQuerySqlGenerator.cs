@@ -362,12 +362,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return convertExpression;
             }
 
-            if (typeMapping.ClrType.IsEnum)
-            {
-                Visit(convertExpression.Operand);
-                return convertExpression;
-            }
-            throw new InvalidOperationException($"Cannot cast to CLR type '{typeMapping.ClrType.Name}' with Jet.");
+            //Just pass the operand in the default case
+            //If we have a type mapping on the operand, then it seems to work fine
+            //Jet appears to be fairly flexible when types aren't specifically mentioned
+            //Keep an eye on this for any further problems - doesn't show anything in the tests right now
+            Visit(convertExpression.Operand);
+            return convertExpression;
         }
 
         /// <summary>

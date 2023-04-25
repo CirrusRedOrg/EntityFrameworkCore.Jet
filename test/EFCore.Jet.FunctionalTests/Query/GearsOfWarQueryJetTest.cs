@@ -8606,7 +8606,7 @@ FROM `Gears` AS `g`
     """
 SELECT `f`.`Id`, `f`.`CapitalName`, `f`.`Discriminator`, `f`.`Name`, `f`.`ServerAddress`, `f`.`CommanderName`, `f`.`Eradicated`
 FROM `Factions` AS `f`
-WHERE `f`.`ServerAddress` = CAST('127.0.0.1' AS nvarchar(45))
+WHERE `f`.`ServerAddress` = '127.0.0.1'
 """);
         }
 

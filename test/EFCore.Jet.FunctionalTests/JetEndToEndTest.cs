@@ -1182,6 +1182,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 }
 
                 modelBuilder.Entity<TBlog>().ToTable("Blog");
+                //Ignore WayRound it is a type long which is currently too large for Jet
+                //TODO: Remove this when we have a workaround for ulong
+                modelBuilder.Entity<TBlog>().Ignore(e => e.WayRound);
             }
 
             public DbSet<TBlog> Blogs { get; set; }

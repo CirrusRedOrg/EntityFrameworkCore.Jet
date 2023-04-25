@@ -426,7 +426,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             if (!string.IsNullOrEmpty(operation.Filter))
             {
                 builder
-                    .Append(" WHERE ")
+                    .Append(" WITH ")
                     .Append(operation.Filter);
             }
 
@@ -715,7 +715,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             Check.NotEmpty(name, nameof(name));
             Check.NotNull(operation, nameof(operation));
             Check.NotNull(builder, nameof(builder));
-            
+
             if (operation.ComputedColumnSql != null)
             {
                 ComputedColumnDefinition(schema, table, name, operation, model, builder);
@@ -746,7 +746,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             [CanBeNull] IModel? model)
         {
             var storeType = operation.ColumnType;
-            
+
             if (IsIdentity(operation) &&
                 (storeType == null || Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping))
             {
@@ -762,7 +762,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             }
 
             storeType ??= base.GetColumnType(schema, table, name, operation, model);
-            
+
             if (string.Equals(storeType, "counter", StringComparison.OrdinalIgnoreCase) &&
                 operation[JetAnnotationNames.Identity] is string identity &&
                 !string.IsNullOrEmpty(identity) &&

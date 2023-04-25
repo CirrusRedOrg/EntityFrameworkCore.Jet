@@ -2,7 +2,9 @@
 
 using EntityFrameworkCore.Jet.Data;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 // ReSharper disable once CheckNamespace
@@ -10,41 +12,47 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 {
     public class JetConventionSetBuilder : RelationalConventionSetBuilder
     {
+        private readonly ISqlGenerationHelper _sqlGenerationHelper;
         public JetConventionSetBuilder(
             [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
+            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies,
+            ISqlGenerationHelper sqlGenerationHelper)
             : base(dependencies, relationalDependencies)
         {
+            _sqlGenerationHelper = sqlGenerationHelper;
         }
 
         public override ConventionSet CreateConventionSet()
         {
             var conventionSet = base.CreateConventionSet();
 
-            var valueGenerationStrategyConvention = new JetValueGenerationStrategyConvention(Dependencies, RelationalDependencies);
+            conventionSet.Add(new JetValueGenerationStrategyConvention(Dependencies, RelationalDependencies));
+            conventionSet.Add(new RelationalMaxIdentifierLengthConvention(64, Dependencies, RelationalDependencies));
+            conventionSet.Add(new JetIndexConvention(Dependencies, RelationalDependencies, _sqlGenerationHelper));
 
-            conventionSet.ModelInitializedConventions.Add(valueGenerationStrategyConvention);
-            conventionSet.ModelInitializedConventions.Add(
-                new RelationalMaxIdentifierLengthConvention(64, Dependencies, RelationalDependencies));
-
-            ValueGenerationConvention valueGenerationConvention =
-                new JetValueGenerationConvention(Dependencies, RelationalDependencies);
-
-            ReplaceConvention(conventionSet.EntityTypeBaseTypeChangedConventions, valueGenerationConvention);
-            ReplaceConvention(conventionSet.EntityTypeAnnotationChangedConventions, (RelationalValueGenerationConvention) valueGenerationConvention);
-            ReplaceConvention(conventionSet.EntityTypePrimaryKeyChangedConventions, valueGenerationConvention);
-            ReplaceConvention(conventionSet.ForeignKeyAddedConventions, valueGenerationConvention);
-            ReplaceConvention(conventionSet.ForeignKeyRemovedConventions, valueGenerationConvention);
-
-            StoreGenerationConvention storeGenerationConvention = new JetStoreGenerationConvention(Dependencies, RelationalDependencies);
-            ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, storeGenerationConvention);
-            ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, (RelationalValueGenerationConvention) valueGenerationConvention);
-            ReplaceConvention(conventionSet.ModelFinalizingConventions, storeGenerationConvention);
+            conventionSet.Replace<StoreGenerationConvention>(
+                new JetStoreGenerationConvention(Dependencies, RelationalDependencies));
+            conventionSet.Replace<ValueGenerationConvention>(
+                new JetValueGenerationConvention(Dependencies, RelationalDependencies));
 
             return conventionSet;
         }
 
         public static ConventionSet Build()
+        {
+            using var serviceScope = CreateServiceScope();
+            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
+            return ConventionSet.CreateConventionSet(context);
+        }
+
+        public static ModelBuilder CreateModelBuilder()
+        {
+            using var serviceScope = CreateServiceScope();
+            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
+            return new ModelBuilder(ConventionSet.CreateConventionSet(context), context.GetService<ModelDependencies>());
+        }
+
+        private static IServiceScope CreateServiceScope()
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkJet()
@@ -54,9 +62,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     .UseInternalServiceProvider(p))
                 .BuildServiceProvider();
 
-            using var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
-            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
-            return ConventionSet.CreateConventionSet(context);
+            return serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
         }
     }
 }

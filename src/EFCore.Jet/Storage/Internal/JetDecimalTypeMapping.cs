@@ -53,20 +53,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        {
-            var precision = parameters.Precision;
-            var scale = parameters.Scale;
-            if (parameters.Precision is > 28)
-            {
-                int prec_diff = parameters.Precision.Value - 28;
-                precision = 28;
-                if (parameters.Scale is > 28)
-                {
-                    scale = parameters.Scale.Value - prec_diff;
-                }
-            }
-            return new JetDecimalTypeMapping(parameters.WithPrecisionAndScale(precision, scale));
-        }
+            => new JetDecimalTypeMapping(parameters);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

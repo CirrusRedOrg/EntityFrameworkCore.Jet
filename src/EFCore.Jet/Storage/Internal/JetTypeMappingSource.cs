@@ -275,9 +275,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 if (storeTypeNameBase!.Equals("text", StringComparison.OrdinalIgnoreCase) &&
                     !mappingInfo.IsFixedLength.GetValueOrDefault())
                 {
-                    return mappingInfo.Size.GetValueOrDefault() > 0
-                        ? _variableLengthUnicodeString
-                        : _unboundedUnicodeString;
+                    if (mappingInfo.Size.GetValueOrDefault() > 0)
+                    {
+                        return clrType == null
+                               || _variableLengthUnicodeString.ClrType == clrType
+                            ? _variableLengthUnicodeString
+                            : null;
+                    }
+                    else
+                    {
+                        return clrType == null
+                               || _unboundedUnicodeString.ClrType == clrType
+                            ? _unboundedUnicodeString
+                            : null;
+                    }
                 }
 
                 if (_storeTypeMappings.TryGetValue(storeTypeName, out var mapping)

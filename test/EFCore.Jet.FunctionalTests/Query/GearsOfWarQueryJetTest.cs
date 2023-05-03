@@ -3939,15 +3939,17 @@ ORDER BY `g`.`Nickname`, `g`.`SquadId`
             await base.Correlated_collections_basic_projection_ordered(isAsync);
 
             AssertSql(
-                $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `t`.`AmmunitionType`, `t`.`IsAutomatic`, `t`.`Name`, `t`.`OwnerFullName`, `t`.`SynergyWithId`
+                """
+SELECT `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `t`.`AmmunitionType`, `t`.`IsAutomatic`, `t`.`Name`, `t`.`OwnerFullName`, `t`.`SynergyWithId`
 FROM `Gears` AS `g`
 LEFT JOIN (
     SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
     FROM `Weapons` AS `w`
-    WHERE (`w`.`IsAutomatic` = True) OR ((`w`.`Name` <> 'foo') OR `w`.`Name` IS NULL)
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR (`w`.`Name` IS NULL)
 ) AS `t` ON `g`.`FullName` = `t`.`OwnerFullName`
-WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`g`.`Nickname` <> 'Marcus')
-ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Name` DESC, `t`.`Id`");
+WHERE `g`.`Nickname` <> 'Marcus'
+ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Name` DESC
+""");
         }
 
         public override async Task Correlated_collections_basic_projection_composite_key(bool isAsync)
@@ -6160,13 +6162,14 @@ ORDER BY IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`), `w`.`Id`");
             await base.Query_with_complex_let_containing_ordering_and_filter_projecting_firstOrDefault_element_of_let(isAsync);
 
             AssertSql(
-"""
-SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
-FROM `Gears` AS `g`
-WHERE `g`.`FullName` <> 'Dom' AND EXISTS (
-    SELECT 1
+                """
+SELECT `g`.`Nickname`, (
+    SELECT TOP 1 `w`.`Name`
     FROM `Weapons` AS `w`
-    WHERE `g`.`FullName` = `w`.`OwnerFullName` AND `w`.`IsAutomatic` = TRUE)
+    WHERE `g`.`FullName` = `w`.`OwnerFullName` AND `w`.`IsAutomatic` = TRUE
+    ORDER BY `w`.`AmmunitionType` DESC) AS `WeaponName`
+FROM `Gears` AS `g`
+WHERE `g`.`Nickname` <> 'Dom'
 """);
         }
 
@@ -7229,23 +7232,17 @@ WHERE DATALENGTH(`s`.`Banner5`) = 5
             AssertSql(
                 """
 @__prm_0='True'
-@__prm2_1='Dom's Lancer' (Size = 4000)
+@__prm2_1='Dom's Lancer' (Size = 255)
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
-WHERE CASE
-    WHEN `g`.`HasSoulPatch` = @__prm_0 THEN CASE
-        WHEN (
-            SELECT TOP(1) `w`.`Name`
+WHERE IIF(`g`.`HasSoulPatch` = @__prm_0, IIF((
+            SELECT TOP 1 `w`.`Name`
             FROM `Weapons` AS `w`
             WHERE `w`.`Id` = `g`.`SquadId`) = @__prm2_1 AND ((
-            SELECT TOP(1) `w`.`Name`
+            SELECT TOP 1 `w`.`Name`
             FROM `Weapons` AS `w`
-            WHERE `w`.`Id` = `g`.`SquadId`) IS NOT NULL) THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-    ELSE CAST(0 AS bit)
-END = CAST(1 AS bit)
+            WHERE `w`.`Id` = `g`.`SquadId`) IS NOT NULL), TRUE, FALSE), FALSE) = TRUE
 """);
         }
 

@@ -25,11 +25,12 @@ namespace EntityFrameworkCore.Jet.Internal
             var jetOptions = options.FindExtension<JetOptionsExtension>() ?? new JetOptionsExtension();
 
             // RowNumberPagingEnabled = jetOptions.RowNumberPaging ?? false;
-            
+
             DataAccessProviderType = GetDataAccessProviderTypeFromOptions(jetOptions);
             UseOuterSelectSkipEmulationViaDataReader = jetOptions.UseOuterSelectSkipEmulationViaDataReader;
             EnableMillisecondsSupport = jetOptions.EnableMillisecondsSupport;
             ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString!;
+            UseShortTextForSystemString = jetOptions.UseShortTextForSystemString;
         }
 
         /// <summary>
@@ -73,15 +74,22 @@ namespace EntityFrameworkCore.Jet.Internal
                         nameof(JetOptionsExtension.EnableMillisecondsSupport),
                         nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
             }
+            if (UseShortTextForSystemString != jetOptions.UseShortTextForSystemString)
+            {
+                throw new InvalidOperationException(
+                    CoreStrings.SingletonOptionChanged(
+                        nameof(JetOptionsExtension.UseShortTextForSystemString),
+                        nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
+            }
         }
-        
+
         private static DataAccessProviderType GetDataAccessProviderTypeFromOptions(JetOptionsExtension jetOptions)
         {
             if (jetOptions.DataAccessProviderFactory == null)
             {
                 throw new InvalidOperationException(JetStrings.DataAccessProviderFactory);
             }
-            
+
             if (jetOptions.DataAccessProviderFactory
                 .GetType()
                 .GetTypesInHierarchy()
@@ -106,7 +114,7 @@ namespace EntityFrameworkCore.Jet.Internal
             {
                 return DataAccessProviderType.Odbc;
             }
-            
+
             throw new InvalidOperationException("The JetConnection.DataAccessProviderFactory property needs to be set to an object of type OdbcFactory or OleDbFactory.");
         }
 
@@ -141,6 +149,8 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public bool EnableMillisecondsSupport { get; private set; }
+
+        public bool UseShortTextForSystemString { get; private set; }
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

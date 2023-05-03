@@ -458,7 +458,7 @@ ORDER BY `a`.`Name`");
                 @"SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `m`.`CountryId`, `m`.`Discriminator`, `m`.`Name`, `m`.`EagleId`, `m`.`IsFlightless`, `m`.`Group`, `m`.`FoundOn`
 FROM `Animals` AS `a`
 INNER JOIN (
-    Select * from ""Animals""
+    Select * from `Animals`
 ) AS `m` ON `a`.`Name` = `m`.`Name`
 WHERE `a`.`Discriminator` = 'Eagle'");
         }
@@ -471,7 +471,7 @@ WHERE `a`.`Discriminator` = 'Eagle'");
                 @"SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE (
-    SELECT TOP(1) `a0`.`Discriminator`
+    SELECT TOP 1 `a0`.`Discriminator`
     FROM `Animals` AS `a0`
     WHERE `a0`.`Name` = 'Great spotted kiwi') = 'Kiwi'
 ORDER BY `a`.`Species`");

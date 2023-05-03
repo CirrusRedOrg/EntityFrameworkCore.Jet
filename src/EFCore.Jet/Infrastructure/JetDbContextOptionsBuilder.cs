@@ -54,6 +54,18 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         public virtual JetDbContextOptionsBuilder EnableMillisecondsSupport(bool enabled = true)
             => WithOption(e => e.WithEnableMillisecondsSupport(enabled));
 
+
+        /// <summary>
+        ///     Set this to enabled to map the System.String CLR type to the Jet `Short Text` data type instead of the
+        ///     Long Text data type. This will limit the maximum length of strings to 255 characters.
+        ///     As System.String does not have a size it is normally mapped to 'lonchar' or 'memo' (SQL Server is 'nvarchar(max)'
+        ///     Jet/Ace has limitations when using memo for strings:
+        ///     - Joins based on the memo column are not supported
+        ///     - Ordering the column (specially the implicit ordering) can be a bit different to expected behaviour 
+        /// </summary>
+        public virtual JetDbContextOptionsBuilder UseShortTextForSystemString(bool enabled = true)
+            => WithOption(e => e.WithUseShortTextForSystemString(enabled));
+
         /// <summary>
         ///     Configures the context to use the default retrying <see cref="IExecutionStrategy" />.
         /// </summary>

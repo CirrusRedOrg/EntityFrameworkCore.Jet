@@ -109,7 +109,7 @@ LEFT JOIN (
 WHERE `o`.`Discriminator` = N'LeafA'
 ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`");
         }
-        
+
         public override async Task Query_when_subquery(bool isAsync)
         {
             await base.Query_when_subquery(isAsync);
@@ -203,7 +203,7 @@ ORDER BY `o`.`Id`");
 
             AssertSql(
                 @"SELECT (
-    SELECT TOP(1) `o1`.`PersonAddress_Country_Name`
+    SELECT TOP 1 `o1`.`PersonAddress_Country_Name`
     FROM `Order` AS `o0`
     LEFT JOIN `OwnedPerson` AS `o1` ON `o0`.`ClientId` = `o1`.`Id`
     WHERE `o`.`Id` = `o0`.`ClientId`

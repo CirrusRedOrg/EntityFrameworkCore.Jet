@@ -64,6 +64,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
         private readonly HashSet<string> _disallowedMappings;
 
+        private readonly IJetOptions _options;
+
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -225,6 +227,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     "national char varying",
                     "national character varying",
                 };
+
+            _options = options;
         }
 
         /// <summary>
@@ -322,6 +326,12 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     if (size > maxCharColumnSize)
                     {
                         size = isFixedLength ? maxCharColumnSize : (int?)null;
+                    }
+
+                    if (_options.UseShortTextForSystemString && size == null)
+
+                    {
+                        return new JetStringTypeMapping("varchar", unicode: true, size: 255);
                     }
 
                     return size == null

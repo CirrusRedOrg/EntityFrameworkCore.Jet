@@ -997,7 +997,7 @@ Queen of the Andals and the Rhoynar and the First Men, Khaleesi of the Great Gra
                     //                    AssertSql(
                     //                        $@"{AssertSqlHelper.Declaration("@__firstName_0='Foo' (Size = 450)")}
 
-//@__8__locals1_details_LastName_1='Bar' (Size = 450)
+                    //@__8__locals1_details_LastName_1='Bar' (Size = 450)
 
                     //SELECT `c`.`FirstName`, `c`.`LastName`
                     //FROM `Customer` AS `c`
@@ -4629,7 +4629,7 @@ FROM `Prices` AS `p`");
                     AssertSql(
                         $@"SELECT `r`.`Id`, `r`.`MyTime`
 FROM `ReproEntity` AS `r`
-WHERE `r`.`MyTime` IN ('2018-10-07T00:00:00')");
+WHERE `r`.`MyTime` = #2018-10-07#");
                 }
             }
         }

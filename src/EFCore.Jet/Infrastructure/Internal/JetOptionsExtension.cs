@@ -24,6 +24,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         private DbProviderFactory? _dataAccessProviderFactory;
         private bool _useOuterSelectSkipEmulationViaDataReader;
         private bool _enableMillisecondsSupport;
+        private bool _useShortTextForSystemString;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -50,6 +51,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
             _dataAccessProviderFactory = copyFrom._dataAccessProviderFactory;
             _useOuterSelectSkipEmulationViaDataReader = copyFrom._useOuterSelectSkipEmulationViaDataReader;
             _enableMillisecondsSupport = copyFrom._enableMillisecondsSupport;
+            _useShortTextForSystemString = copyFrom._useShortTextForSystemString;
         }
 
         /// <summary>
@@ -111,7 +113,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         /// </summary>
         public virtual JetOptionsExtension WithDataAccessProviderFactory(DbProviderFactory dataAccessProviderFactory)
         {
-            var clone = (JetOptionsExtension) Clone();
+            var clone = (JetOptionsExtension)Clone();
 
             clone._dataAccessProviderFactory = dataAccessProviderFactory;
 
@@ -134,7 +136,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         /// </summary>
         public virtual JetOptionsExtension WithUseOuterSelectSkipEmulationViaDataReader(bool enabled)
         {
-            var clone = (JetOptionsExtension) Clone();
+            var clone = (JetOptionsExtension)Clone();
 
             clone._useOuterSelectSkipEmulationViaDataReader = enabled;
 
@@ -157,9 +159,32 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         /// </summary>
         public virtual JetOptionsExtension WithEnableMillisecondsSupport(bool enabled)
         {
-            var clone = (JetOptionsExtension) Clone();
+            var clone = (JetOptionsExtension)Clone();
 
             clone._enableMillisecondsSupport = enabled;
+
+            return clone;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual bool UseShortTextForSystemString => _useShortTextForSystemString;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual JetOptionsExtension WithUseShortTextForSystemString(bool enabled)
+        {
+            var clone = (JetOptionsExtension)Clone();
+
+            clone._useShortTextForSystemString = enabled;
 
             return clone;
         }
@@ -184,7 +209,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
             }
 
             private new JetOptionsExtension Extension
-                => (JetOptionsExtension) base.Extension;
+                => (JetOptionsExtension)base.Extension;
 
             public override bool IsDatabaseProvider => true;
 
@@ -219,6 +244,10 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                         {
                             builder.Append("EnableMillisecondsSupport ");
                         }
+                        if (Extension._useShortTextForSystemString)
+                        {
+                            builder.Append("UseShortTextForSystemString ");
+                        }
 
                         _logFragment = builder.ToString();
                     }
@@ -234,7 +263,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                     _serviceProviderHash = (base.GetServiceProviderHashCode() * 397) ^
                                            (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0) ^
                                            (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) ^
-                                           (Extension._enableMillisecondsSupport.GetHashCode() * 397)/* ^
+                                           (Extension._enableMillisecondsSupport.GetHashCode() * 397) ^
+                                           (Extension._useShortTextForSystemString.GetHashCode() * 397)/* ^
                                            (Extension._rowNumberPaging?.GetHashCode() ?? 0L)*/;
                 }
 
@@ -255,6 +285,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                     = Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode().ToString(CultureInfo.InvariantCulture);
                 debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.EnableMillisecondsSupport)]
                     = Extension._enableMillisecondsSupport.GetHashCode().ToString(CultureInfo.InvariantCulture);
+                debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseShortTextForSystemString)]
+                    = Extension._useShortTextForSystemString.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
     }

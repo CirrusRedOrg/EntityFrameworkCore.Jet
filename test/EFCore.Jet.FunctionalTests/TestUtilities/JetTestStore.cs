@@ -22,22 +22,22 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public const int CommandTimeout = 300;
 
         public static JetTestStore GetNorthwindStore()
-            => (JetTestStore) JetNorthwindTestStoreFactory.Instance
+            => (JetTestStore)JetNorthwindTestStoreFactory.Instance
                 .GetOrCreate(JetNorthwindTestStoreFactory.Name)
-                .Initialize(null, (Func<DbContext>) null);
+                .Initialize(null, (Func<DbContext>)null);
 
         public static JetTestStore GetOrCreate(string name, string scriptPath = null, string templatePath = null)
             => new JetTestStore(name, scriptPath: scriptPath, templatePath: templatePath);
 
         public static JetTestStore GetOrCreateInitialized(string name)
-            => new JetTestStore(name).InitializeJet(null, (Func<DbContext>) null, null);
+            => new JetTestStore(name).InitializeJet(null, (Func<DbContext>)null, null);
 
         public static JetTestStore Create(string name)
             => new JetTestStore(name, shared: false);
 
         public static JetTestStore CreateInitialized(string name)
             => new JetTestStore(name, shared: false)
-                .InitializeJet(null, (Func<DbContext>) null, null);
+                .InitializeJet(null, (Func<DbContext>)null, null);
 
         private readonly string _scriptPath;
         private readonly string _templatePath;
@@ -68,7 +68,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             ConnectionString = CreateConnectionString(Name);
 
             var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(ConnectionString));
-            var connection = (JetConnection) JetFactory.Instance.CreateConnection();
+            var connection = (JetConnection)JetFactory.Instance.CreateConnection();
             connection.ConnectionString = ConnectionString;
             connection.DataAccessProviderFactory = dataAccessProviderFactory;
 
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         public JetTestStore InitializeJet(
             IServiceProvider serviceProvider, Func<DbContext> createContext, Action<DbContext> seed)
-            => (JetTestStore) Initialize(serviceProvider, createContext, seed);
+            => (JetTestStore)Initialize(serviceProvider, createContext, seed);
 
         public JetTestStore InitializeJet(
             IServiceProvider serviceProvider, Func<JetTestStore, DbContext> createContext, Action<DbContext> seed)
@@ -103,7 +103,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
-            => builder.UseJet(Connection, b => b.ApplyConfiguration()).EnableSensitiveDataLogging().EnableDetailedErrors();
+            => builder.UseJet(Connection, b => b.ApplyConfiguration().UseShortTextForSystemString()).EnableSensitiveDataLogging().EnableDetailedErrors();
 
         private bool CreateDatabase(Action<DbContext> clean)
         {
@@ -170,13 +170,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             => ExecuteScalar<T>(Connection, sql, parameters);
 
         private static T ExecuteScalar<T>(DbConnection connection, string sql, params object[] parameters)
-            => Execute(connection, command => (T) command.ExecuteScalar(), sql, false, parameters);
+            => Execute(connection, command => (T)command.ExecuteScalar(), sql, false, parameters);
 
         public Task<T> ExecuteScalarAsync<T>(string sql, params object[] parameters)
             => ExecuteScalarAsync<T>(Connection, sql, parameters);
 
         private static Task<T> ExecuteScalarAsync<T>(DbConnection connection, string sql, IReadOnlyList<object> parameters = null)
-            => ExecuteAsync(connection, async command => (T) await command.ExecuteScalarAsync(), sql, false, parameters);
+            => ExecuteAsync(connection, async command => (T)await command.ExecuteScalarAsync(), sql, false, parameters);
 
         public int ExecuteNonQuery(string sql, params object[] parameters)
             => ExecuteNonQuery(Connection, sql, parameters);
@@ -202,7 +202,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                         var results = Enumerable.Empty<T>();
                         while (dataReader.Read())
                         {
-                            results = results.Concat(new[] {dataReader.GetFieldValue<T>(0)});
+                            results = results.Concat(new[] { dataReader.GetFieldValue<T>(0) });
                         }
 
                         return results;
@@ -221,7 +221,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                         var results = Enumerable.Empty<T>();
                         while (await dataReader.ReadAsync())
                         {
-                            results = results.Concat(new[] {await dataReader.GetFieldValueAsync<T>(0)});
+                            results = results.Concat(new[] { await dataReader.GetFieldValueAsync<T>(0) });
                         }
 
                         return results;
@@ -374,7 +374,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         private static DbCommand CreateCommand(
             DbConnection connection, string commandText = null, IReadOnlyList<object> parameters = null)
         {
-            var command = (JetCommand) connection.CreateCommand();
+            var command = (JetCommand)connection.CreateCommand();
 
             command.CommandText = commandText;
             command.CommandTimeout = CommandTimeout;

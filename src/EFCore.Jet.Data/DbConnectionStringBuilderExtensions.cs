@@ -21,14 +21,14 @@ namespace EntityFrameworkCore.Jet.Data
                 IsOdbc(builder))
             {
                 return builder.TryGetValue("DRIVER", out var value)
-                    ? (string)value
+                    ? ((string)value).TrimStart('{').TrimEnd('}')
                     : null;
             }
 
             return builder.TryGetValue("Provider", out var oleDbValue)
                 ? (string)oleDbValue
                 : builder.TryGetValue("DRIVER", out var odbcValue)
-                    ? (string)odbcValue
+                    ? ((string)odbcValue).TrimStart('{').TrimEnd('}')
                     : null;
         }
 

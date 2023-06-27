@@ -82,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Data
         public override DbConnectionStringBuilder CreateConnectionStringBuilder()
             => InnerFactory == null
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateConnectionStringBuilder)))
-                : InnerFactory.CreateConnectionStringBuilder();
+                : new JetConnectionStringBuilder(InnerFactory);
 
         /// <summary>
         /// Returns a new instance of the provider's class that implements the <see cref="T:System.Data.Common.DbDataAdapter" /> class.

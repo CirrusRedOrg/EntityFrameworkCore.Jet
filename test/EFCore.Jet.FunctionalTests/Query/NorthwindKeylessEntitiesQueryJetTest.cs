@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             ClearLog();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         protected override bool CanExecuteQueryString
@@ -86,11 +86,13 @@ WHERE (({AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")} = '') OR (`c`
             await base.KeylessEntity_with_mixed_tracking(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`CustomerID`
-FROM `Customers` AS `c`
-INNER JOIN (
-    select * from ""Orders""
-) AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
+                """
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `m`.`CustomerID`
+    FROM `Customers` AS `c`
+    INNER JOIN (
+        select * from `Orders`
+    ) AS `m` ON `c`.`CustomerID` = `m`.`CustomerID`
+    """);
         }
 
         public override async Task KeylessEntity_with_defining_query(bool isAsync)
@@ -98,11 +100,13 @@ INNER JOIN (
             await base.KeylessEntity_with_defining_query(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID`
+                """
+SELECT `m`.`CustomerID`
 FROM (
-    select * from ""Orders""
-) AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI'");
+    select * from `Orders`
+) AS `m`
+WHERE `m`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task KeylessEntity_with_defining_query_and_correlated_collection(bool isAsync)
@@ -117,12 +121,14 @@ WHERE `o`.`CustomerID` = 'ALFKI'");
             await base.KeylessEntity_select_where_navigation(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID`
-FROM (
-    select * from ""Orders""
-) AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE `c`.`City` = 'Seattle'");
+                """
+    SELECT `m`.`CustomerID`
+    FROM (
+        select * from `Orders`
+    ) AS `m`
+    LEFT JOIN `Customers` AS `c` ON `m`.`CustomerID` = `c`.`CustomerID`
+    WHERE `c`.`City` = 'Seattle'
+    """);
         }
 
         public override async Task KeylessEntity_select_where_navigation_multi_level(bool isAsync)
@@ -130,15 +136,17 @@ WHERE `c`.`City` = 'Seattle'");
             await base.KeylessEntity_select_where_navigation_multi_level(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID`
-FROM (
-    select * from ""Orders""
-) AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE EXISTS (
-    SELECT 1
-    FROM `Orders` AS `o0`
-    WHERE `c`.`CustomerID` IS NOT NULL AND (`c`.`CustomerID` = `o0`.`CustomerID`))");
+                """
+    SELECT `m`.`CustomerID`
+    FROM (
+        select * from `Orders`
+    ) AS `m`
+    LEFT JOIN `Customers` AS `c` ON `m`.`CustomerID` = `c`.`CustomerID`
+    WHERE EXISTS (
+        SELECT 1
+        FROM `Orders` AS `o`
+        WHERE (`c`.`CustomerID` IS NOT NULL) AND `c`.`CustomerID` = `o`.`CustomerID`)
+    """);
         }
 
         [ConditionalFact]

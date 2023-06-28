@@ -8719,13 +8719,14 @@ WHERE `g`.`HasSoulPatch` = TRUE AND `g`.`HasSoulPatch` IN (FALSE, TRUE)
             await base.Parameter_used_multiple_times_take_appropriate_inferred_type_mapping(async);
 
             AssertSql(
-"""
+                """
 @__place_0='Seattle' (Size = 255)
+@__place_0_1='Seattle' (Size = 100)
 @__place_0_1='Seattle' (Size = 100)
 
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
-WHERE `c`.`Nation` = @__place_0 OR `c`.`Location` = @__place_0_1
+WHERE `c`.`Nation` = @__place_0 OR `c`.`Location` = @__place_0_1 OR `c`.`Location` = @__place_0_1
 """);
         }
 

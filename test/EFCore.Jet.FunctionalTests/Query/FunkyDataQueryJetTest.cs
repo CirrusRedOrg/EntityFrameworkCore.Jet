@@ -286,34 +286,34 @@ WHERE 0 = 1");
     WHERE (`f`.`FirstName` IS NOT NULL) AND (`f`.`FirstName` LIKE 'B[[][[]a[^]%')
     """,
                     //
-                    """
+                    $"""
     @__prm1_0='[' (Size = 255)
     @__prm1_0='[' (Size = 255)
     @__prm1_0='[' (Size = 255)
     
     SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
     FROM `FunkyCustomers` AS `f`
-    WHERE @__prm1_0 = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(@__prm1_0)) = @__prm1_0)
+    WHERE {AssertSqlHelper.Parameter("@__prm1_0")} = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm1_0")})) = {AssertSqlHelper.Parameter("@__prm1_0")})
     """,
                     //
-                    """
+                    $"""
     @__prm2_0='B[' (Size = 255)
     @__prm2_0='B[' (Size = 255)
     @__prm2_0='B[' (Size = 255)
     
     SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
     FROM `FunkyCustomers` AS `f`
-    WHERE @__prm2_0 = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(@__prm2_0)) = @__prm2_0)
+    WHERE {AssertSqlHelper.Parameter("@__prm2_0")} = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm2_0")})) = {AssertSqlHelper.Parameter("@__prm2_0")})
     """,
                     //
-                    """
+                    $"""
     @__prm3_0='B[[a^' (Size = 255)
     @__prm3_0='B[[a^' (Size = 255)
     @__prm3_0='B[[a^' (Size = 255)
     
     SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
     FROM `FunkyCustomers` AS `f`
-    WHERE @__prm3_0 = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN(@__prm3_0)) = @__prm3_0)
+    WHERE {AssertSqlHelper.Parameter("@__prm3_0")} = '' OR ((`f`.`FirstName` IS NOT NULL) AND LEFT(`f`.`FirstName`, LEN({AssertSqlHelper.Parameter("@__prm3_0")})) = {AssertSqlHelper.Parameter("@__prm3_0")})
     """,
                     //
                     """

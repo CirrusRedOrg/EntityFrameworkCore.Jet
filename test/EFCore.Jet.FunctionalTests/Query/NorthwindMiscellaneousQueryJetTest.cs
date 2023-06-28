@@ -3956,11 +3956,11 @@ FROM (
 """
 @__prefix_0='A' (Size = 255)
 @__prefix_0_1='A' (Size = 5)
-@__prefix_0='A' (Size = 255)
+@__prefix_0_1='A' (Size = 5)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE @__prefix_0 = '' OR LEFT(`c`.`CustomerID`, LEN(@__prefix_0_1)) = @__prefix_0
+WHERE @__prefix_0 = '' OR LEFT(`c`.`CustomerID`, LEN(@__prefix_0_1)) = @__prefix_0_1
 """);
         }
 

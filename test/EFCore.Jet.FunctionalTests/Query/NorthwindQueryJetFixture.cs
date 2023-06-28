@@ -50,6 +50,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             modelBuilder.Entity<MostExpensiveProduct>()
                 .Property(p => p.UnitPrice)
                 .HasColumnType("money");
+
+            //Override inherited query of : select * from ""Orders""
+            //This is needed as the " character does not work for surrounding table/entity names on OleDb
+            modelBuilder.Entity<OrderQuery>().ToSqlQuery(@"select * from `Orders`");
         }
     }
 }

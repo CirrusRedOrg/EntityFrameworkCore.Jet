@@ -1,13 +1,10 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -53,4 +50,16 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     /// </summary>
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => new JetQueryableMethodTranslatingExpressionVisitor(this);
+
+    protected override ShapedQueryExpression? TranslateLeftJoin(ShapedQueryExpression outer, ShapedQueryExpression inner,
+        LambdaExpression outerKeySelector, LambdaExpression innerKeySelector, LambdaExpression resultSelector)
+    {
+        //Jet can't handle a left join following a cross join
+        //so we push the cross join into a subquery wrapped by parentheses and then do the left join on that
+        if (outer.QueryExpression is SelectExpression selectExpression && selectExpression.Tables.Last() is CrossJoinExpression)
+        {
+            selectExpression.PushdownIntoSubquery();
+        }
+        return base.TranslateLeftJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector);
+    }
 }

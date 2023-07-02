@@ -654,9 +654,11 @@ WHERE `e`.`ReportsTo` IS NULL");
             await base.Where_string_length(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE CLNG(LEN(`c`.`City`)) = 6");
+                """
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE IIF(LEN(`c`.`City`) IS NULL, NULL, CLNG(LEN(`c`.`City`))) = 6
+    """);
         }
 
         public override async Task Where_string_indexof(bool isAsync)
@@ -1709,12 +1711,14 @@ WHERE `c`.`City` = 'Seattle'");
             await base.Filter_non_nullable_value_after_FirstOrDefault_on_empty_collection(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE (
-    SELECT TOP 1 CLNG(LEN(`o`.`CustomerID`))
-    FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` = 'John Doe') = 0");
+                """
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE (
+        SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+        FROM `Orders` AS `o`
+        WHERE `o`.`CustomerID` = 'John Doe') = 0
+    """);
         }
 
         public override async Task Like_with_non_string_column_using_ToString(bool isAsync)

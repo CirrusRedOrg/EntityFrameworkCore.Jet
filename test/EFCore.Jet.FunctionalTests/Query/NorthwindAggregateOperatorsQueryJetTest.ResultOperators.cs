@@ -265,11 +265,16 @@ WHERE `p`.`ProductID` < 40");
             await base.Average_over_subquery_is_client_eval(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(CDBL((
-    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
-FROM `Customers` AS `c`");
+                """
+    SELECT AVG(IIF((
+            SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`) IS NULL, NULL, CDBL((
+            SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`))))
+    FROM `Customers` AS `c`
+    """);
         }
 
         public override async Task Average_over_nested_subquery_is_client_eval(bool isAsync)

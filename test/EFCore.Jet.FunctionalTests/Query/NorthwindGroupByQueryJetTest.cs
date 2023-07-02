@@ -474,9 +474,11 @@ GROUP BY `o`.`CustomerID`, `o`.`EmployeeID`");
             await base.GroupBy_Dto_as_element_selector_Select_Sum(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(SUM(CLNG(`o`.`EmployeeID`)) IS NULL, 0, SUM(CLNG(`o`.`EmployeeID`))) AS `Sum`, `o`.`CustomerID` AS `Key`
-FROM `Orders` AS `o`
-GROUP BY `o`.`CustomerID`");
+                """
+    SELECT IIF(SUM(IIF(`o`.`EmployeeID` IS NULL, NULL, CLNG(`o`.`EmployeeID`))) IS NULL, 0, SUM(IIF(`o`.`EmployeeID` IS NULL, NULL, CLNG(`o`.`EmployeeID`)))) AS `Sum`, `o`.`CustomerID` AS `Key`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    """);
         }
 
         public override async Task GroupBy_Composite_Select_Dto_Sum_Min_Key_flattened_Max_Avg(bool isAsync)
@@ -1022,11 +1024,13 @@ GROUP BY `t0`.`CustomerID`");
             await base.GroupJoin_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID` AS `Key`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `o`.`OrderID` IS NOT NULL
-GROUP BY `o`.`CustomerID`");
+                """
+    SELECT `o`.`CustomerID` AS `Key`, AVG(IIF(`o`.`OrderID` IS NULL, NULL, CDBL(`o`.`OrderID`))) AS `Average`
+    FROM `Customers` AS `c`
+    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+    WHERE `o`.`OrderID` IS NOT NULL
+    GROUP BY `o`.`CustomerID`
+    """);
         }
 
         public override async Task GroupJoin_GroupBy_Aggregate_2(bool isAsync)
@@ -1944,9 +1948,11 @@ GROUP BY `o`.`CustomerID`");
             await base.Group_by_with_arithmetic_operation_inside_aggregate(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID` AS `Key`, IIF(SUM(`o`.`OrderID` + CLNG(LEN(`o`.`CustomerID`))) IS NULL, 0, SUM(`o`.`OrderID` + CLNG(LEN(`o`.`CustomerID`)))) AS `Sum`
-FROM `Orders` AS `o`
-GROUP BY `o`.`CustomerID`");
+                """
+    SELECT `o`.`CustomerID` AS `Key`, IIF(SUM(`o`.`OrderID` + IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(`o`.`OrderID` + IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`))))) AS `Sum`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    """);
         }
 
         private void AssertSql(params string[] expected)

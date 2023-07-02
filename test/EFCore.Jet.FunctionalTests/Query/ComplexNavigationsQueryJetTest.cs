@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -762,11 +763,16 @@ WHERE `l`.`Id` = `l0`.`Id`");
             await base.SelectMany_navigation_comparison2(isAsync);
 
             AssertSql(
-                $@"SELECT `l`.`Id` AS `Id1`, `l0`.`Id` AS `Id2`
-FROM `LevelOne` AS `l`,
-`LevelTwo` AS `l0`
-LEFT JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Optional_Id` = `l1`.`Id`
-WHERE `l`.`Id` = `l1`.`Id`");
+                """
+    SELECT `t`.`Id` AS `Id1`, `t`.`Id0` AS `Id2`
+    FROM (
+        SELECT `l`.`Id`, `l0`.`Id` AS `Id0`, `l0`.`Level1_Optional_Id`
+        FROM `LevelOne` AS `l`,
+        `LevelTwo` AS `l0`
+    ) AS `t`
+    LEFT JOIN `LevelOne` AS `l1` ON `t`.`Level1_Optional_Id` = `l1`.`Id`
+    WHERE `t`.`Id` = `l1`.`Id`
+    """);
         }
 
         public override async Task SelectMany_navigation_comparison3(bool isAsync)
@@ -774,11 +780,16 @@ WHERE `l`.`Id` = `l1`.`Id`");
             await base.SelectMany_navigation_comparison3(isAsync);
 
             AssertSql(
-                $@"SELECT `l`.`Id` AS `Id1`, `l0`.`Id` AS `Id2`
-FROM `LevelOne` AS `l`,
-`LevelTwo` AS `l0`
-LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`
-WHERE `l1`.`Id` = `l0`.`Id`");
+                """
+    SELECT `t`.`Id` AS `Id1`, `t`.`Id0` AS `Id2`
+    FROM (
+        SELECT `l`.`Id`, `l0`.`Id` AS `Id0`
+        FROM `LevelOne` AS `l`,
+        `LevelTwo` AS `l0`
+    ) AS `t`
+    LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`
+    WHERE `l1`.`Id` = `t`.`Id0`
+    """);
         }
 
         public override async Task Where_complex_predicate_with_with_nav_prop_and_OrElse1(bool isAsync)
@@ -786,12 +797,17 @@ WHERE `l1`.`Id` = `l0`.`Id`");
             await base.Where_complex_predicate_with_with_nav_prop_and_OrElse1(isAsync);
 
             AssertSql(
-                $@"SELECT `l`.`Id` AS `Id1`, `l0`.`Id` AS `Id2`
-FROM `LevelOne` AS `l`,
-`LevelTwo` AS `l0`
-LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`
-INNER JOIN `LevelOne` AS `l2` ON `l0`.`Level1_Required_Id` = `l2`.`Id`
-WHERE `l1`.`Name` = 'L2 01' OR (`l2`.`Name` <> 'Bar' OR (`l2`.`Name` IS NULL))");
+                """
+    SELECT `t`.`Id` AS `Id1`, `t`.`Id0` AS `Id2`
+    FROM ((
+        SELECT `l`.`Id`, `l0`.`Id` AS `Id0`, `l0`.`Level1_Required_Id`
+        FROM `LevelOne` AS `l`,
+        `LevelTwo` AS `l0`
+    ) AS `t`
+    LEFT JOIN `LevelTwo` AS `l1` ON `t`.`Id` = `l1`.`Level1_Optional_Id`)
+    INNER JOIN `LevelOne` AS `l2` ON `t`.`Level1_Required_Id` = `l2`.`Id`
+    WHERE `l1`.`Name` = 'L2 01' OR `l2`.`Name` <> 'Bar' OR (`l2`.`Name` IS NULL)
+    """);
         }
 
         public override async Task Where_complex_predicate_with_with_nav_prop_and_OrElse2(bool isAsync)
@@ -2063,12 +2079,13 @@ LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`");
 
         public override async Task GroupJoin_client_method_in_OrderBy(bool isAsync)
         {
-            await base.GroupJoin_client_method_in_OrderBy(isAsync);
+            await AssertTranslationFailedWithDetails(
+                () => base.GroupJoin_client_method_in_OrderBy(isAsync),
+                CoreStrings.QueryUnableToTranslateMethod(
+                    "Microsoft.EntityFrameworkCore.Query.ComplexNavigationsQueryTestBase<EntityFrameworkCore.Jet.FunctionalTests.Query.ComplexNavigationsQueryJetFixture>",
+                    "ClientMethodNullableInt"));
 
-            AssertSql(
-                $@"SELECT `l1`.`Id`, `l2`.`Id`
-FROM `LevelOne` AS `l1`
-LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Optional_Id`");
+            AssertSql();
         }
 
         public override async Task GroupJoin_without_DefaultIfEmpty(bool isAsync)

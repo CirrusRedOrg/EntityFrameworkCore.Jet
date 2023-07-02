@@ -306,7 +306,7 @@ ORDER BY `t`.`City`
             await base.String_Join_with_predicate(async);
 
             AssertSql(
-"""
+                """
 SELECT `t`.`City`, `t0`.`CustomerID`
 FROM (
     SELECT `c`.`City`
@@ -316,7 +316,7 @@ FROM (
 LEFT JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`City`
     FROM `Customers` AS `c0`
-    WHERE CLNG(LEN(`c0`.`ContactName`)) > 10
+    WHERE IIF(LEN(`c0`.`ContactName`) IS NULL, NULL, CLNG(LEN(`c0`.`ContactName`))) > 10
 ) AS `t0` ON `t`.`City` = `t0`.`City`
 ORDER BY `t`.`City`
 """);
@@ -1229,11 +1229,11 @@ WHERE `o`.`Quantity` < 5
             await base.Where_mathf_truncate(async);
 
             AssertSql(
-    """
-SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` < 5 AND CSNG(INT(CSNG(`o`.`UnitPrice`))) > 10
-""");
+                """
+    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+    FROM `Order Details` AS `o`
+    WHERE `o`.`Quantity` < 5 AND IIF(INT(CSNG(`o`.`UnitPrice`)) IS NULL, NULL, CSNG(INT(CSNG(`o`.`UnitPrice`)))) > 10
+    """);
         }
 
         public override async Task Select_mathf_truncate(bool async)
@@ -1241,11 +1241,11 @@ WHERE `o`.`Quantity` < 5 AND CSNG(INT(CSNG(`o`.`UnitPrice`))) > 10
             await base.Select_mathf_truncate(async);
 
             AssertSql(
-    """
-SELECT CSNG(INT(CSNG(`o`.`UnitPrice`)))
-FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` < 5
-""");
+                """
+    SELECT IIF(INT(CSNG(`o`.`UnitPrice`)) IS NULL, NULL, CSNG(INT(CSNG(`o`.`UnitPrice`))))
+    FROM `Order Details` AS `o`
+    WHERE `o`.`Quantity` < 5
+    """);
         }
 
         public override async Task Where_mathf_exp(bool async)
@@ -1440,10 +1440,10 @@ WHERE LCASE(`c`.`CustomerID`) = 'alfki'");
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE CDBL(CLNG(LEN(`c`.`CustomerID`)))^2.0 = 25.0
-""");
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE CDBL(IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))))^2.0 = 25.0
+    """);
         }
 
         public override async Task Convert_ToBoolean(bool async)
@@ -2154,9 +2154,11 @@ WHERE TRIM(`c`.`ContactTitle`) = 'Owner'");
             await base.Order_by_length_twice(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-ORDER BY CLNG(LEN(`c`.`CustomerID`)), `c`.`CustomerID`");
+                """
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))), `c`.`CustomerID`
+    """);
         }
 
         public override async Task Order_by_length_twice_followed_by_projection_of_naked_collection_navigation(bool isAsync)
@@ -2164,10 +2166,12 @@ ORDER BY CLNG(LEN(`c`.`CustomerID`)), `c`.`CustomerID`");
             await base.Order_by_length_twice_followed_by_projection_of_naked_collection_navigation(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY CLNG(LEN(`c`.`CustomerID`)), `c`.`CustomerID`");
+                """
+    SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Customers` AS `c`
+    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))), `c`.`CustomerID`
+    """);
         }
 
         public override async Task Static_string_equals_in_predicate(bool isAsync)

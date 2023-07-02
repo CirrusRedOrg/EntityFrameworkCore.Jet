@@ -196,8 +196,10 @@ FROM `Customers` AS `c`");
             await base.Select_anonymous_constant_in_expression(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, CLNG(LEN(`c`.`CustomerID`)) + 5 AS `Expression`
-FROM `Customers` AS `c`");
+                """
+    SELECT `c`.`CustomerID`, IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))) + 5 AS `Expression`
+    FROM `Customers` AS `c`
+    """);
         }
 
         public override async Task Select_anonymous_conditional_expression(bool isAsync)
@@ -430,34 +432,36 @@ ORDER BY `c`.`CustomerID`");
             await base.Select_nested_collection_multi_level6(isAsync);
 
             AssertSql(
-                $@"SELECT IIF((
-        SELECT TOP 1 IIF((
-                SELECT TOP 1 `o0`.`ProductID`
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`))
-                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-                SELECT TOP 1 `o0`.`ProductID`
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`))
-                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
-        ORDER BY `o`.`OrderID`) IS NULL, 0, (
-        SELECT TOP 1 IIF((
-                SELECT TOP 1 `o0`.`ProductID`
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`))
-                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-                SELECT TOP 1 `o0`.`ProductID`
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> CLNG(LEN(`c`.`CustomerID`))
-                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
-        ORDER BY `o`.`OrderID`)) AS `Order`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`");
+                """
+    SELECT IIF((
+            SELECT TOP 1 IIF((
+                    SELECT TOP 1 `o0`.`ProductID`
+                    FROM `Order Details` AS `o0`
+                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
+                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
+                    SELECT TOP 1 `o0`.`ProductID`
+                    FROM `Order Details` AS `o0`
+                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
+                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
+            ORDER BY `o`.`OrderID`) IS NULL, 0, (
+            SELECT TOP 1 IIF((
+                    SELECT TOP 1 `o0`.`ProductID`
+                    FROM `Order Details` AS `o0`
+                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
+                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
+                    SELECT TOP 1 `o0`.`ProductID`
+                    FROM `Order Details` AS `o0`
+                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
+                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
+            ORDER BY `o`.`OrderID`)) AS `Order`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'A%'
+    ORDER BY `c`.`CustomerID`
+    """);
         }
 
         public override async Task Select_nested_collection_count_using_anonymous_type(bool isAsync)
@@ -499,10 +503,12 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_nullable_int_to_long_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CLNG(`o`.`EmployeeID`)
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI'
-ORDER BY `o`.`OrderID`");
+                """
+    SELECT IIF(`o`.`EmployeeID` IS NULL, NULL, CLNG(`o`.`EmployeeID`))
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = 'ALFKI'
+    ORDER BY `o`.`OrderID`
+    """);
         }
 
         public override async Task Select_non_matching_value_types_nullable_int_to_int_doesnt_introduce_explicit_cast(bool isAsync)
@@ -577,10 +583,12 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_length_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CLNG(CLNG(LEN(`o`.`CustomerID`)))
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI'
-ORDER BY `o`.`OrderID`");
+                """
+    SELECT CLNG(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`))))
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = 'ALFKI'
+    ORDER BY `o`.`OrderID`
+    """);
         }
 
         public override async Task Select_non_matching_value_types_from_method_call_introduces_explicit_cast(bool isAsync)
@@ -588,10 +596,12 @@ ORDER BY `o`.`OrderID`");
             await base.Select_non_matching_value_types_from_method_call_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT CLNG(ABS(`o`.`OrderID`))
-FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` = 'ALFKI'
-ORDER BY `o`.`OrderID`");
+                """
+    SELECT IIF(ABS(`o`.`OrderID`) IS NULL, NULL, CLNG(ABS(`o`.`OrderID`)))
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = 'ALFKI'
+    ORDER BY `o`.`OrderID`
+    """);
         }
 
         public override async Task Select_non_matching_value_types_from_anonymous_type_introduces_explicit_cast(bool isAsync)
@@ -995,8 +1005,10 @@ FROM `Orders` AS `o`");
             await base.Projecting_nullable_struct(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID`, IIF(`o`.`CustomerID` = 'ALFKI' AND (`o`.`CustomerID` IS NOT NULL), TRUE, FALSE), `o`.`OrderID`, CLNG(LEN(`o`.`CustomerID`))
-FROM `Orders` AS `o`");
+                """
+    SELECT `o`.`CustomerID`, IIF(`o`.`CustomerID` = 'ALFKI' AND (`o`.`CustomerID` IS NOT NULL), TRUE, FALSE), `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+    FROM `Orders` AS `o`
+    """);
         }
 
         public override async Task Multiple_select_many_with_predicate(bool isAsync)
@@ -1423,13 +1435,15 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
             await base.Projecting_Length_of_a_string_property_after_FirstOrDefault_on_correlated_collection(async);
 
             AssertSql(
-                @"SELECT (
-    SELECT TOP 1 CLNG(LEN(`o`.`CustomerID`))
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-    ORDER BY `o`.`OrderID`)
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+                """
+    SELECT (
+        SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderID`)
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+    """);
         }
 
         public override async Task Projecting_count_of_navigation_which_is_generic_list(bool async)

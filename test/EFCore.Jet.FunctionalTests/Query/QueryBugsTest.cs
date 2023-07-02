@@ -4084,28 +4084,34 @@ WHERE (`t`.`Name` <> 'Bar') OR `t`.`Name` IS NULL");
                         $@"SELECT AVG(`p`.`Price`)
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIF(`p`.`IntColumn` IS NULL, NULL, CDBL(`p`.`IntColumn`)))
+                        $@"SELECT AVG(CDBL(`p`.`IntColumn`))
 FROM `Prices` AS `p`",
                         //
                         $@"SELECT AVG(IIF(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT AVG(IIF(`p`.`LongColumn` IS NULL, NULL, CDBL(`p`.`LongColumn`)))
+                        $@"SELECT AVG(CDBL(`p`.`LongColumn`))
 FROM `Prices` AS `p`",
                         //
                         $@"SELECT AVG(IIF(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT IIF(AVG(`p`.`FloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`FloatColumn`)))
+                        $@"SELECT CSNG(AVG(`p`.`FloatColumn`))
 FROM `Prices` AS `p`",
                         //
-                        $@"SELECT IIF(AVG(`p`.`NullableFloatColumn`) IS NULL, NULL, CSNG(AVG(`p`.`NullableFloatColumn`)))
+                        $@"SELECT CSNG(AVG(`p`.`NullableFloatColumn`))
 FROM `Prices` AS `p`",
                         //
                         $@"SELECT AVG(`p`.`DoubleColumn`)
 FROM `Prices` AS `p`",
                         //
                         $@"SELECT AVG(`p`.`NullableDoubleColumn`)
+FROM `Prices` AS `p`",
+                        //
+                        $@"SELECT AVG(`p`.`DecimalColumn`)
+FROM `Prices` AS `p`",
+                        //
+                        $@"SELECT AVG(`p`.`NullableDecimalColumn`)
 FROM `Prices` AS `p`");
                 }
             }

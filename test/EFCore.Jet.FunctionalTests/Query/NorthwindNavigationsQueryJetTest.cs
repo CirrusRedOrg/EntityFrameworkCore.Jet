@@ -14,9 +14,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
-            fixture.TestSqlLoggerFactory.Clear();
+            ClearLog();
+            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
-        
+
         public override async Task Select_Where_Navigation(bool isAsync)
         {
             await base.Select_Where_Navigation(isAsync);
@@ -314,16 +315,22 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` 
             await base.Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`CustomerID`, `t`.`CustomerID` AS `C2`
-FROM `Orders` AS `o`,
-(
-    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-    FROM `Orders` AS `o0`
-    WHERE `o0`.`OrderID` < 10400
-) AS `t`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-LEFT JOIN `Customers` AS `c0` ON `t`.`CustomerID` = `c0`.`CustomerID`
-WHERE (`o`.`OrderID` < 10300) AND ((`c`.`City` = `c0`.`City`) OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL))");
+                """
+    SELECT `t0`.`CustomerID`, `t0`.`CustomerID0` AS `C2`
+    FROM ((
+        SELECT `o`.`CustomerID`, `t`.`CustomerID` AS `CustomerID0`
+        FROM `Orders` AS `o`,
+        (
+            SELECT `o0`.`CustomerID`
+            FROM `Orders` AS `o0`
+            WHERE `o0`.`OrderID` < 10400
+        ) AS `t`
+        WHERE `o`.`OrderID` < 10300
+    ) AS `t0`
+    LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
+    LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
+    WHERE `c`.`City` = `c0`.`City` OR ((`c`.`City` IS NULL) AND (`c0`.`City` IS NULL))
+    """);
         }
 
         public override async Task Select_Where_Navigation_Equals_Navigation(bool isAsync)
@@ -331,12 +338,18 @@ WHERE (`o`.`OrderID` < 10300) AND ((`c`.`City` = `c0`.`City`) OR (`c`.`City` IS 
             await base.Select_Where_Navigation_Equals_Navigation(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM `Orders` AS `o`,
-`Orders` AS `o0`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE ((`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND (`o0`.`CustomerID` IS NOT NULL AND (`o0`.`CustomerID` LIKE 'A' & '%'))) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))");
+                """
+    SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`CustomerID0`, `t`.`EmployeeID0`, `t`.`OrderDate0`
+    FROM ((
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`, `o0`.`EmployeeID` AS `EmployeeID0`, `o0`.`OrderDate` AS `OrderDate0`
+        FROM `Orders` AS `o`,
+        `Orders` AS `o0`
+        WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%') AND (`o0`.`CustomerID` IS NOT NULL) AND (`o0`.`CustomerID` LIKE 'A%')
+    ) AS `t`
+    LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`)
+    LEFT JOIN `Customers` AS `c0` ON `t`.`CustomerID0` = `c0`.`CustomerID`
+    WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR ((`c`.`CustomerID` IS NULL) AND (`c0`.`CustomerID` IS NULL))
+    """);
         }
 
         public override async Task Select_Where_Navigation_Null(bool isAsync)

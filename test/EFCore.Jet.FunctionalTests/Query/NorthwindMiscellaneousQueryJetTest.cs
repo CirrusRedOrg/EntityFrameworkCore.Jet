@@ -4018,13 +4018,19 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
             await base.Comparing_navigations_using_static_Equals(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID` AS `Id1`, `o0`.`OrderID` AS `Id2`
-FROM `Orders` AS `o`,
-`Orders` AS `o0`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
-ORDER BY `o`.`OrderID`, `o0`.`OrderID`");
+                """
+    SELECT `t`.`OrderID` AS `Id1`, `t`.`OrderID0` AS `Id2`
+    FROM ((
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`
+        FROM `Orders` AS `o`,
+        `Orders` AS `o0`
+        WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')
+    ) AS `t`
+    LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`)
+    LEFT JOIN `Customers` AS `c0` ON `t`.`CustomerID0` = `c0`.`CustomerID`
+    WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR ((`c`.`CustomerID` IS NULL) AND (`c0`.`CustomerID` IS NULL))
+    ORDER BY `t`.`OrderID`, `t`.`OrderID0`
+    """);
         }
 
         public override async Task Comparing_non_matching_entities_using_Equals(bool isAsync)

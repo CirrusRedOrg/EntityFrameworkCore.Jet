@@ -340,7 +340,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 SqlExpression checksqlexp = convertExpression.Operand;
 
                 SqlFunctionExpression notnullsqlexp = new SqlFunctionExpression(function, new SqlExpression[] { convertExpression.Operand },
-                  true, new[] { true }, typeMapping.ClrType, null);
+                  false, new[] { false }, typeMapping.ClrType, null);
 
                 SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
@@ -349,8 +349,58 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     new CaseWhenClause(isnullexp, nullcons)
                 };
                 CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
-                //Visit(caseexp);
-                Visit(notnullsqlexp);
+                if (checksqlexp is ColumnExpression columnExpression)
+                {
+                    if (columnExpression.IsNullable)
+                    {
+                        Visit(caseexp);
+                    }
+                    else
+                    {
+                        Visit(notnullsqlexp);
+                    }
+                }
+                else if (checksqlexp is SqlFunctionExpression functionExpression)
+                {
+                    if (functionExpression is { IsNullable: true, ArgumentsPropagateNullability: not null } && functionExpression.ArgumentsPropagateNullability.Any(d => d))
+                    {
+                        Visit(caseexp);
+                    }
+                    else
+                    {
+                        Visit(notnullsqlexp);
+                    }
+                }
+                else if (checksqlexp is SqlBinaryExpression binaryExpression)
+                {
+                    bool leftnull = false, rightnull = false;
+                    ColumnExpression? columnExpressionLeft = binaryExpression.Left as ColumnExpression;
+                    SqlFunctionExpression? functionExpressionLeft = binaryExpression.Left as SqlFunctionExpression;
+                    ColumnExpression? columnExpressionRight = binaryExpression.Right as ColumnExpression;
+                    SqlFunctionExpression? functionExpressionRight = binaryExpression.Right as SqlFunctionExpression;
+                    leftnull = columnExpressionLeft != null && columnExpressionLeft.IsNullable ||
+                               functionExpressionLeft != null && functionExpressionLeft.IsNullable;
+                    rightnull = columnExpressionRight != null && columnExpressionRight.IsNullable ||
+                                functionExpressionRight != null && functionExpressionRight.IsNullable;
+
+                    if (leftnull || rightnull)
+                    {
+                        Visit(caseexp);
+                    }
+                    else
+                    {
+                        Visit(notnullsqlexp);
+                    }
+                }
+                else if (checksqlexp is SqlUnaryExpression unaryExpression)
+                {
+                    Visit(notnullsqlexp);
+                }
+                else
+                {
+                    Visit(caseexp);
+                }
+
                 return notnullsqlexp;
             }
 

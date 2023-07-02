@@ -250,8 +250,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 var result = (SqlExpression)_sqlExpressionFactory.Function(
                     "ROUND",
                     new[] { argument, digits },
-                    nullable: true,
-                    argumentsPropagateNullability: new[] { true, true },
+                    nullable: false,
+                    argumentsPropagateNullability: new[] { true, false },
                     resultType);
 
                 if (argument.Type == typeof(float))

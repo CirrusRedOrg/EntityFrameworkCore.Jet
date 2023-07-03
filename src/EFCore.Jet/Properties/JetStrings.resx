@@ -169,6 +169,18 @@
     <value>Found type alias with name: {alias} which maps to underlying data type {dataType}.</value>
     <comment>Debug JetEventId.TypeAliasFound string string</comment>
   </data>
+  <data name="LogByteIdentityColumn" xml:space="preserve">
+    <value>The property '{property}' on entity type '{entityType}' is of type 'byte', but is set up to use a SQL Server identity column; this requires that values starting at 255 and counting down will be used for temporary key values. A temporary key value is needed for every entity inserted in a single call to 'SaveChanges'. Care must be taken that these values do not collide with real key values.</value>
+    <comment>Warning JetEventId.ByteIdentityColumnWarning string string</comment>
+  </data>
+  <data name="LogColumnWithoutType" xml:space="preserve">
+    <value>A database type for column '{columnName}' on table '{tableName}' could not be found, the column will be skipped.</value>
+    <comment>Warning JetEventId.ColumnWithoutTypeWarning string string</comment>
+  </data>
+  <data name="LogDecimalTypeKey" xml:space="preserve">
+    <value>The decimal property '{property}' is part of a key on entity type '{entityType}'. If the configured precision and scale don't match the column type in the database, this will cause values to be silently truncated if they do not fit in the default precision and scale. Consider using a different property as the key, or make sure that the database column type matches the model configuration and enable decimal rounding warnings using 'SET NUMERIC_ROUNDABORT ON'.</value>
+    <comment>Warning JetEventId.DecimalTypeKeyWarning string string</comment>
+  </data>
   <data name="LogFoundColumn" xml:space="preserve">
     <value>Found column with table: {tableName}, column name: {columnName}, ordinal: {ordinal}, data type: {dataType}, maximum length: {maxLength}, precision: {precision}, scale: {scale}, nullable: {isNullable}, identity: {isIdentity}, default value: {defaultValue}, computed value: {computedValue}</value>
     <comment>Debug JetEventId.ColumnFound string string int string int int int bool bool string string</comment>

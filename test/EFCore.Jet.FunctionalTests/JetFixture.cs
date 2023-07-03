@@ -23,6 +23,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 w =>
                 {
                     w.Log(JetEventId.ByteIdentityColumnWarning);
+                    w.Log(JetEventId.DecimalTypeKeyWarning);
                 });
     }
 }

@@ -24,7 +24,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static ModelBuilder UseIdentityColumns(
+        public static ModelBuilder UseJetIdentityColumns(
             [NotNull] this ModelBuilder modelBuilder,
             int seed = 1,
             int increment = 1)
@@ -34,8 +34,8 @@ namespace Microsoft.EntityFrameworkCore
             var model = modelBuilder.Model;
 
             model.SetValueGenerationStrategy(JetValueGenerationStrategy.IdentityColumn);
-            model.SetIdentitySeed(seed);
-            model.SetIdentityIncrement(increment);
+            model.SetJetIdentitySeed(seed);
+            model.SetJetIdentityIncrement(increment);
 
             return modelBuilder;
         }
@@ -50,12 +50,12 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionModelBuilder? HasIdentityColumnSeed(
+        public static IConventionModelBuilder? HasJetIdentityColumnSeed(
             [NotNull] this IConventionModelBuilder modelBuilder, int? seed, bool fromDataAnnotation = false)
         {
-            if (modelBuilder.CanSetIdentityColumnSeed(seed, fromDataAnnotation))
+            if (modelBuilder.CanSetJetIdentityColumnSeed(seed, fromDataAnnotation))
             {
-                modelBuilder.Metadata.SetIdentitySeed(seed, fromDataAnnotation);
+                modelBuilder.Metadata.SetJetIdentitySeed(seed, fromDataAnnotation);
                 return modelBuilder;
             }
 
@@ -69,7 +69,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the seed for Jet IDENTITY. </returns>
-        public static bool CanSetIdentityColumnSeed(
+        public static bool CanSetJetIdentityColumnSeed(
             [NotNull] this IConventionModelBuilder modelBuilder, int? seed, bool fromDataAnnotation = false)
         {
             Check.NotNull(modelBuilder, nameof(modelBuilder));
@@ -87,12 +87,12 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionModelBuilder? HasIdentityColumnIncrement(
+        public static IConventionModelBuilder? HasJetIdentityColumnIncrement(
             [NotNull] this IConventionModelBuilder modelBuilder, int? increment, bool fromDataAnnotation = false)
         {
-            if (modelBuilder.CanSetIdentityColumnIncrement(increment, fromDataAnnotation))
+            if (modelBuilder.CanSetJetIdentityColumnIncrement(increment, fromDataAnnotation))
             {
-                modelBuilder.Metadata.SetIdentityIncrement(increment, fromDataAnnotation);
+                modelBuilder.Metadata.SetJetIdentityIncrement(increment, fromDataAnnotation);
                 return modelBuilder;
             }
 
@@ -106,7 +106,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the default increment for Jet IDENTITY. </returns>
-        public static bool CanSetIdentityColumnIncrement(
+        public static bool CanSetJetIdentityColumnIncrement(
             [NotNull] this IConventionModelBuilder modelBuilder, int? increment, bool fromDataAnnotation = false)
         {
             Check.NotNull(modelBuilder, nameof(modelBuilder));
@@ -135,8 +135,8 @@ namespace Microsoft.EntityFrameworkCore
                 modelBuilder.Metadata.SetValueGenerationStrategy(valueGenerationStrategy, fromDataAnnotation);
                 if (valueGenerationStrategy != JetValueGenerationStrategy.IdentityColumn)
                 {
-                    modelBuilder.HasIdentityColumnSeed(null, fromDataAnnotation);
-                    modelBuilder.HasIdentityColumnIncrement(null, fromDataAnnotation);
+                    modelBuilder.HasJetIdentityColumnSeed(null, fromDataAnnotation);
+                    modelBuilder.HasJetIdentityColumnIncrement(null, fromDataAnnotation);
                 }
 
                 return modelBuilder;

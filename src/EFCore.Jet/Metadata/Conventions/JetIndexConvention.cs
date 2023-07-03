@@ -135,10 +135,6 @@ public class JetIndexConvention :
         IConventionAnnotation? oldAnnotation,
         IConventionContext<IConventionAnnotation> context)
     {
-        if (name == JetAnnotationNames.Clustered)
-        {
-            SetIndexFilter(indexBuilder);
-        }
     }
 
     /// <summary>
@@ -169,7 +165,6 @@ public class JetIndexConvention :
     {
         var index = indexBuilder.Metadata;
         if (index.IsUnique
-            && index.IsClustered() != true
             && GetNullableColumns(index) is List<string> nullableColumns
             && nullableColumns.Count > 0)
         {

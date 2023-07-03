@@ -148,7 +148,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .Entity<NumNum>()
                     .Property(e => e.Id)
                     .HasColumnType("numeric(18, 0)")
-                    .UseIdentityColumn();
+                    .UseJetIdentityColumn();
 
                 modelBuilder
                     .Entity<AdNum>()
@@ -159,7 +159,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 modelBuilder
                     .Entity<ByteNum>()
                     .Property(e => e.Id)
-                    .UseIdentityColumn();
+                    .UseJetIdentityColumn();
 
                 modelBuilder
                     .Entity<ByteAdNum>()

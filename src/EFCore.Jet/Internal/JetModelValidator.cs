@@ -135,7 +135,7 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             foreach (var index in model.GetEntityTypes().SelectMany(t => t.GetDeclaredIndexes()))
             {
-                var includeProperties = index.GetIncludeProperties();
+                var includeProperties = index.GetJetIncludeProperties();
                 if (includeProperties?.Count > 0)
                 {
                     var notFound = includeProperties
@@ -235,8 +235,8 @@ namespace EntityFrameworkCore.Jet.Internal
             switch (propertyStrategy)
             {
                 case JetValueGenerationStrategy.IdentityColumn:
-                    var increment = property.GetIdentityIncrement(storeObject);
-                    var duplicateIncrement = duplicateProperty.GetIdentityIncrement(storeObject);
+                    var increment = property.GetJetIdentityIncrement(storeObject);
+                    var duplicateIncrement = duplicateProperty.GetJetIdentityIncrement(storeObject);
                     if (increment != duplicateIncrement)
                     {
                         throw new InvalidOperationException(
@@ -249,8 +249,8 @@ namespace EntityFrameworkCore.Jet.Internal
                                 storeObject.DisplayName()));
                     }
 
-                    var seed = property.GetIdentitySeed(storeObject);
-                    var duplicateSeed = duplicateProperty.GetIdentitySeed(storeObject);
+                    var seed = property.GetJetIdentitySeed(storeObject);
+                    var duplicateSeed = duplicateProperty.GetJetIdentitySeed(storeObject);
                     if (seed != duplicateSeed)
                     {
                         throw new InvalidOperationException(

@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 base.OnModelCreating<TMessage, TProduct, TProductPhoto, TProductReview, TComputerDetail, TDimensions>(builder);
 
-                builder.Entity<TMessage>().Property(e => e.MessageId).UseIdentityColumn();
+                builder.Entity<TMessage>().Property(e => e.MessageId).UseJetIdentityColumn();
 
                 builder.Entity<TProduct>()
                     .OwnsOne(
@@ -34,8 +34,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                             db.Property(d => d.Height).HasColumnType("decimal(18,2)");
                         });
 
-                builder.Entity<TProductPhoto>().Property(e => e.PhotoId).UseIdentityColumn();
-                builder.Entity<TProductReview>().Property(e => e.ReviewId).UseIdentityColumn();
+                builder.Entity<TProductPhoto>().Property(e => e.PhotoId).UseJetIdentityColumn();
+                builder.Entity<TProductReview>().Property(e => e.ReviewId).UseJetIdentityColumn();
 
                 builder.Entity<TComputerDetail>()
                     .OwnsOne(

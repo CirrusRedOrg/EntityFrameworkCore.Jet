@@ -24,7 +24,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static PropertyBuilder UseIdentityColumn(
+        public static PropertyBuilder UseJetIdentityColumn(
             [NotNull] this PropertyBuilder propertyBuilder,
             int seed = 1,
             int increment = 1)
@@ -33,8 +33,8 @@ namespace Microsoft.EntityFrameworkCore
 
             var property = propertyBuilder.Metadata;
             property.SetValueGenerationStrategy(JetValueGenerationStrategy.IdentityColumn);
-            property.SetIdentitySeed(seed);
-            property.SetIdentityIncrement(increment);
+            property.SetJetIdentitySeed(seed);
+            property.SetJetIdentityIncrement(increment);
 
             return propertyBuilder;
         }
@@ -48,11 +48,11 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-        public static PropertyBuilder<TProperty> UseIdentityColumn<TProperty>(
+        public static PropertyBuilder<TProperty> UseJetIdentityColumn<TProperty>(
             [NotNull] this PropertyBuilder<TProperty> propertyBuilder,
             int seed = 1,
             int increment = 1)
-            => (PropertyBuilder<TProperty>) UseIdentityColumn((PropertyBuilder) propertyBuilder, seed, increment);
+            => (PropertyBuilder<TProperty>)UseJetIdentityColumn((PropertyBuilder)propertyBuilder, seed, increment);
 
         /// <summary>
         ///     Configures the seed for Jet IDENTITY.
@@ -64,12 +64,12 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder? HasIdentityColumnSeed(
+        public static IConventionPropertyBuilder? HasJetIdentityColumnSeed(
             [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
         {
-            if (propertyBuilder.CanSetIdentityColumnSeed(seed, fromDataAnnotation))
+            if (propertyBuilder.CanSetJetIdentityColumnSeed(seed, fromDataAnnotation))
             {
-                propertyBuilder.Metadata.SetIdentitySeed(seed, fromDataAnnotation);
+                propertyBuilder.Metadata.SetJetIdentitySeed(seed, fromDataAnnotation);
                 return propertyBuilder;
             }
 
@@ -83,7 +83,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="seed"> The value that is used for the very first row loaded into the table. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the seed for Jet IDENTITY. </returns>
-        public static bool CanSetIdentityColumnSeed(
+        public static bool CanSetJetIdentityColumnSeed(
             [NotNull] this IConventionPropertyBuilder propertyBuilder, int? seed, bool fromDataAnnotation = false)
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
@@ -101,12 +101,12 @@ namespace Microsoft.EntityFrameworkCore
         ///     The same builder instance if the configuration was applied,
         ///     <c>null</c> otherwise.
         /// </returns>
-        public static IConventionPropertyBuilder? HasIdentityColumnIncrement(
+        public static IConventionPropertyBuilder? HasJetIdentityColumnIncrement(
             [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
         {
-            if (propertyBuilder.CanSetIdentityColumnIncrement(increment, fromDataAnnotation))
+            if (propertyBuilder.CanSetJetIdentityColumnIncrement(increment, fromDataAnnotation))
             {
-                propertyBuilder.Metadata.SetIdentityIncrement(increment, fromDataAnnotation);
+                propertyBuilder.Metadata.SetJetIdentityIncrement(increment, fromDataAnnotation);
                 return propertyBuilder;
             }
 
@@ -120,7 +120,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="increment"> The incremental value that is added to the identity value of the previous row that was loaded. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> <c>true</c> if the given value can be set as the default increment for Jet IDENTITY. </returns>
-        public static bool CanSetIdentityColumnIncrement(
+        public static bool CanSetJetIdentityColumnIncrement(
             [NotNull] this IConventionPropertyBuilder propertyBuilder, int? increment, bool fromDataAnnotation = false)
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
@@ -149,8 +149,8 @@ namespace Microsoft.EntityFrameworkCore
                 propertyBuilder.Metadata.SetValueGenerationStrategy(valueGenerationStrategy, fromDataAnnotation);
                 if (valueGenerationStrategy != JetValueGenerationStrategy.IdentityColumn)
                 {
-                    propertyBuilder.HasIdentityColumnSeed(null, fromDataAnnotation);
-                    propertyBuilder.HasIdentityColumnIncrement(null, fromDataAnnotation);
+                    propertyBuilder.HasJetIdentityColumnSeed(null, fromDataAnnotation);
+                    propertyBuilder.HasJetIdentityColumnIncrement(null, fromDataAnnotation);
                 }
 
                 return propertyBuilder;

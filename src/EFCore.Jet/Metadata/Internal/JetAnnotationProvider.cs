@@ -52,7 +52,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
 
             var table = index.Table;
 
-            var includeProperties = modelIndex.GetIncludeProperties();
+            var includeProperties = modelIndex.GetJetIncludeProperties();
             if (includeProperties != null)
             {
                 var includeColumns = (IReadOnlyList<string?>)includeProperties
@@ -91,8 +91,8 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
                         == JetValueGenerationStrategy.IdentityColumn);
             if (property != null)
             {
-                var seed = property.GetIdentitySeed(table);
-                var increment = property.GetIdentityIncrement(table);
+                var seed = property.GetJetIdentitySeed(table);
+                var increment = property.GetJetIdentityIncrement(table);
 
                 yield return new Annotation(
                     JetAnnotationNames.Identity,

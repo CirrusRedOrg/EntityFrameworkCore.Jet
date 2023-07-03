@@ -38,6 +38,15 @@ To use the latest daily builds from our [Azure DevOps feed](https://bubibubi.vis
 </configuration>
 ```
   
+## Fluent API
+
+In order to be able to be shared with SqlServer (and other providers) the names of some of the Fluent API methods have been made specific to Jet.
+
+* `UseIdentityColumn` -> `UseJetIdentityColumn`
+* `UseIdentityColumns` -> `UseJetIdentityColumns`
+
+More may be added in the future
+
 ## Further information
 More information can be found on our [Wiki](https://www.github.com/bubibubi/EntityFrameworkCore.Jet/wiki).
 

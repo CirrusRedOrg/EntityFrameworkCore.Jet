@@ -9,15 +9,5 @@
         <PackageTags>$(PackageTags);System.Data.Jet</PackageTags>
         <Nullable>annotations</Nullable>
     </PropertyGroup>
-    
-    <ItemGroup>
-        <PackageReference Include="System.ValueTuple" />
-        <PackageReference Include="Microsoft.CSharp" />
-        <PackageReference Include="Microsoft.Win32.Registry" />
-    </ItemGroup>
-
-    <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
-        <Reference Include="System.Transactions" Pack="false" />
-    </ItemGroup>
 
 </Project>

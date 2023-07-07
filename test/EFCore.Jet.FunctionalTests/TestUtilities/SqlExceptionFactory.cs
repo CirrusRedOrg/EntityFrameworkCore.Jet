@@ -12,26 +12,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
     {
         public static OleDbException CreateOleDbException(int number, Guid? connectionId = null)
         {
-            var errorCtors = typeof(OleDbError)
-                .GetTypeInfo()
-                .DeclaredConstructors;
-
-            var error = (OleDbError)errorCtors.First(c => c.GetParameters().Length == 8)
-                .Invoke(new object[] { number, (byte)0, (byte)0, "Server", "ErrorMessage", "Procedure", 0, null });
-            var errors = (OleDbErrorCollection)typeof(OleDbErrorCollection)
-                .GetTypeInfo()
-                .DeclaredConstructors
-                .Single()
-                .Invoke(null);
-
-            typeof(OleDbErrorCollection).GetRuntimeMethods().Single(m => m.Name == "Add").Invoke(errors, new object[] { error });
-
             var exceptionCtors = typeof(OleDbException)
                 .GetTypeInfo()
                 .DeclaredConstructors;
 
-            return (OleDbException)exceptionCtors.First(c => c.GetParameters().Length == 4)
-                .Invoke(new object[] { "Bang!", errors, null, connectionId ?? Guid.NewGuid() });
+            return (OleDbException)exceptionCtors.First(c => c.GetParameters().Length == 3)
+                .Invoke(new object[] { "Bang!", number, null });
         }
     }
 }

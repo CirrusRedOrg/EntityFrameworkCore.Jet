@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         private bool SupportsOffset => true;
@@ -2219,17 +2219,22 @@ WHERE (
             await base.Where_on_multilevel_reference_in_subquery_with_outer_projection(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='0'")}
-
-{AssertSqlHelper.Declaration("@__p_1='10'")}
-
-SELECT `l`.`Name`
-FROM `LevelThree` AS `l`
-INNER JOIN `LevelTwo` AS `l0` ON `l`.`OneToMany_Required_Inverse3Id` = `l0`.`Id`
-INNER JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
-WHERE `l1`.`Name` = 'L1 03'
-ORDER BY `l`.`Level2_Required_Id`
-SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY");
+                """
+    SELECT `t0`.`Name`
+    FROM (
+        SELECT TOP 10 `t`.`Level2_Required_Id`, `t`.`Name`
+        FROM (
+            SELECT TOP 10 `l`.`Level2_Required_Id`, `l`.`Name`
+            FROM (`LevelThree` AS `l`
+            INNER JOIN `LevelTwo` AS `l0` ON `l`.`OneToMany_Required_Inverse3Id` = `l0`.`Id`)
+            INNER JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
+            WHERE `l1`.`Name` = 'L1 03'
+            ORDER BY `l`.`Level2_Required_Id`
+        ) AS `t`
+        ORDER BY `t`.`Level2_Required_Id` DESC
+    ) AS `t0`
+    ORDER BY `t0`.`Level2_Required_Id`
+    """);
         }
 
         public override async Task Join_condition_optimizations_applied_correctly_when_anonymous_type_with_single_property(bool isAsync)
@@ -2455,16 +2460,19 @@ WHERE `l`.`Id` < 3");
             await base.Subquery_with_Distinct_Skip_FirstOrDefault_without_OrderBy(isAsync);
 
             AssertSql(
-                @"SELECT (
-    SELECT `t`.`Name`
-    FROM (
-        SELECT DISTINCT `l0`.`Id`, `l0`.`Level2_Optional_Id`, `l0`.`Level2_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse3Id`, `l0`.`OneToMany_Optional_Self_Inverse3Id`, `l0`.`OneToMany_Required_Inverse3Id`, `l0`.`OneToMany_Required_Self_Inverse3Id`, `l0`.`OneToOne_Optional_PK_Inverse3Id`, `l0`.`OneToOne_Optional_Self3Id`
-        FROM `LevelThree` AS `l0`
-    ) AS `t`
-    ORDER BY (SELECT 1)
-    OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY)
-FROM `LevelOne` AS `l`
-WHERE `l`.`Id` < 3");
+                """
+    SELECT `l`.`Id` AS `Key`, (
+        SELECT `t0`.`Name`
+        FROM (
+            SELECT TOP 1 `t`.`Id`, `t`.`Level2_Optional_Id`, `t`.`Level2_Required_Id`, `t`.`Name`, `t`.`OneToMany_Optional_Inverse3Id`, `t`.`OneToMany_Optional_Self_Inverse3Id`, `t`.`OneToMany_Required_Inverse3Id`, `t`.`OneToMany_Required_Self_Inverse3Id`, `t`.`OneToOne_Optional_PK_Inverse3Id`, `t`.`OneToOne_Optional_Self3Id`
+            FROM (
+                SELECT DISTINCT TOP 1 `l0`.`Id`, `l0`.`Level2_Optional_Id`, `l0`.`Level2_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse3Id`, `l0`.`OneToMany_Optional_Self_Inverse3Id`, `l0`.`OneToMany_Required_Inverse3Id`, `l0`.`OneToMany_Required_Self_Inverse3Id`, `l0`.`OneToOne_Optional_PK_Inverse3Id`, `l0`.`OneToOne_Optional_Self3Id`
+                FROM `LevelThree` AS `l0`
+            ) AS `t`
+        ) AS `t0`) AS `Subquery`
+    FROM `LevelOne` AS `l`
+    WHERE `l`.`Id` < 3
+    """);
         }
 
         public override async Task Project_collection_navigation_count(bool isAsync)

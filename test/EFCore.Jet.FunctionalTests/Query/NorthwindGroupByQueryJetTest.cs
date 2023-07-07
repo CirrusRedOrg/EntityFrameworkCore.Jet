@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         public override async Task GroupBy_Property_Select_Average(bool isAsync)
@@ -918,18 +918,19 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Skip_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='80'")}
-
-{AssertSqlHelper.Declaration("@__p_1='500'")}
-
-SELECT MAX(`t`.`OrderID`)
-FROM (
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    ORDER BY `o`.`OrderID`
-    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-) AS `t`
-GROUP BY `t`.`CustomerID`");
+                """
+    SELECT MAX(`t0`.`OrderID`)
+    FROM (
+        SELECT TOP 500 `t`.`OrderID`, `t`.`CustomerID`
+        FROM (
+            SELECT TOP 580 `o`.`OrderID`, `o`.`CustomerID`
+            FROM `Orders` AS `o`
+            ORDER BY `o`.`OrderID`
+        ) AS `t`
+        ORDER BY `t`.`OrderID` DESC
+    ) AS `t0`
+    GROUP BY `t0`.`CustomerID`
+    """);
         }
 
         public override async Task Distinct_GroupBy_Aggregate(bool isAsync)

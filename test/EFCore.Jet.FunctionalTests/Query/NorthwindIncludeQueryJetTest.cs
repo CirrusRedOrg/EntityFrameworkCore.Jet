@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         public override async Task Include_list(bool async)
@@ -596,20 +596,21 @@ ORDER BY `t`.`CustomerID`");
             if (SupportsOffset)
             {
                 AssertSql(
-                    $@"{AssertSqlHelper.Declaration("@__p_0='1'")}
-
-{AssertSqlHelper.Declaration("@__p_1='2'")}
-
-SELECT `o0`.`CustomerID`
-FROM (
-    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-    FROM `Order Details` AS `o`
-    WHERE `o`.`Quantity` = 10
-    ORDER BY `o`.`OrderID`, `o`.`ProductID`
-    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-) AS `t`
-INNER JOIN `Orders` AS `o0` ON `t`.`OrderID` = `o0`.`OrderID`
-ORDER BY `t`.`OrderID`, `t`.`ProductID`");
+                    """
+    SELECT `o0`.`CustomerID`
+    FROM (
+        SELECT TOP 2 `t`.`OrderID`, `t`.`ProductID`
+        FROM (
+            SELECT TOP 3 `o`.`OrderID`, `o`.`ProductID`
+            FROM `Order Details` AS `o`
+            WHERE `o`.`Quantity` = 10
+            ORDER BY `o`.`OrderID`, `o`.`ProductID`
+        ) AS `t`
+        ORDER BY `t`.`OrderID` DESC, `t`.`ProductID` DESC
+    ) AS `t0`
+    INNER JOIN `Orders` AS `o0` ON `t0`.`OrderID` = `o0`.`OrderID`
+    ORDER BY `t0`.`OrderID`, `t0`.`ProductID`
+    """);
             }
         }
 

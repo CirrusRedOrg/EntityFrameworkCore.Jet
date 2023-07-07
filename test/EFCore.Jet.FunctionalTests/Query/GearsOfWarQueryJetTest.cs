@@ -8688,26 +8688,26 @@ LEFT JOIN `LocustHighCommands` AS `l0` ON `l`.`HighCommandId` = `l0`.`Id`
             await base.Join_entity_with_itself_grouped_by_key_followed_by_include_skip_take(async);
 
             AssertSql(
-    """
-@__p_0='0'
-@__p_1='10'
-
-SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`HasSoulPatch0`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
-FROM (
-    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`HasSoulPatch` AS `HasSoulPatch0`
-    FROM `Gears` AS `g`
-    INNER JOIN (
-        SELECT MIN(CAST(LEN(`g0`.`Nickname`) AS int)) AS `c`, `g0`.`HasSoulPatch`
-        FROM `Gears` AS `g0`
-        WHERE `g0`.`Nickname` <> 'Dom'
-        GROUP BY `g0`.`HasSoulPatch`
-    ) AS `t` ON CAST(LEN(`g`.`Nickname`) AS int) = `t`.`c`
-    ORDER BY `g`.`Nickname`
-    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
-) AS `t0`
-LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
-ORDER BY `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`HasSoulPatch0`
-""");
+                """
+    SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`Discriminator`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`HasSoulPatch0`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM (
+        SELECT TOP 10 `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`HasSoulPatch0`
+        FROM (
+            SELECT TOP 10 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`HasSoulPatch` AS `HasSoulPatch0`
+            FROM `Gears` AS `g`
+            INNER JOIN (
+                SELECT MIN(IIF(LEN(`g0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g0`.`Nickname`)))) AS `c`, `g0`.`HasSoulPatch`
+                FROM `Gears` AS `g0`
+                WHERE `g0`.`Nickname` <> 'Dom'
+                GROUP BY `g0`.`HasSoulPatch`
+            ) AS `t` ON IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))) = `t`.`c`
+            ORDER BY `g`.`Nickname`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname` DESC
+    ) AS `t1`
+    LEFT JOIN `Weapons` AS `w` ON `t1`.`FullName` = `w`.`OwnerFullName`
+    ORDER BY `t1`.`Nickname`, `t1`.`SquadId`, NOT (`t1`.`HasSoulPatch0`)
+    """);
         }
 
         public override async Task Where_bool_column_and_Contains(bool async)

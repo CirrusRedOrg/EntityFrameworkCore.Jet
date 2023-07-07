@@ -17,11 +17,12 @@ namespace EntityFrameworkCore.Jet.Data
 #endif
         private JetConnection? _connection;
         private JetTransaction? _transaction;
-        
+
         private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
         private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topMultiParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?'first'@\w+|\?)(\s)(\+)(\s+)(?'sec'@\w+|\?)", RegexOptions.IgnoreCase);
         private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
@@ -35,7 +36,7 @@ namespace EntityFrameworkCore.Jet.Data
             _connection = source._connection;
             _transaction = source._transaction;
 
-            InnerCommand = (DbCommand) ((ICloneable) source.InnerCommand).Clone();
+            InnerCommand = (DbCommand)((ICloneable)source.InnerCommand).Clone();
         }
 
         /// <summary>
@@ -153,7 +154,7 @@ namespace EntityFrameworkCore.Jet.Data
         protected override DbTransaction? DbTransaction
         {
             get => _transaction;
-            set => _transaction = (JetTransaction?) value;
+            set => _transaction = (JetTransaction?)value;
         }
 
         /// <summary>
@@ -269,7 +270,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             FixupGlobalVariables();
-                
+
             if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
                 return 0;
 
@@ -344,7 +345,7 @@ namespace EntityFrameworkCore.Jet.Data
         protected virtual IReadOnlyList<JetCommand> SplitCommands()
         {
             // At this point, all parameters have already been expanded.
-            
+
             var parser = new JetCommandParser(CommandText);
             var commandDelimiters = parser.GetStateIndices(';');
             var currentCommandStart = 0;
@@ -360,7 +361,7 @@ namespace EntityFrameworkCore.Jet.Data
 
                     if (!string.IsNullOrEmpty(commandText))
                     {
-                        var command = (JetCommand) ((ICloneable) this).Clone();
+                        var command = (JetCommand)((ICloneable)this).Clone();
                         command.CommandText = commandText;
 
                         if (_createProcedureExpression.IsMatch(command.CommandText))
@@ -375,7 +376,7 @@ namespace EntityFrameworkCore.Jet.Data
                             }
 
                             var parameterIndices = parser.GetStateIndices(
-                                new[] {'@', '?'},
+                                new[] { '@', '?' },
                                 currentCommandStart,
                                 commandDelimiter - currentCommandStart);
 
@@ -434,7 +435,7 @@ namespace EntityFrameworkCore.Jet.Data
                 .Value;
 
             bool hasRows;
-            using (var command = (JetCommand) ((ICloneable) this).Clone())
+            using (var command = (JetCommand)((ICloneable)this).Clone())
             {
                 command.CommandText = sqlCheckCommand;
                 using (var reader = command.ExecuteReader())
@@ -470,18 +471,18 @@ namespace EntityFrameworkCore.Jet.Data
         protected virtual void FixupGlobalVariables()
         {
             var commandText = InnerCommand.CommandText;
-            
+
             commandText = FixupIdentity(commandText);
             commandText = FixupRowCount(commandText);
 
             InnerCommand.CommandText = commandText;
         }
-        
+
         protected virtual string FixupIdentity(string commandText)
             => FixupGlobalVariablePlaceholder(
                 commandText, "@@identity", (outerCommand, placeholder) =>
                 {
-                    var command = (DbCommand) ((ICloneable) outerCommand.InnerCommand).Clone();
+                    var command = (DbCommand)((ICloneable)outerCommand.InnerCommand).Clone();
                     command.CommandText = $"SELECT {placeholder}";
                     command.Parameters.Clear();
 
@@ -511,7 +512,7 @@ namespace EntityFrameworkCore.Jet.Data
                     newCommandText.Insert(globalVariableIndex, placeholderValue.Value);
                 }
             }
-            
+
             return newCommandText.ToString();
         }
 
@@ -526,6 +527,21 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 var lastCommandText = InnerCommand.CommandText;
                 var commandText = lastCommandText;
+
+                var matchm = _topMultiParameterRegularExpression.Match(lastCommandText);
+                if (matchm.Success)
+                {
+                    var first = matchm.Groups["first"];
+                    var sec = matchm.Groups["sec"];
+                    var sp = Convert.ToInt32(ExtractParameter(commandText, sec.Index, parameters).Value);
+                    var fp = Convert.ToInt32(ExtractParameter(commandText, first.Index, parameters).Value);
+                    var total = fp + sp;
+                    commandText = _topMultiParameterRegularExpression.Replace(
+                                               lastCommandText,
+                                                                      match => total.ToString(),
+                                                                      1);
+                    lastCommandText = commandText;
+                }
 
                 while ((commandText = _topParameterRegularExpression.Replace(
                     lastCommandText,
@@ -544,7 +560,7 @@ namespace EntityFrameworkCore.Jet.Data
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
         }
-        
+
         private void ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader()
         {
             // We modify the TOP clause parameter of the outer most SELECT statement if a SKIP clause was also
@@ -587,7 +603,7 @@ namespace EntityFrameworkCore.Jet.Data
 
                 var parameter = ExtractParameter(InnerCommand.CommandText, match.Index, parameters);
                 _outerSelectSkipEmulationViaDataReaderSkipCount = Convert.ToInt32(parameter.Value);
-                
+
                 InnerCommand.Parameters.Clear();
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
@@ -598,11 +614,11 @@ namespace EntityFrameworkCore.Jet.Data
 
             InnerCommand.CommandText = InnerCommand.CommandText.Remove(match.Index, match.Length);
         }
-        
+
         protected virtual bool IsParameter(string fragment)
             => fragment.Equals("?") ||
                fragment.Length >= 2 && fragment[0] == '@' && fragment[1] != '@';
-        
+
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
             var indices = GetParameterIndices(commandText.Substring(0, count));
@@ -685,7 +701,7 @@ namespace EntityFrameworkCore.Jet.Data
                         throw new InvalidOperationException($"Cannot find parameter with same name as parameter placeholder \"{placeholder.Name}\".");
                     }
 
-                    var newParameter = (DbParameter) (parameter as ICloneable)?.Clone();
+                    var newParameter = (DbParameter)(parameter as ICloneable)?.Clone();
 
                     if (newParameter == null)
                     {
@@ -710,7 +726,7 @@ namespace EntityFrameworkCore.Jet.Data
                     throw new InvalidOperationException("Invalid parameter placeholder found.");
                 }
 
-                placeholders.Add(new ParameterPlaceholder {Index = index, Name = match.Value});
+                placeholders.Add(new ParameterPlaceholder { Index = index, Name = match.Value });
             }
 
             return placeholders.AsReadOnly();
@@ -718,7 +734,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         protected virtual IReadOnlyList<int> GetParameterIndices(string sqlFragment)
             => new JetCommandParser(sqlFragment)
-                .GetStateIndices(new[] {'@', '?'});
+                .GetStateIndices(new[] { '@', '?' });
 
         /// <summary>
         /// Creates a prepared (or compiled) version of the command on the data source

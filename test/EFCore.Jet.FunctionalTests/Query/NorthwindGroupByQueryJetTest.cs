@@ -997,27 +997,26 @@ GROUP BY `o0`.`CustomerID`");
             await base.Join_complex_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='100'")}
-
-{AssertSqlHelper.Declaration("@__p_1='10'")}
-
-{AssertSqlHelper.Declaration("@__p_2='50'")}
-
-SELECT `t0`.`CustomerID` AS `Key`, AVG(IIF(`t`.`OrderID` IS NULL, NULL, CDBL(`t`.`OrderID`))) AS `Count`
+                """
+SELECT `t0`.`CustomerID` AS `Key`, AVG(CDBL(`t`.`OrderID`)) AS `Count`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10400
     ORDER BY `o`.`OrderDate`
 ) AS `t`
 INNER JOIN (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    WHERE (`c`.`CustomerID` <> 'DRACD') AND (`c`.`CustomerID` <> 'FOLKO')
-    ORDER BY `c`.`City`
-    SKIP {AssertSqlHelper.Parameter("@__p_1")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_2")} ROWS ONLY
+    SELECT TOP 50 `t1`.`CustomerID`
+    FROM (
+        SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
+        ORDER BY `c`.`City`
+    ) AS `t1`
+    ORDER BY `t1`.`City` DESC
 ) AS `t0` ON `t`.`CustomerID` = `t0`.`CustomerID`
-GROUP BY `t0`.`CustomerID`");
+GROUP BY `t0`.`CustomerID`
+""");
         }
 
         public override async Task GroupJoin_GroupBy_Aggregate(bool isAsync)
@@ -1094,28 +1093,27 @@ GROUP BY `c`.`Country`");
             await base.GroupJoin_complex_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
-
-{AssertSqlHelper.Declaration("@__p_1='50'")}
-
-{AssertSqlHelper.Declaration("@__p_2='100'")}
-
-SELECT `t0`.`CustomerID` AS `Key`, AVG(CDBL(`t0`.`OrderID`)) AS `Count`
+                """
+SELECT `t1`.`CustomerID` AS `Key`, AVG(CDBL(`t1`.`OrderID`)) AS `Count`
 FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    WHERE (`c`.`CustomerID` <> 'DRACD') AND (`c`.`CustomerID` <> 'FOLKO')
-    ORDER BY `c`.`City`
-    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-) AS `t`
+    SELECT TOP 50 `t`.`CustomerID`
+    FROM (
+        SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
+        ORDER BY `c`.`City`
+    ) AS `t`
+    ORDER BY `t`.`City` DESC
+) AS `t0`
 INNER JOIN (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_2")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10400
     ORDER BY `o`.`OrderDate`
-) AS `t0` ON `t`.`CustomerID` = `t0`.`CustomerID`
-WHERE `t0`.`OrderID` > 10300
-GROUP BY `t0`.`CustomerID`");
+) AS `t1` ON `t0`.`CustomerID` = `t1`.`CustomerID`
+WHERE `t1`.`OrderID` > 10300
+GROUP BY `t1`.`CustomerID`
+""");
         }
 
         public override async Task Self_join_GroupBy_Aggregate(bool isAsync)

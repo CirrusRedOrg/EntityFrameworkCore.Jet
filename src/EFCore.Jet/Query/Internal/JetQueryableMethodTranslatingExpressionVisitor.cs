@@ -72,7 +72,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     protected override ShapedQueryExpression? TranslateSkip(ShapedQueryExpression source, Expression count)
     {
         var selectExpression = (SelectExpression)source.QueryExpression;
-        var translation = TranslateExpression(count);
+        /*var translation = TranslateExpression(count);
         if (translation == null)
         {
             return null;
@@ -98,8 +98,9 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         }
         selectExpression.ReverseOrderings();
         selectExpression.ApplyLimit(translation);
-        selectExpression.ReverseOrderings();
-        return source;
+        selectExpression.ReverseOrderings();*/
+        selectExpression.Tags.Add("DeepSkip");
+        return base.TranslateSkip(source, count);
     }
 
     protected override ShapedQueryExpression? TranslateTake(ShapedQueryExpression source, Expression count)
@@ -112,17 +113,28 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         }
         if (selectExpression.Tags.Contains("DeepSkip"))
         {
-            var f1 = selectExpression.Tables.First(d => d is SelectExpression) as SelectExpression;
+            SqlExpression offset = selectExpression.Offset!;
+            MethodInfo? dynMethodO = selectExpression.GetType().GetMethod("set_Offset",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            SqlExpression mynullexp = null!;
+            dynMethodO?.Invoke(selectExpression, new object[] { mynullexp });
+
+            var total = new SqlBinaryExpression(ExpressionType.Add, offset, translation, typeof(int),
+                RelationalTypeMapping.NullMapping);
+            selectExpression.ApplyLimit(total);
+
+            selectExpression.ReverseOrderings();
+            selectExpression.ApplyLimit(translation);
+            selectExpression.ReverseOrderings();
+            selectExpression.Tags.Remove("DeepSkip");
+            return source;
+
+            /*var f1 = selectExpression.Tables.First(d => d is SelectExpression) as SelectExpression;
             var f2 = f1?.Tables.First(d => d is SelectExpression) as SelectExpression;
             var limit = f2?.Limit;
             if (limit != null)
             {
-                var total = new SqlBinaryExpression(ExpressionType.Add, limit, translation, typeof(int),
-                    RelationalTypeMapping.NullMapping);
-                //var sp = (SqlParameterExpression)limit;
-                //var sp2 = (SqlParameterExpression)translation;
-                //var newparam = Expression.Parameter(typeof(int), sp.Name + sp2.Name);
-                //var sqlparam = typeof(SqlParameterExpression).GetTypeInfo().DeclaredConstructors.First().Invoke(new object[] { newparam, RelationalTypeMapping.NullMapping });
+                
                 var tp = f2!.GetType().GetMember("Limit").First();
                 MethodInfo? dynMethod2 = f2.GetType().GetMethod("set_Limit",
                     BindingFlags.NonPublic | BindingFlags.Instance);
@@ -132,7 +144,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
                 dynMethod1?.Invoke(f1, new object[] { translation });
                 selectExpression.Tags.Remove("DeepSkip");
                 return source;
-            }
+            }*/
             
         }
         return base.TranslateTake(source, count);

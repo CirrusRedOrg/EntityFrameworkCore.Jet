@@ -3123,20 +3123,19 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")} FETCH NEXT {AssertSqlHelper.Parameter
             await base.OrderBy_skip_take_take(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_2='3'")}
-
-{AssertSqlHelper.Declaration("@__p_0='5'")}
-
-{AssertSqlHelper.Declaration("@__p_1='8'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_2")} `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+                """
+SELECT TOP 3 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
 FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-) AS `t`
-ORDER BY `t`.`ContactTitle`, `t`.`ContactName`");
+    SELECT TOP 8 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+    FROM (
+        SELECT TOP 13 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
+    ) AS `t`
+    ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
+) AS `t0`
+ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
+""");
         }
 
         public override async Task OrderBy_skip_take_take_take_take(bool isAsync)
@@ -3144,30 +3143,27 @@ ORDER BY `t`.`ContactTitle`, `t`.`ContactName`");
             await base.OrderBy_skip_take_take_take_take(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
-
-{AssertSqlHelper.Declaration("@__p_3='8'")}
-
-{AssertSqlHelper.Declaration("@__p_2='10'")}
-
-{AssertSqlHelper.Declaration("@__p_1='15'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+                """
+SELECT TOP 5 `t2`.`CustomerID`, `t2`.`Address`, `t2`.`City`, `t2`.`CompanyName`, `t2`.`ContactName`, `t2`.`ContactTitle`, `t2`.`Country`, `t2`.`Fax`, `t2`.`Phone`, `t2`.`PostalCode`, `t2`.`Region`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_3")} `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+    SELECT TOP 8 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
     FROM (
-        SELECT TOP {AssertSqlHelper.Parameter("@__p_2")} `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+        SELECT TOP 10 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
-            SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-            SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-        ) AS `t`
-        ORDER BY `t`.`ContactTitle`, `t`.`ContactName`
-    ) AS `t0`
-    ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
-) AS `t1`
-ORDER BY `t1`.`ContactTitle`, `t1`.`ContactName`");
+            SELECT TOP 15 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+            FROM (
+                SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                FROM `Customers` AS `c`
+                ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
+            ) AS `t`
+            ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
+        ) AS `t0`
+        ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
+    ) AS `t1`
+    ORDER BY `t1`.`ContactTitle`, `t1`.`ContactName`
+) AS `t2`
+ORDER BY `t2`.`ContactTitle`, `t2`.`ContactName`
+""");
         }
 
         public override async Task OrderBy_skip_take_skip_take_skip(bool isAsync)
@@ -3273,23 +3269,22 @@ FROM (
             await base.OrderBy_skip_take_distinct_orderby_take(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_2='8'")}
-
-{AssertSqlHelper.Declaration("@__p_0='5'")}
-
-{AssertSqlHelper.Declaration("@__p_1='15'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_2")} `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+                """
+SELECT TOP 8 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
 FROM (
-    SELECT DISTINCT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+    SELECT DISTINCT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
     FROM (
-        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-        FROM `Customers` AS `c`
-        ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-        SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-    ) AS `t`
-) AS `t0`
-ORDER BY `t0`.`ContactTitle`");
+        SELECT TOP 15 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+        FROM (
+            SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            FROM `Customers` AS `c`
+            ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
+        ) AS `t`
+        ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
+    ) AS `t0`
+) AS `t1`
+ORDER BY `t1`.`ContactTitle`
+""");
         }
 
         public override async Task No_orderby_added_for_fully_translated_manually_constructed_LOJ(bool isAsync)

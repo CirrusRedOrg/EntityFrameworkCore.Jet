@@ -622,7 +622,7 @@ namespace EntityFrameworkCore.Jet.Data
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
             var indices = GetParameterIndices(commandText.Substring(0, count));
-            var parameter = InnerCommand.Parameters[indices.Count];
+            var parameter = parameters[indices.Count];
 
             parameters.RemoveAt(indices.Count);
 

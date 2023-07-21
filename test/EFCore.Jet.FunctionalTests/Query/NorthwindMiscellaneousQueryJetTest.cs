@@ -3332,13 +3332,17 @@ LEFT JOIN `Employees` AS `e0` ON `e`.`EmployeeID` = `e0`.`ReportsTo`");
             await base.Contains_with_DateTime_Date(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE CONVERT(date, `o`.`OrderDate`) IN ( #1996-07-04 00:00:00#, #1996-07-16 00:00:00#)",
+                """
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE IIF(`o`.`OrderDate` IS NULL, NULL, DATEVALUE(`o`.`OrderDate`)) IN (#1996-07-04#, #1996-07-16#)
+    """,
                 //
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE CONVERT(date, `o`.`OrderDate`) IN ( #1996-07-04 00:00:00#)");
+                """
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE IIF(`o`.`OrderDate` IS NULL, NULL, DATEVALUE(`o`.`OrderDate`)) = #1996-07-04#
+    """);
         }
 
         public override async Task Contains_with_subquery_involving_join_binds_to_correct_table(bool isAsync)

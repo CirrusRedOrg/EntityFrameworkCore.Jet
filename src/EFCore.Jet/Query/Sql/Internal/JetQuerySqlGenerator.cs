@@ -317,6 +317,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return base.VisitIn(inExpression);
         }
 
+        protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
+        {
+            if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
+            {
+                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options));
+            }
+            return base.VisitSqlConstant(sqlConstantExpression);
+        }
+
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
             => sqlUnaryExpression.OperatorType == ExpressionType.Convert
                 ? VisitJetConvertExpression(sqlUnaryExpression)

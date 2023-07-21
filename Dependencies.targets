@@ -1,7 +1,7 @@
 <Project>
 	<PropertyGroup>
 		<DotnetRuntimeVersion>6.0.19</DotnetRuntimeVersion>
-		<EFCoreVersion>[7.0.8, 8.0.0)</EFCoreVersion>
+		<EFCoreVersion>[7.0.9, 8.0.0)</EFCoreVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -37,8 +37,8 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.6.3" />
-		<PackageReference Update="MSTest.TestAdapter" Version="3.0.4" />
-		<PackageReference Update="MSTest.TestFramework" Version="3.0.4" />
+		<PackageReference Update="MSTest.TestAdapter" Version="3.1.1" />
+		<PackageReference Update="MSTest.TestFramework" Version="3.1.1" />
 		<PackageReference Update="coverlet.collector" Version="6.0.0" />
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.3" />
 

@@ -60,7 +60,13 @@ namespace EntityFrameworkCore.Jet.Data
         protected override void Dispose(bool disposing)
         {
             if (disposing)
+            {
                 InnerCommand.Dispose();
+                foreach (var scl in SplitCommandList)
+                {
+                    if (scl != this) scl.Dispose(disposing);
+                }
+            }
 
             base.Dispose(disposing);
 
@@ -70,6 +76,8 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         internal DbCommand InnerCommand { get; }
+
+        internal IList<JetCommand> SplitCommandList { get; set; } = new List<JetCommand>();
 
         /// <summary>
         /// Attempts to Cancels the command execution
@@ -180,15 +188,15 @@ namespace EntityFrameworkCore.Jet.Data
 
             ExpandParameters();
 
-            var commands = SplitCommands();
+            SplitCommandList = SplitCommands();
 
-            for (var i = 0; i < commands.Count - 1; i++)
+            for (var i = 0; i < SplitCommandList.Count - 1; i++)
             {
-                commands[i]
+                SplitCommandList[i]
                     .ExecuteNonQueryCore();
             }
 
-            return commands[commands.Count - 1]
+            return SplitCommandList[SplitCommandList.Count - 1]
                 .ExecuteDbDataReaderCore(behavior);
         }
 
@@ -234,8 +242,8 @@ namespace EntityFrameworkCore.Jet.Data
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
 
             ExpandParameters();
-
-            return SplitCommands()
+            SplitCommandList = SplitCommands();
+            return SplitCommandList
                 .Aggregate(0, (_, command) => command.ExecuteNonQueryCore());
         }
 
@@ -296,15 +304,15 @@ namespace EntityFrameworkCore.Jet.Data
 
             ExpandParameters();
 
-            var commands = SplitCommands();
+            SplitCommandList = SplitCommands();
 
-            for (var i = 0; i < commands.Count - 1; i++)
+            for (var i = 0; i < SplitCommandList.Count - 1; i++)
             {
-                commands[i]
+                SplitCommandList[i]
                     .ExecuteNonQueryCore();
             }
 
-            return commands[commands.Count - 1]
+            return SplitCommandList[SplitCommandList.Count - 1]
                 .ExecuteScalarCore();
         }
 
@@ -342,7 +350,7 @@ namespace EntityFrameworkCore.Jet.Data
             return InnerCommand.ExecuteScalar();
         }
 
-        protected virtual IReadOnlyList<JetCommand> SplitCommands()
+        protected virtual IList<JetCommand> SplitCommands()
         {
             // At this point, all parameters have already been expanded.
 
@@ -403,7 +411,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
             }
 
-            return commands.AsReadOnly();
+            return commands;
         }
 
         private DbDataReader TryGetDataReaderForSelectRowCount(string commandText)

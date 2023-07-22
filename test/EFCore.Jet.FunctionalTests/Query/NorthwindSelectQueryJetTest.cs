@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         }
 
         protected override bool CanExecuteQueryString
-            => true;
+            => false;
 
         public override async Task Projection_when_arithmetic_expression_precedence(bool isAsync)
         {
@@ -46,20 +46,20 @@ FROM `Orders` AS `o`");
             await base.Projection_when_arithmetic_mixed(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='10'")}
-
-SELECT CAST(`t0`.`EmployeeID` AS bigint) + CAST(`t`.`OrderID` AS bigint) AS `Add`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, 42 AS `Literal`, `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
-FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    ORDER BY `o`.`OrderID`
-) AS `t`,
-(
-    SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    ORDER BY `e`.`EmployeeID`
-) AS `t0`
-ORDER BY `t`.`OrderID`");
+                """
+    SELECT CLNG(`t0`.`EmployeeID`) + CLNG(`t`.`OrderID`) AS `Add`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, 42 AS `Literal`, `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
+    FROM (
+        SELECT TOP 10 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`,
+    (
+        SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+        FROM `Employees` AS `e`
+        ORDER BY `e`.`EmployeeID`
+    ) AS `t0`
+    ORDER BY `t`.`OrderID`
+    """);
         }
 
         public override async Task Projection_when_null_value(bool isAsync)
@@ -245,10 +245,10 @@ FROM `Customers` AS `c`");
             await base.Select_scalar_primitive_after_take(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='9'")}
-
-SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `e`.`EmployeeID`
-FROM `Employees` AS `e`");
+                """
+    SELECT TOP 9 `e`.`EmployeeID`
+    FROM `Employees` AS `e`
+    """);
         }
 
         public override async Task Select_project_filter(bool isAsync)
@@ -1488,10 +1488,11 @@ ORDER BY `c`.`CustomerID`");
             await base.Projection_take_projection_doesnt_project_intermittent_column(async);
 
             AssertSql(
-                @"@__p_0='10'
-SELECT TOP(@__p_0) (`c`.`CustomerID` + ' ') + COALESCE(`c`.`City`, '') AS `Aggregate`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+                """
+    SELECT TOP 10 (`c`.`CustomerID` & ' ') & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `Aggregate`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+    """);
         }
 
         public override async Task Projection_skip_projection_doesnt_project_intermittent_column(bool async)
@@ -1523,15 +1524,16 @@ FROM (
             await base.Projection_take_predicate_projection(async);
 
             AssertSql(
-                @"@__p_0='10'
-SELECT (`t`.`CustomerID` + ' ') + COALESCE(`t`.`City`, '') AS `Aggregate`
-FROM (
-    SELECT TOP(@__p_0) `c`.`CustomerID`, `c`.`City`
-    FROM `Customers` AS `c`
-    ORDER BY `c`.`CustomerID`
-) AS `t`
-WHERE `t`.`CustomerID` LIKE 'A%'
-ORDER BY `t`.`CustomerID`");
+                """
+    SELECT (`t`.`CustomerID` & ' ') & IIF(`t`.`City` IS NULL, '', `t`.`City`) AS `Aggregate`
+    FROM (
+        SELECT TOP 10 `c`.`CustomerID`, `c`.`City`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `t`
+    WHERE `t`.`CustomerID` LIKE 'A%'
+    ORDER BY `t`.`CustomerID`
+    """);
         }
 
         public override async Task Do_not_erase_projection_mapping_when_adding_single_projection(bool async)

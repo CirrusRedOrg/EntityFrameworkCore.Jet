@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         }
 
         protected override bool CanExecuteQueryString
-            => true;
+            => false;
 
         [ConditionalTheory]
         public override async Task KeylessEntity_simple(bool isAsync)

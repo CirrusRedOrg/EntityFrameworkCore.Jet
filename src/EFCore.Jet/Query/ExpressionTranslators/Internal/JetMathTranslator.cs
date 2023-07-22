@@ -203,7 +203,18 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     nameof(Math.Floor) => CreateFix(arguments, method.ReturnType),
                     nameof(Math.Ceiling) => CreateCeiling(arguments, method.ReturnType),
 
-
+                    nameof(Math.Atan2) => _sqlExpressionFactory.Function(
+                        "ATN",
+                        new[]
+                        {
+                            _sqlExpressionFactory.Divide(
+                                arguments[0],
+                                arguments[1]
+                            )
+                        },
+                        true,
+                        new[] { true },
+                        method.ReturnType),
 
 
                     _ => null,

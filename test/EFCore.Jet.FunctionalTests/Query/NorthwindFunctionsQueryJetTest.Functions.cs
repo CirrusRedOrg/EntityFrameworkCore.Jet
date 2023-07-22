@@ -1067,9 +1067,11 @@ WHERE `o`.`OrderID` = 11077 AND ATN(CDBL(`o`.`Discount`)) > 0.0");
             await base.Where_math_atan2(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE (`o`.`OrderID` = 11077) AND (ATN2(CDBL(`o`.`Discount`), 1.0E0) > 0.0E0)");
+                """
+    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+    FROM `Order Details` AS `o`
+    WHERE `o`.`OrderID` = 11077 AND ATN(CDBL(`o`.`Discount`) / 1.0) > 0.0
+    """);
         }
 
         public override async Task Where_math_cos(bool isAsync)
@@ -1349,11 +1351,11 @@ WHERE `o`.`OrderID` = 11077 AND ATN(`o`.`Discount`) > 0
             await base.Where_mathf_atan2(async);
 
             AssertSql(
-    """
-SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND ATN2(`o`.`Discount`, CAST(1 AS real)) > CAST(0 AS real)
-""");
+                """
+    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+    FROM `Order Details` AS `o`
+    WHERE `o`.`OrderID` = 11077 AND ATN(`o`.`Discount` / 1) > 0
+    """);
         }
 
         public override async Task Where_mathf_cos(bool async)

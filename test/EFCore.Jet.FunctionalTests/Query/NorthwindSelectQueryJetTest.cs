@@ -1412,12 +1412,14 @@ ORDER BY `c`.`CustomerID`");
             await base.Projecting_multiple_collection_with_same_constant_works(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, 1, `o`.`OrderID`, `o0`.`OrderID`
-FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+"""
+SELECT `c`.`CustomerID`, 1, `o`.`OrderID`, `o0`.`OrderID`
+FROM (`Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`");
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Custom_projection_reference_navigation_PK_to_FK_optimization(bool async)

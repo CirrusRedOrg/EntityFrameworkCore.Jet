@@ -76,10 +76,12 @@
     <None Include="ConcurrencyDetectorJetTest.cs" />
     <None Include="GraphUpdates\GraphUpdatesJetTest.cs" />
     <None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
+    <None Include="JetApiConsistencyTest.cs" />
+    <None Include="KeysWithConvertersJetTest.cs" />
     <None Include="MigrationsSqlGeneratorTestBase.cs" />
+    <None Include="Migrations\MigrationsJetTest.cs" />
     <None Include="PropertyEntryJetTest.cs" />
-    <None Include="Query\FromSqlQueryJetTest.cs" />
-    <None Include="UpdatesJetTest.cs" />
+    <None Include="TwoDatabasesJetTest.cs" />
     <None Remove="TestResults\**" />
   </ItemGroup>
 
@@ -112,10 +114,12 @@
     <Compile Remove="ConcurrencyDetectorJetTest.cs" />
     <Compile Remove="GraphUpdates\GraphUpdatesJetTest.cs" />
     <Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
+    <Compile Remove="JetApiConsistencyTest.cs" />
+    <Compile Remove="KeysWithConvertersJetTest.cs" />
     <Compile Remove="MigrationsSqlGeneratorTestBase.cs" />
+    <Compile Remove="Migrations\MigrationsJetTest.cs" />
     <Compile Remove="PropertyEntryJetTest.cs" />
-    <Compile Remove="Query\FromSqlQueryJetTest.cs" />
-    <Compile Remove="UpdatesJetTest.cs" />
+    <Compile Remove="TwoDatabasesJetTest.cs" />
   </ItemGroup>
 
 </Project>

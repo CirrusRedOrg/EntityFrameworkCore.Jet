@@ -13,7 +13,7 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class ComplexNavigationsQueryJetTest : ComplexNavigationsQueryTestBase<ComplexNavigationsQueryJetFixture>
+    public class ComplexNavigationsQueryJetTest : ComplexNavigationsQueryRelationalTestBase<ComplexNavigationsQueryJetFixture>
     {
         public ComplexNavigationsQueryJetTest(
             ComplexNavigationsQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
@@ -162,21 +162,23 @@ WHERE `l0`.`Id` IN (1, 2)");
             await base.Multi_level_include_with_short_circuiting(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`Name`, `f`.`LabelDefaultText`, `f`.`PlaceholderDefaultText`, `m`.`DefaultText`, `m0`.`DefaultText`, `t`.`Text`, `t`.`ComplexNavigationStringDefaultText`, `t`.`LanguageName`, `t`.`Name`, `t`.`CultureString`, `t0`.`Text`, `t0`.`ComplexNavigationStringDefaultText`, `t0`.`LanguageName`, `t0`.`Name`, `t0`.`CultureString`
-FROM `Fields` AS `f`
-LEFT JOIN `MultilingualStrings` AS `m` ON `f`.`LabelDefaultText` = `m`.`DefaultText`
-LEFT JOIN `MultilingualStrings` AS `m0` ON `f`.`PlaceholderDefaultText` = `m0`.`DefaultText`
+                """
+SELECT `f`.`Name`, `f`.`LabelDefaultText`, `f`.`PlaceholderDefaultText`, `m`.`DefaultText`, `m0`.`DefaultText`, `t`.`Text`, `t`.`ComplexNavigationStringDefaultText`, `t`.`LanguageName`, `t`.`Name`, `t`.`CultureString`, `t0`.`Text`, `t0`.`ComplexNavigationStringDefaultText`, `t0`.`LanguageName`, `t0`.`Name`, `t0`.`CultureString`
+FROM (((`Fields` AS `f`
+LEFT JOIN `MultilingualStrings` AS `m` ON `f`.`LabelDefaultText` = `m`.`DefaultText`)
+LEFT JOIN `MultilingualStrings` AS `m0` ON `f`.`PlaceholderDefaultText` = `m0`.`DefaultText`)
 LEFT JOIN (
     SELECT `g`.`Text`, `g`.`ComplexNavigationStringDefaultText`, `g`.`LanguageName`, `l`.`Name`, `l`.`CultureString`
     FROM `Globalizations` AS `g`
     LEFT JOIN `Languages` AS `l` ON `g`.`LanguageName` = `l`.`Name`
-) AS `t` ON `m`.`DefaultText` = `t`.`ComplexNavigationStringDefaultText`
+) AS `t` ON `m`.`DefaultText` = `t`.`ComplexNavigationStringDefaultText`)
 LEFT JOIN (
     SELECT `g0`.`Text`, `g0`.`ComplexNavigationStringDefaultText`, `g0`.`LanguageName`, `l0`.`Name`, `l0`.`CultureString`
     FROM `Globalizations` AS `g0`
     LEFT JOIN `Languages` AS `l0` ON `g0`.`LanguageName` = `l0`.`Name`
 ) AS `t0` ON `m0`.`DefaultText` = `t0`.`ComplexNavigationStringDefaultText`
-ORDER BY `f`.`Name`, `t`.`Text`, `t0`.`Text`");
+ORDER BY `f`.`Name`, `m`.`DefaultText`, `m0`.`DefaultText`, `t`.`Text`, `t`.`Name`, `t0`.`Text`
+""");
         }
 
         public override async Task Join_navigation_key_access_optional(bool isAsync)
@@ -1118,18 +1120,20 @@ INNER JOIN (
                 Assert.Equal(13, results.Count);
 
                 AssertSql(
-                    $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `t`.`Id`, `t`.`Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Optional_Self_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToMany_Required_Self_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t`.`OneToOne_Optional_Self2Id`, `t`.`Id0`, `t`.`Level2_Optional_Id`, `t`.`Level2_Required_Id`, `t`.`Name0`, `t`.`OneToMany_Optional_Inverse3Id`, `t`.`OneToMany_Optional_Self_Inverse3Id`, `t`.`OneToMany_Required_Inverse3Id`, `t`.`OneToMany_Required_Self_Inverse3Id`, `t`.`OneToOne_Optional_PK_Inverse3Id`, `t`.`OneToOne_Optional_Self3Id`
-FROM (
-    SELECT * FROM `LevelOne`
-) AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
-LEFT JOIN (
-    SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, `l3`.`Id` AS `Id0`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name` AS `Name0`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`
-    FROM `LevelTwo` AS `l2`
-    LEFT JOIN `LevelThree` AS `l3` ON `l2`.`Id` = `l3`.`Level2_Optional_Id`
-) AS `t` ON `l`.`Id` = `t`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `l1`.`Id`, `t`.`Id`");
+    """
+    SELECT `m`.`Id`, `m`.`Date`, `m`.`Name`, `m`.`OneToMany_Optional_Self_Inverse1Id`, `m`.`OneToMany_Required_Self_Inverse1Id`, `m`.`OneToOne_Optional_Self1Id`, `l`.`Id`, `l`.`Date`, `l`.`Level1_Optional_Id`, `l`.`Level1_Required_Id`, `l`.`Name`, `l`.`OneToMany_Optional_Inverse2Id`, `l`.`OneToMany_Optional_Self_Inverse2Id`, `l`.`OneToMany_Required_Inverse2Id`, `l`.`OneToMany_Required_Self_Inverse2Id`, `l`.`OneToOne_Optional_PK_Inverse2Id`, `l`.`OneToOne_Optional_Self2Id`, `l0`.`Id`, `l0`.`Level2_Optional_Id`, `l0`.`Level2_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse3Id`, `l0`.`OneToMany_Optional_Self_Inverse3Id`, `l0`.`OneToMany_Required_Inverse3Id`, `l0`.`OneToMany_Required_Self_Inverse3Id`, `l0`.`OneToOne_Optional_PK_Inverse3Id`, `l0`.`OneToOne_Optional_Self3Id`, `t`.`Id`, `t`.`Date`, `t`.`Level1_Optional_Id`, `t`.`Level1_Required_Id`, `t`.`Name`, `t`.`OneToMany_Optional_Inverse2Id`, `t`.`OneToMany_Optional_Self_Inverse2Id`, `t`.`OneToMany_Required_Inverse2Id`, `t`.`OneToMany_Required_Self_Inverse2Id`, `t`.`OneToOne_Optional_PK_Inverse2Id`, `t`.`OneToOne_Optional_Self2Id`, `t`.`Id0`, `t`.`Level2_Optional_Id`, `t`.`Level2_Required_Id`, `t`.`Name0`, `t`.`OneToMany_Optional_Inverse3Id`, `t`.`OneToMany_Optional_Self_Inverse3Id`, `t`.`OneToMany_Required_Inverse3Id`, `t`.`OneToMany_Required_Self_Inverse3Id`, `t`.`OneToOne_Optional_PK_Inverse3Id`, `t`.`OneToOne_Optional_Self3Id`
+    FROM (((
+        SELECT * FROM `LevelOne`
+    ) AS `m`
+    LEFT JOIN `LevelTwo` AS `l` ON `m`.`Id` = `l`.`Level1_Optional_Id`)
+    LEFT JOIN `LevelThree` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse3Id`)
+    LEFT JOIN (
+        SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l2`.`Id` AS `Id0`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name` AS `Name0`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`
+        FROM `LevelTwo` AS `l1`
+        LEFT JOIN `LevelThree` AS `l2` ON `l1`.`Id` = `l2`.`Level2_Optional_Id`
+    ) AS `t` ON `m`.`Id` = `t`.`OneToMany_Optional_Inverse2Id`
+    ORDER BY `m`.`Id`, `l`.`Id`, `l0`.`Id`, `t`.`Id`
+    """);
             }
         }
 
@@ -2546,11 +2550,13 @@ ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`");
             await base.String_include_multiple_derived_collection_navigation_with_same_name_and_same_type(isAsync);
 
             AssertSql(
-                $@"SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`InheritanceBase2Id1`, `i`.`Name`, `i0`.`Id`, `i0`.`DifferentTypeReference_InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id1`, `i0`.`InheritanceDerived2Id`, `i0`.`Name`, `i0`.`SameTypeReference_InheritanceDerived1Id`, `i0`.`SameTypeReference_InheritanceDerived2Id`, `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id1`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`, `i1`.`SameTypeReference_InheritanceDerived1Id`, `i1`.`SameTypeReference_InheritanceDerived2Id`
+                """
+SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`InheritanceBase2Id1`, `i`.`Name`, `i0`.`Id`, `i0`.`DifferentTypeReference_InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id1`, `i0`.`InheritanceDerived2Id`, `i0`.`Name`, `i0`.`SameTypeReference_InheritanceDerived1Id`, `i0`.`SameTypeReference_InheritanceDerived2Id`, `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id1`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`, `i1`.`SameTypeReference_InheritanceDerived1Id`, `i1`.`SameTypeReference_InheritanceDerived2Id`
 FROM (`InheritanceOne` AS `i`
 LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceDerived1Id1`)
 LEFT JOIN `InheritanceLeafOne` AS `i1` ON `i`.`Id` = `i1`.`InheritanceDerived2Id`
-ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`");
+ORDER BY `i`.`Id`, `i0`.`Id`
+""");
         }
 
         public override async Task String_include_multiple_derived_collection_navigation_with_same_name_and_different_type(bool isAsync)
@@ -2558,11 +2564,13 @@ ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`");
             await base.String_include_multiple_derived_collection_navigation_with_same_name_and_different_type(isAsync);
 
             AssertSql(
-                $@"SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`InheritanceBase2Id1`, `i`.`Name`, `i0`.`Id`, `i0`.`DifferentTypeReference_InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id1`, `i0`.`InheritanceDerived2Id`, `i0`.`Name`, `i0`.`SameTypeReference_InheritanceDerived1Id`, `i0`.`SameTypeReference_InheritanceDerived2Id`, `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived2Id`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`
+                """
+SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`InheritanceBase2Id1`, `i`.`Name`, `i0`.`Id`, `i0`.`DifferentTypeReference_InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id1`, `i0`.`InheritanceDerived2Id`, `i0`.`Name`, `i0`.`SameTypeReference_InheritanceDerived1Id`, `i0`.`SameTypeReference_InheritanceDerived2Id`, `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived2Id`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`
 FROM (`InheritanceOne` AS `i`
 LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceDerived1Id`)
 LEFT JOIN `InheritanceLeafTwo` AS `i1` ON `i`.`Id` = `i1`.`InheritanceDerived2Id`
-ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`");
+ORDER BY `i`.`Id`, `i0`.`Id`
+""");
         }
 
         public override async Task
@@ -2574,16 +2582,17 @@ ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`");
                     isAsync);
 
             AssertSql(
-                $@"SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`InheritanceBase2Id1`, `i`.`Name`, `i0`.`Id`, `i0`.`DifferentTypeReference_InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id1`, `i0`.`InheritanceDerived2Id`, `i0`.`Name`, `i0`.`SameTypeReference_InheritanceDerived1Id`, `i0`.`SameTypeReference_InheritanceDerived2Id`, `t`.`Id`, `t`.`DifferentTypeReference_InheritanceDerived2Id`, `t`.`InheritanceDerived2Id`, `t`.`Name`, `t`.`Id0`, `t`.`InheritanceLeaf2Id`, `t`.`Name0`
-FROM `InheritanceOne` AS `i`
-LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceDerived1Id`
-LEFT JOIN (
-    SELECT `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived2Id`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`, `i2`.`Id` AS `Id0`, `i2`.`InheritanceLeaf2Id`, `i2`.`Name` AS `Name0`
-    FROM `InheritanceLeafTwo` AS `i1`
-    LEFT JOIN `InheritanceTwo` AS `i2` ON `i1`.`Id` = `i2`.`InheritanceLeaf2Id`
-) AS `t` ON `i`.`Id` = `t`.`InheritanceDerived2Id`
-WHERE `i`.`Discriminator` IN ('InheritanceBase1', 'InheritanceDerived1', 'InheritanceDerived2')
-ORDER BY `i`.`Id`, `i0`.`Id`, `t`.`Id`, `t`.`Id0`");
+                """
+    SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`InheritanceBase2Id1`, `i`.`Name`, `i0`.`Id`, `i0`.`DifferentTypeReference_InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id`, `i0`.`InheritanceDerived1Id1`, `i0`.`InheritanceDerived2Id`, `i0`.`Name`, `i0`.`SameTypeReference_InheritanceDerived1Id`, `i0`.`SameTypeReference_InheritanceDerived2Id`, `t`.`Id`, `t`.`DifferentTypeReference_InheritanceDerived2Id`, `t`.`InheritanceDerived2Id`, `t`.`Name`, `t`.`Id0`, `t`.`InheritanceLeaf2Id`, `t`.`Name0`
+    FROM (`InheritanceOne` AS `i`
+    LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceDerived1Id`)
+    LEFT JOIN (
+        SELECT `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived2Id`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`, `i2`.`Id` AS `Id0`, `i2`.`InheritanceLeaf2Id`, `i2`.`Name` AS `Name0`
+        FROM `InheritanceLeafTwo` AS `i1`
+        LEFT JOIN `InheritanceTwo` AS `i2` ON `i1`.`Id` = `i2`.`InheritanceLeaf2Id`
+    ) AS `t` ON `i`.`Id` = `t`.`InheritanceDerived2Id`
+    ORDER BY `i`.`Id`, `i0`.`Id`, `t`.`Id`
+    """);
         }
 
         public override async Task String_include_multiple_derived_navigations_complex(bool isAsync)
@@ -2591,23 +2600,20 @@ ORDER BY `i`.`Id`, `i0`.`Id`, `t`.`Id`, `t`.`Id0`");
             await base.String_include_multiple_derived_navigations_complex(isAsync);
 
             AssertSql(
-                $@"SELECT `i`.`Id`, `i`.`InheritanceLeaf2Id`, `i`.`Name`, `t`.`Id`, `t`.`Discriminator`, `t`.`InheritanceBase2Id`, `t`.`InheritanceBase2Id1`, `t`.`Name`, `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id1`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`, `i1`.`SameTypeReference_InheritanceDerived1Id`, `i1`.`SameTypeReference_InheritanceDerived2Id`, `i2`.`Id`, `i2`.`DifferentTypeReference_InheritanceDerived2Id`, `i2`.`InheritanceDerived2Id`, `i2`.`Name`, `t0`.`Id`, `t0`.`Discriminator`, `t0`.`InheritanceBase2Id`, `t0`.`InheritanceBase2Id1`, `t0`.`Name`, `t0`.`Id0`, `t0`.`DifferentTypeReference_InheritanceDerived1Id`, `t0`.`InheritanceDerived1Id`, `t0`.`InheritanceDerived1Id1`, `t0`.`InheritanceDerived2Id`, `t0`.`Name0`, `t0`.`SameTypeReference_InheritanceDerived1Id`, `t0`.`SameTypeReference_InheritanceDerived2Id`, `t0`.`Id1`, `t0`.`DifferentTypeReference_InheritanceDerived1Id0`, `t0`.`InheritanceDerived1Id0`, `t0`.`InheritanceDerived1Id10`, `t0`.`InheritanceDerived2Id0`, `t0`.`Name1`, `t0`.`SameTypeReference_InheritanceDerived1Id0`, `t0`.`SameTypeReference_InheritanceDerived2Id0`
-FROM `InheritanceTwo` AS `i`
-LEFT JOIN (
-    SELECT `i0`.`Id`, `i0`.`Discriminator`, `i0`.`InheritanceBase2Id`, `i0`.`InheritanceBase2Id1`, `i0`.`Name`
-    FROM `InheritanceOne` AS `i0`
-    WHERE `i0`.`Discriminator` IN ('InheritanceBase1', 'InheritanceDerived1', 'InheritanceDerived2')
-) AS `t` ON `i`.`Id` = `t`.`InheritanceBase2Id`
-LEFT JOIN `InheritanceLeafOne` AS `i1` ON `t`.`Id` = `i1`.`InheritanceDerived1Id`
-LEFT JOIN `InheritanceLeafTwo` AS `i2` ON `t`.`Id` = `i2`.`InheritanceDerived2Id`
+"""
+SELECT `i`.`Id`, `i`.`InheritanceLeaf2Id`, `i`.`Name`, `i0`.`Id`, `i0`.`Discriminator`, `i0`.`InheritanceBase2Id`, `i0`.`InheritanceBase2Id1`, `i0`.`Name`, `i1`.`Id`, `i1`.`DifferentTypeReference_InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id`, `i1`.`InheritanceDerived1Id1`, `i1`.`InheritanceDerived2Id`, `i1`.`Name`, `i1`.`SameTypeReference_InheritanceDerived1Id`, `i1`.`SameTypeReference_InheritanceDerived2Id`, `i2`.`Id`, `i2`.`DifferentTypeReference_InheritanceDerived2Id`, `i2`.`InheritanceDerived2Id`, `i2`.`Name`, `t`.`Id`, `t`.`Discriminator`, `t`.`InheritanceBase2Id`, `t`.`InheritanceBase2Id1`, `t`.`Name`, `t`.`Id0`, `t`.`DifferentTypeReference_InheritanceDerived1Id`, `t`.`InheritanceDerived1Id`, `t`.`InheritanceDerived1Id1`, `t`.`InheritanceDerived2Id`, `t`.`Name0`, `t`.`SameTypeReference_InheritanceDerived1Id`, `t`.`SameTypeReference_InheritanceDerived2Id`, `t`.`Id1`, `t`.`DifferentTypeReference_InheritanceDerived1Id0`, `t`.`InheritanceDerived1Id0`, `t`.`InheritanceDerived1Id10`, `t`.`InheritanceDerived2Id0`, `t`.`Name1`, `t`.`SameTypeReference_InheritanceDerived1Id0`, `t`.`SameTypeReference_InheritanceDerived2Id0`
+FROM (((`InheritanceTwo` AS `i`
+LEFT JOIN `InheritanceOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceBase2Id`)
+LEFT JOIN `InheritanceLeafOne` AS `i1` ON `i0`.`Id` = `i1`.`InheritanceDerived1Id`)
+LEFT JOIN `InheritanceLeafTwo` AS `i2` ON `i0`.`Id` = `i2`.`InheritanceDerived2Id`)
 LEFT JOIN (
     SELECT `i3`.`Id`, `i3`.`Discriminator`, `i3`.`InheritanceBase2Id`, `i3`.`InheritanceBase2Id1`, `i3`.`Name`, `i4`.`Id` AS `Id0`, `i4`.`DifferentTypeReference_InheritanceDerived1Id`, `i4`.`InheritanceDerived1Id`, `i4`.`InheritanceDerived1Id1`, `i4`.`InheritanceDerived2Id`, `i4`.`Name` AS `Name0`, `i4`.`SameTypeReference_InheritanceDerived1Id`, `i4`.`SameTypeReference_InheritanceDerived2Id`, `i5`.`Id` AS `Id1`, `i5`.`DifferentTypeReference_InheritanceDerived1Id` AS `DifferentTypeReference_InheritanceDerived1Id0`, `i5`.`InheritanceDerived1Id` AS `InheritanceDerived1Id0`, `i5`.`InheritanceDerived1Id1` AS `InheritanceDerived1Id10`, `i5`.`InheritanceDerived2Id` AS `InheritanceDerived2Id0`, `i5`.`Name` AS `Name1`, `i5`.`SameTypeReference_InheritanceDerived1Id` AS `SameTypeReference_InheritanceDerived1Id0`, `i5`.`SameTypeReference_InheritanceDerived2Id` AS `SameTypeReference_InheritanceDerived2Id0`
-    FROM `InheritanceOne` AS `i3`
-    LEFT JOIN `InheritanceLeafOne` AS `i4` ON `i3`.`Id` = `i4`.`SameTypeReference_InheritanceDerived1Id`
+    FROM (`InheritanceOne` AS `i3`
+    LEFT JOIN `InheritanceLeafOne` AS `i4` ON `i3`.`Id` = `i4`.`SameTypeReference_InheritanceDerived1Id`)
     LEFT JOIN `InheritanceLeafOne` AS `i5` ON `i3`.`Id` = `i5`.`SameTypeReference_InheritanceDerived2Id`
-    WHERE `i3`.`Discriminator` IN ('InheritanceBase1', 'InheritanceDerived1', 'InheritanceDerived2')
-) AS `t0` ON `i`.`Id` = `t0`.`InheritanceBase2Id1`
-ORDER BY `i`.`Id`, `i1`.`Id`, `i2`.`Id`, `t0`.`Id`");
+) AS `t` ON `i`.`Id` = `t`.`InheritanceBase2Id1`
+ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`, `i2`.`Id`, `t`.`Id`, `t`.`Id0`
+""");
         }
 
         public override async Task Nav_rewrite_doesnt_apply_null_protection_for_function_arguments(bool isAsync)

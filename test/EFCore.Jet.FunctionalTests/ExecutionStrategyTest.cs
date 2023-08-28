@@ -105,9 +105,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.ChangeTracker.AcceptAllChanges();
 
                 var retryMessage =
-                    "A transient exception has been encountered during execution and the operation will be retried after 0ms."
-                    + Environment.NewLine
-                    + "Microsoft.Data.SqlClient.OleDbException (0x80131904): Bang!";
+                    "System.Data.OleDb.OleDbException : Bang!";
                 if (realFailure)
                 {
                     var logEntry = Fixture.TestSqlLoggerFactory.Log.Single(l => l.Id == CoreEventId.ExecutionStrategyRetrying);
@@ -218,9 +216,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.ChangeTracker.AcceptAllChanges();
 
                 var retryMessage =
-                    "A transient exception has been encountered during execution and the operation will be retried after 0ms."
-                    + Environment.NewLine
-                    + "Microsoft.Data.SqlClient.OleDbException (0x80131904): Bang!";
+                    "System.Data.OleDb.OleDbException : Bang!";
                 if (realFailure)
                 {
                     var logEntry = Fixture.TestSqlLoggerFactory.Log.Single(l => l.Id == CoreEventId.ExecutionStrategyRetrying);

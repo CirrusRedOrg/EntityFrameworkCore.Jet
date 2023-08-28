@@ -42,7 +42,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = {AssertSqlHelper.Parameter("@__myDatetime_0")}
+WHERE `o`.`OrderDate` = CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
                 $"""
@@ -50,7 +50,7 @@ WHERE `o`.`OrderDate` = {AssertSqlHelper.Parameter("@__myDatetime_0")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <> {AssertSqlHelper.Parameter("@__myDatetime_0")} OR (`o`.`OrderDate` IS NULL)
+WHERE `o`.`OrderDate` <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")}) OR (`o`.`OrderDate` IS NULL)
 """,
                 //
                 $"""
@@ -58,7 +58,7 @@ WHERE `o`.`OrderDate` <> {AssertSqlHelper.Parameter("@__myDatetime_0")} OR (`o`.
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__myDatetime_0")}
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
                 $"""
@@ -66,7 +66,7 @@ WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__myDatetime_0")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= {AssertSqlHelper.Parameter("@__myDatetime_0")}
+WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
                 $"""
@@ -74,7 +74,7 @@ WHERE `o`.`OrderDate` <= {AssertSqlHelper.Parameter("@__myDatetime_0")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__myDatetime_0")}
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
                 $"""
@@ -82,7 +82,7 @@ WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__myDatetime_0")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= {AssertSqlHelper.Parameter("@__myDatetime_0")}
+WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """);
         }
 
@@ -2195,7 +2195,7 @@ WHERE `c`.`CustomerID` = 'ANATR'");
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = {AssertSqlHelper.Parameter("@__arg_0")}");
+WHERE `o`.`OrderDate` = CDATE({AssertSqlHelper.Parameter("@__arg_0")})");
         }
 
         public override async Task Static_equals_int_compared_to_long(bool isAsync)

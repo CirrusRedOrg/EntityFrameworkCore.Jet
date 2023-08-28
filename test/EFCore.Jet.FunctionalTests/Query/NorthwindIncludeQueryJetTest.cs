@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class NorthwindIncludeQueryJetTest : NorthwindIncludeQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class NorthwindIncludeQueryJetTest : NorthwindIncludeQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
         private bool SupportsOffset => true;
 
@@ -429,14 +429,17 @@ ORDER BY `c`.`CustomerID`");
             await base.Include_collection_then_include_collection(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
     FROM `Orders` AS `o`
     LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`");
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`
+""");
         }
 
         public override async Task Include_collection_then_include_collection_then_include_reference(bool async)
@@ -444,7 +447,8 @@ ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`");
             await base.Include_collection_then_include_collection_then_include_reference(async);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`, `t0`.`ProductID0`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice0`, `t0`.`UnitsInStock`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`, `t0`.`ProductID0`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice0`, `t0`.`UnitsInStock`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`OrderID` AS `OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t`.`ProductID0`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice0`, `t`.`UnitsInStock`
@@ -455,7 +459,9 @@ LEFT JOIN (
         INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
     ) AS `t` ON `o`.`OrderID` = `t`.`OrderID`
 ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID0`, `t0`.`ProductID`");
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID0`, `t0`.`ProductID`
+""");
         }
 
         public override async Task Include_collection_when_projection(bool async)

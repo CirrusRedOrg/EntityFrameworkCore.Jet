@@ -17,7 +17,7 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class DataAnnotationJetTest : DataAnnotationTestBase<DataAnnotationJetTest.DataAnnotationJetFixture>
+    public class DataAnnotationJetTest : DataAnnotationRelationalTestBase<DataAnnotationJetTest.DataAnnotationJetFixture>
     {
         // ReSharper disable once UnusedParameter.Local
         public DataAnnotationJetTest(DataAnnotationJetFixture fixture, ITestOutputHelper testOutputHelper)
@@ -327,7 +327,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;");
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
-        public class DataAnnotationJetFixture : DataAnnotationFixtureBase
+        public class DataAnnotationJetFixture : DataAnnotationRelationalFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
             public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;

@@ -11,7 +11,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class NorthwindGroupByQueryJetTest : NorthwindGroupByQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class NorthwindGroupByQueryJetTest : NorthwindGroupByQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
         // ReSharper disable once UnusedParameter.Local
         public NorthwindGroupByQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)

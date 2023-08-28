@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class NorthwindNavigationsQueryJetTest : NorthwindNavigationsQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class NorthwindNavigationsQueryJetTest : NorthwindNavigationsQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
     {
         public NorthwindNavigationsQueryJetTest(
             NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)

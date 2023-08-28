@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -223,7 +224,7 @@ WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`O
             var exIsDate = Assert.Throws<InvalidOperationException>(() => EF.Functions.IsDate("#ISDATE#"));
 
             Assert.Equal(
-                JetStrings.FunctionOnClient(nameof(JetDbFunctionsExtensions.IsDate)),
+                CoreStrings.FunctionOnClient(nameof(JetDbFunctionsExtensions.IsDate)),
                 exIsDate.Message);
         }
 

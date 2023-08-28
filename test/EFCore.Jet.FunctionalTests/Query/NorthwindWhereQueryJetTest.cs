@@ -498,11 +498,11 @@ WHERE (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 
 
         public override async Task Where_bitwise_xor(bool isAsync)
         {
-            await base.Where_bitwise_xor(isAsync);
+            //This is same as SQL Server and Sqlite from efcore
+            // Cannot eval 'where (([c].CustomerID == \"ALFKI\") ^ True)'. Issue #16645.
+            await AssertTranslationFailed(() => base.Where_bitwise_xor(isAsync));
 
-            AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`");
+            AssertSql();
         }
 
         public override async Task Where_simple_shadow(bool isAsync)
@@ -768,11 +768,13 @@ WHERE MID(`c`.`City`, 1 + 1, 2) = 'ea'");
             await base.Where_datetime_now(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE GETDATE() <> @__myDatetime_0");
+                $"""
+    {AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00.0000000' (DbType = DateTime)")}
+    
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE NOW() <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+    """);
         }
 
         public override async Task Where_datetime_utcnow(bool isAsync)
@@ -780,11 +782,13 @@ WHERE GETDATE() <> @__myDatetime_0");
             await base.Where_datetime_utcnow(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00'")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE GETUTCDATE() <> @__myDatetime_0");
+                $"""
+    {AssertSqlHelper.Declaration("@__myDatetime_0='2015-04-10T00:00:00.0000000' (DbType = DateTime)")}
+    
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE NOW() <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+    """);
         }
 
         public override async Task Where_datetime_today(bool isAsync)
@@ -801,12 +805,15 @@ WHERE (CONVERT(date, GETDATE()) = CONVERT(date, GETDATE())) OR CONVERT(date, GET
         {
             await base.Where_datetime_date_component(isAsync);
 
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00' (DbType = DateTime)")}
 
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Orders` AS `o`
-WHERE CONVERT(date, `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__myDatetime_0")}");
+            AssertSql(
+                $"""
+    {AssertSqlHelper.Declaration("@__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)")}
+    
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE IIF(`o`.`OrderDate` IS NULL, NULL, DATEVALUE(`o`.`OrderDate`)) = CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+    """);
         }
 
         public override async Task Where_date_add_year_constant_component(bool isAsync)

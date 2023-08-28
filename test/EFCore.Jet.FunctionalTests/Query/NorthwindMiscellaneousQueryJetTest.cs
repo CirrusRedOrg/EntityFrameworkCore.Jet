@@ -2577,7 +2577,7 @@ WHERE `o`.`OrderDate` > #1998-01-01 12:00:00#");
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__Parse_0")}");
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__Parse_0")})");
         }
 
         public override async Task New_DateTime_is_inlined(bool isAsync)
@@ -2599,13 +2599,13 @@ WHERE `o`.`OrderDate` > #1998-01-01 12:00:00#");
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__p_0")}",
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__p_0")})",
                 //
                 $@"{AssertSqlHelper.Declaration("@__p_0='1998-01-01T11:00:00.0000000' (Nullable = true) (DbType = DateTime)")}
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > {AssertSqlHelper.Parameter("@__p_0")}");
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__p_0")})");
         }
 
         public override async Task Environment_newline_is_funcletized(bool isAsync)
@@ -2725,6 +2725,44 @@ WHERE (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BOR IIF(`c`.`CustomerID` = '
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 'ANATR', TRUE, FALSE)) = TRUE OR `c`.`CustomerID` = 'ANTON'");
+        }
+
+        public override async Task Where_bitwise_binary_not(bool isAsync)
+        {
+            await base.Where_bitwise_binary_not(isAsync);
+
+            AssertSql(
+                """
+@__negatedId_0='-10249'
+
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE  (BNOT`o`.`OrderID`) = @__negatedId_0
+""");
+        }
+
+        public override async Task Where_bitwise_binary_and(bool isAsync)
+        {
+            await base.Where_bitwise_binary_and(isAsync);
+
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE (`o`.`OrderID` BAND 10248) = 10248
+""");
+        }
+
+        public override async Task Where_bitwise_binary_or(bool isAync)
+        {
+            await base.Where_bitwise_binary_or(isAync);
+
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE (`o`.`OrderID` BOR 10248) = 10248
+""");
         }
 
         public override async Task Select_bitwise_or_with_logical_or(bool async)

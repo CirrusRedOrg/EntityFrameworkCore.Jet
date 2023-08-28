@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
@@ -14,6 +15,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             {
                 optionsBuilder.MaxBatchSize(maxBatch.Value);
             }
+
+            optionsBuilder.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
 
             optionsBuilder.ExecutionStrategy(d => new TestJetRetryingExecutionStrategy(d));
 

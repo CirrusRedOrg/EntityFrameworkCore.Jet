@@ -1,7 +1,7 @@
 <Project>
 	<PropertyGroup>
 		<DotnetRuntimeVersion>6.0.19</DotnetRuntimeVersion>
-		<EFCoreVersion>[7.0.9, 8.0.0)</EFCoreVersion>
+		<EFCoreVersion>[7.0.10, 8.0.0)</EFCoreVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -36,7 +36,7 @@
 		<PackageReference Update="System.Data.OleDb" Version="7.0.0" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
-		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.6.3" />
+		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.7.1" />
 		<PackageReference Update="MSTest.TestAdapter" Version="3.1.1" />
 		<PackageReference Update="MSTest.TestFramework" Version="3.1.1" />
 		<PackageReference Update="coverlet.collector" Version="6.0.0" />
@@ -76,9 +76,9 @@
 		<!--<PackageReference Update="coverlet.collector" Version="$(CoverletCollector)" />-->
 
 		<!-- EFCore.Jet.Tests -->
-		<PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.6.0" />
+		<PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
 		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="7.0.0" />
-		<PackageReference Update="Moq" Version="4.18.4" />
+		<PackageReference Update="Moq" Version="4.20.69" />
 		<!--<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftEntityFrameworkCoreDesignVersion)" />-->
 		<!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />-->
 		<!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(MicrosoftEntityFrameworkCoreRelationalSpecificationTestsVersion)" />-->

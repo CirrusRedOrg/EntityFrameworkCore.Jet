@@ -272,6 +272,18 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return base.VisitOrdering(orderingExpression);
         }
 
+        protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
+        {
+            if (sqlParameterExpression.Type == typeof(DateTime))
+            {
+                Sql.Append("CDATE(");
+                base.VisitSqlParameter(sqlParameterExpression);
+                Sql.Append(")");
+                return sqlParameterExpression;
+            }
+            return base.VisitSqlParameter(sqlParameterExpression);
+        }
+
         protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
         {
             Check.NotNull(sqlBinaryExpression, nameof(sqlBinaryExpression));
@@ -327,9 +339,34 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
-            => sqlUnaryExpression.OperatorType == ExpressionType.Convert
-                ? VisitJetConvertExpression(sqlUnaryExpression)
-                : base.VisitSqlUnary(sqlUnaryExpression);
+        {
+            if (sqlUnaryExpression.OperatorType == ExpressionType.Convert)
+            {
+                return VisitJetConvertExpression(sqlUnaryExpression);
+            }
+            else if (sqlUnaryExpression.OperatorType == ExpressionType.Not && sqlUnaryExpression.Type != typeof(bool))
+            {
+                Sql.Append(" (BNOT");
+
+                var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
+                if (requiresBrackets)
+                {
+                    Sql.Append("(");
+                }
+
+                Visit(sqlUnaryExpression.Operand);
+                if (requiresBrackets)
+                {
+                    Sql.Append(")");
+                }
+
+                Sql.Append(")");
+
+                return sqlUnaryExpression;
+            }
+            return base.VisitSqlUnary(sqlUnaryExpression);
+        }
+            
 
         protected Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
@@ -459,6 +496,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 ExpressionType.And => " BAND ",
                 ExpressionType.Modulo => " MOD ",
                 ExpressionType.Or => " BOR ",
+                ExpressionType.Not => " BNOT ",
                 ExpressionType.Divide when binaryExpression.Type == typeof(Int32) => " \\ ",
                 _ => base.GetOperator(binaryExpression),
             };

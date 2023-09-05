@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Linq;
 using EntityFrameworkCore.Jet.Metadata;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -24,7 +25,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             [NotNull] ProviderConventionSetBuilderDependencies dependencies,
             [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
         {
+            Dependencies = dependencies;
+            RelationalDependencies = relationalDependencies;
         }
+
+        protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; }
+
+        protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; }
 
         /// <summary>
         ///     Called after a model is initialized.
@@ -48,26 +55,24 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 foreach (var property in entityType.GetDeclaredProperties())
                 {
                     JetValueGenerationStrategy? strategy = null;
-                    var table = entityType.GetTableName();
-                    if (table != null)
+                    var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
+                    if (declaringTable.Name != null!)
                     {
-                        var storeObject = StoreObjectIdentifier.Table(table, entityType.GetSchema());
-                        strategy = property.GetValueGenerationStrategy(storeObject);
+                        strategy = property.GetValueGenerationStrategy(declaringTable);
                         if (strategy == JetValueGenerationStrategy.None
-                            && !IsStrategyNoneNeeded(property, storeObject))
+                            && !IsStrategyNoneNeeded(property, declaringTable))
                         {
                             strategy = null;
                         }
                     }
                     else
                     {
-                        var view = entityType.GetViewName();
-                        if (view != null)
+                        var declaringView = property.GetMappedStoreObjects(StoreObjectType.View).FirstOrDefault();
+                        if (declaringView.Name != null!)
                         {
-                            var storeObject = StoreObjectIdentifier.View(view, entityType.GetViewSchema());
-                            strategy = property.GetValueGenerationStrategy(storeObject);
+                            strategy = property.GetValueGenerationStrategy(declaringView);
                             if (strategy == JetValueGenerationStrategy.None
-                                && !IsStrategyNoneNeeded(property, storeObject))
+                                && !IsStrategyNoneNeeded(property, declaringView))
                             {
                                 strategy = null;
                             }
@@ -75,9 +80,23 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     }
 
                     // Needed for the annotation to show up in the model snapshot
-                    if (strategy != null)
+                    if (strategy != null
+                        && declaringTable.Name != null)
                     {
                         property.Builder.HasValueGenerationStrategy(strategy);
+
+                        if (strategy == JetValueGenerationStrategy.Sequence)
+                        {
+                            var sequence = modelBuilder.HasSequence(
+                                property.GetJetSequenceName(declaringTable)
+                                ?? entityType.GetRootType().ShortName() + modelBuilder.Metadata.GetJetSequenceNameSuffix(),
+                                property.GetJetSequenceSchema(declaringTable)
+                                ?? modelBuilder.Metadata.GetJetSequenceSchema()).Metadata;
+
+                            property.Builder.HasDefaultValueSql(
+                                RelationalDependencies.UpdateSqlGenerator.GenerateObtainNextSequenceValueOperation(
+                                    sequence.Name, sequence.Schema));
+                        }
                     }
                 }
             }

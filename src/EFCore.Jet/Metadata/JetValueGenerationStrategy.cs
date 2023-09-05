@@ -5,6 +5,7 @@ namespace EntityFrameworkCore.Jet.Metadata
     public enum JetValueGenerationStrategy
     {
         None,
-        IdentityColumn
+        IdentityColumn,
+        Sequence
     }
 }

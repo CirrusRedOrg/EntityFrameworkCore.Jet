@@ -8,6 +8,7 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Linq;
+using EntityFrameworkCore.Jet.Utilities;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -302,5 +303,177 @@ namespace Microsoft.EntityFrameworkCore
                        ?? property.FindTypeMapping()?.Converter)
                    == null;
         }
+
+        /// <summary>
+        ///     Returns the name to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns>The name to use for the key value generation sequence.</returns>
+        public static string? GetJetSequenceName(this IReadOnlyProperty property)
+            => (string?)property[JetAnnotationNames.SequenceName];
+
+        /// <summary>
+        ///     Returns the name to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="storeObject">The identifier of the store object.</param>
+        /// <returns>The name to use for the key value generation sequence.</returns>
+        public static string? GetJetSequenceName(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+        {
+            var annotation = property.FindAnnotation(JetAnnotationNames.SequenceName);
+            if (annotation != null)
+            {
+                return (string?)annotation.Value;
+            }
+
+            return property.FindSharedStoreObjectRootProperty(storeObject)?.GetJetSequenceName(storeObject);
+        }
+
+        /// <summary>
+        ///     Sets the name to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="name">The sequence name to use.</param>
+        public static void SetJetSequenceName(this IMutableProperty property, string? name)
+            => property.SetOrRemoveAnnotation(
+                JetAnnotationNames.SequenceName,
+                Check.NullButNotEmpty(name, nameof(name)));
+
+        /// <summary>
+        ///     Sets the name to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="name">The sequence name to use.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static string? SetJetSequenceName(
+            this IConventionProperty property,
+            string? name,
+            bool fromDataAnnotation = false)
+            => (string?)property.SetOrRemoveAnnotation(
+                JetAnnotationNames.SequenceName,
+                Check.NullButNotEmpty(name, nameof(name)),
+                fromDataAnnotation)?.Value;
+
+        /// <summary>
+        ///     Returns the <see cref="ConfigurationSource" /> for the key value generation sequence name.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns>The <see cref="ConfigurationSource" /> for the key value generation sequence name.</returns>
+        public static ConfigurationSource? GetJetSequenceNameConfigurationSource(this IConventionProperty property)
+            => property.FindAnnotation(JetAnnotationNames.SequenceName)?.GetConfigurationSource();
+
+        /// <summary>
+        ///     Returns the schema to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns>The schema to use for the key value generation sequence.</returns>
+        public static string? GetJetSequenceSchema(this IReadOnlyProperty property)
+            => (string?)property[JetAnnotationNames.SequenceSchema];
+
+        /// <summary>
+        ///     Returns the schema to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="storeObject">The identifier of the store object.</param>
+        /// <returns>The schema to use for the key value generation sequence.</returns>
+        public static string? GetJetSequenceSchema(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+        {
+            var annotation = property.FindAnnotation(JetAnnotationNames.SequenceSchema);
+            if (annotation != null)
+            {
+                return (string?)annotation.Value;
+            }
+
+            return property.FindSharedStoreObjectRootProperty(storeObject)?.GetJetSequenceSchema(storeObject);
+        }
+
+        /// <summary>
+        ///     Sets the schema to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="schema">The schema to use.</param>
+        public static void SetJetSequenceSchema(this IMutableProperty property, string? schema)
+            => property.SetOrRemoveAnnotation(
+                JetAnnotationNames.SequenceSchema,
+                Check.NullButNotEmpty(schema, nameof(schema)));
+
+        /// <summary>
+        ///     Sets the schema to use for the key value generation sequence.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="schema">The schema to use.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static string? SetJetSequenceSchema(
+            this IConventionProperty property,
+            string? schema,
+            bool fromDataAnnotation = false)
+            => (string?)property.SetOrRemoveAnnotation(
+                JetAnnotationNames.SequenceSchema,
+                Check.NullButNotEmpty(schema, nameof(schema)),
+                fromDataAnnotation)?.Value;
+
+        /// <summary>
+        ///     Returns the <see cref="ConfigurationSource" /> for the key value generation sequence schema.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns>The <see cref="ConfigurationSource" /> for the key value generation sequence schema.</returns>
+        public static ConfigurationSource? GetGetSequenceSchemaConfigurationSource(this IConventionProperty property)
+            => property.FindAnnotation(JetAnnotationNames.SequenceSchema)?.GetConfigurationSource();
+
+        /// <summary>
+        ///     Finds the <see cref="ISequence" /> in the model to use for the key value generation pattern.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns>The sequence to use, or <see langword="null" /> if no sequence exists in the model.</returns>
+        public static IReadOnlySequence? FindJetSequence(this IReadOnlyProperty property)
+        {
+            var model = property.DeclaringEntityType.Model;
+
+            var sequenceName = property.GetJetSequenceName()
+                ?? model.GetJetSequenceNameSuffix();
+
+            var sequenceSchema = property.GetJetSequenceSchema()
+                ?? model.GetJetSequenceSchema();
+
+            return model.FindSequence(sequenceName, sequenceSchema);
+        }
+
+        /// <summary>
+        ///     Finds the <see cref="ISequence" /> in the model to use for the key value generation pattern.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="storeObject">The identifier of the store object.</param>
+        /// <returns>The sequence to use, or <see langword="null" /> if no sequence exists in the model.</returns>
+        public static IReadOnlySequence? FindJetSequence(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+        {
+            var model = property.DeclaringEntityType.Model;
+
+            var sequenceName = property.GetJetSequenceName(storeObject)
+                ?? model.GetJetSequenceNameSuffix();
+
+            var sequenceSchema = property.GetJetSequenceSchema(storeObject)
+                ?? model.GetJetSequenceSchema();
+
+            return model.FindSequence(sequenceName, sequenceSchema);
+        }
+
+        /// <summary>
+        ///     Finds the <see cref="ISequence" /> in the model to use for the key value generation pattern.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns>The sequence to use, or <see langword="null" /> if no sequence exists in the model.</returns>
+        public static ISequence? FindJetSequence(this IProperty property)
+            => (ISequence?)((IReadOnlyProperty)property).FindJetSequence();
+
+        /// <summary>
+        ///     Finds the <see cref="ISequence" /> in the model to use for the key value generation pattern.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="storeObject">The identifier of the store object.</param>
+        /// <returns>The sequence to use, or <see langword="null" /> if no sequence exists in the model.</returns>
+        public static ISequence? FindJetSequence(this IProperty property, in StoreObjectIdentifier storeObject)
+            => (ISequence?)((IReadOnlyProperty)property).FindJetSequence(storeObject);
     }
 }

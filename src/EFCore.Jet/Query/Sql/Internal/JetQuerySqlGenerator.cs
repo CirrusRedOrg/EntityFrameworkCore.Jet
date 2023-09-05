@@ -114,6 +114,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Sql.Append("1");
             }
 
+            List<ColumnExpression> colexp = new List<ColumnExpression>();
             // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
             // TODO: This does not properly handle all cases (especially when cross joins are involved).
             if (selectExpression.Tables.Any())
@@ -162,8 +163,54 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                         Sql.AppendLine();
                     }
+                    List<ColumnExpression> tempcolexp;
+                    if (tableExpression is InnerJoinExpression expression)
+                    {
+                        SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
+                        tempcolexp = ExtractColumnExpressions(binaryJoin!);
+                        bool refrencesfirsttable = false;
+                        foreach (ColumnExpression col in tempcolexp)
+                        {
+                            if (col.Table == selectExpression.Tables[0])
+                            {
+                                refrencesfirsttable = true;
+                                break;
+                            }
+                        }
 
-                    Visit(tableExpression);
+                        if (refrencesfirsttable)
+                        {
+                            Visit(tableExpression);
+                            continue;
+                        }
+                        else
+                        {
+                            colexp.AddRange(tempcolexp);
+                        }
+                        /*if (expression.JoinPredicate is SqlBinaryExpression { Left: ColumnExpression left, Right: ColumnExpression right })
+                        {
+                            var lt = left.Table == selectExpression.Tables[0];
+                            var rt = right.Table == selectExpression.Tables[0];
+                            if (lt || rt)
+                            {
+                                Visit(tableExpression);
+                                continue;
+                            }
+                            else
+                            {
+                                colexp.Add(left);
+                                colexp.Add(right);
+                            }
+                        }*/
+                        Sql.Append("LEFT JOIN ");
+                        Visit(expression.Table);
+                        Sql.Append(" ON ");
+                        Visit(expression.JoinPredicate);
+                    }
+                    else
+                    {
+                        Visit(tableExpression);
+                    }
                 }
             }
             else
@@ -171,12 +218,45 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 GeneratePseudoFromClause();
             }
 
-            if (selectExpression.Predicate != null)
+            if (selectExpression.Predicate != null || colexp.Count > 0)
             {
                 Sql.AppendLine()
                     .Append("WHERE ");
 
-                Visit(selectExpression.Predicate);
+                if (selectExpression.Predicate != null)
+                {
+                    if (colexp.Count > 0) Sql.Append("(");
+                    Visit(selectExpression.Predicate);
+                    if (colexp.Count > 0) Sql.Append(")");
+                }
+
+                if (selectExpression.Predicate != null && colexp.Count > 0)
+                {
+                    Sql.Append(" AND (");
+                }
+
+                if (colexp.Count > 0)
+                {
+                    int ct = 0;
+                    foreach (var exp in colexp)
+                    {
+                        if (!string.IsNullOrEmpty(exp.TableAlias))
+                        {
+                            Sql.Append($"`{exp.TableAlias}`.");
+                        }
+                        Sql.Append($"`{exp.Name}` IS NOT NULL");
+                        if (ct < colexp.Count-1)
+                        {
+                            ct++;
+                            Sql.Append(" AND ");
+                        }
+                    }
+                }
+
+                if (selectExpression.Predicate != null && colexp.Count > 0)
+                {
+                    Sql.Append(")");
+                }
             }
 
             if (selectExpression.GroupBy.Count > 0)
@@ -207,6 +287,35 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             return selectExpression;
+        }
+
+        private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
+        {
+            List<ColumnExpression> result = new List<ColumnExpression>();
+            if (binaryexp.Left is SqlBinaryExpression left)
+            {
+                result.AddRange(ExtractColumnExpressions(left));
+            }
+            else if (binaryexp.Left is ColumnExpression colLeft)
+            {
+                result.Add(colLeft);
+            }
+
+            if (binaryexp.Right is SqlBinaryExpression right)
+            {
+                result.AddRange(ExtractColumnExpressions(right));
+            }
+            else if (binaryexp.Right is ColumnExpression colRight)
+            {
+                result.Add(colRight);
+            }
+
+            return result;
+        }
+
+        protected override Expression VisitInnerJoin(InnerJoinExpression innerJoinExpression)
+        {
+            return base.VisitInnerJoin(innerJoinExpression);
         }
 
         private bool IsNonComposedSetOperation(SelectExpression selectExpression)

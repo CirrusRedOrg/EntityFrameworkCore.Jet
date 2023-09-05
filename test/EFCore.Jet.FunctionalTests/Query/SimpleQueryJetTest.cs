@@ -257,13 +257,13 @@ SELECT (
     SELECT MIN(`c`.`Id`)
     FROM (`TimeSheets` AS `t1`
     INNER JOIN `Project` AS `p` ON `t1`.`ProjectId` = `p`.`Id`)
-    INNER JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
-    WHERE (`t1`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t1`.`OrderId`) AS `CustomerId`, (
+    LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
+    WHERE ((`t1`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t1`.`OrderId`) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)) AS `CustomerId`, (
     SELECT MIN(`c0`.`Name`)
     FROM (`TimeSheets` AS `t2`
     INNER JOIN `Project` AS `p0` ON `t2`.`ProjectId` = `p0`.`Id`)
-    INNER JOIN `Customers` AS `c0` ON `p0`.`CustomerId` = `c0`.`Id`
-    WHERE (`t2`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t2`.`OrderId`) AS `CustomerName`
+    LEFT JOIN `Customers` AS `c0` ON `p0`.`CustomerId` = `c0`.`Id`
+    WHERE ((`t2`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t2`.`OrderId`) AND (`p0`.`CustomerId` IS NOT NULL AND `c0`.`Id` IS NOT NULL)) AS `CustomerName`
 FROM `TimeSheets` AS `t`
 WHERE `t`.`OrderId` IS NOT NULL
 GROUP BY `t`.`OrderId`

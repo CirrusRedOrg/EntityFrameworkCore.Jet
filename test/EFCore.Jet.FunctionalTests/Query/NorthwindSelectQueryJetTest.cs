@@ -1016,11 +1016,13 @@ FROM `Orders` AS `o`");
             await base.Multiple_select_many_with_predicate(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE CDBL(`o0`.`Discount`) >= 0.25");
+                """
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM (`Customers` AS `c`
+    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+    LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+    WHERE (CDBL(`o0`.`Discount`) >= 0.25) AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+    """);
         }
 
         public override async Task SelectMany_without_result_selector_naked_collection_navigation(bool isAsync)

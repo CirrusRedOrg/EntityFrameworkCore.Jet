@@ -6,6 +6,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
@@ -24,8 +25,7 @@ public class NonSharedModelBulkUpdatesJetTest : NonSharedModelBulkUpdatesTestBas
 
         AssertSql(
 """
-DELETE FROM [o]
-FROM [Owner] AS [o]
+DELETE FROM `Owner` AS `o`
 """);
     }
 
@@ -35,8 +35,7 @@ FROM [Owner] AS [o]
 
         AssertSql(
 """
-DELETE FROM [o]
-FROM [Owner] AS [o]
+DELETE FROM `Owner` AS `o`
 """);
     }
 
@@ -53,9 +52,8 @@ FROM [Owner] AS [o]
 
         AssertSql(
 """
-UPDATE [o]
-SET [o].[Title] = N'SomeValue'
-FROM [Owner] AS [o]
+UPDATE `Owner` AS `o`
+SET `Title` = 'SomeValue'
 """);
     }
 
@@ -65,9 +63,8 @@ FROM [Owner] AS [o]
 
         AssertSql(
 """
-UPDATE [o]
-SET [o].[Title] = COALESCE([o].[Title], N'') + N'_Suffix'
-FROM [Owner] AS [o]
+UPDATE `Owner` AS `o`
+SET `Title` = IIF(`o`.`Title` IS NULL, '', `o`.`Title`) & '_Suffix'
 """);
     }
 
@@ -89,10 +86,12 @@ LEFT JOIN [Context30572_Dependent] AS [c0] ON [c].[DependentId] = [c0].[Id]
 
         AssertSql(
 """
-DELETE FROM [p]
-FROM [Posts] AS [p]
-LEFT JOIN [Blogs] AS [b] ON [p].[BlogId] = [b].[Id]
-WHERE ([b].[Title] IS NOT NULL) AND ([b].[Title] LIKE N'Arthur%')
+DELETE FROM `Posts` AS `p`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Posts` AS `p0`
+    LEFT JOIN `Blogs` AS `b` ON `p0`.`BlogId` = `b`.`Id`
+    WHERE (`b`.`Title` IS NOT NULL) AND (`b`.`Title` LIKE 'Arthur%') AND `p0`.`Id` = `p`.`Id`)
 """);
     }
 

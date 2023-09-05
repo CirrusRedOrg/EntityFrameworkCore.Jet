@@ -13,6 +13,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         public OwnedQueryJetTest(OwnedQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
+            fixture.TestSqlLoggerFactory.Clear();
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
@@ -346,10 +347,13 @@ ORDER BY `o`.`Id`, `p`.`Id`");
             await base.SelectMany_on_owned_reference_followed_by_regular_entity_and_collection(isAsync);
 
             AssertSql(
-                @"SELECT `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
-FROM `OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
-INNER JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`");
+                """
+SELECT `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
+FROM (`OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
+WHERE `p`.`Id` IS NOT NULL AND `m`.`PlanetId` IS NOT NULL
+""");
         }
 
         public override async Task SelectMany_on_owned_reference_with_entity_in_between_ending_in_owned_collection(bool isAsync)
@@ -357,11 +361,14 @@ INNER JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`");
             await base.SelectMany_on_owned_reference_with_entity_in_between_ending_in_owned_collection(isAsync);
 
             AssertSql(
-                @"SELECT `e`.`Id`, `e`.`Name`, `e`.`StarId`
+                """
+SELECT `e`.`Id`, `e`.`Name`, `e`.`StarId`
 FROM ((`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
-INNER JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`");
+LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
+WHERE `s`.`Id` IS NOT NULL AND `e`.`StarId` IS NOT NULL
+""");
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_another_reference(bool isAsync)

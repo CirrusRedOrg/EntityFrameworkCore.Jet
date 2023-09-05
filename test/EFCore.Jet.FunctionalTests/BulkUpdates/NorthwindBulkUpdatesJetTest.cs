@@ -17,7 +17,7 @@ public class NorthwindBulkUpdatesJetTest : NorthwindBulkUpdatesTestBase<Northwin
         : base(fixture)
     {
         ClearLog();
-        // Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -43,10 +43,9 @@ WHERE [o].[OrderID] < 10300
         await base.Delete_Where(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] < 10300
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` < 10300
 """);
     }
 
@@ -55,17 +54,15 @@ WHERE [o].[OrderID] < 10300
         await base.Delete_Where_parameter(async);
 
         AssertSql(
-"""
+            """
 @__quantity_0='1' (Nullable = true) (DbType = Int16)
 
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-WHERE [o].[Quantity] = @__quantity_0
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`Quantity` = @__quantity_0
 """,
             //
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE 0 = 1
 """);
     }
@@ -75,13 +72,12 @@ WHERE 0 = 1
         await base.Delete_Where_OrderBy(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
-    FROM [Order Details] AS [o0]
-    WHERE [o0].[OrderID] < 10300 AND [o0].[OrderID] = [o].[OrderID] AND [o0].[ProductID] = [o].[ProductID])
+    FROM `Order Details` AS `o0`
+    WHERE `o0`.`OrderID` < 10300 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -181,12 +177,16 @@ WHERE EXISTS (
         await base.Delete_Where_Take(async);
 
         AssertSql(
-"""
-@__p_0='100'
-
-DELETE TOP(@__p_0) FROM [o]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] < 10300
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP 100 `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10300
+    ) AS `t`
+    WHERE `t`.`OrderID` = `o`.`OrderID` AND `t`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -218,16 +218,15 @@ WHERE EXISTS (
         await base.Delete_Where_predicate_with_GroupBy_aggregate(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] < (
-    SELECT TOP(1) (
-        SELECT TOP(1) [o1].[OrderID]
-        FROM [Orders] AS [o1]
-        WHERE [o0].[CustomerID] = [o1].[CustomerID] OR (([o0].[CustomerID] IS NULL) AND ([o1].[CustomerID] IS NULL)))
-    FROM [Orders] AS [o0]
-    GROUP BY [o0].[CustomerID]
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` < (
+    SELECT TOP 1 (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM `Orders` AS `o1`
+        WHERE `o0`.`CustomerID` = `o1`.`CustomerID` OR ((`o0`.`CustomerID` IS NULL) AND (`o1`.`CustomerID` IS NULL)))
+    FROM `Orders` AS `o0`
+    GROUP BY `o0`.`CustomerID`
     HAVING COUNT(*) > 11)
 """);
     }
@@ -237,18 +236,20 @@ WHERE [o].[OrderID] < (
         await base.Delete_Where_predicate_with_GroupBy_aggregate_2(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
-    FROM [Orders] AS [o1]
-    GROUP BY [o1].[CustomerID]
-    HAVING COUNT(*) > 9 AND (
-        SELECT TOP(1) [o2].[OrderID]
-        FROM [Orders] AS [o2]
-        WHERE [o1].[CustomerID] = [o2].[CustomerID] OR (([o1].[CustomerID] IS NULL) AND ([o2].[CustomerID] IS NULL))) = [o0].[OrderID])
+    FROM `Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+    WHERE EXISTS (
+        SELECT 1
+        FROM `Orders` AS `o2`
+        GROUP BY `o2`.`CustomerID`
+        HAVING COUNT(*) > 9 AND (
+            SELECT TOP 1 `o3`.`OrderID`
+            FROM `Orders` AS `o3`
+            WHERE `o2`.`CustomerID` = `o3`.`CustomerID` OR ((`o2`.`CustomerID` IS NULL) AND (`o3`.`CustomerID` IS NULL))) = `o1`.`OrderID`) AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -301,10 +302,9 @@ WHERE EXISTS (
         await base.Delete_Where_Distinct(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] < 10300
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` < 10300
 """);
     }
 
@@ -313,11 +313,13 @@ WHERE [o].[OrderID] < 10300
         await base.Delete_SelectMany(async);
 
         AssertSql(
-"""
-DELETE FROM [o0]
-FROM [Orders] AS [o]
-INNER JOIN [Order Details] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-WHERE [o].[OrderID] < 10250
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o0`
+    INNER JOIN `Order Details` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+    WHERE `o0`.`OrderID` < 10250 AND `o1`.`OrderID` = `o`.`OrderID` AND `o1`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -326,18 +328,17 @@ WHERE [o].[OrderID] < 10250
         await base.Delete_SelectMany_subquery(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
-    FROM [Orders] AS [o0]
+    FROM `Orders` AS `o0`
     INNER JOIN (
-        SELECT [o1].[OrderID], [o1].[ProductID], [o1].[Discount], [o1].[Quantity], [o1].[UnitPrice]
-        FROM [Order Details] AS [o1]
-        WHERE [o1].[ProductID] > 0
-    ) AS [t] ON [o0].[OrderID] = [t].[OrderID]
-    WHERE [o0].[OrderID] < 10250 AND [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`ProductID` > 0
+    ) AS `t` ON `o0`.`OrderID` = `t`.`OrderID`
+    WHERE `o0`.`OrderID` < 10250 AND `t`.`OrderID` = `o`.`OrderID` AND `t`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -346,11 +347,13 @@ WHERE EXISTS (
         await base.Delete_Where_using_navigation(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-WHERE DATEPART(year, [o0].[OrderDate]) = 2000
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+    WHERE DATEPART('yyyy', `o1`.`OrderDate`) = 2000 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -359,12 +362,14 @@ WHERE DATEPART(year, [o0].[OrderDate]) = 2000
         await base.Delete_Where_using_navigation_2(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-LEFT JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
-WHERE ([c].[CustomerID] IS NOT NULL) AND ([c].[CustomerID] LIKE N'F%')
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM (`Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+    LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+    WHERE (`c`.`CustomerID` IS NOT NULL) AND (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -373,21 +378,20 @@ WHERE ([c].[CustomerID] IS NOT NULL) AND ([c].[CustomerID] LIKE N'F%')
         await base.Delete_Union(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10250
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10250
         UNION
-        SELECT [o1].[OrderID], [o1].[ProductID], [o1].[Discount], [o1].[Quantity], [o1].[UnitPrice]
-        FROM [Order Details] AS [o1]
-        WHERE [o1].[OrderID] > 11250
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`OrderID` > 11250
+    ) AS `t`
+    WHERE `t`.`OrderID` = `o`.`OrderID` AND `t`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -396,21 +400,20 @@ WHERE EXISTS (
         await base.Delete_Concat(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10250
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10250
         UNION ALL
-        SELECT [o1].[OrderID], [o1].[ProductID], [o1].[Discount], [o1].[Quantity], [o1].[UnitPrice]
-        FROM [Order Details] AS [o1]
-        WHERE [o1].[OrderID] > 11250
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`OrderID` > 11250
+    ) AS `t`
+    WHERE `t`.`OrderID` = `o`.`OrderID` AND `t`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -486,17 +489,16 @@ WHERE EXISTS (
         await base.Delete_FromSql_converted_to_subquery(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT "OrderID", "ProductID", "UnitPrice", "Quantity", "Discount"
-        FROM "Order Details"
-        WHERE "OrderID" < 10300
-    ) AS [m]
-    WHERE [m].[OrderID] = [o].[OrderID] AND [m].[ProductID] = [o].[ProductID])
+        SELECT `OrderID`, `ProductID`, `UnitPrice`, `Quantity`, `Discount`
+        FROM `Order Details`
+        WHERE `OrderID` < 10300
+    ) AS `m`
+    WHERE `m`.`OrderID` = `o`.`OrderID` AND `m`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -505,12 +507,14 @@ WHERE EXISTS (
         await base.Delete_Where_optional_navigation_predicate(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-LEFT JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
-WHERE ([c].[City] IS NOT NULL) AND ([c].[City] LIKE N'Se%')
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM (`Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+    LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+    WHERE (`c`.`City` IS NOT NULL) AND (`c`.`City` LIKE 'Se%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -519,19 +523,22 @@ WHERE ([c].[City] IS NOT NULL) AND ([c].[City] LIKE N'Se%')
         await base.Delete_with_join(async);
 
         AssertSql(
-"""
-@__p_0='0'
-@__p_1='100'
-
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-INNER JOIN (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-    FROM [Orders] AS [o0]
-    WHERE [o0].[OrderID] < 10300
-    ORDER BY [o0].[OrderID]
-    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
-) AS [t] ON [o].[OrderID] = [t].[OrderID]
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o0`
+    INNER JOIN (
+        SELECT TOP 100 `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+        FROM (
+            SELECT TOP 100 `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+            FROM `Orders` AS `o1`
+            WHERE `o1`.`OrderID` < 10300
+            ORDER BY `o1`.`OrderID`
+        ) AS `t`
+        ORDER BY `t`.`OrderID` DESC
+    ) AS `t0` ON `o0`.`OrderID` = `t0`.`OrderID`
+    WHERE `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -540,20 +547,22 @@ INNER JOIN (
         await base.Delete_with_left_join(async);
 
         AssertSql(
-"""
-@__p_0='0'
-@__p_1='100'
-
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-LEFT JOIN (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-    FROM [Orders] AS [o0]
-    WHERE [o0].[OrderID] < 10300
-    ORDER BY [o0].[OrderID]
-    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
-) AS [t] ON [o].[OrderID] = [t].[OrderID]
-WHERE [o].[OrderID] < 10276
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o0`
+    LEFT JOIN (
+        SELECT TOP 100 `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+        FROM (
+            SELECT TOP 100 `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+            FROM `Orders` AS `o1`
+            WHERE `o1`.`OrderID` < 10300
+            ORDER BY `o1`.`OrderID`
+        ) AS `t`
+        ORDER BY `t`.`OrderID` DESC
+    ) AS `t0` ON `o0`.`OrderID` = `t0`.`OrderID`
+    WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -634,11 +643,10 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -647,33 +655,31 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_parameter_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-@__customer_0='ALFKI' (Size = 5) (DbType = StringFixedLength)
+            """
+@__customer_0='ALFKI' (Size = 5)
 
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = @__customer_0
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
+WHERE `c`.`CustomerID` = @__customer_0
 """,
             //
-"""
-@__customer_0='ALFKI' (Size = 5) (DbType = StringFixedLength)
+            """
+@__customer_0='ALFKI' (Size = 5)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = @__customer_0
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = @__customer_0
 """,
             //
-"""
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
+            """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 WHERE 0 = 1
 """,
             //
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
 WHERE 0 = 1
 """);
     }
@@ -683,13 +689,12 @@ WHERE 0 = 1
         await base.Update_Where_set_parameter(async);
 
         AssertExecuteUpdateSql(
-"""
-@__value_0='Abc' (Size = 4000)
+            """
+@__value_0='Abc' (Size = 255)
 
-UPDATE [c]
-SET [c].[ContactName] = @__value_0
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+UPDATE `Customers` AS `c`
+SET `ContactName` = @__value_0
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -698,13 +703,12 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_parameter_from_closure_array(async);
 
         AssertExecuteUpdateSql(
-"""
-@__p_0='Abc' (Size = 4000)
+            """
+@__p_0='Abc' (Size = 255)
 
-UPDATE [c]
-SET [c].[ContactName] = @__p_0
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+UPDATE `Customers` AS `c`
+SET `ContactName` = @__p_0
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -713,11 +717,10 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_parameter_from_inline_list(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Abc'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Abc'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -726,13 +729,12 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_parameter_from_multilevel_property_access(async);
 
         AssertExecuteUpdateSql(
-"""
-@__container_Containee_Property_0='Abc' (Size = 4000)
+            """
+@__container_Containee_Property_0='Abc' (Size = 255)
 
-UPDATE [c]
-SET [c].[ContactName] = @__container_Containee_Property_0
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+UPDATE `Customers` AS `c`
+SET `ContactName` = @__container_Containee_Property_0
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -906,14 +908,13 @@ INNER JOIN (
         await base.Update_Where_GroupBy_aggregate_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = (
-    SELECT TOP(1) [o].[CustomerID]
-    FROM [Orders] AS [o]
-    GROUP BY [o].[CustomerID]
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
+WHERE `c`.`CustomerID` = (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 11)
 """);
     }
@@ -923,17 +924,16 @@ WHERE [c].[CustomerID] = (
         await base.Update_Where_GroupBy_First_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = (
-    SELECT TOP(1) (
-        SELECT TOP(1) [o0].[CustomerID]
-        FROM [Orders] AS [o0]
-        WHERE [o].[CustomerID] = [o0].[CustomerID] OR (([o].[CustomerID] IS NULL) AND ([o0].[CustomerID] IS NULL)))
-    FROM [Orders] AS [o]
-    GROUP BY [o].[CustomerID]
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
+WHERE `c`.`CustomerID` = (
+    SELECT TOP 1 (
+        SELECT TOP 1 `o0`.`CustomerID`
+        FROM `Orders` AS `o0`
+        WHERE `o`.`CustomerID` = `o0`.`CustomerID` OR ((`o`.`CustomerID` IS NULL) AND (`o0`.`CustomerID` IS NULL)))
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 11)
 """);
     }
@@ -950,19 +950,18 @@ WHERE [c].[CustomerID] = (
         await base.Update_Where_GroupBy_First_set_constant_3(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
 WHERE EXISTS (
     SELECT 1
-    FROM [Orders] AS [o]
-    GROUP BY [o].[CustomerID]
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 11 AND (
-        SELECT TOP(1) [c0].[CustomerID]
-        FROM [Orders] AS [o0]
-        LEFT JOIN [Customers] AS [c0] ON [o0].[CustomerID] = [c0].[CustomerID]
-        WHERE [o].[CustomerID] = [o0].[CustomerID] OR (([o].[CustomerID] IS NULL) AND ([o0].[CustomerID] IS NULL))) = [c].[CustomerID])
+        SELECT TOP 1 `c0`.`CustomerID`
+        FROM `Orders` AS `o0`
+        LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+        WHERE `o`.`CustomerID` = `o0`.`CustomerID` OR ((`o`.`CustomerID` IS NULL) AND (`o0`.`CustomerID` IS NULL))) = `c`.`CustomerID`)
 """);
     }
 
@@ -971,11 +970,10 @@ WHERE EXISTS (
         await base.Update_Where_Distinct_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1027,11 +1025,10 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_property_plus_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = COALESCE([c].[ContactName], N'') + N'Abc'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & 'Abc'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1040,13 +1037,12 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_property_plus_parameter(async);
 
         AssertExecuteUpdateSql(
-"""
-@__value_0='Abc' (Size = 4000)
+            """
+@__value_0='Abc' (Size = 255)
 
-UPDATE [c]
-SET [c].[ContactName] = COALESCE([c].[ContactName], N'') + @__value_0
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+UPDATE `Customers` AS `c`
+SET `ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & @__value_0
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1055,11 +1051,10 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_property_plus_property(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = COALESCE([c].[ContactName], N'') + [c].[CustomerID]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & `c`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1068,11 +1063,10 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_constant_using_ef_property(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = 'Updated'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1081,11 +1075,10 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_set_null(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = NULL
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `ContactName` = NULL
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1108,14 +1101,13 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_Where_multiple_set(async);
 
         AssertExecuteUpdateSql(
-"""
-@__value_0='Abc' (Size = 4000)
+            """
+@__value_0='Abc' (Size = 255)
 
-UPDATE [c]
-SET [c].[City] = N'Seattle',
-    [c].[ContactName] = @__value_0
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+UPDATE `Customers` AS `c`
+SET `City` = 'Seattle',
+    `ContactName` = @__value_0
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 

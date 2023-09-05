@@ -205,7 +205,7 @@ WHERE `g`.`Nickname` = 'Marcus'
             await base.Include_with_join_reference1(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM (`Gears` AS `g`
 INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
@@ -218,11 +218,12 @@ INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
             await base.Include_with_join_reference2(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM (`Tags` AS `t`
 INNER JOIN `Gears` AS `g` ON `t`.`GearSquadId` = `g`.`SquadId` AND `t`.`GearNickName` = `g`.`Nickname`)
-INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
+LEFT JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
+WHERE `g`.`CityOfBirthName` IS NOT NULL AND `c`.`Name` IS NOT NULL
 """);
         }
 
@@ -231,7 +232,7 @@ INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
             await base.Include_with_join_collection1(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (`Gears` AS `g`
 INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
@@ -314,7 +315,7 @@ WHERE (`t`.`Id` IS NOT NULL) AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd706867
             await base.Include_with_join_multi_level(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `c`.`Name`, `c`.`Location`, `c`.`Nation`, `t`.`Id`, `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`Discriminator`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`
 FROM ((`Gears` AS `g`
 INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
@@ -329,7 +330,7 @@ ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `c`.`Name`, `g0`.`Nickname`
             await base.Include_with_join_and_inheritance1(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM (`Tags` AS `t`
 INNER JOIN (
@@ -337,7 +338,8 @@ INNER JOIN (
     FROM `Gears` AS `g`
     WHERE `g`.`Discriminator` = 'Officer'
 ) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
-INNER JOIN `Cities` AS `c` ON `t0`.`CityOfBirthName` = `c`.`Name`
+LEFT JOIN `Cities` AS `c` ON `t0`.`CityOfBirthName` = `c`.`Name`
+WHERE `t0`.`CityOfBirthName` IS NOT NULL AND `c`.`Name` IS NOT NULL
 """);
         }
 
@@ -365,13 +367,13 @@ ORDER BY NOT (`t0`.`HasSoulPatch`), `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadI
 
             AssertSql(
                 """
-    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
-    FROM (`Gears` AS `g`
-    INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
-    LEFT JOIN `Weapons` AS `w` ON `g`.`FullName` = `w`.`OwnerFullName`
-    WHERE `g`.`Discriminator` = 'Officer'
-    ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`
-    """);
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Id`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM (`Gears` AS `g`
+INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
+LEFT JOIN `Weapons` AS `w` ON `g`.`FullName` = `w`.`OwnerFullName`
+WHERE `g`.`Discriminator` = 'Officer'
+ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`
+""");
         }
 
         public override async Task Include_with_join_and_inheritance3(bool isAsync)
@@ -1884,11 +1886,12 @@ INNER JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSq
 
             AssertSql(
                 """
-    SELECT `w`.`Name`, `g`.`FullName`
-    FROM (`Squads` AS `s`
-    INNER JOIN `Gears` AS `g` ON `s`.`Id` = `g`.`SquadId`)
-    INNER JOIN `Weapons` AS `w` ON `g`.`FullName` = `w`.`OwnerFullName`
-    """);
+SELECT `w`.`Name`, `g`.`FullName`
+FROM (`Squads` AS `s`
+INNER JOIN `Gears` AS `g` ON `s`.`Id` = `g`.`SquadId`)
+LEFT JOIN `Weapons` AS `w` ON `g`.`FullName` = `w`.`OwnerFullName`
+WHERE `g`.`FullName` IS NOT NULL AND `w`.`OwnerFullName` IS NOT NULL
+""");
         }
 
         public override async Task Collection_with_inheritance_and_join_include_joined(bool isAsync)
@@ -1914,12 +1917,12 @@ INNER JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSq
 
             AssertSql(
                 """
-    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`
-    FROM (`Gears` AS `g`
-    INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
-    LEFT JOIN `Tags` AS `t0` ON `g`.`Nickname` = `t0`.`GearNickName` AND `g`.`SquadId` = `t0`.`GearSquadId`
-    WHERE `g`.`Discriminator` = 'Officer'
-    """);
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`
+FROM (`Gears` AS `g`
+INNER JOIN `Tags` AS `t` ON `g`.`SquadId` = `t`.`GearSquadId` AND `g`.`Nickname` = `t`.`GearNickName`)
+LEFT JOIN `Tags` AS `t0` ON `g`.`Nickname` = `t0`.`GearNickName` AND `g`.`SquadId` = `t0`.`GearSquadId`
+WHERE `g`.`Discriminator` = 'Officer'
+""");
         }
 
         public override async Task Non_unicode_string_literal_is_used_for_non_unicode_column(bool isAsync)
@@ -4951,10 +4954,13 @@ INNER JOIN `Gears` AS `g0` ON `g`.`Nickname` = `g0`.`Nickname` AND `g`.`SquadId`
             await base.Join_on_entity_qsre_keys_outer_key_is_navigation(isAsync);
 
             AssertSql(
-                $@"SELECT `w`.`Name` AS `Name1`, `w1`.`Name` AS `Name2`
-FROM `Weapons` AS `w`
-LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-INNER JOIN `Weapons` AS `w1` ON `w0`.`Id` = `w1`.`Id`");
+                """
+SELECT `w`.`Name` AS `Name1`, `w1`.`Name` AS `Name2`
+FROM (`Weapons` AS `w`
+LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`)
+LEFT JOIN `Weapons` AS `w1` ON `w0`.`Id` = `w1`.`Id`
+WHERE `w0`.`Id` IS NOT NULL AND `w1`.`Id` IS NOT NULL
+""");
         }
 
         public override async Task Join_on_entity_qsre_keys_inner_key_is_navigation(bool isAsync)
@@ -7655,7 +7661,7 @@ ORDER BY `c`.`Location`
             await base.SelectMany_predicate_with_non_equality_comparison_converted_to_inner_join(async);
 
             AssertSql(
-    """
+                """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Gears` AS `g`
 INNER JOIN `Weapons` AS `w` ON `g`.`FullName` <> `w`.`OwnerFullName` OR (`w`.`OwnerFullName` IS NULL)
@@ -8586,25 +8592,26 @@ LEFT JOIN `LocustHighCommands` AS `l0` ON `l`.`HighCommandId` = `l0`.`Id`
 
             AssertSql(
                 """
-    SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`Discriminator`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`HasSoulPatch0`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`Discriminator`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`HasSoulPatch0`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM (
+    SELECT TOP 10 `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`HasSoulPatch0`
     FROM (
-        SELECT TOP 10 `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`HasSoulPatch0`
-        FROM (
-            SELECT TOP 10 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`HasSoulPatch` AS `HasSoulPatch0`
-            FROM `Gears` AS `g`
-            INNER JOIN (
-                SELECT MIN(IIF(LEN(`g0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g0`.`Nickname`)))) AS `c`, `g0`.`HasSoulPatch`
-                FROM `Gears` AS `g0`
-                WHERE `g0`.`Nickname` <> 'Dom'
-                GROUP BY `g0`.`HasSoulPatch`
-            ) AS `t` ON IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))) = `t`.`c`
-            ORDER BY `g`.`Nickname`
-        ) AS `t0`
-        ORDER BY `t0`.`Nickname` DESC
-    ) AS `t1`
-    LEFT JOIN `Weapons` AS `w` ON `t1`.`FullName` = `w`.`OwnerFullName`
-    ORDER BY `t1`.`Nickname`, `t1`.`SquadId`, NOT (`t1`.`HasSoulPatch0`)
-    """);
+        SELECT TOP 10 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`HasSoulPatch` AS `HasSoulPatch0`
+        FROM `Gears` AS `g`
+        LEFT JOIN (
+            SELECT MIN(IIF(LEN(`g0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g0`.`Nickname`)))) AS `c`, `g0`.`HasSoulPatch`
+            FROM `Gears` AS `g0`
+            WHERE `g0`.`Nickname` <> 'Dom'
+            GROUP BY `g0`.`HasSoulPatch`
+        ) AS `t` ON IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))) = `t`.`c`
+        WHERE `t`.`c` IS NOT NULL
+        ORDER BY `g`.`Nickname`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname` DESC
+) AS `t1`
+LEFT JOIN `Weapons` AS `w` ON `t1`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t1`.`Nickname`, `t1`.`SquadId`, NOT (`t1`.`HasSoulPatch0`)
+""");
         }
 
         public override async Task Where_bool_column_and_Contains(bool async)
@@ -8805,12 +8812,13 @@ WHERE `m`.`CodeName` = 'Operation Foobar'
             await base.Include_after_SelectMany_throws(async);
 
             AssertSql(
-    """
+                """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
-FROM `Factions` AS `f`
-LEFT JOIN `Cities` AS `c` ON `f`.`CapitalName` = `c`.`Name`
-INNER JOIN `Gears` AS `g` ON `c`.`Name` = `g`.`CityOfBirthName`
-INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
+FROM ((`Factions` AS `f`
+LEFT JOIN `Cities` AS `c` ON `f`.`CapitalName` = `c`.`Name`)
+LEFT JOIN `Gears` AS `g` ON `c`.`Name` = `g`.`CityOfBirthName`)
+LEFT JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
+WHERE `c`.`Name` IS NOT NULL AND `g`.`CityOfBirthName` IS NOT NULL AND `g`.`SquadId` IS NOT NULL AND `s`.`Id` IS NOT NULL
 """);
         }
 

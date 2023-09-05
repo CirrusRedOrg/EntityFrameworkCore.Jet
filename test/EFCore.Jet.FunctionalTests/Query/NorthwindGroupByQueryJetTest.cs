@@ -1347,7 +1347,8 @@ INNER JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`
             await base.Join_GroupBy_Aggregate_multijoins(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (`Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
@@ -1355,7 +1356,9 @@ INNER JOIN (
     GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 5
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`)
-INNER JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`");
+LEFT JOIN `Orders` AS `o0` ON `t`.`LastOrderID` = `o0`.`OrderID`
+WHERE `t`.`LastOrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL
+""");
         }
 
         public override async Task Join_GroupBy_Aggregate_single_join(bool isAsync)

@@ -1696,13 +1696,15 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
             await base.Multiple_joins_Where_Order_Any(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(EXISTS (
+                """
+SELECT IIF(EXISTS (
         SELECT 1
         FROM (`Customers` AS `c`
         INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-        INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-        WHERE `c`.`City` = 'London'), TRUE, FALSE)
-FROM (SELECT COUNT(*) FROM `#Dual`)");
+        LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+        WHERE (`c`.`City` = 'London') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Where_join_select(bool isAsync)
@@ -1733,12 +1735,14 @@ ORDER BY `c`.`CustomerID`");
             await base.Where_join_orderby_join_select(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (`Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE `c`.`CustomerID` <> 'ALFKI'
-ORDER BY `c`.`CustomerID`");
+LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE (`c`.`CustomerID` <> 'ALFKI') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Where_select_many(bool isAsync)

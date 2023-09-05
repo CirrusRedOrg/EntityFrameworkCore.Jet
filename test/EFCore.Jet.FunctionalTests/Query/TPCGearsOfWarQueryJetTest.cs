@@ -20,7 +20,7 @@ public class TPCGearsOfWarQueryJetTest : TPCGearsOfWarQueryRelationalTestBase<TP
         : base(fixture)
     {
         Fixture.TestSqlLoggerFactory.Clear();
-        //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     protected override bool CanExecuteQueryString
@@ -454,14 +454,15 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id], [c].[Name], [t1].[Nickname]
         await base.Include_with_join_and_inheritance1(async);
 
         AssertSql(
-"""
+            """
 SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM (`Tags` AS `t`
 INNER JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
 ) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
-INNER JOIN `Cities` AS `c` ON `t0`.`CityOfBirthName` = `c`.`Name`
+LEFT JOIN `Cities` AS `c` ON `t0`.`CityOfBirthName` = `c`.`Name`
+WHERE `t0`.`CityOfBirthName` IS NOT NULL AND `c`.`Name` IS NOT NULL
 """);
     }
 
@@ -7121,11 +7122,12 @@ INNER JOIN (
         await base.Join_on_entity_qsre_keys_outer_key_is_navigation(async);
 
         AssertSql(
-"""
-SELECT [w].[Name] AS [Name1], [w1].[Name] AS [Name2]
-FROM [Weapons] AS [w]
-LEFT JOIN [Weapons] AS [w0] ON [w].[SynergyWithId] = [w0].[Id]
-INNER JOIN [Weapons] AS [w1] ON [w0].[Id] = [w1].[Id]
+            """
+SELECT `w`.`Name` AS `Name1`, `w1`.`Name` AS `Name2`
+FROM (`Weapons` AS `w`
+LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`)
+LEFT JOIN `Weapons` AS `w1` ON `w0`.`Id` = `w1`.`Id`
+WHERE `w0`.`Id` IS NOT NULL AND `w1`.`Id` IS NOT NULL
 """);
     }
 

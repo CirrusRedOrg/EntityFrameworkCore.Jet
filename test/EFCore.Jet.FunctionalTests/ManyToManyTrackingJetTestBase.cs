@@ -42,7 +42,7 @@ public abstract class ManyToManyTrackingJetTestBase<TFixture> : ManyToManyTracki
             modelBuilder
                 .Entity<JoinOneSelfPayload>()
                 .Property(e => e.Payload)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("DATE()");
 
             modelBuilder
                 .SharedTypeEntity<Dictionary<string, object>>("JoinOneToThreePayloadFullShared")
@@ -57,7 +57,7 @@ public abstract class ManyToManyTrackingJetTestBase<TFixture> : ManyToManyTracki
             modelBuilder
                 .Entity<UnidirectionalJoinOneSelfPayload>()
                 .Property(e => e.Payload)
-                .HasDefaultValueSql("GETUTCDATE()");
+                .HasDefaultValueSql("DATE()");
 
             modelBuilder
                 .SharedTypeEntity<Dictionary<string, object>>("UnidirectionalJoinOneToThreePayloadFullShared")

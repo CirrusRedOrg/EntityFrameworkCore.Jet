@@ -149,4 +149,12 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         }
         return base.TranslateTake(source, count);
     }
+
+    protected override ShapedQueryExpression? TranslateFirstOrDefault(ShapedQueryExpression source, LambdaExpression? predicate,
+        Type returnType, bool returnDefault)
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        selectExpression.Tags.Remove("DeepSkip");
+        return base.TranslateFirstOrDefault(source, predicate, returnType, returnDefault);
+    }
 }

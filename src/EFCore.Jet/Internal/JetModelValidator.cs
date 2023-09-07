@@ -188,9 +188,14 @@ namespace EntityFrameworkCore.Jet.Internal
 
             foreach (var property in mappedTypes.SelectMany(et => et.GetDeclaredProperties()))
             {
-                if (property.GetValueGenerationStrategy(storeObject) == JetValueGenerationStrategy.IdentityColumn)
+                var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
+                if (declaringTable.Name == null)
                 {
-                    var columnName = property.GetColumnName(storeObject);
+                    declaringTable = storeObject;
+                }
+                if (property.GetValueGenerationStrategy(declaringTable) == JetValueGenerationStrategy.IdentityColumn)
+                {
+                    var columnName = property.GetColumnName(declaringTable);
                     if (columnName == null)
                     {
                         continue;

@@ -220,8 +220,8 @@ WHERE `c`.`ContactName` LIKE '%     %'
 
             AssertSql(
                 $"""
-@__pattern_0='     ' (Size = 255)
-@__pattern_0='     ' (Size = 255)
+@__pattern_0='     ' (Size = 30)
+@__pattern_0='     ' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`

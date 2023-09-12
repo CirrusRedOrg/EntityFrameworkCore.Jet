@@ -554,15 +554,15 @@ WHERE ([t].[Species] IS NOT NULL) AND ([t].[Species] LIKE N'F%')
 """
 p0='1'
 
-SELECT [d].[Id] AS [Key], COUNT(*) AS [Aggregate]
-FROM [DemoEntities] AS [d]
+SELECT `d`.`Id` AS `Key`, COUNT(*) AS `Aggregate`
+FROM `DemoEntities` AS `d`
 WHERE EXISTS (
     SELECT 1
     FROM (
         SELECT * FROM DemoEntities WHERE Id = @p0
-    ) AS [m]
-    WHERE [m].[Id] = [d].[Id])
-GROUP BY [d].[Id]
+    ) AS `e`
+    WHERE `e`.`Id` = `d`.`Id`)
+GROUP BY `d`.`Id`
 """);
     }
 

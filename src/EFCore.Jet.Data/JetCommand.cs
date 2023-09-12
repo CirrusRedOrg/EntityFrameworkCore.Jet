@@ -693,6 +693,12 @@ namespace EntityFrameworkCore.Jet.Data
                 var parameter = unusedParameters
                     .FirstOrDefault(p => placeholder.Name.Equals(p.ParameterName, StringComparison.Ordinal));
 
+                if (parameter == null)
+                {
+                    parameter = unusedParameters
+                        .FirstOrDefault(p => !p.ParameterName.StartsWith('@') && placeholder.Name.Substring(1).Equals(p.ParameterName, StringComparison.Ordinal));
+                }
+
                 if (parameter != null)
                 {
                     placeholder.Parameter = parameter;

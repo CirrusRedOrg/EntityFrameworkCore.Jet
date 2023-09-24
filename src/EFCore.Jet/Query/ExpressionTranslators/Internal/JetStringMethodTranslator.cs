@@ -414,6 +414,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         ? _sqlExpressionFactory.Constant(constantStartIndex + 1, typeof(int))
                         : _sqlExpressionFactory.Add(startIndex, _sqlExpressionFactory.Constant(1)));
             }
+            else
+            {
+                charIndexArguments.Insert(0, _sqlExpressionFactory.Constant(1));
+            }
             charIndexArguments.Add(_sqlExpressionFactory.Constant(1));
 
             var argumentsPropagateNullability = Enumerable.Repeat(true, charIndexArguments.Count);

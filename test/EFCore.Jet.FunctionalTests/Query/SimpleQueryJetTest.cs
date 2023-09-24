@@ -514,15 +514,15 @@ WHERE ((`d`.`Id` IS NOT NULL) OR (`c`.`Id` IS NOT NULL)) AND (`a`.`Species` IS N
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[Species], [t].[Name], [t].[EdcuationLevel], [t].[FavoriteToy], [t].[Discriminator]
+SELECT `t`.`Id`, `t`.`Species`, `t`.`Name`, `t`.`EdcuationLevel`, `t`.`FavoriteToy`, `t`.`Discriminator`
 FROM (
-    SELECT [c].[Id], [c].[Species], [c].[Name], [c].[EdcuationLevel], NULL AS [FavoriteToy], N'Cat' AS [Discriminator]
-    FROM [Cats] AS [c]
+    SELECT `c`.`Id`, `c`.`Species`, `c`.`Name`, `c`.`EdcuationLevel`, NULL AS `FavoriteToy`, 'Cat' AS `Discriminator`
+    FROM `Cats` AS `c`
     UNION ALL
-    SELECT [d].[Id], [d].[Species], [d].[Name], NULL AS [EdcuationLevel], [d].[FavoriteToy], N'Dog' AS [Discriminator]
-    FROM [Dogs] AS [d]
-) AS [t]
-WHERE ([t].[Species] IS NOT NULL) AND ([t].[Species] LIKE N'F%')
+    SELECT `d`.`Id`, `d`.`Species`, `d`.`Name`, NULL AS `EdcuationLevel`, `d`.`FavoriteToy`, 'Dog' AS `Discriminator`
+    FROM `Dogs` AS `d`
+) AS `t`
+WHERE (`t`.`Species` IS NOT NULL) AND (`t`.`Species` LIKE 'F%')
 """);
     }
 

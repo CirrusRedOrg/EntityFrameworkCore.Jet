@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System;
+using EntityFrameworkCore.Jet.FunctionalTests.TestModels.Northwind;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
@@ -53,4 +55,7 @@ public class NorthwindBulkUpdatesJetFixture<TModelCustomizer> : NorthwindBulkUpd
             .Property(p => p.UnitPrice)
             .HasColumnType("money");
     }
+
+    protected override Type ContextType
+        => typeof(NorthwindJetContext);
 }

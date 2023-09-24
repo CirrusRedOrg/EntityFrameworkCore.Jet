@@ -1,5 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
+using EntityFrameworkCore.Jet.FunctionalTests.TestModels.Northwind;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -18,9 +20,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<Customer>()
-                .Property(c => c.CustomerID)
-                .HasColumnType("nchar(5)");
+            modelBuilder.Entity<Customer>(
+                b =>
+                {
+                    b.Property(c => c.CustomerID).HasColumnType("nchar(5)");
+                    b.Property(cm => cm.CompanyName).HasMaxLength(40);
+                    b.Property(cm => cm.ContactName).HasMaxLength(30);
+                    b.Property(cm => cm.ContactTitle).HasColumnType("national character varying(30)");
+                });
 
             modelBuilder.Entity<Employee>(
                 b =>
@@ -45,6 +52,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 {
                     b.Property(p => p.UnitPrice).HasColumnType("money");
                     b.Property(p => p.UnitsInStock).HasColumnType("smallint");
+                    b.Property(cm => cm.ProductName).HasMaxLength(40);
                 });
 
             modelBuilder.Entity<MostExpensiveProduct>()
@@ -55,5 +63,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             //This is needed as the " character does not work for surrounding table/entity names on OleDb
             modelBuilder.Entity<OrderQuery>().ToSqlQuery(@"select * from `Orders`");
         }
+
+        protected override Type ContextType
+            => typeof(NorthwindJetContext);
     }
 }

@@ -31,7 +31,7 @@ SELECT TOP 1 `s`.`Id`, `s`.`Email`, `s`.`Logon`, `s`.`ManagerId`, `s`.`Name`, `s
 FROM `Staff` AS `s`
 WHERE `s`.`Id` = @__p_0
 """,
-            //
+//
 """
 @__id_0='1'
 
@@ -137,14 +137,16 @@ SELECT cast(null as int) AS MyValue
 """
 @__currentUserId_0='1'
 
-SELECT IIF(EXISTS (
-        SELECT 1
+SELECT IIF(`u`.`Id` IN (
+        SELECT `u0`.`Id`
         FROM `Memberships` AS `m`
         INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
-        WHERE EXISTS (
-            SELECT 1
+        WHERE `m`.`GroupId` IN (
+            SELECT `m0`.`GroupId`
             FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @__currentUserId_0 AND `m0`.`GroupId` = `m`.`GroupId`) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
+            WHERE `m0`.`UserId` = @__currentUserId_0
+        )
+    ), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
 """);
     }
@@ -157,16 +159,18 @@ FROM `Users` AS `u`
 """
 @__currentUserId_0='1'
 
-SELECT IIF(EXISTS (
-        SELECT 1
+SELECT IIF(`u`.`Id` IN (
+        SELECT `u0`.`Id`
         FROM (`Memberships` AS `m`
         INNER JOIN `Groups` AS `g` ON `m`.`GroupId` = `g`.`Id`)
         INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
-        WHERE EXISTS (
-            SELECT 1
+        WHERE `g`.`Id` IN (
+            SELECT `g0`.`Id`
             FROM `Memberships` AS `m0`
             INNER JOIN `Groups` AS `g0` ON `m0`.`GroupId` = `g0`.`Id`
-            WHERE `m0`.`UserId` = @__currentUserId_0 AND `g0`.`Id` = `g`.`Id`) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
+            WHERE `m0`.`UserId` = @__currentUserId_0
+        )
+    ), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
 """);
     }
@@ -183,10 +187,11 @@ SELECT IIF(EXISTS (
         SELECT 1
         FROM `Memberships` AS `m`
         INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
-        WHERE EXISTS (
-            SELECT 1
+        WHERE `m`.`GroupId` IN (
+            SELECT `m0`.`GroupId`
             FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @__currentUserId_0 AND `m0`.`GroupId` = `m`.`GroupId`) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
+            WHERE `m0`.`UserId` = @__currentUserId_0
+        ) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
 """);
     }
@@ -203,7 +208,7 @@ FROM `Users` AS `u`
 SELECT `o`.`Id`, `o`.`CancellationDate`, `o`.`OrderId`, `o`.`ShippingDate`
 FROM `OrderItems` AS `o`
 INNER JOIN (
-    SELECT `o0`.`OrderId` AS `Key`, MAX(IIF((`o0`.`ShippingDate` IS NULL) AND (`o0`.`CancellationDate` IS NULL), `o0`.`OrderId`, `o0`.`OrderId` - 10000000)) AS `IsPending`
+    SELECT `o0`.`OrderId` AS `Key`, MAX(IIF(`o0`.`ShippingDate` IS NULL AND `o0`.`CancellationDate` IS NULL, `o0`.`OrderId`, `o0`.`OrderId` - 10000000)) AS `IsPending`
     FROM `OrderItems` AS `o0`
     WHERE `o0`.`OrderId` = @__orderId_0
     GROUP BY `o0`.`OrderId`
@@ -253,17 +258,17 @@ SELECT (
     SELECT MIN(`o`.`HourlyRate`)
     FROM `TimeSheets` AS `t0`
     LEFT JOIN `Order` AS `o` ON `t0`.`OrderId` = `o`.`Id`
-    WHERE (`t0`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t0`.`OrderId`) AS `HourlyRate`, (
+    WHERE `t0`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t0`.`OrderId`) AS `HourlyRate`, (
     SELECT MIN(`c`.`Id`)
     FROM (`TimeSheets` AS `t1`
     INNER JOIN `Project` AS `p` ON `t1`.`ProjectId` = `p`.`Id`)
     LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
-    WHERE ((`t1`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t1`.`OrderId`) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)) AS `CustomerId`, (
+    WHERE (`t1`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t1`.`OrderId`) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)) AS `CustomerId`, (
     SELECT MIN(`c0`.`Name`)
     FROM (`TimeSheets` AS `t2`
     INNER JOIN `Project` AS `p0` ON `t2`.`ProjectId` = `p0`.`Id`)
     LEFT JOIN `Customers` AS `c0` ON `p0`.`CustomerId` = `c0`.`Id`
-    WHERE ((`t2`.`OrderId` IS NOT NULL) AND `t`.`OrderId` = `t2`.`OrderId`) AND (`p0`.`CustomerId` IS NOT NULL AND `c0`.`Id` IS NOT NULL)) AS `CustomerName`
+    WHERE (`t2`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t2`.`OrderId`) AND (`p0`.`CustomerId` IS NOT NULL AND `c0`.`Id` IS NOT NULL)) AS `CustomerName`
 FROM `TimeSheets` AS `t`
 WHERE `t`.`OrderId` IS NOT NULL
 GROUP BY `t`.`OrderId`
@@ -281,7 +286,7 @@ SELECT `o`.`CustomerId`, (
     FROM `Order` AS `o0`
     WHERE `o0`.`CustomerId` = `o`.`CustomerId`) AS `CustomerMinHourlyRate`, MIN(`o`.`HourlyRate`) AS `HourlyRate`, COUNT(*) AS `Count`
 FROM `Order` AS `o`
-WHERE `o`.`Number` <> 'A1' OR (`o`.`Number` IS NULL)
+WHERE `o`.`Number` <> 'A1' OR `o`.`Number` IS NULL
 GROUP BY `o`.`CustomerId`, `o`.`Number`
 """);
     }
@@ -404,17 +409,17 @@ GROUP BY [t].[Key]
 SELECT (
     SELECT TOP 1 `c1`.`SomeOtherNullableDateTime`
     FROM `Child26744` AS `c1`
-    WHERE `p`.`Id` = `c1`.`ParentId` AND (`c1`.`SomeNullableDateTime` IS NULL)
+    WHERE `p`.`Id` = `c1`.`ParentId` AND `c1`.`SomeNullableDateTime` IS NULL
     ORDER BY `c1`.`SomeInteger`)
 FROM `Parents` AS `p`
 WHERE EXISTS (
     SELECT 1
     FROM `Child26744` AS `c`
-    WHERE `p`.`Id` = `c`.`ParentId` AND (`c`.`SomeNullableDateTime` IS NULL)) AND ((
+    WHERE `p`.`Id` = `c`.`ParentId` AND `c`.`SomeNullableDateTime` IS NULL) AND (
     SELECT TOP 1 `c0`.`SomeOtherNullableDateTime`
     FROM `Child26744` AS `c0`
-    WHERE `p`.`Id` = `c0`.`ParentId` AND (`c0`.`SomeNullableDateTime` IS NULL)
-    ORDER BY `c0`.`SomeInteger`) IS NOT NULL)
+    WHERE `p`.`Id` = `c0`.`ParentId` AND `c0`.`SomeNullableDateTime` IS NULL
+    ORDER BY `c0`.`SomeInteger`) IS NOT NULL
 """);
     }
 
@@ -451,7 +456,7 @@ SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
 WHERE `m`.`SomeDate` = CDATE(@__date_0)
 """,
-            //
+//
 """
 @__date_0='2012-12-12T00:00:00.0000000' (DbType = DateTime)
 
@@ -489,7 +494,7 @@ ORDER BY `t`.`ParcelNumber`
 """
 SELECT `a`.`Id`, `a`.`Discriminator`, `a`.`Species`, `a`.`Name`, `a`.`EdcuationLevel`, `a`.`FavoriteToy`
 FROM `Animals` AS `a`
-WHERE `a`.`Discriminator` IN ('Cat', 'Dog') AND (`a`.`Species` IS NOT NULL) AND (`a`.`Species` LIKE 'F%')
+WHERE `a`.`Discriminator` IN ('Cat', 'Dog') AND (`a`.`Species` LIKE 'F%')
 """);
     }
 
@@ -504,7 +509,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Pets` AS `p` ON `a`.`Id` = `p`.`Id`)
 LEFT JOIN `Cats` AS `c` ON `a`.`Id` = `c`.`Id`)
 LEFT JOIN `Dogs` AS `d` ON `a`.`Id` = `d`.`Id`
-WHERE ((`d`.`Id` IS NOT NULL) OR (`c`.`Id` IS NOT NULL)) AND (`a`.`Species` IS NOT NULL) AND (`a`.`Species` LIKE 'F%')
+WHERE (`d`.`Id` IS NOT NULL OR `c`.`Id` IS NOT NULL) AND (`a`.`Species` LIKE 'F%')
 """);
     }
 
@@ -554,15 +559,15 @@ WHERE ([t].[Species] IS NOT NULL) AND ([t].[Species] LIKE N'F%')
 """
 p0='1'
 
-SELECT [d].[Id] AS [Key], COUNT(*) AS [Aggregate]
-FROM [DemoEntities] AS [d]
-WHERE EXISTS (
-    SELECT 1
+SELECT `d`.`Id` AS `Key`, COUNT(*) AS `Aggregate`
+FROM `DemoEntities` AS `d`
+WHERE `d`.`Id` IN (
+    SELECT `e`.`Id`
     FROM (
         SELECT * FROM DemoEntities WHERE Id = @p0
-    ) AS [m]
-    WHERE [m].[Id] = [d].[Id])
-GROUP BY [d].[Id]
+    ) AS `e`
+)
+GROUP BY `d`.`Id`
 """);
     }
 

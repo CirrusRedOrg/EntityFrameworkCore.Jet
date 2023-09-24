@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
+using System.ComponentModel.DataAnnotations;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -24,7 +25,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             : base(fixture)
         {
             fixture.TestSqlLoggerFactory.Clear();
-            //fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
@@ -100,15 +101,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public override IModel Timestamp_takes_precedence_over_MaxLength()
         {
-            var modelBuilder = base.Timestamp_takes_precedence_over_MaxLength();
+            var modelBuilder = CreateModelBuilder();
+            modelBuilder.Entity<TimestampAndMaxlength>().Ignore(x => x.NonMaxTimestamp);
 
-            var property = GetProperty<TimestampAndMaxlen>(modelBuilder, "MaxTimestamp");
+            var model = Validate(modelBuilder);
 
-            var storeType = property.GetRelationalTypeMapping().StoreType;
+            Assert.Null(GetProperty<TimestampAndMaxlength>(model, "MaxTimestamp").GetMaxLength());
 
-            Assert.Equal("varbinary(8)", storeType);//This is used in replacement of no rowversion type
-
-            return modelBuilder;
+            return model;
         }
 
         public override IModel TableNameAttribute_affects_table_name_in_TPH()

@@ -14,10 +14,8 @@ public class NorthwindBulkUpdatesJetTest : NorthwindBulkUpdatesTestBase<Northwin
     public NorthwindBulkUpdatesJetTest(
         NorthwindBulkUpdatesJetFixture<NoopModelCustomizer> fixture,
         ITestOutputHelper testOutputHelper)
-        : base(fixture)
+        : base(fixture, testOutputHelper)
     {
-        ClearLog();
-        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -224,7 +222,7 @@ WHERE `o`.`OrderID` < (
     SELECT TOP 1 (
         SELECT TOP 1 `o1`.`OrderID`
         FROM `Orders` AS `o1`
-        WHERE `o0`.`CustomerID` = `o1`.`CustomerID` OR ((`o0`.`CustomerID` IS NULL) AND (`o1`.`CustomerID` IS NULL)))
+        WHERE `o0`.`CustomerID` = `o1`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o1`.`CustomerID` IS NULL))
     FROM `Orders` AS `o0`
     GROUP BY `o0`.`CustomerID`
     HAVING COUNT(*) > 11)
@@ -236,20 +234,21 @@ WHERE `o`.`OrderID` < (
         await base.Delete_Where_predicate_with_GroupBy_aggregate_2(async);
 
         AssertSql(
-            """
+"""
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
     INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-    WHERE EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o2`
-        GROUP BY `o2`.`CustomerID`
-        HAVING COUNT(*) > 9 AND (
+    WHERE `o1`.`OrderID` IN (
+        SELECT (
             SELECT TOP 1 `o3`.`OrderID`
             FROM `Orders` AS `o3`
-            WHERE `o2`.`CustomerID` = `o3`.`CustomerID` OR ((`o2`.`CustomerID` IS NULL) AND (`o3`.`CustomerID` IS NULL))) = `o1`.`OrderID`) AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
+            WHERE `o2`.`CustomerID` = `o3`.`CustomerID` OR (`o2`.`CustomerID` IS NULL AND `o3`.`CustomerID` IS NULL))
+        FROM `Orders` AS `o2`
+        GROUP BY `o2`.`CustomerID`
+        HAVING COUNT(*) > 9
+    ) AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -362,14 +361,14 @@ WHERE EXISTS (
         await base.Delete_Where_using_navigation_2(async);
 
         AssertSql(
-            """
+"""
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (`Order Details` AS `o0`
     INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
     LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
-    WHERE (`c`.`CustomerID` IS NOT NULL) AND (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
+    WHERE (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -507,14 +506,14 @@ WHERE EXISTS (
         await base.Delete_Where_optional_navigation_predicate(async);
 
         AssertSql(
-            """
+"""
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (`Order Details` AS `o0`
     INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
     LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
-    WHERE (`c`.`City` IS NOT NULL) AND (`c`.`City` LIKE 'Se%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
+    WHERE (`c`.`City` LIKE 'Se%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -690,7 +689,7 @@ WHERE 0 = 1
 
         AssertExecuteUpdateSql(
             """
-@__value_0='Abc' (Size = 255)
+@__value_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
 SET `ContactName` = @__value_0
@@ -704,7 +703,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-@__p_0='Abc' (Size = 255)
+@__p_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
 SET `ContactName` = @__p_0
@@ -730,7 +729,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-@__container_Containee_Property_0='Abc' (Size = 255)
+@__container_Containee_Property_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
 SET `ContactName` = @__container_Containee_Property_0
@@ -931,7 +930,7 @@ WHERE `c`.`CustomerID` = (
     SELECT TOP 1 (
         SELECT TOP 1 `o0`.`CustomerID`
         FROM `Orders` AS `o0`
-        WHERE `o`.`CustomerID` = `o0`.`CustomerID` OR ((`o`.`CustomerID` IS NULL) AND (`o0`.`CustomerID` IS NULL)))
+        WHERE `o`.`CustomerID` = `o0`.`CustomerID` OR (`o`.`CustomerID` IS NULL AND `o0`.`CustomerID` IS NULL))
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 11)
@@ -950,18 +949,19 @@ WHERE `c`.`CustomerID` = (
         await base.Update_Where_GroupBy_First_set_constant_3(async);
 
         AssertExecuteUpdateSql(
-            """
+"""
 UPDATE `Customers` AS `c`
 SET `ContactName` = 'Updated'
-WHERE EXISTS (
-    SELECT 1
-    FROM `Orders` AS `o`
-    GROUP BY `o`.`CustomerID`
-    HAVING COUNT(*) > 11 AND (
+WHERE `c`.`CustomerID` IN (
+    SELECT (
         SELECT TOP 1 `c0`.`CustomerID`
         FROM `Orders` AS `o0`
         LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-        WHERE `o`.`CustomerID` = `o0`.`CustomerID` OR ((`o`.`CustomerID` IS NULL) AND (`o0`.`CustomerID` IS NULL))) = `c`.`CustomerID`)
+        WHERE `o`.`CustomerID` = `o0`.`CustomerID` OR (`o`.`CustomerID` IS NULL AND `o0`.`CustomerID` IS NULL))
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING COUNT(*) > 11
+)
 """);
     }
 
@@ -1038,7 +1038,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-@__value_0='Abc' (Size = 255)
+@__value_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
 SET `ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & @__value_0
@@ -1102,7 +1102,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-@__value_0='Abc' (Size = 255)
+@__value_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
 SET `City` = 'Seattle',
@@ -1114,13 +1114,6 @@ WHERE `c`.`CustomerID` LIKE 'F%'
     public override async Task Update_with_invalid_lambda_in_set_property_throws(bool async)
     {
         await base.Update_with_invalid_lambda_in_set_property_throws(async);
-
-        AssertExecuteUpdateSql();
-    }
-
-    public override async Task Update_multiple_entity_throws(bool async)
-    {
-        await base.Update_multiple_entity_throws(async);
 
         AssertExecuteUpdateSql();
     }
@@ -1453,6 +1446,23 @@ SET [c].[City] = CONVERT(varchar(11), DATEPART(year, (
     ORDER BY [o].[OrderDate] DESC)))
 FROM [Customers] AS [c]
 WHERE [c].[CustomerID] LIKE N'F%'
+""");
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public override async Task Update_with_two_inner_joins(bool async)
+    {
+        await base.Update_with_two_inner_joins(async);
+
+        AssertExecuteUpdateSql(
+            """
+UPDATE [o]
+SET [o].[Quantity] = CAST(1 AS smallint)
+FROM [Order Details] AS [o]
+INNER JOIN [Products] AS [p] ON [o].[ProductID] = [p].[ProductID]
+INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
+WHERE [p].[Discontinued] = CAST(1 AS bit) AND [o0].[OrderDate] > '1990-01-01T00:00:00.000'
 """);
     }
 

@@ -278,16 +278,18 @@ FROM (
             await base.Union_with_anonymous_type_projection(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`CustomerID` AS `Id`
+"""
+SELECT `t`.`CustomerID` AS `Id`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE (`c`.`CompanyName` IS NOT NULL) AND (`c`.`CompanyName` LIKE 'A%')
+    WHERE `c`.`CompanyName` LIKE 'A%'
     UNION
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
-    WHERE (`c0`.`CompanyName` IS NOT NULL) AND (`c0`.`CompanyName` LIKE 'B%')
-) AS `t`");
+    WHERE `c0`.`CompanyName` LIKE 'B%'
+) AS `t`
+""");
         }
 
         public override async Task Select_Union_unrelated(bool isAsync)
@@ -295,7 +297,7 @@ FROM (
             await base.Select_Union_unrelated(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT `t`.`CompanyName`
 FROM (
     SELECT `c`.`CompanyName`
@@ -304,7 +306,7 @@ FROM (
     SELECT `p`.`ProductName` AS `CompanyName`
     FROM `Products` AS `p`
 ) AS `t`
-WHERE (`t`.`CompanyName` IS NOT NULL) AND (`t`.`CompanyName` LIKE 'C%')
+WHERE `t`.`CompanyName` LIKE 'C%'
 ORDER BY `t`.`CompanyName`
 """);
         }

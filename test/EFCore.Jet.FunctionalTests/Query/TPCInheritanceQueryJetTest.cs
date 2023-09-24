@@ -4,14 +4,14 @@
 // ReSharper disable InconsistentNaming
 
 using Microsoft.EntityFrameworkCore.Query;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class TPCInheritanceQueryJetTest : TPCInheritanceQueryJetTestBase<TPCInheritanceQueryJetFixture>
 {
-    public TPCInheritanceQueryJetTest(TPCInheritanceQueryJetFixture fixture)
-        : base(fixture)
+    public TPCInheritanceQueryJetTest(TPCInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+        : base(fixture, testOutputHelper)
     {
-        Fixture.TestSqlLoggerFactory.Clear();
     }
 }

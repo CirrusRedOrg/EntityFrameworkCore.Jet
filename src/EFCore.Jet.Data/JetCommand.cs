@@ -23,6 +23,7 @@ namespace EntityFrameworkCore.Jet.Data
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
         private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _topMultiParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?'first'@\w+|\?)(\s)(\+)(\s+)(?'sec'@\w+|\?)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topMultiArgumentRegularExpression = new Regex(@"(?<=(?:^|\s)SELECT\s+TOP\s+)(?'first'\d+|\?)(\s)(\+)(\s+)(?'sec'\d+|\?)", RegexOptions.IgnoreCase);
         private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
@@ -536,18 +537,19 @@ namespace EntityFrameworkCore.Jet.Data
                 var lastCommandText = InnerCommand.CommandText;
                 var commandText = lastCommandText;
 
-                var matchm = _topMultiParameterRegularExpression.Match(lastCommandText);
-                if (matchm.Success)
+                while ((commandText = _topMultiParameterRegularExpression.Replace(
+                           lastCommandText,
+                           match =>
+                           {
+                               var first = match.Groups["first"];
+                               var sec = match.Groups["sec"];
+                               var sp = Convert.ToInt32(ExtractParameter(commandText, sec.Index, parameters).Value);
+                               var fp = Convert.ToInt32(ExtractParameter(commandText, first.Index, parameters).Value);
+                               var total = fp + sp;
+                               return total.ToString();
+                           },
+                           1)) != lastCommandText)
                 {
-                    var first = matchm.Groups["first"];
-                    var sec = matchm.Groups["sec"];
-                    var sp = Convert.ToInt32(ExtractParameter(commandText, sec.Index, parameters).Value);
-                    var fp = Convert.ToInt32(ExtractParameter(commandText, first.Index, parameters).Value);
-                    var total = fp + sp;
-                    commandText = _topMultiParameterRegularExpression.Replace(
-                                               lastCommandText,
-                                                                      match => total.ToString(),
-                                                                      1);
                     lastCommandText = commandText;
                 }
 
@@ -558,6 +560,19 @@ namespace EntityFrameworkCore.Jet.Data
                                 .Value)
                         .ToString(),
                     1)) != lastCommandText)
+                {
+                    lastCommandText = commandText;
+                }
+
+                while ((commandText = _topMultiArgumentRegularExpression.Replace(
+                           lastCommandText,
+                           match =>
+                           {
+                               var first = match.Groups["first"];
+                               var sec = match.Groups["sec"];
+                               return (Convert.ToInt32(first.Value) + Convert.ToInt32(sec.Value)).ToString();
+                           },
+                           1)) != lastCommandText)
                 {
                     lastCommandText = commandText;
                 }
@@ -692,6 +707,12 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 var parameter = unusedParameters
                     .FirstOrDefault(p => placeholder.Name.Equals(p.ParameterName, StringComparison.Ordinal));
+
+                if (parameter == null)
+                {
+                    parameter = unusedParameters
+                        .FirstOrDefault(p => !p.ParameterName.StartsWith('@') && placeholder.Name.Substring(1).Equals(p.ParameterName, StringComparison.Ordinal));
+                }
 
                 if (parameter != null)
                 {

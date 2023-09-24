@@ -223,7 +223,7 @@ namespace Microsoft.EntityFrameworkCore
 
         private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IReadOnlyProperty property)
         {
-            var modelStrategy = property.DeclaringEntityType.Model.GetValueGenerationStrategy();
+            var modelStrategy = property.DeclaringType.Model.GetValueGenerationStrategy();
 
             return modelStrategy == JetValueGenerationStrategy.IdentityColumn
                    && IsCompatibleWithValueGeneration(property)
@@ -274,7 +274,7 @@ namespace Microsoft.EntityFrameworkCore
                 {
                     throw new ArgumentException(
                         JetStrings.IdentityBadType(
-                            property.Name, property.DeclaringEntityType.DisplayName(), propertyType.ShortDisplayName()));
+                            property.Name, property.DeclaringType.DisplayName(), propertyType.ShortDisplayName()));
                 }
             }
         }
@@ -429,7 +429,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns>The sequence to use, or <see langword="null" /> if no sequence exists in the model.</returns>
         public static IReadOnlySequence? FindJetSequence(this IReadOnlyProperty property)
         {
-            var model = property.DeclaringEntityType.Model;
+            var model = property.DeclaringType.Model;
 
             var sequenceName = property.GetJetSequenceName()
                 ?? model.GetJetSequenceNameSuffix();
@@ -448,7 +448,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns>The sequence to use, or <see langword="null" /> if no sequence exists in the model.</returns>
         public static IReadOnlySequence? FindJetSequence(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
-            var model = property.DeclaringEntityType.Model;
+            var model = property.DeclaringType.Model;
 
             var sequenceName = property.GetJetSequenceName(storeObject)
                 ?? model.GetJetSequenceNameSuffix();

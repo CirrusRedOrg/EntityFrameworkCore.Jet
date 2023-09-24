@@ -586,26 +586,6 @@ WHERE [j].[Discriminator] = N'JsonEntityInheritanceDerived'
             @"");
     }
 
-    public override async Task Json_collection_element_access_in_projection_basic(bool async)
-    {
-        await base.Json_collection_element_access_in_projection_basic(async);
-
-        // array element access in projection is currently done on the client - issue 28648
-        AssertSql(
-"""
-SELECT JSON_QUERY([j].[OwnedCollectionRoot],'$'), [j].[Id]
-FROM [JsonEntitiesBasic] AS [j]
-""");
-    }
-
-    public override async Task Json_collection_element_access_in_predicate(bool async)
-    {
-        await base.Json_collection_element_access_in_predicate(async);
-
-        AssertSql(
-            @"");
-    }
-
     public override async Task Json_scalar_required_null_semantics(bool async)
     {
         await base.Json_scalar_required_null_semantics(async);
@@ -943,7 +923,7 @@ FROM [JsonEntitiesAllTypes] AS [j]
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_basic(bool async)
+    public override async Task FromSql_on_entity_with_json_basic(bool async)
     {
         await AssertQuery(
             async,
@@ -986,7 +966,7 @@ FROM (
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_project_json_reference(bool async)
+    public override async Task FromSql_on_entity_with_json_project_json_reference(bool async)
     {
         await AssertQuery(
             async,
@@ -1007,7 +987,7 @@ FROM (
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_project_json_collection(bool async)
+    public override async Task FromSql_on_entity_with_json_project_json_collection(bool async)
     {
         await AssertQuery(
             async,
@@ -1029,7 +1009,7 @@ FROM (
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_inheritance_on_base(bool async)
+    public override async Task FromSql_on_entity_with_json_inheritance_on_base(bool async)
     {
         await AssertQuery(
             async,
@@ -1049,7 +1029,7 @@ FROM (
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_inheritance_on_derived(bool async)
+    public override async Task FromSql_on_entity_with_json_inheritance_on_derived(bool async)
     {
         await AssertQuery(
             async,
@@ -1070,7 +1050,7 @@ WHERE [m].[Discriminator] = N'JsonEntityInheritanceDerived'
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_inheritance_project_reference_on_base(bool async)
+    public override async Task FromSql_on_entity_with_json_inheritance_project_reference_on_base(bool async)
     {
         await AssertQuery(
             async,
@@ -1094,7 +1074,7 @@ ORDER BY [m].[Id]
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual async Task FromSql_on_entity_with_json_inheritance_project_reference_on_derived(bool async)
+    public override async Task FromSql_on_entity_with_json_inheritance_project_reference_on_derived(bool async)
     {
         await AssertQuery(
             async,

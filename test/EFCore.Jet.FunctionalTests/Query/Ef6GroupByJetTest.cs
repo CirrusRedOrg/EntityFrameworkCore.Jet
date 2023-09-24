@@ -704,7 +704,7 @@ LEFT JOIN (
     SELECT `s0`.`Id`, `s0`.`Style`, `s0`.`Age`, `p0`.`Id` AS `Id0`
     FROM `Person` AS `p0`
     INNER JOIN `Shoes` AS `s0` ON `p0`.`Age` = `s0`.`Age`
-) AS `t0` ON `t`.`Id` = `t0`.`Id0` AND (`t`.`Style` = `t0`.`Style` OR ((`t`.`Style` IS NULL) AND (`t0`.`Style` IS NULL))) AND `t`.`Age` = `t0`.`Age`
+) AS `t0` ON `t`.`Id` = `t0`.`Id0` AND (`t`.`Style` = `t0`.`Style` OR (`t`.`Style` IS NULL AND `t0`.`Style` IS NULL)) AND `t`.`Age` = `t0`.`Age`
 ORDER BY `t`.`Id`, `t`.`Style`, `t`.`Age`, `t0`.`Id0`
 """);
     }
@@ -721,7 +721,7 @@ FROM (
     FROM `Person` AS `p`
     GROUP BY `p`.`FirstName`, `p`.`MiddleInitial`
 ) AS `t`
-LEFT JOIN `Person` AS `p0` ON (`t`.`FirstName` = `p0`.`FirstName` OR ((`t`.`FirstName` IS NULL) AND (`p0`.`FirstName` IS NULL))) AND (`t`.`MiddleInitial` = `p0`.`MiddleInitial` OR ((`t`.`MiddleInitial` IS NULL) AND (`p0`.`MiddleInitial` IS NULL)))
+LEFT JOIN `Person` AS `p0` ON (`t`.`FirstName` = `p0`.`FirstName` OR (`t`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)) AND (`t`.`MiddleInitial` = `p0`.`MiddleInitial` OR (`t`.`MiddleInitial` IS NULL AND `p0`.`MiddleInitial` IS NULL))
 ORDER BY `t`.`FirstName`, `t`.`MiddleInitial`, `p0`.`Id`
 """);
     }
@@ -807,11 +807,11 @@ SELECT `p0`.`LastName`, `f`.`Size`, (
     LEFT JOIN `Feet` AS `f0` ON `p1`.`Id` = `f0`.`Id`)
     LEFT JOIN `Person` AS `p2` ON `f0`.`Id` = `p2`.`Id`)
     LEFT JOIN `Feet` AS `f1` ON `p1`.`Id` = `f1`.`Id`
-    WHERE `f0`.`Size` = @__size_0 AND (`p1`.`MiddleInitial` IS NOT NULL) AND (`f0`.`Id` <> 1 OR (`f0`.`Id` IS NULL)) AND (`f`.`Size` = `f0`.`Size` OR ((`f`.`Size` IS NULL) AND (`f0`.`Size` IS NULL))) AND (`p0`.`LastName` = `p2`.`LastName` OR ((`p0`.`LastName` IS NULL) AND (`p2`.`LastName` IS NULL)))) AS `Min`
+    WHERE `f0`.`Size` = @__size_0 AND `p1`.`MiddleInitial` IS NOT NULL AND (`f0`.`Id` <> 1 OR `f0`.`Id` IS NULL) AND (`f`.`Size` = `f0`.`Size` OR (`f`.`Size` IS NULL AND `f0`.`Size` IS NULL)) AND (`p0`.`LastName` = `p2`.`LastName` OR (`p0`.`LastName` IS NULL AND `p2`.`LastName` IS NULL))) AS `Min`
 FROM (`Person` AS `p`
 LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`)
 LEFT JOIN `Person` AS `p0` ON `f`.`Id` = `p0`.`Id`
-WHERE `f`.`Size` = @__size_0 AND (`p`.`MiddleInitial` IS NOT NULL) AND (`f`.`Id` <> 1 OR (`f`.`Id` IS NULL))
+WHERE `f`.`Size` = @__size_0 AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
 GROUP BY `f`.`Size`, `p0`.`LastName`
 """);
     }
@@ -850,7 +850,7 @@ SELECT `p`.`FirstName` AS `Feet`, (
     SELECT IIF(SUM(`f`.`Size`) IS NULL, 0, SUM(`f`.`Size`))
     FROM `Person` AS `p0`
     LEFT JOIN `Feet` AS `f` ON `p0`.`Id` = `f`.`Id`
-    WHERE `p`.`FirstName` = `p0`.`FirstName` OR ((`p`.`FirstName` IS NULL) AND (`p0`.`FirstName` IS NULL))) AS `Total`
+    WHERE `p`.`FirstName` = `p0`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)) AS `Total`
 FROM `Person` AS `p`
 GROUP BY `p`.`FirstName`
 """);
@@ -878,7 +878,7 @@ SELECT `s`.`Style` AS `Key`, (
     SELECT TOP 1 `s0`.`Style`
     FROM `Person` AS `p0`
     INNER JOIN `Shoes` AS `s0` ON `p0`.`Age` = `s0`.`Age`
-    WHERE `s`.`Style` = `s0`.`Style` OR ((`s`.`Style` IS NULL) AND (`s0`.`Style` IS NULL))) AS `Style`, COUNT(*) AS `Count`
+    WHERE `s`.`Style` = `s0`.`Style` OR (`s`.`Style` IS NULL AND `s0`.`Style` IS NULL)) AS `Style`, COUNT(*) AS `Count`
 FROM `Person` AS `p`
 INNER JOIN `Shoes` AS `s` ON `p`.`Age` = `s`.`Age`
 GROUP BY `s`.`Style`

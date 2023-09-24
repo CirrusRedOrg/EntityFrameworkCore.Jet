@@ -14,10 +14,8 @@ public class TPCInheritanceBulkUpdatesJetTest : TPCInheritanceBulkUpdatesTestBas
     public TPCInheritanceBulkUpdatesJetTest(
         TPCInheritanceBulkUpdatesJetFixture fixture,
         ITestOutputHelper testOutputHelper)
-        : base(fixture)
+        : base(fixture, testOutputHelper)
     {
-        ClearLog();
-        // Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -117,31 +115,11 @@ WHERE (
         AssertSql();
     }
 
-    public override async Task Update_where_hierarchy(bool async)
-    {
-        await base.Update_where_hierarchy(async);
-
-        AssertExecuteUpdateSql();
-    }
-
     public override async Task Update_where_hierarchy_subquery(bool async)
     {
         await base.Update_where_hierarchy_subquery(async);
 
         AssertExecuteUpdateSql();
-    }
-
-    public override async Task Update_where_hierarchy_derived(bool async)
-    {
-        await base.Update_where_hierarchy_derived(async);
-
-        AssertExecuteUpdateSql(
-"""
-UPDATE [k]
-SET [k].[Name] = N'Kiwi'
-FROM [Kiwi] AS [k]
-WHERE [k].[Name] = N'Great spotted kiwi'
-""");
     }
 
     public override async Task Update_where_using_hierarchy(bool async)

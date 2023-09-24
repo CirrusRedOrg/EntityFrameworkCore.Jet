@@ -133,17 +133,41 @@ namespace EntityFrameworkCore.Jet.Query.Internal
 
         protected override Expression VisitIn(InExpression inExpression)
         {
-            Check.NotNull(inExpression, nameof(inExpression));
-
             var parentSearchCondition = _isSearchCondition;
 
             _isSearchCondition = false;
             var item = (SqlExpression)Visit(inExpression.Item);
             var subquery = (SelectExpression?)Visit(inExpression.Subquery);
-            var values = (SqlExpression?)Visit(inExpression.Values);
+
+            var values = inExpression.Values;
+            SqlExpression[]? newValues = null;
+            if (values is not null)
+            {
+                for (var i = 0; i < values.Count; i++)
+                {
+                    var value = values[i];
+                    var newValue = (SqlExpression)Visit(value);
+
+                    if (newValue != value && newValues is null)
+                    {
+                        newValues = new SqlExpression[values.Count];
+                        for (var j = 0; j < i; j++)
+                        {
+                            newValues[j] = values[j];
+                        }
+                    }
+
+                    if (newValues is not null)
+                    {
+                        newValues[i] = newValue;
+                    }
+                }
+            }
+
+            var valuesParameter = (SqlParameterExpression?)Visit(inExpression.ValuesParameter);
             _isSearchCondition = parentSearchCondition;
 
-            return ApplyConversion(inExpression.Update(item, values, subquery), condition: true);
+            return ApplyConversion(inExpression.Update(item, subquery, newValues ?? values, valuesParameter), condition: true);
         }
 
         protected override Expression VisitLike(LikeExpression likeExpression)
@@ -287,11 +311,11 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             {
                 case ExpressionType.Not
                     when sqlUnaryExpression.Type == typeof(bool):
-                {
-                    _isSearchCondition = true;
-                    resultCondition = true;
-                    break;
-                }
+                    {
+                        _isSearchCondition = true;
+                        resultCondition = true;
+                        break;
+                    }
 
                 case ExpressionType.Not:
                     _isSearchCondition = false;
@@ -484,6 +508,11 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             return leftJoinExpression.Update(table, joinPredicate);
         }
 
+        protected override Expression VisitRowValue(RowValueExpression rowValueExpression)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -645,5 +674,10 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         /// </summary>
         protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
             => jsonScalarExpression;
+
+        protected override Expression VisitValues(ValuesExpression valuesExpression)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

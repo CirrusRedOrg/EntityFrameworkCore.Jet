@@ -38,7 +38,7 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM `JoinOneToTwo` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-    WHERE `e`.`Id` = `j`.`OneId` AND NOT (`e0`.`Name` LIKE '%B%'))
+    WHERE `e`.`Id` = `j`.`OneId` AND (`e0`.`Name` NOT LIKE '%B%' OR `e0`.`Name` IS NULL))
 """);
     }
 
@@ -1972,7 +1972,7 @@ LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
 LEFT JOIN `Leaves` AS `l` ON `r`.`Id` = `l`.`Id`)
 LEFT JOIN `Leaf2s` AS `l0` ON `r`.`Id` = `l0`.`Id`
-WHERE (`l0`.`Id` IS NULL) AND (`l`.`Id` IS NULL) AND (`b`.`Id` IS NULL)
+WHERE `l0`.`Id` IS NULL AND `l`.`Id` IS NULL AND `b`.`Id` IS NULL
 """);
     }
 
@@ -1988,7 +1988,7 @@ LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
 LEFT JOIN `Leaves` AS `l` ON `r`.`Id` = `l`.`Id`)
 LEFT JOIN `Leaf2s` AS `l0` ON `r`.`Id` = `l0`.`Id`
-WHERE (`l`.`Id` IS NULL) AND (`b`.`Id` IS NOT NULL)
+WHERE `l`.`Id` IS NULL AND `b`.`Id` IS NOT NULL
 """);
     }
 
@@ -2092,7 +2092,7 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM `UnidirectionalJoinOneToTwo` AS `u0`
     INNER JOIN `UnidirectionalEntityTwos` AS `u1` ON `u0`.`TwoId` = `u1`.`Id`
-    WHERE `u`.`Id` = `u0`.`OneId` AND NOT (`u1`.`Name` LIKE '%B%'))
+    WHERE `u`.`Id` = `u0`.`OneId` AND (`u1`.`Name` NOT LIKE '%B%' OR `u1`.`Name` IS NULL))
 """);
     }
 
@@ -2684,7 +2684,7 @@ SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, IIF(`u1`.`Id` IS NOT
 FROM (`UnidirectionalRoots` AS `u`
 LEFT JOIN `UnidirectionalBranches` AS `u0` ON `u`.`Id` = `u0`.`Id`)
 LEFT JOIN `UnidirectionalLeaves` AS `u1` ON `u`.`Id` = `u1`.`Id`
-WHERE (`u1`.`Id` IS NULL) AND (`u0`.`Id` IS NULL)
+WHERE `u1`.`Id` IS NULL AND `u0`.`Id` IS NULL
 """);
     }
 
@@ -2698,7 +2698,7 @@ SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, IIF(`u1`.`Id` IS NOT
 FROM (`UnidirectionalRoots` AS `u`
 LEFT JOIN `UnidirectionalBranches` AS `u0` ON `u`.`Id` = `u0`.`Id`)
 LEFT JOIN `UnidirectionalLeaves` AS `u1` ON `u`.`Id` = `u1`.`Id`
-WHERE (`u1`.`Id` IS NULL) AND (`u0`.`Id` IS NOT NULL)
+WHERE `u1`.`Id` IS NULL AND `u0`.`Id` IS NOT NULL
 """);
     }
 

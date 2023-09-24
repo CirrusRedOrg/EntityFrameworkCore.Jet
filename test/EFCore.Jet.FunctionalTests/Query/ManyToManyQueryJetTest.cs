@@ -31,7 +31,7 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM `JoinOneToTwo` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-    WHERE `e`.`Id` = `j`.`OneId` AND NOT (`e0`.`Name` LIKE '%B%'))
+    WHERE `e`.`Id` = `j`.`OneId` AND (`e0`.`Name` NOT LIKE '%B%' OR `e0`.`Name` IS NULL))
 """);
     }
 

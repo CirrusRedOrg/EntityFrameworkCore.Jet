@@ -252,7 +252,7 @@ LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
             await base.Filter_owned_entity_chained_with_regular_entity_followed_by_projecting_owned_collection(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
@@ -261,7 +261,7 @@ LEFT JOIN (
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `t` ON `o`.`Id` = `t`.`ClientId`
-WHERE `p`.`Id` <> 42 OR (`p`.`Id` IS NULL)
+WHERE `p`.`Id` <> 42 OR `p`.`Id` IS NULL
 ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
 """);
         }
@@ -289,16 +289,18 @@ ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.
             await base.Project_multiple_owned_navigations_with_expansion_on_owned_collections(isAsync);
 
             AssertSql(
-                @"SELECT (
+"""
+SELECT (
     SELECT COUNT(*)
     FROM ((`Order` AS `o0`
     LEFT JOIN `OwnedPerson` AS `o1` ON `o0`.`ClientId` = `o1`.`Id`)
     LEFT JOIN `Planet` AS `p0` ON `o1`.`PersonAddress_Country_PlanetId` = `p0`.`Id`)
     LEFT JOIN `Star` AS `s` ON `p0`.`StarId` = `s`.`Id`
-    WHERE `o`.`Id` = `o0`.`ClientId` AND (`s`.`Id` <> 42 OR (`s`.`Id` IS NULL))) AS `Count`, `p`.`Id`, `p`.`Name`, `p`.`StarId`
+    WHERE `o`.`Id` = `o0`.`ClientId` AND (`s`.`Id` <> 42 OR `s`.`Id` IS NULL)) AS `Count`, `p`.`Id`, `p`.`Name`, `p`.`StarId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
-ORDER BY `o`.`Id`");
+ORDER BY `o`.`Id`
+""");
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_followed_by_regular_entity_filter(bool isAsync)
@@ -306,7 +308,7 @@ ORDER BY `o`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_filter(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
@@ -315,7 +317,7 @@ LEFT JOIN (
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `t` ON `o`.`Id` = `t`.`ClientId`
-WHERE `p`.`Id` <> 7 OR (`p`.`Id` IS NULL)
+WHERE `p`.`Id` <> 7 OR `p`.`Id` IS NULL
 ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
 """);
         }

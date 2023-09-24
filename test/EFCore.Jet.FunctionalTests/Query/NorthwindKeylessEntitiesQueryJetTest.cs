@@ -136,17 +136,17 @@ WHERE `m`.`CustomerID` = 'ALFKI'
             await base.KeylessEntity_select_where_navigation_multi_level(isAsync);
 
             AssertSql(
-                """
-    SELECT `m`.`CustomerID`
-    FROM (
-        select * from `Orders`
-    ) AS `m`
-    LEFT JOIN `Customers` AS `c` ON `m`.`CustomerID` = `c`.`CustomerID`
-    WHERE EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE (`c`.`CustomerID` IS NOT NULL) AND `c`.`CustomerID` = `o`.`CustomerID`)
-    """);
+"""
+SELECT `m`.`CustomerID`
+FROM (
+    select * from `Orders`
+) AS `m`
+LEFT JOIN `Customers` AS `c` ON `m`.`CustomerID` = `c`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` IS NOT NULL AND `c`.`CustomerID` = `o`.`CustomerID`)
+""");
         }
 
         [ConditionalFact]

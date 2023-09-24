@@ -6,9 +6,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -145,7 +148,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
                 selectExpression.Tags.Remove("DeepSkip");
                 return source;
             }*/
-            
+
         }
         return base.TranslateTake(source, count);
     }
@@ -156,5 +159,10 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         var selectExpression = (SelectExpression)source.QueryExpression;
         selectExpression.Tags.Remove("DeepSkip");
         return base.TranslateFirstOrDefault(source, predicate, returnType, returnDefault);
+    }
+
+    protected override ShapedQueryExpression? TranslateDefaultIfEmpty(ShapedQueryExpression source, Expression? defaultValue)
+    {
+        return base.TranslateDefaultIfEmpty(source, defaultValue);
     }
 }

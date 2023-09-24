@@ -16,7 +16,7 @@ public class NorthwindSqlQueryJetTest : NorthwindSqlQueryTestBase<NorthwindQuery
     public NorthwindSqlQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
         : base(fixture)
     {
-        //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -41,12 +41,12 @@ SELECT `ProductID` FROM `Products`
 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE EXISTS (
-    SELECT 1
+WHERE `o`.`OrderID` IN (
+    SELECT `t`.`Value`
     FROM (
         SELECT `ProductID` AS `Value` FROM `Products`
     ) AS `t`
-    WHERE IIF(`t`.`Value` IS NULL, NULL, CLNG(`t`.`Value`)) = `o`.`OrderID`)
+)
 """);
     }
 
@@ -69,10 +69,10 @@ INNER JOIN (
         await base.SqlQuery_over_int_with_parameter(async);
 
         AssertSql(
-"""
+            """
 p0='10'
 
-SELECT "ProductID" FROM "Products" WHERE "ProductID" = @p0
+SELECT `ProductID` FROM `Products` WHERE `ProductID` = @p0
 """);
     }
 

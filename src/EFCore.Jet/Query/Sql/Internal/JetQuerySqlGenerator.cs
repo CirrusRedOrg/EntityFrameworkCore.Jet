@@ -103,7 +103,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             {
                 GenerateTop(selectExpression);
             }
-            
+
 
             if (selectExpression.Projection.Any())
             {
@@ -245,7 +245,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             Sql.Append($"`{exp.TableAlias}`.");
                         }
                         Sql.Append($"`{exp.Name}` IS NOT NULL");
-                        if (ct < colexp.Count-1)
+                        if (ct < colexp.Count - 1)
                         {
                             ct++;
                             Sql.Append(" AND ");
@@ -413,9 +413,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return base.VisitSqlBinary(sqlBinaryExpression);
         }
 
-        protected override Expression VisitIn(InExpression inExpression)
+        protected override void GenerateIn(InExpression inExpression, bool negated)
         {
-            var valuesConstant = (SqlConstantExpression?)inExpression.Values;
+            ///TODO: recheck how this works in net 8
+            /*var valuesConstant = (SqlConstantExpression?)inExpression.Values;
             if (valuesConstant != null)
             {
                 var isdt = (IEnumerable<object>)valuesConstant?.Value!;
@@ -428,14 +429,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     {
                         var newexp = new InExpression(inExpression.Item,
                             valuesConstant!.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options)),
-                            inExpression.IsNegated,
                             new JetDateTimeTypeMapping("datetime", _options));
-                        return base.VisitIn(newexp);
+                        base.GenerateIn(newexp, negated);
                     }
                 }
-            }
+            }*/
 
-            return base.VisitIn(inExpression);
+            base.GenerateIn(inExpression, negated);
         }
 
         protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
@@ -475,7 +475,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
             return base.VisitSqlUnary(sqlUnaryExpression);
         }
-            
+
 
         protected Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
@@ -581,21 +581,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             //Keep an eye on this for any further problems - doesn't show anything in the tests right now
             Visit(convertExpression.Operand);
             return convertExpression;
-        }
-
-        /// <summary>
-        ///     Visit a LikeExpression.
-        /// </summary>
-        /// <param name="likeExpression"> The like expression. </param>
-        /// <returns>
-        ///     An Expression.
-        /// </returns>
-        protected override Expression VisitLike(LikeExpression likeExpression)
-        {
-            Check.NotNull(likeExpression, nameof(likeExpression));
-            base.VisitLike(likeExpression);
-
-            return likeExpression;
         }
 
         protected override string GetOperator([JetBrains.Annotations.NotNull] SqlBinaryExpression binaryExpression)

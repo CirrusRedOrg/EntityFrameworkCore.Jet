@@ -68,15 +68,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         private static readonly MethodInfo _trimMethodInfoWithCharArrayArg
             = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] { typeof(char[]) })!;
 
-        private static readonly MethodInfo _startsWithMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), new[] { typeof(string) })!;
-
-        private static readonly MethodInfo _containsMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.Contains), new[] { typeof(string) })!;
-
-        private static readonly MethodInfo _endsWithMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), new[] { typeof(string) })!;
-
         private static readonly MethodInfo _firstOrDefaultMethodInfoWithoutArgs
             = typeof(Enumerable).GetRuntimeMethods().Single(
                 m => m.Name == nameof(Enumerable.FirstOrDefault)
@@ -87,8 +78,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 m => m.Name == nameof(Enumerable.LastOrDefault)
                      && m.GetParameters().Length == 1).MakeGenericMethod(typeof(char));
 
-        private const char LikeEscapeChar = '\\';
-        private const string LikeEscapeString = "\\";
 
         public JetStringMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
@@ -105,59 +94,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 if (IndexOfMethodInfoWithStartingPosition.Equals(method))
                 {
                     return TranslateIndexOf(instance, method, arguments[0], arguments[1]);
-                }
-
-                if (_containsMethodInfo.Equals(method))
-                {
-                    var pattern = arguments[0];
-                    var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, pattern);
-                    instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
-                    pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
-
-                    if (pattern is SqlConstantExpression constantPattern)
-                    {
-                        if (!(constantPattern.Value is string patternValue))
-                        {
-                            return _sqlExpressionFactory.Like(
-                                instance,
-                                _sqlExpressionFactory.Constant(null, stringTypeMapping));
-                        }
-
-                        if (patternValue.Length == 0)
-                        {
-                            return _sqlExpressionFactory.Constant(true);
-                        }
-
-                        return patternValue.Any(IsLikeWildChar)
-                            ? _sqlExpressionFactory.Like(
-                                instance,
-                                _sqlExpressionFactory.Constant($"%{EscapeLikePattern(patternValue)}%"),
-                                null)
-                            : _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant($"%{patternValue}%"));
-                    }
-
-                    return _sqlExpressionFactory.OrElse(
-                        _sqlExpressionFactory.Like(
-                            pattern,
-                            _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping)),
-                        _sqlExpressionFactory.GreaterThan(
-                            _sqlExpressionFactory.Function(
-                                "INSTR",
-                                new[] { _sqlExpressionFactory.Constant(1), instance, pattern, _sqlExpressionFactory.Constant(1) },
-                                nullable: true,
-                                argumentsPropagateNullability: new[] { true, true, true, true },
-                                typeof(int)),
-                            _sqlExpressionFactory.Constant(0)));
-                }
-
-                if (_startsWithMethodInfo.Equals(method))
-                {
-                    return TranslateStartsEndsWith(instance, arguments[0], true);
-                }
-
-                if (_endsWithMethodInfo.Equals(method))
-                {
-                    return TranslateStartsEndsWith(instance, arguments[0], false);
                 }
 
                 // Jet TRIM does not take arguments.
@@ -321,80 +257,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             return null;
         }
 
-        private SqlExpression TranslateStartsEndsWith(SqlExpression instance, SqlExpression pattern, bool startsWith)
-        {
-            var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, pattern);
-
-            instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
-            pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
-
-            if (pattern is SqlConstantExpression constantExpression)
-            {
-                // The pattern is constant. Aside from null or empty, we escape all special characters (%, _, \)
-                // in C# and send a simple LIKE
-                if (!(constantExpression.Value is string patternValue))
-                {
-                    return _sqlExpressionFactory.Like(
-                        instance,
-                        _sqlExpressionFactory.Constant(null, stringTypeMapping));
-                }
-
-                return patternValue.Any(IsLikeWildChar)
-                    ? _sqlExpressionFactory.Like(
-                        instance,
-                        _sqlExpressionFactory.Constant(
-                            startsWith
-                                ? EscapeLikePattern(patternValue) + '%'
-                                : '%' + EscapeLikePattern(patternValue)),
-                        null)
-                    : _sqlExpressionFactory.Like(
-                        instance,
-                        _sqlExpressionFactory.Constant(startsWith ? patternValue + '%' : '%' + patternValue));
-            }
-
-            // The pattern is non-constant, we use LEFT or RIGHT to extract substring and compare.
-            if (startsWith)
-            {
-                return _sqlExpressionFactory.Equal(
-                    _sqlExpressionFactory.Function(
-                        "LEFT",
-                        new[]
-                        {
-                        instance,
-                        _sqlExpressionFactory.Function(
-                            "LEN",
-                            new[] { pattern },
-                            nullable: true,
-                            argumentsPropagateNullability: new[] { true },
-                            typeof(int))
-                        },
-                        nullable: true,
-                        argumentsPropagateNullability: new[] { true, true },
-                        typeof(string),
-                        stringTypeMapping),
-                    pattern);
-            }
-
-            return _sqlExpressionFactory.Equal(
-                _sqlExpressionFactory.Function(
-                    "RIGHT",
-                    new[]
-                    {
-                    instance,
-                    _sqlExpressionFactory.Function(
-                        "LEN",
-                        new[] { pattern },
-                        nullable: true,
-                        argumentsPropagateNullability: new[] { true },
-                        typeof(int))
-                    },
-                    nullable: true,
-                    argumentsPropagateNullability: new[] { true, true },
-                    typeof(string),
-                    stringTypeMapping),
-                pattern);
-        }
-
         private SqlExpression TranslateIndexOf(
         SqlExpression instance,
         MethodInfo method,
@@ -465,32 +327,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 charIndexExpression);
         }
 
-        //Extra resources
-        // https://support.microsoft.com/en-us/office/like-operator-b2f7ef03-9085-4ffb-9829-eef18358e931
-        // https://support.microsoft.com/en-us/office/access-wildcard-character-reference-af00c501-7972-40ee-8889-e18abaad12d1
-        // https://support.microsoft.com/en-us/office/use-wildcards-in-queries-and-parameters-in-access-ec057a45-78b1-4d16-8c20-242cde582e0b
-        //These are the characters to escape in LIKE pattern
-        private static bool IsLikeWildChar(char c)
-            => c == '%' || c == '_' || c == '[' || c == '^' || c == '?' || c == '#' || c == '*';
 
-        private static string EscapeLikePattern(string pattern)
-        {
-            var builder = new StringBuilder();
-            foreach (var c in pattern)
-            {
-                if (IsLikeWildChar(c))
-                {
-                    builder.Append('[');
-                    builder.Append(c);
-                    builder.Append(']');
-                }
-                else
-                {
-                    builder.Append(c);
-                }
-            }
-
-            return builder.ToString();
-        }
     }
 }

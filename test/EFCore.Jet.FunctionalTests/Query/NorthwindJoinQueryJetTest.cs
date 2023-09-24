@@ -17,11 +17,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             ClearLog();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         protected override bool CanExecuteQueryString
             => false;
+
+        [ConditionalFact]
+        public virtual void Check_all_tests_overridden()
+        => TestHelpers.AssertAllMethodsOverridden(GetType());
 
         public override async Task Join_customers_orders_projection(bool isAsync)
         {
@@ -206,10 +210,12 @@ INNER JOIN `Customers` AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`");
             await base.Join_same_collection_force_alias_uniquefication(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Orders` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')");
+WHERE `o`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task GroupJoin_simple(bool isAsync)
@@ -299,13 +305,15 @@ WHERE `c`.`CustomerID` LIKE 'F%'");
             await base.GroupJoin_DefaultIfEmpty2(isAsync);
 
             AssertSql(
-                @"SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+"""
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
 FROM `Employees` AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
-    WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')
-) AS `t` ON `e`.`EmployeeID` = `t`.`EmployeeID`");
+    WHERE `o`.`CustomerID` LIKE 'F%'
+) AS `t` ON `e`.`EmployeeID` = `t`.`EmployeeID`
+""");
         }
 
         public override async Task GroupJoin_DefaultIfEmpty3(bool isAsync)
@@ -353,10 +361,12 @@ ORDER BY `c`.`City`");
             await base.GroupJoin_DefaultIfEmpty_Where(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE (`o`.`OrderID` IS NOT NULL) AND `o`.`CustomerID` = 'ALFKI'");
+WHERE `o`.`OrderID` IS NOT NULL AND `o`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task Join_GroupJoin_DefaultIfEmpty_Where(bool isAsync)
@@ -364,12 +374,12 @@ WHERE (`o`.`OrderID` IS NOT NULL) AND `o`.`CustomerID` = 'ALFKI'");
             await base.Join_GroupJoin_DefaultIfEmpty_Where(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (`Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o0`.`OrderID` IS NOT NULL) AND `o0`.`CustomerID` = 'ALFKI'
+WHERE `o0`.`OrderID` IS NOT NULL AND `o0`.`CustomerID` = 'ALFKI'
 """);
         }
 
@@ -439,19 +449,19 @@ ORDER BY `c`.`CustomerID`");
             await base.GroupJoin_Subquery_with_Take_Then_SelectMany_Where(isAsync);
 
             AssertSql(
-                """
-    SELECT `c`.`CustomerID`, `t0`.`OrderID`
-    FROM `Customers` AS `c`
-    INNER JOIN (
-        SELECT `t`.`OrderID`, `t`.`CustomerID`
-        FROM (
-            SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
-            FROM `Orders` AS `o`
-            ORDER BY `o`.`OrderID`
-        ) AS `t`
-        WHERE (`t`.`CustomerID` IS NOT NULL) AND (`t`.`CustomerID` LIKE 'A%')
-    ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-    """);
+"""
+SELECT `c`.`CustomerID`, `t0`.`OrderID`
+FROM `Customers` AS `c`
+INNER JOIN (
+    SELECT `t`.`OrderID`, `t`.`CustomerID`
+    FROM (
+        SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`
+    WHERE `t`.`CustomerID` LIKE 'A%'
+) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
+""");
         }
 
         [ConditionalTheory(Skip = "Can be supported after rearranging CROSS JOIN/JOIN expressions.")]

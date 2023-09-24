@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-/// <summary>
+    /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Internal
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -54,7 +54,7 @@ namespace EntityFrameworkCore.Jet.Internal
             var p = (PropertyEventData)payload;
             return d.GenerateMessage(
                 p.Property.Name,
-                p.Property.DeclaringEntityType.DisplayName());
+                p.Property.DeclaringType.DisplayName());
         }
 
         /// <summary>
@@ -71,7 +71,7 @@ namespace EntityFrameworkCore.Jet.Internal
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -91,7 +91,7 @@ namespace EntityFrameworkCore.Jet.Internal
             var p = (PropertyEventData)payload;
             return d.GenerateMessage(
                 p.Property.Name,
-                p.Property.DeclaringEntityType.DisplayName());
+                p.Property.DeclaringType.DisplayName());
         }
 
         /// <summary>
@@ -108,7 +108,7 @@ namespace EntityFrameworkCore.Jet.Internal
 
             if (diagnostics.ShouldLog(definition))
             {
-                definition.Log(diagnostics, property.Name, property.DeclaringEntityType.DisplayName());
+                definition.Log(diagnostics, property.Name, property.DeclaringType.DisplayName());
             }
 
             if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
@@ -128,7 +128,7 @@ namespace EntityFrameworkCore.Jet.Internal
             var p = (PropertyEventData)payload;
             return d.GenerateMessage(
                 p.Property.Name,
-                p.Property.DeclaringEntityType.DisplayName());
+                p.Property.DeclaringType.DisplayName());
         }
 
         /// <summary>

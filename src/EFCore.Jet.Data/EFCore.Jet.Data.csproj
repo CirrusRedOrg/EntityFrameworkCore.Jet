@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <Description>Jet/ACE data provider for .NET used by EntityFramworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
-        <TargetFramework>net6.0</TargetFramework>
-        <Platforms>AnyCPU;x86;x64</Platforms>
-        <AssemblyName>EntityFrameworkCore.Jet.Data</AssemblyName>
-        <RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
-        <PackageTags>$(PackageTags);System.Data.Jet</PackageTags>
-        <Nullable>annotations</Nullable>
-    </PropertyGroup>
+	<PropertyGroup>
+		<Description>Jet/ACE data provider for .NET used by EntityFramworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
+		<TargetFramework>net8.0</TargetFramework>
+		<Platforms>AnyCPU;x86;x64</Platforms>
+		<AssemblyName>EntityFrameworkCore.Jet.Data</AssemblyName>
+		<RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
+		<PackageTags>$(PackageTags);System.Data.Jet</PackageTags>
+		<Nullable>annotations</Nullable>
+	</PropertyGroup>
 
 </Project>

@@ -1,71 +1,71 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <Description>Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
-    <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
-    <AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
-    <Platforms>AnyCPU;x86;x64</Platforms>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<Description>Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
+		<TargetFramework>net8.0</TargetFramework>
+		<RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
+		<AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
+		<Platforms>AnyCPU;x86;x64</Platforms>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="..\Shared\*.cs" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Include="..\Shared\*.cs" />
+	</ItemGroup>
 
-  <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" Version="7.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" Version="7.0.0" />
-  </ItemGroup>
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+		<PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" Version="$(EFCoreVersion)" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" Version="$(EFCoreVersion)" />
+	</ItemGroup>
 
-  <ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
-    <Reference Include="Microsoft.EntityFrameworkCore">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.EntityFrameworkCore.Relational">
-      <HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
-    </Reference>
-    
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-    <PackageReference Include="Microsoft.Extensions.Logging" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
-    <PackageReference Include="Microsoft.Bcl.HashCode" />
-    <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.ComponentModel.Annotations" />
-  </ItemGroup>
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
+		<Reference Include="Microsoft.EntityFrameworkCore">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+		</Reference>
 
-  <ItemGroup>
-    <ProjectReference Include="..\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
-  </ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+		<PackageReference Include="Microsoft.Extensions.Logging" />
+		<PackageReference Include="System.Diagnostics.DiagnosticSource" />
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+		<PackageReference Include="Microsoft.Bcl.HashCode" />
+		<PackageReference Include="System.Collections.Immutable" />
+		<PackageReference Include="System.ComponentModel.Annotations" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <None Update="Properties\JetStrings.Designer.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
-    </None>
-    <Compile Update="Properties\JetStrings.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>JetStrings.Designer.tt</DependentUpon>
-    </Compile>
-    <EmbeddedResource Update="Properties\JetStrings.resx">
-      <CustomToolNamespace>EntityFrameworkCore.Jet.Internal</CustomToolNamespace>
-    </EmbeddedResource>
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Properties\JetStrings.Designer.tt">
+			<Generator>TextTemplatingFileGenerator</Generator>
+			<LastGenOutput>JetStrings.Designer.cs</LastGenOutput>
+		</None>
+		<Compile Update="Properties\JetStrings.Designer.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>JetStrings.Designer.tt</DependentUpon>
+		</Compile>
+		<EmbeddedResource Update="Properties\JetStrings.resx">
+			<CustomToolNamespace>EntityFrameworkCore.Jet.Internal</CustomToolNamespace>
+		</EmbeddedResource>
+	</ItemGroup>
 
 </Project>

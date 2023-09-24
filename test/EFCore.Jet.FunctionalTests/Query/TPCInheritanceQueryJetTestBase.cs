@@ -5,16 +5,16 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public abstract class TPCInheritanceQueryJetTestBase<TFixture> : TPCInheritanceQueryTestBase<TFixture>
     where TFixture : TPCInheritanceQueryJetFixtureBase, new()
 {
-    protected TPCInheritanceQueryJetTestBase(TFixture fixture)
-        : base(fixture)
+    protected TPCInheritanceQueryJetTestBase(TFixture fixture, ITestOutputHelper testOutputHelper)
+        : base(fixture, testOutputHelper)
     {
-        Fixture.TestSqlLoggerFactory.Clear();
     }
 
     [ConditionalFact]
@@ -203,12 +203,12 @@ FROM [Roses] AS [r]
 SELECT TOP(2) [c].[Id], [c].[SortIndex], [c].[CaffeineGrams], [c].[CokeCO2], [c].[SugarGrams]
 FROM [Coke] AS [c]
 """,
-            //
+//
 """
 SELECT TOP(2) [l].[Id], [l].[SortIndex], [l].[LiltCO2], [l].[SugarGrams]
 FROM [Lilt] AS [l]
 """,
-            //
+//
 """
 SELECT TOP(2) [t].[Id], [t].[SortIndex], [t].[CaffeineGrams], [t].[HasMilk]
 FROM [Tea] AS [t]

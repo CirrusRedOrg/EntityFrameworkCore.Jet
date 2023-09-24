@@ -107,7 +107,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     && property.TryGetDefaultValue(storeObject, out _) == false
                     && property.GetDefaultValueSql(storeObject) == null
                     && property.GetComputedColumnSql(storeObject) == null
-                    && property.DeclaringEntityType.Model.GetValueGenerationStrategy() == JetValueGenerationStrategy.IdentityColumn)
+                    && property.DeclaringType.Model.GetValueGenerationStrategy() == JetValueGenerationStrategy.IdentityColumn)
                 {
                     var providerClrType = (property.GetValueConverter() ?? property.FindRelationalTypeMapping(storeObject)?.Converter)
                         ?.ProviderClrType.UnwrapNullableType();

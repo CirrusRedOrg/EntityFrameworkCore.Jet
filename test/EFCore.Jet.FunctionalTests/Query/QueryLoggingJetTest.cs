@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Diagnostics.Internal;
+using EntityFrameworkCore.Jet.FunctionalTests.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -152,7 +153,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             var loggerFactory1 = new ListLoggerFactory();
 
-            using (var context = new NorthwindRelationalContext(CreateOptions(loggerFactory1)))
+            using (var context = new NorthwindJetContext(CreateOptions(loggerFactory1)))
             {
                 var _ = context.Customers.ToList();
             }
@@ -161,7 +162,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             var loggerFactory2 = new ListLoggerFactory();
 
-            using (var context = new NorthwindRelationalContext(CreateOptions(loggerFactory2)))
+            using (var context = new NorthwindJetContext(CreateOptions(loggerFactory2)))
             {
                 var _ = context.Customers.ToList();
             }

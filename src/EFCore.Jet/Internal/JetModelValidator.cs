@@ -208,7 +208,7 @@ namespace EntityFrameworkCore.Jet.Internal
             if (identityColumns.Count > 1)
             {
                 var sb = new StringBuilder()
-                    .AppendJoin(identityColumns.Values.Select(p => "'" + p.DeclaringEntityType.DisplayName() + "." + p.Name + "'"));
+                    .AppendJoin(identityColumns.Values.Select(p => "'" + p.DeclaringType.DisplayName() + "." + p.Name + "'"));
                 throw new InvalidOperationException(JetStrings.MultipleIdentityColumns(sb, storeObject.DisplayName()));
             }
         }
@@ -229,9 +229,9 @@ namespace EntityFrameworkCore.Jet.Internal
             {
                 throw new InvalidOperationException(
                     JetStrings.DuplicateColumnNameValueGenerationStrategyMismatch(
-                        duplicateProperty.DeclaringEntityType.DisplayName(),
+                        duplicateProperty.DeclaringType.DisplayName(),
                         duplicateProperty.Name,
-                        property.DeclaringEntityType.DisplayName(),
+                        property.DeclaringType.DisplayName(),
                         property.Name,
                         columnName,
                         storeObject.DisplayName()));
@@ -246,9 +246,9 @@ namespace EntityFrameworkCore.Jet.Internal
                     {
                         throw new InvalidOperationException(
                             JetStrings.DuplicateColumnIdentityIncrementMismatch(
-                                duplicateProperty.DeclaringEntityType.DisplayName(),
+                                duplicateProperty.DeclaringType.DisplayName(),
                                 duplicateProperty.Name,
-                                property.DeclaringEntityType.DisplayName(),
+                                property.DeclaringType.DisplayName(),
                                 property.Name,
                                 columnName,
                                 storeObject.DisplayName()));
@@ -260,9 +260,9 @@ namespace EntityFrameworkCore.Jet.Internal
                     {
                         throw new InvalidOperationException(
                             JetStrings.DuplicateColumnIdentitySeedMismatch(
-                                duplicateProperty.DeclaringEntityType.DisplayName(),
+                                duplicateProperty.DeclaringType.DisplayName(),
                                 duplicateProperty.Name,
-                                property.DeclaringEntityType.DisplayName(),
+                                property.DeclaringType.DisplayName(),
                                 property.Name,
                                 columnName,
                                 storeObject.DisplayName()));

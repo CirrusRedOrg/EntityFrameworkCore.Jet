@@ -14,10 +14,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 public class TPTInheritanceQueryJetTest : TPTInheritanceQueryTestBase<TPTInheritanceQueryJetFixture>
 {
     public TPTInheritanceQueryJetTest(TPTInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture)
+        : base(fixture, testOutputHelper)
     {
-        Fixture.TestSqlLoggerFactory.Clear();
-        //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -134,12 +132,26 @@ ORDER BY `a`.`Species`
         await base.Can_query_all_plants(async);
 
         AssertSql(
-"""
-SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`, IIF(`r`.`Species` IS NOT NULL, 'Rose', IIF(`d`.`Species` IS NOT NULL, 'Daisy', NULL)) AS `Discriminator`
+            """
+SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`, `d`.`AdditionalInfo_Nickname`, `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`, `d`.`AdditionalInfo_LeafStructure_NumLeaves`, IIF(`r`.`Species` IS NOT NULL, 'Rose', IIF(`d`.`Species` IS NOT NULL, 'Daisy', NULL)) AS `Discriminator`
 FROM (`Plants` AS `p`
 LEFT JOIN `Daisies` AS `d` ON `p`.`Species` = `d`.`Species`)
 LEFT JOIN `Roses` AS `r` ON `p`.`Species` = `r`.`Species`
 ORDER BY `p`.`Species`
+""");
+    }
+
+    public override async Task Filter_on_property_inside_complex_type_on_derived_type(bool async)
+    {
+        await base.Filter_on_property_inside_complex_type_on_derived_type(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `d`.`AdditionalInfo_Nickname`, `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`, `d`.`AdditionalInfo_LeafStructure_NumLeaves`
+FROM (`Plants` AS `p`
+INNER JOIN `Flowers` AS `f` ON `p`.`Species` = `f`.`Species`)
+INNER JOIN `Daisies` AS `d` ON `p`.`Species` = `d`.`Species`
+WHERE `d`.`AdditionalInfo_LeafStructure_AreLeavesBig` = TRUE
 """);
     }
 
@@ -193,13 +205,13 @@ SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `c`.`CaffeineGrams`, `c`.`CokeCO2`, `c`.
 FROM `Drinks` AS `d`
 INNER JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`
 """,
-            //
+//
 """
 SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `l`.`LiltCO2`, `l`.`SugarGrams`
 FROM `Drinks` AS `d`
 INNER JOIN `Lilt` AS `l` ON `d`.`Id` = `l`.`Id`
 """,
-            //
+//
 """
 SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `t`.`CaffeineGrams`, `t`.`HasMilk`
 FROM `Drinks` AS `d`
@@ -286,7 +298,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE (`k`.`Id` IS NOT NULL) AND `a`.`CountryId` = 1
+WHERE `k`.`Id` IS NOT NULL AND `a`.`CountryId` = 1
 """);
     }
 
@@ -316,7 +328,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE (`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL)
+WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 ORDER BY `a`.`Species`
 """);
     }
@@ -332,7 +344,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE (`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL)
+WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 ORDER BY `a`.`Species`
 """);
     }
@@ -348,7 +360,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND ((`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL))
+WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
 ORDER BY `a`.`Species`
 """);
     }
@@ -364,7 +376,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE (`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL)
+WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 """);
     }
 
@@ -466,7 +478,7 @@ FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """,
-            //
+//
 """
 @p0='0'
 @p1='Bald eagle' (Size = 255)
@@ -640,7 +652,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE (`k`.`Id` IS NOT NULL) AND (`e`.`Id` IS NOT NULL)
+WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
 """);
     }
 
@@ -655,7 +667,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE (`k`.`Id` IS NOT NULL) AND (`e`.`Id` IS NOT NULL)
+WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
 """);
     }
 

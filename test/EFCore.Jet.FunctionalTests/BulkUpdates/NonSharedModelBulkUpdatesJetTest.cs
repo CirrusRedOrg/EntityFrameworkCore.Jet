@@ -87,11 +87,12 @@ LEFT JOIN [Context30572_Dependent] AS [c0] ON [c].[DependentId] = [c0].[Id]
         AssertSql(
 """
 DELETE FROM `Posts` AS `p`
-WHERE EXISTS (
-    SELECT 1
+WHERE `p`.`Id` IN (
+    SELECT `p0`.`Id`
     FROM `Posts` AS `p0`
     LEFT JOIN `Blogs` AS `b` ON `p0`.`BlogId` = `b`.`Id`
-    WHERE (`b`.`Title` IS NOT NULL) AND (`b`.`Title` LIKE 'Arthur%') AND `p0`.`Id` = `p`.`Id`)
+    WHERE `b`.`Title` LIKE 'Arthur%'
+)
 """);
     }
 

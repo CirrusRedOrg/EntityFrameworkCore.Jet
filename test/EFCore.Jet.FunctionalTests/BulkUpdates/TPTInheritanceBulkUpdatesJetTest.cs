@@ -13,10 +13,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 public class TPTInheritanceBulkUpdatesJetTest : TPTInheritanceBulkUpdatesTestBase<TPTInheritanceBulkUpdatesJetFixture>
 {
     public TPTInheritanceBulkUpdatesJetTest(TPTInheritanceBulkUpdatesJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture)
+        : base(fixture, testOutputHelper)
     {
-        ClearLog();
-        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -86,23 +84,9 @@ public class TPTInheritanceBulkUpdatesJetTest : TPTInheritanceBulkUpdatesTestBas
         AssertSql();
     }
 
-    public override async Task Update_where_hierarchy(bool async)
-    {
-        await base.Update_where_hierarchy(async);
-
-        AssertExecuteUpdateSql();
-    }
-
     public override async Task Update_where_hierarchy_subquery(bool async)
     {
         await base.Update_where_hierarchy_subquery(async);
-
-        AssertExecuteUpdateSql();
-    }
-
-    public override async Task Update_where_hierarchy_derived(bool async)
-    {
-        await base.Update_where_hierarchy_derived(async);
 
         AssertExecuteUpdateSql();
     }
@@ -130,7 +114,7 @@ WHERE (
         await base.Update_where_using_hierarchy_derived(async);
 
         AssertExecuteUpdateSql(
-            """
+"""
 UPDATE `Countries` AS `c`
 SET `Name` = 'Monovia'
 WHERE (
@@ -139,7 +123,7 @@ WHERE (
     LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
     LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
     LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-    WHERE `c`.`Id` = `a`.`CountryId` AND (`k`.`Id` IS NOT NULL) AND `a`.`CountryId` > 0) > 0
+    WHERE `c`.`Id` = `a`.`CountryId` AND `k`.`Id` IS NOT NULL AND `a`.`CountryId` > 0) > 0
 """);
     }
 

@@ -51,7 +51,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL)
+WHERE `a`.`CountryId` = 1 AND `k`.`Id` IS NOT NULL
 """);
     }
 
@@ -66,7 +66,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL) AND `a`.`CountryId` = 1
+WHERE `a`.`CountryId` = 1 AND `k`.`Id` IS NOT NULL AND `a`.`CountryId` = 1
 """);
     }
 
@@ -94,7 +94,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND ((`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL))
+WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
 ORDER BY `a`.`Species`
 """);
     }
@@ -110,7 +110,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND `a`.`CountryId` = 1 AND ((`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL))
+WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
 ORDER BY `a`.`Species`
 """);
     }
@@ -125,7 +125,7 @@ SELECT `a`.`Name`
 FROM (`Animals` AS `a`
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND ((`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL))
+WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
 """);
     }
 
@@ -140,7 +140,7 @@ FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND ((`k`.`Id` IS NOT NULL) OR (`e`.`Id` IS NOT NULL))
+WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
 ORDER BY `a`.`Species`
 """);
     }
@@ -155,7 +155,7 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
 FROM (`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL)
+WHERE `a`.`CountryId` = 1 AND `k`.`Id` IS NOT NULL
 """);
     }
 

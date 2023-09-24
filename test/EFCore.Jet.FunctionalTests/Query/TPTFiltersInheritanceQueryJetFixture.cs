@@ -7,6 +7,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class TPTFiltersInheritanceQueryJetFixture : TPTInheritanceQueryJetFixture
 {
-    protected override bool EnableFilters
+    public override bool EnableFilters
         => true;
 }

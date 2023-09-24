@@ -664,7 +664,7 @@ LEFT JOIN `DerivedReferencesOnDerived` AS `d0` ON `d`.`Id` = `d0`.`DerivedInheri
 LEFT JOIN `OwnedReferences` AS `o` ON `d`.`Id` = `o`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `OwnedCollections` AS `o0` ON `d`.`Id` = `o0`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `d`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `d`.`Name` <> 'Bar' OR (`d`.`Name` IS NULL)
+WHERE `d`.`Name` <> 'Bar' OR `d`.`Name` IS NULL
 ORDER BY `d`.`Id`, `d0`.`Id`, `o`.`BaseInheritanceRelationshipEntityId`, `o0`.`BaseInheritanceRelationshipEntityId`, `o0`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }

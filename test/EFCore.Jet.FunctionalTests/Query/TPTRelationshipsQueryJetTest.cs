@@ -97,7 +97,7 @@ LEFT JOIN `DerivedEntities` AS `d` ON `b`.`Id` = `d`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `b`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `b`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`)
 LEFT JOIN `CollectionsOnBase` AS `c` ON `b`.`Id` = `c`.`ParentId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `d0`.`DerivedInheritanceRelationshipEntityId`, `d0`.`Id`
 """);
     }
@@ -117,7 +117,7 @@ LEFT JOIN (
 ) AS `t` ON `c`.`ParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `t`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `t`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`
-WHERE `c`.`Name` <> 'Bar' OR (`c`.`Name` IS NULL)
+WHERE `c`.`Name` <> 'Bar' OR `c`.`Name` IS NULL
 ORDER BY `c`.`Id`, `t`.`Id`, `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `d0`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -258,7 +258,7 @@ LEFT JOIN (
     FROM `BaseCollectionsOnBase` AS `b1`
     LEFT JOIN `DerivedCollectionsOnBase` AS `d1` ON `b1`.`Id` = `d1`.`Id`
 ) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `d0`.`DerivedInheritanceRelationshipEntityId`, `d0`.`Id`
 """);
     }
@@ -279,7 +279,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `t`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `t`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -382,7 +382,7 @@ LEFT JOIN `DerivedEntities` AS `d` ON `b`.`Id` = `d`.`Id`)
 LEFT JOIN `ReferencesOnBase` AS `r` ON `b`.`Id` = `r`.`ParentId`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `b`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `b`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `r`.`Id`, `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `d0`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -402,7 +402,7 @@ LEFT JOIN (
 ) AS `t` ON `r`.`ParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `t`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `t`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`
-WHERE `r`.`Name` <> 'Bar' OR (`r`.`Name` IS NULL)
+WHERE `r`.`Name` <> 'Bar' OR `r`.`Name` IS NULL
 ORDER BY `r`.`Id`, `t`.`Id`, `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `d0`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -523,7 +523,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`Id` = `t`.`BaseParentId`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `b`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `b`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -544,7 +544,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`Id` = `t`.`BaseParentId`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `b`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `b`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -565,7 +565,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`Id` = `t`.`DerivedInheritanceRelationshipEntityId`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `b`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `b`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -586,7 +586,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `t`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `t`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -627,7 +627,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`Id` = `t`.`BaseParentId`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `b`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `b`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -648,7 +648,7 @@ LEFT JOIN (
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `t`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `t`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`, `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `d1`.`DerivedInheritanceRelationshipEntityId`
 """);
     }
@@ -1091,7 +1091,7 @@ ORDER BY `b`.`Id`, `t`.`Id`
 SELECT `b`.`Id`, `b`.`Name`, `d`.`BaseId`, IIF(`d`.`Id` IS NOT NULL, 'DerivedInheritanceRelationshipEntity', NULL) AS `Discriminator`, `b`.`OwnedReferenceOnBase_Id`, `b`.`OwnedReferenceOnBase_Name`, `d`.`Id`, `d`.`OwnedReferenceOnDerived_Id`, `d`.`OwnedReferenceOnDerived_Name`
 FROM `BaseEntities` AS `b`
 LEFT JOIN `DerivedEntities` AS `d` ON `b`.`Id` = `d`.`Id`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """,
             //
@@ -1099,7 +1099,7 @@ ORDER BY `b`.`Id`
 SELECT `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `b0`.`Name`, `b`.`Id`
 FROM `BaseEntities` AS `b`
 INNER JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `b`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """,
             //
@@ -1107,7 +1107,7 @@ ORDER BY `b`.`Id`
 SELECT `d0`.`DerivedInheritanceRelationshipEntityId`, `d0`.`Id`, `d0`.`Name`, `b`.`Id`
 FROM `BaseEntities` AS `b`
 INNER JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `b`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """,
             //
@@ -1119,7 +1119,7 @@ INNER JOIN (
     FROM `BaseCollectionsOnBase` AS `b0`
     LEFT JOIN `DerivedCollectionsOnBase` AS `d0` ON `b0`.`Id` = `d0`.`Id`
 ) AS `t` ON `b`.`Id` = `t`.`BaseParentId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """);
     }
@@ -1138,11 +1138,11 @@ LEFT JOIN (
     FROM `BaseEntities` AS `b0`
     LEFT JOIN `DerivedEntities` AS `d0` ON `b0`.`Id` = `d0`.`Id`
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`, `t`.`Id`
 """,
-                //
-                """
+            //
+"""
 SELECT `b1`.`BaseInheritanceRelationshipEntityId`, `b1`.`Id`, `b1`.`Name`, `b`.`Id`, `t`.`Id`
 FROM (`BaseCollectionsOnBase` AS `b`
 LEFT JOIN (
@@ -1150,11 +1150,11 @@ LEFT JOIN (
     FROM `BaseEntities` AS `b0`
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b1` ON `t`.`Id` = `b1`.`BaseInheritanceRelationshipEntityId`
-WHERE (`b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)) AND (`t`.`Id` IS NOT NULL AND `b1`.`BaseInheritanceRelationshipEntityId` IS NOT NULL)
+WHERE (`b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL) AND (`t`.`Id` IS NOT NULL AND `b1`.`BaseInheritanceRelationshipEntityId` IS NOT NULL)
 ORDER BY `b`.`Id`, `t`.`Id`
 """,
-                //
-                """
+            //
+"""
 SELECT `d1`.`DerivedInheritanceRelationshipEntityId`, `d1`.`Id`, `d1`.`Name`, `b`.`Id`, `t`.`Id`
 FROM (`BaseCollectionsOnBase` AS `b`
 LEFT JOIN (
@@ -1162,7 +1162,7 @@ LEFT JOIN (
     FROM `BaseEntities` AS `b0`
 ) AS `t` ON `b`.`BaseParentId` = `t`.`Id`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d1` ON `t`.`Id` = `d1`.`DerivedInheritanceRelationshipEntityId`
-WHERE (`b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)) AND (`t`.`Id` IS NOT NULL AND `d1`.`DerivedInheritanceRelationshipEntityId` IS NOT NULL)
+WHERE (`b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL) AND (`t`.`Id` IS NOT NULL AND `d1`.`DerivedInheritanceRelationshipEntityId` IS NOT NULL)
 ORDER BY `b`.`Id`, `t`.`Id`
 """);
     }
@@ -1251,7 +1251,7 @@ ORDER BY `c`.`Id`, `t`.`Id`
 SELECT `b`.`Id`, `b`.`Name`, `d`.`BaseId`, IIF(`d`.`Id` IS NOT NULL, 'DerivedInheritanceRelationshipEntity', NULL) AS `Discriminator`, `b`.`OwnedReferenceOnBase_Id`, `b`.`OwnedReferenceOnBase_Name`, `d`.`Id`, `d`.`OwnedReferenceOnDerived_Id`, `d`.`OwnedReferenceOnDerived_Name`
 FROM `BaseEntities` AS `b`
 LEFT JOIN `DerivedEntities` AS `d` ON `b`.`Id` = `d`.`Id`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """,
             //
@@ -1259,7 +1259,7 @@ ORDER BY `b`.`Id`
 SELECT `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `b0`.`Name`, `b`.`Id`
 FROM `BaseEntities` AS `b`
 INNER JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `b`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """,
             //
@@ -1267,7 +1267,7 @@ ORDER BY `b`.`Id`
 SELECT `d0`.`DerivedInheritanceRelationshipEntityId`, `d0`.`Id`, `d0`.`Name`, `b`.`Id`
 FROM `BaseEntities` AS `b`
 INNER JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `b`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """,
             //
@@ -1275,7 +1275,7 @@ ORDER BY `b`.`Id`
 SELECT `c`.`Id`, `c`.`Name`, `c`.`ParentId`, `b`.`Id`
 FROM `BaseEntities` AS `b`
 INNER JOIN `CollectionsOnBase` AS `c` ON `b`.`Id` = `c`.`ParentId`
-WHERE `b`.`Name` <> 'Bar' OR (`b`.`Name` IS NULL)
+WHERE `b`.`Name` <> 'Bar' OR `b`.`Name` IS NULL
 ORDER BY `b`.`Id`
 """);
     }
@@ -1285,7 +1285,7 @@ ORDER BY `b`.`Id`
         await base.Include_collection_without_inheritance_with_filter_reverse_split(async);
 
         AssertSql(
-            """
+"""
 SELECT `c`.`Id`, `c`.`Name`, `c`.`ParentId`, `t`.`Id`, `t`.`Name`, `t`.`BaseId`, `t`.`Discriminator`, `t`.`OwnedReferenceOnBase_Id`, `t`.`OwnedReferenceOnBase_Name`, `t`.`Id0`, `t`.`OwnedReferenceOnDerived_Id`, `t`.`OwnedReferenceOnDerived_Name`
 FROM `CollectionsOnBase` AS `c`
 LEFT JOIN (
@@ -1293,11 +1293,11 @@ LEFT JOIN (
     FROM `BaseEntities` AS `b`
     LEFT JOIN `DerivedEntities` AS `d` ON `b`.`Id` = `d`.`Id`
 ) AS `t` ON `c`.`ParentId` = `t`.`Id`
-WHERE `c`.`Name` <> 'Bar' OR (`c`.`Name` IS NULL)
+WHERE `c`.`Name` <> 'Bar' OR `c`.`Name` IS NULL
 ORDER BY `c`.`Id`, `t`.`Id`
 """,
             //
-            """
+"""
 SELECT `b0`.`BaseInheritanceRelationshipEntityId`, `b0`.`Id`, `b0`.`Name`, `c`.`Id`, `t`.`Id`
 FROM (`CollectionsOnBase` AS `c`
 LEFT JOIN (
@@ -1305,11 +1305,11 @@ LEFT JOIN (
     FROM `BaseEntities` AS `b`
 ) AS `t` ON `c`.`ParentId` = `t`.`Id`)
 LEFT JOIN `BaseEntities_OwnedCollectionOnBase` AS `b0` ON `t`.`Id` = `b0`.`BaseInheritanceRelationshipEntityId`
-WHERE (`c`.`Name` <> 'Bar' OR (`c`.`Name` IS NULL)) AND (`t`.`Id` IS NOT NULL AND `b0`.`BaseInheritanceRelationshipEntityId` IS NOT NULL)
+WHERE (`c`.`Name` <> 'Bar' OR `c`.`Name` IS NULL) AND (`t`.`Id` IS NOT NULL AND `b0`.`BaseInheritanceRelationshipEntityId` IS NOT NULL)
 ORDER BY `c`.`Id`, `t`.`Id`
 """,
             //
-            """
+"""
 SELECT `d0`.`DerivedInheritanceRelationshipEntityId`, `d0`.`Id`, `d0`.`Name`, `c`.`Id`, `t`.`Id`
 FROM (`CollectionsOnBase` AS `c`
 LEFT JOIN (
@@ -1317,7 +1317,7 @@ LEFT JOIN (
     FROM `BaseEntities` AS `b`
 ) AS `t` ON `c`.`ParentId` = `t`.`Id`)
 LEFT JOIN `DerivedEntities_OwnedCollectionOnDerived` AS `d0` ON `t`.`Id` = `d0`.`DerivedInheritanceRelationshipEntityId`
-WHERE (`c`.`Name` <> 'Bar' OR (`c`.`Name` IS NULL)) AND (`t`.`Id` IS NOT NULL AND `d0`.`DerivedInheritanceRelationshipEntityId` IS NOT NULL)
+WHERE (`c`.`Name` <> 'Bar' OR `c`.`Name` IS NULL) AND (`t`.`Id` IS NOT NULL AND `d0`.`DerivedInheritanceRelationshipEntityId` IS NOT NULL)
 ORDER BY `c`.`Id`, `t`.`Id`
 """);
     }

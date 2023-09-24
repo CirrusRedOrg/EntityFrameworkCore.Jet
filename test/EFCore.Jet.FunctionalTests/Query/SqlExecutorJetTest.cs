@@ -19,19 +19,19 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        public override void Executes_stored_procedure()
+        public override async Task Executes_stored_procedure(bool async)
         {
-            base.Executes_stored_procedure();
+            await base.Executes_stored_procedure(async);
 
             AssertSql($@"`Ten Most Expensive Products`");
         }
 
-        public override void Executes_stored_procedure_with_parameter()
+        public override async Task Executes_stored_procedure_with_parameter(bool async)
         {
-            base.Executes_stored_procedure_with_parameter();
+            await base.Executes_stored_procedure_with_parameter(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@CustomerID='ALFKI' (Nullable = false) (Size = 5)")}
@@ -39,9 +39,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 `CustOrderHist` @CustomerID");
         }
 
-        public override void Executes_stored_procedure_with_generated_parameter()
+        public override async Task Executes_stored_procedure_with_generated_parameter(bool async)
         {
-            base.Executes_stored_procedure_with_generated_parameter();
+            await base.Executes_stored_procedure_with_generated_parameter(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='ALFKI' (Size = 4000)")}
@@ -49,9 +49,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 `CustOrderHist` @CustomerID = {AssertSqlHelper.Parameter("@p0")}");
         }
 
-        public override void Query_with_parameters()
+        public override async Task Query_with_parameters(bool async)
         {
-            base.Query_with_parameters();
+            await base.Query_with_parameters(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
@@ -60,9 +60,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
         }
 
-        public override void Query_with_dbParameter_with_name()
+        public override async Task Query_with_dbParameter_with_name(bool async)
         {
-            base.Query_with_dbParameter_with_name();
+            await base.Query_with_dbParameter_with_name(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
@@ -70,9 +70,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
 
-        public override void Query_with_positional_dbParameter_with_name()
+        public override async Task Query_with_positional_dbParameter_with_name(bool async)
         {
-            base.Query_with_positional_dbParameter_with_name();
+            await base.Query_with_positional_dbParameter_with_name(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
@@ -80,9 +80,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
         }
 
-        public override void Query_with_positional_dbParameter_without_name()
+        public override async Task Query_with_positional_dbParameter_without_name(bool async)
         {
-            base.Query_with_positional_dbParameter_without_name();
+            await base.Query_with_positional_dbParameter_without_name(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Nullable = false) (Size = 6)")}
@@ -90,9 +90,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")}");
         }
 
-        public override void Query_with_dbParameters_mixed()
+        public override async Task Query_with_dbParameters_mixed(bool async)
         {
-            base.Query_with_dbParameters_mixed();
+            await base.Query_with_dbParameters_mixed(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
@@ -106,31 +106,9 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
 SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p0")}");
         }
 
-        public override void Query_with_parameters_interpolated()
+        public override async Task Query_with_parameters_interpolated(bool async)
         {
-            base.Query_with_parameters_interpolated();
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
-
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
-        }
-
-        public override async Task Query_with_parameters_async()
-        {
-            await base.Query_with_parameters_async();
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
-
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
-        }
-
-        public override async Task Query_with_parameters_interpolated_async()
-        {
-            await base.Query_with_parameters_interpolated_async();
+            await base.Query_with_parameters_interpolated(async);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}

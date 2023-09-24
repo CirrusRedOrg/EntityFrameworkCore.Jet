@@ -5,16 +5,16 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
 public class TPCFiltersInheritanceBulkUpdatesJetTest : TPCFiltersInheritanceBulkUpdatesTestBase<
     TPCFiltersInheritanceBulkUpdatesJetFixture>
 {
-    public TPCFiltersInheritanceBulkUpdatesJetTest(TPCFiltersInheritanceBulkUpdatesJetFixture fixture)
-        : base(fixture)
+    public TPCFiltersInheritanceBulkUpdatesJetTest(TPCFiltersInheritanceBulkUpdatesJetFixture fixture, ITestOutputHelper testOutputHelper)
+        : base(fixture, testOutputHelper)
     {
-        ClearLog();
     }
 
     [ConditionalFact]
@@ -114,31 +114,11 @@ WHERE (
         AssertSql();
     }
 
-    public override async Task Update_where_hierarchy(bool async)
-    {
-        await base.Update_where_hierarchy(async);
-
-        AssertExecuteUpdateSql();
-    }
-
     public override async Task Update_where_hierarchy_subquery(bool async)
     {
         await base.Update_where_hierarchy_subquery(async);
 
         AssertExecuteUpdateSql();
-    }
-
-    public override async Task Update_where_hierarchy_derived(bool async)
-    {
-        await base.Update_where_hierarchy_derived(async);
-
-        AssertExecuteUpdateSql(
-"""
-UPDATE [k]
-SET [k].[Name] = N'Kiwi'
-FROM [Kiwi] AS [k]
-WHERE [k].[CountryId] = 1 AND [k].[Name] = N'Great spotted kiwi'
-""");
     }
 
     public override async Task Update_where_using_hierarchy(bool async)

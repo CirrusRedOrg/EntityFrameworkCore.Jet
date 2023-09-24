@@ -38,11 +38,11 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
         {
         }
 
-        protected override ValueGenerator? FindForType(IProperty property, IEntityType entityType, Type clrType)
+        protected override ValueGenerator? FindForType(IProperty property, ITypeBase typeBase, Type clrType)
             => property.ClrType.UnwrapNullableType() == typeof(Guid)
                 ? property.ValueGenerated == ValueGenerated.Never || property.GetDefaultValueSql() != null
                     ? new TemporaryGuidValueGenerator()
                     : new SequentialGuidValueGenerator()
-                : base.FindForType(property, entityType, clrType);
+                : base.FindForType(property, typeBase, clrType);
     }
 }

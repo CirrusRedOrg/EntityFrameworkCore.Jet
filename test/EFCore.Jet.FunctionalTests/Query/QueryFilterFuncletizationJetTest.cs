@@ -85,17 +85,29 @@ WHERE `m`.`Tenant` = {AssertSqlHelper.Parameter("@__ef_filter__p_0")}");
             base.DbContext_list_is_parameterized();
 
             AssertSql(
-                $@"SELECT `l`.`Id`, `l`.`Tenant`
+"""
+SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE True = False",
+WHERE 0 = 1
+""",
                 //
-                $@"SELECT `l`.`Id`, `l`.`Tenant`
+"""
+SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE `l`.`Tenant` IN (1)",
+WHERE 0 = 1
+""",
                 //
-                $@"SELECT `l`.`Id`, `l`.`Tenant`
+"""
+SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE `l`.`Tenant` IN (2, 3)");
+WHERE `l`.`Tenant` = 1
+""",
+                //
+"""
+SELECT `l`.`Id`, `l`.`Tenant`
+FROM `ListFilter` AS `l`
+WHERE `l`.`Tenant` IN (2, 3)
+""");
         }
 
         public override void DbContext_property_chain_is_parameterized()

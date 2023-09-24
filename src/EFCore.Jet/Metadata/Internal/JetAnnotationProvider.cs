@@ -84,7 +84,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             var table = StoreObjectIdentifier.Table(column.Table.Name, column.Table.Schema);
             var property = column.PropertyMappings.Where(
                     m =>
-                        (m.TableMapping.IsSharedTablePrincipal ?? true) && m.TableMapping.EntityType == m.Property.DeclaringEntityType)
+                        (m.TableMapping.IsSharedTablePrincipal ?? true) && m.TableMapping.TypeBase == m.Property.DeclaringType)
                 .Select(m => m.Property)
                 .FirstOrDefault(
                     p => p.GetValueGenerationStrategy(table)
@@ -101,18 +101,21 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             else
             {
                 property = column.PropertyMappings.First().Property;
-                // Only return auto increment for integer single column primary key
-                var primaryKey = property.DeclaringEntityType.FindPrimaryKey();
-                if (primaryKey != null
-                    && primaryKey.Properties.Count == 1
-                    && primaryKey.Properties[0] == property
-                    && property.ValueGenerated == ValueGenerated.OnAdd
-                    && property.ClrType.UnwrapNullableType().IsInteger()
-                    && !HasConverter(property))
+                if (property.DeclaringType is IEntityType entityType)
                 {
-                    yield return new Annotation(
-                        JetAnnotationNames.Identity,
-                        string.Format(CultureInfo.InvariantCulture, "{0}, {1}", 1, 1));
+                    // Only return auto increment for integer single column primary key
+                    var primaryKey = entityType.FindPrimaryKey();
+                    if (primaryKey != null
+                        && primaryKey.Properties.Count == 1
+                        && primaryKey.Properties[0] == property
+                        && property.ValueGenerated == ValueGenerated.OnAdd
+                        && property.ClrType.UnwrapNullableType().IsInteger()
+                        && !HasConverter(property))
+                    {
+                        yield return new Annotation(
+                            JetAnnotationNames.Identity,
+                            string.Format(CultureInfo.InvariantCulture, "{0}, {1}", 1, 1));
+                    }
                 }
             }
         }

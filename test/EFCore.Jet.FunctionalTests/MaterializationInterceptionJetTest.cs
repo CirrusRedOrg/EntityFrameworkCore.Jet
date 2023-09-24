@@ -15,13 +15,31 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class MaterializationInterceptionJetTest : MaterializationInterceptionTestBase,
+public class MaterializationInterceptionJetTest : MaterializationInterceptionTestBase<MaterializationInterceptionJetTest.JetLibraryContext>,
     IClassFixture<MaterializationInterceptionJetTest.MaterializationInterceptionJetFixture>
 {
     public MaterializationInterceptionJetTest(MaterializationInterceptionJetFixture fixture)
         : base(fixture)
     {
     }
+
+    public class JetLibraryContext : LibraryContext
+    {
+        public JetLibraryContext(DbContextOptions options)
+            : base(options)
+        {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<TestEntity30244>().OwnsMany(e => e.Settings, b => b.ToJson());
+        }
+    }
+
+    public override LibraryContext CreateContext(IEnumerable<ISingletonInterceptor> interceptors, bool inject)
+        => new JetLibraryContext(Fixture.CreateOptions(interceptors, inject));
 
     public class MaterializationInterceptionJetFixture : SingletonInterceptorsFixtureBase
     {

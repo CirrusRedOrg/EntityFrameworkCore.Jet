@@ -21,6 +21,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
+        protected override bool CanExecuteQueryString
+        => false;
+
+        [ConditionalFact]
+        public virtual void Check_all_tests_overridden()
+            => TestHelpers.AssertAllMethodsOverridden(GetType());
+
         public override async Task GroupBy_Property_Select_Average(bool isAsync)
         {
             await base.GroupBy_Property_Select_Average(isAsync);
@@ -1218,13 +1225,15 @@ ORDER BY COUNT(*), `o`.`CustomerID`");
             await base.GroupBy_aggregate_Contains(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
     GROUP BY `o0`.`CustomerID`
-    HAVING COUNT(*) > 30 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR ((`o0`.`CustomerID` IS NULL) AND (`o`.`CustomerID` IS NULL))))");
+    HAVING COUNT(*) > 30 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o`.`CustomerID` IS NULL)))
+""");
         }
 
         public override async Task GroupBy_aggregate_Pushdown(bool isAsync)
@@ -1522,12 +1531,14 @@ ORDER BY `o1`.`OrderID`");
             await base.Select_GroupBy_All(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(NOT EXISTS (
+"""
+SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
         GROUP BY `o`.`CustomerID`
-        HAVING `o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL)), TRUE, FALSE)
-FROM (SELECT COUNT(*) FROM `#Dual`)");
+        HAVING `o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task GroupBy_Key_as_part_of_element_selector(bool isAsync)
@@ -1590,13 +1601,15 @@ GROUP BY `o`.`OrderID`, `o`.`CustomerID`");
             await base.GroupBy_with_aggregate_through_navigation_property(isAsync);
 
             AssertSql(
-                $@"SELECT (
+"""
+SELECT (
     SELECT MAX(`c`.`Region`)
     FROM `Orders` AS `o0`
     LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-    WHERE `o`.`EmployeeID` = `o0`.`EmployeeID` OR ((`o`.`EmployeeID` IS NULL) AND (`o0`.`EmployeeID` IS NULL))) AS `max`
+    WHERE `o`.`EmployeeID` = `o0`.`EmployeeID` OR (`o`.`EmployeeID` IS NULL AND `o0`.`EmployeeID` IS NULL)) AS `max`
 FROM `Orders` AS `o`
-GROUP BY `o`.`EmployeeID`");
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_Shadow(bool isAsync)
@@ -1604,13 +1617,15 @@ GROUP BY `o`.`EmployeeID`");
             await base.GroupBy_Shadow(isAsync);
 
             AssertSql(
-                $@"SELECT (
+"""
+SELECT (
     SELECT TOP 1 `e0`.`Title`
     FROM `Employees` AS `e0`
-    WHERE `e0`.`Title` = 'Sales Representative' AND `e0`.`EmployeeID` = 1 AND (`e`.`Title` = `e0`.`Title` OR ((`e`.`Title` IS NULL) AND (`e0`.`Title` IS NULL))))
+    WHERE `e0`.`Title` = 'Sales Representative' AND `e0`.`EmployeeID` = 1 AND (`e`.`Title` = `e0`.`Title` OR (`e`.`Title` IS NULL AND `e0`.`Title` IS NULL)))
 FROM `Employees` AS `e`
 WHERE `e`.`Title` = 'Sales Representative' AND `e`.`EmployeeID` = 1
-GROUP BY `e`.`Title`");
+GROUP BY `e`.`Title`
+""");
         }
 
         public override async Task GroupBy_Shadow2(bool isAsync)
@@ -1890,12 +1905,14 @@ GROUP BY `t`.`CustomerID`");
             await base.GroupBy_with_grouping_key_using_Like(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`Key`, COUNT(*) AS `Count`
+"""
+SELECT `t`.`Key`, COUNT(*) AS `Count`
 FROM (
-    SELECT IIF(`o`.`CustomerID` LIKE 'A%', TRUE, FALSE) AS `Key`
+    SELECT IIF((`o`.`CustomerID` LIKE 'A%') AND `o`.`CustomerID` IS NOT NULL, TRUE, FALSE) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
-GROUP BY `t`.`Key`");
+GROUP BY `t`.`Key`
+""");
         }
 
         public override async Task GroupBy_with_grouping_key_DateTime_Day(bool isAsync)

@@ -12,6 +12,6 @@ public class TPCInheritanceBulkUpdatesJetFixture : TPCInheritanceBulkUpdatesFixt
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
 
-    protected override bool UseGeneratedKeys
+    public override bool UseGeneratedKeys
         => false;
 }

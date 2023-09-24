@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -15,8 +16,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             ClearLog();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
+
+        protected override bool CanExecuteQueryString
+        => false;
+
+        [ConditionalFact]
+        public virtual void Check_all_tests_overridden()
+            => TestHelpers.AssertAllMethodsOverridden(GetType());
 
         public override async Task Select_Where_Navigation(bool isAsync)
         {
@@ -256,10 +264,12 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`");
             await base.Select_Where_Navigation_Multiple_Access(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` IS NULL))");
+WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` IS NULL)
+""");
         }
 
         public override async Task Select_Navigations_Where_Navigations(bool isAsync)
@@ -267,10 +277,12 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` 
             await base.Select_Navigations_Where_Navigations(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` IS NULL))");
+WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` IS NULL)
+""");
         }
 
         public override async Task Select_Singleton_Navigation_With_Member_Access(bool isAsync)
@@ -278,10 +290,12 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` 
             await base.Select_Singleton_Navigation_With_Member_Access(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` IS NULL))");
+WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` IS NULL)
+""");
         }
 
         public override async Task Select_count_plus_sum(bool isAsync)
@@ -304,10 +318,12 @@ FROM `Orders` AS `o`");
             await base.Singleton_Navigation_With_Member_Access(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`City` AS `B`
+"""
+SELECT `c`.`City` AS `B`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` IS NULL))");
+WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` IS NULL)
+""");
         }
 
         public override async Task Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(bool isAsync)
@@ -315,22 +331,22 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` 
             await base.Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(isAsync);
 
             AssertSql(
-                """
-    SELECT `t0`.`CustomerID`, `t0`.`CustomerID0` AS `C2`
-    FROM ((
-        SELECT `o`.`CustomerID`, `t`.`CustomerID` AS `CustomerID0`
-        FROM `Orders` AS `o`,
-        (
-            SELECT `o0`.`CustomerID`
-            FROM `Orders` AS `o0`
-            WHERE `o0`.`OrderID` < 10400
-        ) AS `t`
-        WHERE `o`.`OrderID` < 10300
-    ) AS `t0`
-    LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
-    LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
-    WHERE `c`.`City` = `c0`.`City` OR ((`c`.`City` IS NULL) AND (`c0`.`City` IS NULL))
-    """);
+"""
+SELECT `t0`.`CustomerID`, `t0`.`CustomerID0` AS `C2`
+FROM ((
+    SELECT `o`.`CustomerID`, `t`.`CustomerID` AS `CustomerID0`
+    FROM `Orders` AS `o`,
+    (
+        SELECT `o0`.`CustomerID`
+        FROM `Orders` AS `o0`
+        WHERE `o0`.`OrderID` < 10400
+    ) AS `t`
+    WHERE `o`.`OrderID` < 10300
+) AS `t0`
+LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
+WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
+""");
         }
 
         public override async Task Select_Where_Navigation_Equals_Navigation(bool isAsync)
@@ -338,18 +354,18 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR (`c`.`Phone` 
             await base.Select_Where_Navigation_Equals_Navigation(isAsync);
 
             AssertSql(
-                """
-    SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`CustomerID0`, `t`.`EmployeeID0`, `t`.`OrderDate0`
-    FROM ((
-        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`, `o0`.`EmployeeID` AS `EmployeeID0`, `o0`.`OrderDate` AS `OrderDate0`
-        FROM `Orders` AS `o`,
-        `Orders` AS `o0`
-        WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%') AND (`o0`.`CustomerID` IS NOT NULL) AND (`o0`.`CustomerID` LIKE 'A%')
-    ) AS `t`
-    LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`)
-    LEFT JOIN `Customers` AS `c0` ON `t`.`CustomerID0` = `c0`.`CustomerID`
-    WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR ((`c`.`CustomerID` IS NULL) AND (`c0`.`CustomerID` IS NULL))
-    """);
+"""
+SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`CustomerID0`, `t`.`EmployeeID0`, `t`.`OrderDate0`
+FROM ((
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`, `o0`.`EmployeeID` AS `EmployeeID0`, `o0`.`OrderDate` AS `OrderDate0`
+    FROM `Orders` AS `o`,
+    `Orders` AS `o0`
+    WHERE (`o`.`CustomerID` LIKE 'A%') AND (`o0`.`CustomerID` LIKE 'A%')
+) AS `t`
+LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `t`.`CustomerID0` = `c0`.`CustomerID`
+WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL)
+""");
         }
 
         public override async Task Select_Where_Navigation_Null(bool isAsync)
@@ -514,11 +530,13 @@ WHERE EXISTS (
             await base.Collection_select_nav_prop_all(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(NOT EXISTS (
+"""
+SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL))), TRUE, FALSE) AS `All`
-FROM `Customers` AS `c`");
+        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL)), TRUE, FALSE) AS `All`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Collection_where_nav_prop_all(bool isAsync)
@@ -526,12 +544,14 @@ FROM `Customers` AS `c`");
             await base.Collection_where_nav_prop_all(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE NOT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL)))");
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL))
+""");
         }
 
         public override async Task Collection_select_nav_prop_count(bool isAsync)
@@ -602,7 +622,8 @@ FROM `Customers` AS `c`");
             await base.Select_multiple_complex_projections(isAsync);
 
             AssertSql(
-                $@"SELECT (
+"""
+SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `collection1`, `o`.`OrderDate` AS `scalar1`, IIF(EXISTS (
@@ -616,7 +637,8 @@ FROM `Customers` AS `c`");
     FROM `Order Details` AS `o3`
     WHERE `o`.`OrderID` = `o3`.`OrderID`) AS `collection2`
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')");
+WHERE `o`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task Collection_select_nav_prop_sum(bool isAsync)
@@ -823,7 +845,8 @@ WHERE `c`.`Country` IN ('USA', 'Redania')");
             await base.Navigation_in_subquery_referencing_outer_query(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE (
@@ -831,7 +854,8 @@ WHERE (
     FROM (`Order Details` AS `o0`
     INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
     LEFT JOIN `Customers` AS `c0` ON `o1`.`CustomerID` = `c0`.`CustomerID`
-    WHERE `c`.`Country` = `c0`.`Country` OR ((`c`.`Country` IS NULL) AND (`c0`.`Country` IS NULL))) > 0 AND `o`.`OrderID` IN (10643, 10692)");
+    WHERE `c`.`Country` = `c0`.`Country` OR (`c`.`Country` IS NULL AND `c0`.`Country` IS NULL)) > 0 AND `o`.`OrderID` IN (10643, 10692)
+""");
         }
         
         public override async Task Project_single_scalar_value_subquery_is_properly_inlined(bool isAsync)
@@ -926,13 +950,15 @@ LEFT JOIN (
             await base.Navigation_with_collection_with_nullable_type_key(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o0`
-    WHERE (`c`.`CustomerID` IS NOT NULL) AND `c`.`CustomerID` = `o0`.`CustomerID` AND `o0`.`OrderID` > 10260) > 30");
+    WHERE `c`.`CustomerID` IS NOT NULL AND `c`.`CustomerID` = `o0`.`CustomerID` AND `o0`.`OrderID` > 10260) > 30
+""");
         }
         
         public override async Task Multiple_include_with_multiple_optional_navigations(bool isAsync)

@@ -5,6 +5,7 @@ using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -18,22 +19,28 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             ClearLog();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         protected override bool CanExecuteQueryString
             => false;
+
+        [ConditionalFact]
+        public virtual void Check_all_tests_overridden()
+            => TestHelpers.AssertAllMethodsOverridden(GetType());
 
         public override async Task Select_All(bool async)
         {
             await base.Select_All(async);
 
             AssertSql(
-                @"SELECT IIF(NOT EXISTS (
+                """
+SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL)), TRUE, FALSE)
-FROM (SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDualTableName) ? JetConfiguration.DetectedDualTableName : JetConfiguration.CustomDualTableName) + "`)");
+        WHERE `o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Sum_with_no_arg(bool isAsync)
@@ -41,8 +48,10 @@ FROM (SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDua
             await base.Sum_with_no_arg(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-FROM `Orders` AS `o`");
+                """
+SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Sum_with_binary_expression(bool isAsync)
@@ -50,8 +59,10 @@ FROM `Orders` AS `o`");
             await base.Sum_with_binary_expression(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(SUM(`o`.`OrderID` * 2) IS NULL, 0, SUM(`o`.`OrderID` * 2))
-FROM `Orders` AS `o`");
+                """
+SELECT IIF(SUM(`o`.`OrderID` * 2) IS NULL, 0, SUM(`o`.`OrderID` * 2))
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Sum_with_arg(bool isAsync)
@@ -548,9 +559,11 @@ WHERE `o`.`CustomerID` = 'ALFKI'");
             await base.OrderBy_Where_Count_with_predicate(isAsync);
 
             AssertSql(
-                $@"SELECT COUNT(*)
+                """
+SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` > 10 AND (`o`.`CustomerID` <> 'ALFKI' OR (`o`.`CustomerID` IS NULL))");
+WHERE `o`.`OrderID` > 10 AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL)
+""");
         }
 
         public override async Task Distinct(bool isAsync)
@@ -795,10 +808,12 @@ ORDER BY `c`.`ContactName` DESC");
             await base.Where_LastOrDefault(isAsync);
 
             AssertSql(
-                $@"SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`City` = 'London'
-ORDER BY `c`.`ContactName` DESC");
+ORDER BY `c`.`ContactName` DESC
+""");
         }
 
         public override async Task Contains_with_subquery(bool isAsync)
@@ -806,12 +821,14 @@ ORDER BY `c`.`ContactName` DESC");
             await base.Contains_with_subquery(isAsync);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE EXISTS (
-    SELECT 1
+WHERE `c`.`CustomerID` IN (
+    SELECT `o`.`CustomerID`
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` = `c`.`CustomerID`)");
+)
+""");
         }
 
         public override async Task Contains_with_local_array_closure(bool isAsync)
@@ -1103,9 +1120,11 @@ ORDER BY `o`.`OrderID`");
             await base.Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT AVG(CDBL(CLNG(`o`.`OrderID`)))
+"""
+SELECT AVG(CDBL(CLNG(`o`.`OrderID`)))
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')");
+WHERE `o`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task Max_with_non_matching_types_in_projection_introduces_explicit_cast(bool isAsync)
@@ -1113,9 +1132,11 @@ WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')");
             await base.Max_with_non_matching_types_in_projection_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT MAX(CLNG(`o`.`OrderID`))
+"""
+SELECT MAX(CLNG(`o`.`OrderID`))
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')");
+WHERE `o`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task Min_with_non_matching_types_in_projection_introduces_explicit_cast(bool isAsync)
@@ -1123,9 +1144,11 @@ WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')");
             await base.Min_with_non_matching_types_in_projection_introduces_explicit_cast(isAsync);
 
             AssertSql(
-                $@"SELECT MIN(CLNG(`o`.`OrderID`))
+"""
+SELECT MIN(CLNG(`o`.`OrderID`))
 FROM `Orders` AS `o`
-WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')");
+WHERE `o`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task OrderBy_Take_Last_gives_correct_result(bool isAsync)

@@ -29,7 +29,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     "NEWGUID",
                     Array.Empty<SqlExpression>(),
                     false,
-                    new[] {false},
+                    new[] { false },
                     method.ReturnType)
                 : null;
         }

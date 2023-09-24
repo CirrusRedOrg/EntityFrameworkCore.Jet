@@ -37,52 +37,52 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.TimeSpan_Compare_to_simple_zero(async, compareTo);
 
             AssertSql(
-                $"""
+"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+WHERE `o`.`OrderDate` = CDATE(@__myDatetime_0)
 """,
-                //
-                $"""
+//
+"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")}) OR (`o`.`OrderDate` IS NULL)
+WHERE `o`.`OrderDate` <> CDATE(@__myDatetime_0) OR `o`.`OrderDate` IS NULL
 """,
-                //
-                $"""
+//
+"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+WHERE `o`.`OrderDate` > CDATE(@__myDatetime_0)
 """,
-                //
-                $"""
+//
+"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
 """,
-                //
-                $"""
+//
+"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+WHERE `o`.`OrderDate` > CDATE(@__myDatetime_0)
 """,
-                //
-                $"""
+//
+"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
 """);
         }
 
@@ -91,9 +91,11 @@ WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
             await base.String_StartsWith_Literal(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE 'M%')");
+WHERE `c`.`ContactName` LIKE 'M%'
+""");
         }
 
         public override async Task String_StartsWith_Identity(bool isAsync)
@@ -101,9 +103,11 @@ WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE 'M%')");
             await base.String_StartsWith_Identity(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`)");
+WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
+""");
         }
 
         public override async Task String_StartsWith_Column(bool isAsync)
@@ -111,9 +115,11 @@ WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND LEFT(`c`.`C
             await base.String_StartsWith_Column(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`)");
+WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
+""");
         }
 
         public override async Task String_StartsWith_MethodCall(bool isAsync)
@@ -121,9 +127,11 @@ WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND LEFT(`c`.`C
             await base.String_StartsWith_MethodCall(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE 'M%')");
+WHERE `c`.`ContactName` LIKE 'M%'
+""");
         }
 
         public override async Task String_EndsWith_Literal(bool isAsync)
@@ -131,9 +139,11 @@ WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE 'M%')");
             await base.String_EndsWith_Literal(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE '%b')");
+WHERE `c`.`ContactName` LIKE '%b'
+""");
         }
 
         public override async Task String_EndsWith_Identity(bool isAsync)
@@ -141,9 +151,11 @@ WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE '%b')");
             await base.String_EndsWith_Identity(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND RIGHT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`)");
+WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
+""");
         }
 
         public override async Task String_EndsWith_Column(bool isAsync)
@@ -151,9 +163,11 @@ WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND RIGHT(`c`.`
             await base.String_EndsWith_Column(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND RIGHT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`)");
+WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
+""");
         }
 
         public override async Task String_EndsWith_MethodCall(bool isAsync)
@@ -161,9 +175,11 @@ WHERE `c`.`ContactName` = '' OR ((`c`.`ContactName` IS NOT NULL) AND RIGHT(`c`.`
             await base.String_EndsWith_MethodCall(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE '%m')");
+WHERE `c`.`ContactName` LIKE '%m'
+""");
         }
 
         public override async Task String_Contains_Literal(bool isAsync)
@@ -187,9 +203,11 @@ WHERE `c`.`ContactName` LIKE '%M%'
             await base.String_Contains_Identity(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`ContactName` LIKE '') OR INSTR(1, `c`.`ContactName`, `c`.`ContactName`, 1) > 0");
+WHERE `c`.`ContactName` IS NOT NULL AND (INSTR(1, `c`.`ContactName`, `c`.`ContactName`, 1) > 0 OR (`c`.`ContactName` LIKE ''))
+""");
         }
 
         public override async Task String_Contains_Column(bool isAsync)
@@ -197,9 +215,11 @@ WHERE (`c`.`ContactName` LIKE '') OR INSTR(1, `c`.`ContactName`, `c`.`ContactNam
             await base.String_Contains_Column(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`ContactName` LIKE '') OR INSTR(1, `c`.`ContactName`, `c`.`ContactName`, 1) > 0");
+WHERE `c`.`ContactName` IS NOT NULL AND (INSTR(1, `c`.`ContactName`, `c`.`ContactName`, 1) > 0 OR (`c`.`ContactName` LIKE ''))
+""");
         }
 
         public override async Task String_Contains_constant_with_whitespace(bool async)
@@ -219,13 +239,12 @@ WHERE `c`.`ContactName` LIKE '%     %'
             await base.String_Contains_parameter_with_whitespace(async);
 
             AssertSql(
-                $"""
-@__pattern_0='     ' (Size = 255)
-@__pattern_0='     ' (Size = 255)
+                """
+@__pattern_0_rewritten='%     %' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE ({AssertSqlHelper.Parameter("@__pattern_0")} LIKE '') OR INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 1) > 0
+WHERE `c`.`ContactName` LIKE @__pattern_0_rewritten
 """);
         }
 
@@ -2044,9 +2063,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.IsNullOrEmpty_in_predicate(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`Region` IS NULL) OR (`c`.`Region` LIKE '')");
+WHERE `c`.`Region` IS NULL OR (`c`.`Region` LIKE '')
+""");
         }
 
         public override async Task IsNullOrEmpty_in_projection(bool async)
@@ -2054,8 +2075,10 @@ WHERE (`c`.`Region` IS NULL) OR (`c`.`Region` LIKE '')");
             await base.IsNullOrEmpty_in_projection(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID` AS `Id`, IIF((`c`.`Region` IS NULL) OR (`c`.`Region` LIKE ''), TRUE, FALSE) AS `Value`
-FROM `Customers` AS `c`");
+"""
+SELECT `c`.`CustomerID` AS `Id`, IIF(`c`.`Region` IS NULL OR (`c`.`Region` LIKE ''), TRUE, FALSE) AS `Value`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task IsNullOrEmpty_negated_in_predicate(bool async)
@@ -2063,9 +2086,11 @@ FROM `Customers` AS `c`");
             await base.IsNullOrEmpty_negated_in_predicate(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`Region` IS NOT NULL) AND NOT (`c`.`Region` LIKE '')");
+WHERE `c`.`Region` IS NOT NULL AND `c`.`Region` NOT LIKE ''
+""");
         }
 
         public override async Task IsNullOrEmpty_negated_in_projection(bool async)
@@ -2073,8 +2098,10 @@ WHERE (`c`.`Region` IS NOT NULL) AND NOT (`c`.`Region` LIKE '')");
             await base.IsNullOrEmpty_negated_in_projection(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID` AS `Id`, IIF((`c`.`Region` IS NOT NULL) AND NOT (`c`.`Region` LIKE ''), TRUE, FALSE) AS `Value`
-FROM `Customers` AS `c`");
+"""
+SELECT `c`.`CustomerID` AS `Id`, IIF(`c`.`Region` IS NOT NULL AND `c`.`Region` NOT LIKE '', TRUE, FALSE) AS `Value`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task IsNullOrWhiteSpace_in_predicate(bool isAsync)
@@ -2082,9 +2109,11 @@ FROM `Customers` AS `c`");
             await base.IsNullOrWhiteSpace_in_predicate(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`Region` IS NULL) OR `c`.`Region` = ''");
+WHERE `c`.`Region` IS NULL OR `c`.`Region` = ''
+""");
         }
 
         public override async Task IsNullOrWhiteSpace_in_predicate_on_non_nullable_column(bool isAsync)

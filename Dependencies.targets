@@ -1,17 +1,17 @@
 <Project>
 	<PropertyGroup>
-		<DotnetRuntimeVersion>6.0.19</DotnetRuntimeVersion>
-		<EFCoreVersion>[7.0.10, 8.0.0)</EFCoreVersion>
+		<DotnetRuntimeVersion>8.0.100-rc.1.23455.8</DotnetRuntimeVersion>
+		<EFCoreVersion>[8.0.0-rc.1.23419.6, 9.0.0)</EFCoreVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<!-- Common -->
-		<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="7.0.0" />
-		<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
+		<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.0.0-rc.1.23419.4" />
+		<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="8.0.0-rc.1.23419.4" />
 		<PackageReference Update="Microsoft.Extensions.Caching.Memory" Version="6.0.0" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
-		<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="7.0.2" />
+		<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="8.0.0-rc.1.23419.4" />
 		<PackageReference Update="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
 		<PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
 		<PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
@@ -19,7 +19,7 @@
 		<!-- EFCore.Jet -->
 		<PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
 		<PackageReference Update="Microsoft.Extensions.Configuration" Version="6.0.0" />
-		<PackageReference Update="Microsoft.Extensions.Logging" Version="7.0.0" />
+		<PackageReference Update="Microsoft.Extensions.Logging" Version="8.0.0-rc.1.23419.4" />
 		<PackageReference Update="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
 		<PackageReference Update="Microsoft.Bcl.HashCode" Version="1.1.1" />
 		<PackageReference Update="System.Collections.Immutable" Version="6.0.0" />
@@ -32,11 +32,11 @@
 		<!--<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="$(SystemDiagnosticsDiagnosticSourceVersion)" />-->
 
 		<!-- Tests -->
-		<PackageReference Update="System.Data.Odbc" Version="7.0.0" />
-		<PackageReference Update="System.Data.OleDb" Version="7.0.0" />
+		<PackageReference Update="System.Data.Odbc" Version="8.0.0-rc.1.23419.4" />
+		<PackageReference Update="System.Data.OleDb" Version="8.0.0-rc.1.23419.4" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
-		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.7.1" />
+		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.8.0-preview-23424-02" />
 		<PackageReference Update="MSTest.TestAdapter" Version="3.1.1" />
 		<PackageReference Update="MSTest.TestFramework" Version="3.1.1" />
 		<PackageReference Update="coverlet.collector" Version="6.0.0" />
@@ -55,7 +55,7 @@
 		<PackageReference Update="xunit.assert" Version="2.4.2" />
 		<PackageReference Update="xunit.runner.visualstudio" Version="2.4.5" />
 		<PackageReference Update="xunit.runner.console" Version="2.4.2" />
-		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="7.0.0" />
+		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="8.0.0-rc.1.23419.4" />
 		<!--<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsConfigurationEnvironmentVariablesVersion)" />-->
 		<!--<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsConfigurationJsonVersion)" />-->
 		<!--<PackageReference Update="System.Data.Odbc" Version="$(SystemDataOdbcVersion)" />-->
@@ -77,7 +77,7 @@
 
 		<!-- EFCore.Jet.Tests -->
 		<PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
-		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="7.0.0" />
+		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="8.0.0-rc.1.23419.4" />
 		<PackageReference Update="Moq" Version="4.20.69" />
 		<!--<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftEntityFrameworkCoreDesignVersion)" />-->
 		<!--<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreRelationalVersion)" />-->

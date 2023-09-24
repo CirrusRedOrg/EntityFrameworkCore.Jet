@@ -51,18 +51,9 @@ SELECT `Region`, `PostalCode`, `PostalCode` AS `Foo`, `Phone`, `Fax`, `CustomerI
 """);
     }
 
-    public override async Task<string> FromSqlRaw_queryable_composed(bool async)
+    public override async Task FromSqlRaw_queryable_composed(bool async)
     {
-        var queryString = await base.FromSqlRaw_queryable_composed(async);
-
-        var expected =
-"""
-SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`
-FROM (
-    SELECT * FROM `Customers`
-) AS `m`
-WHERE `m`.`ContactName` LIKE '%z%'
-""";
+        await base.FromSqlRaw_queryable_composed(async);
 
         AssertSql(
             """
@@ -72,9 +63,6 @@ FROM (
 ) AS `m`
 WHERE `m`.`ContactName` LIKE '%z%'
 """);
-        Assert.Equal(expected, queryString, ignoreLineEndingDifferences: true);
-
-        return null;
     }
 
     public override async Task FromSqlRaw_queryable_composed_after_removing_whitespaces(bool async)
@@ -115,14 +103,14 @@ WHERE `m`.`ContactName` LIKE '%z%'
         await base.FromSqlRaw_queryable_composed_compiled_with_DbParameter(async);
 
         AssertSql(
-"""
+            """
 customer='CONSH' (Nullable = false) (Size = 5)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`
 FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = @customer
-) AS [m]
-WHERE [m].[ContactName] LIKE N'%z%'
+) AS `m`
+WHERE `m`.`ContactName` LIKE '%z%'
 """);
     }
 
@@ -131,14 +119,14 @@ WHERE [m].[ContactName] LIKE N'%z%'
         await base.FromSqlRaw_queryable_composed_compiled_with_nameless_DbParameter(async);
 
         AssertSql(
-"""
+            """
 p0='CONSH' (Nullable = false) (Size = 5)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`
 FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = @p0
-) AS [m]
-WHERE [m].[ContactName] LIKE N'%z%'
+) AS `m`
+WHERE `m`.`ContactName` LIKE '%z%'
 """);
     }
 
@@ -164,12 +152,12 @@ WHERE `m`.`ContactName` LIKE '%z%'
             """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE EXISTS (
-    SELECT 1
+WHERE `c`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
         SELECT * FROM `Orders`
     ) AS `m`
-    WHERE `m`.`CustomerID` = `c`.`CustomerID`)
+)
 """);
     }
 
@@ -181,12 +169,12 @@ WHERE EXISTS (
             """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
-    SELECT 1
+WHERE `c`.`CustomerID` = 'ALFKI' AND `c`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
         SELECT * FROM `Orders`
     ) AS `m`
-    WHERE `m`.`CustomerID` = `c`.`CustomerID`)
+)
 """);
     }
 
@@ -212,18 +200,18 @@ WHERE `m`.`CustomerID` = `m0`.`CustomerID`
         await base.FromSqlRaw_queryable_multiple_composed_with_closure_parameters(async);
 
         AssertSql(
-"""
-p0='1997-01-01T00:00:00.0000000'
-p1='1998-01-01T00:00:00.0000000'
+            """
+p0='1997-01-01T00:00:00.0000000' (DbType = DateTime)
+p1='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
     SELECT * FROM `Customers`
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p0 AND @p1
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p0 AND @p1
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);
     }
 
@@ -232,34 +220,34 @@ WHERE [m].[CustomerID] = [m0].[CustomerID]
         await base.FromSqlRaw_queryable_multiple_composed_with_parameters_and_closure_parameters(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='1997-01-01T00:00:00.0000000'
-p2='1998-01-01T00:00:00.0000000'
+            """
+p0='London' (Size = 255)
+p1='1997-01-01T00:00:00.0000000' (DbType = DateTime)
+p2='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p1 AND @p2
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-//
-"""
-p0='Berlin' (Size = 4000)
-p1='1998-04-01T00:00:00.0000000'
-p2='1998-05-01T00:00:00.0000000'
+            //
+            """
+p0='Berlin' (Size = 255)
+p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
+p2='1998-05-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p1 AND @p2
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);
     }
 
@@ -295,11 +283,11 @@ WHERE `m`.`City` = 'London'
         await base.FromSqlRaw_queryable_with_parameters(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -308,11 +296,11 @@ SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
         await base.FromSqlRaw_queryable_with_parameters_inline(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -321,11 +309,11 @@ SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
         await base.FromSqlInterpolated_queryable_with_parameters_interpolated(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -334,11 +322,11 @@ SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
         await base.FromSql_queryable_with_parameters_interpolated(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -347,11 +335,11 @@ SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
         await base.FromSqlInterpolated_queryable_with_parameters_inline_interpolated(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -360,11 +348,11 @@ SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
         await base.FromSql_queryable_with_parameters_inline_interpolated(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -374,34 +362,34 @@ SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
         await base.FromSqlInterpolated_queryable_multiple_composed_with_parameters_and_closure_parameters_interpolated(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='1997-01-01T00:00:00.0000000'
-p2='1998-01-01T00:00:00.0000000'
+            """
+p0='London' (Size = 255)
+p1='1997-01-01T00:00:00.0000000' (DbType = DateTime)
+p2='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p1 AND @p2
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-//
-"""
-p0='Berlin' (Size = 4000)
-p1='1998-04-01T00:00:00.0000000'
-p2='1998-05-01T00:00:00.0000000'
+            //
+            """
+p0='Berlin' (Size = 255)
+p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
+p2='1998-05-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p1 AND @p2
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);
     }
 
@@ -411,34 +399,34 @@ WHERE [m].[CustomerID] = [m0].[CustomerID]
         await base.FromSql_queryable_multiple_composed_with_parameters_and_closure_parameters_interpolated(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='1997-01-01T00:00:00.0000000'
-p2='1998-01-01T00:00:00.0000000'
+            """
+p0='London' (Size = 255)
+p1='1997-01-01T00:00:00.0000000' (DbType = DateTime)
+p2='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p1 AND @p2
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-//
-"""
-p0='Berlin' (Size = 4000)
-p1='1998-04-01T00:00:00.0000000'
-p2='1998-05-01T00:00:00.0000000'
+            //
+            """
+p0='Berlin' (Size = 255)
+p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
+p2='1998-05-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region], [m0].[OrderID], [m0].[CustomerID], [m0].[EmployeeID], [m0].[OrderDate]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`, `m0`.`OrderID`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`OrderDate`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-CROSS JOIN (
-    SELECT * FROM "Orders" WHERE "OrderDate" BETWEEN @p1 AND @p2
-) AS [m0]
-WHERE [m].[CustomerID] = [m0].[CustomerID]
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`,
+(
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
+) AS `m0`
+WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);
     }
 
@@ -447,10 +435,11 @@ WHERE [m].[CustomerID] = [m0].[CustomerID]
         await base.FromSqlRaw_queryable_with_null_parameter(async);
 
         AssertSql(
-"""
+            """
+p0=NULL (Nullable = false)
 p0=NULL (Nullable = false)
 
-SELECT * FROM "Employees" WHERE "ReportsTo" = @p0 OR ("ReportsTo" IS NULL AND @p0 IS NULL)
+SELECT * FROM `Employees` WHERE `ReportsTo` = @p0 OR (`ReportsTo` IS NULL AND @p0 IS NULL)
 """);
     }
 
@@ -459,15 +448,15 @@ SELECT * FROM "Employees" WHERE "ReportsTo" = @p0 OR ("ReportsTo" IS NULL AND @p
         var queryString = await base.FromSqlRaw_queryable_with_parameters_and_closure(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
+            """
+p0='London' (Size = 255)
 @__contactTitle_1='Sales Representative' (Size = 30)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`
 FROM (
-    SELECT * FROM `Customers` WHERE "City" = @p0
-) AS [m]
-WHERE [m].[ContactTitle] = @__contactTitle_1
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`
+WHERE `m`.`ContactTitle` = @__contactTitle_1
 """);
 
         return null;
@@ -492,18 +481,18 @@ SELECT * FROM `Customers` WHERE `City` = 'Seattle'
         await base.FromSqlRaw_queryable_with_parameters_cache_key_includes_parameters(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
-p1='Sales Representative' (Size = 4000)
+            """
+p0='London' (Size = 255)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """,
-//
-"""
-p0='Madrid' (Size = 4000)
-p1='Accounting Manager' (Size = 4000)
+            //
+            """
+p0='Madrid' (Size = 255)
+p1='Accounting Manager' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """);
     }
 
@@ -589,7 +578,7 @@ SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`Cont
 FROM (
     SELECT * FROM `Customers`
 ) AS `m`
-WHERE `m`.`ContactName` = `m`.`CompanyName` OR ((`m`.`ContactName` IS NULL) AND (`m`.`CompanyName` IS NULL))
+WHERE `m`.`ContactName` = `m`.`CompanyName`
 """);
     }
 
@@ -608,11 +597,12 @@ SELECT * FROM `Customers` WHERE `City` = @city
     public override async Task FromSqlRaw_with_dbParameter_without_name_prefix(bool async)
     {
         await base.FromSqlRaw_with_dbParameter_without_name_prefix(async);
+
         AssertSql(
-"""
+            """
 city='London' (Nullable = false) (Size = 6)
 
-SELECT * FROM `Customers` WHERE "City" = @city
+SELECT * FROM `Customers` WHERE `City` = @city
 """);
     }
 
@@ -621,18 +611,18 @@ SELECT * FROM `Customers` WHERE "City" = @city
         await base.FromSqlRaw_with_dbParameter_mixed(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
+            """
+p0='London' (Size = 255)
 @title='Sales Representative' (Nullable = false) (Size = 20)
 
-SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @title
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @title
 """,
-//
-"""
+            //
+            """
 @city='London' (Nullable = false) (Size = 6)
-p1='Sales Representative' (Size = 4000)
+p1='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE "City" = @city AND "ContactTitle" = @p1
+SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p1
 """);
     }
 
@@ -743,41 +733,41 @@ SELECT * FROM `Customers` WHERE `CustomerID` = @somename
         await base.FromSqlInterpolated_parameterization_issue_12213(async);
 
         AssertSql(
-"""
+            """
 p0='10300'
 
-SELECT [m].[OrderID]
+SELECT `m`.`OrderID`
 FROM (
-    SELECT * FROM "Orders" WHERE "OrderID" >= @p0
-) AS [m]
+    SELECT * FROM `Orders` WHERE `OrderID` >= @p0
+) AS `m`
 """,
-//
-"""
+            //
+            """
 @__max_0='10400'
 p0='10300'
 
-SELECT [o].[OrderID]
-FROM [Orders] AS [o]
-WHERE [o].[OrderID] <= @__max_0 AND EXISTS (
-    SELECT 1
+SELECT `o`.`OrderID`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` <= @__max_0 AND `o`.`OrderID` IN (
+    SELECT `m`.`OrderID`
     FROM (
-        SELECT * FROM "Orders" WHERE "OrderID" >= @p0
-    ) AS [m]
-    WHERE [m].[OrderID] = [o].[OrderID])
+        SELECT * FROM `Orders` WHERE `OrderID` >= @p0
+    ) AS `m`
+)
 """,
-//
-"""
+            //
+            """
 @__max_0='10400'
 p0='10300'
 
-SELECT [o].[OrderID]
-FROM [Orders] AS [o]
-WHERE [o].[OrderID] <= @__max_0 AND EXISTS (
-    SELECT 1
+SELECT `o`.`OrderID`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` <= @__max_0 AND `o`.`OrderID` IN (
+    SELECT `m`.`OrderID`
     FROM (
-        SELECT * FROM "Orders" WHERE "OrderID" >= @p0
-    ) AS [m]
-    WHERE [m].[OrderID] = [o].[OrderID])
+        SELECT * FROM `Orders` WHERE `OrderID` >= @p0
+    ) AS `m`
+)
 """);
     }
 
@@ -786,10 +776,10 @@ WHERE [o].[OrderID] <= @__max_0 AND EXISTS (
         await base.FromSqlRaw_does_not_parameterize_interpolated_string(async);
 
         AssertSql(
-"""
+            """
 p0='10250'
 
-SELECT * FROM "Orders" WHERE "OrderID" < @p0
+SELECT * FROM `Orders` WHERE `OrderID` < @p0
 """);
     }
 
@@ -846,37 +836,38 @@ WHERE `m`.`City` = 'Seattle'
         await base.FromSql_with_db_parameter_in_split_query(async);
 
         AssertSql(
-"""
+            """
 customerID='ALFKI' (Nullable = false) (Size = 5)
 
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region]
+SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`
 FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = @customerID
-) AS [m]
-ORDER BY [m].[CustomerID]
+) AS `m`
+ORDER BY `m`.`CustomerID`
 """,
-//
-"""
+            //
+            """
 customerID='ALFKI' (Nullable = false) (Size = 5)
 
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [m].[CustomerID]
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `m`.`CustomerID`
 FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = @customerID
-) AS [m]
-INNER JOIN [Orders] AS [o] ON [m].[CustomerID] = [o].[CustomerID]
-ORDER BY [m].[CustomerID], [o].[OrderID]
+) AS `m`
+INNER JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `o`.`OrderID`
 """,
-//
-"""
+            //
+            """
 customerID='ALFKI' (Nullable = false) (Size = 5)
 
-SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice], [m].[CustomerID], [o].[OrderID]
-FROM (
+SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `m`.`CustomerID`, `o`.`OrderID`
+FROM ((
     SELECT * FROM `Customers` WHERE `CustomerID` = @customerID
-) AS [m]
-INNER JOIN [Orders] AS [o] ON [m].[CustomerID] = [o].[CustomerID]
-INNER JOIN [Order Details] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-ORDER BY [m].[CustomerID], [o].[OrderID]
+) AS `m`
+INNER JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`)
+LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE `o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL
+ORDER BY `m`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -890,12 +881,12 @@ ORDER BY [m].[CustomerID], [o].[OrderID]
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE EXISTS (
-    SELECT 1
+WHERE `o`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
         SELECT * FROM `Customers` WHERE `City` = @city
     ) AS `m`
-    WHERE `m`.`CustomerID` = `o`.`CustomerID`)
+)
 """);
     }
 
@@ -904,17 +895,17 @@ WHERE EXISTS (
         await base.FromSqlRaw_in_subquery_with_positional_dbParameter_without_name(async);
 
         AssertSql(
-"""
+            """
 p0='London' (Nullable = false) (Size = 6)
 
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE EXISTS (
-    SELECT 1
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
-        SELECT * FROM `Customers` WHERE "City" = @p0
-    ) AS [m]
-    WHERE [m].[CustomerID] = [o].[CustomerID])
+        SELECT * FROM `Customers` WHERE `City` = @p0
+    ) AS `m`
+)
 """);
     }
 
@@ -928,12 +919,12 @@ WHERE EXISTS (
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE EXISTS (
-    SELECT 1
+WHERE `o`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
         SELECT * FROM `Customers` WHERE `City` = @city
     ) AS `m`
-    WHERE `m`.`CustomerID` = `o`.`CustomerID`)
+)
 """);
     }
 
@@ -942,32 +933,32 @@ WHERE EXISTS (
         await base.FromSqlRaw_with_dbParameter_mixed_in_subquery(async);
 
         AssertSql(
-"""
-p0='London' (Size = 4000)
+            """
+p0='London' (Size = 255)
 @title='Sales Representative' (Nullable = false) (Size = 20)
 
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE EXISTS (
-    SELECT 1
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
-        SELECT * FROM `Customers` WHERE "City" = @p0 AND "ContactTitle" = @title
-    ) AS [m]
-    WHERE [m].[CustomerID] = [o].[CustomerID])
+        SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @title
+    ) AS `m`
+)
 """,
-//
-"""
+            //
+            """
 @city='London' (Nullable = false) (Size = 6)
-p1='Sales Representative' (Size = 4000)
+p1='Sales Representative' (Size = 255)
 
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE EXISTS (
-    SELECT 1
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`CustomerID` IN (
+    SELECT `m`.`CustomerID`
     FROM (
-        SELECT * FROM `Customers` WHERE "City" = @city AND "ContactTitle" = @p1
-    ) AS [m]
-    WHERE [m].[CustomerID] = [o].[CustomerID])
+        SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p1
+    ) AS `m`
+)
 """);
     }
 

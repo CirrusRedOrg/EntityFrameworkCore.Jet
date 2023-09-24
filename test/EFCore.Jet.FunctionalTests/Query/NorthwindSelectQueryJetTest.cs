@@ -373,27 +373,28 @@ ORDER BY `c`.`CustomerID`");
             await base.Select_nested_collection_multi_level5(isAsync);
 
             AssertSql(
-                $@"SELECT IIF((
+"""
+SELECT IIF((
         SELECT TOP 1 IIF((
                 SELECT TOP 1 `o0`.`ProductID`
                 FROM `Order Details` AS `o0`
                 WHERE `o`.`OrderID` = `o0`.`OrderID` AND (`o0`.`OrderID` <> (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR ((
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL)
                 ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
                 SELECT TOP 1 `o0`.`ProductID`
                 FROM `Order Details` AS `o0`
                 WHERE `o`.`OrderID` = `o0`.`OrderID` AND (`o0`.`OrderID` <> (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR ((
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL)
                 ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
         FROM `Orders` AS `o`
         WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
@@ -404,27 +405,28 @@ ORDER BY `c`.`CustomerID`");
                 WHERE `o`.`OrderID` = `o0`.`OrderID` AND (`o0`.`OrderID` <> (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR ((
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL)
                 ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
                 SELECT TOP 1 `o0`.`ProductID`
                 FROM `Order Details` AS `o0`
                 WHERE `o`.`OrderID` = `o0`.`OrderID` AND (`o0`.`OrderID` <> (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR ((
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) OR (
                     SELECT COUNT(*)
                     FROM `Orders` AS `o1`
-                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL))
+                    WHERE `c`.`CustomerID` = `o1`.`CustomerID`) IS NULL)
                 ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
         FROM `Orders` AS `o`
         WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
         ORDER BY `o`.`OrderID`)) AS `Order`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`");
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Select_nested_collection_multi_level6(bool isAsync)
@@ -1005,10 +1007,10 @@ FROM `Orders` AS `o`");
             await base.Projecting_nullable_struct(isAsync);
 
             AssertSql(
-                """
-    SELECT `o`.`CustomerID`, IIF(`o`.`CustomerID` = 'ALFKI' AND (`o`.`CustomerID` IS NOT NULL), TRUE, FALSE), `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
-    FROM `Orders` AS `o`
-    """);
+"""
+SELECT `o`.`CustomerID`, IIF(`o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, TRUE, FALSE), `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Multiple_select_many_with_predicate(bool isAsync)
@@ -1238,14 +1240,17 @@ CROSS APPLY (
         {
             await base.Collection_FirstOrDefault_with_entity_equality_check_in_projection(isAsync);
 
-            AssertSql($@"SELECT IIF(NOT (EXISTS (
+            AssertSql(
+"""
+SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) OR NOT (EXISTS (
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) OR NOT EXISTS (
         SELECT 1
         FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`)), TRUE, FALSE)
-FROM `Customers` AS `c`");
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`), TRUE, FALSE)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Collection_FirstOrDefault_with_nullable_unsigned_int_column(bool isAsync)
@@ -1404,9 +1409,11 @@ ORDER BY `c`.`CustomerID`");
             await base.Projection_custom_type_in_both_sides_of_ternary(async);
 
             AssertSql(
-                @"SELECT IIF(`c`.`City` = 'Seattle' AND (`c`.`City` IS NOT NULL), TRUE, FALSE)
+"""
+SELECT IIF(`c`.`City` = 'Seattle' AND `c`.`City` IS NOT NULL, TRUE, FALSE)
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Projecting_multiple_collection_with_same_constant_works(bool async)

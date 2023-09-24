@@ -57,13 +57,6 @@ public class JetByteTypeMapping : ByteTypeMapping
     /// </summary>
     protected override string GenerateNonNullSqlLiteral(object value)
     {
-        var builder = new StringBuilder();
-        builder.Append("0x");
-
-        var bt = Convert.ToByte(value);
-
-        builder.Append(bt.ToString("X2", CultureInfo.InvariantCulture));
-
-        return builder.ToString();
+        return $"CBYTE({base.GenerateNonNullSqlLiteral(value)})";
     }
 }

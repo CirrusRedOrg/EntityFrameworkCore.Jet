@@ -276,6 +276,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         ? _sqlExpressionFactory.Constant(constantStartIndex + 1, typeof(int))
                         : _sqlExpressionFactory.Add(startIndex, _sqlExpressionFactory.Constant(1)));
             }
+            else
+            {
+                charIndexArguments.Insert(0, _sqlExpressionFactory.Constant(1));
+            }
             charIndexArguments.Add(_sqlExpressionFactory.Constant(1));
 
             var argumentsPropagateNullability = Enumerable.Repeat(true, charIndexArguments.Count);
@@ -286,7 +290,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 || string.Equals(storeType, "varchar(max)", StringComparison.OrdinalIgnoreCase))
             {
                 charIndexExpression = _sqlExpressionFactory.Function(
-                    "InStr",
+                    "INSTR",
                     charIndexArguments,
                     nullable: true,
                     argumentsPropagateNullability,
@@ -297,7 +301,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             else
             {
                 charIndexExpression = _sqlExpressionFactory.Function(
-                    "InStr",
+                    "INSTR",
                     charIndexArguments,
                     nullable: true,
                     argumentsPropagateNullability,

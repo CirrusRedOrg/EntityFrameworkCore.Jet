@@ -10,6 +10,8 @@ using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
 using Xunit.Abstractions;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using System.Data.Odbc;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -991,7 +993,13 @@ FROM (
     }
 
     protected override DbParameter CreateDbParameter(string name, object value)
-        => new OleDbParameter { ParameterName = name, Value = value };
+    {
+        if (((JetTestStore)Fixture.TestStore).IsOleDb())
+        {
+            return new OleDbParameter { ParameterName = name, Value = value };
+        }
+        return new OdbcParameter { ParameterName = name, Value = value };
+    }
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

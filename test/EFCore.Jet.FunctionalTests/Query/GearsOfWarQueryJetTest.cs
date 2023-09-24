@@ -7233,7 +7233,7 @@ WHERE `s`.`Banner5` = @__byteArrayParam_0
                 """
 SELECT `l`.`Name`, `l`.`Discriminator`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`
 FROM `LocustLeaders` AS `l`
-WHERE CBYTE(`l`.`ThreatLevel`) >= 5
+WHERE CBYTE(`l`.`ThreatLevel`) >= CBYTE(5)
 """);
         }
 

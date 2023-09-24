@@ -743,9 +743,11 @@ WHERE `e`.`ReportsTo` IS NULL");
             await base.Where_string_indexof(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (INSTR(`c`.`City`, 'Sea') - 1) <> -1 OR (`c`.`City` IS NULL)");
+WHERE (INSTR(1, `c`.`City`, 'Sea', 1) - 1) <> -1 OR `c`.`City` IS NULL
+""");
         }
 
         public override async Task Where_string_replace(bool isAsync)

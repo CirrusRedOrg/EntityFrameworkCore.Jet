@@ -78,7 +78,7 @@ WHERE `i`.`Taste` = 1
 """
 SELECT `f`.`Id`, `f`.`Taste`
 FROM `Food` AS `f`
-WHERE `f`.`Taste` = 0x01
+WHERE `f`.`Taste` = CBYTE(1)
 """);
     }
 

@@ -46,13 +46,13 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
             mission.Timeline = mission.Timeline.AddYears(100);
         }
         */
-        foreach (var gear in data.Gears)
+        /*foreach (var gear in data.Gears)
         {
             if (gear.LeaderSquadId != 0) continue;
             gear.LeaderSquadId = 1;
             gear.LeaderNickname = "Marcus";
             ((Officer)gear).Reports.Add(gear);
-        }
+        }*/
         return data;
     }
 

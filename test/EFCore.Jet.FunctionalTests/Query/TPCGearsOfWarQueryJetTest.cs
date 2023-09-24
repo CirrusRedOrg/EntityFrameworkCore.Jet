@@ -36,14 +36,14 @@ public class TPCGearsOfWarQueryJetTest : TPCGearsOfWarQueryRelationalTestBase<TP
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE 0 = 1
 """);
     }
@@ -54,17 +54,17 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -74,16 +74,16 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`
 """);
     }
 
@@ -93,23 +93,23 @@ LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [c].[Name], [c].[Location], [c].[Nation], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [c].[Name] = [t0].[AssignedCityName]
-ORDER BY [t].[Nickname], [t].[SquadId], [c].[Name], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `c`.`Name` = `t0`.`AssignedCityName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `c`.`Name`, `t0`.`Nickname`
 """);
     }
 
@@ -119,24 +119,24 @@ ORDER BY [t].[Nickname], [t].[SquadId], [c].[Name], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [c].[Name], [c].[Location], [c].[Nation], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [c].[Name] = [t0].[AssignedCityName]
-WHERE [t].[Nickname] = N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId], [c].[Name], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `c`.`Name` = `t0`.`AssignedCityName`
+WHERE `t`.`Nickname` = 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `c`.`Name`, `t0`.`Nickname`
 """);
     }
 
@@ -146,17 +146,17 @@ ORDER BY [t].[Nickname], [t].[SquadId], [c].[Name], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-WHERE [t].[Nickname] = N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+WHERE `t`.`Nickname` = 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -165,20 +165,20 @@ ORDER BY [t].[Nickname], [t].[SquadId]
         await base.Include_navigation_on_derived_type(async);
 
         AssertSql(
-"""
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+            """
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -188,19 +188,19 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -210,16 +210,16 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[Nickname] = N'Marcus'
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` = 'Marcus'
 """);
     }
 
@@ -229,16 +229,16 @@ WHERE [t0].[Nickname] = N'Marcus'
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [c].[Name], [c].[Location], [c].[Nation]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Tags] AS [t0] ON [t].[SquadId] = [t0].[GearSquadId] AND [t].[Nickname] = [t0].[GearNickName]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Tags` AS `t0` ON `t`.`SquadId` = `t0`.`GearSquadId` AND `t`.`Nickname` = `t0`.`GearNickName`)
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
 """);
     }
 
@@ -248,16 +248,17 @@ INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [c].[Name], [c].[Location], [c].[Nation]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
+FROM (`Tags` AS `t`
 INNER JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearSquadId] = [t0].[SquadId] AND [t].[GearNickName] = [t0].[Nickname]
-INNER JOIN [Cities] AS [c] ON [t0].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
+LEFT JOIN `Cities` AS `c` ON `t0`.`CityOfBirthName` = `c`.`Name`
+WHERE `t0`.`CityOfBirthName` IS NOT NULL AND `c`.`Name` IS NOT NULL
 """);
     }
 
@@ -267,17 +268,17 @@ INNER JOIN [Cities] AS [c] ON [t0].[CityOfBirthName] = [c].[Name]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Tags] AS [t0] ON [t].[SquadId] = [t0].[GearSquadId] AND [t].[Nickname] = [t0].[GearNickName]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Tags` AS `t0` ON `t`.`SquadId` = `t0`.`GearSquadId` AND `t`.`Nickname` = `t0`.`GearNickName`)
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`
 """);
     }
 
@@ -286,18 +287,18 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
         await base.Include_with_join_collection2(async);
 
         AssertSql(
-"""
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Id], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM [Tags] AS [t]
+            """
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Id`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM (`Tags` AS `t`
 INNER JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearSquadId] = [t0].[SquadId] AND [t].[GearNickName] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -307,21 +308,21 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Id]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`
+FROM `Tags` AS `t`
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE ([t0].[Id] IS NOT NULL) AND [t0].[Id] IN ('34c8d86e-a4ac-4be5-827f-584dda348a07', 'df36f493-463f-4123-83f9-6b135deeb7ba', 'a8ad98f9-e023-4e2a-9a70-c2728455bd34', '70534e05-782c-4052-8720-c2c54481ce5f', 'a7be028a-0cf2-448f-ab55-ce8bc5d8cf69', 'b39a6fba-9026-4d69-828e-fd7068673e57')
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `t0`.`Id` IS NOT NULL AND `t0`.`Id` IN ('{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{b39a6fba-9026-4d69-828e-fd7068673e57}', '{df36f493-463f-4123-83f9-6b135deeb7ba}')
 """);
     }
 
@@ -331,22 +332,22 @@ WHERE ([t0].[Id] IS NOT NULL) AND [t0].[Id] IN ('34c8d86e-a4ac-4be5-827f-584dda3
 
         AssertSql(
 """
-SELECT [t].[Id]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`
+FROM `Tags` AS `t`
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE ([c].[Location] IS NOT NULL) AND [t0].[Id] IN ('34c8d86e-a4ac-4be5-827f-584dda348a07', 'df36f493-463f-4123-83f9-6b135deeb7ba', 'a8ad98f9-e023-4e2a-9a70-c2728455bd34', '70534e05-782c-4052-8720-c2c54481ce5f', 'a7be028a-0cf2-448f-ab55-ce8bc5d8cf69', 'b39a6fba-9026-4d69-828e-fd7068673e57')
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`)
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `c`.`Location` IS NOT NULL AND `t0`.`Id` IN ('{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{b39a6fba-9026-4d69-828e-fd7068673e57}', '{df36f493-463f-4123-83f9-6b135deeb7ba}')
 """);
     }
 
@@ -356,21 +357,21 @@ WHERE ([c].[Location] IS NOT NULL) AND [t0].[Id] IN ('34c8d86e-a4ac-4be5-827f-58
 
         AssertSql(
 """
-SELECT [t].[Id]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`
+FROM `Tags` AS `t`
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE ([t0].[Id] IS NOT NULL) AND [t0].[Id] IN ('34c8d86e-a4ac-4be5-827f-584dda348a07', 'df36f493-463f-4123-83f9-6b135deeb7ba', 'a8ad98f9-e023-4e2a-9a70-c2728455bd34', '70534e05-782c-4052-8720-c2c54481ce5f', 'a7be028a-0cf2-448f-ab55-ce8bc5d8cf69', 'b39a6fba-9026-4d69-828e-fd7068673e57')
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `t0`.`Id` IS NOT NULL AND `t0`.`Id` IN ('{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{b39a6fba-9026-4d69-828e-fd7068673e57}', '{df36f493-463f-4123-83f9-6b135deeb7ba}')
 """);
     }
 
@@ -380,24 +381,24 @@ WHERE ([t0].[Id] IS NOT NULL) AND [t0].[Id] IN ('34c8d86e-a4ac-4be5-827f-584dda3
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [c].[Name], [c].[Location], [c].[Nation], [t0].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`, `t0`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`
+FROM (((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Tags] AS [t0] ON [t].[SquadId] = [t0].[GearSquadId] AND [t].[Nickname] = [t0].[GearNickName]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Tags` AS `t0` ON `t`.`SquadId` = `t0`.`GearSquadId` AND `t`.`Nickname` = `t0`.`GearNickName`)
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t1] ON [c].[Name] = [t1].[AssignedCityName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id], [c].[Name], [t1].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t1` ON `c`.`Name` = `t1`.`AssignedCityName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `c`.`Name`, `t1`.`Nickname`
 """);
     }
 
@@ -424,20 +425,20 @@ WHERE `t0`.`CityOfBirthName` IS NOT NULL AND `c`.`Name` IS NOT NULL
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`
+FROM (`Tags` AS `t`
 INNER JOIN (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearSquadId] = [t0].[SquadId] AND [t].[GearNickName] = [t0].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t1] ON [t0].[Nickname] = [t1].[LeaderNickname] AND [t0].[SquadId] = [t1].[LeaderSquadId]
-ORDER BY [t0].[HasSoulPatch], [t0].[Nickname] DESC, [t].[Id], [t0].[SquadId], [t1].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t1` ON `t0`.`Nickname` = `t1`.`LeaderNickname` AND `t0`.`SquadId` = `t1`.`LeaderSquadId`
+ORDER BY NOT (`t0`.`HasSoulPatch`), `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadId`, `t1`.`Nickname`
 """);
     }
 
@@ -464,20 +465,20 @@ ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`
+FROM (`Tags` AS `t`
 INNER JOIN (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearSquadId] = [t0].[SquadId] AND [t].[GearNickName] = [t0].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearSquadId` = `t0`.`SquadId` AND `t`.`GearNickName` = `t0`.`Nickname`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t1] ON [t0].[Nickname] = [t1].[LeaderNickname] AND [t0].[SquadId] = [t1].[LeaderSquadId]
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t1` ON `t0`.`Nickname` = `t1`.`LeaderNickname` AND `t0`.`SquadId` = `t1`.`LeaderSquadId`
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`
 """);
     }
 
@@ -486,19 +487,19 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname]
         await base.Include_with_nested_navigation_in_order_by(async);
 
         AssertSql(
-"""
-SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
-FROM [Weapons] AS [w]
+            """
+SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
+FROM (`Weapons` AS `w`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-LEFT JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
-WHERE [t].[Nickname] <> N'Paduk' OR ([t].[Nickname] IS NULL)
-ORDER BY [c].[Name], [w].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`)
+LEFT JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
+WHERE `t`.`Nickname` <> 'Paduk' OR `t`.`Nickname` IS NULL
+ORDER BY `c`.`Name`, `w`.`Id`
 """);
     }
 
@@ -508,15 +509,15 @@ ORDER BY [c].[Name], [w].[Id]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[Rank] = 4
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`Rank` = 4
 """);
     }
 
@@ -584,27 +585,27 @@ WHERE `w`.`AmmunitionType` IS NULL
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 2) > 0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 2) > 0
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 2) = 2
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 2) = 2
 """);
     }
 
@@ -614,39 +615,39 @@ WHERE ([t].[Rank] & 2) = 2
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 1) = 1
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 1) = 1
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (CAST([t].[Rank] AS bigint) & CAST(1 AS bigint)) = CAST(1 AS bigint)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (CLNG(`t`.`Rank`) BAND 1) = 1
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (CAST([t].[Rank] AS smallint) & CAST(1 AS smallint)) = CAST(1 AS smallint)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (CINT(`t`.`Rank`) BAND 1) = 1
 """);
     }
 
@@ -714,15 +715,15 @@ WHERE (`w`.`AmmunitionType` BAND NULL) > 0
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] | 2) > 0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BOR 2) > 0
 """);
     }
 
@@ -732,21 +733,15 @@ WHERE ([t].[Rank] | 2) > 0
 
         AssertSql(
 """
-SELECT TOP(1) CASE
-    WHEN ([t].[Rank] & 2) = 2 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [BitwiseTrue], CASE
-    WHEN ([t].[Rank] & 2) = 4 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [BitwiseFalse], [t].[Rank] & 2 AS [BitwiseValue]
+SELECT TOP 1 IIF((`t`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `BitwiseTrue`, IIF((`t`.`Rank` BAND 2) = 4, TRUE, FALSE) AS `BitwiseFalse`, `t`.`Rank` BAND 2 AS `BitwiseValue`
 FROM (
-    SELECT [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 2) = 2
+    SELECT `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 2) = 2
 """);
     }
 
@@ -756,63 +751,63 @@ WHERE ([t].[Rank] & 2) = 2
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 2) = 2
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 2) = 2
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 18) = 18
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 18) = 18
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 1) = 1
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 1) = 1
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 1) = 1
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 1) = 1
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (2 & [t].[Rank]) = [t].[Rank]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (2 BAND `t`.`Rank`) = `t`.`Rank`
 """);
     }
 
@@ -822,63 +817,99 @@ WHERE (2 & [t].[Rank]) = [t].[Rank]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & COALESCE((
-    SELECT TOP(1) [t0].[Rank]
-    FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
-        UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]), 0)) = COALESCE((
-    SELECT TOP(1) [t0].[Rank]
-    FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
-        UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]), 0)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND IIF((
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL, 0, (
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`))) = IIF((
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL, 0, (
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`))
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (2 & COALESCE((
-    SELECT TOP(1) [t0].[Rank]
-    FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
-        UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]), 0)) = COALESCE((
-    SELECT TOP(1) [t0].[Rank]
-    FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
-        UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]), 0)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (2 BAND IIF((
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL, 0, (
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`))) = IIF((
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL, 0, (
+        SELECT TOP 1 `t0`.`Rank`
+        FROM (
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
+            UNION ALL
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        ORDER BY `t0`.`Nickname`, `t0`.`SquadId`))
 """);
     }
 
@@ -888,81 +919,81 @@ WHERE (2 & COALESCE((
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & (
-    SELECT TOP(1) [t0].[Rank]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId])) = (
-    SELECT TOP(1) [t0].[Rank]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`)) = (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]) OR ((
-    SELECT TOP(1) [t0].[Rank]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) OR (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]) IS NULL)
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (2 & (
-    SELECT TOP(1) [t0].[Rank]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (2 BAND (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId])) = (
-    SELECT TOP(1) [t0].[Rank]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`)) = (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]) OR ((
-    SELECT TOP(1) [t0].[Rank]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) OR (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]) IS NULL)
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL
 """);
     }
 
@@ -972,42 +1003,42 @@ WHERE (2 & (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & (
-    SELECT TOP(1) [t0].[Rank]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId])) = (
-    SELECT TOP(1) [t0].[Rank]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`)) = (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]) OR ((
-    SELECT TOP(1) [t0].[Rank]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) OR (
+    SELECT TOP 1 `t0`.`Rank`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
-    ORDER BY [t0].[Nickname], [t0].[SquadId]) IS NULL)
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
+    ORDER BY `t0`.`Nickname`, `t0`.`SquadId`) IS NULL
 """);
     }
 
@@ -1018,16 +1049,17 @@ WHERE ([t].[Rank] & (
         AssertSql(
 """
 @__parameter_0='2'
+@__parameter_0='2'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & @__parameter_0) = @__parameter_0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND @__parameter_0) = @__parameter_0
 """);
     }
 
@@ -1038,16 +1070,17 @@ WHERE ([t].[Rank] & @__parameter_0) = @__parameter_0
         AssertSql(
 """
 @__parameter_0='2' (Nullable = true)
+@__parameter_0='2' (Nullable = true)
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & @__parameter_0) = @__parameter_0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND @__parameter_0) = @__parameter_0
 """);
     }
 
@@ -1057,21 +1090,15 @@ WHERE ([t].[Rank] & @__parameter_0) = @__parameter_0
 
         AssertSql(
 """
-SELECT TOP(1) CASE
-    WHEN ([t].[Rank] & 2) = 2 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [hasFlagTrue], CASE
-    WHEN ([t].[Rank] & 4) = 4 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [hasFlagFalse]
+SELECT TOP 1 IIF((`t`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `hasFlagTrue`, IIF((`t`.`Rank` BAND 4) = 4, TRUE, FALSE) AS `hasFlagFalse`
 FROM (
-    SELECT [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & 2) = 2
+    SELECT `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND 2) = 2
 """);
     }
 
@@ -1081,18 +1108,18 @@ WHERE ([t].[Rank] & 2) = 2
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]) = 2
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`) = 2
 """);
     }
 
@@ -1102,18 +1129,18 @@ WHERE (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName])
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`)
 """);
     }
 
@@ -1264,15 +1291,15 @@ FROM `Weapons` AS `w`
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[LeaderNickname] = N'Marcus' AND ([t].[LeaderNickname] IS NOT NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`LeaderNickname` = 'Marcus' AND `t`.`LeaderNickname` IS NOT NULL
 """);
     }
 
@@ -1283,21 +1310,15 @@ WHERE [t].[LeaderNickname] = N'Marcus' AND ([t].[LeaderNickname] IS NOT NULL)
         // issue #16050
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[LeaderNickname] IS NULL THEN NULL
-    ELSE CASE
-        WHEN ([t].[LeaderNickname] IS NOT NULL) AND ([t].[LeaderNickname] LIKE N'%us') THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-END = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`LeaderNickname` IS NULL, NULL, IIF((`t`.`LeaderNickname` LIKE '%us') AND `t`.`LeaderNickname` IS NOT NULL, TRUE, FALSE)) = TRUE
 """);
     }
 
@@ -1308,21 +1329,15 @@ END = CAST(1 AS bit)
         // issue #16050
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CASE
-        WHEN [t].[LeaderNickname] LIKE N'%us' THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-    ELSE NULL
-END = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(`t`.`LeaderNickname` LIKE '%us', TRUE, FALSE), NULL) = TRUE
 """);
     }
 
@@ -1333,21 +1348,15 @@ END = CAST(1 AS bit)
         // issue #16050
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[LeaderNickname] IS NULL THEN NULL
-    ELSE CAST(LEN([t].[LeaderNickname]) AS int)
-END = 5 AND (CASE
-    WHEN [t].[LeaderNickname] IS NULL THEN NULL
-    ELSE CAST(LEN([t].[LeaderNickname]) AS int)
-END IS NOT NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`LeaderNickname` IS NULL, NULL, IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`)))) = 5 AND IIF(`t`.`LeaderNickname` IS NULL, NULL, IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`)))) IS NOT NULL
 """);
     }
 
@@ -1358,21 +1367,15 @@ END IS NOT NULL)
         // issue #16050
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(LEN([t].[LeaderNickname]) AS int)
-    ELSE NULL
-END = 5 AND (CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(LEN([t].[LeaderNickname]) AS int)
-    ELSE NULL
-END IS NOT NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`))), NULL) = 5 AND IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`))), NULL) IS NOT NULL
 """);
     }
 
@@ -1383,21 +1386,15 @@ END IS NOT NULL)
         // issue #16050
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(LEN([t].[LeaderNickname]) AS int)
-    ELSE NULL
-END = 5 AND (CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(LEN([t].[LeaderNickname]) AS int)
-    ELSE NULL
-END IS NOT NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`))), NULL) = 5 AND IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`))), NULL) IS NOT NULL
 """);
     }
 
@@ -1408,17 +1405,14 @@ END IS NOT NULL)
         // issue #16050
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN [t].[LeaderNickname] + [t].[LeaderNickname]
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, `t`.`LeaderNickname` & `t`.`LeaderNickname`, NULL)
 FROM (
-    SELECT [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1428,14 +1422,14 @@ FROM (
 
         AssertSql(
 """
-SELECT COALESCE([t].[LeaderNickname], N'') + COALESCE([t].[LeaderNickname], N'')
+SELECT IIF(`t`.`LeaderNickname` IS NULL, '', `t`.`LeaderNickname`) & IIF(`t`.`LeaderNickname` IS NULL, '', `t`.`LeaderNickname`)
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1444,15 +1438,15 @@ FROM (
         await base.Select_null_propagation_optimization9(async);
 
         AssertSql(
-"""
-SELECT CAST(LEN([t].[FullName]) AS int)
+            """
+SELECT IIF(LEN(`t`.`FullName`) IS NULL, NULL, CLNG(LEN(`t`.`FullName`)))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1462,20 +1456,14 @@ FROM (
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CASE
-        WHEN CAST(LEN([t].[Nickname]) AS int) = 5 THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`t`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t`.`Nickname`))) = 5, TRUE, FALSE), NULL)
 FROM (
-    SELECT [g].[Nickname], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1485,24 +1473,21 @@ FROM (
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN [t0].[LeaderNickname]
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, `t0`.`LeaderNickname`, NULL)
 FROM (
-    SELECT [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [g0].[LeaderNickname]
-    FROM [Gears] AS [g0]
+    SELECT `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `g0`.`LeaderNickname`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[LeaderNickname]
-    FROM [Officers] AS [o0]
-) AS [t0]
+    SELECT `o0`.`LeaderNickname`
+    FROM `Officers` AS `o0`
+) AS `t0`
 """);
     }
 
@@ -1599,20 +1584,14 @@ ORDER BY [t0].[Nickname]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CASE
-        WHEN CAST(LEN([t].[LeaderNickname]) AS int) <> CAST(LEN([t].[LeaderNickname]) AS int) THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`))) <> IIF(LEN(`t`.`LeaderNickname`) IS NULL, NULL, CLNG(LEN(`t`.`LeaderNickname`))), TRUE, FALSE), NULL)
 FROM (
-    SELECT [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1622,17 +1601,14 @@ FROM (
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, TRUE, NULL)
 FROM (
-    SELECT [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1642,20 +1618,17 @@ FROM (
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [s].[Id] IS NOT NULL THEN [c].[Name]
-    ELSE NULL
-END
-FROM [Tags] AS [t]
+SELECT IIF(`s`.`Id` IS NOT NULL, `c`.`Name`, NULL)
+FROM ((`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
-LEFT JOIN [Cities] AS [c] ON [t0].[AssignedCityName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`)
+LEFT JOIN `Cities` AS `c` ON `t0`.`AssignedCityName` = `c`.`Name`
 """);
     }
 
@@ -1665,20 +1638,14 @@ LEFT JOIN [Cities] AS [c] ON [t0].[AssignedCityName] = [c].[Name]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN COALESCE(CASE
-        WHEN CAST(LEN([t].[Nickname]) AS int) = 5 THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END, CAST(0 AS bit))
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(IIF(IIF(LEN(`t`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t`.`Nickname`))) = 5, TRUE, FALSE) IS NULL, FALSE, IIF(IIF(LEN(`t`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t`.`Nickname`))) = 5, TRUE, FALSE)), NULL)
 FROM (
-    SELECT [g].[Nickname], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -1688,15 +1655,15 @@ FROM (
 
         AssertSql(
 """
-SELECT [t0].[Nickname]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -1706,27 +1673,24 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [c].[Name] IS NOT NULL THEN [c].[Name]
-    ELSE NULL
-END
-FROM [Tags] AS [t]
+SELECT IIF(`c`.`Name` IS NOT NULL, `c`.`Name`, NULL)
+FROM (((`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Tags] AS [t1] ON ([t0].[Nickname] = [t1].[GearNickName] OR (([t0].[Nickname] IS NULL) AND ([t1].[GearNickName] IS NULL))) AND ([t0].[SquadId] = [t1].[GearSquadId] OR (([t0].[SquadId] IS NULL) AND ([t1].[GearSquadId] IS NULL)))
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Tags` AS `t1` ON (`t0`.`Nickname` = `t1`.`GearNickName` OR (`t0`.`Nickname` IS NULL AND `t1`.`GearNickName` IS NULL)) AND (`t0`.`SquadId` = `t1`.`GearSquadId` OR (`t0`.`SquadId` IS NULL AND `t1`.`GearSquadId` IS NULL)))
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t1].[GearNickName] = [t2].[Nickname] AND [t1].[GearSquadId] = [t2].[SquadId]
-LEFT JOIN [Cities] AS [c] ON [t2].[AssignedCityName] = [c].[Name]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`
+    FROM `Officers` AS `o0`
+) AS `t2` ON `t1`.`GearNickName` = `t2`.`Nickname` AND `t1`.`GearSquadId` = `t2`.`SquadId`)
+LEFT JOIN `Cities` AS `c` ON `t2`.`AssignedCityName` = `c`.`Name`
 """);
     }
 
@@ -1736,18 +1700,15 @@ LEFT JOIN [Cities] AS [c] ON [t2].[AssignedCityName] = [c].[Name]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t].[HasSoulPatch]
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, TRUE, FALSE), `t`.`HasSoulPatch`
 FROM (
-    SELECT [g].[Nickname], [g].[HasSoulPatch], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[HasSoulPatch], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -1757,18 +1718,15 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t].[Nickname], [t].[FullName]
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, TRUE, FALSE), `t`.`Nickname`, `t`.`FullName`
 FROM (
-    SELECT [g].[Nickname], [g].[FullName], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`FullName`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -1778,16 +1736,16 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname], [g].[HasSoulPatch], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[HasSoulPatch], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[LeaderNickname] IS NULL
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`LeaderNickname` IS NULL
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -1797,16 +1755,16 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname], [g].[HasSoulPatch], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[HasSoulPatch], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[LeaderNickname] IS NULL
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`LeaderNickname` IS NULL
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -1816,15 +1774,15 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -1834,15 +1792,15 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[LeaderNickname], [t].[FullName]
+SELECT `t`.`LeaderNickname`, `t`.`FullName`
 FROM (
-    SELECT [g].[Nickname], [g].[FullName], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`FullName`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -1859,15 +1817,15 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[LeaderNickname] = N'Marcus'
+    SELECT `o`.`Nickname`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`LeaderNickname` = 'Marcus'
 """);
     }
 
@@ -1877,14 +1835,14 @@ WHERE [t].[LeaderNickname] = N'Marcus'
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE 0 = 1
 """);
     }
@@ -1895,24 +1853,27 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note]
-FROM [Tags] AS [t]
-CROSS JOIN [Tags] AS [t0]
+SELECT `t1`.`Id`, `t1`.`GearNickName`, `t1`.`GearSquadId`, `t1`.`IssueDate`, `t1`.`Note`, `t1`.`Id0`, `t1`.`GearNickName0`, `t1`.`GearSquadId0`, `t1`.`IssueDate0`, `t1`.`Note0`
+FROM ((
+    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Id` AS `Id0`, `t0`.`GearNickName` AS `GearNickName0`, `t0`.`GearSquadId` AS `GearSquadId0`, `t0`.`IssueDate` AS `IssueDate0`, `t0`.`Note` AS `Note0`
+    FROM `Tags` AS `t`,
+    `Tags` AS `t0`
+) AS `t1`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t1] ON [t].[GearNickName] = [t1].[Nickname] AND [t].[GearSquadId] = [t1].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t2` ON `t1`.`GearNickName` = `t2`.`Nickname` AND `t1`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
-WHERE [t1].[Nickname] = [t2].[Nickname] OR (([t1].[Nickname] IS NULL) AND ([t2].[Nickname] IS NULL))
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`
+    FROM `Officers` AS `o0`
+) AS `t3` ON `t1`.`GearNickName0` = `t3`.`Nickname` AND `t1`.`GearSquadId0` = `t3`.`SquadId`
+WHERE `t2`.`Nickname` = `t3`.`Nickname` OR (`t2`.`Nickname` IS NULL AND `t3`.`Nickname` IS NULL)
 """);
     }
 
@@ -1922,16 +1883,16 @@ WHERE [t1].[Nickname] = [t2].[Nickname] OR (([t1].[Nickname] IS NULL) AND ([t2].
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[Nickname] = N'Marcus' AND ([t0].[CityOfBirthName] <> N'Ephyra' OR ([t0].[CityOfBirthName] IS NULL))
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` = 'Marcus' AND (`t0`.`CityOfBirthName` <> 'Ephyra' OR `t0`.`CityOfBirthName` IS NULL)
 """);
     }
 
@@ -1941,16 +1902,16 @@ WHERE [t0].[Nickname] = N'Marcus' AND ([t0].[CityOfBirthName] <> N'Ephyra' OR ([
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[Nickname] = N'Marcus'
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` = 'Marcus'
 """);
     }
 
@@ -1960,24 +1921,27 @@ WHERE [t0].[Nickname] = N'Marcus'
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note]
-FROM [Tags] AS [t]
-CROSS JOIN [Tags] AS [t0]
+SELECT `t1`.`Id`, `t1`.`GearNickName`, `t1`.`GearSquadId`, `t1`.`IssueDate`, `t1`.`Note`, `t1`.`Id0`, `t1`.`GearNickName0`, `t1`.`GearSquadId0`, `t1`.`IssueDate0`, `t1`.`Note0`
+FROM ((
+    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Id` AS `Id0`, `t0`.`GearNickName` AS `GearNickName0`, `t0`.`GearSquadId` AS `GearSquadId0`, `t0`.`IssueDate` AS `IssueDate0`, `t0`.`Note` AS `Note0`
+    FROM `Tags` AS `t`,
+    `Tags` AS `t0`
+) AS `t1`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t1] ON [t].[GearNickName] = [t1].[Nickname] AND [t].[GearSquadId] = [t1].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t2` ON `t1`.`GearNickName` = `t2`.`Nickname` AND `t1`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
-WHERE ([t1].[Nickname] = [t2].[Nickname] OR (([t1].[Nickname] IS NULL) AND ([t2].[Nickname] IS NULL))) AND ([t1].[SquadId] = [t2].[SquadId] OR (([t1].[SquadId] IS NULL) AND ([t2].[SquadId] IS NULL)))
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`
+    FROM `Officers` AS `o0`
+) AS `t3` ON `t1`.`GearNickName0` = `t3`.`Nickname` AND `t1`.`GearSquadId0` = `t3`.`SquadId`
+WHERE (`t2`.`Nickname` = `t3`.`Nickname` OR (`t2`.`Nickname` IS NULL AND `t3`.`Nickname` IS NULL)) AND (`t2`.`SquadId` = `t3`.`SquadId` OR (`t2`.`SquadId` IS NULL AND `t3`.`SquadId` IS NULL))
 """);
     }
 
@@ -1986,18 +1950,18 @@ WHERE ([t1].[Nickname] = [t2].[Nickname] OR (([t1].[Nickname] IS NULL) AND ([t2]
         await base.Select_Where_Navigation_Null(async);
 
         AssertSql(
-"""
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
-LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
-    UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL)
-""");
+            """
+    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+    FROM `Tags` AS `t`
+    LEFT JOIN (
+        SELECT `g`.`Nickname`, `g`.`SquadId`
+        FROM `Gears` AS `g`
+        UNION ALL
+        SELECT `o`.`Nickname`, `o`.`SquadId`
+        FROM `Officers` AS `o`
+    ) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+    WHERE `t0`.`Nickname` IS NULL OR `t0`.`SquadId` IS NULL
+    """);
     }
 
     public override async Task Select_Where_Navigation_Null_Reverse(bool async)
@@ -2005,17 +1969,17 @@ WHERE ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL)
         await base.Select_Where_Navigation_Null_Reverse(async);
 
         AssertSql(
-"""
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+            """
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` IS NULL OR `t0`.`SquadId` IS NULL
 """);
     }
 
@@ -2024,25 +1988,28 @@ WHERE ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL)
         await base.Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(async);
 
         AssertSql(
-"""
-SELECT [t].[Id] AS [Id1], [t0].[Id] AS [Id2]
-FROM [Tags] AS [t]
-CROSS JOIN [Tags] AS [t0]
+            """
+SELECT `t1`.`Id` AS `Id1`, `t1`.`Id0` AS `Id2`
+FROM ((
+    SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t0`.`Id` AS `Id0`, `t0`.`GearNickName` AS `GearNickName0`, `t0`.`GearSquadId` AS `GearSquadId0`
+    FROM `Tags` AS `t`,
+    `Tags` AS `t0`
+) AS `t1`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t1] ON [t].[GearNickName] = [t1].[Nickname] AND [t].[GearSquadId] = [t1].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t2` ON `t1`.`GearNickName` = `t2`.`Nickname` AND `t1`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
-WHERE [t1].[Nickname] = [t2].[Nickname] OR (([t1].[Nickname] IS NULL) AND ([t2].[Nickname] IS NULL))
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`
+    FROM `Officers` AS `o0`
+) AS `t3` ON `t1`.`GearNickName0` = `t3`.`Nickname` AND `t1`.`GearSquadId0` = `t3`.`SquadId`
+WHERE `t2`.`Nickname` = `t3`.`Nickname` OR (`t2`.`Nickname` IS NULL AND `t3`.`Nickname` IS NULL)
 """);
     }
 
@@ -2065,19 +2032,23 @@ ORDER BY `w`.`Id`
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE COALESCE((
-    SELECT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]), CAST(0 AS bit)) = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF((
+        SELECT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`) IS NULL, FALSE, (
+        SELECT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`)) = TRUE
 """);
     }
 
@@ -2087,19 +2058,19 @@ WHERE COALESCE((
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE (
-    SELECT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]) = CAST(1 AS bit)
+    SELECT TOP 1 `w`.`IsAutomatic`
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`
+    ORDER BY `w`.`Id`) = TRUE
 """);
     }
 
@@ -2210,19 +2181,22 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND COALESCE((
-    SELECT DISTINCT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND ([w].[Name] LIKE N'%Lancer%')), CAST(0 AS bit)) = CAST(1 AS bit)
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` = TRUE AND IIF((
+        SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND (`w`.`Name` LIKE '%Lancer%')) IS NULL, FALSE, (
+        SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND (`w`.`Name` LIKE '%Lancer%'))) = TRUE
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -2519,24 +2493,24 @@ FROM (
 """
 SELECT COUNT(*)
 FROM (
-    SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t].[Nickname] AS [Name]
+    SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t`.`Nickname` AS `Name`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
     UNION ALL
-    SELECT [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator], [t1].[FullName] AS [Name]
+    SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`, `t1`.`FullName` AS `Name`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-) AS [t0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+) AS `t0`
 """);
     }
 
@@ -2683,16 +2657,16 @@ WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT [t0].[CityOfBirthName] AS [B]
-FROM [Tags] AS [t]
+SELECT `t0`.`CityOfBirthName` AS `B`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[CityOfBirthName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`CityOfBirthName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[CityOfBirthName]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[Nickname] = N'Marcus' AND ([t0].[CityOfBirthName] <> N'Ephyra' OR ([t0].[CityOfBirthName] IS NULL))
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`CityOfBirthName`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` = 'Marcus' AND (`t0`.`CityOfBirthName` <> 'Ephyra' OR `t0`.`CityOfBirthName` IS NULL)
 """);
     }
 
@@ -2702,15 +2676,15 @@ WHERE [t0].[Nickname] = N'Marcus' AND ([t0].[CityOfBirthName] <> N'Ephyra' OR ([
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM `Tags` AS `t`
 INNER JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -2720,25 +2694,25 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [t].[FullName], [t1].[Note]
+SELECT `t`.`FullName`, `t1`.`Note`
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [t0].[Note], [t2].[FullName]
-    FROM [Tags] AS [t0]
+    SELECT `t0`.`Note`, `t2`.`FullName`
+    FROM `Tags` AS `t0`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
-) AS [t1] ON [t].[FullName] = [t1].[FullName]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`
+) AS `t1` ON `t`.`FullName` = `t1`.`FullName`
 """);
     }
 
@@ -2748,25 +2722,25 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [t].[FullName], [t1].[Note]
+SELECT `t`.`FullName`, `t1`.`Note`
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [t0].[Note], [t2].[FullName]
-    FROM [Tags] AS [t0]
+    SELECT `t0`.`Note`, `t2`.`FullName`
+    FROM `Tags` AS `t0`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
-) AS [t1] ON [t].[FullName] = [t1].[FullName]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`
+) AS `t1` ON `t`.`FullName` = `t1`.`FullName`
 """);
     }
 
@@ -2776,15 +2750,15 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [w].[Name], [t].[FullName]
+SELECT `w`.`Name`, `t`.`FullName`
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
 """);
     }
 
@@ -2794,16 +2768,17 @@ INNER JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
 
         AssertSql(
 """
-SELECT [w].[Name], [t].[FullName]
-FROM [Squads] AS [s]
+SELECT `w`.`Name`, `t`.`FullName`
+FROM (`Squads` AS `s`
 INNER JOIN (
-    SELECT [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t] ON [s].[Id] = [t].[SquadId]
-INNER JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
+    SELECT `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t` ON `s`.`Id` = `t`.`SquadId`)
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+WHERE `t`.`FullName` IS NOT NULL AND `w`.`OwnerFullName` IS NOT NULL
 """);
     }
 
@@ -2895,18 +2870,18 @@ WHERE `c`.`Location` IN ('Unknown', 'Jacinto''s location', 'Ephyra''s location')
 
         AssertSql(
 """
-SELECT [c].[Name], [c].[Location], [c].[Nation]
-FROM [Cities] AS [c]
-WHERE [c].[Location] = 'Unknown' AND (
+SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
+FROM `Cities` AS `c`
+WHERE `c`.`Location` = 'Unknown' AND (
     SELECT COUNT(*)
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [c].[Name] = [t].[CityOfBirthName] AND [t].[Nickname] = N'Paduk') = 1
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `c`.`Name` = `t`.`CityOfBirthName` AND `t`.`Nickname` = 'Paduk') = 1
 """);
     }
 
@@ -2916,16 +2891,16 @@ WHERE [c].[Location] = 'Unknown' AND (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
-WHERE [t].[Nickname] = N'Marcus' AND [c].[Location] = 'Jacinto''s location'
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
+WHERE `t`.`Nickname` = 'Marcus' AND `c`.`Location` = 'Jacinto''s location'
 """);
     }
 
@@ -3014,24 +2989,24 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId]
         // Issue#16897
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+FROM (((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w0] ON [t].[FullName] = [w0].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w0` ON `t`.`FullName` = `w0`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`
 """);
     }
 
@@ -3042,26 +3017,26 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id
         // Issue#16897
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId], [w1].[Id], [w1].[AmmunitionType], [w1].[IsAutomatic], [w1].[Name], [w1].[OwnerFullName], [w1].[SynergyWithId], [w2].[Id], [w2].[AmmunitionType], [w2].[IsAutomatic], [w2].[Name], [w2].[OwnerFullName], [w2].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`, `w1`.`Id`, `w1`.`AmmunitionType`, `w1`.`IsAutomatic`, `w1`.`Name`, `w1`.`OwnerFullName`, `w1`.`SynergyWithId`, `w2`.`Id`, `w2`.`AmmunitionType`, `w2`.`IsAutomatic`, `w2`.`Name`, `w2`.`OwnerFullName`, `w2`.`SynergyWithId`
+FROM (((((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w0] ON [t0].[FullName] = [w0].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w1] ON [t0].[FullName] = [w1].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w2] ON [t].[FullName] = [w2].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id], [w0].[Id], [w1].[Id]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w0` ON `t0`.`FullName` = `w0`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w1` ON `t0`.`FullName` = `w1`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w2` ON `t`.`FullName` = `w2`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w0`.`Id`, `w1`.`Id`
 """);
     }
 
@@ -3072,21 +3047,21 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id
         // Issue#16897
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+FROM (((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w0] ON [t].[FullName] = [w0].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w0` ON `t`.`FullName` = `w0`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`
 """);
     }
 
@@ -3097,27 +3072,24 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id
         // Issue#16897
         AssertSql(
 """
-SELECT CASE
-    WHEN ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT IIF(`t0`.`Nickname` IS NOT NULL AND `t0`.`SquadId` IS NOT NULL, TRUE, FALSE), `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+FROM (((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w0] ON [t].[FullName] = [w0].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w0` ON `t`.`FullName` = `w0`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`
 """);
     }
 
@@ -3127,31 +3099,28 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId], [w1].[Id], [w1].[AmmunitionType], [w1].[IsAutomatic], [w1].[Name], [w1].[OwnerFullName], [w1].[SynergyWithId], [w2].[Id], [w2].[AmmunitionType], [w2].[IsAutomatic], [w2].[Name], [w2].[OwnerFullName], [w2].[SynergyWithId], CASE
-    WHEN ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [w3].[Id], [w3].[AmmunitionType], [w3].[IsAutomatic], [w3].[Name], [w3].[OwnerFullName], [w3].[SynergyWithId], [w4].[Id], [w4].[AmmunitionType], [w4].[IsAutomatic], [w4].[Name], [w4].[OwnerFullName], [w4].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`, `w1`.`Id`, `w1`.`AmmunitionType`, `w1`.`IsAutomatic`, `w1`.`Name`, `w1`.`OwnerFullName`, `w1`.`SynergyWithId`, `w2`.`Id`, `w2`.`AmmunitionType`, `w2`.`IsAutomatic`, `w2`.`Name`, `w2`.`OwnerFullName`, `w2`.`SynergyWithId`, IIF(`t0`.`Nickname` IS NOT NULL AND `t0`.`SquadId` IS NOT NULL, TRUE, FALSE), `w3`.`Id`, `w3`.`AmmunitionType`, `w3`.`IsAutomatic`, `w3`.`Name`, `w3`.`OwnerFullName`, `w3`.`SynergyWithId`, `w4`.`Id`, `w4`.`AmmunitionType`, `w4`.`IsAutomatic`, `w4`.`Name`, `w4`.`OwnerFullName`, `w4`.`SynergyWithId`
+FROM (((((((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w0] ON [t0].[FullName] = [w0].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w1] ON [t0].[FullName] = [w1].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w2] ON [t].[FullName] = [w2].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w3] ON [t0].[FullName] = [w3].[OwnerFullName]
-LEFT JOIN [Weapons] AS [w4] ON [t].[FullName] = [w4].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [w].[Id], [w0].[Id], [w1].[Id], [w2].[Id], [w3].[Id]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w0` ON `t0`.`FullName` = `w0`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w1` ON `t0`.`FullName` = `w1`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w2` ON `t`.`FullName` = `w2`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w3` ON `t0`.`FullName` = `w3`.`OwnerFullName`)
+LEFT JOIN `Weapons` AS `w4` ON `t`.`FullName` = `w4`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w0`.`Id`, `w1`.`Id`, `w2`.`Id`, `w3`.`Id`
 """);
     }
 
@@ -3184,7 +3153,7 @@ WHERE `w`.`AmmunitionType` = 1 AND IIF(`w`.`IsAutomatic` IS NULL, FALSE, `w`.`Is
         await base.Coalesce_operator_in_projection_with_other_conditions(async);
 
         AssertSql(
-"""
+            """
 SELECT IIF(`w`.`AmmunitionType` = 1 AND `w`.`AmmunitionType` IS NOT NULL AND IIF(`w`.`IsAutomatic` IS NULL, FALSE, `w`.`IsAutomatic`) = TRUE, TRUE, FALSE)
 FROM `Weapons` AS `w`
 """);
@@ -3196,16 +3165,16 @@ FROM `Weapons` AS `w`
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE ([t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)) AND [t0].[HasSoulPatch] = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `t0`.`HasSoulPatch` = TRUE
 """);
     }
 
@@ -3215,16 +3184,16 @@ WHERE ([t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)) AND [t0].[HasSoulPatch] 
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[HasSoulPatch] = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`HasSoulPatch` = TRUE
 """);
     }
 
@@ -3234,16 +3203,16 @@ WHERE [t0].[HasSoulPatch] = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[HasSoulPatch] = CAST(0 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`HasSoulPatch` <> TRUE
 """);
     }
 
@@ -3253,19 +3222,16 @@ WHERE [t0].[HasSoulPatch] = CAST(0 AS bit)
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t0].[HasSoulPatch] = CAST(1 AS bit) THEN CAST(1 AS bit)
-    ELSE [t0].[HasSoulPatch]
-END = CAST(0 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t0`.`HasSoulPatch` = TRUE, TRUE, `t0`.`HasSoulPatch`) <> TRUE
 """);
     }
 
@@ -3274,20 +3240,17 @@ END = CAST(0 AS bit)
         await base.Optional_navigation_type_compensation_works_with_predicate_negated_complex2(async);
 
         AssertSql(
-"""
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+            """
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t0].[HasSoulPatch] = CAST(0 AS bit) THEN CAST(0 AS bit)
-    ELSE [t0].[HasSoulPatch]
-END = CAST(0 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t0`.`HasSoulPatch` <> TRUE, FALSE, `t0`.`HasSoulPatch`) <> TRUE
 """);
     }
 
@@ -3297,19 +3260,16 @@ END = CAST(0 AS bit)
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t0].[HasSoulPatch] = CAST(1 AS bit) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t0`.`HasSoulPatch` = TRUE, TRUE, FALSE) = TRUE
 """);
     }
 
@@ -3319,16 +3279,16 @@ END = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[HasSoulPatch] = CAST(1 AS bit) OR ([t].[Note] LIKE N'%Cole%')
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`HasSoulPatch` = TRUE OR (`t`.`Note` LIKE '%Cole%')
 """);
     }
 
@@ -3338,18 +3298,15 @@ WHERE [t0].[HasSoulPatch] = CAST(1 AS bit) OR ([t].[Note] LIKE N'%Cole%')
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t0].[HasSoulPatch] = CAST(1 AS bit) AND ([t].[Note] LIKE N'%Cole%') THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
-FROM [Tags] AS [t]
+SELECT IIF(`t0`.`HasSoulPatch` = TRUE AND (`t`.`Note` LIKE '%Cole%') AND `t`.`Note` IS NOT NULL, TRUE, FALSE)
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -3359,16 +3316,16 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t0].[SquadId]
-FROM [Tags] AS [t]
+SELECT `t0`.`SquadId`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
 """);
     }
 
@@ -3378,16 +3335,16 @@ WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
 
         AssertSql(
 """
-SELECT [t0].[SquadId]
-FROM [Tags] AS [t]
+SELECT `t0`.`SquadId`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
 """);
     }
 
@@ -3397,16 +3354,16 @@ WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
 
         AssertSql(
 """
-SELECT [t0].[SquadId] AS [Id]
-FROM [Tags] AS [t]
+SELECT `t0`.`SquadId` AS `Id`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
 """);
     }
 
@@ -3416,17 +3373,17 @@ WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
 
         AssertSql(
 """
-SELECT [t0].[SquadId], [t0].[SquadId] + 1
-FROM [Tags] AS [t]
+SELECT `t0`.`SquadId`, `t0`.`SquadId` + 1
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
-ORDER BY [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
+ORDER BY `t`.`Note`
 """);
     }
 
@@ -3436,16 +3393,16 @@ ORDER BY [t].[Note]
 
         AssertSql(
 """
-SELECT [t0].[SquadId]
-FROM [Tags] AS [t]
+SELECT `t0`.`SquadId`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
 """);
     }
 
@@ -3455,17 +3412,17 @@ WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)
-ORDER BY [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
+ORDER BY `t0`.`SquadId`
 """);
     }
 
@@ -3475,20 +3432,18 @@ ORDER BY [t0].[SquadId]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN NOT EXISTS (
+SELECT IIF(NOT EXISTS (
         SELECT 1
-        FROM [Tags] AS [t]
+        FROM `Tags` AS `t`
         LEFT JOIN (
-            SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-            FROM [Gears] AS [g]
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
             UNION ALL
-            SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-            FROM [Officers] AS [o]
-        ) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-        WHERE ([t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)) AND [t0].[HasSoulPatch] = CAST(0 AS bit)) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+        WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `t0`.`HasSoulPatch` <> TRUE), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -3498,16 +3453,16 @@ END
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE ([t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)) AND [t0].[HasSoulPatch] = CAST(0 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `t0`.`HasSoulPatch` <> TRUE
 """);
     }
 
@@ -3559,22 +3514,22 @@ WHERE ([t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL)) AND EXISTS (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [c].[Name], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[CityOfBirthName], [g].[FullName]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `c`.`Name`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`CityOfBirthName`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[CityOfBirthName], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`CityOfBirthName`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`)
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[Name] <> N'Lancer' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [c].[Name] IN (N'Ephyra', N'Hanover')
-ORDER BY [t].[Nickname], [t].[SquadId], [c].[Name]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`Name` <> 'Lancer' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `c`.`Name` IN ('Ephyra', 'Hanover')
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `c`.`Name`
 """);
     }
 
@@ -3584,23 +3539,23 @@ ORDER BY [t].[Nickname], [t].[SquadId], [c].[Name]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator]
+    SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    WHERE [t1].[Nickname] <> N'Dom'
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    WHERE `t1`.`Nickname` <> 'Dom'
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -3610,16 +3565,16 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Id], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname]
-ORDER BY [t].[Note], [t].[Id], [t0].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname`
+ORDER BY `t`.`Note`, `t`.`Id`, `t0`.`Nickname`
 """);
     }
 
@@ -3958,16 +3913,16 @@ WHERE `m`.`Timeline` = #1902-01-02 10:00:00#
 
         AssertSql(
 """
-SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM [Weapons] AS [w]
+SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM `Weapons` AS `w`
 LEFT JOIN (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-WHERE [w].[Id] <> 50 AND [t].[HasSoulPatch] = CAST(0 AS bit)
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`
+WHERE `w`.`Id` <> 50 AND `t`.`HasSoulPatch` <> TRUE
 """);
     }
 
@@ -3977,16 +3932,16 @@ WHERE [w].[Id] <> 50 AND [t].[HasSoulPatch] = CAST(0 AS bit)
 
         AssertSql(
 """
-SELECT DISTINCT [t].[HasSoulPatch]
+SELECT DISTINCT `t`.`HasSoulPatch`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE [t0].[Note] <> N'Foo' OR ([t0].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `t0`.`Note` <> 'Foo' OR `t0`.`Note` IS NULL
 """);
     }
 
@@ -3995,17 +3950,17 @@ WHERE [t0].[Note] <> N'Foo' OR ([t0].[Note] IS NULL)
         await base.Sum_with_optional_navigation_is_translated_to_sql(async);
 
         AssertSql(
-"""
-SELECT COALESCE(SUM([t].[SquadId]), 0)
+            """
+SELECT IIF(SUM(`t`.`SquadId`) IS NULL, 0, SUM(`t`.`SquadId`))
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE [t0].[Note] <> N'Foo' OR ([t0].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `t0`.`Note` <> 'Foo' OR `t0`.`Note` IS NULL
 """);
     }
 
@@ -4017,14 +3972,14 @@ WHERE [t0].[Note] <> N'Foo' OR ([t0].[Note] IS NULL)
 """
 SELECT COUNT(*)
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE [t0].[Note] <> N'Foo' OR ([t0].[Note] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `t0`.`Note` <> 'Foo' OR `t0`.`Note` IS NULL
 """);
     }
 
@@ -4034,16 +3989,16 @@ WHERE [t0].[Note] <> N'Foo' OR ([t0].[Note] IS NULL)
 
         AssertSql(
 """
-SELECT TOP(1) [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
+SELECT TOP 1 `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t] ON [s].[Id] = [t].[SquadId]
-WHERE [s].[Name] = N'Kilo'
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t` ON `s`.`Id` = `t`.`SquadId`
+WHERE `s`.`Name` = 'Kilo'
 """);
     }
 
@@ -4053,19 +4008,19 @@ WHERE [s].[Name] = N'Kilo'
 
         AssertSql(
 """
-SELECT [s].[Name]
-FROM [Squads] AS [s]
-WHERE NOT (EXISTS (
+SELECT `s`.`Name`
+FROM `Squads` AS `s`
+WHERE NOT EXISTS (
     SELECT 1
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-    WHERE [s].[Id] = [t].[SquadId] AND [t0].[Note] = N'Dom''s Tag'))
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+    WHERE `s`.`Id` = `t`.`SquadId` AND `t0`.`Note` = 'Dom''s Tag')
 """);
     }
 
@@ -4075,20 +4030,18 @@ WHERE NOT (EXISTS (
 
         AssertSql(
 """
-SELECT CASE
-    WHEN NOT EXISTS (
+SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM (
-            SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-            FROM [Gears] AS [g]
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
             UNION ALL
-            SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-            FROM [Officers] AS [o]
-        ) AS [t]
-        LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-        WHERE [t0].[Note] = N'Foo' AND ([t0].[Note] IS NOT NULL)) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+        WHERE `t0`.`Note` = 'Foo' AND `t0`.`Note` IS NOT NULL), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -4110,16 +4063,16 @@ WHERE `t`.`Id` IN ('{d2c26679-562b-44d1-ab96-23d1775e0926}', '{23cbcf9b-ce14-45c
 
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
-ORDER BY [t].[Rank]
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` = TRUE
+ORDER BY `t`.`Rank`
 """);
     }
 
@@ -4129,16 +4082,16 @@ ORDER BY [t].[Rank]
 
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[FullName]
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`FullName`
 """);
     }
 
@@ -4148,16 +4101,16 @@ ORDER BY [t].[FullName]
 
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[FullName]
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`FullName`
 """);
     }
 
@@ -4167,17 +4120,17 @@ ORDER BY [t].[FullName]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE [t].[FullName] <> N'Augustus Cole' AND [t].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[FullName]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE `t`.`FullName` <> 'Augustus Cole' AND `t`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`FullName`
 """);
     }
 
@@ -4187,23 +4140,23 @@ ORDER BY [t].[FullName]
 
         AssertSql(
 """
-SELECT [t].[FullName] AS [Name1], [t0].[FullName] AS [Name2]
+SELECT `t`.`FullName` AS `Name1`, `t0`.`FullName` AS `Name2`
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [g0].[FullName], [g0].[HasSoulPatch]
-    FROM [Gears] AS [g0]
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `g0`.`FullName`, `g0`.`HasSoulPatch`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[FullName], [o0].[HasSoulPatch]
-    FROM [Officers] AS [o0]
-) AS [t0]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t0].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[FullName]
+    SELECT `o0`.`FullName`, `o0`.`HasSoulPatch`
+    FROM `Officers` AS `o0`
+) AS `t0`
+WHERE `t`.`HasSoulPatch` = TRUE AND `t0`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`FullName`
 """);
     }
 
@@ -4213,17 +4166,17 @@ ORDER BY [t].[FullName]
 
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN [Tags] AS [t0]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
-ORDER BY [t].[FullName]
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`,
+`Tags` AS `t0`
+WHERE `t`.`HasSoulPatch` = TRUE
+ORDER BY `t`.`FullName`
 """);
     }
 
@@ -4232,17 +4185,17 @@ ORDER BY [t].[FullName]
         await base.Subquery_containing_join_projecting_main_from_clause_gets_lifted(async);
 
         AssertSql(
-"""
-SELECT [t].[Nickname]
+            """
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -4252,16 +4205,16 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -4270,19 +4223,19 @@ ORDER BY [t].[Nickname]
         await base.Subquery_containing_join_gets_lifted_clashing_names(async);
 
         AssertSql(
-"""
-SELECT [t].[Nickname]
-FROM (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
+            """
+SELECT `t`.`Nickname`
+FROM ((
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName]
-INNER JOIN [Tags] AS [t1] ON [t].[Nickname] = [t1].[GearNickName]
-WHERE [t0].[GearNickName] <> N'Cole Train' OR ([t0].[GearNickName] IS NULL)
-ORDER BY [t].[Nickname], [t1].[Id]
+    SELECT `o`.`Nickname`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName`)
+INNER JOIN `Tags` AS `t1` ON `t`.`Nickname` = `t1`.`GearNickName`
+WHERE `t0`.`GearNickName` <> 'Cole Train' OR `t0`.`GearNickName` IS NULL
+ORDER BY `t`.`Nickname`, `t1`.`Id`
 """);
     }
 
@@ -4292,20 +4245,20 @@ ORDER BY [t].[Nickname], [t1].[Id]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [c].[Name], [c].[Location], [c].[Nation]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
 WHERE EXISTS (
     SELECT 1
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]) AND [t].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[Nickname]
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`) AND `t`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -4315,23 +4268,23 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[FullName] AS [Name1], [t0].[FullName] AS [Name2]
+SELECT `t`.`FullName` AS `Name1`, `t0`.`FullName` AS `Name2`
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [g0].[FullName], [g0].[HasSoulPatch]
-    FROM [Gears] AS [g0]
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `g0`.`FullName`, `g0`.`HasSoulPatch`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[FullName], [o0].[HasSoulPatch]
-    FROM [Officers] AS [o0]
-) AS [t0]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t0].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[FullName]
+    SELECT `o0`.`FullName`, `o0`.`HasSoulPatch`
+    FROM `Officers` AS `o0`
+) AS `t0`
+WHERE `t`.`HasSoulPatch` = TRUE AND `t0`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`FullName`
 """);
     }
 
@@ -4341,22 +4294,20 @@ ORDER BY [t].[FullName]
 
         AssertSql(
 """
-@__p_0='2'
-
-SELECT [t0].[FullName]
+SELECT `t0`.`FullName`
 FROM (
-    SELECT TOP(@__p_0) [t].[FullName], [t].[Rank]
+    SELECT TOP 2 `t`.`FullName`, `t`.`Rank`
     FROM (
-        SELECT [g].[FullName], [g].[HasSoulPatch], [g].[Rank]
-        FROM [Gears] AS [g]
+        SELECT `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`Rank`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[FullName], [o].[HasSoulPatch], [o].[Rank]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [t].[HasSoulPatch] = CAST(0 AS bit)
-    ORDER BY [t].[FullName]
-) AS [t0]
-ORDER BY [t0].[Rank]
+        SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `t`.`HasSoulPatch` <> TRUE
+    ORDER BY `t`.`FullName`
+) AS `t0`
+ORDER BY `t0`.`Rank`
 """);
     }
 
@@ -4440,21 +4391,19 @@ ORDER BY [t0].[Rank]
 
         AssertSql(
 """
-@__p_0='999'
-
-SELECT [t0].[FullName]
+SELECT `t0`.`FullName`
 FROM (
-    SELECT TOP(@__p_0) [t].[FullName], [t].[Rank]
+    SELECT TOP 999 `t`.`FullName`, `t`.`Rank`
     FROM (
-        SELECT [g].[FullName], [g].[HasSoulPatch], [g].[Rank]
-        FROM [Gears] AS [g]
+        SELECT `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`Rank`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[FullName], [o].[HasSoulPatch], [o].[Rank]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [t].[HasSoulPatch] = CAST(0 AS bit)
-) AS [t0]
-ORDER BY [t0].[FullName], [t0].[Rank]
+        SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `t`.`HasSoulPatch` <> TRUE
+) AS `t0`
+ORDER BY `t0`.`FullName`, `t0`.`Rank`
 """);
     }
 
@@ -4582,18 +4531,18 @@ ORDER BY `l`.`Name`
 
         AssertSql(
 """
-SELECT [l].[Name], (
+SELECT `l`.`Name`, (
     SELECT COUNT(*)
     FROM (
-        SELECT [l0].[Name], [l0].[LocustHordeId], [l0].[ThreatLevel], [l0].[ThreatLevelByte], [l0].[ThreatLevelNullableByte], NULL AS [DefeatedByNickname], NULL AS [DefeatedBySquadId], NULL AS [HighCommandId], N'LocustLeader' AS [Discriminator]
-        FROM [LocustLeaders] AS [l0]
+        SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+        FROM `LocustLeaders` AS `l0`
         UNION ALL
-        SELECT [l1].[Name], [l1].[LocustHordeId], [l1].[ThreatLevel], [l1].[ThreatLevelByte], [l1].[ThreatLevelNullableByte], [l1].[DefeatedByNickname], [l1].[DefeatedBySquadId], [l1].[HighCommandId], N'LocustCommander' AS [Discriminator]
-        FROM [LocustCommanders] AS [l1]
-    ) AS [t]
-    WHERE [l].[Id] = [t].[LocustHordeId]) AS [LeadersCount]
-FROM [LocustHordes] AS [l]
-ORDER BY [l].[Name]
+        SELECT `l1`.`Name`, `l1`.`LocustHordeId`, `l1`.`ThreatLevel`, `l1`.`ThreatLevelByte`, `l1`.`ThreatLevelNullableByte`, `l1`.`DefeatedByNickname`, `l1`.`DefeatedBySquadId`, `l1`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+        FROM `LocustCommanders` AS `l1`
+    ) AS `t`
+    WHERE `l`.`Id` = `t`.`LocustHordeId`) AS `LeadersCount`
+FROM `LocustHordes` AS `l`
+ORDER BY `l`.`Name`
 """);
     }
 
@@ -4603,16 +4552,16 @@ ORDER BY [l].[Name]
 
         AssertSql(
 """
-SELECT [l].[Name], [t].[Name] AS [LeaderName]
-FROM [LocustHordes] AS [l]
+SELECT `l`.`Name`, `t`.`Name` AS `LeaderName`
+FROM `LocustHordes` AS `l`
 INNER JOIN (
-    SELECT [l0].[Name], [l0].[LocustHordeId]
-    FROM [LocustLeaders] AS [l0]
+    SELECT `l0`.`Name`, `l0`.`LocustHordeId`
+    FROM `LocustLeaders` AS `l0`
     UNION ALL
-    SELECT [l1].[Name], [l1].[LocustHordeId]
-    FROM [LocustCommanders] AS [l1]
-) AS [t] ON [l].[Id] = [t].[LocustHordeId]
-ORDER BY [t].[Name]
+    SELECT `l1`.`Name`, `l1`.`LocustHordeId`
+    FROM `LocustCommanders` AS `l1`
+) AS `t` ON `l`.`Id` = `t`.`LocustHordeId`
+ORDER BY `t`.`Name`
 """);
     }
 
@@ -4622,17 +4571,17 @@ ORDER BY [t].[Name]
 
         AssertSql(
 """
-SELECT [l].[Id], [l].[CapitalName], [l].[Name], [l].[ServerAddress], [l].[CommanderName], [l].[Eradicated], [l0].[Name], [l0].[LocustHordeId], [l0].[ThreatLevel], [l0].[ThreatLevelByte], [l0].[ThreatLevelNullableByte], [l0].[DefeatedByNickname], [l0].[DefeatedBySquadId], [l0].[HighCommandId], [t].[Name], [t].[LocustHordeId], [t].[ThreatLevel], [t].[ThreatLevelByte], [t].[ThreatLevelNullableByte], [t].[DefeatedByNickname], [t].[DefeatedBySquadId], [t].[HighCommandId], [t].[Discriminator]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
+SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`, `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
+FROM (`LocustHordes` AS `l`
+LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`)
 LEFT JOIN (
-    SELECT [l1].[Name], [l1].[LocustHordeId], [l1].[ThreatLevel], [l1].[ThreatLevelByte], [l1].[ThreatLevelNullableByte], NULL AS [DefeatedByNickname], NULL AS [DefeatedBySquadId], NULL AS [HighCommandId], N'LocustLeader' AS [Discriminator]
-    FROM [LocustLeaders] AS [l1]
+    SELECT `l1`.`Name`, `l1`.`LocustHordeId`, `l1`.`ThreatLevel`, `l1`.`ThreatLevelByte`, `l1`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    FROM `LocustLeaders` AS `l1`
     UNION ALL
-    SELECT [l2].[Name], [l2].[LocustHordeId], [l2].[ThreatLevel], [l2].[ThreatLevelByte], [l2].[ThreatLevelNullableByte], [l2].[DefeatedByNickname], [l2].[DefeatedBySquadId], [l2].[HighCommandId], N'LocustCommander' AS [Discriminator]
-    FROM [LocustCommanders] AS [l2]
-) AS [t] ON [l].[Id] = [t].[LocustHordeId]
-ORDER BY [l].[Name], [l].[Id], [l0].[Name]
+    SELECT `l2`.`Name`, `l2`.`LocustHordeId`, `l2`.`ThreatLevel`, `l2`.`ThreatLevelByte`, `l2`.`ThreatLevelNullableByte`, `l2`.`DefeatedByNickname`, `l2`.`DefeatedBySquadId`, `l2`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l2`
+) AS `t` ON `l`.`Id` = `t`.`LocustHordeId`
+ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Name`
 """);
     }
 
@@ -4642,17 +4591,17 @@ ORDER BY [l].[Name], [l].[Id], [l0].[Name]
 
         AssertSql(
 """
-SELECT [t0].[HasSoulPatch]
+SELECT `t0`.`HasSoulPatch`
 FROM (
-    SELECT DISTINCT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+    SELECT DISTINCT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-) AS [t0]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+) AS `t0`
 """);
     }
 
@@ -4673,23 +4622,23 @@ FROM `LocustHordes` AS `l`
 
         AssertSql(
 """
-SELECT [t].[Nickname] AS [Nickname1], [t0].[Nickname] AS [Nickname2]
+SELECT `t`.`Nickname` AS `Nickname1`, `t0`.`Nickname` AS `Nickname2`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId]
-    FROM [Gears] AS [g0]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId]
-    FROM [Officers] AS [o0]
-) AS [t0]
-WHERE [t].[Nickname] = [t0].[Nickname] AND [t].[SquadId] = [t0].[SquadId]
-ORDER BY [t].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`
+    FROM `Officers` AS `o0`
+) AS `t0`
+WHERE `t`.`Nickname` = `t0`.`Nickname` AND `t`.`SquadId` = `t0`.`SquadId`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -4699,21 +4648,25 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [l].[Name], [t].[Nickname]
-FROM [LocustHordes] AS [l]
-CROSS JOIN (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
+SELECT `t0`.`Name`, `t0`.`Nickname`
+FROM ((
+    SELECT `l`.`Name`, `l`.`CommanderName`, `t`.`Nickname`, `t`.`SquadId`
+    FROM `LocustHordes` AS `l`,
+    (
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`HasSoulPatch`
+        FROM `Officers` AS `o0`
+    ) AS `t`
+    WHERE `t`.`HasSoulPatch` = TRUE
+) AS `t0`
+LEFT JOIN `LocustCommanders` AS `l0` ON `t0`.`CommanderName` = `l0`.`Name`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [l0].[DefeatedByNickname] = [t0].[Nickname] AND [l0].[DefeatedBySquadId] = [t0].[SquadId]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t0].[Nickname] = [t].[Nickname] AND [t0].[SquadId] = [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t1` ON `l0`.`DefeatedByNickname` = `t1`.`Nickname` AND `l0`.`DefeatedBySquadId` = `t1`.`SquadId`
+WHERE `t1`.`Nickname` = `t0`.`Nickname` AND `t1`.`SquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -4723,20 +4676,20 @@ WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t0].[Nickname] = [t].[Nickname] A
 
         AssertSql(
 """
-SELECT [t].[Nickname] AS [Nickname1], [t0].[Nickname] AS [Nickname2]
+SELECT `t`.`Nickname` AS `Nickname1`, `t0`.`Nickname` AS `Nickname2`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [o0].[Nickname], [o0].[SquadId]
-    FROM [Officers] AS [o0]
-) AS [t0]
-WHERE [t].[Nickname] = [t0].[Nickname] AND [t].[SquadId] = [t0].[SquadId]
-ORDER BY [t].[Nickname], [t0].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`
+    FROM `Officers` AS `o0`
+) AS `t0`
+WHERE `t`.`Nickname` = `t0`.`Nickname` AND `t`.`SquadId` = `t0`.`SquadId`
+ORDER BY `t`.`Nickname`, `t0`.`Nickname`
 """);
     }
 
@@ -4746,16 +4699,16 @@ ORDER BY [t].[Nickname], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Cities] AS [c] ON [t].[AssignedCityName] = [c].[Name]
-WHERE [t].[SquadId] < 2 AND ([c].[Name] = N'Ephyra' OR ([c].[Name] IS NULL))
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Cities` AS `c` ON `t`.`AssignedCityName` = `c`.`Name`
+WHERE `t`.`SquadId` < 2 AND (`c`.`Name` IS NULL OR `c`.`Name` = 'Ephyra')
 """);
     }
 
@@ -4765,25 +4718,25 @@ WHERE [t].[SquadId] < 2 AND ([c].[Name] = N'Ephyra' OR ([c].[Name] IS NULL))
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE [t0].[Discriminator] = N'Officer' AND (
+    SELECT `o`.`Nickname`, `o`.`SquadId`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE `t0`.`Discriminator` = 'Officer' AND (
     SELECT COUNT(*)
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    WHERE ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL) AND [t0].[Nickname] = [t1].[LeaderNickname] AND [t0].[SquadId] = [t1].[LeaderSquadId] AND [t1].[Nickname] = N'Dom') > 0
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    WHERE `t0`.`Nickname` IS NOT NULL AND `t0`.`SquadId` IS NOT NULL AND `t0`.`Nickname` = `t1`.`LeaderNickname` AND `t0`.`SquadId` = `t1`.`LeaderSquadId` AND `t1`.`Nickname` = 'Dom') > 0
 """);
     }
 
@@ -4803,7 +4756,7 @@ FROM `LocustHordes` AS `l`
         await base.Select_null_conditional_with_inheritance_negative(async);
 
         AssertSql(
-"""
+            """
 SELECT IIF(`l`.`CommanderName` IS NOT NULL, `l`.`Eradicated`, NULL)
 FROM `LocustHordes` AS `l`
 """);
@@ -4815,72 +4768,70 @@ FROM `LocustHordes` AS `l`
 
         AssertSql(
 """
-SELECT [l].[Id], [l0].[Name], [l1].[Id], [t].[Name], [t].[LocustHordeId], [t].[ThreatLevel], [t].[ThreatLevelByte], [t].[ThreatLevelNullableByte], [t].[DefeatedByNickname], [t].[DefeatedBySquadId], [t].[HighCommandId], [t].[Discriminator]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
-LEFT JOIN [LocustHordes] AS [l1] ON [l0].[Name] = [l1].[CommanderName]
+SELECT `l`.`Id`, `l0`.`Name`, `l1`.`Id`, `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
+FROM ((`LocustHordes` AS `l`
+LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`)
+LEFT JOIN `LocustHordes` AS `l1` ON `l0`.`Name` = `l1`.`CommanderName`)
 LEFT JOIN (
-    SELECT [l2].[Name], [l2].[LocustHordeId], [l2].[ThreatLevel], [l2].[ThreatLevelByte], [l2].[ThreatLevelNullableByte], NULL AS [DefeatedByNickname], NULL AS [DefeatedBySquadId], NULL AS [HighCommandId], N'LocustLeader' AS [Discriminator]
-    FROM [LocustLeaders] AS [l2]
+    SELECT `l2`.`Name`, `l2`.`LocustHordeId`, `l2`.`ThreatLevel`, `l2`.`ThreatLevelByte`, `l2`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    FROM `LocustLeaders` AS `l2`
     UNION ALL
-    SELECT [l3].[Name], [l3].[LocustHordeId], [l3].[ThreatLevel], [l3].[ThreatLevelByte], [l3].[ThreatLevelNullableByte], [l3].[DefeatedByNickname], [l3].[DefeatedBySquadId], [l3].[HighCommandId], N'LocustCommander' AS [Discriminator]
-    FROM [LocustCommanders] AS [l3]
-) AS [t] ON [l1].[Id] = [t].[LocustHordeId]
-ORDER BY [l].[Id], [l0].[Name], [l1].[Id]
+    SELECT `l3`.`Name`, `l3`.`LocustHordeId`, `l3`.`ThreatLevel`, `l3`.`ThreatLevelByte`, `l3`.`ThreatLevelNullableByte`, `l3`.`DefeatedByNickname`, `l3`.`DefeatedBySquadId`, `l3`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l3`
+) AS `t` ON `l1`.`Id` = `t`.`LocustHordeId`
+ORDER BY `l`.`Id`, `l0`.`Name`, `l1`.`Id`
 """);
     }
 
     public override async Task Project_collection_navigation_with_inheritance2(bool async)
     {
         await base.Project_collection_navigation_with_inheritance2(async);
-
         AssertSql(
-"""
-SELECT [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
+        """
+SELECT `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM ((`LocustHordes` AS `l`
+LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t] ON [l0].[DefeatedByNickname] = [t].[Nickname] AND [l0].[DefeatedBySquadId] = [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t` ON `l0`.`DefeatedByNickname` = `t`.`Nickname` AND `l0`.`DefeatedBySquadId` = `t`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON ([t].[Nickname] = [t0].[LeaderNickname] OR (([t].[Nickname] IS NULL) AND ([t0].[LeaderNickname] IS NULL))) AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR (`t`.`Nickname` IS NULL AND `t0`.`LeaderNickname` IS NULL)) AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
     public override async Task Project_collection_navigation_with_inheritance3(bool async)
     {
         await base.Project_collection_navigation_with_inheritance3(async);
-
         AssertSql(
-"""
-SELECT [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
+        """
+SELECT `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM ((`LocustHordes` AS `l`
+LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t] ON [l0].[DefeatedByNickname] = [t].[Nickname] AND [l0].[DefeatedBySquadId] = [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t` ON `l0`.`DefeatedByNickname` = `t`.`Nickname` AND `l0`.`DefeatedBySquadId` = `t`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON ([t].[Nickname] = [t0].[LeaderNickname] OR (([t].[Nickname] IS NULL) AND ([t0].[LeaderNickname] IS NULL))) AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR (`t`.`Nickname` IS NULL AND `t0`.`LeaderNickname` IS NULL)) AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5047,22 +4998,22 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5072,22 +5023,22 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5096,23 +5047,23 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
         await base.Include_collection_on_derived_type_using_lambda_with_soft_cast(async);
 
         AssertSql(
-"""
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+            """
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5122,17 +5073,17 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`)
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`
 """);
     }
 
@@ -5142,17 +5093,17 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -5162,24 +5113,24 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [l].[Id], [l].[CapitalName], [l].[Name], [l].[ServerAddress], [l].[CommanderName], [l].[Eradicated], [l0].[Name], [l0].[LocustHordeId], [l0].[ThreatLevel], [l0].[ThreatLevelByte], [l0].[ThreatLevelNullableByte], [l0].[DefeatedByNickname], [l0].[DefeatedBySquadId], [l0].[HighCommandId], [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
+SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`, `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM ((`LocustHordes` AS `l`
+LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t] ON [l0].[DefeatedByNickname] = [t].[Nickname] AND [l0].[DefeatedBySquadId] = [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t` ON `l0`.`DefeatedByNickname` = `t`.`Nickname` AND `l0`.`DefeatedBySquadId` = `t`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON ([t].[Nickname] = [t0].[LeaderNickname] OR (([t].[Nickname] IS NULL) AND ([t0].[LeaderNickname] IS NULL))) AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR (`t`.`Nickname` IS NULL AND `t0`.`LeaderNickname` IS NULL)) AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5189,32 +5140,32 @@ ORDER BY [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator], [t1].[Nickname0], [t1].[SquadId0], [t1].[AssignedCityName0], [t1].[CityOfBirthName0], [t1].[FullName0], [t1].[HasSoulPatch0], [t1].[LeaderNickname0], [t1].[LeaderSquadId0], [t1].[Rank0], [t1].[Discriminator0]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`, `t1`.`Nickname0`, `t1`.`SquadId0`, `t1`.`AssignedCityName0`, `t1`.`CityOfBirthName0`, `t1`.`FullName0`, `t1`.`HasSoulPatch0`, `t1`.`LeaderNickname0`, `t1`.`LeaderSquadId0`, `t1`.`Rank0`, `t1`.`Discriminator0`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t2].[Nickname] AS [Nickname0], [t2].[SquadId] AS [SquadId0], [t2].[AssignedCityName] AS [AssignedCityName0], [t2].[CityOfBirthName] AS [CityOfBirthName0], [t2].[FullName] AS [FullName0], [t2].[HasSoulPatch] AS [HasSoulPatch0], [t2].[LeaderNickname] AS [LeaderNickname0], [t2].[LeaderSquadId] AS [LeaderSquadId0], [t2].[Rank] AS [Rank0], [t2].[Discriminator] AS [Discriminator0]
+    SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t2`.`Nickname` AS `Nickname0`, `t2`.`SquadId` AS `SquadId0`, `t2`.`AssignedCityName` AS `AssignedCityName0`, `t2`.`CityOfBirthName` AS `CityOfBirthName0`, `t2`.`FullName` AS `FullName0`, `t2`.`HasSoulPatch` AS `HasSoulPatch0`, `t2`.`LeaderNickname` AS `LeaderNickname0`, `t2`.`LeaderSquadId` AS `LeaderSquadId0`, `t2`.`Rank` AS `Rank0`, `t2`.`Discriminator` AS `Discriminator0`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
     LEFT JOIN (
-        SELECT [g1].[Nickname], [g1].[SquadId], [g1].[AssignedCityName], [g1].[CityOfBirthName], [g1].[FullName], [g1].[HasSoulPatch], [g1].[LeaderNickname], [g1].[LeaderSquadId], [g1].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g1]
+        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`AssignedCityName`, `g1`.`CityOfBirthName`, `g1`.`FullName`, `g1`.`HasSoulPatch`, `g1`.`LeaderNickname`, `g1`.`LeaderSquadId`, `g1`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g1`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[AssignedCityName], [o1].[CityOfBirthName], [o1].[FullName], [o1].[HasSoulPatch], [o1].[LeaderNickname], [o1].[LeaderSquadId], [o1].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o1]
-    ) AS [t2] ON [t0].[Nickname] = [t2].[LeaderNickname] AND [t0].[SquadId] = [t2].[LeaderSquadId]
-) AS [t1] ON [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t1].[Nickname], [t1].[SquadId], [t1].[Nickname0]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`AssignedCityName`, `o1`.`CityOfBirthName`, `o1`.`FullName`, `o1`.`HasSoulPatch`, `o1`.`LeaderNickname`, `o1`.`LeaderSquadId`, `o1`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o1`
+    ) AS `t2` ON `t0`.`Nickname` = `t2`.`LeaderNickname` AND `t0`.`SquadId` = `t2`.`LeaderSquadId`
+) AS `t1` ON `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Nickname0`
 """);
     }
 
@@ -5250,27 +5201,26 @@ ORDER BY [l].[Id], [t1].[Name], [t1].[Nickname]
     public override async Task Multiple_derived_included_on_one_method(bool async)
     {
         await base.Multiple_derived_included_on_one_method(async);
-
         AssertSql(
-"""
-SELECT [l].[Id], [l].[CapitalName], [l].[Name], [l].[ServerAddress], [l].[CommanderName], [l].[Eradicated], [l0].[Name], [l0].[LocustHordeId], [l0].[ThreatLevel], [l0].[ThreatLevelByte], [l0].[ThreatLevelNullableByte], [l0].[DefeatedByNickname], [l0].[DefeatedBySquadId], [l0].[HighCommandId], [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [LocustCommanders] AS [l0] ON [l].[CommanderName] = [l0].[Name]
+        """
+SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`, `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
+FROM ((`LocustHordes` AS `l`
+LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t] ON [l0].[DefeatedByNickname] = [t].[Nickname] AND [l0].[DefeatedBySquadId] = [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t` ON `l0`.`DefeatedByNickname` = `t`.`Nickname` AND `l0`.`DefeatedBySquadId` = `t`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON ([t].[Nickname] = [t0].[LeaderNickname] OR (([t].[Nickname] IS NULL) AND ([t0].[LeaderNickname] IS NULL))) AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR (`t`.`Nickname` IS NULL AND `t0`.`LeaderNickname` IS NULL)) AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5280,27 +5230,27 @@ ORDER BY [l].[Id], [l0].[Name], [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t0].[Id], [t0].[Banner], [t0].[Banner5], [t0].[InternalNumber], [t0].[Name], [t0].[SquadId0], [t0].[MissionId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t0`.`Id`, `t0`.`Banner`, `t0`.`Banner5`, `t0`.`InternalNumber`, `t0`.`Name`, `t0`.`SquadId0`, `t0`.`MissionId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator], [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name], [s0].[SquadId] AS [SquadId0], [s0].[MissionId]
-    FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+    SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `s0`.`SquadId` AS `SquadId0`, `s0`.`MissionId`
+    FROM ((
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    INNER JOIN [Squads] AS [s] ON [t1].[SquadId] = [s].[Id]
-    LEFT JOIN [SquadMissions] AS [s0] ON [s].[Id] = [s0].[SquadId]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [t0].[Id], [t0].[SquadId0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    INNER JOIN `Squads` AS `s` ON `t1`.`SquadId` = `s`.`Id`)
+    LEFT JOIN `SquadMissions` AS `s0` ON `s`.`Id` = `s0`.`SquadId`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`Id`, `t0`.`SquadId0`
 """);
     }
 
@@ -5310,18 +5260,15 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[SquadId], [t0].[I
 
         AssertSql(
 """
-SELECT CASE
-    WHEN ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL) THEN [t0].[HasSoulPatch]
-    ELSE CAST(0 AS bit)
-END AS [Prop]
-FROM [Tags] AS [t]
+SELECT IIF(`t0`.`Nickname` IS NOT NULL AND `t0`.`SquadId` IS NOT NULL, `t0`.`HasSoulPatch`, FALSE) AS `Prop`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -5331,15 +5278,15 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t].[Rank]
+SELECT `t`.`Rank`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[SquadId], [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`SquadId`, `t`.`Nickname`
 """);
     }
 
@@ -5349,17 +5296,17 @@ ORDER BY [t].[SquadId], [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5371,17 +5318,17 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 """
 SELECT (
     SELECT COUNT(*)
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName])
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`)
 FROM (
-    SELECT [g].[Nickname], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -5391,17 +5338,17 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5411,21 +5358,21 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5435,21 +5382,21 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5459,21 +5406,21 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5483,21 +5430,21 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Name] DESC
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Name` DESC
 """);
     }
 
@@ -5507,24 +5454,24 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Name] DESC
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Nickname], [t0].[FullName], [t0].[SquadId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`, `t0`.`FullName`, `t0`.`SquadId`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t1].[Nickname], [t1].[FullName], [t1].[SquadId], [t1].[LeaderNickname], [t1].[LeaderSquadId]
+    SELECT `t1`.`Nickname`, `t1`.`FullName`, `t1`.`SquadId`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    WHERE [t1].[HasSoulPatch] = CAST(0 AS bit)
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-WHERE [t].[Nickname] <> N'Foo'
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    WHERE `t1`.`HasSoulPatch` <> TRUE
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+WHERE `t`.`Nickname` <> 'Foo'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -5534,21 +5481,21 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Name], [t0].[Id]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Name`, `t0`.`Id`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Name], [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `w`.`Name`, `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5558,21 +5505,21 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[c], [t0].[Id]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`c`, `t0`.`Id`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT N'BFG' AS [c], [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT 'BFG' AS `c`, `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5582,21 +5529,21 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[c], [t0].[Id]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`c`, `t0`.`Id`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT CAST(1 AS bit) AS [c], [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit) OR [w].[Name] <> N'foo' OR ([w].[Name] IS NULL)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT TRUE AS `c`, `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE OR `w`.`Name` <> 'foo' OR `w`.`Name` IS NULL
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -5606,22 +5553,22 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [s].[Id], [t0].[SquadId], [t0].[MissionId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `s`.`Id`, `t0`.`SquadId`, `t0`.`MissionId`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Squads` AS `s` ON `t`.`SquadId` = `s`.`Id`)
 LEFT JOIN (
-    SELECT [s0].[SquadId], [s0].[MissionId]
-    FROM [SquadMissions] AS [s0]
-    WHERE [s0].[MissionId] <> 17
-) AS [t0] ON [s].[Id] = [t0].[SquadId]
-WHERE [t].[Nickname] <> N'Marcus'
-ORDER BY [t].[FullName], [t].[Nickname], [t].[SquadId], [s].[Id], [t0].[SquadId]
+    SELECT `s0`.`SquadId`, `s0`.`MissionId`
+    FROM `SquadMissions` AS `s0`
+    WHERE `s0`.`MissionId` <> 17
+) AS `t0` ON `s`.`Id` = `t0`.`SquadId`
+WHERE `t`.`Nickname` <> 'Marcus'
+ORDER BY `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `s`.`Id`, `t0`.`SquadId`
 """);
     }
 
@@ -5631,17 +5578,17 @@ ORDER BY [t].[FullName], [t].[Nickname], [t].[SquadId], [s].[Id], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [s].[Name], [s].[Id], [t].[FullName], [t].[Rank], [t].[Nickname], [t].[SquadId]
-FROM [Squads] AS [s]
+SELECT `s`.`Name`, `s`.`Id`, `t`.`FullName`, `t`.`Rank`, `t`.`Nickname`, `t`.`SquadId`
+FROM `Squads` AS `s`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t] ON [s].[Id] = [t].[SquadId]
-WHERE [s].[Id] < 20
-ORDER BY [s].[Id], [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t` ON `s`.`Id` = `t`.`SquadId`
+WHERE `s`.`Id` < 20
+ORDER BY `s`.`Id`, `t`.`Nickname`
 """);
     }
 
@@ -5720,28 +5667,28 @@ ORDER BY `s`.`Id`, `t0`.`SquadId`, `t0`.`MissionId`, `t0`.`Id`, `t0`.`SquadId0`
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t1].[FullName], [t1].[Nickname], [t1].[SquadId], [t1].[Id], [t1].[AmmunitionType], [t1].[IsAutomatic], [t1].[Name], [t1].[OwnerFullName], [t1].[SynergyWithId]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t1`.`FullName`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id`, `t1`.`AmmunitionType`, `t1`.`IsAutomatic`, `t1`.`Name`, `t1`.`OwnerFullName`, `t1`.`SynergyWithId`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t0].[FullName], [t0].[Nickname], [t0].[SquadId], [t2].[Id], [t2].[AmmunitionType], [t2].[IsAutomatic], [t2].[Name], [t2].[OwnerFullName], [t2].[SynergyWithId], [t0].[Rank], [t0].[LeaderNickname], [t0].[LeaderSquadId]
+    SELECT `t0`.`FullName`, `t0`.`Nickname`, `t0`.`SquadId`, `t2`.`Id`, `t2`.`AmmunitionType`, `t2`.`IsAutomatic`, `t2`.`Name`, `t2`.`OwnerFullName`, `t2`.`SynergyWithId`, `t0`.`Rank`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
     LEFT JOIN (
-        SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-        FROM [Weapons] AS [w]
-        WHERE [w].[Name] <> N'Bar' OR ([w].[Name] IS NULL)
-    ) AS [t2] ON [t0].[FullName] = [t2].[OwnerFullName]
-    WHERE [t0].[FullName] <> N'Foo'
-) AS [t1] ON [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId]
-ORDER BY [t].[HasSoulPatch] DESC, [t].[Nickname], [t].[SquadId], [t1].[Rank], [t1].[Nickname], [t1].[SquadId], [t1].[IsAutomatic]
+        SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+        FROM `Weapons` AS `w`
+        WHERE `w`.`Name` <> 'Bar' OR `w`.`Name` IS NULL
+    ) AS `t2` ON `t0`.`FullName` = `t2`.`OwnerFullName`
+    WHERE `t0`.`FullName` <> 'Foo'
+) AS `t1` ON `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`
+ORDER BY NOT (`t`.`HasSoulPatch`) DESC, `t`.`Nickname`, `t`.`SquadId`, `t1`.`Rank`, `t1`.`Nickname`, `t1`.`SquadId`, NOT (`t1`.`IsAutomatic`)
 """);
     }
 
@@ -5751,25 +5698,25 @@ ORDER BY [t].[HasSoulPatch] DESC, [t].[Nickname], [t].[SquadId], [t1].[Rank], [t
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId], [t1].[Id], [t1].[AmmunitionType], [t1].[IsAutomatic], [t1].[Name], [t1].[OwnerFullName], [t1].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`, `t1`.`Id`, `t1`.`AmmunitionType`, `t1`.`IsAutomatic`, `t1`.`Name`, `t1`.`OwnerFullName`, `t1`.`SynergyWithId`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`)
 LEFT JOIN (
-    SELECT [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-    FROM [Weapons] AS [w0]
-    WHERE [w0].[IsAutomatic] = CAST(1 AS bit)
-) AS [t1] ON [t].[FullName] = [t1].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
+    SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+    FROM `Weapons` AS `w0`
+    WHERE `w0`.`IsAutomatic` = TRUE
+) AS `t1` ON `t`.`FullName` = `t1`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`
 """);
     }
 
@@ -5779,25 +5726,25 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId], [t1].[Id], [t1].[AmmunitionType], [t1].[IsAutomatic], [t1].[Name], [t1].[OwnerFullName], [t1].[SynergyWithId]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[Rank]
-    FROM [Gears] AS [g]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`, `t1`.`Id`, `t1`.`AmmunitionType`, `t1`.`IsAutomatic`, `t1`.`Name`, `t1`.`OwnerFullName`, `t1`.`SynergyWithId`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`)
 LEFT JOIN (
-    SELECT [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-    FROM [Weapons] AS [w0]
-    WHERE [w0].[IsAutomatic] = CAST(0 AS bit)
-) AS [t1] ON [t].[FullName] = [t1].[OwnerFullName]
-ORDER BY [t].[Rank], [t].[Nickname], [t].[SquadId], [t0].[OwnerFullName], [t0].[Id], [t1].[IsAutomatic]
+    SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+    FROM `Weapons` AS `w0`
+    WHERE `w0`.`IsAutomatic` <> TRUE
+) AS `t1` ON `t`.`FullName` = `t1`.`OwnerFullName`
+ORDER BY `t`.`Rank`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`OwnerFullName`, `t0`.`Id`, NOT (`t1`.`IsAutomatic`)
 """);
     }
 
@@ -5807,94 +5754,92 @@ ORDER BY [t].[Rank], [t].[Nickname], [t].[SquadId], [t0].[OwnerFullName], [t0].[
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Name], [t0].[IsAutomatic], [t0].[Id], [t1].[Nickname], [t1].[Rank], [t1].[SquadId]
-FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Name`, `t0`.`IsAutomatic`, `t0`.`Id`, `t1`.`Nickname`, `t1`.`Rank`, `t1`.`SquadId`
+FROM ((
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Name], [w].[IsAutomatic], [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit)
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
+    SELECT `w`.`Name`, `w`.`IsAutomatic`, `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = TRUE
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank]
-    FROM [Officers] AS [o0]
-) AS [t1] ON [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId]
-ORDER BY [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t1].[FullName], [t1].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`
+    FROM `Officers` AS `o0`
+) AS `t1` ON `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`
+ORDER BY `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t1`.`FullName`, `t1`.`Nickname`
 """);
     }
 
     public override async Task Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys(bool async)
     {
         await base.Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys(async);
-
         AssertSql(
-"""
-SELECT [t].[FullName]
+        """
+SELECT `t`.`FullName`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    WHERE [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId])
-ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    WHERE `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`)
+ORDER BY NOT (`t`.`HasSoulPatch`) DESC, `t0`.`Note`
 """);
     }
 
     public override async Task Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys_inside_subquery(bool async)
     {
         await base.Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys_inside_subquery(async);
-
         AssertSql(
-"""
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[Id], [t3].[AmmunitionType], [t3].[IsAutomatic], [t3].[Name], [t3].[OwnerFullName], [t3].[SynergyWithId], [t3].[Nickname], [t3].[SquadId]
-FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
+        """
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`Id`, `t3`.`AmmunitionType`, `t3`.`IsAutomatic`, `t3`.`Name`, `t3`.`OwnerFullName`, `t3`.`SynergyWithId`, `t3`.`Nickname`, `t3`.`SquadId`
+FROM (((
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+    FROM `Officers` AS `o0`
+) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t4].[Nickname], [t4].[SquadId]
-    FROM [Weapons] AS [w]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t4`.`Nickname`, `t4`.`SquadId`
+    FROM `Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[FullName]
-        FROM [Officers] AS [o1]
-    ) AS [t4] ON [w].[OwnerFullName] = [t4].[FullName]
-) AS [t3] ON [t2].[FullName] = [t3].[OwnerFullName]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`FullName`
+        FROM `Officers` AS `o1`
+    ) AS `t4` ON `w`.`OwnerFullName` = `t4`.`FullName`
+) AS `t3` ON `t2`.`FullName` = `t3`.`OwnerFullName`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [g1].[Nickname], [g1].[SquadId], [g1].[AssignedCityName], [g1].[CityOfBirthName], [g1].[FullName], [g1].[HasSoulPatch], [g1].[LeaderNickname], [g1].[LeaderSquadId], [g1].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g1]
+        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`AssignedCityName`, `g1`.`CityOfBirthName`, `g1`.`FullName`, `g1`.`HasSoulPatch`, `g1`.`LeaderNickname`, `g1`.`LeaderSquadId`, `g1`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g1`
         UNION ALL
-        SELECT [o2].[Nickname], [o2].[SquadId], [o2].[AssignedCityName], [o2].[CityOfBirthName], [o2].[FullName], [o2].[HasSoulPatch], [o2].[LeaderNickname], [o2].[LeaderSquadId], [o2].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o2]
-    ) AS [t1]
-    WHERE [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId])
-ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[IsAutomatic], [t3].[Nickname] DESC, [t3].[Id]
+        SELECT `o2`.`Nickname`, `o2`.`SquadId`, `o2`.`AssignedCityName`, `o2`.`CityOfBirthName`, `o2`.`FullName`, `o2`.`HasSoulPatch`, `o2`.`LeaderNickname`, `o2`.`LeaderSquadId`, `o2`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o2`
+    ) AS `t1`
+    WHERE `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`)
+ORDER BY NOT (`t`.`HasSoulPatch`) DESC, `t0`.`Note`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, NOT (`t3`.`IsAutomatic`), `t3`.`Nickname` DESC, `t3`.`Id`
 """);
     }
 
@@ -5905,41 +5850,41 @@ ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[Id], [t3].[AmmunitionType], [t3].[IsAutomatic], [t3].[Name], [t3].[OwnerFullName], [t3].[SynergyWithId], [t3].[Nickname], [t3].[SquadId]
-FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`Id`, `t3`.`AmmunitionType`, `t3`.`IsAutomatic`, `t3`.`Name`, `t3`.`OwnerFullName`, `t3`.`SynergyWithId`, `t3`.`Nickname`, `t3`.`SquadId`
+FROM (((
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+    FROM `Officers` AS `o0`
+) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t4].[Nickname], [t4].[SquadId]
-    FROM [Weapons] AS [w]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t4`.`Nickname`, `t4`.`SquadId`
+    FROM `Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[FullName]
-        FROM [Officers] AS [o1]
-    ) AS [t4] ON [w].[OwnerFullName] = [t4].[FullName]
-) AS [t3] ON [t2].[FullName] = [t3].[OwnerFullName]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`FullName`
+        FROM `Officers` AS `o1`
+    ) AS `t4` ON `w`.`OwnerFullName` = `t4`.`FullName`
+) AS `t3` ON `t2`.`FullName` = `t3`.`OwnerFullName`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [g1].[Nickname], [g1].[SquadId], [g1].[AssignedCityName], [g1].[CityOfBirthName], [g1].[FullName], [g1].[HasSoulPatch], [g1].[LeaderNickname], [g1].[LeaderSquadId], [g1].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g1]
+        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`AssignedCityName`, `g1`.`CityOfBirthName`, `g1`.`FullName`, `g1`.`HasSoulPatch`, `g1`.`LeaderNickname`, `g1`.`LeaderSquadId`, `g1`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g1`
         UNION ALL
-        SELECT [o2].[Nickname], [o2].[SquadId], [o2].[AssignedCityName], [o2].[CityOfBirthName], [o2].[FullName], [o2].[HasSoulPatch], [o2].[LeaderNickname], [o2].[LeaderSquadId], [o2].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o2]
-    ) AS [t1]
-    WHERE [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId])
-ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[IsAutomatic], [t3].[Nickname] DESC, [t3].[Id]
+        SELECT `o2`.`Nickname`, `o2`.`SquadId`, `o2`.`AssignedCityName`, `o2`.`CityOfBirthName`, `o2`.`FullName`, `o2`.`HasSoulPatch`, `o2`.`LeaderNickname`, `o2`.`LeaderSquadId`, `o2`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o2`
+    ) AS `t1`
+    WHERE `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`)
+ORDER BY NOT (`t`.`HasSoulPatch`) DESC, `t0`.`Note`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, NOT (`t3`.`IsAutomatic`), `t3`.`Nickname` DESC, `t3`.`Id`
 """);
     }
 
@@ -5947,47 +5892,46 @@ ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t
         bool async)
     {
         await base.Multiple_orderby_with_navigation_expansion_on_one_of_the_order_bys_inside_subquery_complex_orderings(async);
-
         AssertSql(
-"""
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[Id], [t3].[AmmunitionType], [t3].[IsAutomatic], [t3].[Name], [t3].[OwnerFullName], [t3].[SynergyWithId], [t3].[Nickname], [t3].[SquadId]
-FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
+        """
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`Id`, `t3`.`AmmunitionType`, `t3`.`IsAutomatic`, `t3`.`Name`, `t3`.`OwnerFullName`, `t3`.`SynergyWithId`, `t3`.`Nickname`, `t3`.`SquadId`
+FROM (((
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+    FROM `Officers` AS `o0`
+) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId], [t4].[Nickname], [t4].[SquadId], (
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`, `t4`.`Nickname`, `t4`.`SquadId`, (
         SELECT COUNT(*)
-        FROM [Weapons] AS [w0]
-        WHERE ([t4].[FullName] IS NOT NULL) AND [t4].[FullName] = [w0].[OwnerFullName]) AS [c]
-    FROM [Weapons] AS [w]
+        FROM `Weapons` AS `w0`
+        WHERE `t4`.`FullName` IS NOT NULL AND `t4`.`FullName` = `w0`.`OwnerFullName`) AS `c`
+    FROM `Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[FullName]
-        FROM [Officers] AS [o1]
-    ) AS [t4] ON [w].[OwnerFullName] = [t4].[FullName]
-) AS [t3] ON [t2].[FullName] = [t3].[OwnerFullName]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`FullName`
+        FROM `Officers` AS `o1`
+    ) AS `t4` ON `w`.`OwnerFullName` = `t4`.`FullName`
+) AS `t3` ON `t2`.`FullName` = `t3`.`OwnerFullName`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [g1].[Nickname], [g1].[SquadId], [g1].[AssignedCityName], [g1].[CityOfBirthName], [g1].[FullName], [g1].[HasSoulPatch], [g1].[LeaderNickname], [g1].[LeaderSquadId], [g1].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g1]
+        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`AssignedCityName`, `g1`.`CityOfBirthName`, `g1`.`FullName`, `g1`.`HasSoulPatch`, `g1`.`LeaderNickname`, `g1`.`LeaderSquadId`, `g1`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g1`
         UNION ALL
-        SELECT [o2].[Nickname], [o2].[SquadId], [o2].[AssignedCityName], [o2].[CityOfBirthName], [o2].[FullName], [o2].[HasSoulPatch], [o2].[LeaderNickname], [o2].[LeaderSquadId], [o2].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o2]
-    ) AS [t1]
-    WHERE [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId])
-ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[Id] DESC, [t3].[c], [t3].[Nickname]
+        SELECT `o2`.`Nickname`, `o2`.`SquadId`, `o2`.`AssignedCityName`, `o2`.`CityOfBirthName`, `o2`.`FullName`, `o2`.`HasSoulPatch`, `o2`.`LeaderNickname`, `o2`.`LeaderSquadId`, `o2`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o2`
+    ) AS `t1`
+    WHERE `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`)
+ORDER BY NOT (`t`.`HasSoulPatch`) DESC, `t0`.`Note`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`Id` DESC, `t3`.`c`, `t3`.`Nickname`
 """);
     }
 
@@ -5997,73 +5941,73 @@ ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[FullName], [t3].[Nickname], [t3].[SquadId], [t3].[Id], [t3].[Nickname0], [t3].[SquadId0], [t3].[Id0], [t3].[Name], [t3].[IsAutomatic], [t3].[Id1], [t3].[Nickname00], [t3].[HasSoulPatch], [t3].[SquadId00], [t8].[Id], [t8].[AmmunitionType], [t8].[IsAutomatic], [t8].[Name], [t8].[OwnerFullName], [t8].[SynergyWithId], [t8].[Nickname], [t8].[SquadId]
-FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`FullName`, `t3`.`Nickname`, `t3`.`SquadId`, `t3`.`Id`, `t3`.`Nickname0`, `t3`.`SquadId0`, `t3`.`Id0`, `t3`.`Name`, `t3`.`IsAutomatic`, `t3`.`Id1`, `t3`.`Nickname00`, `t3`.`HasSoulPatch`, `t3`.`SquadId00`, `t8`.`Id`, `t8`.`AmmunitionType`, `t8`.`IsAutomatic`, `t8`.`Name`, `t8`.`OwnerFullName`, `t8`.`SynergyWithId`, `t8`.`Nickname`, `t8`.`SquadId`
+FROM ((((
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-    FROM [Officers] AS [o0]
-) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+    FROM `Officers` AS `o0`
+) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`)
 LEFT JOIN (
-    SELECT [t4].[FullName], [t4].[Nickname], [t4].[SquadId], [t5].[Id], [t5].[Nickname] AS [Nickname0], [t5].[SquadId] AS [SquadId0], [t5].[Id0], [t5].[Name], [t5].[IsAutomatic], [t5].[Id1], [t5].[Nickname0] AS [Nickname00], [t5].[HasSoulPatch], [t5].[SquadId0] AS [SquadId00], [t4].[Rank], [t5].[IsAutomatic0], [t4].[LeaderNickname], [t4].[LeaderSquadId]
+    SELECT `t4`.`FullName`, `t4`.`Nickname`, `t4`.`SquadId`, `t5`.`Id`, `t5`.`Nickname` AS `Nickname0`, `t5`.`SquadId` AS `SquadId0`, `t5`.`Id0`, `t5`.`Name`, `t5`.`IsAutomatic`, `t5`.`Id1`, `t5`.`Nickname0` AS `Nickname00`, `t5`.`HasSoulPatch`, `t5`.`SquadId0` AS `SquadId00`, `t4`.`Rank`, `t5`.`IsAutomatic0`, `t4`.`LeaderNickname`, `t4`.`LeaderSquadId`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[FullName], [o1].[LeaderNickname], [o1].[LeaderSquadId], [o1].[Rank]
-        FROM [Officers] AS [o1]
-    ) AS [t4]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`FullName`, `o1`.`LeaderNickname`, `o1`.`LeaderSquadId`, `o1`.`Rank`
+        FROM `Officers` AS `o1`
+    ) AS `t4`
     LEFT JOIN (
-        SELECT [w].[Id], [t6].[Nickname], [t6].[SquadId], [s].[Id] AS [Id0], [w0].[Name], [w0].[IsAutomatic], [w0].[Id] AS [Id1], [t7].[Nickname] AS [Nickname0], [t7].[HasSoulPatch], [t7].[SquadId] AS [SquadId0], [w].[IsAutomatic] AS [IsAutomatic0], [w].[OwnerFullName]
-        FROM [Weapons] AS [w]
+        SELECT `w`.`Id`, `t6`.`Nickname`, `t6`.`SquadId`, `s`.`Id` AS `Id0`, `w0`.`Name`, `w0`.`IsAutomatic`, `w0`.`Id` AS `Id1`, `t7`.`Nickname` AS `Nickname0`, `t7`.`HasSoulPatch`, `t7`.`SquadId` AS `SquadId0`, `w`.`IsAutomatic` AS `IsAutomatic0`, `w`.`OwnerFullName`
+        FROM (((`Weapons` AS `w`
         LEFT JOIN (
-            SELECT [g1].[Nickname], [g1].[SquadId], [g1].[FullName]
-            FROM [Gears] AS [g1]
+            SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`FullName`
+            FROM `Gears` AS `g1`
             UNION ALL
-            SELECT [o2].[Nickname], [o2].[SquadId], [o2].[FullName]
-            FROM [Officers] AS [o2]
-        ) AS [t6] ON [w].[OwnerFullName] = [t6].[FullName]
-        LEFT JOIN [Squads] AS [s] ON [t6].[SquadId] = [s].[Id]
-        LEFT JOIN [Weapons] AS [w0] ON [t6].[FullName] = [w0].[OwnerFullName]
+            SELECT `o2`.`Nickname`, `o2`.`SquadId`, `o2`.`FullName`
+            FROM `Officers` AS `o2`
+        ) AS `t6` ON `w`.`OwnerFullName` = `t6`.`FullName`)
+        LEFT JOIN `Squads` AS `s` ON `t6`.`SquadId` = `s`.`Id`)
+        LEFT JOIN `Weapons` AS `w0` ON `t6`.`FullName` = `w0`.`OwnerFullName`)
         LEFT JOIN (
-            SELECT [g2].[Nickname], [g2].[SquadId], [g2].[HasSoulPatch]
-            FROM [Gears] AS [g2]
+            SELECT `g2`.`Nickname`, `g2`.`SquadId`, `g2`.`HasSoulPatch`
+            FROM `Gears` AS `g2`
             UNION ALL
-            SELECT [o3].[Nickname], [o3].[SquadId], [o3].[HasSoulPatch]
-            FROM [Officers] AS [o3]
-        ) AS [t7] ON [s].[Id] = [t7].[SquadId]
-        WHERE [w].[Name] <> N'Bar' OR ([w].[Name] IS NULL)
-    ) AS [t5] ON [t4].[FullName] = [t5].[OwnerFullName]
-    WHERE [t4].[FullName] <> N'Foo'
-) AS [t3] ON [t].[Nickname] = [t3].[LeaderNickname] AND [t].[SquadId] = [t3].[LeaderSquadId]
+            SELECT `o3`.`Nickname`, `o3`.`SquadId`, `o3`.`HasSoulPatch`
+            FROM `Officers` AS `o3`
+        ) AS `t7` ON `s`.`Id` = `t7`.`SquadId`
+        WHERE `w`.`Name` <> 'Bar' OR `w`.`Name` IS NULL
+    ) AS `t5` ON `t4`.`FullName` = `t5`.`OwnerFullName`
+    WHERE `t4`.`FullName` <> 'Foo'
+) AS `t3` ON `t`.`Nickname` = `t3`.`LeaderNickname` AND `t`.`SquadId` = `t3`.`LeaderSquadId`)
 LEFT JOIN (
-    SELECT [w1].[Id], [w1].[AmmunitionType], [w1].[IsAutomatic], [w1].[Name], [w1].[OwnerFullName], [w1].[SynergyWithId], [t9].[Nickname], [t9].[SquadId]
-    FROM [Weapons] AS [w1]
+    SELECT `w1`.`Id`, `w1`.`AmmunitionType`, `w1`.`IsAutomatic`, `w1`.`Name`, `w1`.`OwnerFullName`, `w1`.`SynergyWithId`, `t9`.`Nickname`, `t9`.`SquadId`
+    FROM `Weapons` AS `w1`
     LEFT JOIN (
-        SELECT [g3].[Nickname], [g3].[SquadId], [g3].[FullName]
-        FROM [Gears] AS [g3]
+        SELECT `g3`.`Nickname`, `g3`.`SquadId`, `g3`.`FullName`
+        FROM `Gears` AS `g3`
         UNION ALL
-        SELECT [o4].[Nickname], [o4].[SquadId], [o4].[FullName]
-        FROM [Officers] AS [o4]
-    ) AS [t9] ON [w1].[OwnerFullName] = [t9].[FullName]
-) AS [t8] ON [t2].[FullName] = [t8].[OwnerFullName]
+        SELECT `o4`.`Nickname`, `o4`.`SquadId`, `o4`.`FullName`
+        FROM `Officers` AS `o4`
+    ) AS `t9` ON `w1`.`OwnerFullName` = `t9`.`FullName`
+) AS `t8` ON `t2`.`FullName` = `t8`.`OwnerFullName`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [g4].[Nickname], [g4].[SquadId], [g4].[AssignedCityName], [g4].[CityOfBirthName], [g4].[FullName], [g4].[HasSoulPatch], [g4].[LeaderNickname], [g4].[LeaderSquadId], [g4].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g4]
+        SELECT `g4`.`Nickname`, `g4`.`SquadId`, `g4`.`AssignedCityName`, `g4`.`CityOfBirthName`, `g4`.`FullName`, `g4`.`HasSoulPatch`, `g4`.`LeaderNickname`, `g4`.`LeaderSquadId`, `g4`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g4`
         UNION ALL
-        SELECT [o5].[Nickname], [o5].[SquadId], [o5].[AssignedCityName], [o5].[CityOfBirthName], [o5].[FullName], [o5].[HasSoulPatch], [o5].[LeaderNickname], [o5].[LeaderSquadId], [o5].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o5]
-    ) AS [t1]
-    WHERE [t].[Nickname] = [t1].[LeaderNickname] AND [t].[SquadId] = [t1].[LeaderSquadId])
-ORDER BY [t].[HasSoulPatch] DESC, [t0].[Note], [t].[Nickname], [t].[SquadId], [t0].[Id], [t2].[Nickname], [t2].[SquadId], [t3].[Rank], [t3].[Nickname], [t3].[SquadId], [t3].[IsAutomatic0], [t3].[Id], [t3].[Nickname0], [t3].[SquadId0], [t3].[Id0], [t3].[Id1], [t3].[Nickname00], [t3].[SquadId00], [t8].[IsAutomatic], [t8].[Nickname] DESC, [t8].[Id]
+        SELECT `o5`.`Nickname`, `o5`.`SquadId`, `o5`.`AssignedCityName`, `o5`.`CityOfBirthName`, `o5`.`FullName`, `o5`.`HasSoulPatch`, `o5`.`LeaderNickname`, `o5`.`LeaderSquadId`, `o5`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o5`
+    ) AS `t1`
+    WHERE `t`.`Nickname` = `t1`.`LeaderNickname` AND `t`.`SquadId` = `t1`.`LeaderSquadId`)
+ORDER BY NOT (`t`.`HasSoulPatch`) DESC, `t0`.`Note`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`Rank`, `t3`.`Nickname`, `t3`.`SquadId`, NOT (`t3`.`IsAutomatic0`), `t3`.`Id`, `t3`.`Nickname0`, `t3`.`SquadId0`, `t3`.`Id0`, `t3`.`Id1`, `t3`.`Nickname00`, `t3`.`SquadId00`, NOT (`t8`.`IsAutomatic`), `t8`.`Nickname` DESC, `t8`.`Id`
 """);
     }
 
@@ -6304,18 +6248,18 @@ ORDER BY [s].[Name], [s].[Id], [t1].[Nickname]
         AssertSql(
 """
 SELECT (
-    SELECT TOP(1) [t].[FullName]
+    SELECT TOP 1 `t`.`FullName`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId]
-    ORDER BY [t].[Nickname])
-FROM [Squads] AS [s]
-ORDER BY [s].[Name]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `s`.`Id` = `t`.`SquadId`
+    ORDER BY `t`.`Nickname`)
+FROM `Squads` AS `s`
+ORDER BY `s`.`Name`
 """);
     }
 
@@ -6325,18 +6269,18 @@ ORDER BY [s].[Name]
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t].[Id], [t0].[SquadId], [w].[Name], [w].[Id]
-FROM [Tags] AS [t]
+SELECT `t0`.`Nickname`, `t`.`Id`, `t0`.`SquadId`, `w`.`Name`, `w`.`Id`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-WHERE [t0].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+WHERE `t0`.`HasSoulPatch` <> TRUE
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -6346,17 +6290,17 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Id], [t0].[Nickname], [t0].[SquadId], [w].[Name], [w].[Id]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Name`, `w`.`Id`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Note], [t].[Id], [t0].[Nickname], [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname`)
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Note`, `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -6366,20 +6310,20 @@ ORDER BY [t].[Note], [t].[Id], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Note], [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[FullName], [t1].[Nickname], [t1].[SquadId]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`, `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`FullName`, `t1`.`Nickname`, `t1`.`SquadId`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname`)
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[LeaderNickname], [g].[LeaderSquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[LeaderNickname], [o0].[LeaderSquadId]
-    FROM [Officers] AS [o0]
-) AS [t1] ON ([t0].[Nickname] = [t1].[LeaderNickname] OR (([t0].[Nickname] IS NULL) AND ([t1].[LeaderNickname] IS NULL))) AND [t0].[SquadId] = [t1].[LeaderSquadId]
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`
+    FROM `Officers` AS `o0`
+) AS `t1` ON (`t0`.`Nickname` = `t1`.`LeaderNickname` OR (`t0`.`Nickname` IS NULL AND `t1`.`LeaderNickname` IS NULL)) AND `t0`.`SquadId` = `t1`.`LeaderSquadId`
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`
 """);
     }
 
@@ -6389,33 +6333,33 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Id], [t0].[Nickname], [t0].[SquadId], [s].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[Id], [t1].[AmmunitionType], [t1].[IsAutomatic], [t1].[Name], [t1].[OwnerFullName], [t1].[SynergyWithId]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `s`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id`, `t1`.`AmmunitionType`, `t1`.`IsAutomatic`, `t1`.`Name`, `t1`.`OwnerFullName`, `t1`.`SynergyWithId`
+FROM ((`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname]
-LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname`)
+LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`)
 LEFT JOIN (
-    SELECT [t2].[Nickname], [t2].[SquadId], [t3].[Id], [t3].[AmmunitionType], [t3].[IsAutomatic], [t3].[Name], [t3].[OwnerFullName], [t3].[SynergyWithId]
+    SELECT `t2`.`Nickname`, `t2`.`SquadId`, `t3`.`Id`, `t3`.`AmmunitionType`, `t3`.`IsAutomatic`, `t3`.`Name`, `t3`.`OwnerFullName`, `t3`.`SynergyWithId`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName], [g0].[HasSoulPatch]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`, `g0`.`HasSoulPatch`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[HasSoulPatch]
-        FROM [Officers] AS [o0]
-    ) AS [t2]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`HasSoulPatch`
+        FROM `Officers` AS `o0`
+    ) AS `t2`
     LEFT JOIN (
-        SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-        FROM [Weapons] AS [w]
-        WHERE [w].[IsAutomatic] = CAST(1 AS bit)
-    ) AS [t3] ON [t2].[FullName] = [t3].[OwnerFullName]
-    WHERE [t2].[HasSoulPatch] = CAST(1 AS bit)
-) AS [t1] ON [s].[Id] = [t1].[SquadId]
-ORDER BY [t].[Note], [t0].[Nickname] DESC, [t].[Id], [t0].[SquadId], [s].[Id], [t1].[Nickname], [t1].[SquadId]
+        SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+        FROM `Weapons` AS `w`
+        WHERE `w`.`IsAutomatic` = TRUE
+    ) AS `t3` ON `t2`.`FullName` = `t3`.`OwnerFullName`
+    WHERE `t2`.`HasSoulPatch` = TRUE
+) AS `t1` ON `s`.`Id` = `t1`.`SquadId`
+ORDER BY `t`.`Note`, `t0`.`Nickname` DESC, `t`.`Id`, `t0`.`SquadId`, `s`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`
 """);
     }
 
@@ -6425,32 +6369,32 @@ ORDER BY [t].[Note], [t0].[Nickname] DESC, [t].[Id], [t0].[SquadId], [s].[Id], [
 
         AssertSql(
 """
-SELECT [w].[Id], [t].[Nickname], [t].[SquadId], [s].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[Id], [t1].[AmmunitionType], [t1].[IsAutomatic], [t1].[Name], [t1].[OwnerFullName], [t1].[SynergyWithId], [t1].[Rank]
-FROM [Weapons] AS [w]
+SELECT `w`.`Id`, `t`.`Nickname`, `t`.`SquadId`, `s`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id`, `t1`.`AmmunitionType`, `t1`.`IsAutomatic`, `t1`.`Name`, `t1`.`OwnerFullName`, `t1`.`SynergyWithId`, `t1`.`Rank`
+FROM ((`Weapons` AS `w`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-LEFT JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`)
+LEFT JOIN `Squads` AS `s` ON `t`.`SquadId` = `s`.`Id`)
 LEFT JOIN (
-    SELECT [t0].[Nickname], [t0].[SquadId], [t2].[Id], [t2].[AmmunitionType], [t2].[IsAutomatic], [t2].[Name], [t2].[OwnerFullName], [t2].[SynergyWithId], [t0].[Rank], [t0].[FullName]
+    SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t2`.`Id`, `t2`.`AmmunitionType`, `t2`.`IsAutomatic`, `t2`.`Name`, `t2`.`OwnerFullName`, `t2`.`SynergyWithId`, `t0`.`Rank`, `t0`.`FullName`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName], [g0].[Rank]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`, `g0`.`Rank`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[Rank]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`Rank`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
     LEFT JOIN (
-        SELECT [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-        FROM [Weapons] AS [w0]
-        WHERE [w0].[IsAutomatic] = CAST(0 AS bit)
-    ) AS [t2] ON [t0].[FullName] = [t2].[OwnerFullName]
-) AS [t1] ON [s].[Id] = [t1].[SquadId]
-ORDER BY [w].[Name], [w].[Id], [t].[Nickname], [t].[SquadId], [s].[Id], [t1].[FullName] DESC, [t1].[Nickname], [t1].[SquadId], [t1].[Id]
+        SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+        FROM `Weapons` AS `w0`
+        WHERE `w0`.`IsAutomatic` <> TRUE
+    ) AS `t2` ON `t0`.`FullName` = `t2`.`OwnerFullName`
+) AS `t1` ON `s`.`Id` = `t1`.`SquadId`
+ORDER BY `w`.`Name`, `w`.`Id`, `t`.`Nickname`, `t`.`SquadId`, `s`.`Id`, `t1`.`FullName` DESC, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id`
 """);
     }
 
@@ -6460,34 +6404,34 @@ ORDER BY [w].[Name], [w].[Id], [t].[Nickname], [t].[SquadId], [s].[Id], [t1].[Fu
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t1].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[Id0], [t1].[Nickname0], [t1].[HasSoulPatch], [t1].[SquadId0]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t1`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id0`, `t1`.`Nickname0`, `t1`.`HasSoulPatch`, `t1`.`SquadId0`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [t0].[Nickname], [t0].[SquadId], [s].[Id] AS [Id0], [t2].[Nickname] AS [Nickname0], [t2].[HasSoulPatch], [t2].[SquadId] AS [SquadId0], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
+    SELECT `w`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `s`.`Id` AS `Id0`, `t2`.`Nickname` AS `Nickname0`, `t2`.`HasSoulPatch`, `t2`.`SquadId` AS `SquadId0`, `w`.`OwnerFullName`
+    FROM ((`Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t0] ON [w].[OwnerFullName] = [t0].[FullName]
-    LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t0` ON `w`.`OwnerFullName` = `t0`.`FullName`)
+    LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`)
     LEFT JOIN (
-        SELECT [g1].[Nickname], [g1].[SquadId], [g1].[HasSoulPatch]
-        FROM [Gears] AS [g1]
+        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`HasSoulPatch`
+        FROM `Gears` AS `g1`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[HasSoulPatch]
-        FROM [Officers] AS [o1]
-    ) AS [t2] ON [s].[Id] = [t2].[SquadId]
-) AS [t1] ON [t].[FullName] = [t1].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t1].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[Id0], [t1].[Nickname0]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`HasSoulPatch`
+        FROM `Officers` AS `o1`
+    ) AS `t2` ON `s`.`Id` = `t2`.`SquadId`
+) AS `t1` ON `t`.`FullName` = `t1`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t1`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id0`, `t1`.`Nickname0`
 """);
     }
 
@@ -6497,41 +6441,41 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t1].[Id], [t1].[Nickname], [t1].[SquadI
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t3].[FullName], [t3].[Nickname], [t3].[SquadId], [t3].[Id], [t3].[Nickname0], [t3].[SquadId0], [t3].[Id0], [t3].[Nickname00], [t3].[HasSoulPatch], [t3].[SquadId00]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t3`.`FullName`, `t3`.`Nickname`, `t3`.`SquadId`, `t3`.`Id`, `t3`.`Nickname0`, `t3`.`SquadId0`, `t3`.`Id0`, `t3`.`Nickname00`, `t3`.`HasSoulPatch`, `t3`.`SquadId00`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t0].[FullName], [t0].[Nickname], [t0].[SquadId], [t1].[Id], [t1].[Nickname] AS [Nickname0], [t1].[SquadId] AS [SquadId0], [t1].[Id0], [t1].[Nickname0] AS [Nickname00], [t1].[HasSoulPatch], [t1].[SquadId0] AS [SquadId00], [t0].[LeaderNickname], [t0].[LeaderSquadId]
+    SELECT `t0`.`FullName`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Id`, `t1`.`Nickname` AS `Nickname0`, `t1`.`SquadId` AS `SquadId0`, `t1`.`Id0`, `t1`.`Nickname0` AS `Nickname00`, `t1`.`HasSoulPatch`, `t1`.`SquadId0` AS `SquadId00`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[LeaderNickname], [g].[LeaderSquadId]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[LeaderNickname], [o0].[LeaderSquadId]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
     LEFT JOIN (
-        SELECT [w].[Id], [t2].[Nickname], [t2].[SquadId], [s].[Id] AS [Id0], [t4].[Nickname] AS [Nickname0], [t4].[HasSoulPatch], [t4].[SquadId] AS [SquadId0], [w].[OwnerFullName]
-        FROM [Weapons] AS [w]
+        SELECT `w`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `s`.`Id` AS `Id0`, `t4`.`Nickname` AS `Nickname0`, `t4`.`HasSoulPatch`, `t4`.`SquadId` AS `SquadId0`, `w`.`OwnerFullName`
+        FROM ((`Weapons` AS `w`
         LEFT JOIN (
-            SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-            FROM [Gears] AS [g0]
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+            FROM `Gears` AS `g0`
             UNION ALL
-            SELECT [o1].[Nickname], [o1].[SquadId], [o1].[FullName]
-            FROM [Officers] AS [o1]
-        ) AS [t2] ON [w].[OwnerFullName] = [t2].[FullName]
-        LEFT JOIN [Squads] AS [s] ON [t2].[SquadId] = [s].[Id]
+            SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`FullName`
+            FROM `Officers` AS `o1`
+        ) AS `t2` ON `w`.`OwnerFullName` = `t2`.`FullName`)
+        LEFT JOIN `Squads` AS `s` ON `t2`.`SquadId` = `s`.`Id`)
         LEFT JOIN (
-            SELECT [g1].[Nickname], [g1].[SquadId], [g1].[HasSoulPatch]
-            FROM [Gears] AS [g1]
+            SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`HasSoulPatch`
+            FROM `Gears` AS `g1`
             UNION ALL
-            SELECT [o2].[Nickname], [o2].[SquadId], [o2].[HasSoulPatch]
-            FROM [Officers] AS [o2]
-        ) AS [t4] ON [s].[Id] = [t4].[SquadId]
-    ) AS [t1] ON [t0].[FullName] = [t1].[OwnerFullName]
-) AS [t3] ON [t].[Nickname] = [t3].[LeaderNickname] AND [t].[SquadId] = [t3].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t3].[Nickname], [t3].[SquadId], [t3].[Id], [t3].[Nickname0], [t3].[SquadId0], [t3].[Id0], [t3].[Nickname00]
+            SELECT `o2`.`Nickname`, `o2`.`SquadId`, `o2`.`HasSoulPatch`
+            FROM `Officers` AS `o2`
+        ) AS `t4` ON `s`.`Id` = `t4`.`SquadId`
+    ) AS `t1` ON `t0`.`FullName` = `t1`.`OwnerFullName`
+) AS `t3` ON `t`.`Nickname` = `t3`.`LeaderNickname` AND `t`.`SquadId` = `t3`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t3`.`Nickname`, `t3`.`SquadId`, `t3`.`Id`, `t3`.`Nickname0`, `t3`.`SquadId0`, `t3`.`Id0`, `t3`.`Nickname00`
 """);
     }
 
@@ -6541,34 +6485,34 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t3].[Nickname], [t3].[SquadId], [t3].[I
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t1].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[Id0], [t1].[Nickname0], [t1].[HasSoulPatch], [t1].[SquadId0]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t1`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id0`, `t1`.`Nickname0`, `t1`.`HasSoulPatch`, `t1`.`SquadId0`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [t0].[Nickname], [t0].[SquadId], [s].[Id] AS [Id0], [t2].[Nickname] AS [Nickname0], [t2].[HasSoulPatch], [t2].[SquadId] AS [SquadId0], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
+    SELECT `w`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `s`.`Id` AS `Id0`, `t2`.`Nickname` AS `Nickname0`, `t2`.`HasSoulPatch`, `t2`.`SquadId` AS `SquadId0`, `w`.`OwnerFullName`
+    FROM ((`Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t0] ON [w].[OwnerFullName] = [t0].[FullName]
-    LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t0` ON `w`.`OwnerFullName` = `t0`.`FullName`)
+    LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`)
     LEFT JOIN (
-        SELECT [g1].[Nickname], [g1].[SquadId], [g1].[HasSoulPatch]
-        FROM [Gears] AS [g1]
+        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`HasSoulPatch`
+        FROM `Gears` AS `g1`
         UNION ALL
-        SELECT [o1].[Nickname], [o1].[SquadId], [o1].[HasSoulPatch]
-        FROM [Officers] AS [o1]
-    ) AS [t2] ON [s].[Id] = [t2].[SquadId]
-) AS [t1] ON [t].[FullName] = [t1].[OwnerFullName]
-ORDER BY [t].[FullName], [t].[Nickname] DESC, [t].[SquadId], [t1].[Id], [t1].[Nickname], [t1].[SquadId], [t1].[Id0], [t1].[Nickname0]
+        SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`HasSoulPatch`
+        FROM `Officers` AS `o1`
+    ) AS `t2` ON `s`.`Id` = `t2`.`SquadId`
+) AS `t1` ON `t`.`FullName` = `t1`.`OwnerFullName`
+ORDER BY `t`.`FullName`, `t`.`Nickname` DESC, `t`.`SquadId`, `t1`.`Id`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`Id0`, `t1`.`Nickname0`
 """);
     }
 
@@ -6578,41 +6522,41 @@ ORDER BY [t].[FullName], [t].[Nickname] DESC, [t].[SquadId], [t1].[Id], [t1].[Ni
 
         AssertSql(
 """
-SELECT [t].[FullName], [t].[Nickname], [t].[SquadId], [t3].[FullName], [t3].[Nickname], [t3].[SquadId], [t3].[Id], [t3].[Nickname0], [t3].[SquadId0], [t3].[Id0], [t3].[Nickname00], [t3].[HasSoulPatch], [t3].[SquadId00]
+SELECT `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t3`.`FullName`, `t3`.`Nickname`, `t3`.`SquadId`, `t3`.`Id`, `t3`.`Nickname0`, `t3`.`SquadId0`, `t3`.`Id0`, `t3`.`Nickname00`, `t3`.`HasSoulPatch`, `t3`.`SquadId00`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [t0].[FullName], [t0].[Nickname], [t0].[SquadId], [t1].[Id], [t1].[Nickname] AS [Nickname0], [t1].[SquadId] AS [SquadId0], [t1].[Id0], [t1].[Nickname0] AS [Nickname00], [t1].[HasSoulPatch], [t1].[SquadId0] AS [SquadId00], [t0].[HasSoulPatch] AS [HasSoulPatch0], [t1].[IsAutomatic], [t1].[Name], [t0].[LeaderNickname], [t0].[LeaderSquadId]
+    SELECT `t0`.`FullName`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Id`, `t1`.`Nickname` AS `Nickname0`, `t1`.`SquadId` AS `SquadId0`, `t1`.`Id0`, `t1`.`Nickname0` AS `Nickname00`, `t1`.`HasSoulPatch`, `t1`.`SquadId0` AS `SquadId00`, `t0`.`HasSoulPatch` AS `HasSoulPatch0`, `t1`.`IsAutomatic`, `t1`.`Name`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId]
-        FROM [Officers] AS [o0]
-    ) AS [t0]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`
+        FROM `Officers` AS `o0`
+    ) AS `t0`
     LEFT JOIN (
-        SELECT [w].[Id], [t2].[Nickname], [t2].[SquadId], [s].[Id] AS [Id0], [t4].[Nickname] AS [Nickname0], [t4].[HasSoulPatch], [t4].[SquadId] AS [SquadId0], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName]
-        FROM [Weapons] AS [w]
+        SELECT `w`.`Id`, `t2`.`Nickname`, `t2`.`SquadId`, `s`.`Id` AS `Id0`, `t4`.`Nickname` AS `Nickname0`, `t4`.`HasSoulPatch`, `t4`.`SquadId` AS `SquadId0`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`
+        FROM ((`Weapons` AS `w`
         LEFT JOIN (
-            SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-            FROM [Gears] AS [g0]
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+            FROM `Gears` AS `g0`
             UNION ALL
-            SELECT [o1].[Nickname], [o1].[SquadId], [o1].[FullName]
-            FROM [Officers] AS [o1]
-        ) AS [t2] ON [w].[OwnerFullName] = [t2].[FullName]
-        LEFT JOIN [Squads] AS [s] ON [t2].[SquadId] = [s].[Id]
+            SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`FullName`
+            FROM `Officers` AS `o1`
+        ) AS `t2` ON `w`.`OwnerFullName` = `t2`.`FullName`)
+        LEFT JOIN `Squads` AS `s` ON `t2`.`SquadId` = `s`.`Id`)
         LEFT JOIN (
-            SELECT [g1].[Nickname], [g1].[SquadId], [g1].[HasSoulPatch]
-            FROM [Gears] AS [g1]
+            SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`HasSoulPatch`
+            FROM `Gears` AS `g1`
             UNION ALL
-            SELECT [o2].[Nickname], [o2].[SquadId], [o2].[HasSoulPatch]
-            FROM [Officers] AS [o2]
-        ) AS [t4] ON [s].[Id] = [t4].[SquadId]
-    ) AS [t1] ON [t0].[FullName] = [t1].[OwnerFullName]
-) AS [t3] ON [t].[Nickname] = [t3].[LeaderNickname] AND [t].[SquadId] = [t3].[LeaderSquadId]
-ORDER BY [t].[HasSoulPatch], [t].[LeaderNickname], [t].[FullName], [t].[Nickname], [t].[SquadId], [t3].[FullName], [t3].[HasSoulPatch0] DESC, [t3].[Nickname], [t3].[SquadId], [t3].[IsAutomatic], [t3].[Name] DESC, [t3].[Id], [t3].[Nickname0], [t3].[SquadId0], [t3].[Id0], [t3].[Nickname00]
+            SELECT `o2`.`Nickname`, `o2`.`SquadId`, `o2`.`HasSoulPatch`
+            FROM `Officers` AS `o2`
+        ) AS `t4` ON `s`.`Id` = `t4`.`SquadId`
+    ) AS `t1` ON `t0`.`FullName` = `t1`.`OwnerFullName`
+) AS `t3` ON `t`.`Nickname` = `t3`.`LeaderNickname` AND `t`.`SquadId` = `t3`.`LeaderSquadId`
+ORDER BY NOT (`t`.`HasSoulPatch`), `t`.`LeaderNickname`, `t`.`FullName`, `t`.`Nickname`, `t`.`SquadId`, `t3`.`FullName`, NOT (`t3`.`HasSoulPatch0`) DESC, `t3`.`Nickname`, `t3`.`SquadId`, NOT (`t3`.`IsAutomatic`), `t3`.`Name` DESC, `t3`.`Id`, `t3`.`Nickname0`, `t3`.`SquadId0`, `t3`.`Id0`, `t3`.`Nickname00`
 """);
     }
 
@@ -6622,20 +6566,20 @@ ORDER BY [t].[HasSoulPatch], [t].[LeaderNickname], [t].[FullName], [t].[Nickname
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT TOP(1) [t].[Nickname], [t].[SquadId], [t].[FullName]
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`FullName`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    ORDER BY [t].[Nickname]
-) AS [t0]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t0].[Nickname], [t0].[SquadId]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    ORDER BY `t`.`Nickname`
+) AS `t0`
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -6647,12 +6591,12 @@ ORDER BY [t0].[Nickname], [t0].[SquadId]
 """
 SELECT COUNT(*)
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -6662,20 +6606,20 @@ FROM (
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT TOP(1) [t].[Nickname], [t].[SquadId], [t].[FullName]
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`FullName`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    ORDER BY [t].[FullName]
-) AS [t0]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t0].[FullName], [t0].[Nickname], [t0].[SquadId]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    ORDER BY `t`.`FullName`
+) AS `t0`
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t0`.`FullName`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -6685,20 +6629,20 @@ ORDER BY [t0].[FullName], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT TOP(1) [t].[Nickname], [t].[SquadId], [t].[FullName]
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`FullName`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    ORDER BY [t].[FullName] DESC
-) AS [t0]
-LEFT JOIN [Weapons] AS [w] ON [t0].[FullName] = [w].[OwnerFullName]
-ORDER BY [t0].[FullName] DESC, [t0].[Nickname], [t0].[SquadId], [w].[Name]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    ORDER BY `t`.`FullName` DESC
+) AS `t0`
+LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t0`.`FullName` DESC, `t0`.`Nickname`, `t0`.`SquadId`, `w`.`Name`
 """);
     }
 
@@ -6708,20 +6652,20 @@ ORDER BY [t0].[FullName] DESC, [t0].[Nickname], [t0].[SquadId], [w].[Name]
 
         AssertSql(
 """
-SELECT [t0].[Id], [t0].[CapitalName], [t0].[Name], [t0].[ServerAddress], [t0].[CommanderName], [t0].[Eradicated]
+SELECT `t0`.`Id`, `t0`.`CapitalName`, `t0`.`Name`, `t0`.`ServerAddress`, `t0`.`CommanderName`, `t0`.`Eradicated`
 FROM (
-    SELECT [l0].[Name]
-    FROM [LocustLeaders] AS [l0]
+    SELECT `l0`.`Name`
+    FROM `LocustLeaders` AS `l0`
     UNION ALL
-    SELECT [l1].[Name]
-    FROM [LocustCommanders] AS [l1]
-) AS [t]
+    SELECT `l1`.`Name`
+    FROM `LocustCommanders` AS `l1`
+) AS `t`
 INNER JOIN (
-    SELECT [l].[Id], [l].[CapitalName], [l].[Name], [l].[ServerAddress], [l].[CommanderName], [l].[Eradicated]
-    FROM [LocustHordes] AS [l]
-    WHERE [l].[Name] = N'Swarm'
-) AS [t0] ON [t].[Name] = [t0].[CommanderName]
-WHERE [t0].[Eradicated] <> CAST(1 AS bit) OR ([t0].[Eradicated] IS NULL)
+    SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`
+    FROM `LocustHordes` AS `l`
+    WHERE `l`.`Name` = 'Swarm'
+) AS `t0` ON `t`.`Name` = `t0`.`CommanderName`
+WHERE `t0`.`Eradicated` <> TRUE OR `t0`.`Eradicated` IS NULL
 """);
     }
 
@@ -6731,20 +6675,20 @@ WHERE [t0].[Eradicated] <> CAST(1 AS bit) OR ([t0].[Eradicated] IS NULL)
 
         AssertSql(
 """
-SELECT [t0].[Id], [t0].[CapitalName], [t0].[Name], [t0].[ServerAddress], [t0].[CommanderName], [t0].[Eradicated]
+SELECT `t0`.`Id`, `t0`.`CapitalName`, `t0`.`Name`, `t0`.`ServerAddress`, `t0`.`CommanderName`, `t0`.`Eradicated`
 FROM (
-    SELECT [l0].[Name]
-    FROM [LocustLeaders] AS [l0]
+    SELECT `l0`.`Name`
+    FROM `LocustLeaders` AS `l0`
     UNION ALL
-    SELECT [l1].[Name]
-    FROM [LocustCommanders] AS [l1]
-) AS [t]
+    SELECT `l1`.`Name`
+    FROM `LocustCommanders` AS `l1`
+) AS `t`
 LEFT JOIN (
-    SELECT [l].[Id], [l].[CapitalName], [l].[Name], [l].[ServerAddress], [l].[CommanderName], [l].[Eradicated]
-    FROM [LocustHordes] AS [l]
-    WHERE [l].[Name] = N'Swarm'
-) AS [t0] ON [t].[Name] = [t0].[CommanderName]
-WHERE [t0].[Eradicated] <> CAST(1 AS bit) OR ([t0].[Eradicated] IS NULL)
+    SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`
+    FROM `LocustHordes` AS `l`
+    WHERE `l`.`Name` = 'Swarm'
+) AS `t0` ON `t`.`Name` = `t0`.`CommanderName`
+WHERE `t0`.`Eradicated` <> TRUE OR `t0`.`Eradicated` IS NULL
 """);
     }
 
@@ -6805,15 +6749,15 @@ LEFT JOIN [LocustHighCommands] AS [l] ON [t].[HighCommandId] = [l].[Id]
 
         AssertSql(
 """
-SELECT [c].[Name]
+SELECT `c`.`Name`
 FROM (
-    SELECT [g].[CityOfBirthName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`CityOfBirthName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[CityOfBirthName]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
+    SELECT `o`.`CityOfBirthName`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
 """);
     }
 
@@ -6919,22 +6863,16 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t1].[Id], [t1].[Nickname]
         await base.Negated_bool_ternary_inside_anonymous_type_in_projection(async);
 
         AssertSql(
-"""
-SELECT CASE
-    WHEN CASE
-        WHEN [t0].[HasSoulPatch] = CAST(1 AS bit) THEN CAST(1 AS bit)
-        ELSE COALESCE([t0].[HasSoulPatch], CAST(1 AS bit))
-    END = CAST(0 AS bit) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [c]
-FROM [Tags] AS [t]
+            """
+SELECT IIF(IIF(`t0`.`HasSoulPatch` = TRUE, TRUE, IIF(`t0`.`HasSoulPatch` IS NULL, TRUE, `t0`.`HasSoulPatch`)) <> TRUE, TRUE, FALSE) AS `c`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -6944,16 +6882,16 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[Nickname], [g].[AssignedCityName], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`AssignedCityName`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[AssignedCityName], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Cities] AS [c] ON [t].[AssignedCityName] = [c].[Name]
-ORDER BY [c].[Name], [t].[Nickname] DESC
+    SELECT `o`.`Nickname`, `o`.`AssignedCityName`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Cities` AS `c` ON `t`.`AssignedCityName` = `c`.`Name`
+ORDER BY `c`.`Name`, `t`.`Nickname` DESC
 """);
     }
 
@@ -6979,16 +6917,16 @@ ORDER BY `l`.`Id`, `t`.`Name`
 
         AssertSql(
 """
-SELECT [w].[Name]
-FROM [Weapons] AS [w]
+SELECT `w`.`Name`
+FROM `Weapons` AS `w`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [w].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`
 """);
     }
 
@@ -6998,17 +6936,17 @@ ORDER BY [t].[Nickname], [t].[SquadId], [w].[Id]
 
         AssertSql(
 """
-SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-FROM [Weapons] AS [w]
+SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM (`Weapons` AS `w`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-LEFT JOIN [Weapons] AS [w0] ON [w].[SynergyWithId] = [w0].[Id]
-ORDER BY [w].[IsAutomatic], [t].[Nickname] DESC, [t].[SquadId] DESC, [w0].[Id], [w].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`)
+LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+ORDER BY NOT (`w`.`IsAutomatic`), `t`.`Nickname` DESC, `t`.`SquadId` DESC, `w0`.`Id`, `w`.`Name`
 """);
     }
 
@@ -7030,21 +6968,21 @@ INNER JOIN `Weapons` AS `w0` ON `w`.`Id` = `w0`.`Id`
 
         AssertSql(
 """
-SELECT [t].[FullName] AS [GearName1], [t0].[FullName] AS [GearName2]
+SELECT `t`.`FullName` AS `GearName1`, `t0`.`FullName` AS `GearName2`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[Nickname] AND [t].[SquadId] = [t0].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`Nickname` AND `t`.`SquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -7054,18 +6992,18 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [t].[FullName] AS [GearName], [t0].[FullName] AS [OfficerName]
+SELECT `t`.`FullName` AS `GearName`, `t0`.`FullName` AS `OfficerName`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[Nickname] AND [t].[SquadId] = [t0].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`Nickname` AND `t`.`SquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -7089,19 +7027,19 @@ WHERE `w0`.`Id` IS NOT NULL AND `w1`.`Id` IS NOT NULL
 
         AssertSql(
 """
-SELECT [c].[Name] AS [CityName], [t0].[Nickname] AS [GearNickname]
-FROM [Cities] AS [c]
+SELECT `c`.`Name` AS `CityName`, `t0`.`Nickname` AS `GearNickname`
+FROM `Cities` AS `c`
 INNER JOIN (
-    SELECT [t].[Nickname], [c0].[Name]
+    SELECT `t`.`Nickname`, `c0`.`Name`
     FROM (
-        SELECT [g].[Nickname], [g].[AssignedCityName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`AssignedCityName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[AssignedCityName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    LEFT JOIN [Cities] AS [c0] ON [t].[AssignedCityName] = [c0].[Name]
-) AS [t0] ON [c].[Name] = [t0].[Name]
+        SELECT `o`.`Nickname`, `o`.`AssignedCityName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    LEFT JOIN `Cities` AS `c0` ON `t`.`AssignedCityName` = `c0`.`Name`
+) AS `t0` ON `c`.`Name` = `t0`.`Name`
 """);
     }
 
@@ -7111,26 +7049,26 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t1].[Note]
+SELECT `t`.`Nickname`, `t1`.`Note`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [t0].[Note], [t2].[Nickname], [t2].[SquadId]
-    FROM [Tags] AS [t0]
+    SELECT `t0`.`Note`, `t2`.`Nickname`, `t2`.`SquadId`
+    FROM `Tags` AS `t0`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId]
-        FROM [Officers] AS [o0]
-    ) AS [t2] ON [t0].[GearNickName] = [t2].[Nickname] AND [t0].[GearSquadId] = [t2].[SquadId]
-    WHERE [t0].[Note] IN (N'Cole''s Tag', N'Dom''s Tag')
-) AS [t1] ON [t].[Nickname] = [t1].[Nickname] AND [t].[SquadId] = [t1].[SquadId]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`
+        FROM `Officers` AS `o0`
+    ) AS `t2` ON `t0`.`GearNickName` = `t2`.`Nickname` AND `t0`.`GearSquadId` = `t2`.`SquadId`
+    WHERE `t0`.`Note` IN ('Cole''s Tag', 'Dom''s Tag')
+) AS `t1` ON `t`.`Nickname` = `t1`.`Nickname` AND `t`.`SquadId` = `t1`.`SquadId`
 """);
     }
 
@@ -7140,21 +7078,21 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [s].[Name] AS [SquadName], [t0].[Name] AS [WeaponName]
-FROM [Squads] AS [s]
+SELECT `s`.`Name` AS `SquadName`, `t0`.`Name` AS `WeaponName`
+FROM `Squads` AS `s`
 INNER JOIN (
-    SELECT [w].[Name], [s0].[Id] AS [Id0]
-    FROM [Weapons] AS [w]
+    SELECT `w`.`Name`, `s0`.`Id` AS `Id0`
+    FROM (`Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g].[SquadId], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`SquadId`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[SquadId], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-    LEFT JOIN [Squads] AS [s0] ON [t].[SquadId] = [s0].[Id]
-    WHERE [w].[IsAutomatic] = CAST(1 AS bit)
-) AS [t0] ON [s].[Id] = [t0].[Id0]
+        SELECT `o`.`SquadId`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`)
+    LEFT JOIN `Squads` AS `s0` ON `t`.`SquadId` = `s0`.`Id`
+    WHERE `w`.`IsAutomatic` = TRUE
+) AS `t0` ON `s`.`Id` = `t0`.`Id0`
 """);
     }
 
@@ -7164,20 +7102,20 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [s].[Name] AS [SquadName], [t0].[Name] AS [WeaponName]
-FROM [Squads] AS [s]
+SELECT `s`.`Name` AS `SquadName`, `t0`.`Name` AS `WeaponName`
+FROM `Squads` AS `s`
 LEFT JOIN (
-    SELECT [w].[Name], [s0].[Id] AS [Id0]
-    FROM [Weapons] AS [w]
+    SELECT `w`.`Name`, `s0`.`Id` AS `Id0`
+    FROM (`Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g].[SquadId], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`SquadId`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[SquadId], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-    LEFT JOIN [Squads] AS [s0] ON [t].[SquadId] = [s0].[Id]
-) AS [t0] ON [s].[Id] = [t0].[Id0]
+        SELECT `o`.`SquadId`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`)
+    LEFT JOIN `Squads` AS `s0` ON `t`.`SquadId` = `s0`.`Id`
+) AS `t0` ON `s`.`Id` = `t0`.`Id0`
 """);
     }
 
@@ -7187,66 +7125,73 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t0].[Nickname], [t0].[SquadId], [t1].[Id], [t1].[AmmunitionType], [t1].[IsAutomatic], [t1].[Name], [t1].[OwnerFullName], [t1].[SynergyWithId]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Id`, `t1`.`AmmunitionType`, `t1`.`IsAutomatic`, `t1`.`Name`, `t1`.`OwnerFullName`, `t1`.`SynergyWithId`
 FROM (
-    SELECT TOP(1) [t].[Nickname], [t].[SquadId], [t].[FullName]
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`FullName`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    ORDER BY [t].[Nickname]
-) AS [t0]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    ORDER BY `t`.`Nickname`
+) AS `t0`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = CAST(0 AS bit)
-) AS [t1] ON [t0].[FullName] = [t1].[OwnerFullName]
-ORDER BY [t0].[Nickname], [t0].[SquadId], [t1].[Id]
+    SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` <> TRUE
+) AS `t1` ON `t0`.`FullName` = `t1`.`OwnerFullName`
+ORDER BY `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Id`
 """);
     }
 
     public override async Task Project_one_value_type_from_empty_collection(bool async)
     {
         await base.Project_one_value_type_from_empty_collection(async);
-
         AssertSql(
-"""
-SELECT [s].[Name], COALESCE((
-    SELECT TOP(1) [t].[SquadId]
-    FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
-        UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)), 0) AS [SquadId]
-FROM [Squads] AS [s]
-WHERE [s].[Name] = N'Kilo'
+        """
+SELECT `s`.`Name`, IIF((
+        SELECT TOP 1 `t`.`SquadId`
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        SELECT TOP 1 `t`.`SquadId`
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) AS `SquadId`
+FROM `Squads` AS `s`
+WHERE `s`.`Name` = 'Kilo'
 """);
     }
 
     public override async Task Project_one_value_type_converted_to_nullable_from_empty_collection(bool async)
     {
         await base.Project_one_value_type_converted_to_nullable_from_empty_collection(async);
-
         AssertSql(
-"""
-SELECT [s].[Name], (
-    SELECT TOP(1) [t].[SquadId]
+        """
+SELECT `s`.`Name`, (
+    SELECT TOP 1 `t`.`SquadId`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)) AS [SquadId]
-FROM [Squads] AS [s]
-WHERE [s].[Name] = N'Kilo'
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) AS `SquadId`
+FROM `Squads` AS `s`
+WHERE `s`.`Name` = 'Kilo'
 """);
     }
 
@@ -7283,18 +7228,27 @@ WHERE [s].[Name] = N'Kilo'
 
         AssertSql(
 """
-SELECT [s].[Name]
-FROM [Squads] AS [s]
-WHERE [s].[Name] = N'Kilo' AND COALESCE((
-    SELECT TOP(1) [t].[SquadId]
-    FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
-        UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)), 0) <> 0
+SELECT `s`.`Name`
+FROM `Squads` AS `s`
+WHERE `s`.`Name` = 'Kilo' AND IIF((
+        SELECT TOP 1 `t`.`SquadId`
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        SELECT TOP 1 `t`.`SquadId`
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) <> 0
 """);
     }
 
@@ -7304,17 +7258,26 @@ WHERE [s].[Name] = N'Kilo' AND COALESCE((
 
         AssertSql(
 """
-SELECT [s].[Name], COALESCE((
-    SELECT TOP(1) 42
-    FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
-        UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)), 0) AS [Gear]
-FROM [Squads] AS [s]
+SELECT `s`.`Name`, IIF((
+        SELECT TOP 1 42
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        SELECT TOP 1 42
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) AS `Gear`
+FROM `Squads` AS `s`
 """);
     }
 
@@ -7323,18 +7286,18 @@ FROM [Squads] AS [s]
         await base.Select_subquery_projecting_single_constant_string(async);
 
         AssertSql(
-"""
-SELECT [s].[Name], (
-    SELECT TOP(1) N'Foo'
+            """
+SELECT `s`.`Name`, (
+    SELECT TOP 1 'Foo'
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)) AS [Gear]
-FROM [Squads] AS [s]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) AS `Gear`
+FROM `Squads` AS `s`
 """);
     }
 
@@ -7344,17 +7307,26 @@ FROM [Squads] AS [s]
 
         AssertSql(
 """
-SELECT [s].[Name], COALESCE((
-    SELECT TOP(1) CAST(1 AS bit)
-    FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
-        UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)), CAST(0 AS bit)) AS [Gear]
-FROM [Squads] AS [s]
+SELECT `s`.`Name`, IIF((
+        SELECT TOP 1 TRUE
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, FALSE, (
+        SELECT TOP 1 TRUE
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) AS `Gear`
+FROM `Squads` AS `s`
 """);
     }
 
@@ -7416,16 +7388,16 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name], [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
-FROM [Squads] AS [s]
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
+FROM `Squads` AS `s`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t] ON [s].[Id] = [t].[SquadId]
-ORDER BY [s].[Id], [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t` ON `s`.`Id` = `t`.`SquadId`
+ORDER BY `s`.`Id`, `t`.`Nickname`
 """);
     }
 
@@ -7435,16 +7407,16 @@ ORDER BY [s].[Id], [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Name], [w].[Id]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Name`, `w`.`Id`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -7660,19 +7632,23 @@ FROM `Officers` AS `o`
         await base.Select_subquery_boolean(async);
 
         AssertSql(
-"""
-SELECT COALESCE((
-    SELECT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]), CAST(0 AS bit))
+            """
+SELECT IIF((
+        SELECT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`) IS NULL, FALSE, (
+        SELECT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7683,17 +7659,17 @@ FROM (
         AssertSql(
 """
 SELECT (
-    SELECT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id])
+    SELECT TOP 1 `w`.`IsAutomatic`
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`
+    ORDER BY `w`.`Id`)
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7702,19 +7678,23 @@ FROM (
         await base.Select_subquery_int_with_inside_cast_and_coalesce(async);
 
         AssertSql(
-"""
-SELECT COALESCE((
-    SELECT TOP(1) [w].[Id]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]), 42)
+            """
+SELECT IIF((
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`) IS NULL, 42, (
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7724,18 +7704,22 @@ FROM (
 
         AssertSql(
 """
-SELECT COALESCE((
-    SELECT TOP(1) [w].[Id]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]), 0, 42)
+SELECT IIF((
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`) IS NULL, IIF(0 IS NULL, 42, 0), (
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7745,18 +7729,22 @@ FROM (
 
         AssertSql(
 """
-SELECT COALESCE((
-    SELECT TOP(1) [w].[Id]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]), 42)
+SELECT IIF((
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`) IS NULL, 42, (
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7766,22 +7754,26 @@ FROM (
 
         AssertSql(
 """
-SELECT COALESCE((
-    SELECT TOP(1) [w].[Id]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]
-    ORDER BY [w].[Id]), (
-    SELECT TOP(1) [w0].[Id]
-    FROM [Weapons] AS [w0]
-    WHERE [t].[FullName] = [w0].[OwnerFullName]
-    ORDER BY [w0].[Id]))
+SELECT IIF((
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`) IS NULL, (
+        SELECT TOP 1 `w0`.`Id`
+        FROM `Weapons` AS `w0`
+        WHERE `t`.`FullName` = `w0`.`OwnerFullName`
+        ORDER BY `w0`.`Id`), (
+        SELECT TOP 1 `w`.`Id`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`
+        ORDER BY `w`.`Id`))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7791,18 +7783,22 @@ FROM (
 
         AssertSql(
 """
-SELECT COALESCE((
-    SELECT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND [w].[Name] = N'BFG'
-    ORDER BY [w].[Id]), CAST(0 AS bit))
+SELECT IIF((
+        SELECT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`Name` = 'BFG'
+        ORDER BY `w`.`Id`) IS NULL, FALSE, (
+        SELECT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`Name` = 'BFG'
+        ORDER BY `w`.`Id`))
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7813,17 +7809,17 @@ FROM (
         AssertSql(
 """
 SELECT (
-    SELECT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND [w].[Name] = N'BFG'
-    ORDER BY [w].[Id])
+    SELECT TOP 1 `w`.`IsAutomatic`
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`Name` = 'BFG'
+    ORDER BY `w`.`Id`)
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -7857,18 +7853,21 @@ WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT COALESCE((
-    SELECT DISTINCT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND ([w].[Name] LIKE N'%Lancer%')), CAST(0 AS bit))
+SELECT IIF((
+        SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND (`w`.`Name` LIKE '%Lancer%')) IS NULL, FALSE, (
+        SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND (`w`.`Name` LIKE '%Lancer%')))
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` = TRUE
 """);
     }
 
@@ -7926,18 +7925,21 @@ WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT COALESCE((
-    SELECT DISTINCT TOP(1) [w].[IsAutomatic]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND [w].[Name] = N'BFG'), CAST(0 AS bit))
+SELECT IIF((
+        SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`Name` = 'BFG') IS NULL, FALSE, (
+        SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`Name` = 'BFG'))
 FROM (
-    SELECT [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
+    SELECT `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` = TRUE
 """);
     }
 
@@ -7971,17 +7973,17 @@ WHERE [t].[HasSoulPatch] = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT [c].[Name], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Nickname], [t].[Rank], [t].[SquadId]
-FROM [Cities] AS [c]
+SELECT `c`.`Name`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Nickname`, `t`.`Rank`, `t`.`SquadId`
+FROM `Cities` AS `c`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t] ON [c].[Name] = [t].[AssignedCityName]
-WHERE [c].[Name] = N'Ephyra'
-ORDER BY [c].[Name], [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t` ON `c`.`Name` = `t`.`AssignedCityName`
+WHERE `c`.`Name` = 'Ephyra'
+ORDER BY `c`.`Name`, `t`.`Nickname`
 """);
     }
 
@@ -7990,19 +7992,19 @@ ORDER BY [c].[Name], [t].[Nickname]
         await base.Cast_ordered_subquery_to_base_type_using_typed_ToArray(async);
 
         AssertSql(
-"""
-SELECT [c].[Name], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Nickname], [t].[Rank], [t].[SquadId]
-FROM [Cities] AS [c]
-LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-    FROM [Gears] AS [g]
-    UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t] ON [c].[Name] = [t].[AssignedCityName]
-WHERE [c].[Name] = N'Ephyra'
-ORDER BY [c].[Name], [t].[Nickname] DESC
-""");
+            """
+    SELECT `c`.`Name`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Nickname`, `t`.`Rank`, `t`.`SquadId`
+    FROM `Cities` AS `c`
+    LEFT JOIN (
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+        FROM `Gears` AS `g`
+        UNION ALL
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`
+        FROM `Officers` AS `o`
+    ) AS `t` ON `c`.`Name` = `t`.`AssignedCityName`
+    WHERE `c`.`Name` = 'Ephyra'
+    ORDER BY `c`.`Name`, `t`.`Nickname` DESC
+    """);
     }
 
     public override async Task Correlated_collection_with_complex_order_by_funcletized_to_constant_bool(bool async)
@@ -8011,16 +8013,16 @@ ORDER BY [c].[Name], [t].[Nickname] DESC
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Name], [w].[Id]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Name`, `w`.`Id`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -8144,17 +8146,17 @@ ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & 'Marcus'' Lancer'
         await base.String_concat_on_various_types(async);
 
         AssertSql(
-"""
-SELECT (N'HasSoulPatch ' + CAST([t].[HasSoulPatch] AS nvarchar(max))) + N' HasSoulPatch' AS [HasSoulPatch], (N'Rank ' + CAST([t].[Rank] AS nvarchar(max))) + N' Rank' AS [Rank], (N'SquadId ' + CAST([t].[SquadId] AS nvarchar(max))) + N' SquadId' AS [SquadId], (N'Rating ' + COALESCE(CAST([m].[Rating] AS nvarchar(max)), N'')) + N' Rating' AS [Rating], (N'Timeline ' + CAST([m].[Timeline] AS nvarchar(max))) + N' Timeline' AS [Timeline]
+            """
+SELECT ('HasSoulPatch ' & (`t`.`HasSoulPatch` & '')) & ' HasSoulPatch' AS `HasSoulPatch`, ('Rank ' & (`t`.`Rank` & '')) & ' Rank' AS `Rank`, ('SquadId ' & (`t`.`SquadId` & '')) & ' SquadId' AS `SquadId`, ('Rating ' & IIF((`m`.`Rating` & '') IS NULL, '', (`m`.`Rating` & ''))) & ' Rating' AS `Rating`, ('Timeline ' & (`m`.`Timeline` & '')) & ' Timeline' AS `Timeline`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN [Missions] AS [m]
-ORDER BY [t].[Nickname], [m].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`,
+`Missions` AS `m`
+ORDER BY `t`.`Nickname`, `m`.`Id`
 """);
     }
 
@@ -8175,15 +8177,15 @@ FROM [Missions] AS [m]
 
         AssertSql(
 """
-SELECT AVG(CAST([t].[SquadId] AS float))
+SELECT AVG(CDBL(`t`.`SquadId`))
 FROM (
-    SELECT [g].[SquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`SquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[SquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Rank]
+    SELECT `o`.`SquadId`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Rank`
 """);
     }
 
@@ -8193,15 +8195,15 @@ GROUP BY [t].[Rank]
 
         AssertSql(
 """
-SELECT COALESCE(SUM([t].[SquadId]), 0)
+SELECT IIF(SUM(`t`.`SquadId`) IS NULL, 0, SUM(`t`.`SquadId`))
 FROM (
-    SELECT [g].[SquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`SquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[SquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Rank]
+    SELECT `o`.`SquadId`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Rank`
 """);
     }
 
@@ -8213,13 +8215,13 @@ GROUP BY [t].[Rank]
 """
 SELECT COUNT(*)
 FROM (
-    SELECT [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Rank]
+    SELECT `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Rank`
 """);
     }
 
@@ -8229,15 +8231,15 @@ GROUP BY [t].[Rank]
 
         AssertSql(
 """
-SELECT COUNT_BIG(*)
+SELECT COUNT(*)
 FROM (
-    SELECT [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Rank]
+    SELECT `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Rank`
 """);
     }
 
@@ -8247,15 +8249,15 @@ GROUP BY [t].[Rank]
 
         AssertSql(
 """
-SELECT MIN([t].[SquadId])
+SELECT MIN(`t`.`SquadId`)
 FROM (
-    SELECT [g].[SquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`SquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[SquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Rank]
+    SELECT `o`.`SquadId`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Rank`
 """);
     }
 
@@ -8265,16 +8267,16 @@ GROUP BY [t].[Rank]
 
         AssertSql(
 """
-SELECT [t].[Nickname] AS [Key], COUNT(*) AS [c]
+SELECT `t`.`Nickname` AS `Key`, COUNT(*) AS `c`
 FROM (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Nickname]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Nickname`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -8321,15 +8323,15 @@ ORDER BY [t0].[Rank]
 
         AssertSql(
 """
-SELECT MAX([t].[SquadId])
+SELECT MAX(`t`.`SquadId`)
 FROM (
-    SELECT [g].[SquadId], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`SquadId`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[SquadId], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[Rank]
+    SELECT `o`.`SquadId`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`Rank`
 """);
     }
 
@@ -8392,15 +8394,15 @@ ORDER BY `t`.`Nickname`, `t`.`SquadId`
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [t0].[GearNickName], [t0].[GearSquadId], [t0].[IssueDate], [t0].[Note]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `t0`.`GearNickName`, `t0`.`GearSquadId`, `t0`.`IssueDate`, `t0`.`Note`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
 """);
     }
 
@@ -8410,40 +8412,39 @@ LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadI
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
     public override async Task Multiple_includes_with_client_method_around_entity_and_also_projecting_included_collection()
     {
         await base.Multiple_includes_with_client_method_around_entity_and_also_projecting_included_collection();
-
         AssertSql(
-"""
-SELECT [s].[Name], [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
-FROM [Squads] AS [s]
+        """
+SELECT `s`.`Name`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
+FROM `Squads` AS `s`
 LEFT JOIN (
-    SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+    SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName]
-) AS [t0] ON [s].[Id] = [t0].[SquadId]
-WHERE [s].[Name] = N'Delta'
-ORDER BY [s].[Id], [t0].[Nickname], [t0].[SquadId]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName`
+) AS `t0` ON `s`.`Id` = `t0`.`SquadId`
+WHERE `s`.`Name` = 'Delta'
+ORDER BY `s`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`
 """);
     }
 
@@ -8453,30 +8454,15 @@ ORDER BY [s].[Id], [t0].[Nickname], [t0].[SquadId]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[LeaderNickname] IS NOT NULL THEN CASE
-        WHEN CAST(LEN([t].[Nickname]) AS int) = 5 THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-    ELSE NULL
-END
+SELECT IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`t`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t`.`Nickname`))) = 5, TRUE, FALSE), NULL)
 FROM (
-    SELECT [g].[Nickname], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY CASE
-    WHEN CASE
-        WHEN [t].[LeaderNickname] IS NOT NULL THEN CASE
-            WHEN CAST(LEN([t].[Nickname]) AS int) = 5 THEN CAST(1 AS bit)
-            ELSE CAST(0 AS bit)
-        END
-        ELSE NULL
-    END IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+    SELECT `o`.`Nickname`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY NOT (IIF(IIF(`t`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`t`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t`.`Nickname`))) = 5, TRUE, FALSE), NULL) IS NOT NULL, TRUE, FALSE))
 """);
     }
 
@@ -8557,18 +8543,18 @@ WHERE IIF(`w`.`SynergyWithId` IS NULL, IIF(LEN(`w`.`Name`) IS NULL, NULL, CLNG(L
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[FullName] <> N'Dom' AND EXISTS (
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`FullName` <> 'Dom' AND EXISTS (
     SELECT 1
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND [w].[IsAutomatic] = CAST(1 AS bit))
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`IsAutomatic` = TRUE)
 """);
     }
 
@@ -8579,19 +8565,19 @@ WHERE [t].[FullName] <> N'Dom' AND EXISTS (
 
         AssertSql(
 """
-SELECT [t].[Nickname], (
-    SELECT TOP(1) [w].[Name]
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName] AND [w].[IsAutomatic] = CAST(1 AS bit)
-    ORDER BY [w].[AmmunitionType] DESC) AS [WeaponName]
+SELECT `t`.`Nickname`, (
+    SELECT TOP 1 `w`.`Name`
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`IsAutomatic` = TRUE
+    ORDER BY `w`.`AmmunitionType` DESC) AS `WeaponName`
 FROM (
-    SELECT [g].[Nickname], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[Nickname] <> N'Dom'
+    SELECT `o`.`Nickname`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`Nickname` <> 'Dom'
 """);
     }
 
@@ -8602,16 +8588,16 @@ WHERE [t].[Nickname] <> N'Dom'
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE SUBSTRING([t].[Note], 0 + 1, [t0].[SquadId]) = [t].[GearNickName] OR ((([t].[Note] IS NULL) OR ([t0].[SquadId] IS NULL)) AND ([t].[GearNickName] IS NULL))
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t0`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `t0`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `t0`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -8623,17 +8609,17 @@ WHERE SUBSTRING([t].[Note], 0 + 1, [t0].[SquadId]) = [t].[GearNickName] OR ((([t
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
-WHERE SUBSTRING([t].[Note], 0 + 1, CAST(LEN([s].[Name]) AS int)) = [t].[GearNickName] OR ((([t].[Note] IS NULL) OR ([s].[Name] IS NULL)) AND ([t].[GearNickName] IS NULL))
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`
+WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, IIF(LEN(`s`.`Name`) IS NULL, NULL, CLNG(LEN(`s`.`Name`))))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -8770,27 +8756,27 @@ WHERE (`c`.`Name` <> 'Foo' OR `c`.`Name` IS NULL) AND (`l0`.`Name` <> 'Bar' OR `
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM [Cities] AS [c]
+    FROM `Cities` AS `c`
     WHERE EXISTS (
         SELECT 1
         FROM (
-            SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-            FROM [Gears] AS [g0]
+            SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g0`
             UNION ALL
-            SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-            FROM [Officers] AS [o0]
-        ) AS [t0]
-        WHERE [c].[Name] = [t0].[CityOfBirthName] AND [t0].[Nickname] = [t].[Nickname] AND [t0].[SquadId] = [t].[SquadId]))
+            SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o0`
+        ) AS `t0`
+        WHERE `c`.`Name` = `t0`.`CityOfBirthName` AND `t0`.`Nickname` = `t`.`Nickname` AND `t0`.`SquadId` = `t`.`SquadId`))
 """);
     }
 
@@ -8852,18 +8838,18 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [c].[Name], [c].[Location], [c].[Nation]
-FROM [Cities] AS [c]
+SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
+FROM `Cities` AS `c`
 WHERE (
-    SELECT TOP(1) [t].[HasSoulPatch]
+    SELECT TOP 1 `t`.`HasSoulPatch`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    ORDER BY [t].[Nickname], [t].[SquadId]) = CAST(1 AS bit)
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    ORDER BY `t`.`Nickname`, `t`.`SquadId`) = TRUE
 """);
     }
 
@@ -8900,51 +8886,46 @@ LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
     public override async Task Left_join_projection_using_coalesce_tracking(bool async)
     {
         await base.Left_join_projection_using_coalesce_tracking(async);
-
         AssertSql(
-"""
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+        """
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`
 """);
     }
 
     public override async Task Left_join_projection_using_conditional_tracking(bool async)
     {
         await base.Left_join_projection_using_conditional_tracking(async);
-
         AssertSql(
-"""
-SELECT CASE
-    WHEN ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+        """
+SELECT IIF(`t0`.`Nickname` IS NULL OR `t0`.`SquadId` IS NULL, TRUE, FALSE), `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[LeaderNickname] = [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`LeaderNickname` = `t0`.`Nickname`
 """);
     }
 
@@ -8988,24 +8969,24 @@ ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t1] ON ([t0].[Nickname] = [t1].[LeaderNickname] OR (([t0].[Nickname] IS NULL) AND ([t1].[LeaderNickname] IS NULL))) AND [t0].[SquadId] = [t1].[LeaderSquadId]
-WHERE [t0].[Discriminator] = N'Officer'
-ORDER BY [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t1` ON (`t0`.`Nickname` = `t1`.`LeaderNickname` OR (`t0`.`Nickname` IS NULL AND `t1`.`LeaderNickname` IS NULL)) AND `t0`.`SquadId` = `t1`.`LeaderSquadId`
+WHERE `t0`.`Discriminator` = 'Officer'
+ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`
 """);
     }
 
@@ -9036,22 +9017,19 @@ ORDER BY [t].[Id], [t0].[Nickname]
 """
 @__isAutomatic_0='True'
 
-SELECT [t].[Nickname], [t].[FullName], CASE
-    WHEN [t0].[Id] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [Collection]
+SELECT `t`.`Nickname`, `t`.`FullName`, IIF(`t0`.`Id` IS NOT NULL, TRUE, FALSE) AS `Collection`
 FROM (
-    SELECT [g].[Nickname], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] = @__isAutomatic_0
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
+    SELECT `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` = @__isAutomatic_0
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
 """);
     }
 
@@ -9061,21 +9039,21 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`Nickname`
 """);
     }
 
@@ -9085,21 +9063,21 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 INNER JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`Nickname`
 """);
     }
 
@@ -9256,20 +9234,20 @@ FROM `LocustHordes` AS `l`
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[IsAutomatic], [t0].[Name], [t0].[Id0]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`Id0`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[IsAutomatic], [w0].[Name], [w0].[Id] AS [Id0], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    LEFT JOIN [Weapons] AS [w0] ON [w].[SynergyWithId] = [w0].[Id]
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
+    SELECT `w`.`Id`, `w`.`IsAutomatic`, `w0`.`Name`, `w0`.`Id` AS `Id0`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`
 """);
     }
 
@@ -9279,17 +9257,17 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Id]
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator], [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Tags] AS [t]
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
-ORDER BY [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`
+ORDER BY `t`.`Note`
 """);
     }
 
@@ -9299,30 +9277,27 @@ ORDER BY [t].[Note]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Nickname], [t1].[Id], [t1].[SquadId]
-FROM [Tags] AS [t]
+SELECT IIF(`t0`.`Nickname` IS NOT NULL AND `t0`.`SquadId` IS NOT NULL, TRUE, FALSE), `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`, `t1`.`Id`, `t1`.`SquadId`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
 LEFT JOIN (
-    SELECT [t2].[Nickname], [w].[Id], [t2].[SquadId], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
+    SELECT `t2`.`Nickname`, `w`.`Id`, `t2`.`SquadId`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
     LEFT JOIN (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t2] ON [w].[OwnerFullName] = [t2].[FullName]
-) AS [t1] ON [t0].[FullName] = [t1].[OwnerFullName]
-ORDER BY [t].[Note], [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Id], [t1].[Nickname]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t2` ON `w`.`OwnerFullName` = `t2`.`FullName`
+) AS `t1` ON `t0`.`FullName` = `t1`.`OwnerFullName`
+ORDER BY `t`.`Note`, `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Id`, `t1`.`Nickname`
 """);
     }
 
@@ -9331,7 +9306,7 @@ ORDER BY [t].[Note], [t].[Id], [t0].[Nickname], [t0].[SquadId], [t1].[Id], [t1].
         await base.Collection_navigation_ofType_filter_works(async);
 
         AssertSql(
-"""
+            """
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
 WHERE EXISTS (
@@ -9350,21 +9325,22 @@ WHERE EXISTS (
 
         AssertSql(
 """
-@__prm_Inner_Nickname_0='Marcus' (Size = 450)
+@__prm_Inner_Nickname_0='Marcus' (Size = 255)
+@__prm_Inner_Nickname_0='Marcus' (Size = 255)
 
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT DISTINCT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+    SELECT DISTINCT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [t].[Nickname] <> @__prm_Inner_Nickname_0 AND [t].[Nickname] <> @__prm_Inner_Nickname_0
-) AS [t0]
-ORDER BY [t0].[FullName]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `t`.`Nickname` <> @__prm_Inner_Nickname_0 AND `t`.`Nickname` <> @__prm_Inner_Nickname_0
+) AS `t0`
+ORDER BY `t0`.`FullName`
 """);
     }
 
@@ -9375,38 +9351,41 @@ ORDER BY [t0].[FullName]
         AssertSql(
 """
 @__squadId_0='1'
+@__squadId_0='1'
 
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+    SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    INNER JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
-    WHERE EXISTS (
-        SELECT 1
-        FROM [Squads] AS [s0]
-        WHERE [s0].[Id] = @__squadId_0 AND [s0].[Id] = [s].[Id])
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    INNER JOIN `Squads` AS `s` ON `t`.`SquadId` = `s`.`Id`
+    WHERE `s`.`Id` IN (
+        SELECT `s0`.`Id`
+        FROM `Squads` AS `s0`
+        WHERE `s0`.`Id` = @__squadId_0
+    )
     UNION ALL
-    SELECT [t1].[Nickname], [t1].[SquadId], [t1].[AssignedCityName], [t1].[CityOfBirthName], [t1].[FullName], [t1].[HasSoulPatch], [t1].[LeaderNickname], [t1].[LeaderSquadId], [t1].[Rank], [t1].[Discriminator]
+    SELECT `t1`.`Nickname`, `t1`.`SquadId`, `t1`.`AssignedCityName`, `t1`.`CityOfBirthName`, `t1`.`FullName`, `t1`.`HasSoulPatch`, `t1`.`LeaderNickname`, `t1`.`LeaderSquadId`, `t1`.`Rank`, `t1`.`Discriminator`
     FROM (
-        SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    INNER JOIN [Squads] AS [s1] ON [t1].[SquadId] = [s1].[Id]
-    WHERE EXISTS (
-        SELECT 1
-        FROM [Squads] AS [s2]
-        WHERE [s2].[Id] = @__squadId_0 AND [s2].[Id] = [s1].[Id])
-) AS [t0]
-ORDER BY [t0].[FullName]
+        SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    INNER JOIN `Squads` AS `s1` ON `t1`.`SquadId` = `s1`.`Id`
+    WHERE `s1`.`Id` IN (
+        SELECT `s2`.`Id`
+        FROM `Squads` AS `s2`
+        WHERE `s2`.`Id` = @__squadId_0
+    )
+) AS `t0`
+ORDER BY `t0`.`FullName`
 """);
     }
 
@@ -9417,19 +9396,20 @@ ORDER BY [t0].[FullName]
         AssertSql(
 """
 @__gearId_0='1'
+@__gearId_0='1'
 
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[SquadId] = @__gearId_0 AND [t].[SquadId] = @__gearId_0)
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`SquadId` = @__gearId_0 AND `t`.`SquadId` = @__gearId_0)
 """);
     }
 
@@ -9440,23 +9420,24 @@ WHERE EXISTS (
         AssertSql(
 """
 @__entity_equality_prm_Inner_Squad_0_Id='1' (Nullable = true)
+@__entity_equality_prm_Inner_Squad_0_Id='1' (Nullable = true)
 
-SELECT [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT DISTINCT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+    SELECT DISTINCT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    INNER JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
-    WHERE [s].[Id] = @__entity_equality_prm_Inner_Squad_0_Id
-) AS [t0]
-INNER JOIN [Squads] AS [s0] ON [t0].[SquadId] = [s0].[Id]
-WHERE [s0].[Id] = @__entity_equality_prm_Inner_Squad_0_Id
-ORDER BY [t0].[FullName]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    INNER JOIN `Squads` AS `s` ON `t`.`SquadId` = `s`.`Id`
+    WHERE `s`.`Id` = @__entity_equality_prm_Inner_Squad_0_Id
+) AS `t0`
+INNER JOIN `Squads` AS `s0` ON `t0`.`SquadId` = `s0`.`Id`
+WHERE `s0`.`Id` = @__entity_equality_prm_Inner_Squad_0_Id
+ORDER BY `t0`.`FullName`
 """);
     }
 
@@ -9466,35 +9447,35 @@ ORDER BY [t0].[FullName]
 
         AssertSql(
 """
-SELECT [t0].[Name], [t0].[Count], COALESCE(SUM([t0].[Count]), 0) AS [Sum]
+SELECT `t0`.`Name`, `t0`.`Count`, IIF(SUM(`t0`.`Count`) IS NULL, 0, SUM(`t0`.`Count`)) AS `Sum`
 FROM (
-    SELECT [c].[Name], (
+    SELECT `c`.`Name`, (
         SELECT COUNT(*)
-        FROM [Weapons] AS [w]
-        WHERE [t].[FullName] = [w].[OwnerFullName]) AS [Count]
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`) AS `Count`
     FROM (
-        SELECT [g].[AssignedCityName], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`AssignedCityName`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[AssignedCityName], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    LEFT JOIN [Cities] AS [c] ON [t].[AssignedCityName] = [c].[Name]
+        SELECT `o`.`AssignedCityName`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    LEFT JOIN `Cities` AS `c` ON `t`.`AssignedCityName` = `c`.`Name`
     UNION ALL
-    SELECT [c0].[Name], (
+    SELECT `c0`.`Name`, (
         SELECT COUNT(*)
-        FROM [Weapons] AS [w0]
-        WHERE [t1].[FullName] = [w0].[OwnerFullName]) AS [Count]
+        FROM `Weapons` AS `w0`
+        WHERE `t1`.`FullName` = `w0`.`OwnerFullName`) AS `Count`
     FROM (
-        SELECT [g0].[CityOfBirthName], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`CityOfBirthName`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[CityOfBirthName], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    INNER JOIN [Cities] AS [c0] ON [t1].[CityOfBirthName] = [c0].[Name]
-) AS [t0]
-GROUP BY [t0].[Name], [t0].[Count]
+        SELECT `o0`.`CityOfBirthName`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    INNER JOIN `Cities` AS `c0` ON `t1`.`CityOfBirthName` = `c0`.`Name`
+) AS `t0`
+GROUP BY `t0`.`Name`, `t0`.`Count`
 """);
     }
 
@@ -9504,35 +9485,35 @@ GROUP BY [t0].[Name], [t0].[Count]
 
         AssertSql(
 """
-SELECT [t0].[Name], [t0].[Count], COALESCE(SUM([t0].[Count]), 0) AS [Sum]
+SELECT `t0`.`Name`, `t0`.`Count`, IIF(SUM(`t0`.`Count`) IS NULL, 0, SUM(`t0`.`Count`)) AS `Sum`
 FROM (
-    SELECT [c].[Name], (
+    SELECT `c`.`Name`, (
         SELECT COUNT(*)
-        FROM [Weapons] AS [w]
-        WHERE [t].[FullName] = [w].[OwnerFullName]) AS [Count]
+        FROM `Weapons` AS `w`
+        WHERE `t`.`FullName` = `w`.`OwnerFullName`) AS `Count`
     FROM (
-        SELECT [g].[AssignedCityName], [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`AssignedCityName`, `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[AssignedCityName], [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    LEFT JOIN [Cities] AS [c] ON [t].[AssignedCityName] = [c].[Name]
+        SELECT `o`.`AssignedCityName`, `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    LEFT JOIN `Cities` AS `c` ON `t`.`AssignedCityName` = `c`.`Name`
     UNION ALL
-    SELECT [c0].[Name], (
+    SELECT `c0`.`Name`, (
         SELECT COUNT(*)
-        FROM [Weapons] AS [w0]
-        WHERE [t1].[FullName] = [w0].[OwnerFullName]) AS [Count]
+        FROM `Weapons` AS `w0`
+        WHERE `t1`.`FullName` = `w0`.`OwnerFullName`) AS `Count`
     FROM (
-        SELECT [g0].[CityOfBirthName], [g0].[FullName]
-        FROM [Gears] AS [g0]
+        SELECT `g0`.`CityOfBirthName`, `g0`.`FullName`
+        FROM `Gears` AS `g0`
         UNION ALL
-        SELECT [o0].[CityOfBirthName], [o0].[FullName]
-        FROM [Officers] AS [o0]
-    ) AS [t1]
-    INNER JOIN [Cities] AS [c0] ON [t1].[CityOfBirthName] = [c0].[Name]
-) AS [t0]
-GROUP BY [t0].[Name], [t0].[Count]
+        SELECT `o0`.`CityOfBirthName`, `o0`.`FullName`
+        FROM `Officers` AS `o0`
+    ) AS `t1`
+    INNER JOIN `Cities` AS `c0` ON `t1`.`CityOfBirthName` = `c0`.`Name`
+) AS `t0`
+GROUP BY `t0`.`Name`, `t0`.`Count`
 """);
     }
 
@@ -9542,17 +9523,17 @@ GROUP BY [t0].[Name], [t0].[Count]
 
         AssertSql(
 """
-SELECT [t].[CityOfBirthName], [t].[HasSoulPatch]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[CityOfBirthName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+SELECT `t`.`CityOfBirthName`, `t`.`HasSoulPatch`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`CityOfBirthName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[CityOfBirthName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName]
-GROUP BY [t].[CityOfBirthName], [t].[HasSoulPatch]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`CityOfBirthName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Squads` AS `s` ON `t`.`SquadId` = `s`.`Id`)
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName`
+GROUP BY `t`.`CityOfBirthName`, `t`.`HasSoulPatch`
 """);
     }
 
@@ -9562,21 +9543,18 @@ GROUP BY [t].[CityOfBirthName], [t].[HasSoulPatch]
 
         AssertSql(
 """
-SELECT [t0].[CityOfBirthName], [t0].[HasSoulPatch], [t0].[IsMarcus], COUNT(*) AS [Count]
+SELECT `t0`.`CityOfBirthName`, `t0`.`HasSoulPatch`, `t0`.`IsMarcus`, COUNT(*) AS `Count`
 FROM (
-    SELECT [t].[CityOfBirthName], [t].[HasSoulPatch], CASE
-        WHEN [t].[Nickname] = N'Marcus' THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END AS [IsMarcus]
+    SELECT `t`.`CityOfBirthName`, `t`.`HasSoulPatch`, IIF(`t`.`Nickname` = 'Marcus', TRUE, FALSE) AS `IsMarcus`
     FROM (
-        SELECT [g].[Nickname], [g].[CityOfBirthName], [g].[HasSoulPatch]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`CityOfBirthName`, `g`.`HasSoulPatch`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[CityOfBirthName], [o].[HasSoulPatch]
-        FROM [Officers] AS [o]
-    ) AS [t]
-) AS [t0]
-GROUP BY [t0].[CityOfBirthName], [t0].[HasSoulPatch], [t0].[IsMarcus]
+        SELECT `o`.`Nickname`, `o`.`CityOfBirthName`, `o`.`HasSoulPatch`
+        FROM `Officers` AS `o`
+    ) AS `t`
+) AS `t0`
+GROUP BY `t0`.`CityOfBirthName`, `t0`.`HasSoulPatch`, `t0`.`IsMarcus`
 """);
     }
 
@@ -9586,17 +9564,17 @@ GROUP BY [t0].[CityOfBirthName], [t0].[HasSoulPatch], [t0].[IsMarcus]
 
         AssertSql(
 """
-SELECT [t0].[HasSoulPatch], LOWER([s].[Name]) AS [Name]
-FROM [Tags] AS [t]
+SELECT `t0`.`HasSoulPatch`, LCASE(`s`.`Name`) AS `Name`
+FROM (`Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-LEFT JOIN [Squads] AS [s] ON [t0].[SquadId] = [s].[Id]
-GROUP BY [t0].[HasSoulPatch], [s].[Name]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`)
+LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`
+GROUP BY `t0`.`HasSoulPatch`, `s`.`Name`
 """);
     }
 
@@ -9605,17 +9583,17 @@ GROUP BY [t0].[HasSoulPatch], [s].[Name]
         await base.Group_by_over_projection_with_multiple_properties_accessed_thru_navigation(async);
 
         AssertSql(
-"""
-SELECT [c].[Name]
+            """
+SELECT `c`.`Name`
 FROM (
-    SELECT [g].[CityOfBirthName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`CityOfBirthName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[CityOfBirthName]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
-GROUP BY [c].[Name]
+    SELECT `o`.`CityOfBirthName`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
+GROUP BY `c`.`Name`
 """);
     }
 
@@ -9625,36 +9603,35 @@ GROUP BY [c].[Name]
 
         AssertSql(
 """
-SELECT [t0].[Key]
+SELECT `t0`.`Key`
 FROM (
-    SELECT CAST(0 AS bit) AS [Key]
+    SELECT FALSE AS `Key`
     FROM (
-        SELECT [g].[FullName]
-        FROM [Gears] AS [g]
+        SELECT `g`.`FullName`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[FullName]
-        FROM [Officers] AS [o]
-    ) AS [t]
-) AS [t0]
-GROUP BY [t0].[Key]
+        SELECT `o`.`FullName`
+        FROM `Officers` AS `o`
+    ) AS `t`
+) AS `t0`
+GROUP BY `t0`.`Key`
 """);
     }
 
     public override async Task Group_by_with_having_StartsWith_with_null_parameter_as_argument(bool async)
     {
         await base.Group_by_with_having_StartsWith_with_null_parameter_as_argument(async);
-
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-GROUP BY [t].[FullName]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+GROUP BY `t`.`FullName`
 HAVING 0 = 1
 """);
     }
@@ -9665,14 +9642,14 @@ HAVING 0 = 1
 
         AssertSql(
 """
-SELECT CAST(0 AS bit)
+SELECT FALSE
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -9686,12 +9663,12 @@ FROM (
 
 SELECT @__p_0
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -9703,15 +9680,15 @@ FROM (
 """
 @__p_0='False'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE @__p_0 = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE @__p_0 = TRUE
 """);
     }
 
@@ -9721,15 +9698,15 @@ WHERE @__p_0 = CAST(1 AS bit)
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -9739,14 +9716,14 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -9757,52 +9734,54 @@ FROM (
         AssertSql(
 """
 @__rank_0='1' (Nullable = true)
+@__rank_0='1' (Nullable = true)
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & @__rank_0) = @__rank_0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND @__rank_0) = @__rank_0
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 """,
 //
 """
 @__rank_0='2' (Nullable = true)
+@__rank_0='2' (Nullable = true)
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] | @__rank_0) <> @__rank_0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BOR @__rank_0) <> @__rank_0
 """,
 //
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 WHERE 0 = 1
 """);
     }
@@ -9813,30 +9792,30 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [l].[Id], [l].[CapitalName], [l].[Name], [l].[ServerAddress], [l].[CommanderName], [l].[Eradicated]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [Cities] AS [c] ON [l].[CapitalName] = [c].[Name]
-WHERE [c].[Name] = (
-    SELECT TOP(1) [c0].[Name]
+SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`
+FROM `LocustHordes` AS `l`
+LEFT JOIN `Cities` AS `c` ON `l`.`CapitalName` = `c`.`Name`
+WHERE `c`.`Name` = (
+    SELECT TOP 1 `c0`.`Name`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    INNER JOIN [Cities] AS [c0] ON [t].[CityOfBirthName] = [c0].[Name]
-    ORDER BY [t].[Nickname]) OR (([c].[Name] IS NULL) AND ((
-    SELECT TOP(1) [c0].[Name]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    INNER JOIN `Cities` AS `c0` ON `t`.`CityOfBirthName` = `c0`.`Name`
+    ORDER BY `t`.`Nickname`) OR (`c`.`Name` IS NULL AND (
+    SELECT TOP 1 `c0`.`Name`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    INNER JOIN [Cities] AS [c0] ON [t].[CityOfBirthName] = [c0].[Name]
-    ORDER BY [t].[Nickname]) IS NULL))
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    INNER JOIN `Cities` AS `c0` ON `t`.`CityOfBirthName` = `c0`.`Name`
+    ORDER BY `t`.`Nickname`) IS NULL)
 """);
     }
 
@@ -9848,47 +9827,44 @@ WHERE [c].[Name] = (
 """
 @__ranks_0='134'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE ([t].[Rank] & @__ranks_0) <> 0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (`t`.`Rank` BAND @__ranks_0) <> 0
 """,
 //
 """
 @__ranks_0='134'
+@__ranks_0='134'
 
-SELECT CASE
-    WHEN ([t].[Rank] | @__ranks_0) = @__ranks_0 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+SELECT IIF((`t`.`Rank` BOR @__ranks_0) = @__ranks_0, TRUE, FALSE)
 FROM (
-    SELECT [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
 """,
 //
 """
 @__ranks_0='134'
+@__ranks_0='134'
+@__ranks_0='134'
 
-SELECT CASE
-    WHEN ([t].[Rank] | ([t].[Rank] | (@__ranks_0 | ([t].[Rank] | @__ranks_0)))) = @__ranks_0 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+SELECT IIF((`t`.`Rank` BOR (`t`.`Rank` BOR (@__ranks_0 BOR (`t`.`Rank` BOR @__ranks_0)))) = @__ranks_0, TRUE, FALSE)
 FROM (
-    SELECT [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -9946,29 +9922,29 @@ WHERE (`w`.`AmmunitionType` BAND @__prm_0) = @__prm_0
 """
 @__prm_0='True'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] <> @__prm_0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` <> @__prm_0
 """,
 //
 """
 @__prm_0='False'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] <> @__prm_0
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` <> @__prm_0
 """);
     }
 
@@ -9989,25 +9965,16 @@ FROM `Officers` AS `o`
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [l].[Name] = N'Locust' THEN CAST(1 AS bit)
-    ELSE NULL
-END AS [IsEradicated], [l].[CommanderName], [l].[Name]
+SELECT IIF(`l`.`Name` = 'Locust', TRUE, NULL) AS `IsEradicated`, `l`.`CommanderName`, `l`.`Name`
 FROM (
-    SELECT [l0].[Name]
-    FROM [LocustLeaders] AS [l0]
+    SELECT `l0`.`Name`
+    FROM `LocustLeaders` AS `l0`
     UNION ALL
-    SELECT [l1].[Name]
-    FROM [LocustCommanders] AS [l1]
-) AS [t]
-INNER JOIN [LocustHordes] AS [l] ON [t].[Name] = [l].[CommanderName]
-WHERE CASE
-    WHEN [l].[Name] = N'Locust' THEN CAST(1 AS bit)
-    ELSE NULL
-END <> CAST(1 AS bit) OR (CASE
-    WHEN [l].[Name] = N'Locust' THEN CAST(1 AS bit)
-    ELSE NULL
-END IS NULL)
+    SELECT `l1`.`Name`
+    FROM `LocustCommanders` AS `l1`
+) AS `t`
+INNER JOIN `LocustHordes` AS `l` ON `t`.`Name` = `l`.`CommanderName`
+WHERE IIF(`l`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`l`.`Name` = 'Locust', TRUE, NULL) IS NULL
 """);
     }
 
@@ -10097,18 +10064,15 @@ WHERE DATALENGTH([s].[Banner5]) = 5
 """
 @__prm_0='True'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[HasSoulPatch] = @__prm_0 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`HasSoulPatch` = @__prm_0, TRUE, FALSE) = TRUE
 """);
     }
 
@@ -10119,29 +10083,23 @@ END = CAST(1 AS bit)
         AssertSql(
 """
 @__prm_0='True'
-@__prm2_1='Dom's Lancer' (Size = 4000)
+@__prm2_1='Dom's Lancer' (Size = 255)
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE CASE
-    WHEN [t].[HasSoulPatch] = @__prm_0 THEN CASE
-        WHEN (
-            SELECT TOP(1) [w].[Name]
-            FROM [Weapons] AS [w]
-            WHERE [w].[Id] = [t].[SquadId]) = @__prm2_1 AND ((
-            SELECT TOP(1) [w].[Name]
-            FROM [Weapons] AS [w]
-            WHERE [w].[Id] = [t].[SquadId]) IS NOT NULL) THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END
-    ELSE CAST(0 AS bit)
-END = CAST(1 AS bit)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE IIF(`t`.`HasSoulPatch` = @__prm_0, IIF((
+            SELECT TOP 1 `w`.`Name`
+            FROM `Weapons` AS `w`
+            WHERE `w`.`Id` = `t`.`SquadId`) = @__prm2_1 AND (
+            SELECT TOP 1 `w`.`Name`
+            FROM `Weapons` AS `w`
+            WHERE `w`.`Id` = `t`.`SquadId`) IS NOT NULL, TRUE, FALSE), FALSE) = TRUE
 """);
     }
 
@@ -10178,14 +10136,14 @@ WHERE CONVERT(date, [m].[Timeline]) >= @__dateTimeOffset_Date_0
 
         AssertSql(
 """
-SELECT [t].[FullName]
+SELECT `t`.`FullName`
 FROM (
-    SELECT [g].[Nickname], [g].[CityOfBirthName], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`CityOfBirthName`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[CityOfBirthName], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`CityOfBirthName`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -10194,15 +10152,15 @@ FROM (
         await base.Conditional_with_conditions_evaluating_to_true_gets_optimized(async);
 
         AssertSql(
-"""
-SELECT [t].[CityOfBirthName]
+            """
+SELECT `t`.`CityOfBirthName`
 FROM (
-    SELECT [g].[Nickname], [g].[CityOfBirthName], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`CityOfBirthName`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[CityOfBirthName], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`CityOfBirthName`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -10212,14 +10170,14 @@ FROM (
 
         AssertSql(
 """
-SELECT CAST(0 AS bit)
+SELECT FALSE
 FROM (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -10288,8 +10246,15 @@ WHERE CAST([t].[ThreatLevel] AS tinyint) >= CAST(5 AS tinyint)
 
         AssertSql(
 """
-SELECT DATEPART('h', `m`.`Duration`)
-FROM `Missions` AS `m`
+SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
+FROM (
+    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    FROM `LocustLeaders` AS `l`
+    UNION ALL
+    SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l0`
+) AS `t`
+WHERE CLNG(`t`.`ThreatLevel`) >= (5 + CLNG(`t`.`ThreatLevel`))
 """);
     }
 
@@ -10684,15 +10649,15 @@ WHERE @__prm_0 = `w`.`AmmunitionType`
 """
 @__prm_0='133'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (@__prm_0 & [t].[Rank]) = [t].[Rank]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (@__prm_0 BAND `t`.`Rank`) = `t`.`Rank`
 """);
     }
 
@@ -10704,15 +10669,15 @@ WHERE (@__prm_0 & [t].[Rank]) = [t].[Rank]
 """
 @__prm_0='5'
 
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE (@__prm_0 & CAST([t].[Rank] AS int)) = CAST([t].[Rank] AS int)
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE (@__prm_0 BAND CLNG(`t`.`Rank`)) = CLNG(`t`.`Rank`)
 """);
     }
 
@@ -10722,17 +10687,15 @@ WHERE (@__prm_0 & CAST([t].[Rank] AS int)) = CAST([t].[Rank] AS int)
 
         AssertSql(
 """
-@__p_0='1'
-
-SELECT TOP(@__p_0) [t].[Rank] & 1
+SELECT TOP 1 `t`.`Rank` BAND 1
 FROM (
-    SELECT [g].[Nickname], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -10782,7 +10745,7 @@ WHERE `c`.`Location` = 'Unknown'
         await base.Coalesce_used_with_non_unicode_string_column_and_constant(async);
 
         AssertSql(
-"""
+            """
 SELECT IIF(`c`.`Location` IS NULL, 'Unknown', `c`.`Location`)
 FROM `Cities` AS `c`
 """);
@@ -10794,18 +10757,18 @@ FROM `Cities` AS `c`
 
         AssertSql(
 """
-SELECT [c].[Name], [c].[Location], COUNT(*) AS [Count]
-FROM [Weapons] AS [w]
+SELECT `c`.`Name`, `c`.`Location`, COUNT(*) AS `Count`
+FROM (`Weapons` AS `w`
 LEFT JOIN (
-    SELECT [g].[CityOfBirthName], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`CityOfBirthName`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[CityOfBirthName], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t] ON [w].[OwnerFullName] = [t].[FullName]
-LEFT JOIN [Cities] AS [c] ON [t].[CityOfBirthName] = [c].[Name]
-GROUP BY [c].[Name], [c].[Location]
-ORDER BY [c].[Location]
+    SELECT `o`.`CityOfBirthName`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t` ON `w`.`OwnerFullName` = `t`.`FullName`)
+LEFT JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
+GROUP BY `c`.`Name`, `c`.`Location`
+ORDER BY `c`.`Location`
 """);
     }
 
@@ -10815,16 +10778,16 @@ ORDER BY [c].[Location]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-INNER JOIN [Weapons] AS [w] ON [t].[FullName] <> [w].[OwnerFullName] OR ([w].[OwnerFullName] IS NULL)
-ORDER BY [t].[Nickname], [w].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+INNER JOIN `Weapons` AS `w` ON `t`.`FullName` <> `w`.`OwnerFullName` OR `w`.`OwnerFullName` IS NULL
+ORDER BY `t`.`Nickname`, `w`.`Id`
 """);
     }
 
@@ -10834,16 +10797,16 @@ ORDER BY [t].[Nickname], [w].[Id]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] <> [w].[OwnerFullName] OR ([w].[OwnerFullName] IS NULL)
-ORDER BY [t].[Nickname], [w].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` <> `w`.`OwnerFullName` OR `w`.`OwnerFullName` IS NULL
+ORDER BY `t`.`Nickname`, `w`.`Id`
 """);
     }
 
@@ -10854,20 +10817,20 @@ ORDER BY [t].[Nickname], [w].[Id]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Id], [t0].[AmmunitionType], [t0].[IsAutomatic], [t0].[Name], [t0].[OwnerFullName], [t0].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Id`, `t0`.`AmmunitionType`, `t0`.`IsAutomatic`, `t0`.`Name`, `t0`.`OwnerFullName`, `t0`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w0].[Id], [w0].[AmmunitionType], [w0].[IsAutomatic], [w0].[Name], [w0].[OwnerFullName], [w0].[SynergyWithId]
-    FROM [Weapons] AS [w]
-    LEFT JOIN [Weapons] AS [w0] ON [w].[SynergyWithId] = [w0].[Id]
-) AS [t0] ON [t].[FullName] <> [t0].[OwnerFullName] OR ([t0].[OwnerFullName] IS NULL)
-ORDER BY [t].[Nickname], [t0].[Id]
+    SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
+    FROM `Weapons` AS `w`
+    LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+) AS `t0` ON `t`.`FullName` <> `t0`.`OwnerFullName` OR `t0`.`OwnerFullName` IS NULL
+ORDER BY `t`.`Nickname`, `t0`.`Id`
 """);
     }
 
@@ -10877,15 +10840,15 @@ ORDER BY [t].[Nickname], [t0].[Id]
 
         AssertSql(
 """
-SELECT [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] <> [w].[OwnerFullName] OR ([w].[OwnerFullName] IS NULL)
+    SELECT `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` <> `w`.`OwnerFullName` OR `w`.`OwnerFullName` IS NULL
 """);
     }
 
@@ -10895,16 +10858,16 @@ LEFT JOIN [Weapons] AS [w] ON [t].[FullName] <> [w].[OwnerFullName] OR ([w].[Own
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName] AND [t].[SquadId] < [w].[Id]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName` AND `t`.`SquadId` < `w`.`Id`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -10914,16 +10877,16 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName] AND [t].[SquadId] <= [w].[Id]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName` AND `t`.`SquadId` <= `w`.`Id`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -10933,16 +10896,16 @@ ORDER BY [t].[Nickname], [t].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Weapons] AS [w] ON [t].[FullName] = [w].[OwnerFullName] AND [t].[SquadId] >= [w].[Id]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Weapons` AS `w` ON `t`.`FullName` = `w`.`OwnerFullName` AND `t`.`SquadId` >= `w`.`Id`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -10976,18 +10939,27 @@ ORDER BY [t].[Nickname], [t0].[Id]
 
         AssertSql(
 """
-SELECT [s].[Name]
-FROM [Squads] AS [s]
-WHERE [s].[Name] = N'Kilo' AND COALESCE((
-    SELECT TOP(1) [t].[SquadId]
-    FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
-        UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId] AND [t].[HasSoulPatch] = CAST(1 AS bit)), 0) <> 0
+SELECT `s`.`Name`
+FROM `Squads` AS `s`
+WHERE `s`.`Name` = 'Kilo' AND IIF((
+        SELECT TOP 1 `t`.`SquadId`
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        SELECT TOP 1 `t`.`SquadId`
+        FROM (
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
+            UNION ALL
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) <> 0
 """);
     }
 
@@ -11143,22 +11115,22 @@ FROM `Officers` AS `o`
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0]
-WHERE [t].[Nickname] = [t0].[Nickname] AND [t].[SquadId] = [t0].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0`
+WHERE `t`.`Nickname` = `t0`.`Nickname` AND `t`.`SquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -11168,22 +11140,22 @@ WHERE [t].[Nickname] = [t0].[Nickname] AND [t].[SquadId] = [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-CROSS JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`,
+(
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0]
-WHERE [t].[Nickname] <> [t0].[Nickname] OR [t].[SquadId] <> [t0].[SquadId]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0`
+WHERE `t`.`Nickname` <> `t0`.`Nickname` OR `t`.`SquadId` <> `t0`.`SquadId`
 """);
     }
 
@@ -11193,19 +11165,19 @@ WHERE [t].[Nickname] <> [t0].[Nickname] OR [t].[SquadId] <> [t0].[SquadId]
 
         AssertSql(
 """
-SELECT [t].[Name], [t].[LocustHordeId], [t].[ThreatLevel], [t].[ThreatLevelByte], [t].[ThreatLevelNullableByte], [t].[DefeatedByNickname], [t].[DefeatedBySquadId], [t].[HighCommandId], [t].[Discriminator]
+SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
 FROM (
-    SELECT [l].[Name], [l].[LocustHordeId], [l].[ThreatLevel], [l].[ThreatLevelByte], [l].[ThreatLevelNullableByte], [l].[DefeatedByNickname], [l].[DefeatedBySquadId], [l].[HighCommandId], N'LocustCommander' AS [Discriminator]
-    FROM [LocustCommanders] AS [l]
-) AS [t]
+    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l`
+) AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[DefeatedByNickname] = [t0].[Nickname] AND [t].[DefeatedBySquadId] = [t0].[SquadId]
-WHERE ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND `t`.`DefeatedBySquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` IS NULL OR `t0`.`SquadId` IS NULL
 """);
     }
 
@@ -11215,19 +11187,19 @@ WHERE ([t0].[Nickname] IS NULL) OR ([t0].[SquadId] IS NULL)
 
         AssertSql(
 """
-SELECT [t].[Name], [t].[LocustHordeId], [t].[ThreatLevel], [t].[ThreatLevelByte], [t].[ThreatLevelNullableByte], [t].[DefeatedByNickname], [t].[DefeatedBySquadId], [t].[HighCommandId], [t].[Discriminator]
+SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
 FROM (
-    SELECT [l].[Name], [l].[LocustHordeId], [l].[ThreatLevel], [l].[ThreatLevelByte], [l].[ThreatLevelNullableByte], [l].[DefeatedByNickname], [l].[DefeatedBySquadId], [l].[HighCommandId], N'LocustCommander' AS [Discriminator]
-    FROM [LocustCommanders] AS [l]
-) AS [t]
+    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l`
+) AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[DefeatedByNickname] = [t0].[Nickname] AND [t].[DefeatedBySquadId] = [t0].[SquadId]
-WHERE ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL)
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND `t`.`DefeatedBySquadId` = `t0`.`SquadId`
+WHERE `t0`.`Nickname` IS NOT NULL AND `t0`.`SquadId` IS NOT NULL
 """);
     }
 
@@ -11237,22 +11209,16 @@ WHERE ([t0].[Nickname] IS NOT NULL) AND ([t0].[SquadId] IS NOT NULL)
 
         AssertSql(
 """
-SELECT [t].[Note], CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t0].[Nickname], [t0].[SquadId], [t0].[HasSoulPatch]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`, IIF(`t`.`GearNickName` IS NOT NULL, TRUE, FALSE), `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`HasSoulPatch`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END = 1
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) = 1
 """);
     }
 
@@ -11262,22 +11228,16 @@ END = 1
 
         AssertSql(
 """
-SELECT [t].[Note], CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t0].[Nickname], [t0].[SquadId], [t0].[HasSoulPatch]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`, IIF(`t`.`GearNickName` IS NOT NULL, TRUE, FALSE), `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`HasSoulPatch`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE (CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END + 1) = 2
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE (IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1) = 2
 """);
     }
 
@@ -11287,22 +11247,16 @@ END + 1) = 2
 
         AssertSql(
 """
-SELECT [t].[Note], CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END + 1 AS [Value]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1 AS `Value`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
 """);
     }
 
@@ -11312,21 +11266,15 @@ END IS NOT NULL
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[Note] <> N'K.I.A.' OR ([t].[Note] IS NULL) THEN CASE
-        WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-        ELSE NULL
-    END
-    ELSE -1
-END
-FROM [Tags] AS [t]
+SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), -1)
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -11336,18 +11284,15 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT SUBSTRING(CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END, 0 + 1, 3)
-FROM [Tags] AS [t]
+SELECT MID(IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL), 0 + 1, 3)
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
 """);
     }
 
@@ -11357,22 +11302,16 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t].[Note], SUBSTRING([t].[Note], 0 + 1, CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END) AS [Function]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`, MID(`t`.`Note`, 0 + 1, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL)) AS `Function`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
 """);
     }
 
@@ -11382,29 +11321,17 @@ END IS NOT NULL
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN CAST(LEN([t0].[Nickname]) AS int)
-    ELSE NULL
-END, CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END, CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END + 1
-FROM [Tags] AS [t]
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL
-ORDER BY [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
+ORDER BY `t`.`Note`
 """);
     }
 
@@ -11414,23 +11341,17 @@ ORDER BY [t].[Note]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END AS [Id]
-FROM [Tags] AS [t]
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) AS `Id`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL
-ORDER BY [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
+ORDER BY `t`.`Note`
 """);
     }
 
@@ -11440,29 +11361,17 @@ ORDER BY [t].[Note]
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN CAST(LEN([t0].[Nickname]) AS int)
-    ELSE NULL
-END, CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END, CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END + 1
-FROM [Tags] AS [t]
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL
-ORDER BY [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
+ORDER BY `t`.`Note`
 """);
     }
 
@@ -11472,23 +11381,17 @@ ORDER BY [t].[Note]
 
         AssertSql(
 """
-SELECT [t].[Note]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE (CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL) AND CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[HasSoulPatch]
-    ELSE NULL
-END = CAST(0 AS bit)
-ORDER BY [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL AND IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`HasSoulPatch`, NULL) <> TRUE
+ORDER BY `t`.`Note`
 """);
     }
 
@@ -11498,17 +11401,17 @@ ORDER BY [t].[Note]
 
         AssertSql(
 """
-SELECT [t].[Nickname]
+SELECT `t`.`Nickname`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[CityOfBirthName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`CityOfBirthName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[CityOfBirthName]
-    FROM [Officers] AS [o]
-) AS [t]
-LEFT JOIN [Tags] AS [t0] ON [t].[Nickname] = [t0].[GearNickName] AND [t].[SquadId] = [t0].[GearSquadId]
-WHERE DATEPART(month, [t0].[IssueDate]) <> 5 OR ([t0].[IssueDate] IS NULL)
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`CityOfBirthName`
+    FROM `Officers` AS `o`
+) AS `t`
+LEFT JOIN `Tags` AS `t0` ON `t`.`Nickname` = `t0`.`GearNickName` AND `t`.`SquadId` = `t0`.`GearSquadId`
+WHERE DATEPART('m', `t0`.`IssueDate`) <> 5
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -11518,26 +11421,17 @@ ORDER BY [t].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Note], CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [t0].[Nickname], [t0].[SquadId], [t0].[HasSoulPatch]
-FROM [Tags] AS [t]
+SELECT `t`.`Note`, IIF(`t`.`GearNickName` IS NOT NULL, TRUE, FALSE), `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`HasSoulPatch`
+FROM `Tags` AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [t0] ON [t].[GearNickName] = [t0].[Nickname] AND [t].[GearSquadId] = [t0].[SquadId]
-WHERE CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[Nickname]
-    ELSE NULL
-END IS NOT NULL
-ORDER BY CASE
-    WHEN [t].[GearNickName] IS NOT NULL THEN [t0].[SquadId]
-    ELSE NULL
-END, [t].[Note]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
+ORDER BY IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), `t`.`Note`
 """);
     }
 
@@ -11747,36 +11641,37 @@ LEFT JOIN [LocustHighCommands] AS [l0] ON [t].[HighCommandId] = [l0].[Id]
 
         AssertSql(
 """
-@__p_0='0'
-@__p_1='10'
-
-SELECT [t2].[Nickname], [t2].[SquadId], [t2].[AssignedCityName], [t2].[CityOfBirthName], [t2].[FullName], [t2].[HasSoulPatch], [t2].[LeaderNickname], [t2].[LeaderSquadId], [t2].[Rank], [t2].[Discriminator], [t2].[HasSoulPatch0], [w].[Id], [w].[AmmunitionType], [w].[IsAutomatic], [w].[Name], [w].[OwnerFullName], [w].[SynergyWithId]
+SELECT `t3`.`Nickname`, `t3`.`SquadId`, `t3`.`AssignedCityName`, `t3`.`CityOfBirthName`, `t3`.`FullName`, `t3`.`HasSoulPatch`, `t3`.`LeaderNickname`, `t3`.`LeaderSquadId`, `t3`.`Rank`, `t3`.`Discriminator`, `t3`.`HasSoulPatch0`, `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM (
-    SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[HasSoulPatch] AS [HasSoulPatch0]
+    SELECT TOP 10 `t2`.`Nickname`, `t2`.`SquadId`, `t2`.`AssignedCityName`, `t2`.`CityOfBirthName`, `t2`.`FullName`, `t2`.`HasSoulPatch`, `t2`.`LeaderNickname`, `t2`.`LeaderSquadId`, `t2`.`Rank`, `t2`.`Discriminator`, `t2`.`HasSoulPatch0`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
-        UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    INNER JOIN (
-        SELECT MIN(CAST(LEN([t1].[Nickname]) AS int)) AS [c], [t1].[HasSoulPatch]
+        SELECT TOP 10 `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`HasSoulPatch` AS `HasSoulPatch0`
         FROM (
-            SELECT [g0].[Nickname], [g0].[HasSoulPatch]
-            FROM [Gears] AS [g0]
+            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            FROM `Gears` AS `g`
             UNION ALL
-            SELECT [o0].[Nickname], [o0].[HasSoulPatch]
-            FROM [Officers] AS [o0]
-        ) AS [t1]
-        WHERE [t1].[Nickname] <> N'Dom'
-        GROUP BY [t1].[HasSoulPatch]
-    ) AS [t0] ON CAST(LEN([t].[Nickname]) AS int) = [t0].[c]
-    ORDER BY [t].[Nickname]
-    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
-) AS [t2]
-LEFT JOIN [Weapons] AS [w] ON [t2].[FullName] = [w].[OwnerFullName]
-ORDER BY [t2].[Nickname], [t2].[SquadId], [t2].[HasSoulPatch0]
+            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            FROM `Officers` AS `o`
+        ) AS `t`
+        LEFT JOIN (
+            SELECT MIN(IIF(LEN(`t1`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t1`.`Nickname`)))) AS `c`, `t1`.`HasSoulPatch`
+            FROM (
+                SELECT `g0`.`Nickname`, `g0`.`HasSoulPatch`
+                FROM `Gears` AS `g0`
+                UNION ALL
+                SELECT `o0`.`Nickname`, `o0`.`HasSoulPatch`
+                FROM `Officers` AS `o0`
+            ) AS `t1`
+            WHERE `t1`.`Nickname` <> 'Dom'
+            GROUP BY `t1`.`HasSoulPatch`
+        ) AS `t0` ON IIF(LEN(`t`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t`.`Nickname`))) = `t0`.`c`
+        WHERE `t0`.`c` IS NOT NULL
+        ORDER BY `t`.`Nickname`
+    ) AS `t2`
+    ORDER BY `t2`.`Nickname` DESC
+) AS `t3`
+LEFT JOIN `Weapons` AS `w` ON `t3`.`FullName` = `w`.`OwnerFullName`
+ORDER BY `t3`.`Nickname`, `t3`.`SquadId`, NOT (`t3`.`HasSoulPatch0`)
 """);
     }
 
@@ -11786,15 +11681,15 @@ ORDER BY [t2].[Nickname], [t2].[SquadId], [t2].[HasSoulPatch0]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t].[HasSoulPatch] IN (CAST(0 AS bit), CAST(1 AS bit))
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` = TRUE AND `t`.`HasSoulPatch` IN (FALSE, TRUE)
 """);
     }
 
@@ -11803,16 +11698,16 @@ WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t].[HasSoulPatch] IN (CAST(0 AS b
         await base.Where_bool_column_or_Contains(async);
 
         AssertSql(
-"""
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+            """
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE [t].[HasSoulPatch] = CAST(1 AS bit) AND [t].[HasSoulPatch] IN (CAST(0 AS bit), CAST(1 AS bit))
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE `t`.`HasSoulPatch` = TRUE AND `t`.`HasSoulPatch` IN (FALSE, TRUE)
 """);
     }
 
@@ -11838,18 +11733,17 @@ WHERE `c`.`Nation` = @__place_0 OR `c`.`Location` = @__place_0_1 OR `c`.`Locatio
 
         AssertSql(
 """
-@__p_0='1'
 @__value_1='1'
 
-SELECT TOP(@__p_0) [t].[Rank] & @__value_1
+SELECT TOP 1 `t`.`Rank` BAND @__value_1
 FROM (
-    SELECT [g].[Nickname], [g].[Rank]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`Rank`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[Rank]
-    FROM [Officers] AS [o]
-) AS [t]
-ORDER BY [t].[Nickname]
+    SELECT `o`.`Nickname`, `o`.`Rank`
+    FROM `Officers` AS `o`
+) AS `t`
+ORDER BY `t`.`Nickname`
 """);
     }
 
@@ -11861,22 +11755,19 @@ ORDER BY [t].[Nickname]
 """
 @__prm_0='1'
 
-SELECT [t].[Nickname], [t].[FullName], CASE
-    WHEN [t0].[Id] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [Collection]
+SELECT `t`.`Nickname`, `t`.`FullName`, IIF(`t0`.`Id` IS NOT NULL, TRUE, FALSE) AS `Collection`
 FROM (
-    SELECT [g].[Nickname], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[Id] > @__prm_0
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
+    SELECT `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`Id` > @__prm_0
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
 """);
     }
 
@@ -11991,22 +11882,19 @@ WHERE `w`.`AmmunitionType` = 1
 """
 @__isAutomatic_0='True'
 
-SELECT [t].[Nickname], [t].[FullName], CASE
-    WHEN [t0].[Id] IS NOT NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [Collection]
+SELECT `t`.`Nickname`, `t`.`FullName`, IIF(`t0`.`Id` IS NOT NULL, TRUE, FALSE) AS `Collection`
 FROM (
-    SELECT [g].[Nickname], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [w].[Id], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-    WHERE [w].[IsAutomatic] <> @__isAutomatic_0
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
+    SELECT `w`.`Id`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+    WHERE `w`.`IsAutomatic` <> @__isAutomatic_0
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
 """);
     }
 
@@ -12264,20 +12152,20 @@ FROM `LocustHordes` AS `l`
     public override async Task Include_after_SelectMany_throws(bool async)
     {
         await base.Include_after_SelectMany_throws(async);
-
         AssertSql(
-"""
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [LocustHordes] AS [l]
-LEFT JOIN [Cities] AS [c] ON [l].[CapitalName] = [c].[Name]
-INNER JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+        """
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM ((`LocustHordes` AS `l`
+LEFT JOIN `Cities` AS `c` ON `l`.`CapitalName` = `c`.`Name`)
+LEFT JOIN (
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t] ON [c].[Name] = [t].[CityOfBirthName]
-INNER JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t` ON `c`.`Name` = `t`.`CityOfBirthName`)
+LEFT JOIN `Squads` AS `s` ON `t`.`SquadId` = `s`.`Id`
+WHERE `c`.`Name` IS NOT NULL AND `t`.`CityOfBirthName` IS NOT NULL AND `t`.`SquadId` IS NOT NULL AND `s`.`Id` IS NOT NULL
 """);
     }
 
@@ -12287,19 +12175,19 @@ INNER JOIN [Squads] AS [s] ON [t].[SquadId] = [s].[Id]
 
         AssertSql(
 """
-SELECT [s].[Id], [t0].[Nickname], [t0].[SquadId], [t0].[HasSoulPatch]
-FROM [Squads] AS [s]
+SELECT `s`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`HasSoulPatch`
+FROM `Squads` AS `s`
 LEFT JOIN (
-    SELECT DISTINCT [t].[Nickname], [t].[SquadId], [t].[HasSoulPatch]
+    SELECT DISTINCT `t`.`Nickname`, `t`.`SquadId`, `t`.`HasSoulPatch`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[HasSoulPatch]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[HasSoulPatch]
-        FROM [Officers] AS [o]
-    ) AS [t]
-) AS [t0] ON [s].[Id] = [t0].[SquadId]
-ORDER BY [s].[Id], [t0].[Nickname]
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
+        FROM `Officers` AS `o`
+    ) AS `t`
+) AS `t0` ON `s`.`Id` = `t0`.`SquadId`
+ORDER BY `s`.`Id`, `t0`.`Nickname`
 """);
     }
 
@@ -12309,17 +12197,14 @@ ORDER BY [s].[Id], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], CASE
-    WHEN [t].[Discriminator] = N'Officer' THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [IsOfficer]
+SELECT `t`.`Nickname`, IIF(`t`.`Discriminator` = 'Officer', TRUE, FALSE) AS `IsOfficer`
 FROM (
-    SELECT [g].[Nickname], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -12383,9 +12268,8 @@ ORDER BY [t].[Id], [t2].[Nickname], [t2].[FullName], [t2].[HasSoulPatch]
     public override async Task ToString_boolean_property_non_nullable(bool async)
     {
         await base.ToString_boolean_property_non_nullable(async);
-
         AssertSql(
-"""
+            """
 SELECT IIF(`w`.`IsAutomatic` <> TRUE, 'False', 'True')
 FROM `Weapons` AS `w`
 """);
@@ -12410,14 +12294,14 @@ ORDER BY `l`.`Id`
 
         AssertSql(
 """
-SELECT (([t].[FullName] + N'') + COALESCE([t].[LeaderNickname], N'')) + N''
+SELECT ((`t`.`FullName` & '') & IIF(`t`.`LeaderNickname` IS NULL, '', `t`.`LeaderNickname`)) & ''
 FROM (
-    SELECT [g].[FullName], [g].[LeaderNickname]
-    FROM [Gears] AS [g]
+    SELECT `g`.`FullName`, `g`.`LeaderNickname`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[FullName], [o].[LeaderNickname]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`FullName`, `o`.`LeaderNickname`
+    FROM `Officers` AS `o`
+) AS `t`
 """);
     }
 
@@ -12427,19 +12311,19 @@ FROM (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t0].[Id], [t0].[Name], [t0].[OwnerFullName]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t0`.`Id`, `t0`.`Name`, `t0`.`OwnerFullName`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT DISTINCT [w].[Id], [w].[Name], [w].[OwnerFullName]
-    FROM [Weapons] AS [w]
-) AS [t0] ON [t].[FullName] = [t0].[OwnerFullName]
-ORDER BY [t].[Nickname], [t].[SquadId]
+    SELECT DISTINCT `w`.`Id`, `w`.`Name`, `w`.`OwnerFullName`
+    FROM `Weapons` AS `w`
+) AS `t0` ON `t`.`FullName` = `t0`.`OwnerFullName`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`
 """);
     }
 
@@ -12764,8 +12648,21 @@ FROM `Squads` AS `s`,
     public override async Task Include_multiple_include_then_include(bool async)
     {
         await base.Include_multiple_include_then_include(async);
-
-        AssertSql();
+        AssertSql(
+            """
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
+        UNION ALL
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `s`.`Id` = `t`.`SquadId`)
+""");
     }
 
     public override async Task Select_Where_Navigation_Client(bool async)
@@ -12781,18 +12678,18 @@ FROM `Squads` AS `s`,
 
         AssertSql(
 """
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
-WHERE NOT (EXISTS (
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
+WHERE NOT EXISTS (
     SELECT 1
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId]))
+        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        FROM `Officers` AS `o`
+    ) AS `t`
+    WHERE `s`.`Id` = `t`.`SquadId`)
 """);
     }
 
@@ -12802,18 +12699,18 @@ WHERE NOT (EXISTS (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
-WHERE NOT (EXISTS (
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
+WHERE NOT EXISTS (
     SELECT 1
-    FROM [Weapons] AS [w]
-    WHERE [t].[FullName] = [w].[OwnerFullName]))
+    FROM `Weapons` AS `w`
+    WHERE `t`.`FullName` = `w`.`OwnerFullName`)
 """);
     }
 
@@ -12847,22 +12744,22 @@ LEFT JOIN (
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g0].[Nickname], [g0].[SquadId], [g0].[AssignedCityName], [g0].[CityOfBirthName], [g0].[FullName], [g0].[HasSoulPatch], [g0].[LeaderNickname], [g0].[LeaderSquadId], [g0].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g0]
+    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g0`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 
@@ -12872,19 +12769,19 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
 """
-SELECT [t].[Nickname], [t].[SquadId], [t].[AssignedCityName], [t].[CityOfBirthName], [t].[FullName], [t].[HasSoulPatch], [t].[LeaderNickname], [t].[LeaderSquadId], [t].[Rank], [t].[Discriminator], [t0].[Nickname], [t0].[SquadId], [t0].[AssignedCityName], [t0].[CityOfBirthName], [t0].[FullName], [t0].[HasSoulPatch], [t0].[LeaderNickname], [t0].[LeaderSquadId], [t0].[Rank], [t0].[Discriminator]
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`, `t0`.`Discriminator`
 FROM (
-    SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o]
-) AS [t]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `t`
 LEFT JOIN (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-    FROM [Gears] AS [g]
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o0].[Nickname], [o0].[SquadId], [o0].[AssignedCityName], [o0].[CityOfBirthName], [o0].[FullName], [o0].[HasSoulPatch], [o0].[LeaderNickname], [o0].[LeaderSquadId], [o0].[Rank], N'Officer' AS [Discriminator]
-    FROM [Officers] AS [o0]
-) AS [t0] ON [t].[Nickname] = [t0].[LeaderNickname] AND [t].[SquadId] = [t0].[LeaderSquadId]
-ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
+    SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o0`
+) AS `t0` ON `t`.`Nickname` = `t0`.`LeaderNickname` AND `t`.`SquadId` = `t0`.`LeaderSquadId`
+ORDER BY `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
 

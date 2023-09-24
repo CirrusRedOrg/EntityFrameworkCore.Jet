@@ -197,25 +197,25 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT MIN([t0].[Id])
-FROM [EntityThrees] AS [e]
+SELECT MIN(`t0`.`Id`)
+FROM `EntityThrees` AS `e`
 INNER JOIN (
-    SELECT [t].[Id], [e0].[ThreeSkipSharedId]
-    FROM [EntityRootEntityThree] AS [e0]
+    SELECT `t`.`Id`, `e0`.`ThreeSkipSharedId`
+    FROM `EntityRootEntityThree` AS `e0`
     INNER JOIN (
-        SELECT [r].[Id]
-        FROM [Roots] AS [r]
+        SELECT `r`.`Id`
+        FROM `Roots` AS `r`
         UNION ALL
-        SELECT [b].[Id]
-        FROM [Branches] AS [b]
+        SELECT `b`.`Id`
+        FROM `Branches` AS `b`
         UNION ALL
-        SELECT [l].[Id]
-        FROM [Leaves] AS [l]
+        SELECT `l`.`Id`
+        FROM `Leaves` AS `l`
         UNION ALL
-        SELECT [l0].[Id]
-        FROM [Leaf2s] AS [l0]
-    ) AS [t] ON [e0].[RootSkipSharedId] = [t].[Id]
-) AS [t0] ON [e].[Id] = [t0].[ThreeSkipSharedId]
+        SELECT `l0`.`Id`
+        FROM `Leaf2s` AS `l0`
+    ) AS `t` ON `e0`.`RootSkipSharedId` = `t`.`Id`
+) AS `t0` ON `e`.`Id` = `t0`.`ThreeSkipSharedId`
 """);
     }
 
@@ -225,25 +225,25 @@ INNER JOIN (
 
         AssertSql(
 """
-SELECT COALESCE(SUM([t0].[Key1]), 0)
+SELECT IIF(SUM(`t0`.`Key1`) IS NULL, 0, SUM(`t0`.`Key1`))
 FROM (
-    SELECT [r].[Id]
-    FROM [Roots] AS [r]
+    SELECT `r`.`Id`
+    FROM `Roots` AS `r`
     UNION ALL
-    SELECT [b].[Id]
-    FROM [Branches] AS [b]
+    SELECT `b`.`Id`
+    FROM `Branches` AS `b`
     UNION ALL
-    SELECT [l].[Id]
-    FROM [Leaves] AS [l]
+    SELECT `l`.`Id`
+    FROM `Leaves` AS `l`
     UNION ALL
-    SELECT [l0].[Id]
-    FROM [Leaf2s] AS [l0]
-) AS [t]
+    SELECT `l0`.`Id`
+    FROM `Leaf2s` AS `l0`
+) AS `t`
 INNER JOIN (
-    SELECT [e0].[Key1], [e].[RootSkipSharedId]
-    FROM [EntityCompositeKeyEntityRoot] AS [e]
-    INNER JOIN [EntityCompositeKeys] AS [e0] ON [e].[CompositeKeySkipSharedKey1] = [e0].[Key1] AND [e].[CompositeKeySkipSharedKey2] = [e0].[Key2] AND [e].[CompositeKeySkipSharedKey3] = [e0].[Key3]
-) AS [t0] ON [t].[Id] = [t0].[RootSkipSharedId]
+    SELECT `e0`.`Key1`, `e`.`RootSkipSharedId`
+    FROM `EntityCompositeKeyEntityRoot` AS `e`
+    INNER JOIN `EntityCompositeKeys` AS `e0` ON `e`.`CompositeKeySkipSharedKey1` = `e0`.`Key1` AND `e`.`CompositeKeySkipSharedKey2` = `e0`.`Key2` AND `e`.`CompositeKeySkipSharedKey3` = `e0`.`Key3`
+) AS `t0` ON `t`.`Id` = `t0`.`RootSkipSharedId`
 """);
     }
 
@@ -488,25 +488,25 @@ ORDER BY [e].[Key1], [e0].[Key1], [e].[Key2], [e0].[Key2]
 
         AssertSql(
 """
-SELECT [t0].[Id], [t0].[CollectionInverseId], [t0].[Name], [t0].[ReferenceInverseId]
+SELECT `t0`.`Id`, `t0`.`CollectionInverseId`, `t0`.`Name`, `t0`.`ReferenceInverseId`
 FROM (
-    SELECT [r].[Id]
-    FROM [Roots] AS [r]
+    SELECT `r`.`Id`
+    FROM `Roots` AS `r`
     UNION ALL
-    SELECT [b].[Id]
-    FROM [Branches] AS [b]
+    SELECT `b`.`Id`
+    FROM `Branches` AS `b`
     UNION ALL
-    SELECT [l].[Id]
-    FROM [Leaves] AS [l]
+    SELECT `l`.`Id`
+    FROM `Leaves` AS `l`
     UNION ALL
-    SELECT [l0].[Id]
-    FROM [Leaf2s] AS [l0]
-) AS [t]
+    SELECT `l0`.`Id`
+    FROM `Leaf2s` AS `l0`
+) AS `t`
 INNER JOIN (
-    SELECT [e0].[Id], [e0].[CollectionInverseId], [e0].[Name], [e0].[ReferenceInverseId], [e].[RootSkipSharedId]
-    FROM [EntityRootEntityThree] AS [e]
-    INNER JOIN [EntityThrees] AS [e0] ON [e].[ThreeSkipSharedId] = [e0].[Id]
-) AS [t0] ON [t].[Id] = [t0].[RootSkipSharedId]
+    SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `e`.`RootSkipSharedId`
+    FROM `EntityRootEntityThree` AS `e`
+    INNER JOIN `EntityThrees` AS `e0` ON `e`.`ThreeSkipSharedId` = `e0`.`Id`
+) AS `t0` ON `t`.`Id` = `t0`.`RootSkipSharedId`
 """);
     }
 
@@ -2073,14 +2073,14 @@ FROM `Leaves` AS `l`
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[Name], [t].[Number], [t].[IsGreen], [t].[Discriminator]
+SELECT `t`.`Id`, `t`.`Name`, `t`.`Number`, `t`.`IsGreen`, `t`.`Discriminator`
 FROM (
-    SELECT [b].[Id], [b].[Name], [b].[Number], NULL AS [IsGreen], N'EntityBranch' AS [Discriminator]
-    FROM [Branches] AS [b]
+    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, 'EntityBranch' AS `Discriminator`
+    FROM `Branches` AS `b`
     UNION ALL
-    SELECT [l].[Id], [l].[Name], [l].[Number], [l].[IsGreen], N'EntityLeaf' AS [Discriminator]
-    FROM [Leaves] AS [l]
-) AS [t]
+    SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
+    FROM `Leaves` AS `l`
+) AS `t`
 WHERE 0 = 1
 """);
     }
@@ -2330,22 +2330,22 @@ ORDER BY [u].[Key1], [u0].[Key1], [u].[Key2], [u0].[Key2]
 
         AssertSql(
 """
-SELECT [t0].[Id], [t0].[CollectionInverseId], [t0].[Name], [t0].[ReferenceInverseId]
+SELECT `t0`.`Id`, `t0`.`CollectionInverseId`, `t0`.`Name`, `t0`.`ReferenceInverseId`
 FROM (
-    SELECT [u1].[Id]
-    FROM [UnidirectionalRoots] AS [u1]
+    SELECT `u1`.`Id`
+    FROM `UnidirectionalRoots` AS `u1`
     UNION ALL
-    SELECT [u2].[Id]
-    FROM [UnidirectionalBranches] AS [u2]
+    SELECT `u2`.`Id`
+    FROM `UnidirectionalBranches` AS `u2`
     UNION ALL
-    SELECT [u3].[Id]
-    FROM [UnidirectionalLeaves] AS [u3]
-) AS [t]
+    SELECT `u3`.`Id`
+    FROM `UnidirectionalLeaves` AS `u3`
+) AS `t`
 INNER JOIN (
-    SELECT [u0].[Id], [u0].[CollectionInverseId], [u0].[Name], [u0].[ReferenceInverseId], [u].[UnidirectionalEntityRootId]
-    FROM [UnidirectionalEntityRootUnidirectionalEntityThree] AS [u]
-    INNER JOIN [UnidirectionalEntityThrees] AS [u0] ON [u].[ThreeSkipSharedId] = [u0].[Id]
-) AS [t0] ON [t].[Id] = [t0].[UnidirectionalEntityRootId]
+    SELECT `u0`.`Id`, `u0`.`CollectionInverseId`, `u0`.`Name`, `u0`.`ReferenceInverseId`, `u`.`UnidirectionalEntityRootId`
+    FROM `UnidirectionalEntityRootUnidirectionalEntityThree` AS `u`
+    INNER JOIN `UnidirectionalEntityThrees` AS `u0` ON `u`.`ThreeSkipSharedId` = `u0`.`Id`
+) AS `t0` ON `t`.`Id` = `t0`.`UnidirectionalEntityRootId`
 """);
     }
 
@@ -2814,14 +2814,14 @@ FROM `UnidirectionalLeaves` AS `u`
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[Name], [t].[Number], [t].[IsGreen], [t].[Discriminator]
+SELECT `t`.`Id`, `t`.`Name`, `t`.`Number`, `t`.`IsGreen`, `t`.`Discriminator`
 FROM (
-    SELECT [u].[Id], [u].[Name], [u].[Number], NULL AS [IsGreen], N'UnidirectionalEntityBranch' AS [Discriminator]
-    FROM [UnidirectionalBranches] AS [u]
+    SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, NULL AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+    FROM `UnidirectionalBranches` AS `u`
     UNION ALL
-    SELECT [u0].[Id], [u0].[Name], [u0].[Number], [u0].[IsGreen], N'UnidirectionalEntityLeaf' AS [Discriminator]
-    FROM [UnidirectionalLeaves] AS [u0]
-) AS [t]
+    SELECT `u0`.`Id`, `u0`.`Name`, `u0`.`Number`, `u0`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`
+    FROM `UnidirectionalLeaves` AS `u0`
+) AS `t`
 WHERE 0 = 1
 """);
     }

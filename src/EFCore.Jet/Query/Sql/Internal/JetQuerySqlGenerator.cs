@@ -72,14 +72,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             // workaround.
             // Should be kept in sync with the base class.
 
-            if (IsNonComposedSetOperation(selectExpression))
-            {
-                // Naked set operation
-                GenerateSetOperation((SetOperationBase)selectExpression.Tables[0]);
-
-                return selectExpression;
-            }
-
             IDisposable? subQueryIndent = null;
 
             if (selectExpression.Alias != null)
@@ -88,202 +80,212 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 subQueryIndent = Sql.Indent();
             }
 
-            Sql.Append("SELECT ");
-
-            if (selectExpression.IsDistinct)
-            {
-                Sql.Append("DISTINCT ");
-            }
-
-            if (selectExpression.Tags.Contains("DeepSkip"))
+            if (!TryGenerateWithoutWrappingSelect(selectExpression))
             {
 
-            }
-            else
-            {
-                GenerateTop(selectExpression);
-            }
+                Sql.Append("SELECT ");
 
-
-            if (selectExpression.Projection.Any())
-            {
-                GenerateList(selectExpression.Projection, e => Visit(e));
-            }
-            else
-            {
-                Sql.Append("1");
-            }
-
-            List<ColumnExpression> colexp = new List<ColumnExpression>();
-            // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
-            // TODO: This does not properly handle all cases (especially when cross joins are involved).
-            if (selectExpression.Tables.Any())
-            {
-                Sql.AppendLine()
-                    .Append("FROM ");
-
-                const int maxTablesWithoutBrackets = 2;
-
-                Sql.Append(
-                    new string(
-                        '(',
-                        Math.Max(
-                            0,
-                            selectExpression
-                                .Tables
-                                .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) -
-                            maxTablesWithoutBrackets)));
-
-                for (var index = 0; index < selectExpression.Tables.Count; index++)
+                if (selectExpression.IsDistinct)
                 {
-                    var tableExpression = selectExpression.Tables[index];
+                    Sql.Append("DISTINCT ");
+                }
 
-                    var isApplyExpression = tableExpression is CrossApplyExpression ||
-                                            tableExpression is OuterApplyExpression;
+                if (selectExpression.Tags.Contains("DeepSkip"))
+                {
 
-                    var isCrossExpression = tableExpression is CrossJoinExpression ||
-                                            tableExpression is CrossApplyExpression;
+                }
+                else
+                {
+                    GenerateTop(selectExpression);
+                }
 
-                    if (isApplyExpression)
+
+                if (selectExpression.Projection.Any())
+                {
+                    GenerateList(selectExpression.Projection, e => Visit(e));
+                }
+                else
+                {
+                    Sql.Append("1");
+                }
+
+                List<ColumnExpression> colexp = new List<ColumnExpression>();
+                // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
+                // TODO: This does not properly handle all cases (especially when cross joins are involved).
+                if (selectExpression.Tables.Any())
+                {
+                    Sql.AppendLine()
+                        .Append("FROM ");
+
+                    const int maxTablesWithoutBrackets = 2;
+
+                    Sql.Append(
+                        new string(
+                            '(',
+                            Math.Max(
+                                0,
+                                selectExpression
+                                    .Tables
+                                    .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) -
+                                maxTablesWithoutBrackets)));
+
+                    for (var index = 0; index < selectExpression.Tables.Count; index++)
                     {
-                        throw new InvalidOperationException(
-                            "Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
-                    }
+                        var tableExpression = selectExpression.Tables[index];
 
-                    if (index > 0)
-                    {
-                        if (isCrossExpression)
+                        var isApplyExpression = tableExpression is CrossApplyExpression ||
+                                                tableExpression is OuterApplyExpression;
+
+                        var isCrossExpression = tableExpression is CrossJoinExpression ||
+                                                tableExpression is CrossApplyExpression;
+
+                        if (isApplyExpression)
                         {
-                            Sql.Append(",");
+                            throw new InvalidOperationException(
+                                "Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
                         }
-                        else if (index >= maxTablesWithoutBrackets)
-                        {
-                            Sql.Append(")");
-                        }
 
-                        Sql.AppendLine();
-                    }
-                    List<ColumnExpression> tempcolexp;
-                    if (tableExpression is InnerJoinExpression expression)
-                    {
-                        SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
-                        tempcolexp = ExtractColumnExpressions(binaryJoin!);
-                        bool refrencesfirsttable = false;
-                        foreach (ColumnExpression col in tempcolexp)
+                        if (index > 0)
                         {
-                            if (col.Table == selectExpression.Tables[0])
+                            if (isCrossExpression)
                             {
-                                refrencesfirsttable = true;
-                                break;
+                                Sql.Append(",");
                             }
+                            else if (index >= maxTablesWithoutBrackets)
+                            {
+                                Sql.Append(")");
+                            }
+
+                            Sql.AppendLine();
                         }
 
-                        if (refrencesfirsttable)
+                        List<ColumnExpression> tempcolexp;
+                        if (tableExpression is InnerJoinExpression expression)
                         {
-                            Visit(tableExpression);
-                            continue;
-                        }
-                        else
-                        {
-                            colexp.AddRange(tempcolexp);
-                        }
-                        /*if (expression.JoinPredicate is SqlBinaryExpression { Left: ColumnExpression left, Right: ColumnExpression right })
-                        {
-                            var lt = left.Table == selectExpression.Tables[0];
-                            var rt = right.Table == selectExpression.Tables[0];
-                            if (lt || rt)
+                            SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
+                            tempcolexp = ExtractColumnExpressions(binaryJoin!);
+                            bool refrencesfirsttable = false;
+                            foreach (ColumnExpression col in tempcolexp)
+                            {
+                                if (col.Table == selectExpression.Tables[0])
+                                {
+                                    refrencesfirsttable = true;
+                                    break;
+                                }
+                            }
+
+                            if (refrencesfirsttable)
                             {
                                 Visit(tableExpression);
                                 continue;
                             }
                             else
                             {
-                                colexp.Add(left);
-                                colexp.Add(right);
+                                colexp.AddRange(tempcolexp);
                             }
-                        }*/
-                        Sql.Append("LEFT JOIN ");
-                        Visit(expression.Table);
-                        Sql.Append(" ON ");
-                        Visit(expression.JoinPredicate);
-                    }
-                    else
-                    {
-                        Visit(tableExpression);
-                    }
-                }
-            }
-            else
-            {
-                GeneratePseudoFromClause();
-            }
 
-            if (selectExpression.Predicate != null || colexp.Count > 0)
-            {
-                Sql.AppendLine()
-                    .Append("WHERE ");
-
-                if (selectExpression.Predicate != null)
-                {
-                    if (colexp.Count > 0) Sql.Append("(");
-                    Visit(selectExpression.Predicate);
-                    if (colexp.Count > 0) Sql.Append(")");
-                }
-
-                if (selectExpression.Predicate != null && colexp.Count > 0)
-                {
-                    Sql.Append(" AND (");
-                }
-
-                if (colexp.Count > 0)
-                {
-                    int ct = 0;
-                    foreach (var exp in colexp)
-                    {
-                        if (!string.IsNullOrEmpty(exp.TableAlias))
-                        {
-                            Sql.Append($"`{exp.TableAlias}`.");
+                            /*if (expression.JoinPredicate is SqlBinaryExpression { Left: ColumnExpression left, Right: ColumnExpression right })
+                            {
+                                var lt = left.Table == selectExpression.Tables[0];
+                                var rt = right.Table == selectExpression.Tables[0];
+                                if (lt || rt)
+                                {
+                                    Visit(tableExpression);
+                                    continue;
+                                }
+                                else
+                                {
+                                    colexp.Add(left);
+                                    colexp.Add(right);
+                                }
+                            }*/
+                            Sql.Append("LEFT JOIN ");
+                            Visit(expression.Table);
+                            Sql.Append(" ON ");
+                            Visit(expression.JoinPredicate);
                         }
-                        Sql.Append($"`{exp.Name}` IS NOT NULL");
-                        if (ct < colexp.Count - 1)
+                        else
                         {
-                            ct++;
-                            Sql.Append(" AND ");
+                            Visit(tableExpression);
                         }
                     }
                 }
-
-                if (selectExpression.Predicate != null && colexp.Count > 0)
+                else
                 {
-                    Sql.Append(")");
+                    GeneratePseudoFromClause();
                 }
+
+                if (selectExpression.Predicate != null || colexp.Count > 0)
+                {
+                    Sql.AppendLine()
+                        .Append("WHERE ");
+
+                    if (selectExpression.Predicate != null)
+                    {
+                        if (colexp.Count > 0) Sql.Append("(");
+                        Visit(selectExpression.Predicate);
+                        if (colexp.Count > 0) Sql.Append(")");
+                    }
+
+                    if (selectExpression.Predicate != null && colexp.Count > 0)
+                    {
+                        Sql.Append(" AND (");
+                    }
+
+                    if (colexp.Count > 0)
+                    {
+                        int ct = 0;
+                        foreach (var exp in colexp)
+                        {
+                            if (!string.IsNullOrEmpty(exp.TableAlias))
+                            {
+                                Sql.Append($"`{exp.TableAlias}`.");
+                            }
+
+                            Sql.Append($"`{exp.Name}` IS NOT NULL");
+                            if (ct < colexp.Count - 1)
+                            {
+                                ct++;
+                                Sql.Append(" AND ");
+                            }
+                        }
+                    }
+
+                    if (selectExpression.Predicate != null && colexp.Count > 0)
+                    {
+                        Sql.Append(")");
+                    }
+                }
+
+                if (selectExpression.GroupBy.Count > 0)
+                {
+                    Sql.AppendLine()
+                        .Append("GROUP BY ");
+
+                    GenerateList(selectExpression.GroupBy, e => Visit(e));
+                }
+
+                if (selectExpression.Having != null)
+                {
+                    Sql.AppendLine()
+                        .Append("HAVING ");
+
+                    Visit(selectExpression.Having);
+                }
+
+                GenerateOrderings(selectExpression);
+                GenerateLimitOffset(selectExpression);
+
             }
-
-            if (selectExpression.GroupBy.Count > 0)
-            {
-                Sql.AppendLine()
-                    .Append("GROUP BY ");
-
-                GenerateList(selectExpression.GroupBy, e => Visit(e));
-            }
-
-            if (selectExpression.Having != null)
-            {
-                Sql.AppendLine()
-                    .Append("HAVING ");
-
-                Visit(selectExpression.Having);
-            }
-
-            GenerateOrderings(selectExpression);
-            GenerateLimitOffset(selectExpression);
 
             if (selectExpression.Alias != null)
             {
                 subQueryIndent!.Dispose();
 
                 Sql.AppendLine()
-                    .Append(")" + AliasSeparator + _sqlGenerationHelper.DelimitIdentifier(selectExpression.Alias));
+                    .Append(")")
+                    .Append(AliasSeparator)
+                    .Append(_sqlGenerationHelper.DelimitIdentifier(selectExpression.Alias));
             }
 
             return selectExpression;

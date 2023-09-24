@@ -1884,10 +1884,10 @@ FROM `Customers` AS `c`
             await base.Indexof_with_one_constant_arg(async);
 
             AssertSql(
-    """
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (InStr(`c`.`ContactName`, 'a') - 1) = 1
+WHERE (InStr(1, `c`.`ContactName`, 'a', 1) - 1) = 1
 """);
         }
 
@@ -1896,13 +1896,13 @@ WHERE (InStr(`c`.`ContactName`, 'a') - 1) = 1
             await base.Indexof_with_one_parameter_arg(async);
 
             AssertSql(
-    """
-@__pattern_0='a' (Size = 255)
-@__pattern_0='a' (Size = 255)
+                """
+@__pattern_0='a' (Size = 30)
+@__pattern_0='a' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF(? = '', 0, InStr(`c`.`ContactName`, ?) - 1) = 1
+WHERE IIF(@__pattern_0 = '', 0, InStr(1, `c`.`ContactName`, @__pattern_0, 1) - 1) = 1
 """);
         }
 
@@ -2031,12 +2031,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Substring_with_two_args_with_Index_of(async);
 
             AssertSql(
-                @"SELECT SUBSTRING(`c`.`ContactName`, CASE
-    WHEN 'a' = '' THEN 0
-    ELSE CAST(CHARINDEX('a', `c`.`ContactName`) AS int) - 1
-END + 1, 3)
+                """
+SELECT MID(`c`.`ContactName`, (InStr(1, `c`.`ContactName`, 'a', 1) - 1) + 1, 3)
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'");
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task IsNullOrEmpty_in_predicate(bool isAsync)

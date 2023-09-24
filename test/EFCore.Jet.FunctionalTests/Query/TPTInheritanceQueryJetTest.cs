@@ -17,7 +17,7 @@ public class TPTInheritanceQueryJetTest : TPTInheritanceQueryTestBase<TPTInherit
         : base(fixture)
     {
         Fixture.TestSqlLoggerFactory.Clear();
-        //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -29,8 +29,8 @@ public class TPTInheritanceQueryJetTest : TPTInheritanceQueryTestBase<TPTInherit
         await base.Byte_enum_value_constant_used_in_projection(async);
 
         AssertSql(
-"""
-SELECT IIF(`b`.`IsFlightless` = TRUE, 0x00, 0x01)
+            """
+SELECT IIF(`b`.`IsFlightless` = TRUE, CBYTE(0), CBYTE(1))
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
@@ -253,13 +253,10 @@ WHERE `k`.`Id` IS NOT NULL
         await base.Can_use_is_kiwi_with_cast(async);
 
         AssertSql(
-"""
-SELECT CASE
-    WHEN [k].[Id] IS NOT NULL THEN [k].[FoundOn]
-    ELSE CAST(0 AS tinyint)
-END AS [Value]
-FROM [Animals] AS [a]
-LEFT JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
+            """
+SELECT IIF(`k`.`Id` IS NOT NULL, `k`.`FoundOn`, CBYTE(0)) AS `Value`
+FROM `Animals` AS `a`
+LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """);
     }
 
@@ -387,14 +384,12 @@ WHERE `k`.`Id` IS NOT NULL
         await base.Can_use_of_type_kiwi_where_north_on_derived_property(async);
 
         AssertSql(
-"""
-SELECT [a].[Id], [a].[CountryId], [a].[Name], [a].[Species], [b].[EagleId], [b].[IsFlightless], [k].[FoundOn], CASE
-    WHEN [k].[Id] IS NOT NULL THEN N'Kiwi'
-END AS [Discriminator]
-FROM [Animals] AS [a]
-LEFT JOIN [Birds] AS [b] ON [a].[Id] = [b].[Id]
-LEFT JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
-WHERE ([k].[Id] IS NOT NULL) AND [k].[FoundOn] = CAST(0 AS tinyint)
+            """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', NULL) AS `Discriminator`
+FROM (`Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
+WHERE (`k`.`Id` IS NOT NULL) AND `k`.`FoundOn` = CBYTE(0)
 """);
     }
 
@@ -403,14 +398,12 @@ WHERE ([k].[Id] IS NOT NULL) AND [k].[FoundOn] = CAST(0 AS tinyint)
         await base.Can_use_of_type_kiwi_where_south_on_derived_property(async);
 
         AssertSql(
-"""
-SELECT [a].[Id], [a].[CountryId], [a].[Name], [a].[Species], [b].[EagleId], [b].[IsFlightless], [k].[FoundOn], CASE
-    WHEN [k].[Id] IS NOT NULL THEN N'Kiwi'
-END AS [Discriminator]
-FROM [Animals] AS [a]
-LEFT JOIN [Birds] AS [b] ON [a].[Id] = [b].[Id]
-LEFT JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
-WHERE ([k].[Id] IS NOT NULL) AND [k].[FoundOn] = CAST(1 AS tinyint)
+            """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', NULL) AS `Discriminator`
+FROM (`Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
+WHERE (`k`.`Id` IS NOT NULL) AND `k`.`FoundOn` = CBYTE(1)
 """);
     }
 

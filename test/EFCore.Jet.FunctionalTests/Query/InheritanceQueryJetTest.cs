@@ -117,8 +117,10 @@ WHERE `a`.`Discriminator` = 'Kiwi'");
             await base.Can_use_is_kiwi_with_cast(async);
 
             AssertSql(
-                @"SELECT IIF(`a`.`Discriminator` = 'Kiwi', `a`.`FoundOn`, 0) AS `Value`
-FROM `Animals` AS `a`");
+                """
+SELECT IIF(`a`.`Discriminator` = 'Kiwi', `a`.`FoundOn`, CBYTE(0)) AS `Value`
+FROM `Animals` AS `a`
+""");
         }
 
         public override async Task Can_use_is_kiwi_with_other_predicate(bool async)
@@ -305,9 +307,11 @@ ORDER BY `c`.`Name`, `c`.`Id`");
             await base.Can_use_of_type_kiwi_where_north_on_derived_property(async);
 
             AssertSql(
-                @"SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+                """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = 0");
+WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(0)
+""");
         }
 
         public override async Task Can_use_of_type_kiwi_where_south_on_derived_property(bool async)
@@ -315,9 +319,11 @@ WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = 0");
             await base.Can_use_of_type_kiwi_where_south_on_derived_property(async);
 
             AssertSql(
-                @"SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+                """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = 1");
+WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(1)
+""");
         }
 
         public override async Task Discriminator_used_when_projection_over_derived_type(bool async)
@@ -359,9 +365,11 @@ WHERE `a`.`Discriminator` = 'Kiwi'");
             await base.Byte_enum_value_constant_used_in_projection(async);
 
             AssertSql(
-                @"SELECT IIF(`a`.`IsFlightless` = TRUE, 0x00, 0x01)
+                """
+SELECT IIF(`a`.`IsFlightless` = TRUE, CBYTE(0), CBYTE(1))
 FROM `Animals` AS `a`
-WHERE `a`.`Discriminator` = 'Kiwi'");
+WHERE `a`.`Discriminator` = 'Kiwi'
+""");
         }
 
         public override async Task Union_siblings_with_duplicate_property_in_subquery(bool async)

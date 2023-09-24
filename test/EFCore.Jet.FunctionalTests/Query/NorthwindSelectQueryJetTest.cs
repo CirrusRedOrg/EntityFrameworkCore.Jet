@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             ClearLog();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         protected override bool CanExecuteQueryString
@@ -920,8 +920,10 @@ FROM `Orders` AS `o`
             await base.Select_byte_constant(isAsync);
 
             AssertSql(
-                $@"SELECT IIF(`c`.`CustomerID` = 'ALFKI', 0x01, 0x02)
-FROM `Customers` AS `c`");
+                """
+SELECT IIF(`c`.`CustomerID` = 'ALFKI', CBYTE(1), CBYTE(2))
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_short_constant(bool isAsync)

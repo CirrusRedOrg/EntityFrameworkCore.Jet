@@ -272,28 +272,25 @@ WHERE EXISTS (
         await base.Delete_Where_Skip_Take_Skip_Take_causing_subquery(async);
 
         AssertSql(
-"""
-@__p_0='100'
-@__p_1='20'
-@__p_2='5'
-
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [t].[OrderID], [t].[ProductID], [t].[Discount], [t].[Quantity], [t].[UnitPrice]
+        SELECT TOP 5 `t1`.`OrderID`, `t1`.`ProductID`, `t1`.`Discount`, `t1`.`Quantity`, `t1`.`UnitPrice`
         FROM (
-            SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-            FROM [Order Details] AS [o0]
-            WHERE [o0].[OrderID] < 10300
-            ORDER BY (SELECT 1)
-            OFFSET @__p_0 ROWS FETCH NEXT @__p_0 ROWS ONLY
-        ) AS [t]
-        ORDER BY (SELECT 1)
-        OFFSET @__p_1 ROWS FETCH NEXT @__p_2 ROWS ONLY
-    ) AS [t0]
-    WHERE [t0].[OrderID] = [o].[OrderID] AND [t0].[ProductID] = [o].[ProductID])
+            SELECT TOP 25 `t0`.`OrderID`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`
+            FROM (
+                SELECT TOP 100 `t`.`OrderID`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`
+                FROM (
+                    SELECT TOP 200 `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+                    FROM `Order Details` AS `o0`
+                    WHERE `o0`.`OrderID` < 10300
+                ) AS `t`
+            ) AS `t0`
+        ) AS `t1`
+    ) AS `t2`
+    WHERE `t2`.`OrderID` = `o`.`OrderID` AND `t2`.`ProductID` = `o`.`ProductID`)
 """);
     }
 

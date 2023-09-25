@@ -150,6 +150,13 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
             }*/
 
         }
+
+        //With Jet DISTINCT and TOP can't be used together in the same statement
+        //Make the DISTINCT into a subquery
+        if (selectExpression.IsDistinct)
+        {
+            selectExpression.PushdownIntoSubquery();
+        }
         return base.TranslateTake(source, count);
     }
 

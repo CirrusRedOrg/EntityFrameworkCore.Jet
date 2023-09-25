@@ -2126,13 +2126,16 @@ ORDER BY `t`.`OrderID`");
             await base.Distinct_Take_Count(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
-
+                """
 SELECT COUNT(*)
 FROM (
-    SELECT DISTINCT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-) AS `t`");
+    SELECT TOP 5 `t`.`OrderID`
+    FROM (
+        SELECT DISTINCT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+        FROM `Orders` AS `o`
+    ) AS `t`
+) AS `t0`
+""");
         }
 
         public override async Task OrderBy_shadow(bool isAsync)
@@ -3348,17 +3351,21 @@ FROM (
             await base.OrderBy_coalesce_skip_take_distinct_take(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='5'")}
-
-{AssertSqlHelper.Declaration("@__p_1='15'")}
-
-SELECT DISTINCT TOP {AssertSqlHelper.Parameter("@__p_0")} `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
+                """
+SELECT TOP 5 `t1`.`ProductID`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice`, `t1`.`UnitsInStock`
 FROM (
-    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`) AS `c`
-    FROM `Products` AS `p`
-    ORDER BY IIF(`p`.`UnitPrice` IS NULL, NULL, `p`.`UnitPrice`)
-    SKIP {AssertSqlHelper.Parameter("@__p_0")} FETCH NEXT {AssertSqlHelper.Parameter("@__p_1")} ROWS ONLY
-) AS `t`");
+    SELECT DISTINCT `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`
+    FROM (
+        SELECT TOP 15 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
+        FROM (
+            SELECT TOP 20 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
+            FROM `Products` AS `p`
+            ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
+        ) AS `t`
+        ORDER BY `t`.`c` DESC
+    ) AS `t0`
+) AS `t1`
+""");
         }
 
         public override async Task OrderBy_skip_take_distinct_orderby_take(bool isAsync)

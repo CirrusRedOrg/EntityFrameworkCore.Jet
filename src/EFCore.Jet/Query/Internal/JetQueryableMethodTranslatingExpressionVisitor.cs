@@ -145,7 +145,14 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
                 selectExpression.Tags.Remove("DeepSkip");
                 return source;
             }*/
-            
+
+        }
+
+        //With Jet DISTINCT and TOP can't be used together in the same statement
+        //Make the DISTINCT into a subquery
+        if (selectExpression.IsDistinct)
+        {
+            selectExpression.PushdownIntoSubquery();
         }
         return base.TranslateTake(source, count);
     }

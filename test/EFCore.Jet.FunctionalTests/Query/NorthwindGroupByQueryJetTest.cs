@@ -1894,7 +1894,7 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT COUNT(IIF(`o`.`OrderID` < 10300 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, 1, NULL))
+SELECT COUNT(IIF(`o`.`OrderID` < 10300 AND (`o`.`OrderDate` IS NOT NULL) AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, 1, NULL))
 FROM `Orders` AS `o`
 GROUP BY `o`.`CustomerID`
 """);
@@ -1906,7 +1906,7 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT COUNT(IIF(`o`.`OrderID` < 10300 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, 1, NULL))
+SELECT COUNT(IIF(`o`.`OrderID` < 10300 AND (`o`.`OrderDate` IS NOT NULL) AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, 1, NULL))
 FROM `Orders` AS `o`
 GROUP BY `o`.`CustomerID`
 """);
@@ -1918,7 +1918,7 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT COUNT(IIF(`o`.`OrderID` < 10300 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, 1, NULL))
+SELECT COUNT(IIF(`o`.`OrderID` < 10300 AND (`o`.`OrderDate` IS NOT NULL) AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, 1, NULL))
 FROM `Orders` AS `o`
 GROUP BY `o`.`CustomerID`
 """);
@@ -1930,7 +1930,7 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT MIN(IIF(`o`.`OrderID` < 10300 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, `o`.`OrderID`, NULL))
+SELECT MIN(IIF(`o`.`OrderID` < 10300 AND (`o`.`OrderDate` IS NOT NULL) AND DATEPART('yyyy', `o`.`OrderDate`) = 1997, `o`.`OrderID`, NULL))
 FROM `Orders` AS `o`
 GROUP BY `o`.`CustomerID`
 """);
@@ -2687,7 +2687,7 @@ FROM (
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
 ) AS `t`
-INNER JOIN `Orders` AS `o0` ON (`t`.`Key` = `o0`.`CustomerID` OR (`t`.`Key` IS NULL AND `o0`.`CustomerID` IS NULL)) AND (`t`.`LastOrderDate` = `o0`.`OrderDate` OR (`t`.`LastOrderDate` IS NULL AND `o0`.`OrderDate` IS NULL))
+INNER JOIN `Orders` AS `o0` ON (`t`.`Key` = `o0`.`CustomerID` OR ((`t`.`Key` IS NULL) AND (`o0`.`CustomerID` IS NULL))) AND (`t`.`LastOrderDate` = `o0`.`OrderDate` OR ((`t`.`LastOrderDate` IS NULL) AND (`o0`.`OrderDate` IS NULL)))
 """);
         }
 
@@ -2946,7 +2946,7 @@ GROUP BY `o`.`OrderID`
                 """
 SELECT `o`.`CustomerID` AS `Key`, IIF(SUM(IIF((2020 - DATEPART('yyyy', `o`.`OrderDate`)) <= 30, `o`.`OrderID`, 0)) IS NULL, 0, SUM(IIF((2020 - DATEPART('yyyy', `o`.`OrderDate`)) <= 30, `o`.`OrderID`, 0))) AS `Sum1`, IIF(SUM(IIF((2020 - DATEPART('yyyy', `o`.`OrderDate`)) > 30 AND (2020 - DATEPART('yyyy', `o`.`OrderDate`)) <= 60, `o`.`OrderID`, 0)) IS NULL, 0, SUM(IIF((2020 - DATEPART('yyyy', `o`.`OrderDate`)) > 30 AND (2020 - DATEPART('yyyy', `o`.`OrderDate`)) <= 60, `o`.`OrderID`, 0))) AS `Sum2`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` LIKE 'A%'
+WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')
 GROUP BY `o`.`CustomerID`
 """);
         }
@@ -3175,7 +3175,7 @@ FROM (
     SELECT `o`.`CustomerID`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
-    HAVING `o`.`CustomerID` LIKE 'F%'
+    HAVING (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F%')
 ) AS `t`
 LEFT JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`
 ORDER BY `t`.`CustomerID`

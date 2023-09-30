@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         public override void Executes_stored_procedure()
@@ -140,7 +140,13 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
         }
 
         protected override DbParameter CreateDbParameter(string name, object value)
-            => new OdbcParameter { ParameterName = name, Value = value };
+        {
+            if (((JetTestStore)Fixture.TestStore).IsOleDb())
+            {
+                return new OleDbParameter { ParameterName = name, Value = value };
+            }
+            return new OdbcParameter { ParameterName = name, Value = value };
+        }
 
         protected override string TenMostExpensiveProductsSproc => "`Ten Most Expensive Products`";
         protected override string CustomerOrderHistorySproc => "`CustOrderHist` @CustomerID";

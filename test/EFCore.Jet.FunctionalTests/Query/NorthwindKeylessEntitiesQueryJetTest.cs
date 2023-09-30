@@ -187,7 +187,7 @@ LEFT JOIN `Alphabetical list of products` AS `a` ON `o`.`CustomerID` = `a`.`Cate
             await base.Collection_correlated_with_keyless_entity_in_predicate_works(async);
 
             AssertSql(
-"""
+                """
 SELECT TOP 2 `m`.`City`, `m`.`ContactName`
 FROM (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
@@ -195,7 +195,7 @@ FROM (
 WHERE EXISTS (
     SELECT 1
     FROM `Customers` AS `c`
-    WHERE `c`.`City` = `m`.`City` OR (`c`.`City` IS NULL AND `m`.`City` IS NULL))
+    WHERE `c`.`City` = `m`.`City` OR ((`c`.`City` IS NULL) AND (`m`.`City` IS NULL)))
 ORDER BY `m`.`ContactName`
 """);
         }
@@ -261,10 +261,10 @@ FROM (
             await base.Count_over_keyless_entity_with_pushdown(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*)
 FROM (
-    SELECT TOP 10 1
+    SELECT TOP 10 `m`.`ContactTitle`
     FROM (
         SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
     ) AS `m`

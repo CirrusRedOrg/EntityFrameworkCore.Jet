@@ -1,7 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -218,7 +220,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
 """,
-                //
+//
 """
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
@@ -242,7 +244,7 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
 ORDER BY `c`.`CustomerID`
 """,
-                //
+//
 """
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
@@ -264,7 +266,7 @@ SELECT COUNT(*)
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
 """,
-                //
+//
 """
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
@@ -286,7 +288,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
 """,
-                //
+//
 """
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
@@ -310,7 +312,7 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
 ORDER BY `c`.`CustomerID`
 """,
-                //
+//
 """
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
@@ -332,7 +334,7 @@ SELECT COUNT(*)
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
 """,
-                //
+//
 """
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
@@ -354,6 +356,12 @@ FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14
 """);
         }
+
+        public override void MakeBinary_does_not_throw_for_unsupported_operator()
+            => Assert.Equal(
+                CoreStrings.TranslationFailed("DbSet<Customer>()    .Where(c => c.CustomerID == (string)(__parameters[0]))"),
+                Assert.Throws<InvalidOperationException>(
+                    () => base.MakeBinary_does_not_throw_for_unsupported_operator()).Message.Replace("\r", "").Replace("\n", ""));
 
         public override void Query_with_array_parameter()
         {
@@ -439,7 +447,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'
 """,
-                //
+//
 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -459,7 +467,7 @@ SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__customerID
 """,
-                //
+//
 """
 @__customerID='ANATR' (Size = 5)
 
@@ -493,7 +501,7 @@ SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__customerID
 """,
-                //
+//
 """
 @__customerID='ANATR' (Size = 5)
 
@@ -541,7 +549,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__customerID
 """,
-                //
+//
 """
 @__customerID='ANATR' (Size = 5)
 
@@ -563,7 +571,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__customerID
 """,
-                //
+//
 """
 @__customerID='ANATR' (Size = 5)
 
@@ -599,7 +607,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__customerID
 """,
-                //
+//
 """
 @__customerID='ANATR' (Size = 5)
 
@@ -645,7 +653,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI'
 """,
-                //
+//
 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -662,7 +670,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
@@ -713,7 +721,7 @@ LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @__customerID
 ORDER BY `c`.`CustomerID`
 """,
-                //
+//
 """
 @__customerID='ANATR' (Size = 5)
 

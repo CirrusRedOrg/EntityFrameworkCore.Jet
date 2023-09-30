@@ -1912,7 +1912,7 @@ FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
-    WHERE `o0`.`CustomerID` = 'VINET' AND `o0`.`EmployeeID` IS NULL)
+    WHERE `o0`.`CustomerID` = 'VINET' AND (`o0`.`CustomerID` IS NULL))
 """);
         }
 
@@ -1924,10 +1924,10 @@ WHERE EXISTS (
                 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE NOT EXISTS (
+WHERE NOT (EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
-    WHERE `o0`.`CustomerID` = 'VINET' AND `o0`.`EmployeeID` IS NULL)
+    WHERE `o0`.`CustomerID` = 'VINET' AND (`o0`.`CustomerID` IS NULL)))
 """);
         }
 
@@ -1942,10 +1942,10 @@ FROM `Orders` AS `o`
 WHERE IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o0`
-        WHERE `o0`.`CustomerID` = 'VINET' AND `o0`.`EmployeeID` IS NULL), TRUE, FALSE) = IIF(EXISTS (
+        WHERE `o0`.`CustomerID` = 'VINET' AND (`o0`.`CustomerID` IS NULL)), TRUE, FALSE) = IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o1`
-        WHERE (`o1`.`CustomerID` <> 'VINET' OR `o1`.`CustomerID` IS NULL) AND `o1`.`EmployeeID` IS NULL), TRUE, FALSE)
+        WHERE (`o1`.`CustomerID` <> 'VINET' OR (`o1`.`CustomerID` IS NULL)) AND (`o1`.`CustomerID` IS NULL)), TRUE, FALSE)
 """);
         }
 
@@ -1958,7 +1958,7 @@ WHERE IIF(EXISTS (
 SELECT IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o0`
-        WHERE `o0`.`CustomerID` = 'VINET' AND `o0`.`EmployeeID` IS NULL), TRUE, FALSE)
+        WHERE `o0`.`CustomerID` = 'VINET' AND (`o0`.`CustomerID` IS NULL)), TRUE, FALSE)
 FROM `Orders` AS `o`
 """);
         }

@@ -5207,22 +5207,22 @@ ORDER BY `c`.`CustomerID`
 SELECT IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE (
+        WHERE ((
             SELECT TOP 1 `c0`.`CustomerID`
             FROM `Orders` AS `o0`
             LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
             WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-            ORDER BY `o0`.`OrderDate`) IS NOT NULL AND ((
+            ORDER BY `o0`.`OrderDate`) IS NOT NULL) AND ((
             SELECT TOP 1 `c1`.`CustomerID`
             FROM `Orders` AS `o1`
             LEFT JOIN `Customers` AS `c1` ON `o1`.`CustomerID` = `c1`.`CustomerID`
             WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-            ORDER BY `o1`.`OrderDate`) = `o`.`CustomerID` OR ((
+            ORDER BY `o1`.`OrderDate`) = `o`.`CustomerID` OR (((
             SELECT TOP 1 `c1`.`CustomerID`
             FROM `Orders` AS `o1`
             LEFT JOIN `Customers` AS `c1` ON `o1`.`CustomerID` = `c1`.`CustomerID`
             WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-            ORDER BY `o1`.`OrderDate`) IS NULL AND `o`.`CustomerID` IS NULL)) AND `o`.`OrderID` < 11000), TRUE, FALSE) AS `Complex`
+            ORDER BY `o1`.`OrderDate`) IS NULL) AND (`o`.`CustomerID` IS NULL))) AND `o`.`OrderID` < 11000), TRUE, FALSE) AS `Complex`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`
@@ -5235,8 +5235,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-@__searchTerm_0='c' (Size = 15)
-@__searchTerm_0='c' (Size = 15)
+@__searchTerm_0='c' (Size = 255)
+@__searchTerm_0='c' (Size = 255)
 
 SELECT TOP 5 `t`.`City`
 FROM (
@@ -5244,7 +5244,7 @@ FROM (
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
 ) AS `t`
-ORDER BY IIF(@__searchTerm_0 = '', 0, INSTR(1, `t`.`City`, @__searchTerm_0, 1) - 1), `t`.`City`
+ORDER BY IIF(@__searchTerm_0 = '', 0, InStr(1, `t`.`City`, @__searchTerm_0, 1) - 1), `t`.`City`
 """);
         }
 
@@ -5274,13 +5274,13 @@ FROM [Customers] AS [c]
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID`, IIF(NOT EXISTS (
+SELECT `c`.`CustomerID`, IIF(NOT (EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) OR NOT EXISTS (
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) OR NOT (EXISTS (
         SELECT 1
         FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`), TRUE, FALSE), (
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`)), TRUE, FALSE), (
     SELECT TOP 1 `o1`.`OrderDate`
     FROM `Orders` AS `o1`
     WHERE `c`.`CustomerID` = `o1`.`CustomerID`
@@ -5773,7 +5773,7 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-@__value_0='Sales Representative' (Size = 30)
+@__value_0='Sales Representative' (Size = 255)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -5781,7 +5781,7 @@ WHERE `e`.`Title` = @__value_0
 """,
                 //
                 """
-@__value_0='Steven' (Size = 10)
+@__value_0='Steven' (Size = 255)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -5893,7 +5893,7 @@ WHERE `e`.`Title` = 'Sales Representative'
 
             AssertSql(
                 """
-@__value_0='Sales Representative' (Size = 30)
+@__value_0='Sales Representative' (Size = 255)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -6077,7 +6077,7 @@ FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
-    WHERE `o0`.`OrderID` = @__firstOrder_OrderID_0 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o`.`CustomerID` IS NULL)))
+    WHERE `o0`.`OrderID` = @__firstOrder_OrderID_0 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR ((`o0`.`CustomerID` IS NULL) AND (`o`.`CustomerID` IS NULL))))
 """);
         }
 
@@ -6179,7 +6179,7 @@ ORDER BY [t].[CustomerID]
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE `c`.`City` = `e`.`City` OR (`c`.`City` IS NULL AND `e`.`City` IS NULL)
+WHERE `c`.`City` = `e`.`City` OR ((`c`.`City` IS NULL) AND (`e`.`City` IS NULL))
 ORDER BY `c`.`CustomerID`, `e`.`EmployeeID`
 """);
         }
@@ -6538,57 +6538,6 @@ FROM `Orders` AS `o`
             await base.EF_Property_include_on_incorrect_property_throws(async);
 
             AssertSql();
-        }
-
-        public override async Task Collection_navigation_equal_to_null_for_subquery_using_ElementAtOrDefault_constant_zero(bool async)
-        {
-            await base.Collection_navigation_equal_to_null_for_subquery_using_ElementAtOrDefault_constant_zero(async);
-
-            AssertSql(
-                """
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
-""");
-        }
-
-        public override async Task Collection_navigation_equal_to_null_for_subquery_using_ElementAtOrDefault_constant_one(bool async)
-        {
-            await base.Collection_navigation_equal_to_null_for_subquery_using_ElementAtOrDefault_constant_one(async);
-
-            AssertSql(
-                """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderID]
-    OFFSET 1 ROWS)
-""");
-        }
-
-        public override async Task Collection_navigation_equal_to_null_for_subquery_using_ElementAtOrDefault_parameter(bool async)
-        {
-            await base.Collection_navigation_equal_to_null_for_subquery_using_ElementAtOrDefault_parameter(async);
-
-            AssertSql(
-                """
-@__prm_0='2'
-
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderID]
-    OFFSET @__prm_0 ROWS)
-""");
         }
 
         private void AssertSql(params string[] expected)

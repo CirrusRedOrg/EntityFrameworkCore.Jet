@@ -1821,11 +1821,10 @@ WHERE 1 IN (
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE 1 IN (
-    SELECT DISTINCT IIF(LEN(`l1`.`Name`) IS NULL, NULL, CLNG(LEN(`l1`.`Name`)))
+WHERE EXISTS (
+    SELECT DISTINCT 1
     FROM `LevelThree` AS `l1`
-    WHERE `l0`.`Id` IS NOT NULL AND `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
-)
+    WHERE (`l0`.`Id` IS NOT NULL) AND `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id` AND IIF(LEN(`l1`.`Name`) IS NULL, NULL, CLNG(LEN(`l1`.`Name`))) = 1)
 """);
         }
 
@@ -3345,7 +3344,7 @@ ORDER BY (
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE `l0`.`Id` IS NOT NULL AND `l0`.`Name` = 'L2 01'
+WHERE (`l0`.`Id` IS NOT NULL) AND `l0`.`Name` = 'L2 01'
 """);
         }
 
@@ -3468,7 +3467,7 @@ SELECT `l`.`Name`, `l0`.`Name` AS `OptionalName`, IIF(EXISTS (
         SELECT 1
         FROM `LevelOne` AS `l1`
         LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Optional_Id`
-        WHERE `l2`.`Name` = `l0`.`Name` OR (`l2`.`Name` IS NULL AND `l0`.`Name` IS NULL)), TRUE, FALSE) AS `Contains`
+        WHERE `l2`.`Name` = `l0`.`Name` OR ((`l2`.`Name` IS NULL) AND (`l0`.`Name` IS NULL))), TRUE, FALSE) AS `Contains`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 """);
@@ -3484,7 +3483,7 @@ SELECT `l`.`Name`, `l0`.`Name` AS `OptionalName`, IIF(EXISTS (
         SELECT 1
         FROM `LevelOne` AS `l2`
         LEFT JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Level1_Optional_Id`
-        WHERE `l3`.`Id` = `l1`.`Id` OR (`l3`.`Id` IS NULL AND `l1`.`Id` IS NULL)), TRUE, FALSE) AS `Contains`
+        WHERE `l3`.`Id` = `l1`.`Id` OR ((`l3`.`Id` IS NULL) AND (`l1`.`Id` IS NULL))), TRUE, FALSE) AS `Contains`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse2Id`
@@ -3508,7 +3507,7 @@ HAVING (
     LEFT JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Id`)
     LEFT JOIN `LevelThree` AS `l4` ON `l3`.`Id` = `l4`.`Id`)
     LEFT JOIN `LevelTwo` AS `l5` ON `l2`.`Id` = `l5`.`Id`
-    WHERE `l1`.`Name` = `l4`.`Name` OR (`l1`.`Name` IS NULL AND `l4`.`Name` IS NULL)) > 0
+    WHERE `l1`.`Name` = `l4`.`Name` OR ((`l1`.`Name` IS NULL) AND (`l4`.`Name` IS NULL))) > 0
 """);
         }
 
@@ -3578,7 +3577,7 @@ SELECT `l`.`Id`, `l`.`Name`, IIF(`l0`.`Id` IS NULL, TRUE, FALSE), `l0`.`Id`, `l0
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`
-WHERE IIF(`l0`.`Id` IS NULL, NULL, `l1`.`Name`) <> 'L' OR IIF(`l0`.`Id` IS NULL, NULL, `l1`.`Name`) IS NULL
+WHERE IIF(`l0`.`Id` IS NULL, NULL, `l1`.`Name`) <> 'L' OR (IIF(`l0`.`Id` IS NULL, NULL, `l1`.`Name`) IS NULL)
 """);
         }
 
@@ -3697,7 +3696,7 @@ LEFT JOIN (
     FROM `LevelThree` AS `l1`
     GROUP BY `l1`.`Name`
 ) AS `t` ON `l`.`Name` = `t`.`Key`
-WHERE `l0`.`Name` IS NOT NULL OR `t`.`Count` > 0
+WHERE (`l0`.`Name` IS NOT NULL) OR `t`.`Count` > 0
 """);
         }
 
@@ -3770,16 +3769,16 @@ ORDER BY [l].[Id], [t0].[Id]
 SELECT `l`.`Id`, (
     SELECT TOP 1 `l0`.`Name`
     FROM `LevelThree` AS `l0`
-    WHERE (
+    WHERE ((
         SELECT TOP 1 `l1`.`Id`
         FROM `LevelTwo` AS `l1`
-        WHERE `l`.`Id` = `l1`.`OneToMany_Optional_Inverse2Id` AND `l1`.`Name` = 'L2 02') IS NOT NULL AND ((
+        WHERE `l`.`Id` = `l1`.`OneToMany_Optional_Inverse2Id` AND `l1`.`Name` = 'L2 02') IS NOT NULL) AND ((
         SELECT TOP 1 `l2`.`Id`
         FROM `LevelTwo` AS `l2`
-        WHERE `l`.`Id` = `l2`.`OneToMany_Optional_Inverse2Id` AND `l2`.`Name` = 'L2 02') = `l0`.`OneToMany_Optional_Inverse3Id` OR ((
+        WHERE `l`.`Id` = `l2`.`OneToMany_Optional_Inverse2Id` AND `l2`.`Name` = 'L2 02') = `l0`.`OneToMany_Optional_Inverse3Id` OR (((
         SELECT TOP 1 `l2`.`Id`
         FROM `LevelTwo` AS `l2`
-        WHERE `l`.`Id` = `l2`.`OneToMany_Optional_Inverse2Id` AND `l2`.`Name` = 'L2 02') IS NULL AND `l0`.`OneToMany_Optional_Inverse3Id` IS NULL))
+        WHERE `l`.`Id` = `l2`.`OneToMany_Optional_Inverse2Id` AND `l2`.`Name` = 'L2 02') IS NULL) AND (`l0`.`OneToMany_Optional_Inverse3Id` IS NULL)))
     ORDER BY `l0`.`Id`) AS `Pushdown`
 FROM `LevelOne` AS `l`
 WHERE `l`.`Id` < 2
@@ -3995,7 +3994,7 @@ HAVING (
     LEFT JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Id`)
     LEFT JOIN `LevelThree` AS `l4` ON `l3`.`Id` = `l4`.`Id`)
     LEFT JOIN `LevelTwo` AS `l5` ON `l2`.`Id` = `l5`.`Id`
-    WHERE `l1`.`Name` = `l4`.`Name` OR (`l1`.`Name` IS NULL AND `l4`.`Name` IS NULL)) > 0
+    WHERE `l1`.`Name` = `l4`.`Name` OR ((`l1`.`Name` IS NULL) AND (`l4`.`Name` IS NULL))) > 0
 """);
         }
 

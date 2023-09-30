@@ -988,7 +988,7 @@ FROM ((
 ) AS `t0`
 LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
-WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
+WHERE `c`.`City` = `c0`.`City` OR ((`c`.`City` IS NULL) AND (`c0`.`City` IS NULL))
 """);
         }
 

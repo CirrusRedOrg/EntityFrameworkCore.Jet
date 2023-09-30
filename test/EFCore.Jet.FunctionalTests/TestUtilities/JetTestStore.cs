@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -418,5 +419,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         public override string NormalizeDelimitersInRawString(string sql)
             => sql.Replace("[", "`").Replace("]", "`");
+
+        public bool IsOleDb()
+        {
+            return ((EntityFrameworkCore.Jet.Data.JetConnection)Connection).DataAccessProviderFactory is OleDbFactory;
+        }
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -61,7 +62,7 @@ FROM `Employees` AS `e`
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 """,
-                //
+//
 """
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -78,7 +79,7 @@ SELECT TOP 1 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`
 FROM `Employees` AS `e`
 ORDER BY `e`.`EmployeeID`
 """,
-                //
+//
 """
 SELECT `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
 FROM (
@@ -92,7 +93,7 @@ FROM (
 ) AS `t0`
 ORDER BY `t0`.`EmployeeID`
 """,
-                //
+//
 """
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -173,7 +174,7 @@ FROM `Employees` AS `e`
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 """,
-                //
+//
 """
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -254,7 +255,7 @@ SELECT TOP 1 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`
 FROM `Employees` AS `e`
 ORDER BY `e`.`EmployeeID`
 """,
-                //
+//
 """
 SELECT `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
 FROM (
@@ -290,7 +291,7 @@ FROM `Customers` AS `c`
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 """,
-                //
+//
 """
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -306,32 +307,32 @@ FROM `Employees` AS `e`
 SELECT `c`.`PostalCode`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT `c`.`Region`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT `c`.`PostalCode`
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT `c`.`Region`
 FROM `Customers` AS `c`

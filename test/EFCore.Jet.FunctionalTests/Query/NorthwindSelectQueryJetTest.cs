@@ -2172,10 +2172,10 @@ ORDER BY `c`.`CustomerID`");
             await base.VisitLambda_should_not_be_visited_trivially(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`CustomerID` LIKE 'A%'
+WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'A%')
 """);
         }
 
@@ -2344,7 +2344,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 SELECT 1
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT 1
 FROM `Customers` AS `c`

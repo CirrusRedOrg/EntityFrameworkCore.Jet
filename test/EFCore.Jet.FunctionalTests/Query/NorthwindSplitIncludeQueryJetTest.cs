@@ -126,10 +126,10 @@ ORDER BY `t`.`CompanyName` DESC, `t`.`CustomerID`
 """);
     }
 
-    /*public override async Task Include_collection_skip_no_order_by(bool async)
+    public override async Task Include_collection_skip_no_order_by(bool async)
         => Assert.Equal(
             JetStrings.SplitQueryOffsetWithoutOrderBy,
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_no_order_by(async))).Message);*/
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_no_order_by(async))).Message);
 
     public override async Task Include_collection_take_no_order_by(bool async)
     {
@@ -153,10 +153,10 @@ ORDER BY `t`.`CustomerID`
 """);
     }
 
-    /*public override async Task Include_collection_skip_take_no_order_by(bool async)
+    public override async Task Include_collection_skip_take_no_order_by(bool async)
         => Assert.Equal(
             JetStrings.SplitQueryOffsetWithoutOrderBy,
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_take_no_order_by(async))).Message);*/
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_take_no_order_by(async))).Message);
 
     public override async Task Include_reference_and_collection(bool async)
     {

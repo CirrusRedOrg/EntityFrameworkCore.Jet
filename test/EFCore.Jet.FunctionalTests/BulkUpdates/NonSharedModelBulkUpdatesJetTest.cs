@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
@@ -68,6 +69,41 @@ SET `Title` = IIF(`o`.`Title` IS NULL, '', `o`.`Title`) & '_Suffix'
 """);
     }
 
+    public override async Task Update_owned_and_non_owned_properties_with_table_sharing(bool async)
+    {
+        await base.Update_owned_and_non_owned_properties_with_table_sharing(async);
+
+        AssertSql(
+            """
+UPDATE `Owner` AS `o`
+SET `OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`Title`))),
+    `Title` = (`o`.`OwnedReference_Number` & '')
+""");
+    }
+
+    public override async Task Update_main_table_in_entity_with_entity_splitting(bool async)
+    {
+        await base.Update_main_table_in_entity_with_entity_splitting(async);
+
+        AssertSql(
+            """
+UPDATE `Blogs` AS `b`
+SET `CreationTimestamp` = #2020-01-01#
+""");
+    }
+
+    public override async Task Update_non_main_table_in_entity_with_entity_splitting(bool async)
+    {
+        await base.Update_non_main_table_in_entity_with_entity_splitting(async);
+
+        AssertSql(
+            """
+UPDATE `BlogsPart1` AS `b0`
+SET `Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`))),
+    `Title` = (`b0`.`Rating` & '')
+""");
+    }
+
     public override async Task Delete_entity_with_auto_include(bool async)
     {
         await base.Delete_entity_with_auto_include(async);
@@ -93,6 +129,22 @@ WHERE `p`.`Id` IN (
     LEFT JOIN `Blogs` AS `b` ON `p0`.`BlogId` = `b`.`Id`
     WHERE `b`.`Title` LIKE 'Arthur%'
 )
+""");
+    }
+
+    public override async Task Update_with_alias_uniquification_in_setter_subquery(bool async)
+    {
+        await base.Update_with_alias_uniquification_in_setter_subquery(async);
+
+        AssertSql(
+            """
+UPDATE [o]
+SET [o].[Total] = (
+    SELECT COALESCE(SUM([o0].[Amount]), 0)
+    FROM [OrderProduct] AS [o0]
+    WHERE [o].[Id] = [o0].[OrderId])
+FROM [Orders] AS [o]
+WHERE [o].[Id] = 1
 """);
     }
 

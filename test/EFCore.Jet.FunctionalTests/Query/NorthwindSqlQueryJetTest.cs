@@ -2,8 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Data.Common;
+using System.Data.Odbc;
 using System.Data.OleDb;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -77,7 +79,13 @@ SELECT `ProductID` FROM `Products` WHERE `ProductID` = @p0
     }
 
     protected override DbParameter CreateDbParameter(string name, object value)
-        => new OleDbParameter { ParameterName = name, Value = value };
+    {
+        if (((JetTestStore)Fixture.TestStore).IsOleDb())
+        {
+            return new OleDbParameter { ParameterName = name, Value = value };
+        }
+        return new OdbcParameter { ParameterName = name, Value = value };
+    }
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

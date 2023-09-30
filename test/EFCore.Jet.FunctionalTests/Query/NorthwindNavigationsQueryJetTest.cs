@@ -857,7 +857,7 @@ WHERE (
     WHERE `c`.`Country` = `c0`.`Country` OR (`c`.`Country` IS NULL AND `c0`.`Country` IS NULL)) > 0 AND `o`.`OrderID` IN (10643, 10692)
 """);
         }
-        
+
         public override async Task Project_single_scalar_value_subquery_is_properly_inlined(bool isAsync)
         {
             await base.Project_single_scalar_value_subquery_is_properly_inlined(isAsync);
@@ -960,7 +960,7 @@ WHERE (
     WHERE `c`.`CustomerID` IS NOT NULL AND `c`.`CustomerID` = `o0`.`CustomerID` AND `o0`.`OrderID` > 10260) > 30
 """);
         }
-        
+
         public override async Task Multiple_include_with_multiple_optional_navigations(bool isAsync)
         {
             await base.Multiple_include_with_multiple_optional_navigations(isAsync);
@@ -972,6 +972,99 @@ INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE `c`.`City` = 'London'");
+        }
+
+        public override async Task Navigation_in_subquery_referencing_outer_query_with_client_side_result_operator_and_count(bool async)
+        {
+            await base.Navigation_in_subquery_referencing_outer_query_with_client_side_result_operator_and_count(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
+WHERE [o].[OrderID] IN (10643, 10692) AND (
+    SELECT COUNT(*)
+    FROM (
+        SELECT DISTINCT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
+        FROM [Order Details] AS [o0]
+        INNER JOIN [Orders] AS [o1] ON [o0].[OrderID] = [o1].[OrderID]
+        LEFT JOIN [Customers] AS [c0] ON [o1].[CustomerID] = [c0].[CustomerID]
+        WHERE [c].[Country] = [c0].[Country] OR ([c].[Country] IS NULL AND [c0].[Country] IS NULL)
+    ) AS [t]) > 0
+""");
+        }
+
+        public override async Task Select_Where_Navigation_Scalar_Equals_Navigation_Scalar(bool async)
+        {
+            await base.Select_Where_Navigation_Scalar_Equals_Navigation_Scalar(async);
+
+            AssertSql(
+                """
+SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`CustomerID0`, `t0`.`EmployeeID0`, `t0`.`OrderDate0`
+FROM ((
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`OrderID` AS `OrderID0`, `t`.`CustomerID` AS `CustomerID0`, `t`.`EmployeeID` AS `EmployeeID0`, `t`.`OrderDate` AS `OrderDate0`
+    FROM `Orders` AS `o`,
+    (
+        SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+        FROM `Orders` AS `o0`
+        WHERE `o0`.`OrderID` < 10400
+    ) AS `t`
+    WHERE `o`.`OrderID` < 10300
+) AS `t0`
+LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
+WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
+""");
+        }
+
+        public override async Task Where_subquery_on_navigation_client_eval(bool async)
+        {
+            await base.Where_subquery_on_navigation_client_eval(async);
+
+            AssertSql();
+        }
+
+        public override async Task Join_with_nav_projected_in_subquery_when_client_eval(bool async)
+        {
+            await base.Join_with_nav_projected_in_subquery_when_client_eval(async);
+
+            AssertSql();
+        }
+
+        public override async Task Join_with_nav_in_predicate_in_subquery_when_client_eval(bool async)
+        {
+            await base.Join_with_nav_in_predicate_in_subquery_when_client_eval(async);
+
+            AssertSql();
+        }
+
+        public override async Task Join_with_nav_in_orderby_in_subquery_when_client_eval(bool async)
+        {
+            await base.Join_with_nav_in_orderby_in_subquery_when_client_eval(async);
+
+            AssertSql();
+        }
+
+        public override async Task Select_Where_Navigation_Client(bool async)
+        {
+            await base.Select_Where_Navigation_Client(async);
+
+            AssertSql();
+        }
+
+        public override async Task Collection_select_nav_prop_all_client(bool async)
+        {
+            await base.Collection_select_nav_prop_all_client(async);
+
+            AssertSql();
+        }
+
+        public override async Task Collection_where_nav_prop_all_client(bool async)
+        {
+            await base.Collection_where_nav_prop_all_client(async);
+
+            AssertSql();
         }
 
         private void AssertSql(params string[] expected)

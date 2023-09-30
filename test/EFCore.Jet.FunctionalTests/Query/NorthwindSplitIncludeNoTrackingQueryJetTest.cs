@@ -3,6 +3,7 @@
 
 using System;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -27,7 +28,7 @@ public class NorthwindSplitIncludeNoTrackingQueryJetTest : NorthwindSplitInclude
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-    /*public override async Task Include_collection_skip_take_no_order_by(bool async)
+    public override async Task Include_collection_skip_take_no_order_by(bool async)
         => Assert.Equal(
             JetStrings.SplitQueryOffsetWithoutOrderBy,
             (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_take_no_order_by(async))).Message);
@@ -35,7 +36,7 @@ public class NorthwindSplitIncludeNoTrackingQueryJetTest : NorthwindSplitInclude
     public override async Task Include_collection_skip_no_order_by(bool async)
         => Assert.Equal(
             JetStrings.SplitQueryOffsetWithoutOrderBy,
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_no_order_by(async))).Message);*/
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_no_order_by(async))).Message);
 
     public override async Task Include_reference_GroupBy_Select(bool async)
     {

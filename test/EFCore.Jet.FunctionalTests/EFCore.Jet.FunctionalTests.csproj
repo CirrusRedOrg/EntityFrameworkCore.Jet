@@ -81,6 +81,7 @@
 		<None Include="MigrationsSqlGeneratorTestBase.cs" />
 		<None Include="Migrations\MigrationsJetTest.cs" />
 		<None Include="PropertyEntryJetTest.cs" />
+		<None Include="Query\PrimitiveCollectionsQueryJetTest.cs" />
 		<None Include="StoreGeneratedJetTest.cs" />
 		<None Include="StoreGeneratedSqlServerTestBase.cs" />
 		<None Include="TwoDatabasesJetTest.cs" />
@@ -121,6 +122,7 @@
 		<Compile Remove="MigrationsSqlGeneratorTestBase.cs" />
 		<Compile Remove="Migrations\MigrationsJetTest.cs" />
 		<Compile Remove="PropertyEntryJetTest.cs" />
+		<Compile Remove="Query\PrimitiveCollectionsQueryJetTest.cs" />
 		<Compile Remove="StoreGeneratedJetTest.cs" />
 		<Compile Remove="StoreGeneratedSqlServerTestBase.cs" />
 		<Compile Remove="TwoDatabasesJetTest.cs" />

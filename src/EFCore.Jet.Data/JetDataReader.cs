@@ -186,19 +186,39 @@ namespace EntityFrameworkCore.Jet.Data
         public override decimal GetDecimal(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : Convert.ToDecimal(value);
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+
+            try
+            {
+                return Convert.ToDecimal(value);
+            }
+            catch
+            {
+                return (decimal)value;
+            }
         }
 
         public override double GetDouble(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : Convert.ToDouble(value);
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+
+            try
+            {
+                return Convert.ToDouble(value);
+            }
+            catch
+            {
+                return (double)value;
+            }
         }
 
         public override System.Collections.IEnumerator GetEnumerator()
@@ -210,10 +230,20 @@ namespace EntityFrameworkCore.Jet.Data
         public override float GetFloat(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : Convert.ToSingle(value);
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+
+            try
+            {
+                return Convert.ToSingle(value);
+            }
+            catch
+            {
+                return (float)value;
+            }
         }
 
         public override Guid GetGuid(int ordinal)
@@ -231,31 +261,100 @@ namespace EntityFrameworkCore.Jet.Data
         public override short GetInt16(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : Convert.ToInt16(value);
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+
+            try
+            {
+                return Convert.ToInt16(value);
+            }
+            catch
+            {
+                if (value is string stringvalue)
+                {
+                    var bt = Encoding.Unicode.GetBytes(stringvalue);
+                    switch (bt.Length)
+                    {
+                        case 2: return BitConverter.ToInt16(bt, 0);
+                    }
+                }
+            }
+            return (short)value;
         }
 
         public override int GetInt32(int ordinal)
         {
+
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : value is string stringValue
-                    ? BitConverter.ToInt32(Encoding.Unicode.GetBytes(stringValue), 0)
-                    : Convert.ToInt32(value);
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+            //We sometimes need to do some conversions due to how Jet handles some types
+            //Some functions seem to return a double when an int was passed in (e.g. SUM)
+            //If we get a numeric type returned it is easy to convert that to the required int
+            //However there are some bugs/weird behaviour when you get to UNION queries
+            //especially when one of the columns is NULL being combined with another query
+            //where the data type is an int or possibly string
+            //Someetimes we get back the number in a string e.g. "1"
+            //or we can get back what is claimed as a string but is better being treated as a byte array e.g "\u0003\0"
+            //In the first instance a standard conversion is desirable and works
+            //In the second instance we need to get the bytes and convert them to an int
+            //Note also that there are some tests (bad_data_error_handling) that expect an exception to be thrown
+            //These purposely create a query that selects a text column and names it into a name that is meant to produce an int
+            //The text e.g. "Chai" should not be attempted to convert to bytes and then to an int but should throw an exception
+            try
+            {
+                return Convert.ToInt32(value);
+            }
+            catch
+            {
+                if (value is string stringvalue)
+                {
+                    var bt = Encoding.Unicode.GetBytes(stringvalue);
+                    switch (bt.Length)
+                    {
+                        case 2: return BitConverter.ToInt16(bt, 0);
+                        case 4: return BitConverter.ToInt32(bt, 0);
+                    }
+                }
+            }
+            return (int)value;
         }
 
         public override long GetInt64(int ordinal)
         {
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? default
-                : Convert.ToInt64(value);
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+
+            try
+            {
+                return Convert.ToInt64(value);
+            }
+            catch
+            {
+                if (value is string stringvalue)
+                {
+                    var bt = Encoding.Unicode.GetBytes(stringvalue);
+                    switch (bt.Length)
+                    {
+                        case 2: return BitConverter.ToInt16(bt, 0);
+                        case 4: return BitConverter.ToInt32(bt, 0);
+                        case 8: return BitConverter.ToInt64(bt, 0);
+                    }
+                }
+            }
+
+            return (long)value;
         }
 
         public override string GetName(int ordinal)

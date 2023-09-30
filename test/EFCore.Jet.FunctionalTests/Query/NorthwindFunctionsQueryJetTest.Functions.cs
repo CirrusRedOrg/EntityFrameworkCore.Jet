@@ -96,6 +96,20 @@ FROM `Customers` AS `c`
 WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE 'M%')");
         }
 
+        public override async Task String_StartsWith_Parameter(bool async)
+        {
+            await base.String_StartsWith_Parameter(async);
+
+            AssertSql(
+                """
+@__pattern_0_rewritten='M%' (Size = 30)
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`ContactName` LIKE @__pattern_0_rewritten
+""");
+        }
+
         public override async Task String_StartsWith_Identity(bool isAsync)
         {
             await base.String_StartsWith_Identity(isAsync);
@@ -134,6 +148,20 @@ WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE 'M%')");
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE (`c`.`ContactName` IS NOT NULL) AND (`c`.`ContactName` LIKE '%b')");
+        }
+
+        public override async Task String_EndsWith_Parameter(bool async)
+        {
+            await base.String_EndsWith_Parameter(async);
+
+            AssertSql(
+                """
+@__pattern_0_rewritten='%b' (Size = 30)
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`ContactName` LIKE @__pattern_0_rewritten
+""");
         }
 
         public override async Task String_EndsWith_Identity(bool isAsync)
@@ -1130,6 +1158,30 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
             AssertSql();
         }
 
+        public override async Task Where_math_degrees(bool async)
+        {
+            await base.Where_math_degrees(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND DEGREES(CAST([o].[Discount] AS float)) > 0.0E0
+""");
+        }
+
+        public override async Task Where_math_radians(bool async)
+        {
+            await base.Where_math_radians(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND RADIANS(CAST([o].[Discount] AS float)) > 0.0E0
+""");
+        }
+
         public override async Task Where_mathf_abs1(bool async)
         {
             await base.Where_mathf_abs1(async);
@@ -1403,6 +1455,30 @@ WHERE `o`.`OrderID` = 11077 AND TAN(`o`.`Discount`) > 0
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0
+""");
+        }
+
+        public override async Task Where_mathf_degrees(bool async)
+        {
+            await base.Where_mathf_degrees(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND DEGREES([o].[Discount]) > CAST(0 AS real)
+""");
+        }
+
+        public override async Task Where_mathf_radians(bool async)
+        {
+            await base.Where_mathf_radians(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND RADIANS([o].[Discount]) > CAST(0 AS real)
 """);
         }
 
@@ -2205,6 +2281,18 @@ WHERE `o`.`OrderDate` = CDATE({AssertSqlHelper.Parameter("@__arg_0")})");
                 $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE 0 = 1");
+        }
+
+        public override async Task Where_DateOnly_FromDateTime(bool async)
+        {
+            await base.Where_DateOnly_FromDateTime(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE [o].[OrderDate] IS NOT NULL AND CAST([o].[OrderDate] AS date) = '1996-09-16'
+""");
         }
 
         public override async Task Projecting_Math_Truncate_and_ordering_by_it_twice(bool isAsync)

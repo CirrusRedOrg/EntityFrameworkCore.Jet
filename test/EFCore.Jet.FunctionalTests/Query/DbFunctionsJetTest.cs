@@ -22,8 +22,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();
-            //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
+
+        [ConditionalFact]
+        public virtual void Check_all_tests_overridden()
+            => TestHelpers.AssertAllMethodsOverridden(GetType());
 
         public override async Task Like_literal(bool async)
         {
@@ -55,14 +59,64 @@ FROM `Customers` AS `c`
 WHERE `c`.`ContactName` LIKE '!%' ESCAPE '!'");
         }
 
-        public override Task Like_all_literals(bool async)
+        public override async Task Like_all_literals(bool async)
         {
-            return base.Like_all_literals(async);
+            await base.Like_all_literals(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM `Customers` AS `c`
+WHERE 'FOO' LIKE '%O%'
+""");
         }
 
-        public override Task Like_all_literals_with_escape(bool async)
+        public override async Task Like_all_literals_with_escape(bool async)
         {
-            return base.Like_all_literals_with_escape(async);
+            await base.Like_all_literals_with_escape(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Customers] AS [c]
+WHERE N'%' LIKE N'!%' ESCAPE N'!'
+""");
+        }
+
+        public override async Task Collate_case_insensitive(bool async)
+        {
+            await base.Collate_case_insensitive(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] COLLATE Latin1_General_CI_AI = N'maria anders'
+""");
+        }
+
+        public override async Task Collate_case_sensitive(bool async)
+        {
+            await base.Collate_case_sensitive(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] COLLATE Latin1_General_CS_AS = N'maria anders'
+""");
+        }
+
+        public override async Task Collate_case_sensitive_constant(bool async)
+        {
+            await base.Collate_case_sensitive_constant(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] = N'maria anders' COLLATE Latin1_General_CS_AS
+""");
         }
 
         [ConditionalFact]
@@ -226,6 +280,30 @@ WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`O
             Assert.Equal(
                 CoreStrings.FunctionOnClient(nameof(JetDbFunctionsExtensions.IsDate)),
                 exIsDate.Message);
+        }
+
+        public override async Task Random_return_less_than_1(bool async)
+        {
+            await base.Random_return_less_than_1(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM `Orders` AS `o`
+WHERE Rnd() < 1.0
+""");
+        }
+
+        public override async Task Random_return_greater_than_0(bool async)
+        {
+            await base.Random_return_greater_than_0(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM `Orders` AS `o`
+WHERE Rnd() >= 0.0
+""");
         }
 
         private void AssertSql(params string[] expected)

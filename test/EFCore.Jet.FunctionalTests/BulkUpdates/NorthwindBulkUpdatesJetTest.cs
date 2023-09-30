@@ -1115,9 +1115,9 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         AssertExecuteUpdateSql();
     }
 
-    public override async Task Update_multiple_entity_throws(bool async)
+    public override async Task Update_multiple_tables_throws(bool async)
     {
-        await base.Update_multiple_entity_throws(async);
+        await base.Update_multiple_tables_throws(async);
 
         AssertExecuteUpdateSql();
     }

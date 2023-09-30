@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.Internal
     {
         private static readonly ResourceManager _resourceManager
             = new ResourceManager("EntityFrameworkCore.Jet.Properties.JetStrings", typeof(JetStrings).GetTypeInfo().Assembly);
-        
+
         /// <summary>
         ///     Generating idempotent scripts for migration is not currently supported by Jet. For more information, see http://go.microsoft.com/fwlink/?LinkId=723262.
         /// </summary>
@@ -58,6 +58,12 @@ namespace EntityFrameworkCore.Jet.Internal
             => string.Format(
                 GetString("SequenceBadType", nameof(property), nameof(entityType), nameof(propertyType)),
                 property, entityType, propertyType);
+
+        /// <summary>
+        ///     The query uses 'Skip' without specifying ordering and uses split query mode. This generates incorrect results. Either provide ordering or run query in single query mode using `AsSingleQuery()`. See https://go.microsoft.com/fwlink/?linkid=2196526 for more information.
+        /// </summary>
+        public static string SplitQueryOffsetWithoutOrderBy
+            => GetString("SplitQueryOffsetWithoutOrderBy");
 
         /// <summary>
         ///     Jet requires the table name to be specified for rename index operations. Specify table name in the call to MigrationBuilder.RenameIndex.
@@ -592,7 +598,7 @@ namespace EntityFrameworkCore.Jet.Internal
 
             return (EventDefinition<string, string, bool>)definition;
         }
-        
+
         /// <summary>
         ///     Skipped index with name: {indexName}, table: {tableName}, is unique: {isUnique}.
         /// </summary>

@@ -46,6 +46,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         //private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private List<string> _nullNumerics = new List<string>();
+        private Stack<Expression> parent = new Stack<Expression>();
         private CoreTypeMapping? _boolTypeMapping;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -315,9 +317,30 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return result;
         }
 
-        protected override Expression VisitInnerJoin(InnerJoinExpression innerJoinExpression)
+        protected override Expression VisitProjection(ProjectionExpression projectionExpression)
         {
-            return base.VisitInnerJoin(innerJoinExpression);
+            if (projectionExpression.Expression is SqlConstantExpression { Value: null } constantExpression && (constantExpression.Type == typeof(int) || constantExpression.Type == typeof(double) || constantExpression.Type == typeof(float) || constantExpression.Type == typeof(decimal) || constantExpression.Type == typeof(short)))
+            {
+                _nullNumerics.Add(projectionExpression.Alias);
+            }
+            return base.VisitProjection(projectionExpression);
+        }
+
+        protected override Expression VisitColumn(ColumnExpression columnExpression)
+        {
+            if (columnExpression.IsNullable && _nullNumerics.Contains(columnExpression.Name) && _convertMappings.TryGetValue(columnExpression.Type.Name, out var function))
+            {
+
+                if (parent.TryPeek(out var exp) && exp is SqlBinaryExpression)
+                {
+                    Sql.Append(function);
+                    Sql.Append("(");
+                    base.VisitColumn(columnExpression);
+                    Sql.Append(")");
+                    return columnExpression;
+                }
+            }
+            return base.VisitColumn(columnExpression);
         }
 
         private bool IsNonComposedSetOperation(SelectExpression selectExpression)
@@ -411,8 +434,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Visit(caseexp);
                 return sqlBinaryExpression;
             }
-
-            return base.VisitSqlBinary(sqlBinaryExpression);
+            parent.Push(sqlBinaryExpression);
+            var res = base.VisitSqlBinary(sqlBinaryExpression);
+            parent.Pop();
+            return res;
         }
 
         protected override void GenerateIn(InExpression inExpression, bool negated)

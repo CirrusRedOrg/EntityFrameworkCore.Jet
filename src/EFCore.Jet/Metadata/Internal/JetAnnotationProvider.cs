@@ -6,6 +6,7 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Metadata.Internal
@@ -119,6 +120,19 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
                 }
             }
         }
+
+        public override IEnumerable<IAnnotation> For(IForeignKeyConstraint foreignKey, bool designTime)
+        {
+            var table = StoreObjectIdentifier.Table(foreignKey.Table.Name, foreignKey.Table.Schema);
+            foreach (var fk in foreignKey.MappedForeignKeys)
+            {
+                if (fk.FindAnnotation(JetAnnotationNames.Prefix + "MatchSimple") != null)
+                {
+                    yield return new Annotation(JetAnnotationNames.Prefix + "MatchSimple", "MatchSimple");
+                }
+            }
+        }
+
 
         private static bool HasConverter(IProperty property)
             => (property.GetValueConverter() ?? property.FindTypeMapping()?.Converter) != null;

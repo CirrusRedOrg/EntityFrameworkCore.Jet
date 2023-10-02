@@ -1,10 +1,10 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Linq;
+using EFCore.Jet.CustomBaseTests.GearsOfWarModel;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
@@ -46,19 +46,26 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
             mission.Timeline = mission.Timeline.AddYears(100);
         }
         */
-        foreach (var gear in data.Gears)
+        /*foreach (var gear in data.Gears)
         {
             if (gear.LeaderSquadId != 0) continue;
             gear.LeaderSquadId = 1;
             gear.LeaderNickname = "Marcus";
             ((Officer)gear).Reports.Add(gear);
-        }
+        }*/
         return data;
     }
 
     protected override void Seed(GearsOfWarContext context)
     {
         var squads = GearsOfWarData.CreateSquads();
+        /*squads.Add(new()
+        {
+            Id = 3,
+            Name = "Default",
+            Banner = new byte[] { 0x04, 0x05 },
+            Banner5 = new byte[] { 0x04, 0x05, 0x06, 0x07, 0x08 }
+        });*/
         var missions = GearsOfWarData.CreateMissions();
         var squadMissions = GearsOfWarData.CreateSquadMissions();
         var cities = GearsOfWarData.CreateCities();
@@ -72,12 +79,13 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
         {
             mission.Timeline = new DateTimeOffset(new DateTime(1753, 1, 1));
         }*/
-        foreach (var gear in gears)
+        /*foreach (var gear in gears)
         {
             if (gear.LeaderSquadId != 0) continue;
-            gear.LeaderSquadId = 1;
-            gear.LeaderNickname = "Marcus";
-        }
+            gear.LeaderSquadId = 3;
+            gear.LeaderNickname = "Default";
+            ((Officer)gear).Reports.Add(gear);
+        }*/
         GearsOfWarData.WireUp(
             squads, missions, squadMissions, cities, weapons, tags, gears, locustLeaders, factions, locustHighCommands);
 

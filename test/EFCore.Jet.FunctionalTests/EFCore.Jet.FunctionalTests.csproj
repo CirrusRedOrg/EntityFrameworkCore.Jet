@@ -90,6 +90,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
+    <ProjectReference Include="..\EFCore.Jet.CustomBaseTests\EFCore.Jet.CustomBaseTests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

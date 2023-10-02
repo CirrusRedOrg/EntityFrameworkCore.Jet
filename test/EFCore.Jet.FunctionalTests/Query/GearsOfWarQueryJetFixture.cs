@@ -1,10 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using EFCore.Jet.CustomBaseTests.GearsOfWarModel;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -17,6 +16,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
             base.OnModelCreating(modelBuilder, context);
+
+            modelBuilder.Entity<Officer>().HasMany(o => o.Reports).WithOne().HasForeignKey(
+                o => new { o.LeaderNickname, o.LeaderSquadId }).MatchSimple();
 
             modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
 
@@ -57,13 +59,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 mission.Timeline = mission.Timeline.AddYears(100);
             }
             */
-            foreach (var gear in data.Gears)
+            /*foreach (var gear in data.Gears)
             {
                 if (gear.LeaderSquadId != 0) continue;
                 gear.LeaderSquadId = 1;
                 gear.LeaderNickname = "Marcus";
                 ((Officer)gear).Reports.Add(gear);
-            }
+            }*/
             return data;
         }
 
@@ -83,12 +85,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             {
                 mission.Timeline = new DateTimeOffset(new DateTime(1753, 1, 1));
             }*/
-            foreach (var gear in gears)
+            /*foreach (var gear in gears)
             {
                 if (gear.LeaderSquadId != 0) continue;
                 gear.LeaderSquadId = 1;
                 gear.LeaderNickname = "Marcus";
-            }
+            }*/
             GearsOfWarData.WireUp(
                 squads, missions, squadMissions, cities, weapons, tags, gears, locustLeaders, factions, locustHighCommands);
 
@@ -100,7 +102,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             context.Squads.AddRange(squads);
             context.Missions.AddRange(missions);
-            context.SquadMissions.AddRange(squadMissions);
             context.Cities.AddRange(cities);
             context.Weapons.AddRange(weapons);
             context.Tags.AddRange(tags);

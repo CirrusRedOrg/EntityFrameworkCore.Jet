@@ -1,10 +1,10 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Linq;
+using EFCore.Jet.CustomBaseTests.GearsOfWarModel;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
@@ -19,6 +19,9 @@ public class TPCGearsOfWarQueryJetFixture : TPCGearsOfWarQueryRelationalFixture
         base.OnModelCreating(modelBuilder, context);
 
         modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
+
+        modelBuilder.Entity<Officer>().HasMany(o => o.Reports).WithOne().HasForeignKey(
+            o => new { o.LeaderNickname, o.LeaderSquadId }).MatchSimple();
 
         // No support yet for DateOnly/TimeOnly (#24507)
         modelBuilder.Entity<Mission>(
@@ -46,13 +49,13 @@ public class TPCGearsOfWarQueryJetFixture : TPCGearsOfWarQueryRelationalFixture
             mission.Timeline = mission.Timeline.AddYears(100);
         }
         */
-        foreach (var gear in data.Gears)
+        /*foreach (var gear in data.Gears)
         {
             if (gear.LeaderSquadId != 0) continue;
             gear.LeaderSquadId = 1;
             gear.LeaderNickname = "Marcus";
             ((Officer)gear).Reports.Add(gear);
-        }
+        }*/
         return data;
     }
 
@@ -72,12 +75,12 @@ public class TPCGearsOfWarQueryJetFixture : TPCGearsOfWarQueryRelationalFixture
         {
             mission.Timeline = new DateTimeOffset(new DateTime(1753, 1, 1));
         }*/
-        foreach (var gear in gears)
+        /*foreach (var gear in gears)
         {
             if (gear.LeaderSquadId != 0) continue;
             gear.LeaderSquadId = 1;
             gear.LeaderNickname = "Marcus";
-        }
+        }*/
         GearsOfWarData.WireUp(
             squads, missions, squadMissions, cities, weapons, tags, gears, locustLeaders, factions, locustHighCommands);
 

@@ -43,7 +43,7 @@ public abstract class GearsOfWarFromSqlQueryTestBase<TFixture> : IClassFixture<T
     private FormattableString NormalizeDelimitersInInterpolatedString(FormattableString sql)
         => Fixture.TestStore.NormalizeDelimitersInInterpolatedString(sql);
 
-    protected GearsOfWarModel.GearsOfWarContext CreateContext()
+    protected GearsOfWarContext CreateContext()
         => Fixture.CreateContext();
 
     protected virtual void ClearLog()

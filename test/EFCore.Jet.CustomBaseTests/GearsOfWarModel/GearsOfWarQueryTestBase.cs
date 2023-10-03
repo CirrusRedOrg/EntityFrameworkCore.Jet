@@ -47,34 +47,6 @@ public abstract class GearsOfWarQueryTestBase<TFixture> : QueryTestBase<TFixture
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
-    public virtual Task Negate_on_binary_expression(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<Squad>().Where(s => s.Id == -(s.Id + s.Id)));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Negate_on_column(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<Squad>().Where(s => s.Id == -s.Id));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Double_negate_on_column(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<Squad>().Where(s => -(-s.Id) == s.Id));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Negate_on_like_expression(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<Squad>().Where(s => !s.Name.StartsWith("us")));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
     public virtual Task Entity_equality_empty(bool async)
         => AssertQuery(
             async,
@@ -105,6 +77,13 @@ public abstract class GearsOfWarQueryTestBase<TFixture> : QueryTestBase<TFixture
                 Assert.Equal(e.A, a.A);
                 Assert.Equal(e.B.ToLower(), a.B.ToLower());
             });
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task ToString_string_property_projection(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<Weapon>().Select(w => w.Name.ToString()));
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
@@ -2647,7 +2626,7 @@ public abstract class GearsOfWarQueryTestBase<TFixture> : QueryTestBase<TFixture
         => weapons.OrderBy(w => w.Id).FirstOrDefault();
 
     private static IEnumerable<Gear> Veterans(IEnumerable<Gear> gears)
-        => gears.Where(g => g.Nickname == "Marcus" || g.Nickname == "Dom" || g.Nickname == "Cole Train" || g.Nickname == "Baird");
+        => gears.Where(g => g.Nickname is "Marcus" or "Dom" or "Cole Train" or "Baird");
 
     [ConditionalTheory]
     [MemberData(nameof(IsAsyncData))]
@@ -8185,6 +8164,104 @@ public abstract class GearsOfWarQueryTestBase<TFixture> : QueryTestBase<TFixture
         => AssertQuery(
             async,
             ss => ss.Set<Gear>().Where(s => s.Weapons.OrderBy(e => e.Name).FirstOrDefault() == null));
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task ElementAt_basic_with_OrderBy(bool async)
+        => AssertElementAt(
+            async,
+            ss => ss.Set<Gear>().OrderBy(g => g.FullName),
+            () => 0);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task ElementAtOrDefault_basic_with_OrderBy(bool async)
+        => AssertElementAtOrDefault(
+            async,
+            ss => ss.Set<Gear>().OrderBy(g => g.FullName),
+            () => 1);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task ElementAtOrDefault_basic_with_OrderBy_parameter(bool async)
+    {
+        var prm = 2;
+
+        return AssertElementAtOrDefault(
+            async,
+            ss => ss.Set<Gear>().OrderBy(g => g.FullName),
+            () => prm);
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task Where_subquery_with_ElementAtOrDefault_equality_to_null_with_composite_key(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<Squad>().Where(s => s.Members.OrderBy(e => e.Nickname).ElementAtOrDefault(2) == null));
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task Where_subquery_with_ElementAt_using_column_as_index(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<Squad>().Where(s => s.Members.OrderBy(m => m.Nickname).ElementAt(s.Id).Nickname == "Cole Train"),
+            ss => ss.Set<Squad>().Where(s => s.Members.OrderBy(m => m.Nickname).ElementAtOrDefault(s.Id).Nickname == "Cole Train"));
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task Using_indexer_on_byte_array_and_string_in_projection(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<Squad>().Select(x => new { x.Id, ByteArray = x.Banner[0], String = x.Name[1] }),
+            elementSorter: e => e.Id,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.Id, a.Id);
+                Assert.Equal(e.ByteArray, a.ByteArray);
+                Assert.Equal(e.String, a.String);
+            });
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task DateTimeOffset_to_unix_time_milliseconds(bool async)
+    {
+        long unixEpochMilliseconds = DateTimeOffset.UnixEpoch.ToUnixTimeMilliseconds();
+
+        return AssertQuery(
+            async,
+            ss => ss.Set<Gear>()
+                .Include(g => g.Squad.Missions)
+                .Where(s => s.Squad.Missions
+                    .Where(m => unixEpochMilliseconds == m.Mission.Timeline.ToUnixTimeMilliseconds())
+                    .FirstOrDefault() == null));
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task DateTimeOffset_to_unix_time_seconds(bool async)
+    {
+        long unixEpochSeconds = DateTimeOffset.UnixEpoch.ToUnixTimeSeconds();
+
+        return AssertQuery(
+            async,
+            ss => ss.Set<Gear>()
+                .Include(g => g.Squad.Missions)
+                .Where(s => s.Squad.Missions
+                    .Where(m => unixEpochSeconds == m.Mission.Timeline.ToUnixTimeSeconds())
+                    .FirstOrDefault() == null));
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task Set_operator_with_navigation_in_projection_groupby_aggregate(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<Gear>()
+                .Where(x => ss.Set<Gear>().Concat(ss.Set<Gear>()).Select(x => x.Nickname).Contains("Marcus"))
+                .Select(x => new { x.Squad.Name, x.CityOfBirth.Location })
+                .GroupBy(x => new { x.Name })
+                .Select(x => new { x.Key.Name, SumOfLengths = x.Sum(xx => xx.Location.Length) }));
 
     protected GearsOfWarContext CreateContext()
         => Fixture.CreateContext();

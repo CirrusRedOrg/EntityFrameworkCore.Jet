@@ -202,63 +202,63 @@ public class GearsOfWarData : ISetSource
             {
                 Id = 1,
                 Name = "Marcus' Lancer",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Cartridge,
+                AmmunitionType = AmmunitionType.Cartridge,
                 IsAutomatic = true
             },
             new()
             {
                 Id = 2,
                 Name = "Marcus' Gnasher",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Shell,
+                AmmunitionType = AmmunitionType.Shell,
                 IsAutomatic = false
             },
             new()
             {
                 Id = 3,
                 Name = "Dom's Hammerburst",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Cartridge,
+                AmmunitionType = AmmunitionType.Cartridge,
                 IsAutomatic = false
             },
             new()
             {
                 Id = 4,
                 Name = "Dom's Gnasher",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Shell,
+                AmmunitionType = AmmunitionType.Shell,
                 IsAutomatic = false
             },
             new()
             {
                 Id = 5,
                 Name = "Cole's Gnasher",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Shell,
+                AmmunitionType = AmmunitionType.Shell,
                 IsAutomatic = false
             },
             new()
             {
                 Id = 6,
                 Name = "Cole's Mulcher",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Cartridge,
+                AmmunitionType = AmmunitionType.Cartridge,
                 IsAutomatic = true
             },
             new()
             {
                 Id = 7,
                 Name = "Baird's Lancer",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Cartridge,
+                AmmunitionType = AmmunitionType.Cartridge,
                 IsAutomatic = true
             },
             new()
             {
                 Id = 8,
                 Name = "Baird's Gnasher",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Shell,
+                AmmunitionType = AmmunitionType.Shell,
                 IsAutomatic = false
             },
             new()
             {
                 Id = 9,
                 Name = "Paduk's Markza",
-                AmmunitionType = global::EFCore.Jet.CustomBaseTests.GearsOfWarModel.AmmunitionType.Cartridge,
+                AmmunitionType = AmmunitionType.Cartridge,
                 IsAutomatic = false
             },
             new()

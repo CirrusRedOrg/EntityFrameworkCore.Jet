@@ -4912,7 +4912,7 @@ LEFT JOIN (
         FROM `Officers` AS `o0`
     ) AS `t2`
     INNER JOIN `Cities` AS `c` ON `t2`.`CityOfBirthName` = `c`.`Name`
-) AS `t1` ON (`t0`.`Nickname` = `t1`.`LeaderNickname` OR ((`t0`.`Nickname` IS NULL) AND (`t1`.`LeaderNickname` IS NULL))) AND (`t0`.`SquadId` = `t1`.`LeaderSquadId` OR ((`t0`.`SquadId` IS NULL) AND (`t1`.`LeaderSquadId` IS NULL)))
+) AS `t1` ON (`t0`.`Nickname` = `t1`.`LeaderNickname` OR (`t0`.`Nickname` IS NULL AND `t1`.`LeaderNickname` IS NULL)) AND (`t0`.`SquadId` = `t1`.`LeaderSquadId` OR (`t0`.`SquadId` IS NULL AND `t1`.`LeaderSquadId` IS NULL))
 ORDER BY `t`.`Name`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`, `t1`.`SquadId`
 """);
     }
@@ -5126,7 +5126,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o0`
-) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR ((`t`.`Nickname` IS NULL) AND (`t0`.`LeaderNickname` IS NULL))) AND (`t`.`SquadId` = `t0`.`LeaderSquadId` OR ((`t`.`SquadId` IS NULL) AND (`t0`.`LeaderSquadId` IS NULL)))
+) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR (`t`.`Nickname` IS NULL AND `t0`.`LeaderNickname` IS NULL)) AND (`t`.`SquadId` = `t0`.`LeaderSquadId` OR (`t`.`SquadId` IS NULL AND `t0`.`LeaderSquadId` IS NULL))
 ORDER BY `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
@@ -5216,7 +5216,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o0`
-) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR ((`t`.`Nickname` IS NULL) AND (`t0`.`LeaderNickname` IS NULL))) AND (`t`.`SquadId` = `t0`.`LeaderSquadId` OR ((`t`.`SquadId` IS NULL) AND (`t0`.`LeaderSquadId` IS NULL)))
+) AS `t0` ON (`t`.`Nickname` = `t0`.`LeaderNickname` OR (`t`.`Nickname` IS NULL AND `t0`.`LeaderNickname` IS NULL)) AND (`t`.`SquadId` = `t0`.`LeaderSquadId` OR (`t`.`SquadId` IS NULL AND `t0`.`LeaderSquadId` IS NULL))
 ORDER BY `l`.`Id`, `l0`.`Name`, `t`.`Nickname`, `t`.`SquadId`, `t0`.`Nickname`
 """);
     }
@@ -6712,7 +6712,7 @@ FROM (
         SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
         FROM `Officers` AS `o`
     ) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`)
-    LEFT JOIN `Tags` AS `t1` ON (`t0`.`Nickname` = `t1`.`GearNickName` OR ((`t0`.`Nickname` IS NULL) AND (`t1`.`GearNickName` IS NULL))) AND (`t0`.`SquadId` = `t1`.`GearSquadId` OR ((`t0`.`SquadId` IS NULL) AND (`t1`.`GearSquadId` IS NULL)))
+    LEFT JOIN `Tags` AS `t1` ON (`t0`.`Nickname` = `t1`.`GearNickName` OR (`t0`.`Nickname` IS NULL AND `t1`.`GearNickName` IS NULL)) AND (`t0`.`SquadId` = `t1`.`GearSquadId` OR (`t0`.`SquadId` IS NULL AND `t1`.`GearSquadId` IS NULL))
     ORDER BY `t1`.`Note`
 ) AS `t2`
 LEFT JOIN `Weapons` AS `w` ON `t2`.`FullName` = `w`.`OwnerFullName`
@@ -8979,7 +8979,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o0`
-) AS `t1` ON (`t0`.`Nickname` = `t1`.`LeaderNickname` OR ((`t0`.`Nickname` IS NULL) AND (`t1`.`LeaderNickname` IS NULL))) AND (`t0`.`SquadId` = `t1`.`LeaderSquadId` OR ((`t0`.`SquadId` IS NULL) AND (`t1`.`LeaderSquadId` IS NULL)))
+) AS `t1` ON (`t0`.`Nickname` = `t1`.`LeaderNickname` OR (`t0`.`Nickname` IS NULL AND `t1`.`LeaderNickname` IS NULL)) AND (`t0`.`SquadId` = `t1`.`LeaderSquadId` OR (`t0`.`SquadId` IS NULL AND `t1`.`LeaderSquadId` IS NULL))
 WHERE `t0`.`Discriminator` = 'Officer'
 ORDER BY `t`.`Id`, `t0`.`Nickname`, `t0`.`SquadId`, `t1`.`Nickname`
 """);
@@ -10990,28 +10990,28 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
 
         AssertSql(
             """
-    SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
-    FROM (
-        SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
-        FROM `LocustLeaders` AS `l`
-        UNION ALL
-        SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
-        FROM `LocustCommanders` AS `l0`
-    ) AS `t`
-    WHERE `t`.`Discriminator` = 'LocustCommander' AND (CLNG(`t`.`HighCommandId`) <> 0 OR (CLNG(`t`.`HighCommandId`) IS NULL))
-    """,
+SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
+FROM (
+    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    FROM `LocustLeaders` AS `l`
+    UNION ALL
+    SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l0`
+) AS `t`
+WHERE `t`.`Discriminator` = 'LocustCommander' AND (CLNG(`t`.`HighCommandId`) <> 0 OR CLNG(`t`.`HighCommandId`) IS NULL)
+""",
             //
             """
-    SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
-    FROM (
-        SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
-        FROM `LocustLeaders` AS `l`
-        UNION ALL
-        SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
-        FROM `LocustCommanders` AS `l0`
-    ) AS `t`
-    WHERE `t`.`Discriminator` = 'LocustCommander' AND (CLNG(`t`.`HighCommandId`) <> 0 OR (CLNG(`t`.`HighCommandId`) IS NULL))
-    """);
+SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
+FROM (
+    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    FROM `LocustLeaders` AS `l`
+    UNION ALL
+    SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l0`
+) AS `t`
+WHERE `t`.`Discriminator` = 'LocustCommander' AND (CLNG(`t`.`HighCommandId`) <> 0 OR CLNG(`t`.`HighCommandId`) IS NULL)
+""");
     }
 
     public override async Task Cast_to_derived_followed_by_include_and_FirstOrDefault(bool async)
@@ -12654,21 +12654,8 @@ FROM `Squads` AS `s`,
     public override async Task Include_multiple_include_then_include(bool async)
     {
         await base.Include_multiple_include_then_include(async);
-        AssertSql(
-            """
-SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
-FROM `Squads` AS `s`
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM (
-        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
-        FROM `Gears` AS `g`
-        UNION ALL
-        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
-        FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `s`.`Id` = `t`.`SquadId`)
-""");
+
+        AssertSql();
     }
 
     public override async Task Select_Where_Navigation_Client(bool async)

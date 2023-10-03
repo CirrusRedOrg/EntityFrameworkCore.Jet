@@ -829,22 +829,7 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
         {
             await base.Join_local_collection_int_closure_is_cached_correctly(async);
 
-            AssertSql(
-                """
-@__p_0='[1,2]' (Size = 4000)
-
-SELECT [e].[EmployeeID]
-FROM [Employees] AS [e]
-INNER JOIN OPENJSON(@__p_0) WITH ([value] int '$') AS [p] ON [e].[EmployeeID] = [p].[value]
-""",
-                //
-                """
-@__p_0='[3]' (Size = 4000)
-
-SELECT [e].[EmployeeID]
-FROM [Employees] AS [e]
-INNER JOIN OPENJSON(@__p_0) WITH ([value] int '$') AS [p] ON [e].[EmployeeID] = [p].[value]
-""");
+            AssertSql();
         }
 
         public override async Task Join_local_string_closure_is_cached_correctly(bool async)

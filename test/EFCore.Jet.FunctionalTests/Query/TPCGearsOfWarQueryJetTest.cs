@@ -12685,21 +12685,8 @@ FROM `Squads` AS `s`,
     public override async Task Include_multiple_one_to_one_and_one_to_one_and_one_to_many(bool async)
     {
         await base.Include_multiple_one_to_one_and_one_to_one_and_one_to_many(async);
-        AssertSql(
-            """
-SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
-FROM `Squads` AS `s`
-WHERE NOT (EXISTS (
-    SELECT 1
-    FROM (
-        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
-        FROM `Gears` AS `g`
-        UNION ALL
-        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
-        FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `s`.`Id` = `t`.`SquadId`))
-""");
+
+        AssertSql();
     }
 
     public override async Task Include_multiple_include_then_include(bool async)
@@ -12713,21 +12700,7 @@ WHERE NOT (EXISTS (
     {
         await base.Select_Where_Navigation_Client(async);
 
-        AssertSql(
-"""
-SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
-FROM `Squads` AS `s`
-WHERE NOT (EXISTS (
-    SELECT 1
-    FROM (
-        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
-        FROM `Gears` AS `g`
-        UNION ALL
-        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
-        FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `s`.`Id` = `t`.`SquadId`))
-""");
+        AssertSql();
     }
 
     public override async Task Where_subquery_equality_to_null_with_composite_key(bool async)

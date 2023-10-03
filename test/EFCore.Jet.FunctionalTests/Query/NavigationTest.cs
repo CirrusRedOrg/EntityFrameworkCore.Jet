@@ -31,11 +31,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             var entityType = model.GetEntityTypes().First();
 
             Assert.Equal(
-                "ForeignKey: GoTPerson {'LoverId'} -> GoTPerson {'Id'} Unique ToDependent: LoverReverse ToPrincipal: Lover ClientSetNull",
+                "ForeignKey: GoTPerson {'LoverId'} -> GoTPerson {'Id'} Unique ClientSetNull ToDependent: LoverReverse ToPrincipal: Lover",
                 entityType.GetForeignKeys().First().ToString());
 
             Assert.Equal(
-                "ForeignKey: GoTPerson {'SiblingReverseId'} -> GoTPerson {'Id'} ToDependent: Siblings ToPrincipal: SiblingReverse ClientSetNull",
+                "ForeignKey: GoTPerson {'SiblingReverseId'} -> GoTPerson {'Id'} ClientSetNull ToDependent: Siblings ToPrincipal: SiblingReverse",
                 entityType.GetForeignKeys().Skip(1).First().ToString());
         }
 
@@ -54,11 +54,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             var entityType = model.GetEntityTypes().First();
 
             Assert.Equal(
-                "ForeignKey: GoTPerson {'LoverId'} -> GoTPerson {'Id'} Unique ToDependent: LoverReverse ToPrincipal: Lover ClientSetNull",
+                "ForeignKey: GoTPerson {'LoverId'} -> GoTPerson {'Id'} Unique ClientSetNull ToDependent: LoverReverse ToPrincipal: Lover",
                 entityType.GetForeignKeys().First().ToString());
 
             Assert.Equal(
-                "ForeignKey: GoTPerson {'SiblingReverseId'} -> GoTPerson {'Id'} ToDependent: Siblings ToPrincipal: SiblingReverse ClientSetNull",
+                "ForeignKey: GoTPerson {'SiblingReverseId'} -> GoTPerson {'Id'} ClientSetNull ToDependent: Siblings ToPrincipal: SiblingReverse",
                 entityType.GetForeignKeys().Skip(1).First().ToString());
         }
 

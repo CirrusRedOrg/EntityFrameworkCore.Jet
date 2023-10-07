@@ -167,6 +167,14 @@ namespace EntityFrameworkCore.Jet.Data
                                 MidpointRounding.AwayFromZero) *
                             TimeSpan.TicksPerMillisecond));
             }
+            //The 0/default value for a DateTime is 30/12/1899 00:00:00
+            //We normally translate 1/01/0001 00:00:00 to 30/12/1899 00:00:00 when saving to the database so this is just the reverse
+            if (value is DateTime dateTimeValue && dateTimeValue == JetConfiguration.TimeSpanOffset)
+            {
+                return default;
+            }
+            return (DateTime)value;
+        }
 
             return (DateTime)value;
         }

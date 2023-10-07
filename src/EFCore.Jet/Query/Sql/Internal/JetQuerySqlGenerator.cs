@@ -586,6 +586,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 {
                     Visit(notnullsqlexp);
                 }
+                else if (checksqlexp is SqlConstantExpression { Value: not null })
+                {
+                    Visit(notnullsqlexp);
+                }
                 else
                 {
                     Visit(caseexp);

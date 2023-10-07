@@ -165,7 +165,20 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         if (tableExpression is InnerJoinExpression expression)
                         {
                             SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
-                            tempcolexp = ExtractColumnExpressions(binaryJoin!);
+                            SqlUnaryExpression? unaryJoin = expression.JoinPredicate as SqlUnaryExpression;
+                            if (binaryJoin != null)
+                            {
+                                tempcolexp = ExtractColumnExpressions(binaryJoin!);
+                            }
+                            else if (unaryJoin != null)
+                            {
+                                tempcolexp = ExtractColumnExpressions(unaryJoin!);
+                            }
+                            else
+                            {
+                                tempcolexp = new List<ColumnExpression>();
+                            }
+
                             bool refrencesfirsttable = false;
                             foreach (ColumnExpression col in tempcolexp)
                             {
@@ -312,6 +325,20 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             else if (binaryexp.Right is ColumnExpression colRight)
             {
                 result.Add(colRight);
+            }
+
+            return result;
+        }
+        private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
+        {
+            List<ColumnExpression> result = new List<ColumnExpression>();
+            if (unaryexp.Operand is SqlBinaryExpression left)
+            {
+                result.AddRange(ExtractColumnExpressions(left));
+            }
+            else if (unaryexp.Operand is ColumnExpression colLeft)
+            {
+                result.Add(colLeft);
             }
 
             return result;

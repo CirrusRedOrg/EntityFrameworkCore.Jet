@@ -28,6 +28,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new JetByteArrayMethodTranslator(sqlExpressionFactory),
                     new JetConvertTranslator(sqlExpressionFactory),
                     new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
+                    new JetDateOnlyMethodTranslator(sqlExpressionFactory),
                     new JetDateTimeMethodTranslator(sqlExpressionFactory),
                     new JetIsDateFunctionTranslator(sqlExpressionFactory),
                     new JetMathTranslator(sqlExpressionFactory),
@@ -35,6 +36,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new JetObjectToStringTranslator(sqlExpressionFactory),
                     new JetStringMethodTranslator(sqlExpressionFactory),
                     new JetRandomTranslator(sqlExpressionFactory),
+                    new JetTimeOnlyMethodTranslator(sqlExpressionFactory)
                 });
         }
     }

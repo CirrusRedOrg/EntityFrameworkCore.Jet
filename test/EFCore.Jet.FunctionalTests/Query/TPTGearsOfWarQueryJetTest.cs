@@ -8385,10 +8385,10 @@ FROM [Missions] AS [m]
         await base.Where_TimeSpan_Hours(async);
 
         AssertSql(
-"""
-SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('n', `m`.`Duration`) = 1
+WHERE DATEPART('h', `m`.`Duration`) = 1
 """);
     }
 
@@ -8398,7 +8398,7 @@ WHERE DATEPART('n', `m`.`Duration`) = 1
 
         AssertSql(
             """
-SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
 WHERE DATEPART('n', `m`.`Duration`) = 1
 """);
@@ -8410,7 +8410,7 @@ WHERE DATEPART('n', `m`.`Duration`) = 1
 
         AssertSql(
             """
-SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Duration`, `m`.`Rating`, `m`.`Timeline`
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
 WHERE DATEPART('s', `m`.`Duration`) = 1
 """);
@@ -9259,39 +9259,54 @@ ORDER BY IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), `t`.`Note`
 
     public override async Task Where_DateOnly_Year(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_Year(async));
+        await base.Where_DateOnly_Year(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('yyyy', `m`.`Date`) = 1990
+""");
     }
 
     public override async Task Where_DateOnly_Month(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_Month(async));
+        await base.Where_DateOnly_Month(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('m', `m`.`Date`) = 11
+""");
     }
 
     public override async Task Where_DateOnly_Day(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_Day(async));
+        await base.Where_DateOnly_Day(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('d', `m`.`Date`) = 10
+""");
     }
 
     public override async Task Where_DateOnly_DayOfYear(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_DayOfYear(async));
+        await base.Where_DateOnly_DayOfYear(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('y', `m`.`Date`) = 314
+""");
     }
 
     public override async Task Where_DateOnly_DayOfWeek(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
         await AssertTranslationFailed(() => base.Where_DateOnly_DayOfWeek(async));
 
         AssertSql();
@@ -9299,79 +9314,114 @@ ORDER BY IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), `t`.`Note`
 
     public override async Task Where_DateOnly_AddYears(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_AddYears(async));
+        await base.Where_DateOnly_AddYears(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEADD('yyyy', CLNG(3), `m`.`Date`) = #1993-11-10#
+""");
     }
 
     public override async Task Where_DateOnly_AddMonths(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_AddMonths(async));
+        await base.Where_DateOnly_AddMonths(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEADD('m', CLNG(3), `m`.`Date`) = #1991-02-10#
+""");
     }
 
     public override async Task Where_DateOnly_AddDays(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_DateOnly_AddDays(async));
+        await base.Where_DateOnly_AddDays(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEADD('d', CLNG(3), `m`.`Date`) = #1990-11-13#
+""");
     }
 
     public override async Task Where_TimeOnly_Hour(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_Hour(async));
+        await base.Where_TimeOnly_Hour(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('h', `m`.`Time`) = 10
+""");
     }
 
     public override async Task Where_TimeOnly_Minute(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_Minute(async));
+        await base.Where_TimeOnly_Minute(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('n', `m`.`Time`) = 15
+""");
     }
 
     public override async Task Where_TimeOnly_Second(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_Second(async));
+        await base.Where_TimeOnly_Second(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('s', `m`.`Time`) = 50
+""");
     }
 
     public override async Task Where_TimeOnly_Millisecond(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_Millisecond(async));
+        await base.Where_TimeOnly_Millisecond(async);
 
-        AssertSql();
+        AssertSql(
+"""
+SELECT [m].[Id], [m].[CodeName], [m].[Date], [m].[Duration], [m].[Rating], [m].[Time], [m].[Timeline]
+FROM [Missions] AS [m]
+WHERE DATEPART(millisecond, [m].[Time]) = 500
+""");
     }
 
     public override async Task Where_TimeOnly_AddHours(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_AddHours(async));
+        await base.Where_TimeOnly_AddHours(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE TIMEVALUE(DATEADD('h', CLNG(3.0), `m`.`Time`)) = TIMEVALUE('13:15:50')
+""");
     }
 
     public override async Task Where_TimeOnly_AddMinutes(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_AddMinutes(async));
+        await base.Where_TimeOnly_AddMinutes(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE TIMEVALUE(DATEADD('n', CLNG(3.0), `m`.`Time`)) = TIMEVALUE('10:18:50')
+""");
     }
 
     public override async Task Where_TimeOnly_Add_TimeSpan(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
         await AssertTranslationFailed(() => base.Where_TimeOnly_Add_TimeSpan(async));
 
         AssertSql();
@@ -9379,15 +9429,18 @@ ORDER BY IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), `t`.`Note`
 
     public override async Task Where_TimeOnly_IsBetween(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
-        await AssertTranslationFailed(() => base.Where_TimeOnly_IsBetween(async));
+        await base.Where_TimeOnly_IsBetween(async);
 
-        AssertSql();
+        AssertSql(
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE (IIF(`m`.`Time` >= TIMEVALUE('10:00:00'), TRUE, FALSE) BAND IIF(`m`.`Time` < TIMEVALUE('11:00:00'), TRUE, FALSE)) = TRUE
+""");
     }
 
     public override async Task Where_TimeOnly_subtract_TimeOnly(bool async)
     {
-        // DateOnly and TimeOnly. Issue #24507.
         await AssertTranslationFailed(() => base.Where_TimeOnly_subtract_TimeOnly(async));
 
         AssertSql();
@@ -9674,19 +9727,27 @@ WHERE `f`.`ServerAddress` = '127.0.0.1'
         await base.FirstOrDefault_on_empty_collection_of_DateTime_in_subquery(async);
 
         AssertSql(
-"""
-SELECT [g].[Nickname], COALESCE((
-    SELECT TOP(1) [t1].[IssueDate]
-    FROM [Tags] AS [t1]
-    WHERE [t1].[GearNickName] = [g].[FullName]
-    ORDER BY [t1].[Id]), '0001-01-01T00:00:00.0000000') AS [invalidTagIssueDate]
-FROM [Gears] AS [g]
-LEFT JOIN [Tags] AS [t] ON [g].[Nickname] = [t].[GearNickName] AND [g].[SquadId] = [t].[GearSquadId]
-WHERE [t].[IssueDate] > COALESCE((
-    SELECT TOP(1) [t0].[IssueDate]
-    FROM [Tags] AS [t0]
-    WHERE [t0].[GearNickName] = [g].[FullName]
-    ORDER BY [t0].[Id]), '0001-01-01T00:00:00.0000000')
+            """
+SELECT `g`.`Nickname`, IIF((
+        SELECT TOP 1 `t1`.`IssueDate`
+        FROM `Tags` AS `t1`
+        WHERE `t1`.`GearNickName` = `g`.`FullName`
+        ORDER BY `t1`.`Id`) IS NULL, #1899-12-30#, (
+        SELECT TOP 1 `t1`.`IssueDate`
+        FROM `Tags` AS `t1`
+        WHERE `t1`.`GearNickName` = `g`.`FullName`
+        ORDER BY `t1`.`Id`)) AS `invalidTagIssueDate`
+FROM `Gears` AS `g`
+LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
+WHERE `t`.`IssueDate` > IIF((
+        SELECT TOP 1 `t0`.`IssueDate`
+        FROM `Tags` AS `t0`
+        WHERE `t0`.`GearNickName` = `g`.`FullName`
+        ORDER BY `t0`.`Id`) IS NULL, #1899-12-30#, (
+        SELECT TOP 1 `t0`.`IssueDate`
+        FROM `Tags` AS `t0`
+        WHERE `t0`.`GearNickName` = `g`.`FullName`
+        ORDER BY `t0`.`Id`))
 """);
     }
 
@@ -9825,10 +9886,10 @@ ORDER BY [g].[Nickname], [g].[SquadId]
         await base.Where_equals_method_on_nullable_with_object_overload(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE [m].[Rating] IS NULL
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE `m`.`Rating` IS NULL
 """);
     }
 

@@ -23,9 +23,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             // ReSharper disable once VirtualMemberCallInConstructor
             AddTranslators(new IMemberTranslator[]
             {
-                new JetStringMemberTranslator(sqlExpressionFactory),
+                new JetDateOnlyMemberTranslator(sqlExpressionFactory),
                 new JetDateTimeMemberTranslator(sqlExpressionFactory),
-                new JetTimeSpanMemberTranslator(sqlExpressionFactory)
+                new JetStringMemberTranslator(sqlExpressionFactory),
+                new JetTimeSpanMemberTranslator(sqlExpressionFactory),
+                new JetTimeOnlyMemberTranslator(sqlExpressionFactory)
             });
         }
     }

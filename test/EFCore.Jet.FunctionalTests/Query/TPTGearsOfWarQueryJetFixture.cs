@@ -24,8 +24,8 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
         modelBuilder.Entity<Mission>(
             b =>
             {
-                b.Ignore(m => m.Date);
-                b.Ignore(m => m.Time);
+                //b.Ignore(m => m.Date);
+                //b.Ignore(m => m.Time);
             });
     }
 

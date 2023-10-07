@@ -45,8 +45,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetDateTimeTypeMapping _datetime;
         private readonly JetDateTimeOffsetTypeMapping _datetimeoffset;
-        private readonly JetDateTimeTypeMapping _date;
-        private readonly JetTimeSpanTypeMapping _time;
+        private readonly JetDateOnlyTypeMapping _dateonly;
+        private readonly JetTimeSpanTypeMapping _timespan;
+        private readonly JetTimeOnlyTypeMapping _timeonly;
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString = new JetStringTypeMapping("char", unicode: true);
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
@@ -87,8 +88,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
             _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
-            _date = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.Date);
-            _time = new JetTimeSpanTypeMapping("datetime", options);
+            _dateonly = new JetDateOnlyTypeMapping("datetime", options, dbType: DbType.Date);
+            _timeonly = new JetTimeOnlyTypeMapping("datetime", options);
+            _timespan = new JetTimeSpanTypeMapping("datetime", options);
 
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping>(StringComparer.OrdinalIgnoreCase)
@@ -147,8 +149,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"money",                      _currency},
 
                     {"datetime",                   _datetime},
-                    {"date",                       _date},
-                    {"time",                       _time},
+                    {"date",                       _dateonly},
+                    {"time",                       _timeonly},
 
                     {"char",                       _fixedLengthUnicodeString},
                     {"alphanumeric",               _fixedLengthUnicodeString},
@@ -195,8 +197,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {typeof(double), _double},
                     {typeof(decimal), _decimal}, // CHECK: Is this supported or do we need to use CURRENCY?
                     {typeof(DateTime), _datetime},
+                    {typeof(DateOnly), _dateonly},
                     {typeof(DateTimeOffset), _datetimeoffset},
-                    {typeof(TimeSpan), _time},
+                    {typeof(TimeSpan), _timespan},
+                    {typeof(TimeOnly), _timeonly},
                     {typeof(Guid), _guid},
                 };
 

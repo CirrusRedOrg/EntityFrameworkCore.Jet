@@ -22,22 +22,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
 
-            /*modelBuilder.Entity<Mission>(
-                b =>
-                {
-                    // Full-text binary search
-                    b.Property<byte[]>("BriefingDocument");
-                    b.Property<string>("BriefingDocumentFileExtension").HasColumnType("nvarchar(16)");
-                });*/
-
-            // No support yet for DateOnly/TimeOnly (#24507)
             modelBuilder.Entity<Mission>(
                 b =>
                 {
-                    b.Ignore(m => m.Date);
-                    b.Ignore(m => m.Time);
                     //b.Ignore(m => m.Timeline);
-                    //b.Ignore(m => m.Duration);
+                    // b.Ignore(m => m.Duration);
                 });
         }
 

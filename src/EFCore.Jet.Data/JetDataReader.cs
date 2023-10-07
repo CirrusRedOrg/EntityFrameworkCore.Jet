@@ -176,7 +176,16 @@ namespace EntityFrameworkCore.Jet.Data
             return (DateTime)value;
         }
 
-            return (DateTime)value;
+        public DateOnly GetDateOnly(int ordinal)
+        {
+            var value = GetDateTime(ordinal);
+            return DateOnly.FromDateTime(value);
+        }
+
+        public TimeOnly GetTimeOnly(int ordinal)
+        {
+            var value = GetDateTime(ordinal);
+            return TimeOnly.FromDateTime(value);
         }
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
@@ -471,6 +480,14 @@ namespace EntityFrameworkCore.Jet.Data
             if (typeof(T) == typeof(DateTime))
             {
                 return (T)(object)GetDateTime(ordinal);
+            }
+            if (typeof(T) == typeof(DateOnly))
+            {
+                return (T)(object)GetDateOnly(ordinal);
+            }
+            if (typeof(T) == typeof(TimeOnly))
+            {
+                return (T)(object)GetTimeOnly(ordinal);
             }
             if (typeof(T) == typeof(TimeSpan))
             {

@@ -2318,9 +2318,9 @@ WHERE 0 = 1");
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE [o].[OrderDate] IS NOT NULL AND CAST([o].[OrderDate] AS date) = '1996-09-16'
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderDate` IS NOT NULL AND `o`.`OrderDate` = #1996-09-16#
 """);
         }
 

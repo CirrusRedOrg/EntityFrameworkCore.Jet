@@ -60,7 +60,7 @@ public class JetDateOnlyMethodTranslator : IMethodCallTranslator
                 "DATEADD",
                 new[] { _sqlExpressionFactory.Constant(datePart), _sqlExpressionFactory.Convert(arguments[0], typeof(int)), instance },
                 nullable: true,
-                argumentsPropagateNullability: new[] { false, true, true },
+                argumentsPropagateNullability: new[] { false, false, true },
                 instance.Type,
                 instance.TypeMapping);
         }

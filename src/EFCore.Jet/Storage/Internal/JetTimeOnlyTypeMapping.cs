@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public JetTimeOnlyTypeMapping(
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)
-            : base(storeType, System.Data.DbType.DateTime)
+            : base(storeType)
         {
             _options = options;
         }
@@ -34,7 +34,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             if (parameter.Value != null)
             {
                 ((TimeOnly)parameter.Value).Deconstruct(out int hour, out int min, out int sec);
-                parameter.Value = JetConfiguration.TimeSpanOffset.Add(new TimeSpan(hour, min, sec));
+                //parameter.Value = JetConfiguration.TimeSpanOffset.Add(new TimeSpan(hour, min, sec));
+                parameter.Value = new TimeSpan(hour, min, sec);
             }
         }
 

@@ -8,28 +8,28 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetTimeSpanTypeMapping : JetDateTimeTypeMapping
+    public class JetTimeSpanTypeMapping : TimeSpanTypeMapping
     {
         [NotNull] private readonly IJetOptions _options;
 
         public JetTimeSpanTypeMapping(
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)
-            : base(storeType, options, System.Data.DbType.DateTime, typeof(TimeSpan))
+            : base(storeType)
         {
             _options = options;
         }
 
         protected JetTimeSpanTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
-            : base(parameters, options)
+            : base(parameters)
         {
             _options = options;
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new JetTimeSpanTypeMapping(parameters, _options);
-        
-        protected override DateTime ConvertToDateTimeCompatibleValue(object value)
-            => JetConfiguration.TimeSpanOffset + (TimeSpan) value;
+
+        /*protected override DateTime ConvertToDateTimeCompatibleValue(object value)
+            => JetConfiguration.TimeSpanOffset + (TimeSpan)value;*/
     }
 }

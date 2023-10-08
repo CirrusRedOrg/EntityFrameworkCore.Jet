@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 using System.Threading;
 
@@ -198,7 +200,19 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         public virtual DateTimeOffset GetDateTimeOffset(int ordinal)
-            => GetDateTime(ordinal);
+        {
+            var value = _wrappedDataReader.GetValue(ordinal);
+            if (value is String stringValue)
+            {
+                return DateTimeOffset.Parse(stringValue, null, DateTimeStyles.RoundtripKind);
+            }
+            else if (value is DateTime dateTime)
+            {
+                return new DateTimeOffset(dateTime);
+            }
+
+            return (DateTimeOffset)value;
+        }
 
         public override decimal GetDecimal(int ordinal)
         {

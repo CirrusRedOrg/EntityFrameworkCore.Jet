@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             [NotNull] string storeType,
             [NotNull] IJetOptions options,
             DbType? dbType = null)
-            : base(storeType, dbType ?? System.Data.DbType.DateTime)
+            : base(storeType)
         {
             _options = options;
         }

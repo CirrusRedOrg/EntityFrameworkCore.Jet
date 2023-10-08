@@ -467,8 +467,8 @@ namespace EntityFrameworkCore.Jet.Data
 
             foreach (DbParameter parameter in parameters)
             {
-                if (parameter.Value is TimeSpan ts)
-                    parameter.Value = JetConfiguration.TimeSpanOffset + ts;
+                /*if (parameter.Value is TimeSpan ts)
+                    parameter.Value = JetConfiguration.TimeSpanOffset + ts;*/
                 if (parameter.Value is DateTime dt)
                 {
                     // Hack: https://github.com/fsprojects/SQLProvider/issues/191

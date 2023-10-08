@@ -8,26 +8,23 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetDateTimeOffsetTypeMapping : JetDateTimeTypeMapping
+    public class JetDateTimeOffsetTypeMapping : DateTimeOffsetTypeMapping
     {
         private readonly IJetOptions _options;
-
+        private const string DateTimeOffsetFormatConst = @"'{0:yyyy\-MM\-dd HH\:mm\:ss.FFFFFFFzzz}'";
         public JetDateTimeOffsetTypeMapping(
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)
             : base(
-                storeType,
-                options,
-                System.Data.DbType.DateTime,
-                typeof(DateTimeOffset)) // delibrately use DbType.DateTime, because OleDb will throw a
-                                        // "No mapping exists from DbType DateTimeOffset to a known OleDbType."
-                                        // exception when using DbType.DateTimeOffset.
+                storeType, System.Data.DbType.String) // delibrately use DbType.DateTime, because OleDb will throw a
+                                                      // "No mapping exists from DbType DateTimeOffset to a known OleDbType."
+                                                      // exception when using DbType.DateTimeOffset.
         {
             _options = options;
         }
 
         protected JetDateTimeOffsetTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
-            : base(parameters, options)
+            : base(parameters)
         {
             _options = options;
         }
@@ -40,13 +37,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
-                parameter.Value = dateTimeOffset.DateTime;
+                parameter.Value = dateTimeOffset.ToString("O");
+                parameter.DbType = System.Data.DbType.String;
             }
 
             base.ConfigureParameter(parameter);
         }
 
-        protected override DateTime ConvertToDateTimeCompatibleValue(object value)
-            => ((DateTimeOffset) value).DateTime;
+        protected override string SqlLiteralFormatString
+            => DateTimeOffsetFormatConst;
     }
 }

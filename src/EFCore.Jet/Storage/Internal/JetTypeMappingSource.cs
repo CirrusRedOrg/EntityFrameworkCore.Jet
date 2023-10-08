@@ -87,9 +87,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
 
             _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
-            _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
-            _dateonly = new JetDateOnlyTypeMapping("datetime", options, dbType: DbType.Date);
-            _timeonly = new JetTimeOnlyTypeMapping("datetime", options);
+            _datetimeoffset = new JetDateTimeOffsetTypeMapping("varchar(50)", options);
+            _dateonly = new JetDateOnlyTypeMapping("date", options, dbType: DbType.Date);
+            _timeonly = new JetTimeOnlyTypeMapping("time", options);
             _timespan = new JetTimeSpanTypeMapping("datetime", options);
 
             _storeTypeMappings

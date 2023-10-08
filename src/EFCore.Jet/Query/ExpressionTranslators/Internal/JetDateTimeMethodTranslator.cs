@@ -29,17 +29,17 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMinutes), new[] {typeof(double)})!, "n"},
             {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddSeconds), new[] {typeof(double)})!, "s"},
             // {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMilliseconds), new[] {typeof(double)})!, "millisecond"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddYears), new[] {typeof(int)})!, "yyyy"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMonths), new[] {typeof(int)})!, "m"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddDays), new[] {typeof(double)})!, "d"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddHours), new[] {typeof(double)})!, "h"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMinutes), new[] {typeof(double)})!, "n"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), new[] {typeof(double)})!, "s"},
+            //{typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddYears), new[] {typeof(int)})!, "yyyy"},
+            //{typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMonths), new[] {typeof(int)})!, "m"},
+            //{typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddDays), new[] {typeof(double)})!, "d"},
+            //{typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddHours), new[] {typeof(double)})!, "h"},
+            //{typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMinutes), new[] {typeof(double)})!, "n"},
+            //{typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), new[] {typeof(double)})!, "s"},
             // {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), new[] {typeof(double)})!, "millisecond"}
         };
 
         public JetDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory) sqlExpressionFactory;
+            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {

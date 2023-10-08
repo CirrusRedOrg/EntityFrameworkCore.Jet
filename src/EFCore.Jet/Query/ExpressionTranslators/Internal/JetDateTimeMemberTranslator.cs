@@ -27,8 +27,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         /// </summary>
         public SqlExpression? Translate(SqlExpression? instance, MemberInfo member, Type returnType, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (member.DeclaringType == typeof(DateTime) ||
-                member.DeclaringType == typeof(DateTimeOffset))
+            if (member.DeclaringType == typeof(DateTime) /*||
+                member.DeclaringType == typeof(DateTimeOffset)*/)
             {
                 if (instance == null)
                 {
@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         "DATEVALUE",
                         new[]
                         {
-                            _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(), false, new[] { false },
+                            _sqlExpressionFactory.Function("DATE", Array.Empty<SqlExpression>(), false, new[] { false },
                                 returnType)
                         },
                         false,
@@ -106,7 +106,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     instance,
                 },
                 false,
-                new[] {false},
+                new[] { false },
                 returnType);
         }
     }

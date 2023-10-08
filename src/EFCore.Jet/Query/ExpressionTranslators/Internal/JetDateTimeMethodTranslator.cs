@@ -56,6 +56,21 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     return null;
                 }
+                //The DateAdd function can not take a null for the argument with the amount to add
+                //We rewrite the expression a bit to simplify things
+                //We first take dig town into the operand of the convert expression to colaesce that to 0
+                //Then do the convert on that
+                //This can simplify the expression as the reverse would have more IIF when there would be the 0
+                if (amountToAdd is SqlUnaryExpression { OperatorType: ExpressionType.Convert } convert)
+                {
+                    var cols = ExtractColumnExpressions(convert);
+                    if (cols.Any(c => c.IsNullable))
+                    {
+                        amountToAdd = _sqlExpressionFactory.Coalesce(convert.Operand,
+                            _sqlExpressionFactory.Constant(0, amountToAdd.TypeMapping));
+                        amountToAdd = _sqlExpressionFactory.Convert(amountToAdd, convert.Type, convert.TypeMapping);
+                    }
+                }
 
                 return _sqlExpressionFactory.Function(
                     "DATEADD",
@@ -66,12 +81,50 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         instance
                     },
                     true,
-                    argumentsPropagateNullability: new[] { false, true, true },
+                    argumentsPropagateNullability: new[] { false, false, true },
                     instance.Type,
                     instance.TypeMapping);
             }
 
             return null;
+        }
+
+        private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
+        {
+            List<ColumnExpression> result = new List<ColumnExpression>();
+            if (binaryexp.Left is SqlBinaryExpression left)
+            {
+                result.AddRange(ExtractColumnExpressions(left));
+            }
+            else if (binaryexp.Left is ColumnExpression colLeft)
+            {
+                result.Add(colLeft);
+            }
+
+            if (binaryexp.Right is SqlBinaryExpression right)
+            {
+                result.AddRange(ExtractColumnExpressions(right));
+            }
+            else if (binaryexp.Right is ColumnExpression colRight)
+            {
+                result.Add(colRight);
+            }
+
+            return result;
+        }
+        private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
+        {
+            List<ColumnExpression> result = new List<ColumnExpression>();
+            if (unaryexp.Operand is SqlBinaryExpression left)
+            {
+                result.AddRange(ExtractColumnExpressions(left));
+            }
+            else if (unaryexp.Operand is ColumnExpression colLeft)
+            {
+                result.Add(colLeft);
+            }
+
+            return result;
         }
     }
 }

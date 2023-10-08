@@ -105,5 +105,45 @@ namespace EntityFrameworkCore.Jet.Update.Internal
 
             return ResultSetMapping.LastInResultSet;
         }
+
+        //If multiple columns were output, the SQL Server behavior is to produce a INSERT INTO ... OUTPUT statement
+        //Jet does not support OUTPUT, so we need to use a SELECT statement instead
+        //@@identity is available to get the identity value of the last inserted row.
+        //Most tables will only have one identity column, so the AppendIdentityWhereColumn only gets called once
+        //However if there is a complex identity so that you have more than one identity column, the rest of those get added
+        //Given @@identity only gets the value of the first identity column, we must only use that and not any others
+
+        protected override void AppendWhereAffectedClause(StringBuilder commandStringBuilder, IReadOnlyList<IColumnModification> operations)
+        {
+            commandStringBuilder
+                .AppendLine()
+                .Append("WHERE ");
+
+            AppendRowsAffectedWhereCondition(commandStringBuilder, 1);
+            bool isfirstkeycolumn = true;
+            if (operations.Count > 0)
+            {
+                commandStringBuilder
+                    .Append(" AND ")
+                    .AppendJoin(
+                        operations, (sb, v) =>
+                        {
+                            if (v is { IsKey: true, IsRead: false })
+                            {
+                                AppendWhereCondition(sb, v, v.UseOriginalValueParameter);
+                                return true;
+                            }
+
+                            if (IsIdentityOperation(v) && isfirstkeycolumn)
+                            {
+                                AppendIdentityWhereCondition(sb, v);
+                                isfirstkeycolumn = false;
+                                return true;
+                            }
+
+                            return false;
+                        }, " AND ");
+            }
+        }
     }
 }

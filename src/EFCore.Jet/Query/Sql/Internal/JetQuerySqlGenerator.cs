@@ -350,7 +350,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             {
                 _nullNumerics.Add(projectionExpression.Alias);
             }
-            return base.VisitProjection(projectionExpression);
+            parent.Push(projectionExpression);
+            var result = base.VisitProjection(projectionExpression);
+            parent.Pop();
+            return result;
         }
 
         protected override Expression VisitColumn(ColumnExpression columnExpression)
@@ -497,6 +500,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
             {
                 sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options));
+            }
+
+            parent.TryPeek(out var exp);
+            if (sqlConstantExpression.Value is null && exp is ProjectionExpression && (sqlConstantExpression.Type == typeof(int) || sqlConstantExpression.Type == typeof(double) || sqlConstantExpression.Type == typeof(float) || sqlConstantExpression.Type == typeof(decimal) || sqlConstantExpression.Type == typeof(short)))
+            {
+                Sql.Append("CVar(");
+                Sql.Append(sqlConstantExpression.TypeMapping!.GenerateSqlLiteral(sqlConstantExpression.Value));
+                Sql.Append(")");
+                return sqlConstantExpression;
             }
             return base.VisitSqlConstant(sqlConstantExpression);
         }
@@ -760,8 +772,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     }
                 }
             }
-
-            return base.VisitSqlFunction(sqlFunctionExpression);
+            parent.Push(sqlFunctionExpression);
+            var result = base.VisitSqlFunction(sqlFunctionExpression);
+            parent.Pop();
+            return result;
         }
 
         protected override Expression VisitCase(CaseExpression caseExpression)

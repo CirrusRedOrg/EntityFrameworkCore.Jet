@@ -345,10 +345,12 @@ WHERE DATEADD('m', 2, DATEADD('d', 15.0, DATEADD('d', 10.0, `l0`.`Date`))) > #20
                 isAsync);
 
             AssertSql(
-                $@"SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
+                """
+SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE DATEADD('d', IIF(CAST(`l0`.`Id` IS NULL, NULL, CDBL(CAST(`l0`.`Id`)) AS int), DATEADD('d', CAST(15.0E0 AS int), `l0`.`Date`)) > '2002-02-01T00:00:00.0000000'");
+WHERE DATEADD('d', CDBL(IIF(`l0`.`Id` IS NULL, 0, `l0`.`Id`)), DATEADD('d', 15.0, `l0`.`Date`)) > #2002-02-01#
+""");
         }
 
         public override async Task Join_navigation_in_outer_selector_translated_to_extra_join(bool isAsync)
@@ -3593,11 +3595,11 @@ GROUP BY `l`.`Id`, `l`.`Date`, `l`.`Name`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_
 
             AssertSql(
                 """
-SELECT [l0].[Id] AS [Key], MAX([l].[Id]) AS [Max]
-FROM [LevelTwo] AS [l]
-INNER JOIN [LevelOne] AS [l0] ON [l].[OneToMany_Required_Inverse2Id] = [l0].[Id]
-GROUP BY [l0].[Id]
-HAVING MAX([l].[Id]) <> 2 OR MAX([l].[Id]) IS NULL
+SELECT `l0`.`Id` AS `Key`, MAX(`l`.`Id`) AS `Max`
+FROM `LevelTwo` AS `l`
+INNER JOIN `LevelOne` AS `l0` ON `l`.`OneToMany_Required_Inverse2Id` = `l0`.`Id`
+GROUP BY `l0`.`Id`
+HAVING MAX(`l`.`Id`) <> 2 OR MAX(`l`.`Id`) IS NULL
 """);
         }
 
@@ -3607,11 +3609,11 @@ HAVING MAX([l].[Id]) <> 2 OR MAX([l].[Id]) IS NULL
 
             AssertSql(
                 """
-SELECT [l0].[Id] AS [Key], MAX([l].[Id]) AS [Max]
-FROM [LevelTwo] AS [l]
-INNER JOIN [LevelOne] AS [l0] ON [l].[OneToMany_Required_Inverse2Id] = [l0].[Id]
-GROUP BY [l0].[Id]
-HAVING MAX([l].[Id]) < 2 OR MAX([l].[Id]) > 2
+SELECT `l0`.`Id` AS `Key`, MAX(`l`.`Id`) AS `Max`
+FROM `LevelTwo` AS `l`
+INNER JOIN `LevelOne` AS `l0` ON `l`.`OneToMany_Required_Inverse2Id` = `l0`.`Id`
+GROUP BY `l0`.`Id`
+HAVING MAX(`l`.`Id`) < 2 OR MAX(`l`.`Id`) > 2
 """);
         }
 

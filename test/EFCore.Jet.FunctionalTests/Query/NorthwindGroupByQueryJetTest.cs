@@ -922,7 +922,7 @@ GROUP BY `o`.`OrderID`
                 """
 SELECT `t`.`OrderMonth`, `t`.`CustomerID` AS `Customer`, COUNT(*) AS `Count`
 FROM (
-    SELECT `o`.`CustomerID`, NULL AS `OrderMonth`
+    SELECT `o`.`CustomerID`, CVar(NULL) AS `OrderMonth`
     FROM `Orders` AS `o`
 ) AS `t`
 GROUP BY `t`.`OrderMonth`, `t`.`CustomerID`

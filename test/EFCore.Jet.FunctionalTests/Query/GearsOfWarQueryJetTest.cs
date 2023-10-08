@@ -8186,8 +8186,8 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
             await base.Projecting_property_converted_to_nullable_with_conditional(async);
 
             AssertSql(
-"""
-SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL), -1)
+                """
+SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)), -1)
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 """);
@@ -8224,12 +8224,12 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
 
             AssertSql(
                 """
-    SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
-    FROM `Tags` AS `t`
-    LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
-    WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
-    ORDER BY `t`.`Note`
-    """);
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
+FROM `Tags` AS `t`
+LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
+ORDER BY `t`.`Note`
+""");
         }
 
         public override async Task Projecting_property_converted_to_nullable_into_member_assignment(bool async)
@@ -8237,8 +8237,8 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
             await base.Projecting_property_converted_to_nullable_into_member_assignment(async);
 
             AssertSql(
-"""
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) AS `Id`
+                """
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)) AS `Id`
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
@@ -8252,12 +8252,12 @@ ORDER BY `t`.`Note`
 
             AssertSql(
                 """
-    SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
-    FROM `Tags` AS `t`
-    LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
-    WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
-    ORDER BY `t`.`Note`
-    """);
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
+FROM `Tags` AS `t`
+LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
+ORDER BY `t`.`Note`
+""");
         }
 
         public override async Task Projecting_property_converted_to_nullable_into_unary(bool async)

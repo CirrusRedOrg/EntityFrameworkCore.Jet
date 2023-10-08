@@ -6855,7 +6855,7 @@ WHERE IIF(`w`.`SynergyWithId` IS NULL, `w`.`Id`, `w`.`SynergyWithId`) = 1
         await base.GetValueOrDefault_with_argument_complex(async);
 
         AssertSql(
-"""
+            """
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
 WHERE IIF(`w`.`SynergyWithId` IS NULL, IIF(LEN(`w`.`Name`) IS NULL, NULL, CLNG(LEN(`w`.`Name`))) + 42, `w`.`SynergyWithId`) > 10
@@ -9117,8 +9117,8 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
         await base.Projecting_property_converted_to_nullable_with_conditional(async);
 
         AssertSql(
-"""
-SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), -1)
+            """
+SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)), -1)
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -9163,8 +9163,8 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
         await base.Projecting_property_converted_to_nullable_into_element_init(async);
 
         AssertSql(
-        """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
+            """
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -9180,8 +9180,8 @@ ORDER BY `t`.`Note`
         await base.Projecting_property_converted_to_nullable_into_member_assignment(async);
 
         AssertSql(
-"""
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) AS `Id`
+            """
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)) AS `Id`
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -9197,8 +9197,8 @@ ORDER BY `t`.`Note`
         await base.Projecting_property_converted_to_nullable_into_new_array(async);
 
         AssertSql(
-"""
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
+            """
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`

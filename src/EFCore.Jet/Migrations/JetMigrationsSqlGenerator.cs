@@ -718,8 +718,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             if (operation.ComputedColumnSql != null)
             {
-                ComputedColumnDefinition(schema, table, name, operation, model, builder);
-                return;
+                if (decimal.TryParse(operation.ComputedColumnSql, out decimal result))
+                {
+                    operation.DefaultValue = result;
+                }
+                else
+                {
+                    ComputedColumnDefinition(schema, table, name, operation, model, builder);
+                    return;
+                }
             }
 
             var columnType = GetColumnType(schema, table, name, operation, model);

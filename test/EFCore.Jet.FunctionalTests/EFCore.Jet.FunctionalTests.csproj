@@ -73,18 +73,12 @@
 		<None Include="..\xunit.runner.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
-		<None Include="ConcurrencyDetectorJetTest.cs" />
 		<None Include="GraphUpdates\GraphUpdatesJetTest.cs" />
 		<None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
 		<None Include="JetApiConsistencyTest.cs" />
-		<None Include="KeysWithConvertersJetTest.cs" />
 		<None Include="MigrationsSqlGeneratorTestBase.cs" />
 		<None Include="Migrations\MigrationsJetTest.cs" />
-		<None Include="PropertyEntryJetTest.cs" />
 		<None Include="Query\PrimitiveCollectionsQueryJetTest.cs" />
-		<None Include="StoreGeneratedJetTest.cs" />
-		<None Include="StoreGeneratedSqlServerTestBase.cs" />
-		<None Include="TwoDatabasesJetTest.cs" />
 		<None Remove="TestResults\**" />
 	</ItemGroup>
 
@@ -115,18 +109,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Remove="ConcurrencyDetectorJetTest.cs" />
 		<Compile Remove="GraphUpdates\GraphUpdatesJetTest.cs" />
 		<Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
 		<Compile Remove="JetApiConsistencyTest.cs" />
-		<Compile Remove="KeysWithConvertersJetTest.cs" />
 		<Compile Remove="MigrationsSqlGeneratorTestBase.cs" />
 		<Compile Remove="Migrations\MigrationsJetTest.cs" />
 		<Compile Remove="PropertyEntryJetTest.cs" />
 		<Compile Remove="Query\PrimitiveCollectionsQueryJetTest.cs" />
-		<Compile Remove="StoreGeneratedJetTest.cs" />
-		<Compile Remove="StoreGeneratedSqlServerTestBase.cs" />
-		<Compile Remove="TwoDatabasesJetTest.cs" />
 	</ItemGroup>
 
 </Project>

@@ -25,7 +25,7 @@ public class TwoDatabasesJetTest : TwoDatabasesTestBase, IClassFixture<JetFixtur
             ? withNullConnectionString
                 ? optionsBuilder.UseJet((string)null)
                 : optionsBuilder.UseJet(DummyConnectionString)
-            : optionsBuilder.UseJet();
+            : optionsBuilder.UseJet(JetTestStore.CreateConnectionString("TwoDatabasesJetTest"), TestEnvironment.DataAccessProviderFactory);
 
     protected override TwoDatabasesWithDataContext CreateBackingContext(string databaseName)
         => new(Fixture.CreateOptions(JetTestStore.Create(databaseName)));

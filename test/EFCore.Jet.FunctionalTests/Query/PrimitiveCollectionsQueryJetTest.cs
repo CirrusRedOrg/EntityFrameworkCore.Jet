@@ -222,8 +222,10 @@ WHERE [p].[Id] NOT IN (2, 999)
 """);
     }
 
-    public override Task Parameter_collection_Count(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_Count(async));
+    public override async Task Parameter_collection_Count(bool async)
+    {
+        await base.Parameter_collection_Count(async);
+    }
 
     public override async Task Parameter_collection_of_ints_Contains(bool async)
     {
@@ -333,23 +335,35 @@ WHERE 0 = 1
 """);
     }
 
-    public override Task Column_collection_of_ints_Contains(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_of_ints_Contains(async));
+    public override async Task Column_collection_of_ints_Contains(bool async)
+    {
+        await base.Column_collection_of_ints_Contains(async);
+    }
 
-    public override Task Column_collection_of_nullable_ints_Contains(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_of_nullable_ints_Contains(async));
+    public override async Task Column_collection_of_nullable_ints_Contains(bool async)
+    {
+        await base.Column_collection_of_nullable_ints_Contains(async);
+    }
 
-    public override Task Column_collection_of_nullable_ints_Contains_null(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_of_nullable_ints_Contains_null(async));
+    public override async Task Column_collection_of_nullable_ints_Contains_null(bool async)
+    {
+        await base.Column_collection_of_nullable_ints_Contains_null(async);
+    }
 
-    public override Task Column_collection_of_strings_contains_null(bool async)
-        => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null(async));
+    public override async Task Column_collection_of_strings_contains_null(bool async)
+    {
+        await base.Column_collection_of_strings_contains_null(async);
+    }
 
-    public override Task Column_collection_of_nullable_strings_contains_null(bool async)
-        => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null(async));
+    public override async Task Column_collection_of_nullable_strings_contains_null(bool async)
+    {
+        await base.Column_collection_of_nullable_strings_contains_null(async);
+    }
 
-    public override Task Column_collection_of_bools_Contains(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_of_bools_Contains(async));
+    public override async Task Column_collection_of_bools_Contains(bool async)
+    {
+        await base.Column_collection_of_bools_Contains(async);
+    }
 
     [ConditionalFact]
     public virtual async Task Json_representation_of_bool_array()
@@ -361,29 +375,45 @@ WHERE 0 = 1
             await context.Database.SqlQuery<string>($"SELECT [Bools] AS [Value] FROM [PrimitiveCollectionsEntity] WHERE [Id] = 1").SingleAsync());
     }
 
-    public override Task Column_collection_Count_method(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Count_method(async));
+    public override async Task Column_collection_Count_method(bool async)
+    {
+        await base.Column_collection_Count_method(async);
+    }
 
-    public override Task Column_collection_Length(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Length(async));
+    public override async Task Column_collection_Length(bool async)
+    {
+        await base.Column_collection_Length(async);
+    }
 
-    public override Task Column_collection_index_int(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_index_int(async));
+    public override async Task Column_collection_index_int(bool async)
+    {
+        await base.Column_collection_index_int(async);
+    }
 
-    public override Task Column_collection_index_string(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_index_string(async));
+    public override async Task Column_collection_index_string(bool async)
+    {
+        await base.Column_collection_index_string(async);
+    }
 
-    public override Task Column_collection_index_datetime(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_index_datetime(async));
+    public override async Task Column_collection_index_datetime(bool async)
+    {
+        await base.Column_collection_index_datetime(async);
+    }
 
-    public override Task Column_collection_index_beyond_end(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_index_beyond_end(async));
+    public override async Task Column_collection_index_beyond_end(bool async)
+    {
+        await base.Column_collection_index_beyond_end(async);
+    }
 
-    public override Task Nullable_reference_column_collection_index_equals_nullable_column(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_index_beyond_end(async));
+    public override async Task Nullable_reference_column_collection_index_equals_nullable_column(bool async)
+    {
+        await base.Column_collection_index_beyond_end(async);
+    }
 
-    public override Task Non_nullable_reference_column_collection_index_equals_nullable_column(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_index_beyond_end(async));
+    public override async Task Non_nullable_reference_column_collection_index_equals_nullable_column(bool async)
+    {
+        await base.Column_collection_index_beyond_end(async);
+    }
 
     public override async Task Inline_collection_index_Column(bool async)
     {
@@ -401,29 +431,45 @@ WHERE (
 """);
     }
 
-    public override Task Parameter_collection_index_Column_equal_Column(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_index_Column_equal_Column(async));
+    public override async Task Parameter_collection_index_Column_equal_Column(bool async)
+    {
+        await base.Parameter_collection_index_Column_equal_Column(async);
+    }
 
-    public override Task Parameter_collection_index_Column_equal_constant(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_index_Column_equal_constant(async));
+    public override async Task Parameter_collection_index_Column_equal_constant(bool async)
+    {
+        await base.Parameter_collection_index_Column_equal_constant(async);
+    }
 
-    public override Task Column_collection_ElementAt(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_ElementAt(async));
+    public override async Task Column_collection_ElementAt(bool async)
+    {
+        await base.Column_collection_ElementAt(async);
+    }
 
-    public override Task Column_collection_Skip(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Skip(async));
+    public override async Task Column_collection_Skip(bool async)
+    {
+        await base.Column_collection_Skip(async);
+    }
 
-    public override Task Column_collection_Take(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Take(async));
+    public override async Task Column_collection_Take(bool async)
+    {
+        await base.Column_collection_Take(async);
+    }
 
-    public override Task Column_collection_Skip_Take(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Skip_Take(async));
+    public override async Task Column_collection_Skip_Take(bool async)
+    {
+        await base.Column_collection_Skip_Take(async);
+    }
 
-    public override Task Column_collection_OrderByDescending_ElementAt(bool async)
-        => AssertTranslationFailed(() => base.Column_collection_OrderByDescending_ElementAt(async));
+    public override async Task Column_collection_OrderByDescending_ElementAt(bool async)
+    {
+        await base.Column_collection_OrderByDescending_ElementAt(async);
+    }
 
-    public override Task Column_collection_Any(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Any(async));
+    public override async Task Column_collection_Any(bool async)
+    {
+        await base.Column_collection_Any(async);
+    }
 
     public override Task Column_collection_Distinct(bool async)
         => AssertTranslationFailed(() => base.Column_collection_Distinct(async));
@@ -443,20 +489,30 @@ ORDER BY [p].[Id]
     public override Task Column_collection_Join_parameter_collection(bool async)
         => AssertTranslationFailed(() => base.Column_collection_Join_parameter_collection(async));
 
-    public override Task Inline_collection_Join_ordered_column_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Inline_collection_Join_ordered_column_collection(async));
+    public override async Task Inline_collection_Join_ordered_column_collection(bool async)
+    {
+        await base.Inline_collection_Join_ordered_column_collection(async);
+    }
 
-    public override Task Parameter_collection_Concat_column_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_Concat_column_collection(async));
+    public override async Task Parameter_collection_Concat_column_collection(bool async)
+    {
+        await base.Parameter_collection_Concat_column_collection(async);
+    }
 
-    public override Task Column_collection_Union_parameter_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Union_parameter_collection(async));
+    public override async Task Column_collection_Union_parameter_collection(bool async)
+    {
+        await base.Column_collection_Union_parameter_collection(async);
+    }
 
-    public override Task Column_collection_Intersect_inline_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_Intersect_inline_collection(async));
+    public override async Task Column_collection_Intersect_inline_collection(bool async)
+    {
+        await base.Column_collection_Intersect_inline_collection(async);
+    }
 
-    public override Task Inline_collection_Except_column_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Inline_collection_Except_column_collection(async));
+    public override async Task Inline_collection_Except_column_collection(bool async)
+    {
+        await base.Inline_collection_Except_column_collection(async);
+    }
 
     public override async Task Column_collection_equality_parameter_collection(bool async)
     {
@@ -498,14 +554,20 @@ WHERE [p].[Ints] = N'[1,10]'
         AssertSql();
     }
 
-    public override Task Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(async));
+    public override async Task Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(bool async)
+    {
+        await base.Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(async);
+    }
 
-    public override Task Parameter_collection_in_subquery_Union_column_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_in_subquery_Union_column_collection(async));
+    public override async Task Parameter_collection_in_subquery_Union_column_collection(bool async)
+    {
+        await base.Parameter_collection_in_subquery_Union_column_collection(async);
+    }
 
-    public override Task Parameter_collection_in_subquery_Union_column_collection_nested(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_in_subquery_Union_column_collection_nested(async));
+    public override async Task Parameter_collection_in_subquery_Union_column_collection_nested(bool async)
+    {
+        await base.Parameter_collection_in_subquery_Union_column_collection_nested(async);
+    }
 
     public override void Parameter_collection_in_subquery_and_Convert_as_compiled_query()
     {
@@ -515,11 +577,16 @@ WHERE [p].[Ints] = N'[1,10]'
     public override Task Parameter_collection_in_subquery_Count_as_compiled_query(bool async)
         => AssertTranslationFailed(() => base.Parameter_collection_in_subquery_Count_as_compiled_query(async));
 
-    public override Task Column_collection_in_subquery_Union_parameter_collection(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Column_collection_in_subquery_Union_parameter_collection(async));
+    public override async Task Column_collection_in_subquery_Union_parameter_collection(bool async)
+    {
+        await base.Column_collection_in_subquery_Union_parameter_collection(async);
+    }
 
-    public override Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(bool async)
-        => AssertCompatibilityLevelTooLow(() => base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(async));
+    public override async Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(
+        bool async)
+    {
+        await base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(async);
+    }
 
     public override async Task Project_collection_of_ints_simple(bool async)
     {

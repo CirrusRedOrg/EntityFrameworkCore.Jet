@@ -14,7 +14,7 @@ using Xunit;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class StoreGeneratedJetTest : StoreGeneratedTestBase<StoreGeneratedJetTest.StoreGeneratedJetFixture>
+    public class StoreGeneratedJetTest : StoreGeneratedJetTestBase<StoreGeneratedJetTest.StoreGeneratedJetFixture>
     {
         public StoreGeneratedJetTest(StoreGeneratedJetFixture fixture)
             : base(fixture)

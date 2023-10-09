@@ -637,7 +637,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     + _eol
                     + "    `ErMilan` integer NOT NULL,"
                     + _eol
-                    + "    `George` bit NOT NULL,"
+                    + "    `George` smallint NOT NULL,"
                     + _eol
                     + "    `TheGu` uniqueidentifier NOT NULL,"
                     + _eol

@@ -1183,9 +1183,9 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND DEGREES(CAST([o].[Discount] AS float)) > 0.0E0
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.1415926535897931)) > 0.0
 """);
         }
 
@@ -1195,9 +1195,9 @@ WHERE [o].[OrderID] = 11077 AND DEGREES(CAST([o].[Discount] AS float)) > 0.0E0
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND RADIANS(CAST([o].[Discount] AS float)) > 0.0E0
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (3.1415926535897931 / 180.0)) > 0.0
 """);
         }
 
@@ -1483,9 +1483,9 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND DEGREES([o].[Discount]) > CAST(0 AS real)
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (180 / 3.1415927)) > 0
 """);
         }
 
@@ -1495,9 +1495,9 @@ WHERE [o].[OrderID] = 11077 AND DEGREES([o].[Discount]) > CAST(0 AS real)
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND RADIANS([o].[Discount]) > CAST(0 AS real)
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (3.1415927 / 180)) > 0
 """);
         }
 

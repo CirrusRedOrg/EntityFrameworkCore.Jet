@@ -73,6 +73,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             typeof(MathF).GetRuntimeMethod(nameof(MathF.Acos), new[] { typeof(float) }) !,
             typeof(MathF).GetRuntimeMethod(nameof(MathF.Asin), new[] { typeof(float) }) !,
             typeof(MathF).GetRuntimeMethod(nameof(MathF.Atan2), new[] { typeof(float), typeof(float) })!,
+            typeof(double).GetRuntimeMethod(nameof(double.DegreesToRadians), new[] { typeof(double) })!,
+            typeof(double).GetRuntimeMethod(nameof(double.RadiansToDegrees), new[] { typeof(double) })!,
+            typeof(float).GetRuntimeMethod(nameof(float.DegreesToRadians), new[] { typeof(float) })!,
+            typeof(float).GetRuntimeMethod(nameof(float.RadiansToDegrees), new[] { typeof(float) })!,
         };
 
         private static readonly IEnumerable<MethodInfo> _truncateMethodInfos = new[]
@@ -216,6 +220,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         new[] { true },
                         method.ReturnType),
 
+                    nameof(double.DegreesToRadians) => _sqlExpressionFactory.Multiply(arguments[0], _sqlExpressionFactory.Divide(_sqlExpressionFactory.Constant(Math.PI), _sqlExpressionFactory.Constant(180))),
+
+                    nameof(double.RadiansToDegrees) => _sqlExpressionFactory.Multiply(arguments[0], _sqlExpressionFactory.Divide(_sqlExpressionFactory.Constant(180), _sqlExpressionFactory.Constant(Math.PI))),
 
                     _ => null,
                 };

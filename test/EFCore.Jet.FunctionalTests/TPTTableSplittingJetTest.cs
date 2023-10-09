@@ -160,14 +160,18 @@ WHERE ([c].[Capacity] IS NOT NULL) AND ([c].[FuelType] IS NOT NULL)
 INSERT INTO `LicensedOperators` (`VehicleName`, `LicenseType`)
 VALUES (@p0, @p1);
 SELECT @@ROWCOUNT;
-
+"""
+,
+"""
 @p0='repairman' (Size = 255)
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
 UPDATE `Vehicles` SET `Operator_Name` = @p0
 WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
-
+"""
+,
+"""
 SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, IIF(`c`.`Name` IS NOT NULL, 'CompositeVehicle', IIF(`p`.`Name` IS NOT NULL, 'PoweredVehicle', NULL)) AS `Discriminator`, `t`.`Name`, `t`.`Operator_Name`, `t`.`LicenseType`, `t`.`Discriminator`
 FROM ((`Vehicles` AS `v`
 LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
@@ -193,7 +197,9 @@ WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
 UPDATE `Vehicles` SET `SeatingCapacity` = @p0
 WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
-
+"""
+,
+"""
 SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, IIF(`c`.`Name` IS NOT NULL, 'CompositeVehicle', IIF(`p`.`Name` IS NOT NULL, 'PoweredVehicle', NULL)) AS `Discriminator`, `t`.`Name`, `t`.`Operator_Name`, `t`.`LicenseType`, `t`.`Discriminator`
 FROM ((`Vehicles` AS `v`
 LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)

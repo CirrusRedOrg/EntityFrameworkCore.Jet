@@ -438,7 +438,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
         {
-            if (sqlParameterExpression.Type == typeof(DateTime) && sqlParameterExpression.TypeMapping is JetDateTimeTypeMapping)
+            if (sqlParameterExpression.Type == typeof(DateTime) && sqlParameterExpression.TypeMapping is JetDateTimeTypeMapping or NullTypeMapping)
             {
                 Sql.Append("CDATE(");
                 base.VisitSqlParameter(sqlParameterExpression);

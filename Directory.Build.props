@@ -4,7 +4,7 @@
 
   <PropertyGroup>
     <Product>EntityFrameworkCore.Jet</Product>
-    <Authors>Laurents Meyer, Bubi</Authors>
+    <Authors>Christopher Jolly, Laurents Meyer, Bubi</Authors>
     <Company>Bubi</Company>
     <Copyright>Copyright © 2017-$([System.DateTime]::Now.Year) Bubi</Copyright>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
@@ -19,14 +19,15 @@
     <!-- <PackageIcon>packageIcon.png</PackageIcon> -->
     <!-- <PackageIconFullPath>$(MSBuildThisFileDirectory)packageIcon.png</PackageIconFullPath> -->
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/bubibubi/EntityFrameworkCore.Jet</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup>
-    <DefaultNetCoreTargetFramework>net6.0</DefaultNetCoreTargetFramework>
-    <WindowsOnlyNetCoreTargetFramework>net6.0-windows</WindowsOnlyNetCoreTargetFramework>
-    <DefaultNetCoreLegacyTargetFramework>netcoreapp6.0</DefaultNetCoreLegacyTargetFramework>
-    <DefaultNetStandardTargetFramework>netstandard2.1</DefaultNetStandardTargetFramework>
+    <EfCoreTargetFramework>net8.0</EfCoreTargetFramework>
+    <EfCoreTestTargetFramework>$(EfCoreTargetFramework)</EfCoreTestTargetFramework>
+    <JetTargetFramework>$(EfCoreTargetFramework)</JetTargetFramework>
+    <JetTestTargetFramework>$(JetTargetFramework)</JetTestTargetFramework>
+    <JetTestWindowsOnlyTargetFramework>$(JetTestTargetFramework)-windows7.0</JetTestWindowsOnlyTargetFramework>
   </PropertyGroup>
 
   <ItemGroup>

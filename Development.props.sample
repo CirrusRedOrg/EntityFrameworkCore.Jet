@@ -14,12 +14,12 @@
       it's own version of EFCore, you have to make sure, that your local
       EFCore assemblies are compiled with an AssemblyVersion <= the one
       referenced by Microsoft.AspNetCore.Identity.EntityFrameworkCore
-      (e.g. "3.1.0.0").
+      (e.g. "8.0.0.0").
 
       To achive that, run the following command in your EntityFrameworkCore
       base directory:
       
-      dotnet build "/p:AssemblyVersion=3.1.0.0"
+      dotnet build "/p:AssemblyVersion=8.0.0.0"
     -->
     <LocalEFCoreRepository>C:\Repositories\EntityFrameworkCore</LocalEFCoreRepository>
   </PropertyGroup>

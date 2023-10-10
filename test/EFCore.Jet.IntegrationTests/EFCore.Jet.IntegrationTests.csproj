@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0-windows7.0</TargetFramework>
+		<TargetFramework>$(JetTestWindowsOnlyTargetFramework)</TargetFramework>
 		<RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
 		<GenerateProgramFile>false</GenerateProgramFile>
 		<Platforms>AnyCPU;x86;x64</Platforms>
@@ -74,18 +74,35 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="7.0.0" />
-		<PackageReference Include="System.Diagnostics.DiagnosticSource" Version="7.0.0" />
-		<PackageReference Include="System.Data.Odbc" Version="$(EFCoreVersion)" />
-		<PackageReference Include="System.Data.OleDb" Version="$(EFCoreVersion)" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0-preview-23424-02" />
-		<PackageReference Include="MSTest.TestAdapter" Version="2.3.0-preview-20220810-02" />
-		<PackageReference Include="MSTest.TestFramework" Version="2.3.0-preview-20220810-02" />
-		<PackageReference Include="coverlet.collector" Version="3.2.0">
+		<PackageReference Include="System.Diagnostics.DiagnosticSource" />
+		<PackageReference Include="System.Data.Odbc" />
+		<PackageReference Include="System.Data.OleDb" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="MSTest.TestAdapter" />
+		<PackageReference Include="MSTest.TestFramework" />
+		<PackageReference Include="coverlet.collector">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+	</ItemGroup>
 
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+	</ItemGroup>
+	
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
+		<Reference Include="Microsoft.EntityFrameworkCore">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
 	</ItemGroup>
 

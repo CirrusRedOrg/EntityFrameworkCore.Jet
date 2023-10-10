@@ -164,5 +164,6 @@ $RECYCLE.BIN/
 /msbuild/Compile
 /msbuild/Output
 /.vs/EntityFrameworkCore.Jet
+/.dotnet*/
 .idea
 Development.props

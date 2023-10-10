@@ -1,18 +1,54 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>$(JetTestTargetFramework)</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Platforms>AnyCPU;x86</Platforms>
 	</PropertyGroup>
+	
+	<ItemGroup>
+		<PackageReference Include="xunit.core" />
+		<PackageReference Include="xunit.assert" />
+	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.0">
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="7.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
+		<Reference Include="Microsoft.EntityFrameworkCore">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Design">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Design.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Design.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Proxies">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Proxies.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Relational.Specification.Tests.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Specification.Tests">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
+		</Reference>
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+		<PackageReference Include="NetTopologySuite" />
+		<PackageReference Include="System.ComponentModel.TypeConverter" />
+		<PackageReference Include="Castle.Core" />
 	</ItemGroup>
 
 	<ItemGroup>

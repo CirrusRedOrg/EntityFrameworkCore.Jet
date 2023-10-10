@@ -1,8 +1,0 @@
-<!-- This file may be overwritten by automation. -->
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <KoreBuildChannel>dev</KoreBuildChannel>
-    <VersionPrefix>2.1.0</VersionPrefix>
-    <VersionSuffix>preview1</VersionSuffix>
-  </PropertyGroup>
-</Project>

@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<Description>Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>$(JetTargetFramework)</TargetFramework>
 		<RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
 		<AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
 		<Platforms>AnyCPU;x86;x64</Platforms>
@@ -14,22 +14,22 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-		<PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" Version="$(EFCoreVersion)" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" Version="$(EFCoreVersion)" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
 		<Reference Include="Microsoft.EntityFrameworkCore">
-			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
 		</Reference>
 		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
-			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
 		</Reference>
 		<Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
-			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
 		</Reference>
 		<Reference Include="Microsoft.EntityFrameworkCore.Relational">
-			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(TargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
 		</Reference>
 
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" />
@@ -42,7 +42,6 @@
 		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
 		<PackageReference Include="Microsoft.Bcl.HashCode" />
 		<PackageReference Include="System.Collections.Immutable" />
-		<PackageReference Include="System.ComponentModel.Annotations" />
 	</ItemGroup>
 
 	<ItemGroup>

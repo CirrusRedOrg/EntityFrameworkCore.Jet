@@ -5,7 +5,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace EntityFrameworkCore.Jet.FunctionalTest;
+namespace EntityFrameworkCore.Jet.FunctionalTests;
 
 public class KeysWithConvertersJetTest : KeysWithConvertersTestBase<
     KeysWithConvertersJetTest.KeysWithConvertersJetFixture>

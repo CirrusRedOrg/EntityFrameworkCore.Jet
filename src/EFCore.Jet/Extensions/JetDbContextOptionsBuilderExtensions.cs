@@ -19,7 +19,7 @@ namespace Microsoft.EntityFrameworkCore
     public static class JetDbContextOptionsBuilderExtensions
     {
         #region Connection String
-        
+
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.
         /// </summary>
@@ -41,7 +41,20 @@ namespace Microsoft.EntityFrameworkCore
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
 
-            return (DbContextOptionsBuilder<TContext>) UseJet((DbContextOptionsBuilder) optionsBuilder, fileNameOrConnectionString, jetOptionsAction);
+            return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, jetOptionsAction);
+        }
+
+        public static DbContextOptionsBuilder UseJet(
+            this DbContextOptionsBuilder optionsBuilder,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+        {
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(GetOrCreateExtension(optionsBuilder));
+
+            ConfigureWarnings(optionsBuilder);
+
+            jetOptionsAction?.Invoke(new JetDbContextOptionsBuilder(optionsBuilder));
+
+            return optionsBuilder;
         }
 
         /// <summary>
@@ -87,7 +100,7 @@ namespace Microsoft.EntityFrameworkCore
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
             Check.NotNull(dataAccessProviderFactory, nameof(dataAccessProviderFactory));
 
-            return (DbContextOptionsBuilder<TContext>) UseJet((DbContextOptionsBuilder) optionsBuilder, fileNameOrConnectionString, dataAccessProviderFactory, jetOptionsAction);
+            return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, dataAccessProviderFactory, jetOptionsAction);
         }
 
         /// <summary>
@@ -131,7 +144,7 @@ namespace Microsoft.EntityFrameworkCore
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
 
-            return (DbContextOptionsBuilder<TContext>) UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, dataAccessProviderType, jetOptionsAction);
+            return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, dataAccessProviderType, jetOptionsAction);
         }
 
         /// <summary>
@@ -187,13 +200,13 @@ namespace Microsoft.EntityFrameworkCore
                 }
             }
 
-            var extension = (JetOptionsExtension) GetOrCreateExtension(optionsBuilder)
+            var extension = (JetOptionsExtension)GetOrCreateExtension(optionsBuilder)
                 .WithConnectionString(fileNameOrConnectionString);
 
             extension = extension.WithDataAccessProviderFactory(
                 dataAccessProviderFactory ?? JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType!.Value));
 
-            ((IDbContextOptionsBuilderInfrastructure) optionsBuilder).AddOrUpdateExtension(extension);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
             ConfigureWarnings(optionsBuilder);
 
@@ -203,9 +216,9 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         #endregion
-        
+
         #region Connection
-        
+
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.
@@ -228,8 +241,8 @@ namespace Microsoft.EntityFrameworkCore
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotNull(connection, nameof(connection));
 
-            return (DbContextOptionsBuilder<TContext>) UseJet(
-                (DbContextOptionsBuilder) optionsBuilder, connection, jetOptionsAction);
+            return (DbContextOptionsBuilder<TContext>)UseJet(
+                (DbContextOptionsBuilder)optionsBuilder, connection, jetOptionsAction);
         }
 
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
@@ -262,7 +275,7 @@ namespace Microsoft.EntityFrameworkCore
             {
                 var fileNameOrConnectionString = jetConnection.ConnectionString;
                 DataAccessProviderType dataAccessProviderType;
-                
+
                 if (JetConnection.IsConnectionString(fileNameOrConnectionString))
                 {
                     dataAccessProviderType = JetConnection.GetDataAccessProviderType(fileNameOrConnectionString);
@@ -280,12 +293,12 @@ namespace Microsoft.EntityFrameworkCore
                 jetConnection.Freeze();
             }
 
-            var extension = (JetOptionsExtension) GetOrCreateExtension(optionsBuilder)
+            var extension = (JetOptionsExtension)GetOrCreateExtension(optionsBuilder)
                 .WithConnection(connection);
 
             extension = extension.WithDataAccessProviderFactory(jetConnection.DataAccessProviderFactory);
 
-            ((IDbContextOptionsBuilderInfrastructure) optionsBuilder).AddOrUpdateExtension(extension);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
             ConfigureWarnings(optionsBuilder);
 
@@ -295,7 +308,7 @@ namespace Microsoft.EntityFrameworkCore
         }
 
         #endregion
-        
+
         private static JetOptionsExtension GetOrCreateExtension(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.Options.FindExtension<JetOptionsExtension>()
                ?? new JetOptionsExtension();
@@ -310,7 +323,7 @@ namespace Microsoft.EntityFrameworkCore
                 coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
                     RelationalEventId.AmbientTransactionWarning, WarningBehavior.Throw));
 
-            ((IDbContextOptionsBuilderInfrastructure) optionsBuilder).AddOrUpdateExtension(coreOptionsExtension);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(coreOptionsExtension);
         }
     }
 }

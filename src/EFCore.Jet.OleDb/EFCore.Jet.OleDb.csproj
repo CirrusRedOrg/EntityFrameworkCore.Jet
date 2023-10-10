@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<Description>Explicit OLE DB support for Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>$(JetTargetFramework)</TargetFramework>
 		<AssemblyName>EntityFrameworkCore.Jet.OleDb</AssemblyName>
 		<RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
 		<PackageTags>$(PackageTags);OLE DB;OLEDB;System.Data.OleDb</PackageTags>
@@ -18,15 +18,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="System.Data.OleDb" Version="8.0.0-rc.1.23419.4" />
+		<PackageReference Include="System.Data.OleDb" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
 		<Reference Include="Microsoft.EntityFrameworkCore">
-			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
 		</Reference>
 		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
-			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(DefaultNetStandardTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 

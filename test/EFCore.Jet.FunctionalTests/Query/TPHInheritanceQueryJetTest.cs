@@ -48,21 +48,21 @@ public class TPHInheritanceQueryJetTest : TPHInheritanceQueryTestBase<TPHInherit
 
         AssertSql(
 """
-SELECT TOP(2) [d].[Id], [d].[Discriminator], [d].[SortIndex], [d].[CaffeineGrams], [d].[CokeCO2], [d].[SugarGrams]
-FROM [Drinks] AS [d]
-WHERE [d].[Discriminator] = 1
+SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`SugarGrams`
+FROM `Drinks` AS `d`
+WHERE `d`.`Discriminator` = 1
 """,
-//
+            //
 """
-SELECT TOP(2) [d].[Id], [d].[Discriminator], [d].[SortIndex], [d].[LiltCO2], [d].[SugarGrams]
-FROM [Drinks] AS [d]
-WHERE [d].[Discriminator] = 2
+SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`LiltCO2`, `d`.`SugarGrams`
+FROM `Drinks` AS `d`
+WHERE `d`.`Discriminator` = 2
 """,
-//
+            //
 """
-SELECT TOP(2) [d].[Id], [d].[Discriminator], [d].[SortIndex], [d].[CaffeineGrams], [d].[HasMilk]
-FROM [Drinks] AS [d]
-WHERE [d].[Discriminator] = 3
+SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`HasMilk`
+FROM `Drinks` AS `d`
+WHERE `d`.`Discriminator` = 3
 """);
     }
 
@@ -72,7 +72,7 @@ WHERE [d].[Discriminator] = 3
 
         AssertSql(
 """
-select * from "Animals"
+select * from `Animals`
 """);
     }
 
@@ -82,11 +82,11 @@ select * from "Animals"
 
         AssertSql(
 """
-SELECT [m].[Id], [m].[CountryId], [m].[Discriminator], [m].[Name], [m].[Species], [m].[EagleId], [m].[IsFlightless], [m].[Group]
+SELECT `m`.`Id`, `m`.`CountryId`, `m`.`Discriminator`, `m`.`Name`, `m`.`Species`, `m`.`EagleId`, `m`.`IsFlightless`, `m`.`Group`
 FROM (
-    select * from "Animals"
-) AS [m]
-WHERE [m].[Discriminator] = N'Eagle'
+    select * from `Animals`
+) AS `m`
+WHERE `m`.`Discriminator` = 'Eagle'
 """);
     }
 
@@ -96,8 +96,8 @@ WHERE [m].[Discriminator] = N'Eagle'
 
         AssertSql(
 """
-SELECT [d].[Id], [d].[Discriminator], [d].[SortIndex], [d].[CaffeineGrams], [d].[CokeCO2], [d].[SugarGrams], [d].[LiltCO2], [d].[HasMilk]
-FROM [Drinks] AS [d]
+SELECT `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`SugarGrams`, `d`.`LiltCO2`, `d`.`HasMilk`
+FROM `Drinks` AS `d`
 """);
     }
 
@@ -107,9 +107,9 @@ FROM [Drinks] AS [d]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-ORDER BY [a].[Species]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -119,9 +119,9 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -131,11 +131,8 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [a].[Discriminator] = N'Kiwi' THEN [a].[FoundOn]
-    ELSE CAST(0 AS tinyint)
-END AS [Value]
-FROM [Animals] AS [a]
+SELECT IIF(`a`.`Discriminator` = 'Kiwi', `a`.`FoundOn`, CBYTE(0)) AS `Value`
+FROM `Animals` AS `a`
 """);
     }
 
@@ -145,9 +142,9 @@ FROM [Animals] AS [a]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi' AND [a].[CountryId] = 1
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`CountryId` = 1
 """);
     }
 
@@ -157,11 +154,8 @@ WHERE [a].[Discriminator] = N'Kiwi' AND [a].[CountryId] = 1
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [a].[Discriminator] = N'Kiwi' THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
-FROM [Animals] AS [a]
+SELECT IIF(`a`.`Discriminator` = 'Kiwi', TRUE, FALSE)
+FROM `Animals` AS `a`
 """);
     }
 
@@ -171,9 +165,9 @@ FROM [Animals] AS [a]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-ORDER BY [a].[Species]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -183,10 +177,10 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[CountryId] = 1
-ORDER BY [a].[Species]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`CountryId` = 1
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -196,8 +190,8 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [a].[EagleId]
-FROM [Animals] AS [a]
+SELECT `a`.`EagleId`
+FROM `Animals` AS `a`
 """);
     }
 
@@ -207,9 +201,9 @@ FROM [Animals] AS [a]
 
         AssertSql(
 """
-SELECT TOP(1) [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-ORDER BY [a].[Species]
+SELECT TOP 1 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -219,9 +213,9 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -231,9 +225,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT [p].[Species], [p].[CountryId], [p].[Genus], [p].[Name], [p].[HasThorns]
-FROM [Plants] AS [p]
-WHERE [p].[Genus] = 0
+SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
+FROM `Plants` AS `p`
+WHERE `p`.`Genus` = 0
 """);
     }
 
@@ -243,9 +237,9 @@ WHERE [p].[Genus] = 0
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-ORDER BY [a].[Species]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -255,11 +249,11 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [m].[CountryId], [m].[Discriminator], [m].[Name], [m].[EagleId], [m].[IsFlightless], [m].[Group], [m].[FoundOn]
+SELECT `m`.`CountryId`, `m`.`Discriminator`, `m`.`Name`, `m`.`EagleId`, `m`.`IsFlightless`, `m`.`Group`, `m`.`FoundOn`
 FROM (
     SELECT * FROM Animals
-) AS [m]
-ORDER BY [m].[CountryId]
+) AS `m`
+ORDER BY `m`.`CountryId`
 """);
     }
 
@@ -269,9 +263,9 @@ ORDER BY [m].[CountryId]
 
         AssertSql(
 """
-SELECT [p].[Species], [p].[CountryId], [p].[Genus], [p].[Name], [p].[HasThorns]
-FROM [Plants] AS [p]
-ORDER BY [p].[Species]
+SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
+FROM `Plants` AS `p`
+ORDER BY `p`.`Species`
 """);
     }
 
@@ -288,10 +282,10 @@ ORDER BY [p].[Species]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Name] = N'Great spotted kiwi'
-ORDER BY [a].[Species]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Name` = 'Great spotted kiwi'
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -301,9 +295,9 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-ORDER BY [a].[Species]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -313,9 +307,9 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT TOP(2) [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -325,9 +319,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT TOP(2) [p].[Species], [p].[CountryId], [p].[Genus], [p].[Name], [p].[HasThorns]
-FROM [Plants] AS [p]
-WHERE [p].[Genus] = 0
+SELECT TOP 2 `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
+FROM `Plants` AS `p`
+WHERE `p`.`Genus` = 0
 """);
     }
 
@@ -337,14 +331,14 @@ WHERE [p].[Genus] = 0
 
         AssertSql(
 """
-SELECT [t].[Id], [t].[CountryId], [t].[Discriminator], [t].[Name], [t].[Species], [t].[EagleId], [t].[IsFlightless], [t].[Group], [a0].[Id], [a0].[CountryId], [a0].[Discriminator], [a0].[Name], [a0].[Species], [a0].[EagleId], [a0].[IsFlightless], [a0].[Group], [a0].[FoundOn]
+SELECT `t`.`Id`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`Species`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`Group`, `a0`.`Id`, `a0`.`CountryId`, `a0`.`Discriminator`, `a0`.`Name`, `a0`.`Species`, `a0`.`EagleId`, `a0`.`IsFlightless`, `a0`.`Group`, `a0`.`FoundOn`
 FROM (
-    SELECT TOP(2) [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group]
-    FROM [Animals] AS [a]
-    WHERE [a].[Discriminator] = N'Eagle'
-) AS [t]
-LEFT JOIN [Animals] AS [a0] ON [t].[Id] = [a0].[EagleId]
-ORDER BY [t].[Id]
+    SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`
+    FROM `Animals` AS `a`
+    WHERE `a`.`Discriminator` = 'Eagle'
+) AS `t`
+LEFT JOIN `Animals` AS `a0` ON `t`.`Id` = `a0`.`EagleId`
+ORDER BY `t`.`Id`
 """);
     }
 
@@ -354,10 +348,10 @@ ORDER BY [t].[Id]
 
         AssertSql(
 """
-SELECT [c].[Id], [c].[Name], [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Countries] AS [c]
-LEFT JOIN [Animals] AS [a] ON [c].[Id] = [a].[CountryId]
-ORDER BY [c].[Name], [c].[Id]
+SELECT `c`.`Id`, `c`.`Name`, `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Countries` AS `c`
+LEFT JOIN `Animals` AS `a` ON `c`.`Id` = `a`.`CountryId`
+ORDER BY `c`.`Name`, `c`.`Id`
 """);
     }
 
@@ -367,9 +361,9 @@ ORDER BY [c].[Name], [c].[Id]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi' AND [a].[FoundOn] = CAST(0 AS tinyint)
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(0)
 """);
     }
 
@@ -379,9 +373,9 @@ WHERE [a].[Discriminator] = N'Kiwi' AND [a].[FoundOn] = CAST(0 AS tinyint)
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi' AND [a].[FoundOn] = CAST(1 AS tinyint)
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(1)
 """);
     }
 
@@ -391,9 +385,9 @@ WHERE [a].[Discriminator] = N'Kiwi' AND [a].[FoundOn] = CAST(1 AS tinyint)
 
         AssertSql(
 """
-SELECT [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -403,8 +397,8 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT [a].[IsFlightless], [a].[Discriminator]
-FROM [Animals] AS [a]
+SELECT `a`.`IsFlightless`, `a`.`Discriminator`
+FROM `Animals` AS `a`
 """);
     }
 
@@ -414,9 +408,9 @@ FROM [Animals] AS [a]
 
         AssertSql(
 """
-SELECT [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -429,12 +423,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT CASE
-    WHEN [a].[IsFlightless] = CAST(1 AS bit) THEN CAST(0 AS tinyint)
-    ELSE CAST(1 AS tinyint)
-END
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT IIF(`a`.`IsFlightless` = TRUE, CBYTE(0), CBYTE(1))
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -491,15 +482,13 @@ WHERE ([t].[FoundOn] = CAST(0 AS tinyint)) AND [t].[FoundOn] IS NOT NULL
 
         AssertSql(
 """
-@__p_0='5'
-
-SELECT DISTINCT [t].[Id], [t].[CountryId], [t].[Discriminator], [t].[Name], [t].[Species], [t].[EagleId], [t].[IsFlightless], [t].[FoundOn]
+SELECT DISTINCT `t`.`Id`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`Species`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`FoundOn`
 FROM (
-    SELECT TOP(@__p_0) [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-    FROM [Animals] AS [a]
-    ORDER BY [a].[Species]
-) AS [t]
-WHERE [t].[Discriminator] = N'Kiwi'
+    SELECT TOP 5 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+    FROM `Animals` AS `a`
+    ORDER BY `a`.`Species`
+) AS `t`
+WHERE `t`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -529,10 +518,10 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [a].[Name]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
-ORDER BY [a].[Name]
+SELECT `a`.`Name`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
+ORDER BY `a`.`Name`
 """);
     }
 
@@ -542,12 +531,12 @@ ORDER BY [a].[Name]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [m].[CountryId], [m].[Discriminator], [m].[Name], [m].[EagleId], [m].[IsFlightless], [m].[Group], [m].[FoundOn]
-FROM [Animals] AS [a]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `m`.`CountryId`, `m`.`Discriminator`, `m`.`Name`, `m`.`EagleId`, `m`.`IsFlightless`, `m`.`Group`, `m`.`FoundOn`
+FROM `Animals` AS `a`
 INNER JOIN (
-    Select * from "Animals"
-) AS [m] ON [a].[Name] = [m].[Name]
-WHERE [a].[Discriminator] = N'Eagle'
+    Select * from `Animals`
+) AS `m` ON `a`.`Name` = `m`.`Name`
+WHERE `a`.`Discriminator` = 'Eagle'
 """);
     }
 
@@ -557,13 +546,13 @@ WHERE [a].[Discriminator] = N'Eagle'
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
 WHERE (
-    SELECT TOP(1) [a0].[Discriminator]
-    FROM [Animals] AS [a0]
-    WHERE [a0].[Name] = N'Great spotted kiwi') = N'Kiwi'
-ORDER BY [a].[Species]
+    SELECT TOP 1 `a0`.`Discriminator`
+    FROM `Animals` AS `a0`
+    WHERE `a0`.`Name` = 'Great spotted kiwi') = 'Kiwi'
+ORDER BY `a`.`Species`
 """);
     }
 
@@ -573,8 +562,8 @@ ORDER BY [a].[Species]
 
         AssertSql(
 """
-SELECT [a].[Name]
-FROM [Animals] AS [a]
+SELECT `a`.`Name`
+FROM `Animals` AS `a`
 """);
     }
 
@@ -584,8 +573,8 @@ FROM [Animals] AS [a]
 
         AssertSql(
 """
-SELECT [a].[Name]
-FROM [Animals] AS [a]
+SELECT `a`.`Name`
+FROM `Animals` AS `a`
 """);
     }
 
@@ -595,9 +584,9 @@ FROM [Animals] AS [a]
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -607,9 +596,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -619,9 +608,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT [a].[Name] AS [Predator]
-FROM [Animals] AS [a]
-WHERE N'Kiwi' = [a].[Discriminator]
+SELECT `a`.`Name` AS `Predator`
+FROM `Animals` AS `a`
+WHERE 'Kiwi' = `a`.`Discriminator`
 """);
     }
 
@@ -631,25 +620,25 @@ WHERE N'Kiwi' = [a].[Discriminator]
 
         AssertSql(
 """
-SELECT TOP(2) [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """,
-//
+            //
 """
 @p0='0'
 @p1='Eagle' (Nullable = false) (Size = 8)
 @p2='2' (Nullable = true)
 @p3='1' (Nullable = true)
 @p4='False' (Nullable = true)
-@p5='Bald eagle' (Size = 4000)
+@p5='Bald eagle' (Size = 255)
 @p6='Haliaeetus leucocephalus' (Size = 100)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [Animals] ([CountryId], [Discriminator], [EagleId], [Group], [IsFlightless], [Name], [Species])
-OUTPUT INSERTED.[Id]
+INSERT INTO `Animals` (`CountryId`, `Discriminator`, `EagleId`, `Group`, `IsFlightless`, `Name`, `Species`)
 VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+SELECT `Id`
+FROM `Animals`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """);
     }
 
@@ -659,8 +648,8 @@ VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
 WHERE 0 = 1
 """);
     }
@@ -671,8 +660,8 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group]
-FROM [Animals] AS [a]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`
+FROM `Animals` AS `a`
 WHERE 0 = 1
 """);
     }
@@ -690,8 +679,8 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
 WHERE 0 = 1
 """);
     }
@@ -702,8 +691,8 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
 WHERE 0 = 1
 """);
     }
@@ -714,9 +703,9 @@ WHERE 0 = 1
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Eagle'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Eagle'
 """);
     }
 
@@ -726,9 +715,9 @@ WHERE [a].[Discriminator] = N'Eagle'
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -738,9 +727,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -750,9 +739,9 @@ WHERE [a].[Discriminator] = N'Kiwi'
 
         AssertSql(
 """
-SELECT [a].[Id], [a].[CountryId], [a].[Discriminator], [a].[Name], [a].[Species], [a].[EagleId], [a].[IsFlightless], [a].[Group], [a].[FoundOn]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] <> N'Kiwi'
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
+FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` <> 'Kiwi'
 """);
     }
 

@@ -29,10 +29,9 @@ public class TPHInheritanceBulkUpdatesJetTest : TPHInheritanceBulkUpdatesTestBas
         await base.Delete_where_hierarchy(async);
 
         AssertSql(
-"""
-DELETE FROM [a]
-FROM [Animals] AS [a]
-WHERE [a].[Name] = N'Great spotted kiwi'
+            """
+DELETE FROM `Animals` AS `a`
+WHERE `a`.`Name` = 'Great spotted kiwi'
 """);
     }
 
@@ -41,10 +40,9 @@ WHERE [a].[Name] = N'Great spotted kiwi'
         await base.Delete_where_hierarchy_derived(async);
 
         AssertSql(
-"""
-DELETE FROM [a]
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi' AND [a].[Name] = N'Great spotted kiwi'
+            """
+DELETE FROM `Animals` AS `a`
+WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`Name` = 'Great spotted kiwi'
 """);
     }
 
@@ -53,13 +51,12 @@ WHERE [a].[Discriminator] = N'Kiwi' AND [a].[Name] = N'Great spotted kiwi'
         await base.Delete_where_using_hierarchy(async);
 
         AssertSql(
-"""
-DELETE FROM [c]
-FROM [Countries] AS [c]
+            """
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
-    FROM [Animals] AS [a]
-    WHERE [c].[Id] = [a].[CountryId] AND [a].[CountryId] > 0) > 0
+    FROM `Animals` AS `a`
+    WHERE `c`.`Id` = `a`.`CountryId` AND `a`.`CountryId` > 0) > 0
 """);
     }
 
@@ -68,13 +65,12 @@ WHERE (
         await base.Delete_where_using_hierarchy_derived(async);
 
         AssertSql(
-"""
-DELETE FROM [c]
-FROM [Countries] AS [c]
+            """
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
-    FROM [Animals] AS [a]
-    WHERE [c].[Id] = [a].[CountryId] AND [a].[Discriminator] = N'Kiwi' AND [a].[CountryId] > 0) > 0
+    FROM `Animals` AS `a`
+    WHERE `c`.`Id` = `a`.`CountryId` AND `a`.`Discriminator` = 'Kiwi' AND `a`.`CountryId` > 0) > 0
 """);
     }
 
@@ -124,18 +120,20 @@ WHERE [a].[Id] IN (
         await base.Delete_where_hierarchy_subquery(async);
 
         AssertSql(
-"""
-@__p_0='0'
-@__p_1='3'
-
-DELETE FROM [a]
-FROM [Animals] AS [a]
-WHERE [a].[Id] IN (
-    SELECT [a0].[Id]
-    FROM [Animals] AS [a0]
-    WHERE [a0].[Name] = N'Great spotted kiwi'
-    ORDER BY [a0].[Name]
-    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
+            """
+DELETE FROM `Animals` AS `a`
+WHERE `a`.`Id` IN (
+    SELECT `t0`.`Id`
+    FROM (
+        SELECT TOP 3 `t`.`Id`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`Species`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`Group`, `t`.`FoundOn`
+        FROM (
+            SELECT TOP 3 `a0`.`Id`, `a0`.`CountryId`, `a0`.`Discriminator`, `a0`.`Name`, `a0`.`Species`, `a0`.`EagleId`, `a0`.`IsFlightless`, `a0`.`Group`, `a0`.`FoundOn`
+            FROM `Animals` AS `a0`
+            WHERE `a0`.`Name` = 'Great spotted kiwi'
+            ORDER BY `a0`.`Name`
+        ) AS `t`
+        ORDER BY `t`.`Name` DESC
+    ) AS `t0`
 )
 """);
     }
@@ -145,11 +143,10 @@ WHERE [a].[Id] IN (
         await base.Update_base_type(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [a]
-SET [a].[Name] = N'Animal'
-FROM [Animals] AS [a]
-WHERE [a].[Name] = N'Great spotted kiwi'
+            """
+UPDATE `Animals` AS `a`
+SET `Name` = 'Animal'
+WHERE `a`.`Name` = 'Great spotted kiwi'
 """);
     }
 
@@ -158,11 +155,10 @@ WHERE [a].[Name] = N'Great spotted kiwi'
         await base.Update_base_type_with_OfType(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [a]
-SET [a].[Name] = N'NewBird'
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+            """
+UPDATE `Animals` AS `a`
+SET `Name` = 'NewBird'
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -178,11 +174,10 @@ WHERE [a].[Discriminator] = N'Kiwi'
         await base.Update_base_property_on_derived_type(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [a]
-SET [a].[Name] = N'SomeOtherKiwi'
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+            """
+UPDATE `Animals` AS `a`
+SET `Name` = 'SomeOtherKiwi'
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -191,11 +186,10 @@ WHERE [a].[Discriminator] = N'Kiwi'
         await base.Update_derived_property_on_derived_type(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [a]
-SET [a].[FoundOn] = CAST(0 AS tinyint)
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+            """
+UPDATE `Animals` AS `a`
+SET `FoundOn` = CBYTE(0)
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -204,14 +198,13 @@ WHERE [a].[Discriminator] = N'Kiwi'
         await base.Update_where_using_hierarchy(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[Name] = N'Monovia'
-FROM [Countries] AS [c]
+            """
+UPDATE `Countries` AS `c`
+SET `Name` = 'Monovia'
 WHERE (
     SELECT COUNT(*)
-    FROM [Animals] AS [a]
-    WHERE [c].[Id] = [a].[CountryId] AND [a].[CountryId] > 0) > 0
+    FROM `Animals` AS `a`
+    WHERE `c`.`Id` = `a`.`CountryId` AND `a`.`CountryId` > 0) > 0
 """);
     }
 
@@ -220,12 +213,11 @@ WHERE (
         await base.Update_base_and_derived_types(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [a]
-SET [a].[FoundOn] = CAST(0 AS tinyint),
-    [a].[Name] = N'Kiwi'
-FROM [Animals] AS [a]
-WHERE [a].[Discriminator] = N'Kiwi'
+            """
+UPDATE `Animals` AS `a`
+SET `FoundOn` = CBYTE(0),
+    `Name` = 'Kiwi'
+WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
 
@@ -234,14 +226,13 @@ WHERE [a].[Discriminator] = N'Kiwi'
         await base.Update_where_using_hierarchy_derived(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[Name] = N'Monovia'
-FROM [Countries] AS [c]
+            """
+UPDATE `Countries` AS `c`
+SET `Name` = 'Monovia'
 WHERE (
     SELECT COUNT(*)
-    FROM [Animals] AS [a]
-    WHERE [c].[Id] = [a].[CountryId] AND [a].[Discriminator] = N'Kiwi' AND [a].[CountryId] > 0) > 0
+    FROM `Animals` AS `a`
+    WHERE `c`.`Id` = `a`.`CountryId` AND `a`.`Discriminator` = 'Kiwi' AND `a`.`CountryId` > 0) > 0
 """);
     }
 
@@ -257,11 +248,10 @@ WHERE (
         await base.Update_with_interface_in_property_expression(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [d]
-SET [d].[SugarGrams] = 0
-FROM [Drinks] AS [d]
-WHERE [d].[Discriminator] = 1
+            """
+UPDATE `Drinks` AS `d`
+SET `SugarGrams` = 0
+WHERE `d`.`Discriminator` = 1
 """);
     }
 
@@ -270,11 +260,10 @@ WHERE [d].[Discriminator] = 1
         await base.Update_with_interface_in_EF_Property_in_property_expression(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [d]
-SET [d].[SugarGrams] = 0
-FROM [Drinks] AS [d]
-WHERE [d].[Discriminator] = 1
+            """
+UPDATE `Drinks` AS `d`
+SET `SugarGrams` = 0
+WHERE `d`.`Discriminator` = 1
 """);
     }
 

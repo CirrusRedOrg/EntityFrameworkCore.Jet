@@ -641,7 +641,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     + _eol
                     + "    `TheGu` uniqueidentifier NOT NULL,"
                     + _eol
-                    + "    `NotFigTime` datetime2 NOT NULL,"
+                    + "    `NotFigTime` datetime NOT NULL,"
                     + _eol
                     + "    `ToEat` tinyint NOT NULL,"
                     + _eol

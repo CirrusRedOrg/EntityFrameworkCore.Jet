@@ -36,25 +36,29 @@ public class JetUpdateSqlGeneratorTest : UpdateSqlGeneratorTestBase
 
         CreateSqlGenerator().AppendBatchHeader(sb);
 
-        Assert.Equal("SET NOCOUNT ON;" + Environment.NewLine, sb.ToString());
+        Assert.Equal("", sb.ToString());
     }
 
     protected override void AppendInsertOperation_for_store_generated_columns_but_no_identity_verification(
         StringBuilder stringBuilder)
         => AssertBaseline(
 """
-INSERT INTO [dbo].[Ducks] ([Id], [Name], [Quacks], [ConcurrencyToken])
-OUTPUT INSERTED.[Computed]
+INSERT INTO `Ducks` (`Id`, `Name`, `Quacks`, `ConcurrencyToken`)
 VALUES (@p0, @p1, @p2, @p3);
+SELECT `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @p0;
 """,
             stringBuilder.ToString());
 
     protected override void AppendInsertOperation_insert_if_store_generated_columns_exist_verification(StringBuilder stringBuilder)
         => AssertBaseline(
 """
-INSERT INTO [dbo].[Ducks] ([Name], [Quacks], [ConcurrencyToken])
-OUTPUT INSERTED.[Id], INSERTED.[Computed]
+INSERT INTO `Ducks` (`Name`, `Quacks`, `ConcurrencyToken`)
 VALUES (@p0, @p1, @p2);
+SELECT `Id`, `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
 
@@ -62,27 +66,33 @@ VALUES (@p0, @p1, @p2);
         StringBuilder stringBuilder)
         => AssertBaseline(
 """
-INSERT INTO [dbo].[Ducks]
-OUTPUT INSERTED.[Id]
+INSERT INTO `Ducks`
 DEFAULT VALUES;
+SELECT `Id`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
 
     protected override void AppendInsertOperation_for_only_identity_verification(StringBuilder stringBuilder)
         => AssertBaseline(
 """
-INSERT INTO [dbo].[Ducks] ([Name], [Quacks], [ConcurrencyToken])
-OUTPUT INSERTED.[Id]
+INSERT INTO `Ducks` (`Name`, `Quacks`, `ConcurrencyToken`)
 VALUES (@p0, @p1, @p2);
+SELECT `Id`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
 
     protected override void AppendInsertOperation_for_all_store_generated_columns_verification(StringBuilder stringBuilder)
         => AssertBaseline(
 """
-INSERT INTO [dbo].[Ducks]
-OUTPUT INSERTED.[Id], INSERTED.[Computed]
+INSERT INTO `Ducks`
 DEFAULT VALUES;
+SELECT `Id`, `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
 
@@ -120,9 +130,13 @@ OUTPUT INSERTED.[Id], INSERTED.[Computed], i._Position;
 
         AssertBaseline(
 """
-INSERT INTO [dbo].[Ducks] ([Id], [Name], [Quacks], [ConcurrencyToken])
-VALUES (@p0, @p1, @p2, @p3),
-(@p0, @p1, @p2, @p3);
+INSERT INTO `Ducks` (`Id`, `Name`, `Quacks`, `ConcurrencyToken`)
+VALUES (@p0, @p1, @p2, @p3);
+SELECT @@ROWCOUNT;
+
+INSERT INTO `Ducks` (`Id`, `Name`, `Quacks`, `ConcurrencyToken`)
+VALUES (@p0, @p1, @p2, @p3);
+SELECT @@ROWCOUNT;
 """,
             stringBuilder.ToString());
         Assert.Equal(ResultSetMapping.NoResults, grouping);
@@ -163,9 +177,13 @@ INNER JOIN @inserted0 i ON ([t].[Id] = [i].[Id]);
 
         var expectedText =
 """
-INSERT INTO [dbo].[Ducks] ([Computed])
-VALUES (DEFAULT),
-(DEFAULT);
+INSERT INTO `Ducks`
+DEFAULT VALUES;
+SELECT @@ROWCOUNT;
+
+INSERT INTO `Ducks`
+DEFAULT VALUES;
+SELECT @@ROWCOUNT;
 """;
         AssertBaseline(expectedText, stringBuilder.ToString());
         Assert.Equal(ResultSetMapping.NoResults, grouping);
@@ -174,9 +192,11 @@ VALUES (DEFAULT),
     protected override void AppendUpdateOperation_for_computed_property_verification(StringBuilder stringBuilder)
         => AssertBaseline(
 """
-UPDATE [dbo].[Ducks] SET [Name] = @p0, [Quacks] = @p1, [ConcurrencyToken] = @p2
-OUTPUT INSERTED.[Computed]
-WHERE [Id] = @p3;
+UPDATE `Ducks` SET `Name` = @p0, `Quacks` = @p1, `ConcurrencyToken` = @p2
+WHERE `Id` = @p3;
+SELECT `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @p3;
 """,
             stringBuilder.ToString());
 
@@ -184,9 +204,11 @@ WHERE [Id] = @p3;
         StringBuilder stringBuilder)
         => AssertBaseline(
 """
-UPDATE [dbo].[Ducks] SET [Name] = @p0, [Quacks] = @p1, [ConcurrencyToken] = @p2
-OUTPUT INSERTED.[Computed]
-WHERE [Id] = @p3 AND [ConcurrencyToken] IS NULL;
+UPDATE `Ducks` SET `Name` = @p0, `Quacks` = @p1, `ConcurrencyToken` = @p2
+WHERE `Id` = @p3 AND `ConcurrencyToken` IS NULL;
+SELECT `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @p3;
 """,
             stringBuilder.ToString());
 
@@ -194,27 +216,27 @@ WHERE [Id] = @p3 AND [ConcurrencyToken] IS NULL;
         StringBuilder stringBuilder)
         => AssertBaseline(
 """
-UPDATE [dbo].[Ducks] SET [Name] = @p0, [Quacks] = @p1, [ConcurrencyToken] = @p2
-OUTPUT 1
-WHERE [Id] = @p3;
+UPDATE `Ducks` SET `Name` = @p0, `Quacks` = @p1, `ConcurrencyToken` = @p2
+WHERE `Id` = @p3;
+SELECT @@ROWCOUNT;
 """,
             stringBuilder.ToString());
 
     protected override void AppendUpdateOperation_appends_where_for_concurrency_token_verification(StringBuilder stringBuilder)
         => AssertBaseline(
 """
-UPDATE [dbo].[Ducks] SET [Name] = @p0, [Quacks] = @p1, [ConcurrencyToken] = @p2
-OUTPUT 1
-WHERE [Id] = @p3 AND [ConcurrencyToken] IS NULL;
+UPDATE `Ducks` SET `Name` = @p0, `Quacks` = @p1, `ConcurrencyToken` = @p2
+WHERE `Id` = @p3 AND `ConcurrencyToken` IS NULL;
+SELECT @@ROWCOUNT;
 """,
             stringBuilder.ToString());
 
     protected override void AppendDeleteOperation_creates_full_delete_command_text_verification(StringBuilder stringBuilder)
         => AssertBaseline(
 """
-DELETE FROM [dbo].[Ducks]
-OUTPUT 1
-WHERE [Id] = @p0;
+DELETE FROM `Ducks`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
 """,
             stringBuilder.ToString());
 
@@ -222,9 +244,9 @@ WHERE [Id] = @p0;
         StringBuilder stringBuilder)
         => AssertBaseline(
 """
-DELETE FROM [dbo].[Ducks]
-OUTPUT 1
-WHERE [Id] = @p0 AND [ConcurrencyToken] IS NULL;
+DELETE FROM `Ducks`
+WHERE `Id` = @p0 AND `ConcurrencyToken` IS NULL;
+SELECT @@ROWCOUNT;
 """,
             stringBuilder.ToString());
 

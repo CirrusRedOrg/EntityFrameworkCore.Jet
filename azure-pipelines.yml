@@ -16,7 +16,7 @@ jobs:
     displayName: Build and Test
     strategy:
       matrix:
-        ACE_2010_x64_with_ODBC':
+        ACE_2010_x64_with_ODBC:
           aceVersion: '2010'
           aceArchitecture: 'x64'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'

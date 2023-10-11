@@ -528,13 +528,6 @@ WHERE [p].[Ints] = @__ints_0
 """);
     }
 
-    public override async Task Column_collection_Concat_parameter_collection_equality_inline_collection_not_supported(bool async)
-    {
-        await base.Column_collection_Concat_parameter_collection_equality_inline_collection_not_supported(async);
-
-        AssertSql();
-    }
-
     public override async Task Column_collection_equality_inline_collection(bool async)
     {
         await base.Column_collection_equality_inline_collection(async);
@@ -608,35 +601,6 @@ ORDER BY [p].[Id]
         // we don't propagate error details from projection
         => AssertTranslationFailed(() => base.Project_collection_of_datetimes_filtered(async));
 
-    public override async Task Project_collection_of_ints_with_paging(bool async)
-    {
-        await base.Project_collection_of_ints_with_paging(async);
-
-        // client eval
-        AssertSql(
-"""
-SELECT [p].[NullableInts]
-FROM [PrimitiveCollectionsEntity] AS [p]
-ORDER BY [p].[Id]
-""");
-    }
-
-    public override Task Project_collection_of_ints_with_paging2(bool async)
-        // we don't propagate error details from projection
-        => AssertTranslationFailed(() => base.Project_collection_of_ints_with_paging2(async));
-
-    public override async Task Project_collection_of_ints_with_paging3(bool async)
-    {
-        await base.Project_collection_of_ints_with_paging3(async);
-
-        // client eval
-        AssertSql(
-"""
-SELECT [p].[NullableInts]
-FROM [PrimitiveCollectionsEntity] AS [p]
-ORDER BY [p].[Id]
-""");
-    }
 
     public override async Task Project_collection_of_ints_with_distinct(bool async)
     {

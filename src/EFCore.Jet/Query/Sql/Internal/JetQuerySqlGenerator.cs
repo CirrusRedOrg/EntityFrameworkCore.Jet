@@ -15,9 +15,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using ExpressionExtensions = Microsoft.EntityFrameworkCore.Internal.ExpressionExtensions;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.EntityFrameworkCore.Storage.Internal;
 
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {

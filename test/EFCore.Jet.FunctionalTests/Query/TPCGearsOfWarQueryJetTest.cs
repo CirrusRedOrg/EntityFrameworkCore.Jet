@@ -11,7 +11,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class TPCGearsOfWarQueryJetTest : EFCore.Jet.CustomBaseTests.GearsOfWarModel.TPCGearsOfWarQueryRelationalTestBase<TPCGearsOfWarQueryJetFixture>
+public class TPCGearsOfWarQueryJetTest : TPCGearsOfWarQueryRelationalTestBase<TPCGearsOfWarQueryJetFixture>
 {
 #pragma warning disable IDE0060 // Remove unused parameter
     public TPCGearsOfWarQueryJetTest(TPCGearsOfWarQueryJetFixture fixture, ITestOutputHelper testOutputHelper)

@@ -6,7 +6,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class GearsOfWarFromSqlQueryJetTest : EFCore.Jet.CustomBaseTests.GearsOfWarModel.GearsOfWarFromSqlQueryTestBase<GearsOfWarQueryJetFixture>
+    public class GearsOfWarFromSqlQueryJetTest : GearsOfWarFromSqlQueryTestBase<GearsOfWarQueryJetFixture>
     {
         public GearsOfWarFromSqlQueryJetTest(GearsOfWarQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)

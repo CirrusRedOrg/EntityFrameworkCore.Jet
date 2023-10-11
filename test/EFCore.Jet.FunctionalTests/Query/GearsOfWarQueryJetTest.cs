@@ -1,18 +1,15 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
 using Xunit.Abstractions;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
-using EFCore.Jet.CustomBaseTests.GearsOfWarModel;
+
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class GearsOfWarQueryJetTest : EFCore.Jet.CustomBaseTests.GearsOfWarModel.GearsOfWarQueryRelationalTestBase<GearsOfWarQueryJetFixture>
+    public class GearsOfWarQueryJetTest : GearsOfWarQueryRelationalTestBase<GearsOfWarQueryJetFixture>
     {
         private static readonly string _eol = Environment.NewLine;
 

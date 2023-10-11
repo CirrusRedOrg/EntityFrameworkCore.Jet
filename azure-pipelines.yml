@@ -16,28 +16,28 @@ jobs:
     displayName: Build and Test
     strategy:
       matrix:
-        ACE 2010 x64 with ODBC:
+        ACE_2010_x64_with_ODBC':
           aceVersion: '2010'
           aceArchitecture: 'x64'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
           aceSilentInstallArgument: '/passive'
           dataAccessProviderType: 'ODBC'
           defaultConnection: 'DBQ=Jet.accdb'
-        ACE 2010 x64 with OLE DB:
+        ACE_2010_x64_with_OLE_DB:
           aceVersion: '2010'
           aceArchitecture: 'x64'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
           aceSilentInstallArgument: '/passive'
           dataAccessProviderType: 'OLE DB'
           defaultConnection: 'Data Source=Jet.accdb'
-        ACE 2010 x86 with ODBC:
+        ACE_2010_x86_with_ODBC:
           aceVersion: '2010'
           aceArchitecture: 'x86'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
           aceSilentInstallArgument: '/passive'
           dataAccessProviderType: 'ODBC'
           defaultConnection: 'DBQ=Jet.accdb'
-        ACE 2010 x86 with OLE DB:
+        ACE_2010_x86_with_OLE_DB:
           aceVersion: '2010'
           aceArchitecture: 'x86'
           aceUrl: 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'

@@ -18,5 +18,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
         }
+
+        protected override void Seed(GearsOfWarContext context)
+        {
+            // Drop constraint to workaround Jet limitation regarding compound foreign keys and NULL.
+            context.Database.ExecuteSql($"ALTER TABLE `Gears` DROP CONSTRAINT `FK_Gears_Gears_LeaderNickname_LeaderSquadId`");
+
+            base.Seed(context);
+        }
     }
 }

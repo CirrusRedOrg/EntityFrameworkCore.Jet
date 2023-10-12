@@ -128,12 +128,23 @@ jobs:
     pool:
       vmImage: 'windows-latest' # must be Windows for PublishSymbols task
     steps:
-      - task: UseDotNet@2
-        displayName: 'Use .NET Core SDK'
-        inputs:
-          useGlobalJson: true
-      - pwsh: dotnet --info
-        displayName: .NET Information
+      - pwsh: |
+          $dotnetInstallDirectory = Join-Path $env:ProgramFiles 'dotnet'
+          echo "##vso[task.setvariable variable=dotnetInstallDirectory]$dotnetInstallDirectory"
+          
+          $dotnetPath = Join-Path $dotnetInstallDirectory 'dotnet.exe'
+          echo "##vso[task.setvariable variable=dotnetPath]$dotnetPath"
+        displayName: Set additional variables
+      - pwsh: |
+          try { & '$(dotnetPath)' --info } catch { echo 'No .NET SDK installed' }
+        displayName: .NET Information Before SDK Install
+      - pwsh: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+          &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -InstallDir '$(dotnetInstallDirectory)' -Verbose
+        displayName: Install .NET SDK
+      - pwsh: |
+          try { & '$(dotnetPath)' --info } catch { echo 'No .NET SDK installed' }
+        displayName: .NET Information After SDK Install
       - pwsh: |
           $officialBuild = '$(Build.SourceBranch)' -match '(?<=^refs/tags/v)\d+\.\d+\.\d+.*$'
           $officialVersion = $Matches.0
@@ -172,8 +183,8 @@ jobs:
             {
               try
               {
-                echo "Pack command: dotnet " + (($arguments + $projectFile) -join ' ')
-                & dotnet ($arguments + $projectFile)
+                echo "Pack command: & '$(dotnetPath)' $(($arguments + $projectFile) -join ' ')"
+                & '$(dotnetPath)' ($arguments + $projectFile)
               }
               catch
               {
@@ -201,14 +212,14 @@ jobs:
           command: push
           publishVstsFeed: 'EntityFrameworkCore.Jet/public'
           packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-        condition: eq(variables['Pack.PushToAzureArtifacts'],'true')
+        condition: and(succeeded(), eq(variables['Pack.PushToAzureArtifacts'],'true'))
       - task: PublishSymbols@2 # AZDO still has no snupkg support, so we need to publish the PDB files to a symbol server
         displayName: "Publish Symbols to Azure Artifacts symbol server"
         inputs:
           symbolServerType: 'TeamServices'
           treatNotIndexedAsWarning: false
           indexSources: false
-        condition: eq(variables['Pack.PublishSymbolsForAzureArtifacts'],'true')
+        condition: and(succeeded(), eq(variables['Pack.PublishSymbolsForAzureArtifacts'],'true'))
       - task: NuGetCommand@2
         displayName: "NuGet Push - nuget.org"
         inputs:
@@ -216,4 +227,4 @@ jobs:
           nuGetFeedType: external
           publishFeedCredentials: LauXjpn-NugetOrg-EFCoreJet-AllPackages-PushNew
           packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-        condition: eq(variables['Pack.PushToNugetOrg'],'true')
+        condition: and(succeeded(), eq(variables['Pack.PushToNugetOrg'],'true'))

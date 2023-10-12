@@ -57,7 +57,7 @@ LEFT JOIN `ModdleA24777` AS `m0` ON `r`.`Id` = `m0`.`RootId`
 WHERE `r`.`Id` = 3
 ORDER BY `r`.`Id`, `m`.`Id`, `m0`.`Id`
 """,
-            //
+//
 """
 SELECT `l`.`ModdleAId`, `l`.`UnitThreshold`, `t`.`Id`, `t`.`Id0`, `t`.`Id1`
 FROM (
@@ -167,7 +167,31 @@ ORDER BY `r`.`Buyer`
 """
 SELECT `r`.`Id`, `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
 FROM `RotRutCases` AS `r`
-WHERE `r`.`Rot_ApartmentNo` IS NOT NULL AND `r`.`Rot_ServiceType` IS NOT NULL
+WHERE `r`.`Rot_ApartmentNo` IS NOT NULL OR `r`.`Rot_ServiceType` IS NOT NULL
+""");
+    }
+
+    public override async Task Owned_entity_with_all_null_properties_in_compared_to_null_in_conditional_projection(bool async)
+    {
+        await base.Owned_entity_with_all_null_properties_in_compared_to_null_in_conditional_projection(async);
+
+        AssertSql(
+            """
+SELECT IIF(`r`.`Rot_ApartmentNo` IS NULL AND `r`.`Rot_ServiceType` IS NULL, TRUE, FALSE), `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
+FROM `RotRutCases` AS `r`
+ORDER BY `r`.`Id`
+""");
+    }
+
+    public override async Task Owned_entity_with_all_null_properties_in_compared_to_non_null_in_conditional_projection(bool async)
+    {
+        await base.Owned_entity_with_all_null_properties_in_compared_to_non_null_in_conditional_projection(async);
+
+        AssertSql(
+            """
+SELECT IIF(`r`.`Rot_ApartmentNo` IS NOT NULL OR `r`.`Rot_ServiceType` IS NOT NULL, TRUE, FALSE), `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
+FROM `RotRutCases` AS `r`
+ORDER BY `r`.`Id`
 """);
     }
 

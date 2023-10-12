@@ -22,76 +22,79 @@ public class NonSharedModelUpdatesJetTest : NonSharedModelUpdatesTestBase
 
         AssertSql(
 """
-@p0='AC South' (Size = 4000)
+@p0='AC South' (Size = 255)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [AuthorsClub] ([Name])
-OUTPUT INSERTED.[Id]
+INSERT INTO `AuthorsClub` (`Name`)
 VALUES (@p0);
+SELECT `Id`
+FROM `AuthorsClub`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
         //
 """
 @p1='1'
-@p2='Alice' (Size = 4000)
+@p2='Alice' (Size = 255)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [Author] ([AuthorsClubId], [Name])
-OUTPUT INSERTED.[Id]
+INSERT INTO `Author` (`AuthorsClubId`, `Name`)
 VALUES (@p1, @p2);
+SELECT `Id`
+FROM `Author`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
         //
 """
 @p3='1'
-@p4=NULL (Size = 4000)
+@p4=NULL (Size = 255)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [Book] ([AuthorId], [Title])
-OUTPUT INSERTED.[Id]
+INSERT INTO `Book` (`AuthorId`, `Title`)
 VALUES (@p3, @p4);
+SELECT `Id`
+FROM `Book`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
         //
 """
-SELECT TOP(2) [b].[Id], [b].[AuthorId], [b].[Title], [a].[Id], [a].[AuthorsClubId], [a].[Name]
-FROM [Book] AS [b]
-INNER JOIN [Author] AS [a] ON [b].[AuthorId] = [a].[Id]
+SELECT TOP 2 `b`.`Id`, `b`.`AuthorId`, `b`.`Title`, `a`.`Id`, `a`.`AuthorsClubId`, `a`.`Name`
+FROM `Book` AS `b`
+INNER JOIN `Author` AS `a` ON `b`.`AuthorId` = `a`.`Id`
 """,
         //
 """
-@p0='AC North' (Size = 4000)
+@p0='AC North' (Size = 255)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [AuthorsClub] ([Name])
-OUTPUT INSERTED.[Id]
+INSERT INTO `AuthorsClub` (`Name`)
 VALUES (@p0);
+SELECT `Id`
+FROM `AuthorsClub`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
         //
 """
 @p1='2'
-@p2='Author of the year 2023' (Size = 4000)
+@p2='Author of the year 2023' (Size = 255)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [Author] ([AuthorsClubId], [Name])
-OUTPUT INSERTED.[Id]
+INSERT INTO `Author` (`AuthorsClubId`, `Name`)
 VALUES (@p1, @p2);
+SELECT `Id`
+FROM `Author`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
         //
 """
-@p4='1'
 @p3='2'
-@p5='1'
+@p4='1'
 
-SET NOCOUNT ON;
-UPDATE [Book] SET [AuthorId] = @p3
-OUTPUT 1
-WHERE [Id] = @p4;
-DELETE FROM [Author]
-OUTPUT 1
-WHERE [Id] = @p5;
+UPDATE `Book` SET `AuthorId` = @p3
+WHERE `Id` = @p4;
+SELECT @@ROWCOUNT;
+""",
+        //
+"""
+@p0='1'
+
+DELETE FROM `Author`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
 """);
     }
 

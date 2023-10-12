@@ -9,6 +9,8 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -26,7 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             await base.Executes_stored_procedure(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql($@"EXEC `Ten Most Expensive Products`");
         }
 
         public override async Task Executes_stored_procedure_with_parameter(bool async)
@@ -36,7 +38,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@CustomerID='ALFKI' (Nullable = false) (Size = 5)")}
 
-`CustOrderHist` @CustomerID");
+EXEC `CustOrderHist` CustomerID");
         }
 
         public override async Task Executes_stored_procedure_with_generated_parameter(bool async)
@@ -44,77 +46,163 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Executes_stored_procedure_with_generated_parameter(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='ALFKI' (Size = 4000)")}
+                $@"{AssertSqlHelper.Declaration("@p0='ALFKI' (Size = 255)")}
 
-`CustOrderHist` @CustomerID = {AssertSqlHelper.Parameter("@p0")}");
+EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override async Task Query_with_parameters(bool async)
         {
-            await base.Query_with_parameters(async);
+            var city = "London";
+            var contactTitle = "Sales Representative";
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlRawAsync(
+                    @"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0} AND `ContactTitle` = {1}", city, contactTitle)
+                : context.Database.ExecuteSqlRaw(
+                    @"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0} AND `ContactTitle` = {1}", city, contactTitle);
+
+            Assert.Equal(-1, actual);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
 {AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@p1")}");
         }
 
         public override async Task Query_with_dbParameter_with_name(bool async)
         {
-            await base.Query_with_dbParameter_with_name(async);
+            var city = CreateDbParameter("@city", "London");
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlRawAsync(@"SELECT COUNT(*) FROM `Customers` WHERE `City` = @city", city)
+                : context.Database.ExecuteSqlRaw(@"SELECT COUNT(*) FROM `Customers` WHERE `City` = @city", city);
+
+            Assert.Equal(-1, actual);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")}");
         }
 
         public override async Task Query_with_positional_dbParameter_with_name(bool async)
         {
-            await base.Query_with_positional_dbParameter_with_name(async);
+            var city = CreateDbParameter("@city", "London");
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlRawAsync(@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0}", city)
+                : context.Database.ExecuteSqlRaw(@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0}", city);
+
+            Assert.Equal(-1, actual);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")}");
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")}");
         }
 
         public override async Task Query_with_positional_dbParameter_without_name(bool async)
         {
-            await base.Query_with_positional_dbParameter_without_name(async);
+            var city = CreateDbParameter(name: null, value: "London");
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlRawAsync(@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0}", city)
+                : context.Database.ExecuteSqlRaw(@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0}", city);
+
+            Assert.Equal(-1, actual);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Nullable = false) (Size = 6)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")}");
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override async Task Query_with_dbParameters_mixed(bool async)
         {
-            await base.Query_with_dbParameters_mixed(async);
+            var city = "London";
+            var contactTitle = "Sales Representative";
+
+            var cityParameter = CreateDbParameter("@city", city);
+            var contactTitleParameter = CreateDbParameter("@contactTitle", contactTitle);
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlRawAsync(
+                    @"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0} AND `ContactTitle` = @contactTitle", city,
+                    contactTitleParameter)
+                : context.Database.ExecuteSqlRaw(
+                    @"SELECT COUNT(*) FROM `Customers` WHERE `City` = {0} AND `ContactTitle` = @contactTitle", city,
+                    contactTitleParameter);
+
+            Assert.Equal(-1, actual);
+
+            actual = async
+                ? await context.Database.ExecuteSqlRawAsync(
+                    @"SELECT COUNT(*) FROM `Customers` WHERE `City` = @city AND `ContactTitle` = {1}", cityParameter, contactTitle)
+                : context.Database.ExecuteSqlRaw(
+                    @"SELECT COUNT(*) FROM `Customers` WHERE `City` = @city AND `ContactTitle` = {1}", cityParameter, contactTitle);
+
+            Assert.Equal(-1, actual);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
 {AssertSqlHelper.Declaration("@contactTitle='Sales Representative' (Nullable = false) (Size = 20)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@contactTitle")}",
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@contactTitle")}",
                 //
                 $@"{AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
 {AssertSqlHelper.Declaration("@p0='Sales Representative' (Size = 255)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@city")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p0")}");
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override async Task Query_with_parameters_interpolated(bool async)
         {
-            await base.Query_with_parameters_interpolated(async);
+            var city = "London";
+            var contactTitle = "Sales Representative";
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlInterpolatedAsync(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
+                : context.Database.ExecuteSqlInterpolated(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
+
+            Assert.Equal(-1, actual);
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
 {AssertSqlHelper.Declaration("@p1='Sales Representative' (Size = 255)")}
 
-SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("@p0")} AND ""ContactTitle"" = {AssertSqlHelper.Parameter("@p1")}");
+SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@p1")}");
+        }
+
+        public override async Task Query_with_parameters_interpolated_2(bool async)
+        {
+            var city = "London";
+            var contactTitle = "Sales Representative";
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlAsync(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
+                : context.Database.ExecuteSql(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
+
+            Assert.Equal(-1, actual);
         }
 
         protected override DbParameter CreateDbParameter(string name, object value)
@@ -126,9 +214,41 @@ SELECT COUNT(*) FROM ""Customers"" WHERE ""City"" = {AssertSqlHelper.Parameter("
             return new OdbcParameter { ParameterName = name, Value = value };
         }
 
-        protected override string TenMostExpensiveProductsSproc => "`Ten Most Expensive Products`";
-        protected override string CustomerOrderHistorySproc => "`CustOrderHist` @CustomerID";
-        protected override string CustomerOrderHistoryWithGeneratedParameterSproc => "`CustOrderHist` @CustomerID = {0}";
+        public override async Task Query_with_DbParameters_interpolated(bool async)
+        {
+            var city = CreateDbParameter("city", "London");
+            var contactTitle = CreateDbParameter("contactTitle", "Sales Representative");
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlInterpolatedAsync(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
+                : context.Database.ExecuteSqlInterpolated(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
+
+            Assert.Equal(-1, actual);
+        }
+
+        public override async Task Query_with_DbParameters_interpolated_2(bool async)
+        {
+            var city = CreateDbParameter("city", "London");
+            var contactTitle = CreateDbParameter("contactTitle", "Sales Representative");
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlAsync(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
+                : context.Database.ExecuteSql(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
+
+            Assert.Equal(-1, actual);
+        }
+
+        protected override string TenMostExpensiveProductsSproc => "EXEC `Ten Most Expensive Products`";
+        protected override string CustomerOrderHistorySproc => "EXEC `CustOrderHist` CustomerID";
+        protected override string CustomerOrderHistoryWithGeneratedParameterSproc => "EXEC `CustOrderHist` CustomerID = {0}";
 
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

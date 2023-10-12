@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             await base.From_sql_queryable_stored_procedure(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql($@"EXEC `Ten Most Expensive Products`");
         }
 
         public override async Task From_sql_queryable_stored_procedure_with_tag(bool async)
@@ -29,14 +29,33 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql(
                 $@"-- Stored Procedure
 
-`Ten Most Expensive Products`");
+EXEC `Ten Most Expensive Products`");
         }
 
-        public override async Task From_sql_queryable_stored_procedure_projection(bool async)
+        public override async Task From_sql_queryable_stored_procedure_with_caller_info_tag(bool async)
         {
-            await base.From_sql_queryable_stored_procedure_projection(async);
+            await base.From_sql_queryable_stored_procedure_with_caller_info_tag(async);
 
-            AssertSql();
+            AssertSql(
+                """
+-- File: SampleFileName:13
+
+[dbo].[Ten Most Expensive Products]
+""");
+        }
+
+        public override async Task From_sql_queryable_stored_procedure_with_caller_info_tag_and_other_tags(bool async)
+        {
+            await base.From_sql_queryable_stored_procedure_with_caller_info_tag_and_other_tags(async);
+
+            AssertSql(
+                """
+-- Before
+-- File: SampleFileName:13
+-- After
+
+[dbo].[Ten Most Expensive Products]
+""");
         }
 
         public override async Task From_sql_queryable_stored_procedure_with_parameter(bool async)
@@ -44,23 +63,23 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.From_sql_queryable_stored_procedure_with_parameter(async);
 
             AssertSql(
-                $@"p0='ALFKI' (Size = 4000)
+                $@"p0='ALFKI' (Size = 255)
 
-`CustOrderHist` {AssertSqlHelper.Parameter("@CustomerID")} = {AssertSqlHelper.Parameter("@p0")}");
+EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override async Task From_sql_queryable_stored_procedure_re_projection_on_client(bool async)
         {
             await base.From_sql_queryable_stored_procedure_re_projection_on_client(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql($@"EXEC `Ten Most Expensive Products`");
         }
 
         public override async Task From_sql_queryable_stored_procedure_composed_on_client(bool async)
         {
             await base.From_sql_queryable_stored_procedure_composed_on_client(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql($@"EXEC `Ten Most Expensive Products`");
         }
 
         public override async Task From_sql_queryable_stored_procedure_with_parameter_composed_on_client(bool async)
@@ -68,30 +87,30 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.From_sql_queryable_stored_procedure_with_parameter_composed_on_client(async);
 
             AssertSql(
-                $@"p0='ALFKI' (Size = 4000)
+                $@"p0='ALFKI' (Size = 255)
 
-`CustOrderHist` {AssertSqlHelper.Parameter("@CustomerID")} = {AssertSqlHelper.Parameter("@p0")}");
+EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}");
         }
 
         public override async Task From_sql_queryable_stored_procedure_take_on_client(bool async)
         {
             await base.From_sql_queryable_stored_procedure_take_on_client(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql($@"EXEC `Ten Most Expensive Products`");
         }
 
         public override async Task From_sql_queryable_stored_procedure_min_on_client(bool async)
         {
             await base.From_sql_queryable_stored_procedure_min_on_client(async);
 
-            AssertSql($@"`Ten Most Expensive Products`");
+            AssertSql($@"EXEC `Ten Most Expensive Products`");
         }
 
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
-        protected override string TenMostExpensiveProductsSproc => "`Ten Most Expensive Products`";
+        protected override string TenMostExpensiveProductsSproc => "EXEC `Ten Most Expensive Products`";
 
-        protected override string CustomerOrderHistorySproc => "`CustOrderHist` @CustomerID = {0}";
+        protected override string CustomerOrderHistorySproc => "EXEC `CustOrderHist` CustomerID = {0}";
     }
 }

@@ -288,7 +288,18 @@ namespace EntityFrameworkCore.Jet.Data
             InlineTopParameters();
             FixParameters();
 
-            return _connection.RowCount = InnerCommand.ExecuteNonQuery();
+            _connection.RowCount = InnerCommand.ExecuteNonQuery();
+
+            //For UPDATE, INSERT, and DELETE statements, the return value is the number of rows affected by the command.
+            //For all other types of statements, the return value is -1. If a rollback occurs, the return value is also -1.
+            //This from from the docs, however, it actually seems to be returning 0 for things like CREATE TABLE/INDEX, EXEC
+            //Workaround this
+            var commandtype = newCommandText.Trim().Substring(0, 10);
+            if (commandtype.Contains("INSERT") || commandtype.Contains("UPDATE") || commandtype.Contains("DELETE"))
+            {
+                return _connection.RowCount;
+            }
+            return -1;
         }
 
         /// <summary>

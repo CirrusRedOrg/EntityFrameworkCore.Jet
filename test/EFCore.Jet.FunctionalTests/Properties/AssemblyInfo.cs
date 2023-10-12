@@ -14,3 +14,5 @@ using Xunit;
 [assembly: TestCaseOrderer("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(AscendingTestCaseOrderer), "EntityFrameworkCore.Jet.FunctionalTests")]
 
 #endif
+
+[assembly: TestFramework("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit.JetXunitTestFramework", "EntityFrameworkCore.Jet.FunctionalTests")]

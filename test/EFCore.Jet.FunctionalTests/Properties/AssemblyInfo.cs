@@ -15,4 +15,4 @@ using Xunit;
 
 #endif
 
-[assembly: TestFramework("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit.JetXunitTestFramework", "EntityFrameworkCore.Jet.FunctionalTests")]
+[assembly: TestFramework("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(JetXunitTestFramework), "EntityFrameworkCore.Jet.FunctionalTests")]

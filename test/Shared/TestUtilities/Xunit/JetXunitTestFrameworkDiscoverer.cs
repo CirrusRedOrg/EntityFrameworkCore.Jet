@@ -27,9 +27,8 @@ public class JetXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
     }
 
     protected override bool IsValidTestClass(ITypeInfo type)
-        => base.IsValidTestClass(type) /* &&
-           IsTestConditionMet<SupportedServerVersionConditionAttribute>(type) &&
-           IsTestConditionMet<SupportedServerVersionLessThanConditionAttribute>(type)*/;
+        => base.IsValidTestClass(type) &&
+           IsTestConditionMet<TestRunnerCrashAttribute>(type);
 
     protected virtual bool IsTestConditionMet<TType>(ITypeInfo type) where TType : ITestCondition
         => GetTestConditions<TType>(type).Aggregate(true, (current, next) => current && next.IsMetAsync().Result);

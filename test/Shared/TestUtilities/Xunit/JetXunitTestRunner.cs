@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit.Abstractions;
@@ -80,14 +82,14 @@ public class JetXunitTestRunner : XunitTestRunner
                 }
                     
                 #region Customized
-                /// This is what we are after. Mark failed tests as 'Skipped', if their failure is expected.
+                /// This is what we are after. Mark failed tests as 'Skipped', if the failure is expected.
                 else if (SkipFailedTest(exception))
                 {
                     testResultMessage = new TestSkipped(Test, exception.Message);
                     ++runSummary.Skipped;
                 }
                 #endregion Customized
-                    
+
                 else
                 {
                     testResultMessage = new TestFailed(Test, runSummary.Time, output, exception);
@@ -121,12 +123,14 @@ public class JetXunitTestRunner : XunitTestRunner
     }
 
     /// <summary>
-    /// Mark failed tests as 'Skipped', it they failed because they use an expression, that is not supported by the underlying database
-    /// server version.
+    /// Mark failed tests as 'Skipped', if they failed because they use an expression, that we explicitly marked as
+    /// supported by Jet.
     /// </summary>
     protected virtual bool SkipFailedTest(Exception exception)
     {
         var skip = true;
+        var unexpectedUnsupportedTranslation = false;
+        
         var aggregateException = exception as AggregateException ??
                                  new AggregateException(exception);
 
@@ -138,15 +142,30 @@ public class JetXunitTestRunner : XunitTestRunner
                 return false;
             }
 
-            if (innerException.Message.StartsWith("The LINQ expression '") ||
+            if (innerException.Message.StartsWith("Jet does not support "))
+            {
+                var expectedUnsupportedTranslation = innerException.Message.Contains("APPLY statements") ||
+                                                     innerException.Message.Contains("skipping rows");
+                
+                skip &= expectedUnsupportedTranslation;
+                unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
+            }
+            else if (innerException.Message.StartsWith("The LINQ expression '") &&
                 innerException.Message.Contains("' could not be translated."))
             {
-                skip &= /*innerException.Message.Contains("OUTER APPLY") ||
-                        innerException.Message.Contains("CROSS APPLY") ||*/
-                        innerException.Message.Contains("RowNumberExpression");
+                var expectedUnsupportedTranslation = innerException.Message.Contains("RowNumberExpression");
 
-                var message = innerException.Message;
-                skip = skip && true;
+                skip &= expectedUnsupportedTranslation;
+                unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
+            }
+
+            if (unexpectedUnsupportedTranslation)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine(innerException.Message.ReplaceLineEndings(" "));
+                sb.AppendLine("-----");
+
+                File.AppendAllText("UnsupportedTranslations.txt", sb.ToString());
             }
         }
 

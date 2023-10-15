@@ -1,0 +1,1 @@
+﻿Get-ChildItem $PSScriptRoot -Filter '*.dockerfile' -File | ForEach-Object { echo "Build $($_.Name)"; docker build -f $_.FullName -t "$($_.BaseName):latest" (Join-Path $PSScriptRoot '..') }

@@ -8,9 +8,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Compile Include="..\Shared\**\*.cs" />
+		<Compile Include="..\Shared\**\*.cs">
+			<Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</Compile>
 	</ItemGroup>
-
+	
 	<ItemGroup>
 		<PackageReference Include="MSTest.TestFramework" />
 		<PackageReference Include="xunit.core" />

@@ -8,10 +8,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Compile Include="..\Shared\**\*.cs" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<None Update="config.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>

@@ -16,6 +16,7 @@ env:
   DOTNET_NOLOGO: true
   buildConfiguration: 'Debug'
   skipTests: false
+  deterministicTests: true
 jobs:
   BuildAndTest:
     strategy:
@@ -137,24 +138,24 @@ jobs:
       - name: Build Solution
         shell: pwsh
         run: |
-          & '${{ env.dotnetExecutable }}' build --configuration ${{ env.buildConfiguration }}
+          & '${{ env.dotnetExecutable }}' build --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }}
       - name: 'Run Tests: EFCore.Jet.Data.Tests'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
       - name: 'Run Tests: EFCore.Jet.FunctionalTests'
         shell: pwsh
         continue-on-error: true
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
           exit 0
       - name: 'Run Tests: EFCore.Jet.Tests'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
   NuGet:
     needs: BuildAndTest
     if: github.event_name == 'push' && github.repository == 'bubibubi/EntityFrameworkCore.Jet'

@@ -4,6 +4,9 @@
   <PropertyGroup>
     <NoWarn>$(NoWarn);EF1001;xUnit1003;xUnit1013</NoWarn>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    
+    <!-- TODO: Change to "'$(FixedTestOrder)' != 'true'" once test suite is stable. -->
+    <DefineConstants Condition="'$(FixedTestOrder)' != 'false'">$(DefineConstants);FIXED_TEST_ORDER</DefineConstants>
   </PropertyGroup>
 
 </Project>

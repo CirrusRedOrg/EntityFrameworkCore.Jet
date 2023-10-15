@@ -7,6 +7,10 @@ using Xunit;
 // Set assembly wide conditions to control tests in accordance with the environment they are run in.
 [assembly: JetConfiguredCondition]
 
+#if FIXED_TEST_ORDER
+
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 [assembly: TestCollectionOrderer("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(AscendingTestCollectionOrderer), "EntityFrameworkCore.Jet.FunctionalTests")]
 [assembly: TestCaseOrderer("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(AscendingTestCaseOrderer), "EntityFrameworkCore.Jet.FunctionalTests")]
+
+#endif

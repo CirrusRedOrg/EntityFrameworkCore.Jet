@@ -1,11 +1,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using EntityFrameworkCore.Jet.Data;
 using System.Threading;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -13,9 +14,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
     public class TestJetConnection : JetRelationalConnection
     {
+        private readonly Func<int, DbException> _createExceptionFunc;
+
         public TestJetConnection(RelationalConnectionDependencies dependencies)
             : base(dependencies)
         {
+            _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+                ? number => OleDbExceptionFactory.CreateException(number)
+                : number => OdbcExceptionFactory.CreateException(number);
         }
 
         public int ErrorNumber { get; set; } = -2;
@@ -56,7 +62,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
             if (fail.HasValue)
             {
-                throw OleDbExceptionFactory.CreateOleDbException(ErrorNumber);
+                throw _createExceptionFunc(ErrorNumber);
             }
         }
     }

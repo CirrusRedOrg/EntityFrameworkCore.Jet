@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Data;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -98,6 +99,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         private class TestRelationalCommand : IRelationalCommand
         {
             private readonly RelationalCommand _realRelationalCommand;
+            private readonly Func<int, DbException> _createExceptionFunc;
 
             public TestRelationalCommand(
                 RelationalCommandBuilderDependencies dependencies,
@@ -105,6 +107,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 IReadOnlyList<IRelationalParameter> parameters)
             {
                 _realRelationalCommand = new RelationalCommand(dependencies, commandText, parameters);
+                
+                _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+                    ? number => OleDbExceptionFactory.CreateException(number)
+                    : number => OdbcExceptionFactory.CreateException(number);
             }
 
             public string CommandText => _realRelationalCommand.CommandText;
@@ -120,7 +126,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 if (errorNumber.HasValue)
                 {
                     connection.DbConnection.Close();
-                    throw OleDbExceptionFactory.CreateOleDbException(errorNumber.Value);
+                    throw _createExceptionFunc(errorNumber.Value);
                 }
 
                 return result;
@@ -137,7 +143,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 if (errorNumber.HasValue)
                 {
                     connection.DbConnection.Close();
-                    throw OleDbExceptionFactory.CreateOleDbException(errorNumber.Value);
+                    throw _createExceptionFunc(errorNumber.Value);
                 }
 
                 return result;
@@ -152,7 +158,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 if (errorNumber.HasValue)
                 {
                     connection.DbConnection.Close();
-                    throw OleDbExceptionFactory.CreateOleDbException(errorNumber.Value);
+                    throw _createExceptionFunc(errorNumber.Value);
                 }
 
                 return result;
@@ -169,7 +175,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 if (errorNumber.HasValue)
                 {
                     connection.DbConnection.Close();
-                    throw OleDbExceptionFactory.CreateOleDbException(errorNumber.Value);
+                    throw _createExceptionFunc(errorNumber.Value);
                 }
 
                 return result;
@@ -185,7 +191,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 {
                     connection.DbConnection.Close();
                     result.Dispose(); // Normally, in non-test case, reader is disposed by using in caller code
-                    throw OleDbExceptionFactory.CreateOleDbException(errorNumber.Value);
+                    throw _createExceptionFunc(errorNumber.Value);
                 }
 
                 return result;
@@ -203,7 +209,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 {
                     connection.DbConnection.Close();
                     result.Dispose(); // Normally, in non-test case, reader is disposed by using in caller code
-                    throw OleDbExceptionFactory.CreateOleDbException(errorNumber.Value);
+                    throw _createExceptionFunc(errorNumber.Value);
                 }
 
                 return result;
@@ -232,7 +238,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                         if (fail.Value)
                         {
                             testConnection.DbConnection.Close();
-                            throw OleDbExceptionFactory.CreateOleDbException(testConnection.ErrorNumber);
+                            throw _createExceptionFunc(testConnection.ErrorNumber);
                         }
 
                         errorNumber = testConnection.ErrorNumber;

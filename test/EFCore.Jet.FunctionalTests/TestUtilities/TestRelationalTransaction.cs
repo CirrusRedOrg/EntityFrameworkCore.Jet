@@ -2,6 +2,7 @@
 
 using System;
 using System.Data.Common;
+using EntityFrameworkCore.Jet.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -29,6 +30,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
     public class TestRelationalTransaction : RelationalTransaction
     {
         private readonly TestJetConnection _testConnection;
+        private readonly Func<int, Guid?, DbException> _createExceptionFunc;
 
         public TestRelationalTransaction(
             IRelationalConnection connection,
@@ -39,6 +41,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             : base(connection, transaction, new Guid(), logger, transactionOwned, sqlGenerationHelper)
         {
             _testConnection = (TestJetConnection)connection;
+
+            _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+                ? OleDbExceptionFactory.CreateException
+                : OdbcExceptionFactory.CreateException;
         }
 
         public override void Commit()
@@ -58,7 +64,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                     }
 
                     _testConnection.DbConnection.Close();
-                    throw OleDbExceptionFactory.CreateOleDbException(_testConnection.ErrorNumber, _testConnection.ConnectionId);
+                    throw _createExceptionFunc(_testConnection.ErrorNumber, _testConnection.ConnectionId);
                 }
             }
 

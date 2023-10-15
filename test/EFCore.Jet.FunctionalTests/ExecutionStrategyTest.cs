@@ -3,9 +3,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Odbc;
+using System.Data.OleDb;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -104,8 +107,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 execute(new TestJetRetryingExecutionStrategy(context), context);
                 context.ChangeTracker.AcceptAllChanges();
 
-                var retryMessage =
-                    "System.Data.OleDb.OleDbException : Bang!";
+                var retryMessage = (TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+                    ? typeof(OleDbException)
+                    : typeof(OdbcException)).FullName + " : Bang!";;
+
                 if (realFailure)
                 {
                     var logEntry = Fixture.TestSqlLoggerFactory.Log.Single(l => l.Id == CoreEventId.ExecutionStrategyRetrying);

@@ -537,8 +537,12 @@ WHERE `t`.`Species` LIKE 'F%'
     {
         var contextFactory = await InitializeAsync<Context27427>();
         using var context = contextFactory.CreateContext();
+        
+        var parameter = TestEnvironment.DataAccessProviderFactory.CreateParameter();
+        parameter.Value = 1;
+        
         var query = context.DemoEntities
-            .FromSqlRaw("SELECT * FROM DemoEntities WHERE Id = {0}", new OleDbParameter { Value = 1 })
+            .FromSqlRaw("SELECT * FROM DemoEntities WHERE Id = {0}", parameter)
             .Select(e => e.Id);
 
         var query2 = context.DemoEntities

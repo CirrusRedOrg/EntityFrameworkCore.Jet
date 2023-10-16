@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -128,44 +129,54 @@ public class JetXunitTestRunner : XunitTestRunner
     /// </summary>
     protected virtual bool SkipFailedTest(Exception exception)
     {
-        var skip = true;
+        var skip = false;
         var unexpectedUnsupportedTranslation = false;
         
         var aggregateException = exception as AggregateException ??
                                  new AggregateException(exception);
 
-        foreach (var innerException in aggregateException.InnerExceptions)
+        foreach (var innerException in aggregateException.Flatten().InnerExceptions.SelectMany(e => e.FlattenHierarchy()))
         {
-            if (!skip ||
-                innerException is not InvalidOperationException)
+            if (innerException is InvalidOperationException)
             {
-                return false;
-            }
-
-            if (innerException.Message.StartsWith("Jet does not support "))
-            {
-                var expectedUnsupportedTranslation = innerException.Message.Contains("APPLY statements") ||
-                                                     innerException.Message.Contains("skipping rows");
+                var message = innerException.Message;
                 
-                skip &= expectedUnsupportedTranslation;
-                unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
-            }
-            else if (innerException.Message.StartsWith("The LINQ expression '") &&
-                innerException.Message.Contains("' could not be translated."))
-            {
-                var expectedUnsupportedTranslation = innerException.Message.Contains("RowNumberExpression");
+                if (message.StartsWith("Jet does not support "))
+                {
+                    var expectedUnsupportedTranslation = message.Contains("APPLY statements") ||
+                                                         message.Contains("skipping rows");
 
-                skip &= expectedUnsupportedTranslation;
-                unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
-            }
+                    skip = expectedUnsupportedTranslation;
+                    unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
+                }
+                else if (message.StartsWith("The LINQ expression '") &&
+                         message.Contains("' could not be translated."))
+                {
+                    var expectedUnsupportedTranslation = message.Contains("RowNumberExpression");
 
-            if (unexpectedUnsupportedTranslation)
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine(innerException.Message.ReplaceLineEndings(" "));
-                sb.AppendLine("-----");
+                    skip = expectedUnsupportedTranslation;
+                    unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
+                }
 
-                File.AppendAllText("UnsupportedTranslations.txt", sb.ToString());
+                if (skip)
+                {
+                    // var sb = new StringBuilder();
+                    // sb.AppendLine(message.ReplaceLineEndings(" "));
+                    // sb.AppendLine("-----");
+                    //
+                    // File.AppendAllText("ExpectedUnsupportedTranslations.txt", sb.ToString());
+
+                    break;
+                }
+
+                if (unexpectedUnsupportedTranslation)
+                {
+                    // var sb = new StringBuilder();
+                    // sb.AppendLine(message.ReplaceLineEndings(" "));
+                    // sb.AppendLine("-----");
+                    //
+                    // File.AppendAllText("UnsupportedTranslations.txt", sb.ToString());
+                }
             }
         }
 

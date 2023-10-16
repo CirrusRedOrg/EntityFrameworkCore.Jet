@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -77,7 +78,23 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
+            //Decimals needs to be mapped to Numeric for Jet.
+            //Using Decimal is fine for OleDb but Odbc doesn't like it.
+            //Have to use Numeric for Odbc.
+            //Suspect this will also fix any formatting erros with , and . for decimal separator and space and , for digit separator
+            //OdbcType.Numeric = 7;
+            //OleDbType.Numeric = 131;
+            var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
+            var setoledbtype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OleDbType");
 
+            if (setodbctype != null)
+            {
+                setodbctype.Invoke(parameter, new object?[] { 7 });
+            }
+            else if (setoledbtype != null)
+            {
+                setoledbtype.Invoke(parameter, new object?[] { 131 });
+            }
             if (Size.HasValue
                 && Size.Value != -1)
             {

@@ -165,20 +165,20 @@ WHERE `c`.`City` = @__city_0
 
             AssertSql(
                 """
-    @__p_0='2' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
-    """,
+@__p_0='2' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
+""",
                 //
                 """
-    @__p_0='5' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
-    """);
+@__p_0='5' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
+""");
         }
 
         public override async Task Where_method_call_nullable_type_reverse_closure_via_query_cache(bool isAsync)
@@ -187,20 +187,20 @@ WHERE `c`.`City` = @__city_0
 
             AssertSql(
                 """
-    @__p_0='1' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE CLNG(`e`.`EmployeeID`) > @__p_0
-    """,
+@__p_0='1' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE CLNG(`e`.`EmployeeID`) > @__p_0
+""",
                 //
                 """
-    @__p_0='5' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE CLNG(`e`.`EmployeeID`) > @__p_0
-    """);
+@__p_0='5' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE CLNG(`e`.`EmployeeID`) > @__p_0
+""");
         }
 
         public override async Task Where_method_call_closure_via_query_cache(bool isAsync)
@@ -407,26 +407,26 @@ WHERE `c`.`City` = @__InstanceFieldValue_0
 
             AssertSql(
                 """
-    @__p_0='2' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
-    """,
+@__p_0='2' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
+""",
                 //
                 """
-    @__p_0='5' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
-    """,
+@__p_0='5' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
+""",
                 //
                 """
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE `e`.`ReportsTo` IS NULL
-    """);
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`ReportsTo` IS NULL
+""");
         }
 
         public override async Task Where_simple_closure_via_query_cache_nullable_type_reverse(bool isAsync)
@@ -435,26 +435,26 @@ WHERE `c`.`City` = @__InstanceFieldValue_0
 
             AssertSql(
                 """
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE `e`.`ReportsTo` IS NULL
-    """,
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`ReportsTo` IS NULL
+""",
                 //
                 """
-    @__p_0='5' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
-    """,
+@__p_0='5' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
+""",
                 //
                 """
-    @__p_0='2' (Nullable = true)
-    
-    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-    FROM `Employees` AS `e`
-    WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
-    """);
+@__p_0='2' (Nullable = true) (DbType = Object)
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @__p_0
+""");
         }
 
         public override async Task Where_subquery_closure_via_query_cache(bool isAsync)

@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
-using System.Data.Odbc;
-using System.Data.OleDb;
+using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -83,13 +82,18 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //Using Decimal is fine for OleDb but Odbc doesn't like it.
             //Have to use Numeric for Odbc.
             //Suspect this will also fix any formatting erros with , and . for decimal separator and space and , for digit separator
-            if (parameter is OdbcParameter odbcParameter)
+            //OdbcType.Numeric = 7;
+            //OleDbType.Numeric = 131;
+            var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
+            var setoledbtype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OleDbType");
+
+            if (setodbctype != null)
             {
-                odbcParameter.OdbcType = OdbcType.Numeric;
+                setodbctype.Invoke(parameter, new object?[] { 7 });
             }
-            else if (parameter is OleDbParameter oleDbParameter)
+            else if (setoledbtype != null)
             {
-                oleDbParameter.OleDbType = OleDbType.Numeric;
+                setoledbtype.Invoke(parameter, new object?[] { 131 });
             }
             if (Size.HasValue
                 && Size.Value != -1)

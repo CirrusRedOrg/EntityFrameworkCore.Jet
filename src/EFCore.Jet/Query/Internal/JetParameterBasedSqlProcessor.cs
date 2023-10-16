@@ -3,7 +3,6 @@
 
 using System.Collections.Generic;
 using System.Linq.Expressions;
-using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -41,14 +40,19 @@ public class JetParameterBasedSqlProcessor : RelationalParameterBasedSqlProcesso
         IReadOnlyDictionary<string, object?> parametersValues,
         out bool canCache)
     {
-        var optimizedQueryExpression = base.Optimize(queryExpression, parametersValues, out canCache);
+        queryExpression = base.Optimize(queryExpression, parametersValues, out canCache);
 
         /*optimizedQueryExpression = new SkipTakeCollapsingExpressionVisitor(Dependencies.SqlExpressionFactory)
             .Process(optimizedQueryExpression, parametersValues, out var canCache2);*/
 
         //canCache &= canCache2;
 
-        return new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory).Visit(optimizedQueryExpression);
+        queryExpression = new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory).Visit(queryExpression);
+
+        // Run the compatibility checks as late in the query pipeline (before the actual SQL translation happens) as reasonable.
+        queryExpression = new JetCompatibilityExpressionVisitor().Visit(queryExpression);
+
+        return queryExpression;
     }
 
     /// <inheritdoc />

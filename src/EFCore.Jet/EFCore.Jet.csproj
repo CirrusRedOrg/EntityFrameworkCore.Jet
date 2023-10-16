@@ -45,6 +45,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="System.Data.Odbc" />
+		<PackageReference Include="System.Data.OleDb" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
 	</ItemGroup>
 

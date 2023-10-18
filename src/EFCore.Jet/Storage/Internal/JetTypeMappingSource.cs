@@ -5,11 +5,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text.Json;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -53,7 +55,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
         private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new JetStringTypeMapping("varchar(max)", unicode: true, storeTypePostfix: StoreTypePostfix.None);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
-
+        private readonly JetJsonTypeMapping _jsonTypeMapping = new JetJsonTypeMapping("longchar");
         private readonly JetGuidTypeMapping _guid = new JetGuidTypeMapping("uniqueidentifier", DbType.Guid);
         private readonly JetByteArrayTypeMapping _rowversion = new JetByteArrayTypeMapping("varbinary", size: 8,
             comparer: new ValueComparer<byte[]>(
@@ -202,6 +204,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {typeof(TimeSpan), _timespan},
                     {typeof(TimeOnly), _timeonly},
                     {typeof(Guid), _guid},
+                    { typeof(JsonElement), _jsonTypeMapping }
                 };
 
             // These are disallowed only if specified without any kind of length specified in parenthesis.
@@ -261,7 +264,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
-            => base.FindMapping(mappingInfo) ?? FindRawMapping(mappingInfo)?.Clone(mappingInfo);
+            => base.FindMapping(mappingInfo)
+               ?? FindRawMapping(mappingInfo)?.WithTypeMappingInfo(mappingInfo);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -355,23 +359,26 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         return _rowversion;
                     }
 
-                    var isFixedLength = mappingInfo.IsFixedLength == true;
-
-                    const int maxBinaryColumnSize = 510;
-
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
-                    if (size > maxBinaryColumnSize)
+                    if (mappingInfo.ElementTypeMapping == null)
                     {
-                        size = isFixedLength ? maxBinaryColumnSize : (int?)null;
-                    }
+                        var isFixedLength = mappingInfo.IsFixedLength == true;
 
-                    return size == null
-                        ? _unboundedBinary
-                        : new JetByteArrayTypeMapping(
-                            size: size,
-                            storeType: isFixedLength
-                                ? _fixedLengthBinary.StoreTypeNameBase
-                                : _variableLengthBinary.StoreTypeNameBase);
+                        const int maxBinaryColumnSize = 510;
+
+                        var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
+                        if (size > maxBinaryColumnSize)
+                        {
+                            size = isFixedLength ? maxBinaryColumnSize : (int?)null;
+                        }
+
+                        return size == null
+                            ? _unboundedBinary
+                            : new JetByteArrayTypeMapping(
+                                size: size,
+                                storeType: isFixedLength
+                                    ? _fixedLengthBinary.StoreTypeNameBase
+                                    : _variableLengthBinary.StoreTypeNameBase);
+                    }
                 }
             }
 

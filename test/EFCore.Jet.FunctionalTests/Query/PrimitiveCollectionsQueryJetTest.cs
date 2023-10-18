@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 ///     This exercises the older translation paths for e.g. Contains, to make sure things work for providers with no queryable constant/
 ///     parameter support.
 /// </summary>
-public class PrimitiveCollectionsQueryJetTest : PrimitiveCollectionsQueryTestBase<
+public class PrimitiveCollectionsQueryJetTest : PrimitiveCollectionsQueryRelationalTestBase<
     PrimitiveCollectionsQueryJetTest.PrimitiveCollectionsQueryJetFixture>
 {
     public PrimitiveCollectionsQueryJetTest(PrimitiveCollectionsQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
@@ -33,10 +33,10 @@ public class PrimitiveCollectionsQueryJetTest : PrimitiveCollectionsQueryTestBas
         await base.Inline_collection_of_ints_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """);
     }
 
@@ -45,10 +45,10 @@ WHERE [p].[Int] IN (10, 999)
         await base.Inline_collection_of_nullable_ints_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[NullableInt] IN (10, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IN (10, 999)
 """);
     }
 
@@ -57,10 +57,10 @@ WHERE [p].[NullableInt] IN (10, 999)
         await base.Inline_collection_of_nullable_ints_Contains_null(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[NullableInt] IS NULL OR [p].[NullableInt] = 999
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IS NULL OR `p`.`NullableInt` = 999
 """);
     }
 
@@ -124,10 +124,10 @@ WHERE (
         await base.Inline_collection_Contains_with_one_value(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] = 2
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` = 2
 """);
     }
 
@@ -136,10 +136,10 @@ WHERE [p].[Id] = 2
         await base.Inline_collection_Contains_with_two_values(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] IN (2, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` IN (2, 999)
 """);
     }
 
@@ -148,10 +148,10 @@ WHERE [p].[Id] IN (2, 999)
         await base.Inline_collection_Contains_with_three_values(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] IN (2, 999, 1000)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` IN (2, 999, 1000)
 """);
     }
 
@@ -160,13 +160,13 @@ WHERE [p].[Id] IN (2, 999, 1000)
         await base.Inline_collection_Contains_with_all_parameters(async);
 
         AssertSql(
-"""
+            """
 @__i_0='2'
 @__j_1='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] IN (@__i_0, @__j_1)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` IN (@__i_0, @__j_1)
 """);
     }
 
@@ -175,12 +175,12 @@ WHERE [p].[Id] IN (@__i_0, @__j_1)
         await base.Inline_collection_Contains_with_constant_and_parameter(async);
 
         AssertSql(
-"""
+            """
 @__j_0='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] IN (2, @__j_0)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` IN (2, @__j_0)
 """);
     }
 
@@ -189,12 +189,12 @@ WHERE [p].[Id] IN (2, @__j_0)
         await base.Inline_collection_Contains_with_mixed_value_types(async);
 
         AssertSql(
-"""
+            """
 @__i_0='11'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (999, @__i_0, [p].[Id], [p].[Id] + [p].[Int])
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (999, @__i_0, `p`.`Id`, `p`.`Id` + `p`.`Int`)
 """);
     }
 
@@ -203,10 +203,10 @@ WHERE [p].[Int] IN (999, @__i_0, [p].[Id], [p].[Id] + [p].[Int])
         await base.Inline_collection_Contains_as_Any_with_predicate(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] IN (2, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` IN (2, 999)
 """);
     }
 
@@ -215,10 +215,10 @@ WHERE [p].[Id] IN (2, 999)
         await base.Inline_collection_negated_Contains_as_All(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] NOT IN (2, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` NOT IN (2, 999)
 """);
     }
 
@@ -232,10 +232,10 @@ WHERE [p].[Id] NOT IN (2, 999)
         await base.Parameter_collection_of_ints_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """);
     }
 
@@ -244,10 +244,10 @@ WHERE [p].[Int] IN (10, 999)
         await base.Parameter_collection_of_nullable_ints_Contains_int(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """);
     }
 
@@ -256,10 +256,10 @@ WHERE [p].[Int] IN (10, 999)
         await base.Parameter_collection_of_nullable_ints_Contains_nullable_int(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[NullableInt] IS NULL OR [p].[NullableInt] = 999
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IS NULL OR `p`.`NullableInt` = 999
 """);
     }
 
@@ -268,10 +268,10 @@ WHERE [p].[NullableInt] IS NULL OR [p].[NullableInt] = 999
         await base.Parameter_collection_of_strings_Contains_non_nullable_string(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[String] IN (N'10', N'999')
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`String` IN ('10', '999')
 """);
     }
 
@@ -280,10 +280,10 @@ WHERE [p].[String] IN (N'10', N'999')
         await base.Parameter_collection_of_strings_Contains_nullable_string(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[NullableString] IS NULL OR [p].[NullableString] = N'999'
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableString` IS NULL OR `p`.`NullableString` = '999'
 """);
     }
 
@@ -292,10 +292,10 @@ WHERE [p].[NullableString] IS NULL OR [p].[NullableString] = N'999'
         await base.Parameter_collection_of_DateTimes_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[DateTime] IN ('2020-01-10T12:30:00.0000000Z', '9999-01-01T00:00:00.0000000Z')
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`DateTime` IN (#2020-01-10 12:30:00#, #9999-01-01#)
 """);
     }
 
@@ -304,10 +304,10 @@ WHERE [p].[DateTime] IN ('2020-01-10T12:30:00.0000000Z', '9999-01-01T00:00:00.00
         await base.Parameter_collection_of_bools_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Bool] = CAST(1 AS bit)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Bool` = TRUE
 """);
     }
 
@@ -316,10 +316,10 @@ WHERE [p].[Bool] = CAST(1 AS bit)
         await base.Parameter_collection_of_enums_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Enum] IN (0, 3)
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Enum` IN (0, 3)
 """);
     }
 
@@ -328,9 +328,9 @@ WHERE [p].[Enum] IN (0, 3)
         await base.Parameter_collection_null_Contains(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE 0 = 1
 """);
     }
@@ -479,10 +479,10 @@ WHERE (
         await base.Column_collection_projection_from_top_level(async);
 
         AssertSql(
-"""
-SELECT [p].[Ints]
-FROM [PrimitiveCollectionsEntity] AS [p]
-ORDER BY [p].[Id]
+            """
+SELECT `p`.`Ints`
+FROM `PrimitiveCollectionsEntity` AS `p`
+ORDER BY `p`.`Id`
 """);
     }
 
@@ -519,12 +519,12 @@ ORDER BY [p].[Id]
         await base.Column_collection_equality_parameter_collection(async);
 
         AssertSql(
-"""
-@__ints_0='[1,10]' (Size = 4000)
+            """
+@__ints_0='[1,10]' (Size = 255)
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Ints] = @__ints_0
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Ints` = @__ints_0
 """);
     }
 
@@ -533,10 +533,10 @@ WHERE [p].[Ints] = @__ints_0
         await base.Column_collection_equality_inline_collection(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Ints] = N'[1,10]'
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Ints` = '[1,10]'
 """);
     }
 
@@ -586,10 +586,10 @@ WHERE [p].[Ints] = N'[1,10]'
         await base.Project_collection_of_ints_simple(async);
 
         AssertSql(
-"""
-SELECT [p].[Ints]
-FROM [PrimitiveCollectionsEntity] AS [p]
-ORDER BY [p].[Id]
+            """
+SELECT `p`.`Ints`
+FROM `PrimitiveCollectionsEntity` AS `p`
+ORDER BY `p`.`Id`
 """);
     }
 
@@ -608,10 +608,10 @@ ORDER BY [p].[Id]
 
         // client eval
         AssertSql(
-"""
-SELECT [p].[Ints]
-FROM [PrimitiveCollectionsEntity] AS [p]
-ORDER BY [p].[Id]
+            """
+SELECT `p`.`Ints`
+FROM `PrimitiveCollectionsEntity` AS `p`
+ORDER BY `p`.`Id`
 """);
     }
 
@@ -635,11 +635,11 @@ ORDER BY [p].[Id]
         await base.Project_primitive_collections_element(async);
 
         AssertSql(
-"""
-SELECT [p].[Ints], [p].[DateTimes], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Id] < 4
-ORDER BY [p].[Id]
+            """
+SELECT `p`.`Ints`, `p`.`DateTimes`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Id` < 4
+ORDER BY `p`.`Id`
 """);
     }
 

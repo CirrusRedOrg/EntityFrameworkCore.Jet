@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetDateTimeTypeMapping : RelationalTypeMapping
+    public class JetDateTimeTypeMapping : DateTimeTypeMapping
     {
         private const int MaxDateTimeDoublePrecision = 10;
         private static readonly JetDecimalTypeMapping _decimalTypeMapping = new JetDecimalTypeMapping("decimal", System.Data.DbType.Decimal, 18, 10);
@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             [NotNull] IJetOptions options,
             DbType? dbType = null,
             [CanBeNull] Type? clrType = null)
-            : base(storeType, clrType ?? typeof(DateTime), dbType ?? System.Data.DbType.DateTime)
+            : base(storeType)
         {
             _options = options;
         }
@@ -40,13 +40,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
-            
+
             if (_options.EnableMillisecondsSupport &&
                 parameter.Value is DateTime dateTime)
             {
                 parameter.Value = GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport);
                 parameter.ResetDbType();
-                
+
                 // Necessary to explicitly set for OLE DB, to apply the System.Decimal value as DOUBLE to Jet.
                 parameter.DbType = System.Data.DbType.Double;
             }
@@ -75,7 +75,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     : "#");
 
             literal.AppendFormat(CultureInfo.InvariantCulture, "{0:yyyy-MM-dd}", dateTime);
-                
+
             var time = dateTime.TimeOfDay;
             if (time != TimeSpan.Zero)
             {
@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 var millisecondsTicks = time.Ticks % TimeSpan.TicksPerSecond / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
                 if (millisecondsTicks > 0)
                 {
-                    var jetTimeDoubleFractions = Math.Round((decimal) millisecondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
+                    var jetTimeDoubleFractions = Math.Round((decimal)millisecondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
 
                     literal
                         .Insert(0, "(")
@@ -108,28 +108,28 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         }
 
         protected virtual DateTime ConvertToDateTimeCompatibleValue(object value)
-            => (DateTime) value;
+            => (DateTime)value;
 
         private static decimal GetDateTimeDoubleValueAsDecimal(DateTime dateTime, bool millisecondsSupportEnabled)
         {
             //
             // We are explicitly using System.Decimal here, so we get better scale results:
             //
-            
+
             var checkDateTimeValue = CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset;
 
             if (millisecondsSupportEnabled)
             {
                 // Round to milliseconds.
                 var millisecondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
-                var result = /*Math.Round(*/(decimal) millisecondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
+                var result = /*Math.Round(*/(decimal)millisecondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
                 return result;
             }
             else
             {
                 // Round to seconds.
                 var secondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond;
-                var result = /*Math.Round(*/(decimal) secondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
+                var result = /*Math.Round(*/(decimal)secondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
                 return result;
             }
         }

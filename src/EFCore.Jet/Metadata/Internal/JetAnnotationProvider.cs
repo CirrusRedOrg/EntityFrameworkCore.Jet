@@ -6,6 +6,7 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Metadata.Internal
@@ -100,6 +101,7 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             }
             else
             {
+                if (column is JsonColumn) yield break;
                 property = column.PropertyMappings.First().Property;
                 if (property.DeclaringType is IEntityType entityType)
                 {

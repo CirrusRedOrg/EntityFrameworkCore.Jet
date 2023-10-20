@@ -37,6 +37,6 @@
     <IncludeSymbols>true</IncludeSymbols>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <MinClientVersion>3.6</MinClientVersion>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder Condition="'$(PackPdb)' == 'true'">$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 </Project>

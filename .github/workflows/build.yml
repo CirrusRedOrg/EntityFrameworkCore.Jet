@@ -158,7 +158,7 @@ jobs:
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
   NuGet:
     needs: BuildAndTest
-    if: github.event_name == 'push' && github.repository == 'bubibubi/EntityFrameworkCore.Jet'
+    if: github.event_name == 'push' && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -253,52 +253,52 @@ jobs:
         with:
           name: nupkgs
           path: nupkgs
-      - name: "NuGet Push - AZDO Feed - Debug"
-        if: ${{ env.pushToAzureArtifacts == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: |
-          # https://learn.microsoft.com/en-us/azure/devops/artifacts/nuget/dotnet-exe?view=azure-devops#publish-packages-from-external-sources
-          dotnet new nugetconfig --output './azdo-nuget' --force
-          try
-          {
-            nuget sources Add -ConfigFile './azdo-nuget/nuget.config' -Name 'azdo-efcore-jet-debug' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json' -UserName '${{ vars.AZUREDEVOPS_BUBIBUBI_ALLPACKAGES_PUSHNEW_USERNAME }}' -Password '${{ secrets.AZUREDEVOPS_BUBIBUBI_ALLPACKAGES_PUSHNEW_PASSWORD }}' -StorePasswordInClearText
-
-            nuget push './Release/withPdbs/**/*.nupkg' -ConfigFile './azdo-nuget/nuget.config' -ApiKey 'foo' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json'
-          }
-          finally
-          {
-            Remove-Item ./azdo-nuget -Recurse -Force
-          }
-      - name: "NuGet Push - AZDO Feed - Release"
-        if: ${{ env.pushToAzureArtifacts == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: |
-          # https://learn.microsoft.com/en-us/azure/devops/artifacts/nuget/dotnet-exe?view=azure-devops#publish-packages-from-external-sources
-          dotnet new nugetconfig --output './azdo-nuget' --force
-          try
-          {
-            nuget sources Add -ConfigFile './azdo-nuget/nuget.config' -Name 'azdo-efcore-jet-public' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json' -UserName '${{ vars.AZUREDEVOPS_POMELO_ALLPACKAGES_PUSHNEW_USERNAME }}' -Password '${{ secrets.AZUREDEVOPS_POMELO_ALLPACKAGES_PUSHNEW_PASSWORD }}' -StorePasswordInClearText
-
-            nuget push './Release/withPdbs/**/*.nupkg' -ConfigFile './azdo-nuget/nuget.config' -ApiKey 'foo' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json'
-          }
-          finally
-          {
-            Remove-Item ./azdo-nuget -Recurse -Force
-          }
+#      - name: "NuGet Push - AZDO Feed - Debug"
+#        if: ${{ env.pushToAzureArtifacts == 'true' }}
+#        working-directory: nupkgs
+#        shell: pwsh
+#        run: |
+#          # https://learn.microsoft.com/en-us/azure/devops/artifacts/nuget/dotnet-exe?view=azure-devops#publish-packages-from-external-sources
+#          dotnet new nugetconfig --output './azdo-nuget' --force
+#          try
+#          {
+#            nuget sources Add -ConfigFile './azdo-nuget/nuget.config' -Name 'azdo-efcore-jet-debug' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json' -UserName '${{ vars.AZUREDEVOPS_BUBIBUBI_ALLPACKAGES_PUSHNEW_USERNAME }}' -Password '${{ secrets.AZUREDEVOPS_BUBIBUBI_ALLPACKAGES_PUSHNEW_PASSWORD }}' -StorePasswordInClearText
+#
+#            nuget push './Release/withPdbs/**/*.nupkg' -ConfigFile './azdo-nuget/nuget.config' -ApiKey 'foo' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json'
+#          }
+#          finally
+#          {
+#            Remove-Item ./azdo-nuget -Recurse -Force
+#          }
+#      - name: "NuGet Push - AZDO Feed - Release"
+#        if: ${{ env.pushToAzureArtifacts == 'true' }}
+#        working-directory: nupkgs
+#        shell: pwsh
+#        run: |
+#          # https://learn.microsoft.com/en-us/azure/devops/artifacts/nuget/dotnet-exe?view=azure-devops#publish-packages-from-external-sources
+#          dotnet new nugetconfig --output './azdo-nuget' --force
+#          try
+#          {
+#            nuget sources Add -ConfigFile './azdo-nuget/nuget.config' -Name 'azdo-efcore-jet-public' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json' -UserName '${{ vars.AZUREDEVOPS_POMELO_ALLPACKAGES_PUSHNEW_USERNAME }}' -Password '${{ secrets.AZUREDEVOPS_POMELO_ALLPACKAGES_PUSHNEW_PASSWORD }}' -StorePasswordInClearText
+#
+#            nuget push './Release/withPdbs/**/*.nupkg' -ConfigFile './azdo-nuget/nuget.config' -ApiKey 'foo' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json'
+#          }
+#          finally
+#          {
+#            Remove-Item ./azdo-nuget -Recurse -Force
+#          }
       - name: "NuGet Push - myget.org - Debug"
         if: ${{ env.pushToMygetOrg == 'true' }}
         working-directory: nupkgs
         shell: pwsh
-        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_BUBIBUBI_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/bubibubi-debug/api/v3/index.json'
+        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json'
       - name: "NuGet Push - myget.org - Release"
         if: ${{ env.pushToMygetOrg == 'true' }}
         working-directory: nupkgs
         shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_BUBIBUBI_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/bubibubi/api/v3/index.json'
+        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json'
       - name: "NuGet Push - nuget.org - Release"
         if: ${{ env.pushToNugetOrg == 'true' }}
         working-directory: nupkgs
         shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.NUGETORG_BUBIBUBI_ALLPACKAGES_PUSHNEW }}' --source 'https://api.nuget.org/v3/index.json'
+        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.NUGETORG_EFCOREJET_ALLPACKAGES_PUSHNEW }}' --source 'https://api.nuget.org/v3/index.json'

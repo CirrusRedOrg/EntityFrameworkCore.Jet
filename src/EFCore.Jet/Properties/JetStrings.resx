@@ -172,10 +172,6 @@
     <value>Found type alias with name: {alias} which maps to underlying data type {dataType}.</value>
     <comment>Debug JetEventId.TypeAliasFound string string</comment>
   </data>
-	<data name="LogByteIdentityColumn" xml:space="preserve">
-    <value>The property '{property}' on entity type '{entityType}' is of type 'byte', but is set up to use a SQL Server identity column; this requires that values starting at 255 and counting down will be used for temporary key values. A temporary key value is needed for every entity inserted in a single call to 'SaveChanges'. Care must be taken that these values do not collide with real key values.</value>
-    <comment>Warning JetEventId.ByteIdentityColumnWarning string string</comment>
-  </data>
 	<data name="LogColumnWithoutType" xml:space="preserve">
     <value>A database type for column '{columnName}' on table '{tableName}' could not be found, the column will be skipped.</value>
     <comment>Warning JetEventId.ColumnWithoutTypeWarning string string</comment>

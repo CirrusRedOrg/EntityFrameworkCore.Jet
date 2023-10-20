@@ -36,7 +36,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
             _testOutputHelper = testOutputHelper;
             //Fixture.ListLoggerFactory.Clear();
             Fixture.ListLoggerFactory.SetTestOutputHelper(testOutputHelper);
-            JetConfiguration.ShowSqlStatements = true;
         }
 
         #region Model

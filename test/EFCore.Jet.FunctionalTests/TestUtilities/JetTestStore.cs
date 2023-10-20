@@ -130,7 +130,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
             else
             {
-                JetConnection.CreateDatabase(Name);
+                JetConnection.CreateDatabase(connectionString);
             }
 
             return true;

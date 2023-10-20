@@ -11,5 +11,11 @@ public class AscendingTestCaseOrderer : ITestCaseOrderer
 {
     public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases)
         where TTestCase : ITestCase
-        => testCases.OrderBy(c => c.DisplayName, StringComparer.OrdinalIgnoreCase);
+    {
+        var orderTestCases = testCases.OrderBy(c => c.TestMethod.TestClass.Class.Name, StringComparer.Ordinal)
+            .ThenBy(c => c.DisplayName, StringComparer.Ordinal)
+            .ToList();
+        
+        return orderTestCases;
+    }
 }

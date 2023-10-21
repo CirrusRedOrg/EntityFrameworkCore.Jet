@@ -17,6 +17,8 @@ env:
   buildConfiguration: 'Debug'
   skipTests: false
   deterministicTests: true
+  autoCommitGreenTests: true
+  uploadTestResults: false
 jobs:
   BuildAndTest:
     strategy:
@@ -138,26 +140,115 @@ jobs:
       - name: Build Solution
         shell: pwsh
         run: |
-          & '${{ env.dotnetExecutable }}' build --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }}
+          & '${{ env.dotnetExecutable }}' build --configuration '${{ env.buildConfiguration }}'
       - name: 'Run Tests: EFCore.Jet.Data.Tests'
+        if: env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
       - name: 'Run Tests: EFCore.Jet.FunctionalTests'
+        if: env.skipTests != 'true'
         shell: pwsh
-        continue-on-error: true
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
           exit 0
       - name: 'Run Tests: EFCore.Jet.Tests'
+        if: env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests -c '${{ env.buildConfiguration }}' --no-build --logger trx --verbosity detailed --blame-hang-timeout 3m
-  NuGet:
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Upload Test Results'
+        if: env.skipTests != 'true' && env.uploadTestResults == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            test\EFCore.Jet.Data.Tests\TestResults
+            test\EFCore.Jet.FunctionalTests\TestResults
+            test\EFCore.Jet.Tests\TestResults
+      - name: 'Check Tests: EFCore.Jet.FunctionalTests'
+        if: env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          # Create text file with all tests that passed.
+          $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+          $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+
+          if ($null -eq $currentTestRunTrx) {
+              echo "Test runner crashed."
+              exit 2
+          }
+
+          $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')
+          (Select-Xml -Path  $currentTestRunTrx.FullName -XPath "//ns:UnitTestResult" -Namespace @{"ns"="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}).Node | Sort-Object -Property testName -CaseSensitive | ForEach-Object { "$($_.outcome -eq 'Passed' ? 'P' : $_.outcome -eq 'NotExecuted' ? 'N' : $_.outcome -eq 'Failed' ? 'F' : 'U') $($_.testName)" } | Add-Content $allTestsFilePath
+
+          $greenTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_Passed.txt')
+          Get-Content $allTestsFilePath | Where-Object { $_.StartsWith('P ') } | ForEach-Object { $_.Substring(2) } | Add-Content $greenTestsFilePath
+
+          # Compare test file against previously committed file.
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+
+          if (Test-Path $establishedGreenTestsFilePath) {
+              $notGreenAnymore = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath) | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+
+              if ($null -ne $notGreenAnymore) {
+                  echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
+                  $notGreenAnymore
+                  exit 1
+              }
+          
+              echo 'All tests that passed in previous runs still passed in this run.'
+              Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
+          
+              $commitGreenTestsFile = $establishedGreenTestsFilePath
+              echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+          }
+          echo 'Check succeeded.'
+      - name: 'Upload Green Tests'
+        if: ${{ env.commitGreenTestsFile != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: green-tests
+          path: ${{ env.commitGreenTestsFile }}
+  Commit:
     needs: BuildAndTest
+    runs-on: ubuntu-latest
+    outputs:
+      committedGreenTests: ${{ steps.commit.outputs.committedGreenTests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: 'Download Green Tests'
+        uses: actions/download-artifact@v3
+        with:
+          name: green-tests
+          path: test/EFCore.Jet.FunctionalTests/GreenTests
+      - name: 'Commit Green Tests'
+        id: commit
+        if: env.autoCommitGreenTests == 'true'
+        shell: pwsh
+        run: |
+          git config --global user.name github-actions
+          git config --global user.email github-actions@github.com
+          git add ./test/EFCore.Jet.FunctionalTests/GreenTests/
+          git status
+          
+          if ((git status -s).Length -gt 0) {
+            git commit -m "[GitHub Actions] Update green tests."
+            git push
+
+            $committedGreenTests = 'true'
+            echo "committedGreenTests=$committedGreenTests" >> $env:GITHUB_OUTPUT
+          } else {
+            echo 'Nothing to commit.'
+          }
+  NuGet:
+    needs:
+      - BuildAndTest
+      - Commit
     if: github.event_name == 'push' && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
     runs-on: ubuntu-latest
     steps:
@@ -253,40 +344,6 @@ jobs:
         with:
           name: nupkgs
           path: nupkgs
-#      - name: "NuGet Push - AZDO Feed - Debug"
-#        if: ${{ env.pushToAzureArtifacts == 'true' }}
-#        working-directory: nupkgs
-#        shell: pwsh
-#        run: |
-#          # https://learn.microsoft.com/en-us/azure/devops/artifacts/nuget/dotnet-exe?view=azure-devops#publish-packages-from-external-sources
-#          dotnet new nugetconfig --output './azdo-nuget' --force
-#          try
-#          {
-#            nuget sources Add -ConfigFile './azdo-nuget/nuget.config' -Name 'azdo-efcore-jet-debug' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json' -UserName '${{ vars.AZUREDEVOPS_BUBIBUBI_ALLPACKAGES_PUSHNEW_USERNAME }}' -Password '${{ secrets.AZUREDEVOPS_BUBIBUBI_ALLPACKAGES_PUSHNEW_PASSWORD }}' -StorePasswordInClearText
-#
-#            nuget push './Release/withPdbs/**/*.nupkg' -ConfigFile './azdo-nuget/nuget.config' -ApiKey 'foo' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json'
-#          }
-#          finally
-#          {
-#            Remove-Item ./azdo-nuget -Recurse -Force
-#          }
-#      - name: "NuGet Push - AZDO Feed - Release"
-#        if: ${{ env.pushToAzureArtifacts == 'true' }}
-#        working-directory: nupkgs
-#        shell: pwsh
-#        run: |
-#          # https://learn.microsoft.com/en-us/azure/devops/artifacts/nuget/dotnet-exe?view=azure-devops#publish-packages-from-external-sources
-#          dotnet new nugetconfig --output './azdo-nuget' --force
-#          try
-#          {
-#            nuget sources Add -ConfigFile './azdo-nuget/nuget.config' -Name 'azdo-efcore-jet-public' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json' -UserName '${{ vars.AZUREDEVOPS_POMELO_ALLPACKAGES_PUSHNEW_USERNAME }}' -Password '${{ secrets.AZUREDEVOPS_POMELO_ALLPACKAGES_PUSHNEW_PASSWORD }}' -StorePasswordInClearText
-#
-#            nuget push './Release/withPdbs/**/*.nupkg' -ConfigFile './azdo-nuget/nuget.config' -ApiKey 'foo' -Source 'https://bubibubi.pkgs.visualstudio.com/EntityFrameworkCore.Jet/_packaging/public/nuget/v3/index.json'
-#          }
-#          finally
-#          {
-#            Remove-Item ./azdo-nuget -Recurse -Force
-#          }
       - name: "NuGet Push - myget.org - Debug"
         if: ${{ env.pushToMygetOrg == 'true' }}
         working-directory: nupkgs

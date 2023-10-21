@@ -500,15 +500,6 @@ ORDER BY [c].[Id], [t].[Id]
 
     public override async Task Whats_new_2021_sample_3(bool async)
     {
-#if DEBUG
-        // GroupBy debug assert. Issue #26104.
-        Assert.StartsWith(
-            "Missing alias in the list",
-            (await Assert.ThrowsAsync<InvalidOperationException>(
-                () => base.Whats_new_2021_sample_3(async))).Message);
-
-        AssertSql();
-#else
         await base.Whats_new_2021_sample_3(async);
 
         AssertSql(
@@ -525,20 +516,10 @@ ORDER BY CAST(LEN((
     FROM [Person] AS [p1]
     WHERE [p1].[MiddleInitial] = N'Q' AND [p1].[Age] = 20 AND ([p].[LastName] = [p1].[LastName] OR (([p].[LastName] IS NULL) AND ([p1].[LastName] IS NULL))))) AS int)
 """);
-#endif
     }
 
     public override async Task Whats_new_2021_sample_5(bool async)
     {
-#if DEBUG
-        // GroupBy debug assert. Issue #26104.
-        Assert.StartsWith(
-            "Missing alias in the list",
-            (await Assert.ThrowsAsync<InvalidOperationException>(
-                () => base.Whats_new_2021_sample_5(async))).Message);
-
-        AssertSql();
-#else
         await base.Whats_new_2021_sample_5(async);
 
         AssertSql(
@@ -554,20 +535,10 @@ ORDER BY (
     FROM [Person] AS [p1]
     WHERE [p].[FirstName] = [p1].[FirstName] OR (([p].[FirstName] IS NULL) AND ([p1].[FirstName] IS NULL)))
 """);
-#endif
     }
 
     public override async Task Whats_new_2021_sample_6(bool async)
     {
-#if DEBUG
-        // GroupBy debug assert. Issue #26104.
-        Assert.StartsWith(
-            "Missing alias in the list",
-            (await Assert.ThrowsAsync<InvalidOperationException>(
-                () => base.Whats_new_2021_sample_6(async))).Message);
-
-        AssertSql();
-#else
         await base.Whats_new_2021_sample_6(async);
 
         AssertSql(
@@ -584,7 +555,6 @@ ORDER BY (
     FROM [Person] AS [p1]
     WHERE [p1].[Age] = 20 AND [p].[Id] = [p1].[Id])
 """);
-#endif
     }
 
     public override async Task Whats_new_2021_sample_14(bool async)

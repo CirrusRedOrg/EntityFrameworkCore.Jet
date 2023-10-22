@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         private readonly JetByteArrayTypeMapping _fixedLengthBinary = new JetByteArrayTypeMapping("binary");
         private readonly JetByteArrayTypeMapping _variableLengthBinary = new JetByteArrayTypeMapping("varbinary");
-        private readonly JetByteArrayTypeMapping _variableLengthMaxBinary = new JetByteArrayTypeMapping("varbinary(max)", storeTypePostfix: StoreTypePostfix.None);
+        private readonly JetByteArrayTypeMapping _variableLengthMaxBinary = new JetByteArrayTypeMapping("varbinary", storeTypePostfix: StoreTypePostfix.None);
         private readonly JetByteArrayTypeMapping _unboundedBinary = new JetByteArrayTypeMapping("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
         private readonly JetBoolTypeMapping _bit = new JetBoolTypeMapping("bit"); // JET bits are not nullable
@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetByteTypeMapping _byte = new JetByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
-        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("decimal");
+        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("decimal", precision: 20, scale: 0, StoreTypePostfix.PrecisionAndScale);
 
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");
@@ -46,6 +46,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetCurrencyTypeMapping _currency = new JetCurrencyTypeMapping("currency");
 
         private readonly JetDateTimeTypeMapping _datetime;
+        private readonly JetDateTimeTypeMapping _dateasdatetime;
         private readonly JetDateTimeOffsetTypeMapping _datetimeoffset;
         private readonly JetDateOnlyTypeMapping _dateonly;
         private readonly JetTimeSpanTypeMapping _timespan;
@@ -53,7 +54,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetStringTypeMapping _fixedLengthUnicodeString = new JetStringTypeMapping("char", unicode: true);
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new JetStringTypeMapping("varchar", unicode: true);
-        private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new JetStringTypeMapping("varchar(max)", unicode: true, storeTypePostfix: StoreTypePostfix.None);
+        private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new JetStringTypeMapping("varchar", unicode: true, size: 255, storeTypePostfix: StoreTypePostfix.Size);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new JetStringTypeMapping("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
         private readonly JetJsonTypeMapping _jsonTypeMapping = new JetJsonTypeMapping("longchar");
         private readonly JetGuidTypeMapping _guid = new JetGuidTypeMapping("uniqueidentifier", DbType.Guid);
@@ -63,7 +64,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 v => StructuralComparisons.StructuralEqualityComparer.GetHashCode(v),
                 v => v.ToArray()));
 
-        private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
+        private readonly Dictionary<string, RelationalTypeMapping[]> _storeTypeMappings;
         private readonly Dictionary<Type, RelationalTypeMapping> _clrTypeMappings;
         private readonly HashSet<string> _disallowedMappings;
 
@@ -89,102 +90,103 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
 
             _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
+            _dateasdatetime = new JetDateTimeTypeMapping("date", options, dbType: DbType.Date);
             _datetimeoffset = new JetDateTimeOffsetTypeMapping("varchar(50)", options);
             _dateonly = new JetDateOnlyTypeMapping("date", options, dbType: DbType.Date);
             _timeonly = new JetTimeOnlyTypeMapping("time", options);
             _timespan = new JetTimeSpanTypeMapping("datetime", options);
 
             _storeTypeMappings
-                = new Dictionary<string, RelationalTypeMapping>(StringComparer.OrdinalIgnoreCase)
+                = new Dictionary<string, RelationalTypeMapping[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    {"binary",                     _fixedLengthBinary},
+                    {"binary",                     new []{_fixedLengthBinary}},
 
-                    {"varbinary",                  _variableLengthBinary},
-                    {"varbinary(max)",                  _variableLengthMaxBinary},
-                    {"binary varying",             _variableLengthBinary},
-                    {"bit varying",                _variableLengthBinary},
+                    {"varbinary",                  new []{_variableLengthBinary}},
+                    {"varbinary(max)",             new[] { _variableLengthMaxBinary }},
+                    {"binary varying",             new[] { _variableLengthBinary }},
+                    {"bit varying",                new[] { _variableLengthBinary }},
 
-                    {"longbinary",                 _unboundedBinary},
-                    {"general",                    _unboundedBinary},
-                    {"image",                      _unboundedBinary},
-                    {"oleobject",                  _unboundedBinary},
+                    {"longbinary",                 new[] { _unboundedBinary }},
+                    {"general",                    new[] { _unboundedBinary }},
+                    {"image",                      new[] { _unboundedBinary }},
+                    {"oleobject",                  new[] { _unboundedBinary }},
 
-                    {"bit",                        _bit},
-                    {"boolean",                    _bit},
-                    {"logical",                    _bit},
-                    {"logical1",                   _bit},
-                    {"yesno",                      _bit},
+                    {"bit",                        new[] { _bit }},
+                    {"boolean",                    new[] { _bit }},
+                    {"logical",                    new[] { _bit }},
+                    {"logical1",                   new[] { _bit }},
+                    {"yesno",                      new[] { _bit }},
 
-                    {"counter",                    _counter},
-                    {"identity",                   _counter},
-                    {"autoincrement",              _counter},
+                    {"counter",                    new[] { _counter }},
+                    {"identity",                   new[] { _counter }},
+                    {"autoincrement",              new[] { _counter }},
 
-                    {"byte",                       _byte},
-                    {"tinyint",                    _byte},
-                    {"integer1",                   _byte},
+                    {"byte",                       new[] { _byte }},
+                    {"tinyint",                    new[] { _byte }},
+                    {"integer1",                   new[] { _byte }},
 
-                    {"smallint",                   _smallint},
-                    {"short",                      _smallint},
-                    {"integer2",                   _smallint},
+                    {"smallint",                   new[] { _smallint }},
+                    {"short",                      new[] { _smallint }},
+                    {"integer2",                   new[] { _smallint }},
 
-                    {"integer",                    _integer},
-                    {"long",                       _bigint},
-                    {"int",                        _integer},
-                    {"integer4",                   _integer},
+                    {"integer",                    new[] { _integer }},
+                    {"long",                       new[] { _bigint }},
+                    {"int",                        new[] { _integer }},
+                    {"integer4",                   new[] { _integer }},
 
-                    {"single",                     _single},
-                    {"real",                       _single},
-                    {"float4",                     _single},
-                    {"ieeesingle",                 _single},
+                    {"single",                     new[] { _single }},
+                    {"real",                       new[] { _single }},
+                    {"float4",                     new[] { _single }},
+                    {"ieeesingle",                 new[] { _single }},
 
-                    {"double",                     _double},
-                    {"float",                      _double},
-                    {"float8",                     _double},
-                    {"ieeedouble",                 _double},
-                    {"number",                     _double},
+                    {"double",                     new[] { _double }},
+                    {"float",                      new[] { _double }},
+                    {"float8",                     new[] { _double }},
+                    {"ieeedouble",                 new[] { _double }},
+                    {"number",                     new[] { _double }},
 
-                    {"decimal",                    _decimal},
-                    {"numeric",                    _decimal},
-                    {"dec",                        _decimal},
+                    {"decimal",                    new[] { _decimal }},
+                    {"numeric",                    new[] { _decimal }},
+                    {"dec",                        new[] { _decimal }},
 
-                    {"currency",                   _currency},
-                    {"money",                      _currency},
+                    {"currency",                   new[] { _currency }},
+                    {"money",                      new[] { _currency }},
 
-                    {"datetime",                   _datetime},
-                    {"date",                       _dateonly},
-                    {"time",                       _timeonly},
+                    {"datetime",                   new[] { _datetime }},
+                    {"date",                       new RelationalTypeMapping[] { _dateonly, _dateasdatetime }},
+                    {"time",                       new RelationalTypeMapping[] { _timeonly, _timespan }},
 
-                    {"char",                       _fixedLengthUnicodeString},
-                    {"alphanumeric",               _fixedLengthUnicodeString},
-                    {"character",                  _fixedLengthUnicodeString},
-                    {"nchar",                      _fixedLengthUnicodeString},
-                    {"national char",              _fixedLengthUnicodeString},
-                    {"national character",         _fixedLengthUnicodeString},
+                    {"char",                       new[] { _fixedLengthUnicodeString }},
+                    {"alphanumeric",               new[] { _fixedLengthUnicodeString }},
+                    {"character",                  new[] { _fixedLengthUnicodeString }},
+                    {"nchar",                      new[] { _fixedLengthUnicodeString }},
+                    {"national char",              new[] { _fixedLengthUnicodeString }},
+                    {"national character",         new[] { _fixedLengthUnicodeString }},
 
-                    {"varchar",                    _variableLengthUnicodeString},
-                    {"string",                     _variableLengthUnicodeString},
-                    {"char varying",               _variableLengthUnicodeString},
-                    {"character varying",          _variableLengthUnicodeString},
-                    {"national char varying",      _variableLengthUnicodeString},
-                    {"national character varying", _variableLengthUnicodeString},
+                    {"varchar",                    new[] { _variableLengthUnicodeString }},
+                    {"string",                     new[] { _variableLengthUnicodeString }},
+                    {"char varying",               new[] { _variableLengthUnicodeString }},
+                    {"character varying",          new[] { _variableLengthUnicodeString }},
+                    {"national char varying",      new[] { _variableLengthUnicodeString }},
+                    {"national character varying", new[] { _variableLengthUnicodeString }},
 
-                    {"varchar(max)",                    _variableLengthMaxUnicodeString},
-                    {"string(max)",                     _variableLengthMaxUnicodeString},
-                    {"char varying(max)",               _variableLengthMaxUnicodeString},
-                    {"character varying(max)",          _variableLengthMaxUnicodeString},
-                    {"national char varying(max)",      _variableLengthMaxUnicodeString},
-                    {"national character varying(max)", _variableLengthMaxUnicodeString},
+                    {"varchar(max)",                    new[] { _variableLengthMaxUnicodeString }},
+                    {"string(max)",                     new[] { _variableLengthMaxUnicodeString }},
+                    {"char varying(max)",               new[] { _variableLengthMaxUnicodeString }},
+                    {"character varying(max)",          new[] { _variableLengthMaxUnicodeString }},
+                    {"national char varying(max)",      new[] { _variableLengthMaxUnicodeString }},
+                    {"national character varying(max)", new[] { _variableLengthMaxUnicodeString }},
 
-                    {"longchar",                   _unboundedUnicodeString},
-                    {"longtext",                   _unboundedUnicodeString},
-                    {"memo",                       _unboundedUnicodeString},
-                    {"note",                       _unboundedUnicodeString},
-                    {"ntext",                      _unboundedUnicodeString},
+                    {"longchar",                   new[] { _unboundedUnicodeString }},
+                    {"longtext",                   new[] { _unboundedUnicodeString }},
+                    {"memo",                       new[] { _unboundedUnicodeString }},
+                    {"note",                       new[] { _unboundedUnicodeString }},
+                    {"ntext",                      new[] { _unboundedUnicodeString }},
 
-                    {"guid",                       _guid},
-                    {"uniqueidentifier",           _guid},
+                    {"guid",                       new[] { _guid }},
+                    {"uniqueidentifier",           new[] { _guid }},
 
-                    {"timestamp",                  _rowversion},
+                    {"timestamp",                  new[] { _rowversion }},
                 };
 
             _clrTypeMappings
@@ -214,25 +216,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _disallowedMappings
                 = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "binary",
-
-                    "varbinary",
-                    "binary varying",
-                    "bit varying",
-
-                    "char",
-                    "alphanumeric",
-                    "character",
-                    "nchar",
-                    "national char",
-                    "national character",
-
-                    "varchar",
-                    "string",
-                    "char varying",
-                    "character varying",
-                    "national char varying",
-                    "national character varying",
                 };
 
             _options = options;
@@ -303,13 +286,27 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     }
                 }
 
-                if (_storeTypeMappings.TryGetValue(storeTypeName, out var mapping)
-                    || _storeTypeMappings.TryGetValue(storeTypeNameBase, out mapping))
+                if (_storeTypeMappings.TryGetValue(storeTypeName, out var mappings)
+                    || _storeTypeMappings.TryGetValue(storeTypeNameBase, out mappings))
                 {
-                    return clrType == null
-                           || mapping.ClrType == clrType
-                        ? mapping
-                        : null;
+                    // We found the user-specified store type. No CLR type was provided - we're probably scaffolding from an existing database,
+                    // take the first mapping as the default.
+                    if (clrType is null)
+                    {
+                        return mappings[0];
+                    }
+
+                    // A CLR type was provided - look for a mapping between the store and CLR types. If not found, fail
+                    // immediately.
+                    foreach (var m in mappings)
+                    {
+                        if (m.ClrType == clrType)
+                        {
+                            return m;
+                        }
+                    }
+
+                    return null;
                 }
 
                 // A store type name was provided, but is unknown. This could be a domain (alias) type, in which case

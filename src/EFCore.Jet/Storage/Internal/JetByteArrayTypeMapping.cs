@@ -93,5 +93,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             return builder.ToString();
         }
+
+        protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
+        {
+            return base.ProcessStoreType(parameters, storeType.Replace("(max)", ""), storeTypeNameBase);
+        }
     }
 }

@@ -778,6 +778,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 storeType += $"({identity})";
             }
 
+            if (storeType != null && storeType.Contains("bigint", StringComparison.OrdinalIgnoreCase))
+            {
+                storeType = storeType.Replace("bigint", "decimal");
+            }
+
             return storeType;
         }
 

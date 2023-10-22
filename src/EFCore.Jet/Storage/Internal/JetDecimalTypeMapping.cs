@@ -67,6 +67,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     scale = parameters.Scale.Value - prec_diff;
                 }
             }
+
+            if (parameters.StoreType.Contains("bigint"))
+            {
+                var newparameters = new RelationalTypeMappingParameters(parameters.CoreParameters, "decimal", parameters.StoreTypePostfix,
+                    parameters.DbType, parameters.Unicode, parameters.Size, parameters.FixedLength,
+                    parameters.Precision, parameters.Scale);
+                return new JetDecimalTypeMapping(newparameters.WithPrecisionAndScale(precision, scale));
+            }
             return new JetDecimalTypeMapping(parameters.WithPrecisionAndScale(precision, scale));
         }
 

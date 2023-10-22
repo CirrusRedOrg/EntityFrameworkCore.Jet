@@ -31,9 +31,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
-            if (parameter.Value != null)
+            if (parameter.Value is TimeOnly timeOnly)
             {
-                ((TimeOnly)parameter.Value).Deconstruct(out int hour, out int min, out int sec);
+                timeOnly.Deconstruct(out int hour, out int min, out int sec);
                 //parameter.Value = JetConfiguration.TimeSpanOffset.Add(new TimeSpan(hour, min, sec));
                 parameter.Value = new TimeSpan(hour, min, sec);
             }
@@ -54,6 +54,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 //TODO: Treat as double
                 return "";
             }
+        }
+
+        protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
+        {
+            return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
         }
     }
 }

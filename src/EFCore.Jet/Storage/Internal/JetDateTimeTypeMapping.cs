@@ -50,6 +50,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 // Necessary to explicitly set for OLE DB, to apply the System.Decimal value as DOUBLE to Jet.
                 parameter.DbType = System.Data.DbType.Double;
             }
+
+            if ((parameter.DbType == System.Data.DbType.Date || StoreTypeNameBase == "date") && parameter.Value is DateTime date)
+            {
+                parameter.Value = date.Date;
+            }
         }
 
         protected override string GenerateNonNullSqlLiteral(object value)
@@ -77,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             literal.AppendFormat(CultureInfo.InvariantCulture, "{0:yyyy-MM-dd}", dateTime);
 
             var time = dateTime.TimeOfDay;
-            if (time != TimeSpan.Zero)
+            if (time != TimeSpan.Zero && StoreTypeNameBase != "date")
             {
                 literal.AppendFormat(CultureInfo.InvariantCulture, @" {0:hh\:mm\:ss}", time);
             }
@@ -147,6 +152,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             }
 
             return dateTime;
+        }
+
+        protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
+        {
+            return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
         }
     }
 }

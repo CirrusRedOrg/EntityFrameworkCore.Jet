@@ -157,7 +157,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"time",                       new RelationalTypeMapping[] { _timeonly, _timespan }},
 
                     {"char",                       new[] { _fixedLengthUnicodeString }},
-
+                    {"alphanumeric",               new[] { _fixedLengthUnicodeString }},
                     {"character",                  new[] { _fixedLengthUnicodeString }},
                     {"nchar",                      new[] { _fixedLengthUnicodeString }},
                     {"national char",              new[] { _fixedLengthUnicodeString }},

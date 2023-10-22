@@ -356,23 +356,26 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         return _rowversion;
                     }
 
-                    var isFixedLength = mappingInfo.IsFixedLength == true;
-
-                    const int maxBinaryColumnSize = 510;
-
-                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
-                    if (size > maxBinaryColumnSize)
+                    if (mappingInfo.ElementTypeMapping == null)
                     {
-                        size = isFixedLength ? maxBinaryColumnSize : (int?)null;
-                    }
+                        var isFixedLength = mappingInfo.IsFixedLength == true;
 
-                    return size == null
-                        ? _unboundedBinary
-                        : new JetByteArrayTypeMapping(
-                            size: size,
-                            storeType: isFixedLength
-                                ? _fixedLengthBinary.StoreTypeNameBase
-                                : _variableLengthBinary.StoreTypeNameBase);
+                        const int maxBinaryColumnSize = 510;
+
+                        var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
+                        if (size > maxBinaryColumnSize)
+                        {
+                            size = isFixedLength ? maxBinaryColumnSize : (int?)null;
+                        }
+
+                        return size == null
+                            ? _unboundedBinary
+                            : new JetByteArrayTypeMapping(
+                                size: size,
+                                storeType: isFixedLength
+                                    ? _fixedLengthBinary.StoreTypeNameBase
+                                    : _variableLengthBinary.StoreTypeNameBase);
+                    }
                 }
             }
 

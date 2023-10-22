@@ -159,7 +159,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         public void DeleteDatabase()
-            => JetConnection.DropDatabase(CreateConnectionString(Name));
+        {
+            if (ConnectionState != ConnectionState.Closed)
+            {
+                CloseConnection();
+            }
+            JetConnection.DropDatabase(CreateConnectionString(Name));
+        }
 
         public override void OpenConnection()
             => new TestJetRetryingExecutionStrategy().Execute(Connection, connection => connection.Open());

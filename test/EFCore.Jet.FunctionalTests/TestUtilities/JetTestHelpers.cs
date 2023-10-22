@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
-    public class JetTestHelpers : TestHelpers
+    public class JetTestHelpers : RelationalTestHelpers
     {
         protected JetTestHelpers()
         {

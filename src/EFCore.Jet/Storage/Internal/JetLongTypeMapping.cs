@@ -1,13 +1,25 @@
-﻿using JetBrains.Annotations;
+﻿using System;
+using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.Json;
+using System.Data;
 using System.Data.Common;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetLongTypeMapping : LongTypeMapping
     {
-        public JetLongTypeMapping([NotNull] string storeType)
-            : base(storeType, System.Data.DbType.Int64)
+        public JetLongTypeMapping([NotNull] string storeType,
+            int? precision = null,
+            int? scale = null,
+            StoreTypePostfix storeTypePostfix = StoreTypePostfix.PrecisionAndScale)
+            : base(
+                new RelationalTypeMappingParameters(
+                        new CoreTypeMappingParameters(typeof(Int64), jsonValueReaderWriter: JsonInt64ReaderWriter.Instance),
+        storeType,
+                        storeTypePostfix,
+                        System.Data.DbType.Int64)
+                    .WithPrecisionAndScale(precision, scale))
         {
         }
 

@@ -20,5 +20,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new JetFloatTypeMapping(parameters);
+
+        protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
+        {
+            return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
+        }
     }
 }

@@ -38,9 +38,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
-            if (parameter.Value != null)
+            if (parameter.Value is DateOnly dateOnly)
             {
-                ((DateOnly)parameter.Value).Deconstruct(out int year, out int month, out int day);
+                dateOnly.Deconstruct(out int year, out int month, out int day);
                 parameter.Value = new DateTime(year, month, day);
             }
         }
@@ -89,6 +89,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             }
 
             return dateTime;
+        }
+
+        protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
+        {
+            return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
         }
     }
 }

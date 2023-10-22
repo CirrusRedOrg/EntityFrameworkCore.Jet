@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.Jet.Data
         {
             _naturalOnly = naturalOnly;
         }
-        
+
         public DaoSchema(JetConnection connection, bool readOnly)
         {
             _connection = connection;
@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Data
             _dbEngine = ComObject.CreateFirstFrom(
                 Enumerable.Range(12, 6)
                     .Reverse()
-                    .Concat(new[] {36})
+                    .Concat(new[] { 36 })
                     .Select(n => "DAO.DBEngine." + (n * 10).ToString())
                     .ToArray());
 
@@ -78,14 +78,14 @@ namespace EntityFrameworkCore.Jet.Data
             var dataTable = SchemaTables.GetTablesDataTable();
 
             using var tableDefs = _database.TableDefs;
-            var tableCount = (int) tableDefs.Count;
+            var tableCount = (int)tableDefs.Count;
 
             for (var i = 0; i < tableCount; i++)
             {
                 using var tableDef = tableDefs[i];
 
-                var tableName = (string) tableDef.Name;
-                var tableAttributes = (int) tableDef.Attributes;
+                var tableName = (string)tableDef.Name;
+                var tableAttributes = (int)tableDef.Attributes;
 
                 string tableType;
                 if (IsInternalTableByName(tableName))
@@ -93,7 +93,7 @@ namespace EntityFrameworkCore.Jet.Data
                     tableType = "INTERNAL TABLE";
                 }
                 else if (IsSystemTableByName(tableName) ||
-                         (tableAttributes & (int) TableDefAttributeEnum.dbSystemObject) == (int) TableDefAttributeEnum.dbSystemObject ||
+                         (tableAttributes & (int)TableDefAttributeEnum.dbSystemObject) == (int)TableDefAttributeEnum.dbSystemObject ||
                          (tableAttributes & (1 << 31)) == 1 << 31)
                 {
                     tableType = "SYSTEM TABLE";
@@ -102,13 +102,13 @@ namespace EntityFrameworkCore.Jet.Data
                 {
                     tableType = "BASE TABLE";
                 }
-                
-                var validationRule = (string) tableDef.ValidationRule;
+
+                var validationRule = (string)tableDef.ValidationRule;
                 validationRule = string.IsNullOrEmpty(validationRule)
                     ? null
                     : validationRule;
 
-                var validationText = (string) tableDef.ValidationText;
+                var validationText = (string)tableDef.ValidationText;
                 validationText = string.IsNullOrEmpty(validationText)
                     ? null
                     : validationText;
@@ -121,7 +121,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             using var queryDefs = _database.QueryDefs;
-            var queryCount = (int) queryDefs.Count;
+            var queryCount = (int)queryDefs.Count;
 
             for (var i = 0; i < queryCount; i++)
             {
@@ -132,8 +132,8 @@ namespace EntityFrameworkCore.Jet.Data
                 // If the QueryDef contains parameters, we will treat it as a stored procedure.
                 if (parameterCount <= 0)
                 {
-                    var tableName = (string) queryDef.Name;
-                    var type = (QueryDefTypeEnum) queryDef.Type;
+                    var tableName = (string)queryDef.Name;
+                    var type = (QueryDefTypeEnum)queryDef.Type;
 
                     if (type == QueryDefTypeEnum.dbQSelect ||
                         type == QueryDefTypeEnum.dbQSetOperation ||
@@ -163,20 +163,20 @@ namespace EntityFrameworkCore.Jet.Data
             // method (that contains precision and scale, but no default value when using ODBC, because again, looks
             // like someone at Microsoft just forgot to implement it).
             Dictionary<(string TableName, string ColumnName), int?>? numericScales = null;
-            
+
             if (!_naturalOnly)
             {
                 var schemaTable = _connection.InnerConnection.GetSchema("Columns");
                 numericScales = schemaTable.Rows
                     .Cast<DataRow>()
                     .ToDictionary(
-                        t => (TableName: (string) t["TABLE_NAME"], ColumnName: (string) t["COLUMN_NAME"]),
+                        t => (TableName: (string)t["TABLE_NAME"], ColumnName: (string)t["COLUMN_NAME"]),
                         t => t.Table.Columns.Contains("DECIMAL_DIGITS")
                             ? t["DECIMAL_DIGITS"] != DBNull.Value
-                                ? (int?) (short?) t["DECIMAL_DIGITS"]
+                                ? (int?)(short?)t["DECIMAL_DIGITS"]
                                 : null
                             : t["NUMERIC_SCALE"] != DBNull.Value
-                                ? (int?) (short?) t["NUMERIC_SCALE"]
+                                ? (int?)(short?)t["NUMERIC_SCALE"]
                                 : null);
             }
 
@@ -195,30 +195,30 @@ namespace EntityFrameworkCore.Jet.Data
                     for (var i = 0; i < objectDefCount; i++)
                     {
                         using var objectDef = objectDefs.Collection[i];
-                        var tableName = (string) objectDef.Name;
+                        var tableName = (string)objectDef.Name;
 
                         using var fields = objectDef.Fields;
-                        var fieldCount = (int) fields.Count;
+                        var fieldCount = (int)fields.Count;
 
                         for (var j = 0; j < fieldCount; j++)
                         {
                             using var field = fields[j];
 
-                            var attributes = (FieldAttributeEnum) field.Attributes;
+                            var attributes = (FieldAttributeEnum)field.Attributes;
                             var isIdentity = (attributes & FieldAttributeEnum.dbAutoIncrField) == FieldAttributeEnum.dbAutoIncrField;
 
                             // Looks like there is no way to get the seed and increment values through DAO.
                             var seed = isIdentity && !_naturalOnly ? (int?)1 : null;
                             var increment = isIdentity && !_naturalOnly ? (int?)1 : null;
-                            
-                            var columnName = (string) field.Name;
-                            var ordinalPosition = (int) field.OrdinalPosition;
-                            var dataType = (DataTypeEnum) field.Type;
+
+                            var columnName = (string)field.Name;
+                            var ordinalPosition = (int)field.OrdinalPosition;
+                            var dataType = (DataTypeEnum)field.Type;
                             var dataTypeString = GetDataTypeString(dataType, isIdentity);
-                            var nullable = !(bool) field.Required;
-                            var collatingOrder = (int) field.CollatingOrder;
+                            var nullable = !(bool)field.Required;
+                            var collatingOrder = (int)field.CollatingOrder;
                             var numericPrecision = dataType == DataTypeEnum.dbDecimal || dataType == DataTypeEnum.dbNumeric
-                                ? (int?) collatingOrder
+                                ? (int?)collatingOrder
                                 : null;
 
                             int? numericScale = numericScales != null &&
@@ -226,22 +226,22 @@ namespace EntityFrameworkCore.Jet.Data
                                 ? numericScales[(tableName, columnName)]
                                 : null;
 
-                            var size = (int) field.Size;
+                            var size = (int)field.Size;
                             var length = GetMaxLength(dataType, size);
                             var defaultValue = !string.IsNullOrEmpty(field.DefaultValue)
-                                ? (string) field.DefaultValue
+                                ? (string)field.DefaultValue
                                 : null;
 
-                            var validationRule = (string) field.ValidationRule;
+                            var validationRule = (string)field.ValidationRule;
                             validationRule = string.IsNullOrEmpty(validationRule)
                                 ? null
                                 : validationRule;
 
-                            var validationText = (string) field.ValidationText;
+                            var validationText = (string)field.ValidationText;
                             validationText = string.IsNullOrEmpty(validationText)
                                 ? null
                                 : validationText;
-                            
+
                             dataTable.Rows.Add(
                                 tableName,
                                 columnName,
@@ -277,27 +277,27 @@ namespace EntityFrameworkCore.Jet.Data
             var dataTable = SchemaTables.GetIndexesDataTable();
 
             using var tableDefs = _database.TableDefs;
-            var tableDefCount = (int) tableDefs.Count;
+            var tableDefCount = (int)tableDefs.Count;
 
             for (var i = 0; i < tableDefCount; i++)
             {
                 using var tableDef = tableDefs[i];
-                var tableName = (string) tableDef.Name;
+                var tableName = (string)tableDef.Name;
 
                 try
                 {
                     using var indexes = tableDef.Indexes;
-                    var indexCount = (int) indexes.Count;
+                    var indexCount = (int)indexes.Count;
 
                     for (var j = 0; j < indexCount; j++)
                     {
                         using var index = indexes[j];
 
-                        var indexName = (string) index.Name;
-                        var isPrimaryKey = (bool) index.Primary;
-                        var isUnique = (bool) index.Unique;
-                        var isNullable = !(bool) index.Required;
-                        var ignoreNulls = (bool) index.IgnoreNulls;
+                        var indexName = (string)index.Name;
+                        var isPrimaryKey = (bool)index.Primary;
+                        var isUnique = (bool)index.Unique;
+                        var isNullable = !(bool)index.Required;
+                        var ignoreNulls = (bool)index.IgnoreNulls;
 
                         string indexType;
                         if (isPrimaryKey)
@@ -306,7 +306,7 @@ namespace EntityFrameworkCore.Jet.Data
                         }
                         else if (isUnique)
                         {
-                            indexType = "UNIQUE"; 
+                            indexType = "UNIQUE";
                         }
                         else
                         {
@@ -323,8 +323,8 @@ namespace EntityFrameworkCore.Jet.Data
                 }
                 catch
                 {
-                    var tableAttributes = (int) tableDef.Attributes;
-                    var isSystemTable = (tableAttributes & (int) TableDefAttributeEnum.dbSystemObject) == (int) TableDefAttributeEnum.dbSystemObject ||
+                    var tableAttributes = (int)tableDef.Attributes;
+                    var isSystemTable = (tableAttributes & (int)TableDefAttributeEnum.dbSystemObject) == (int)TableDefAttributeEnum.dbSystemObject ||
                                         (tableAttributes & (1 << 31)) == 1 << 31 ||
                                         IsSystemTableByName(tableName);
 
@@ -343,33 +343,33 @@ namespace EntityFrameworkCore.Jet.Data
             var dataTable = SchemaTables.GetIndexColumnsDataTable();
 
             using var tableDefs = _database.TableDefs;
-            var tableDefCount = (int) tableDefs.Count;
+            var tableDefCount = (int)tableDefs.Count;
 
             for (var i = 0; i < tableDefCount; i++)
             {
                 using var tableDef = tableDefs[i];
-                var tableName = (string) tableDef.Name;
+                var tableName = (string)tableDef.Name;
 
                 try
                 {
                     using var indexes = tableDef.Indexes;
-                    var indexCount = (int) indexes.Count;
+                    var indexCount = (int)indexes.Count;
 
                     for (var j = 0; j < indexCount; j++)
                     {
                         using var index = indexes[j];
-                        var indexName = (string) index.Name;
+                        var indexName = (string)index.Name;
 
                         using var fields = index.Fields;
-                        var fieldCount = (int) fields.Count;
+                        var fieldCount = (int)fields.Count;
 
                         for (var k = 0; k < fieldCount; k++)
                         {
                             using var field = fields[k];
 
-                            var fieldName = (string) field.Name;
+                            var fieldName = (string)field.Name;
                             var ordinalPosition = k;
-                            var attributes = (FieldAttributeEnum) field.Attributes;
+                            var attributes = (FieldAttributeEnum)field.Attributes;
                             var isDescending = (attributes & FieldAttributeEnum.dbDescending) == FieldAttributeEnum.dbDescending;
 
                             dataTable.Rows.Add(
@@ -383,8 +383,8 @@ namespace EntityFrameworkCore.Jet.Data
                 }
                 catch
                 {
-                    var tableAttributes = (int) tableDef.Attributes;
-                    var isSystemTable = (tableAttributes & (int) TableDefAttributeEnum.dbSystemObject) == (int) TableDefAttributeEnum.dbSystemObject ||
+                    var tableAttributes = (int)tableDef.Attributes;
+                    var isSystemTable = (tableAttributes & (int)TableDefAttributeEnum.dbSystemObject) == (int)TableDefAttributeEnum.dbSystemObject ||
                                         (tableAttributes & (1 << 31)) == 1 << 31 ||
                                         IsSystemTableByName(tableName);
 
@@ -403,16 +403,16 @@ namespace EntityFrameworkCore.Jet.Data
             var dataTable = SchemaTables.GetRelationsDataTable();
 
             using var relations = _database.Relations;
-            var relationCount = (int) relations.Count;
+            var relationCount = (int)relations.Count;
 
             for (var i = 0; i < relationCount; i++)
             {
                 using var relation = relations[i];
 
-                var relationName = (string) relation.Name;
-                var referencingTableName = (string) relation.ForeignTable;
-                var principalTableName = (string) relation.Table;
-                var attributes = (RelationAttributeEnum) relation.Attributes;
+                var relationName = (string)relation.Name;
+                var referencingTableName = (string)relation.ForeignTable;
+                var principalTableName = (string)relation.Table;
+                var attributes = (RelationAttributeEnum)relation.Attributes;
 
                 var relationType = (attributes & RelationAttributeEnum.dbRelationUnique) == RelationAttributeEnum.dbRelationUnique
                     ? "ONE"
@@ -450,22 +450,22 @@ namespace EntityFrameworkCore.Jet.Data
             var dataTable = SchemaTables.GetRelationColumnsDataTable();
 
             using var relations = _database.Relations;
-            var relationCount = (int) relations.Count;
+            var relationCount = (int)relations.Count;
 
             for (var i = 0; i < relationCount; i++)
             {
                 using var relation = relations[i];
-                var relationName = (string) relation.Name;
+                var relationName = (string)relation.Name;
 
                 using var fields = relation.Fields;
-                var fieldCount = (int) fields.Count;
+                var fieldCount = (int)fields.Count;
 
                 for (var j = 0; j < fieldCount; j++)
                 {
                     using var field = fields[j];
 
-                    var principalColumnName = (string) field.Name;
-                    var referencingColumnName = (string) field.ForeignName;
+                    var principalColumnName = (string)field.Name;
+                    var referencingColumnName = (string)field.ForeignName;
 
                     dataTable.Rows.Add(
                         relationName,
@@ -482,7 +482,7 @@ namespace EntityFrameworkCore.Jet.Data
         // DAO does not support CHECK CONSTRAINTs. Only ADOX does.
         public override DataTable GetCheckConstraints()
             => SchemaTables.GetCheckConstraintsDataTable();
-        
+
         public override void EnsureDualTable()
         {
             using var tableDefs = _database.TableDefs;
@@ -503,7 +503,7 @@ namespace EntityFrameworkCore.Jet.Data
                 using var tableDef = tableDefs[JetConnection.DefaultDualTableName];
                 tableDef.ValidationRule = "[ID] = 1"; // not as good as a CHECK CONSTRAINT, but better than nothing
 
-                var attributes = (TableDefAttributeEnum) tableDef.Attributes;
+                var attributes = (TableDefAttributeEnum)tableDef.Attributes;
                 attributes |= TableDefAttributeEnum.dbSystemObject;
                 tableDef.Attributes = attributes;
             }
@@ -571,13 +571,13 @@ namespace EntityFrameworkCore.Jet.Data
                 DataTypeEnum.dbLongBinary => "longbinary",
                 DataTypeEnum.dbMemo => "longchar",
                 DataTypeEnum.dbGUID => "uniqueidentifier",
-                DataTypeEnum.dbBigInt => "integer", // TODO
+                DataTypeEnum.dbBigInt => "bigint", // TODO
                 DataTypeEnum.dbVarBinary => "varbinary",
                 DataTypeEnum.dbChar => "char",
                 DataTypeEnum.dbNumeric => "decimal", // CHECK: https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)#the-numeric-data-types
                 DataTypeEnum.dbDecimal => "decimal",
-                DataTypeEnum.dbFloat => "double", // CHECK
-                DataTypeEnum.dbTime => "datetime", // CHECK
+                DataTypeEnum.dbFloat => "float", // CHECK
+                DataTypeEnum.dbTime => "time", // CHECK
                 DataTypeEnum.dbTimeStamp => "timestamp",
                 _ => throw new ArgumentOutOfRangeException(nameof(dataType))
             };
@@ -633,11 +633,11 @@ namespace EntityFrameworkCore.Jet.Data
 
             return propertyMap;
         }
-        
+
         public Dictionary<(string TableName, string ColumnName), (int OrdinalPosition, bool Nullable)> GetOrdinalPositionsAndNullables()
         {
             var ordinalPositions = new Dictionary<(string TableName, string ColumnName), (int OrdinalPosition, bool Nullable)>();
-            
+
             var objectDefsCollection = new[]
             {
                 _database.TableDefs,
@@ -653,19 +653,19 @@ namespace EntityFrameworkCore.Jet.Data
                     for (var i = 0; i < objectDefCount; i++)
                     {
                         using var objectDef = objectDefs[i];
-                        var tableName = (string) objectDef.Name;
+                        var tableName = (string)objectDef.Name;
 
                         using var fields = objectDef.Fields;
-                        var fieldCount = (int) fields.Count;
+                        var fieldCount = (int)fields.Count;
 
                         for (var j = 0; j < fieldCount; j++)
                         {
                             using var field = fields[j];
 
-                            var columnName = (string) field.Name;
-                            var ordinalPosition = (int) field.OrdinalPosition;
-                            var nullable = !(bool) field.Required;
-                            
+                            var columnName = (string)field.Name;
+                            var ordinalPosition = (int)field.OrdinalPosition;
+                            var nullable = !(bool)field.Required;
+
                             ordinalPositions.Add((tableName, columnName), (ordinalPosition, nullable));
                         }
                     }
@@ -682,9 +682,9 @@ namespace EntityFrameworkCore.Jet.Data
             return ordinalPositions;
         }
 
-        public Dictionary<string,(string relationType,bool isEnforced,bool isInherited)> GetRelationTypes()
+        public Dictionary<string, (string relationType, bool isEnforced, bool isInherited)> GetRelationTypes()
         {
-            var result = new Dictionary<string, (string,bool,bool)>();
+            var result = new Dictionary<string, (string, bool, bool)>();
             using var relations = _database.Relations;
             var relationCount = (int)relations.Count;
 
@@ -703,7 +703,7 @@ namespace EntityFrameworkCore.Jet.Data
 
                 var isInherited = (attributes & RelationAttributeEnum.dbRelationInherited) != RelationAttributeEnum.dbRelationInherited;
 
-                result.Add(relationName, (relationType,isEnforced,isInherited));
+                result.Add(relationName, (relationType, isEnforced, isInherited));
             }
 
             return result;
@@ -792,7 +792,7 @@ namespace EntityFrameworkCore.Jet.Data
             dbRelationLeft = 0x01000000,
             dbRelationRight = 0x02000000,
         }
-        
+
         [Flags]
         protected enum RecordsetOptionEnum
         {

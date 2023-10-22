@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
@@ -36,7 +37,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
             _testOutputHelper = testOutputHelper;
             //Fixture.ListLoggerFactory.Clear();
             Fixture.ListLoggerFactory.SetTestOutputHelper(testOutputHelper);
-            JetConfiguration.ShowSqlStatements = true;
+            Fixture.OperationReporter.Clear();
         }
 
         #region Model
@@ -90,7 +91,7 @@ DROP TABLE `Denali`;");
         #endregion
 
         #region FilteringSchemaTable
-        
+
         [ConditionalFact]
         public void Table_filtering_validation()
         {
@@ -395,7 +396,7 @@ CREATE TABLE NumericColumns (
     numericColumn numeric NOT NULL,
     numeric152Column numeric(15, 2) NOT NULL,
     numericDefaultColumn numeric(18, 2) NOT NULL,
-    numericDefaultPrecisionColumn numeric(38, 5) NOT NULL
+    numericDefaultPrecisionColumn numeric(28, 5) NOT NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -406,10 +407,10 @@ CREATE TABLE NumericColumns (
                     Assert.Equal("decimal(18, 0)", columns.Single(c => c.Name == "decimalColumn").StoreType);
                     Assert.Equal("decimal(10, 5)", columns.Single(c => c.Name == "decimal105Column").StoreType);
                     Assert.Equal("decimal(18, 2)", columns.Single(c => c.Name == "decimalDefaultColumn").StoreType);
-                    Assert.Equal("numeric(18, 0)", columns.Single(c => c.Name == "numericColumn").StoreType);
-                    Assert.Equal("numeric(15, 2)", columns.Single(c => c.Name == "numeric152Column").StoreType);
-                    Assert.Equal("numeric(18, 2)", columns.Single(c => c.Name == "numericDefaultColumn").StoreType);
-                    Assert.Equal("numeric(38, 5)", columns.Single(c => c.Name == "numericDefaultPrecisionColumn").StoreType);
+                    Assert.Equal("decimal(18, 0)", columns.Single(c => c.Name == "numericColumn").StoreType);
+                    Assert.Equal("decimal(15, 2)", columns.Single(c => c.Name == "numeric152Column").StoreType);
+                    Assert.Equal("decimal(18, 2)", columns.Single(c => c.Name == "numericDefaultColumn").StoreType);
+                    Assert.Equal("decimal(28, 5)", columns.Single(c => c.Name == "numericDefaultPrecisionColumn").StoreType);
                 },
                 "DROP TABLE NumericColumns;");
         }
@@ -706,8 +707,7 @@ CREATE TABLE OneLengthColumns (
     nationalCharVaryingColumn national char varying NULL,
     ncharColumn nchar NULL,
     varcharColumn varchar NULL,
-    varbinaryColumn varbinary NULL,
-    varcharColumn varchar NULL
+    varbinaryColumn varbinary NULL
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1479,7 +1479,7 @@ CREATE TABLE DependentTable (
 DROP TABLE DependentTable;
 DROP TABLE PrincipalTable;");
         }
-        
+
         /// <summary>
         /// In contrast to SQL Standard, MS Access will implicitly create an index for every FK constraint.
         /// According to https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/constraint-clause-microsoft-access-sql,
@@ -1509,7 +1509,7 @@ CREATE TABLE DependentTable (
                 dbModel =>
                 {
                     var table = dbModel.Tables.Single(t => t.Name == "DependentTable");
-                    
+
                     Assert.Equal(1, table.ForeignKeys.Count);
                     Assert.Equal(1, table.Indexes.Count);
                     Assert.False(table.Indexes.Any(i => i.Name == "MYFK"));
@@ -1518,7 +1518,7 @@ CREATE TABLE DependentTable (
 DROP TABLE DependentTable;
 DROP TABLE PrincipalTable;");
         }
-        
+
         [ConditionalFact]
         public void Set_referential_action_for_foreign_key()
         {
@@ -1577,7 +1577,7 @@ CREATE TABLE DependentTable (
                 dbModel =>
                 {
                     var fk = Assert.Single(dbModel.Tables.Single(t => t.Name == "DependentTable").ForeignKeys);
-                    
+
                     Assert.Equal(fk.PrincipalColumns, fk.PrincipalTable.PrimaryKey.Columns);
                 },
                 @"
@@ -1603,12 +1603,11 @@ CREATE TABLE Blank (
                 {
                     Assert.Empty(dbModel.Tables);
 
-                    var (_, Id, Message, _, _) = Assert.Single(Fixture.ListLoggerFactory.Log.Where(t => t.Level == LogLevel.Warning));
+                    var message = Fixture.OperationReporter.Messages.Single(m => m.Level == LogLevel.Warning).Message;
 
-                    Assert.Equal(JetResources.LogMissingSchema(new TestLogger<JetLoggingDefinitions>()).EventId, Id);
                     Assert.Equal(
                         JetResources.LogMissingSchema(new TestLogger<JetLoggingDefinitions>()).GenerateMessage("MySchema"),
-                        Message);
+                        message);
                 },
                 "DROP TABLE Blank;");
         }
@@ -1627,12 +1626,11 @@ CREATE TABLE Blank (
                 {
                     Assert.Empty(dbModel.Tables);
 
-                    var (_, Id, Message, _, _) = Assert.Single(Fixture.ListLoggerFactory.Log.Where(t => t.Level == LogLevel.Warning));
+                    var message = Fixture.OperationReporter.Messages.Single(m => m.Level == LogLevel.Warning).Message;
 
-                    Assert.Equal(JetResources.LogMissingTable(new TestLogger<JetLoggingDefinitions>()).EventId, Id);
                     Assert.Equal(
                         JetResources.LogMissingTable(new TestLogger<JetLoggingDefinitions>()).GenerateMessage("MyTable"),
-                        Message);
+                        message);
                 },
                 "DROP TABLE Blank;");
         }
@@ -1655,14 +1653,12 @@ CREATE TABLE DependentTable (
                 Enumerable.Empty<string>(),
                 dbModel =>
                 {
-                    var (_, Id, Message, _, _) = Assert.Single(Fixture.ListLoggerFactory.Log.Where(t => t.Level == LogLevel.Warning));
+                    var message = Fixture.OperationReporter.Messages.Single(m => m.Level == LogLevel.Warning).Message;
 
-                    Assert.Equal(
-                        JetResources.LogPrincipalTableNotInSelectionSet(new TestLogger<JetLoggingDefinitions>()).EventId, Id);
                     Assert.Equal(
                         JetResources.LogPrincipalTableNotInSelectionSet(new TestLogger<JetLoggingDefinitions>())
                             .GenerateMessage(
-                                "MYFK", "DependentTable", "PrincipalTable"), Message);
+                                "MYFK", "DependentTable", "PrincipalTable"), message);
                 },
                 @"
 DROP TABLE DependentTable;
@@ -1682,12 +1678,13 @@ CREATE TABLE PrincipalTable (
                 Enumerable.Empty<string>(),
                 dbModel =>
                 {
-                    var (level, _, message, _, _) = Assert.Single(
-                        Fixture.ListLoggerFactory.Log, t => t.Id == JetEventId.ReflexiveConstraintIgnored);
+                    var level = Fixture.OperationReporter.Messages
+                        .Single(
+                            m => m.Message
+                                 == JetResources.LogReflexiveConstraintIgnored(new TestLogger<JetLoggingDefinitions>())
+                                     .GenerateMessage("MYFK", "PrincipalTable")).Level;
+
                     Assert.Equal(LogLevel.Debug, level);
-                    Assert.Equal(
-                        JetResources.LogReflexiveConstraintIgnored(new TestLogger<JetLoggingDefinitions>())
-                            .GenerateMessage("MYFK", "PrincipalTable"), message);
 
                     var table = Assert.Single(dbModel.Tables);
                     Assert.Empty(table.ForeignKeys);
@@ -1699,19 +1696,35 @@ DROP TABLE PrincipalTable;");
         #endregion
 
         private void Test(
-            string createSql, IEnumerable<string> tables, IEnumerable<string> schemas, Action<DatabaseModel> asserter, string cleanupSql)
+            string createSql,
+            IEnumerable<string> tables,
+            IEnumerable<string> schemas,
+            Action<DatabaseModel> asserter,
+            string cleanupSql)
+            => Test(
+                string.IsNullOrEmpty(createSql) ? Array.Empty<string>() : new[] { createSql },
+                tables,
+                schemas,
+                asserter,
+                cleanupSql);
+
+        private void Test(
+            string[] createSqls,
+            IEnumerable<string> tables,
+            IEnumerable<string> schemas,
+            Action<DatabaseModel> asserter,
+            string cleanupSql)
         {
-            Fixture.TestStore.ExecuteNonQuery(createSql);
+            foreach (var createSql in createSqls)
+            {
+                Fixture.TestStore.ExecuteNonQuery(createSql);
+            }
 
             try
             {
-                var databaseModelFactory = new JetDatabaseModelFactory(
-                    new DiagnosticsLogger<DbLoggerCategory.Scaffolding>(
-                        Fixture.ListLoggerFactory,
-                        new LoggingOptions(),
-                        new DiagnosticListener("Fake"),
-                        new JetLoggingDefinitions(),
-                        new NullDbContextLogger()));
+                var databaseModelFactory = JetTestHelpers.Instance.CreateDesignServiceProvider(
+                        reporter: Fixture.OperationReporter)
+                    .CreateScope().ServiceProvider.GetRequiredService<IDatabaseModelFactory>();
 
                 var databaseModel = databaseModelFactory.Create(
                     Fixture.TestStore.ConnectionString,
@@ -1734,9 +1747,7 @@ DROP TABLE PrincipalTable;");
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
             public new JetTestStore TestStore => (JetTestStore)base.TestStore;
 
-            public JetDatabaseModelFixture()
-            {
-            }
+            public TestOperationReporter OperationReporter { get; } = new();
 
             protected override bool ShouldLogCategory(string logCategory)
                 => logCategory == DbLoggerCategory.Scaffolding.Name;

@@ -157,7 +157,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"time",                       new RelationalTypeMapping[] { _timeonly, _timespan }},
 
                     {"char",                       new[] { _fixedLengthUnicodeString }},
-                    {"alphanumeric",               new[] { _fixedLengthUnicodeString }},
+
                     {"character",                  new[] { _fixedLengthUnicodeString }},
                     {"nchar",                      new[] { _fixedLengthUnicodeString }},
                     {"national char",              new[] { _fixedLengthUnicodeString }},
@@ -356,26 +356,23 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                         return _rowversion;
                     }
 
-                    if (mappingInfo.ElementTypeMapping == null)
+                    var isFixedLength = mappingInfo.IsFixedLength == true;
+
+                    const int maxBinaryColumnSize = 510;
+
+                    var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
+                    if (size > maxBinaryColumnSize)
                     {
-                        var isFixedLength = mappingInfo.IsFixedLength == true;
-
-                        const int maxBinaryColumnSize = 510;
-
-                        var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxBinaryColumnSize : null);
-                        if (size > maxBinaryColumnSize)
-                        {
-                            size = isFixedLength ? maxBinaryColumnSize : (int?)null;
-                        }
-
-                        return size == null
-                            ? _unboundedBinary
-                            : new JetByteArrayTypeMapping(
-                                size: size,
-                                storeType: isFixedLength
-                                    ? _fixedLengthBinary.StoreTypeNameBase
-                                    : _variableLengthBinary.StoreTypeNameBase);
+                        size = isFixedLength ? maxBinaryColumnSize : (int?)null;
                     }
+
+                    return size == null
+                        ? _unboundedBinary
+                        : new JetByteArrayTypeMapping(
+                            size: size,
+                            storeType: isFixedLength
+                                ? _fixedLengthBinary.StoreTypeNameBase
+                                : _variableLengthBinary.StoreTypeNameBase);
                 }
             }
 

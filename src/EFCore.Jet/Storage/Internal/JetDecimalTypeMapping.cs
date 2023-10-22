@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -28,7 +29,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             StoreTypePostfix storeTypePostfix = StoreTypePostfix.PrecisionAndScale)
             : base(
                 new RelationalTypeMappingParameters(
-                        new CoreTypeMappingParameters(typeof(decimal)),
+                        new CoreTypeMappingParameters(typeof(decimal), jsonValueReaderWriter: JsonDecimalReaderWriter.Instance),
                         storeType,
                         storeTypePostfix,
                         dbType)

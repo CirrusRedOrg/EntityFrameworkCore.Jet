@@ -371,6 +371,17 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return base.VisitColumn(columnExpression);
         }
 
+        protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
+        {
+            var path = jsonScalarExpression.Path;
+            if (path.Count == 0)
+            {
+                Visit(jsonScalarExpression.Json);
+                return jsonScalarExpression;
+            }
+            return base.VisitJsonScalar(jsonScalarExpression);
+        }
+
         private bool IsNonComposedSetOperation(SelectExpression selectExpression)
             => selectExpression.Offset == null
                && selectExpression.Limit == null

@@ -7,6 +7,7 @@ using System.Text;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -29,7 +30,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             StoreTypePostfix? storeTypePostfix = null)
             : base(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(typeof(byte[]), null, comparer),
+                    new CoreTypeMappingParameters(typeof(byte[]), null, comparer, jsonValueReaderWriter: JsonByteArrayReaderWriter.Instance),
                     storeType ?? (fixedLength ? "binary" : "varbinary"),
                     storeTypePostfix ?? StoreTypePostfix.Size,
                     System.Data.DbType.Binary,

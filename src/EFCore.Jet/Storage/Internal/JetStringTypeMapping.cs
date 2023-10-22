@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.Common;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -30,12 +31,12 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             bool keepLineBreakCharacters = false)
             : this(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(typeof(string)),
+                    new CoreTypeMappingParameters(typeof(string), jsonValueReaderWriter: JsonStringReaderWriter.Instance),
                     storeType ?? GetStoreName(fixedLength),
                     storeTypePostfix ?? StoreTypePostfix.Size,
                     (fixedLength
                         ? System.Data.DbType.StringFixedLength
-                        : (DbType?) System.Data.DbType.String),
+                        : (DbType?)System.Data.DbType.String),
                     unicode,
                     size,
                     fixedLength),
@@ -103,7 +104,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override string GenerateNonNullSqlLiteral(object value)
         {
             var escaped = $"'{EscapeSqlLiteral((string)value)}'";
-            
+
             // BUG: EF Core indents idempotent scripts, which can lead to unexpected values for strings
             //      that contain line breaks.
             //      Tracked by: https://github.com/aspnet/EntityFrameworkCore/issues/15256

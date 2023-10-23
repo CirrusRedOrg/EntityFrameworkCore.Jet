@@ -9,6 +9,7 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
+  checkoutFetchDepth: 2
   buildConfiguration: 'Debug'
   skipTests: false
   deterministicTests: true
@@ -25,30 +26,26 @@ jobs:
         shell: pwsh
         run: |
           echo 'EventName: ${{ github.event_name }}'
-#      - name: 'Log Event Context'
-#        shell: pwsh
-#        run: |
-#          echo '${{ toJson(github.event) }}'
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 2
+          fetch-depth: ${{ env.checkoutFetchDepth }}
       - name: 'Get Head Commit Info'
         id: GetHeadCommitInfo
         shell: pwsh
         run: |
-          git log -2 --pretty=%B
+          git log -${{ env.checkoutFetchDepth }} --pretty=%B
           
-          $headCommitMessage = git log -1 --skip 1 --pretty=%B
+          $headCommitMessage = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%B
           echo "headCommitMessage: = $headCommitMessage"
           
-          $headCommitAuthorName = git log -1 --skip 1 --pretty=%an
+          $headCommitAuthorName = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%an
           echo "headCommitAuthorName: = $headCommitAuthorName"
 
-          $headCommitAuthorEmail = git log -1 --skip 1 --pretty=%ae
+          $headCommitAuthorEmail = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ae
           echo "headCommitAuthorEmail: = $headCommitAuthorEmail"
 
-          $headCommitDateTime = Get-Date (git log -1 --skip 1 --pretty=%ci)
+          $headCommitDateTime = Get-Date (git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ci)
           echo "headCommitDateTime: = $headCommitDateTime"
 
           $lastCommitIsAutoCommit = $headCommitAuthorEmail -eq 'github-actions@github.com' -and $headCommitMessage -eq '[GitHub Actions] Update green tests.'
@@ -248,13 +245,14 @@ jobs:
           }
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'
-        if: env.commitGreenTestsFile != ''
+        if: env.commitGreenTestsFile != '' && env.autoCommitGreenTests == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: green-tests
           path: ${{ env.commitGreenTestsFile }}
   CheckArtifacts:
     needs: BuildAndTest
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       hasGreenTestsArtifacts: ${{ steps.CheckGreenTestsArtifacts.outputs.hasGreenTestsArtifacts }}
@@ -276,13 +274,12 @@ jobs:
           echo "hasGreenTestsArtifacts: $hasGreenTestsArtifacts"
   Status:
     needs: CheckArtifacts
-    if: needs.CheckArtifacts.outputs.hasGreenTestsArtifacts != 'true'
+    if: always() && needs.CheckArtifacts.result == 'success' && needs.CheckArtifacts.outputs.hasGreenTestsArtifacts != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: 'Final Status'
         shell: pwsh
         run: |
-          echo '${{ toJson(needs) }}'
           echo 'needs.CheckArtifacts.outputs.hasGreenTestsArtifacts: ${{ needs.CheckArtifacts.outputs.hasGreenTestsArtifacts }}'
           echo 'All workflows succeeded.'
           exit 0

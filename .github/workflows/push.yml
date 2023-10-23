@@ -227,8 +227,45 @@ jobs:
         if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
-          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path '.\test\EFCore.Jet.FunctionalTests\TestResults' -PathType Container) {
+              Get-ChildItem '.\test\EFCore.Jet.FunctionalTests\TestResults' | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+            $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $testResultsDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+          
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
           exit 0
       - name: 'Rename Test Results'
         if: always() && env.skipTests != 'true'
@@ -253,8 +290,8 @@ jobs:
           $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
 
           if ($null -eq $currentTestRunTrx) {
-              echo "Test runner crashed."
-              exit 2
+              echo 'Test runner log file is missing.'
+              exit 3
           }
 
           $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')
@@ -267,8 +304,9 @@ jobs:
           $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
 
           if (Test-Path $establishedGreenTestsFilePath) {
-              $notGreenAnymore = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath) | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+              $diffResult = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath)
 
+              $notGreenAnymore = $diffResult | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
               if ($null -ne $notGreenAnymore) {
                   echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
                   $notGreenAnymore
@@ -276,10 +314,17 @@ jobs:
               }
           
               echo 'All tests that passed in previous runs still passed in this run.'
-              Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
+
+              $newlyGreenTests = $diffResult | Where-Object { $_.SideIndicator -eq '=>' } | Select-Object -ExpandProperty InputObject
+              if ($newlyGreenTests.Length -gt 0) {
+                Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
           
-              $commitGreenTestsFile = $establishedGreenTestsFilePath
-              echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+                echo "`nThe following new tests passed that did not pass before:`n"
+                $newlyGreenTests
+
+                $commitGreenTestsFile = $establishedGreenTestsFilePath
+                echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+            }
           }
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'

@@ -214,25 +214,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _disallowedMappings
                 = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "binary",
-
-                    "varbinary",
-                    "binary varying",
-                    "bit varying",
-
-                    "char",
-                    "alphanumeric",
-                    "character",
-                    "nchar",
-                    "national char",
-                    "national character",
-
-                    "varchar",
-                    "string",
-                    "char varying",
-                    "character varying",
-                    "national char varying",
-                    "national character varying",
                 };
 
             _options = options;

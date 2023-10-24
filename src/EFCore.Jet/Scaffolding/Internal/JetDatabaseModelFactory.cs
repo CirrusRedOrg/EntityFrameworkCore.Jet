@@ -18,6 +18,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -48,16 +49,18 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         private static readonly Regex _defaultDateTimeValue = new Regex(@"\(*(?:#0?1/0?1/0?100#)|(?:#0?0:0?0:0?0#)|(?:(['""])(0?0:0?0:0?0)|0?100-0?1-0?1(?: \2)\1)\)*");
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
-
+        private readonly IRelationalTypeMappingSource _typeMappingSource;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetDatabaseModelFactory([NotNull] IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
+        public JetDatabaseModelFactory([NotNull] IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
+            IRelationalTypeMappingSource typeMappingSource)
         {
             Check.NotNull(logger, nameof(logger));
 
             _logger = logger;
+            _typeMappingSource = typeMappingSource;
         }
 
         /// <summary>
@@ -254,7 +257,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         computedIsPersisted);
 
                     var storeType = GetStoreType(dataTypeName!, precision, scale, maxLength);
-                    defaultValue = FilterClrDefaults(dataTypeName!, nullable, defaultValue);
+                    object? defaultValueobj = TryParseClrDefault(dataTypeName!, defaultValue);
 
                     var column = new DatabaseColumn
                     {
@@ -262,6 +265,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         Name = columnName!,
                         StoreType = storeType,
                         IsNullable = nullable,
+                        DefaultValue = defaultValueobj,
                         DefaultValueSql = defaultValue,
                         ComputedColumnSql = null,
                         ValueGenerated = identitySeed.HasValue
@@ -282,56 +286,119 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             }
         }
 
-        private static string? FilterClrDefaults(string dataTypeName, bool nullable, string? defaultValue)
+        private object? TryParseClrDefault(string dataTypeName, string? defaultValueSql)
         {
-            if (defaultValue == null)
+            defaultValueSql = defaultValueSql?.Trim();
+            if (string.IsNullOrEmpty(defaultValueSql))
             {
                 return null;
             }
 
-            if (nullable)
-            {
-                return defaultValue;
-            }
-
-            if (defaultValue == "0")
-            {
-                if (dataTypeName == "smallint"
-                    || dataTypeName == "integer"
-                    || dataTypeName == "single"
-                    || dataTypeName == "double"
-                    || dataTypeName == "currency"
-                    || dataTypeName == "bit"
-                    || dataTypeName == "decimal"
-                    || dataTypeName == "byte")
-                {
-                    return null;
-                }
-            }
-            else if (defaultValue == "0.0")
-            {
-                if (dataTypeName == "decimal"
-                    || dataTypeName == "double"
-                    || dataTypeName == "single"
-                    || dataTypeName == "currency")
-                {
-                    return null;
-                }
-            }
-            else if ((defaultValue == "('1900-01-01T00:00:00.000')" && (dataTypeName == "datetime" || dataTypeName == "smalldatetime")) ||
-                     (dataTypeName == "guid" && defaultValue == "'00000000-0000-0000-0000-000000000000'") ||
-                     (defaultValue == "('0001-01-01')" && dataTypeName == "date") ||
-                     (defaultValue == "('0001-01-01')" && dataTypeName == "date") ||
-                     (defaultValue == "('0001-01-01T00:00:00.000')" && dataTypeName == "datetime2") ||
-                     (defaultValue == "('0001-01-01T00:00:00.000+00:00')" && dataTypeName == "datetimeoffset") ||
-                     (defaultValue == "('00:00:00')" && dataTypeName == "time") ||
-                     (defaultValue == "('00000000-0000-0000-0000-000000000000')" && dataTypeName == "uniqueidentifier")
-                     )
+            var mapping = _typeMappingSource.FindMapping(dataTypeName);
+            if (mapping == null)
             {
                 return null;
             }
 
-            return defaultValue;
+            Unwrap();
+            if (defaultValueSql.StartsWith("CONVERT", StringComparison.OrdinalIgnoreCase))
+            {
+                defaultValueSql = defaultValueSql.Substring(defaultValueSql.IndexOf(',') + 1);
+                defaultValueSql = defaultValueSql.Substring(0, defaultValueSql.LastIndexOf(')'));
+                Unwrap();
+            }
+
+            if (defaultValueSql.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var type = mapping.ClrType;
+            if (type == typeof(bool)
+                && int.TryParse(defaultValueSql, out var intValue))
+            {
+                return intValue != 0;
+            }
+
+            if (type.IsNumeric())
+            {
+                try
+                {
+                    return Convert.ChangeType(defaultValueSql, type);
+                }
+                catch
+                {
+                    // Ignored
+                    return null;
+                }
+            }
+
+            if (defaultValueSql.Equals("TRUE", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (defaultValueSql.Equals("FALSE", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if ((defaultValueSql.StartsWith('\'') || defaultValueSql.StartsWith("'", StringComparison.OrdinalIgnoreCase))
+                && defaultValueSql.EndsWith('\''))
+            {
+                var startIndex = defaultValueSql.IndexOf('\'');
+                defaultValueSql = defaultValueSql.Substring(startIndex + 1, defaultValueSql.Length - (startIndex + 2));
+
+                if (type == typeof(string))
+                {
+                    return defaultValueSql;
+                }
+
+                if (type == typeof(bool)
+                    && bool.TryParse(defaultValueSql, out var boolValue))
+                {
+                    return boolValue;
+                }
+
+                if (type == typeof(Guid)
+                    && Guid.TryParse(defaultValueSql, out var guid))
+                {
+                    return guid;
+                }
+
+                if (type == typeof(DateTime)
+                    && DateTime.TryParse(defaultValueSql, out var dateTime))
+                {
+                    return dateTime;
+                }
+
+                if (type == typeof(DateOnly)
+                    && DateOnly.TryParse(defaultValueSql, out var dateOnly))
+                {
+                    return dateOnly;
+                }
+
+                if ((type == typeof(TimeOnly) || (type == typeof(DateOnly)))
+                    && TimeOnly.TryParse(defaultValueSql, out var timeOnly))
+                {
+                    return timeOnly;
+                }
+
+                if (type == typeof(DateTimeOffset)
+                    && DateTimeOffset.TryParse(defaultValueSql, out var dateTimeOffset))
+                {
+                    return dateTimeOffset;
+                }
+            }
+
+            return null;
+
+            void Unwrap()
+            {
+                while (defaultValueSql.StartsWith('(') && defaultValueSql.EndsWith(')'))
+                {
+                    defaultValueSql = (defaultValueSql.Substring(1, defaultValueSql.Length - 2)).Trim();
+                }
+            }
         }
 
         private string GetStoreType(string dataTypeName, int precision, int scale, int maxLength)

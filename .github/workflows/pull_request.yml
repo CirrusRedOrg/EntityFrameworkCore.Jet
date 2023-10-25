@@ -1,10 +1,5 @@
-name: Build
+name: PullRequest
 on:
-  push:
-    branches:
-      - '**'
-    paths-ignore:
-      - '**.md'
   pull_request:
     branches:
       - '**'
@@ -14,13 +9,55 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
+  checkoutFetchDepth: 2
   buildConfiguration: 'Debug'
   skipTests: false
   deterministicTests: true
   autoCommitGreenTests: true
   uploadTestResults: false
 jobs:
+  Preconditions:
+    runs-on: ubuntu-latest
+    outputs:
+      lastCommitIsAutoCommit: ${{ steps.GetHeadCommitInfo.outputs.lastCommitIsAutoCommit }}
+      lastCommitCreatedBeforeSeconds: ${{ steps.GetHeadCommitInfo.outputs.lastCommitCreatedBeforeSeconds }}
+    steps:
+      - name: 'General Information'
+        shell: pwsh
+        run: |
+          echo 'EventName: ${{ github.event_name }}'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.checkoutFetchDepth }}
+      - name: 'Get Head Commit Info'
+        id: GetHeadCommitInfo
+        shell: pwsh
+        run: |
+          git log -${{ env.checkoutFetchDepth }} --pretty=%B
+          
+          $headCommitMessage = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%B
+          echo "headCommitMessage: = $headCommitMessage"
+          
+          $headCommitAuthorName = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%an
+          echo "headCommitAuthorName: = $headCommitAuthorName"
+
+          $headCommitAuthorEmail = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ae
+          echo "headCommitAuthorEmail: = $headCommitAuthorEmail"
+
+          $headCommitDateTime = Get-Date (git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ci)
+          echo "headCommitDateTime: = $headCommitDateTime"
+
+          $lastCommitIsAutoCommit = $headCommitAuthorEmail -eq 'github-actions@github.com' -and $headCommitMessage -eq '[GitHub Actions] Update green tests.'
+          echo "lastCommitIsAutoCommit=$lastCommitIsAutoCommit" >> $env:GITHUB_OUTPUT
+          echo "lastCommitIsAutoCommit: = $lastCommitIsAutoCommit"
+
+          $lastCommitCreatedBeforeSeconds = [int]((Get-Date) - $headCommitDateTime).TotalSeconds
+          echo "lastCommitCreatedBeforeSeconds=$lastCommitCreatedBeforeSeconds" >> $env:GITHUB_OUTPUT
+          echo "lastCommitCreatedBeforeSeconds: = $lastCommitCreatedBeforeSeconds"
   BuildAndTest:
+    needs: Preconditions
+    if: needs.Preconditions.outputs.lastCommitIsAutoCommit != 'true' || needs.Preconditions.outputs.lastCommitCreatedBeforeSeconds > 300
     strategy:
       fail-fast: false
       matrix:
@@ -208,154 +245,41 @@ jobs:
           }
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'
-        if: ${{ env.commitGreenTestsFile != '' }}
+        if: env.commitGreenTestsFile != '' && env.autoCommitGreenTests == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: green-tests
           path: ${{ env.commitGreenTestsFile }}
-  Commit:
+  CheckArtifacts:
     needs: BuildAndTest
+    if: always()
     runs-on: ubuntu-latest
     outputs:
-      committedGreenTests: ${{ steps.commit.outputs.committedGreenTests }}
+      hasGreenTestsArtifacts: ${{ steps.CheckGreenTestsArtifacts.outputs.hasGreenTestsArtifacts }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
       - name: 'Download Green Tests'
         uses: actions/download-artifact@v3
+        continue-on-error: true
         with:
           name: green-tests
-          path: test/EFCore.Jet.FunctionalTests/GreenTests
-      - name: 'Commit Green Tests'
-        id: commit
-        if: env.autoCommitGreenTests == 'true'
+          path: green-tests
+      - name: 'Check Green Tests Artifacts'
+        id: CheckGreenTestsArtifacts
         shell: pwsh
         run: |
-          git config --global user.name github-actions
-          git config --global user.email github-actions@github.com
-          git add ./test/EFCore.Jet.FunctionalTests/GreenTests/
-          git status
-          
-          if ((git status -s).Length -gt 0) {
-            git commit -m "[GitHub Actions] Update green tests."
-            git push
+          dir -Recurse | Select-Object -ExpandProperty FullName
 
-            $committedGreenTests = 'true'
-            echo "committedGreenTests=$committedGreenTests" >> $env:GITHUB_OUTPUT
-          } else {
-            echo 'Nothing to commit.'
-          }
-  NuGet:
-    needs:
-      - BuildAndTest
-      - Commit
-    if: github.event_name == 'push' && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
+          $hasGreenTestsArtifacts = (Test-Path 'green-tests') -and (Get-ChildItem 'green-tests').Length -gt 0
+          echo "hasGreenTestsArtifacts=$hasGreenTestsArtifacts" >> $env:GITHUB_OUTPUT
+          echo "hasGreenTestsArtifacts: $hasGreenTestsArtifacts"
+  Status:
+    needs: CheckArtifacts
+    if: always() && needs.CheckArtifacts.result == 'success' && needs.CheckArtifacts.outputs.hasGreenTestsArtifacts != 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v3
-        with:
-          global-json-file: global.json
-      - name: .NET Information
+      - name: 'Final Status'
         shell: pwsh
         run: |
-          dotnet --info
-      - name: NuGet Pack
-        shell: pwsh
-        run: |
-          $officialBuild = '${{ github.ref }}' -match '(?<=^refs/tags/v)\d+\.\d+\.\d+.*$'
-          $officialVersion = $Matches.0
-          $wipBuild = '${{ github.ref }}' -match '^refs/heads/.*-wip$'
-          $ciBuildOnly = $wipBuild -or ('${{ github.ref }}' -match '^refs/heads/(?:master|.*-servicing)$')
-          $continuousIntegrationTimestamp = Get-Date -Format yyyyMMddHHmmss
-          $buildSha = '${{ github.sha }}'.SubString(0, 7);
-          $pack = $officialBuild -or $ciBuildOnly
-
-          $pushToAzureArtifacts = $pack
-          $pushToMygetOrg = $pack
-          $pushToNugetOrg = $pack -and $officialBuild
-
-          echo "pushToAzureArtifacts: $pushToAzureArtifacts"
-          echo "pushToMygetOrg: $pushToMygetOrg"
-          echo "pushToNugetOrg: $pushToNugetOrg"
-
-          echo "officialBuild: $officialBuild"
-          echo "officialVersion: $officialVersion"
-          echo "wipBuild: $wipBuild"
-          echo "ciBuildOnly: $ciBuildOnly"
-          echo "continuousIntegrationTimestamp: $continuousIntegrationTimestamp"
-          echo "buildSha: $buildSha"
-          echo "pack: $pack"
-
-          if ($pack)
-          {
-            $projectFiles = Get-ChildItem src/*/*.csproj -Recurse | % { $_.FullName }
-
-            $combinations = @('default', @('Release')), @('withPdbs', @('Release', 'Debug')) #, @('embeddedPdbs', @('Release', 'Debug'))
-            foreach ($combination in $combinations)
-            {
-              $type = $combination[0]
-              $configurations = $combination[1]
-              foreach ($configuration in $configurations)
-              {
-                $arguments = 'pack', '-c', $configuration, '-o', "nupkgs/$configuration/$type", '-p:ContinuousIntegrationBuild=true'
-
-                if ($officialBuild)
-                {
-                  $finalOfficialVersion = $officialVersion
-
-                  if ($configuration -eq 'Debug')
-                  {
-                    $finalOfficialVersion += '-debug'
-                  }
-
-                  $arguments += "-p:OfficialVersion=$finalOfficialVersion"
-                }
-
-                if ($ciBuildOnly)
-                {
-                  $arguments += "-p:ContinuousIntegrationTimestamp=$continuousIntegrationTimestamp"
-                  $arguments += "-p:BuildSha=$buildSha"
-                }
-
-                switch ($type)
-                {
-                  'withPdbs' { $arguments += '-p:PackPdb=true', '-p:IncludeSymbols=false' }
-                  'embeddedPdbs' { $arguments += '-p:DebugType=embedded', '-p:IncludeSymbols=false' }
-                }
-
-                foreach ($projectFile in $projectFiles)
-                {
-                  echo "Type: $type, Configuration: $configuration, Project: $projectFile"
-                  echo "Pack command: dotnet $(($arguments + $projectFile) -join ' ')"
-                  & dotnet ($arguments + $projectFile)
-                }
-              }
-            }
-          }
-
-          echo "pushToAzureArtifacts=$pushToAzureArtifacts" >> $env:GITHUB_ENV
-          echo "pushToMygetOrg=$pushToMygetOrg" >> $env:GITHUB_ENV
-          echo "pushToNugetOrg=$pushToNugetOrg" >> $env:GITHUB_ENV
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: nupkgs
-          path: nupkgs
-      - name: "NuGet Push - myget.org - Debug"
-        if: ${{ env.pushToMygetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json'
-      - name: "NuGet Push - myget.org - Release"
-        if: ${{ env.pushToMygetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json'
-      - name: "NuGet Push - nuget.org - Release"
-        if: ${{ env.pushToNugetOrg == 'true' }}
-        working-directory: nupkgs
-        shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.NUGETORG_EFCOREJET_ALLPACKAGES_PUSHNEW }}' --source 'https://api.nuget.org/v3/index.json'
+          echo 'needs.CheckArtifacts.outputs.hasGreenTestsArtifacts: ${{ needs.CheckArtifacts.outputs.hasGreenTestsArtifacts }}'
+          echo 'All workflows succeeded.'
+          exit 0

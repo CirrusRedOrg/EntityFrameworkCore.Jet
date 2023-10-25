@@ -1,0 +1,363 @@
+name: Push
+on:
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - '**.md'
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  checkoutFetchDepth: 1
+  buildConfiguration: 'Debug'
+  skipTests: false
+  deterministicTests: true
+  uploadTestResults: false
+jobs:
+  Preconditions:
+    runs-on: ubuntu-latest
+    outputs:
+      lastCommitIsAutoCommit: ${{ steps.GetHeadCommitInfo.outputs.lastCommitIsAutoCommit }}
+      lastCommitCreatedBeforeSeconds: ${{ steps.GetHeadCommitInfo.outputs.lastCommitCreatedBeforeSeconds }}
+    steps:
+      - name: 'General Information'
+        shell: pwsh
+        run: |
+          echo 'EventName: ${{ github.event_name }}'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.checkoutFetchDepth }}
+      - name: 'Get Head Commit Info'
+        id: GetHeadCommitInfo
+        shell: pwsh
+        run: |
+          git log -${{ env.checkoutFetchDepth }} --pretty=%B
+          
+          $headCommitMessage = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%B
+          echo "headCommitMessage: = $headCommitMessage"
+          
+          $headCommitAuthorName = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%an
+          echo "headCommitAuthorName: = $headCommitAuthorName"
+
+          $headCommitAuthorEmail = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ae
+          echo "headCommitAuthorEmail: = $headCommitAuthorEmail"
+
+          $headCommitDateTime = Get-Date (git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ci)
+          echo "headCommitDateTime: = $headCommitDateTime"
+
+          $lastCommitIsAutoCommit = $headCommitAuthorEmail -eq 'github-actions@github.com' -and $headCommitMessage -eq '[GitHub Actions] Update green tests.'
+          echo "lastCommitIsAutoCommit=$lastCommitIsAutoCommit" >> $env:GITHUB_OUTPUT
+          echo "lastCommitIsAutoCommit: = $lastCommitIsAutoCommit"
+
+          $lastCommitCreatedBeforeSeconds = [int]((Get-Date) - $headCommitDateTime).TotalSeconds
+          echo "lastCommitCreatedBeforeSeconds=$lastCommitCreatedBeforeSeconds" >> $env:GITHUB_OUTPUT
+          echo "lastCommitCreatedBeforeSeconds: = $lastCommitCreatedBeforeSeconds"
+  BuildAndTest:
+    needs: Preconditions
+    if: needs.Preconditions.outputs.lastCommitIsAutoCommit != 'true' || needs.Preconditions.outputs.lastCommitCreatedBeforeSeconds > 300
+    strategy:
+      fail-fast: false
+      matrix:
+        aceVersion:
+          - 2010
+          - 2016
+        aceArchitecture:
+          - x64
+          - x86
+        dataAccessProviderType:
+          - ODBC
+          - OLE DB
+        os:
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set additional variables
+        shell: pwsh
+        run: |
+          $os = '${{ matrix.os }}'.Split('-')[0]
+          echo "os=$os" >> $env:GITHUB_ENV
+
+          $dotnetInstallDirectory = '.\.dotnet_${{ matrix.aceArchitecture }}'
+          echo "dotnetInstallDirectory=$dotnetInstallDirectory" >> $env:GITHUB_ENV
+          
+          $dotnetExecutable = Join-Path $dotnetInstallDirectory 'dotnet.exe'
+          echo "dotnetExecutable=$dotnetExecutable" >> $env:GITHUB_ENV
+          
+          $aceUrls = @{
+            '2010' = @{
+              'x64' = 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
+              'x86' = 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+              'silent' = '/passive /quiet /norestart REBOOT=ReallySuppress'
+            }
+           '2016' = @{
+              'x64' = 'https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/AccessDatabaseEngine_X64.exe'
+              'x86' = 'https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/AccessDatabaseEngine.exe'
+              'silent' = '/passive /quiet /norestart REBOOT=ReallySuppress'
+            }
+          }
+          
+          $aceUrl = $aceUrls['${{ matrix.aceVersion }}']['${{ matrix.aceArchitecture }}']
+          echo "aceUrl=$aceUrl" >> $env:GITHUB_ENV
+          
+          $aceSilentInstallArgument = $aceUrls['${{ matrix.aceVersion }}']['silent']
+          echo "aceSilentInstallArgument=$aceSilentInstallArgument" >> $env:GITHUB_ENV
+          
+          $defaultConnection = '${{ matrix.dataAccessProviderType }}' -eq 'ODBC' ? 'DBQ=Jet.accdb' : 'Data Source=Jet.accdb;Persist Security Info=False;'
+          echo "defaultConnection=$defaultConnection" >> $env:GITHUB_ENV
+      - name: Output Variables
+        shell: pwsh
+        run: |
+          echo "os: ${{ env.os }}"
+          echo "buildConfiguration: ${{ env.buildConfiguration }}"
+          echo "aceVersion: ${{ matrix.aceVersion }}"
+          echo "aceArchitecture: ${{ matrix.aceArchitecture }}"
+          echo "aceUrl: ${{ env.aceUrl }}"
+          echo "aceSilentInstallArgument: ${{ env.aceSilentInstallArgument }}"
+          echo "dataAccessProviderType: ${{ matrix.dataAccessProviderType }}"
+          echo "defaultConnection: ${{ env.defaultConnection }}"
+          echo "skipTests: ${{ env.skipTests }}"
+          echo "dotnetInstallDirectory: ${{ env.dotnetInstallDirectory }}"
+          echo "dotnetExecutable: ${{ env.dotnetExecutable }}"
+
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.repository: ${{ github.repository }}"
+      - name: .NET Information Before SDK Install
+        shell: pwsh
+        run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
+      - name: Install .NET SDK
+        shell: pwsh
+        run: |
+          &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+      - name: .NET Information After SDK Install
+        shell: pwsh
+        run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
+      - name: ACE Information Before ACE Install
+        shell: pwsh
+        run: |
+          'DAO:'
+          Get-ChildItem 'HKLM:\SOFTWARE\Classes\DAO.DBEngine*' | Select-Object
+          
+          'OLE DB:'
+          foreach ($provider in [System.Data.OleDb.OleDbEnumerator]::GetRootEnumerator())
+          {
+              $v = New-Object PSObject        
+              for ($i = 0; $i -lt $provider.FieldCount; $i++) 
+              {
+                  Add-Member -in $v NoteProperty $provider.GetName($i) $provider.GetValue($i)
+              }
+              $v
+          }
+      - name: Install Access Database Engine
+        shell: pwsh
+        run: |
+          $setupFileName = 'AccessDatabaseEngine_${{ matrix.aceVersion }}_${{ matrix.aceArchitecture }}.exe'
+          Invoke-WebRequest '${{ env.aceUrl }}' -OutFile $setupFileName
+          & ".\$setupFileName" ${{ env.aceSilentInstallArgument }} | Out-Default
+      - name: ACE Information After ACE Install
+        shell: pwsh
+        run: |
+          'DAO:'
+          Get-ChildItem 'HKLM:\SOFTWARE\Classes\DAO.DBEngine*' | Select-Object
+          
+          'OLE DB:'
+          foreach ($provider in [System.Data.OleDb.OleDbEnumerator]::GetRootEnumerator())
+          {
+              $v = New-Object PSObject        
+              for ($i = 0; $i -lt $provider.FieldCount; $i++) 
+              {
+                  Add-Member -in $v NoteProperty $provider.GetName($i) $provider.GetValue($i)
+              }
+              $v
+          }
+      - name: Build Solution
+        shell: pwsh
+        run: |
+          & '${{ env.dotnetExecutable }}' build --configuration '${{ env.buildConfiguration }}'
+      - name: 'Run Tests: EFCore.Jet.Data.Tests'
+        if: env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests'
+        if: env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+          exit 0
+      - name: 'Run Tests: EFCore.Jet.Tests'
+        if: env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Upload Test Results'
+        if: env.skipTests != 'true' && env.uploadTestResults == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            test\EFCore.Jet.Data.Tests\TestResults
+            test\EFCore.Jet.FunctionalTests\TestResults
+            test\EFCore.Jet.Tests\TestResults
+      - name: 'Check Tests: EFCore.Jet.FunctionalTests'
+        if: env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          # Create text file with all tests that passed.
+          $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+          $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+
+          if ($null -eq $currentTestRunTrx) {
+              echo "Test runner crashed."
+              exit 2
+          }
+
+          $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')
+          (Select-Xml -Path  $currentTestRunTrx.FullName -XPath "//ns:UnitTestResult" -Namespace @{"ns"="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}).Node | Sort-Object -Property testName -CaseSensitive | ForEach-Object { "$($_.outcome -eq 'Passed' ? 'P' : $_.outcome -eq 'NotExecuted' ? 'N' : $_.outcome -eq 'Failed' ? 'F' : 'U') $($_.testName)" } | Add-Content $allTestsFilePath
+
+          $greenTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_Passed.txt')
+          Get-Content $allTestsFilePath | Where-Object { $_.StartsWith('P ') } | ForEach-Object { $_.Substring(2) } | Add-Content $greenTestsFilePath
+
+          # Compare test file against previously committed file.
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+
+          if (Test-Path $establishedGreenTestsFilePath) {
+              $notGreenAnymore = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath) | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+
+              if ($null -ne $notGreenAnymore) {
+                  echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
+                  $notGreenAnymore
+                  exit 1
+              }
+          
+              echo 'All tests that passed in previous runs still passed in this run.'
+              Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
+          
+              $commitGreenTestsFile = $establishedGreenTestsFilePath
+              echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+          }
+          echo 'Check succeeded.'
+      - name: 'Upload Green Tests'
+        if: ${{ env.commitGreenTestsFile != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: green-tests
+          path: ${{ env.commitGreenTestsFile }}
+  NuGet:
+    needs: BuildAndTest
+    if: always() && (needs.BuildAndTest.result == 'success' || needs.BuildAndTest.result == 'skipped') && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          global-json-file: global.json
+      - name: .NET Information
+        shell: pwsh
+        run: |
+          dotnet --info
+      - name: NuGet Pack
+        shell: pwsh
+        run: |
+          $officialBuild = '${{ github.ref }}' -match '(?<=^refs/tags/v)\d+\.\d+\.\d+.*$'
+          $officialVersion = $Matches.0
+          $wipBuild = '${{ github.ref }}' -match '^refs/heads/.*-wip$'
+          $ciBuildOnly = $wipBuild -or ('${{ github.ref }}' -match '^refs/heads/(?:master|.*-servicing)$')
+          $continuousIntegrationTimestamp = Get-Date -Format yyyyMMddHHmmss
+          $buildSha = '${{ github.sha }}'.SubString(0, 7);
+          $pack = $officialBuild -or $ciBuildOnly
+
+          $pushToAzureArtifacts = $pack
+          $pushToMygetOrg = $pack
+          $pushToNugetOrg = $pack -and $officialBuild
+
+          echo "pushToAzureArtifacts: $pushToAzureArtifacts"
+          echo "pushToMygetOrg: $pushToMygetOrg"
+          echo "pushToNugetOrg: $pushToNugetOrg"
+
+          echo "officialBuild: $officialBuild"
+          echo "officialVersion: $officialVersion"
+          echo "wipBuild: $wipBuild"
+          echo "ciBuildOnly: $ciBuildOnly"
+          echo "continuousIntegrationTimestamp: $continuousIntegrationTimestamp"
+          echo "buildSha: $buildSha"
+          echo "pack: $pack"
+
+          if ($pack)
+          {
+            $projectFiles = Get-ChildItem src/*/*.csproj -Recurse | % { $_.FullName }
+
+            $combinations = @('default', @('Release')), @('withPdbs', @('Release', 'Debug')) #, @('embeddedPdbs', @('Release', 'Debug'))
+            foreach ($combination in $combinations)
+            {
+              $type = $combination[0]
+              $configurations = $combination[1]
+              foreach ($configuration in $configurations)
+              {
+                $arguments = 'pack', '-c', $configuration, '-o', "nupkgs/$configuration/$type", '-p:ContinuousIntegrationBuild=true'
+
+                if ($officialBuild)
+                {
+                  $finalOfficialVersion = $officialVersion
+
+                  if ($configuration -eq 'Debug')
+                  {
+                    $finalOfficialVersion += '-debug'
+                  }
+
+                  $arguments += "-p:OfficialVersion=$finalOfficialVersion"
+                }
+
+                if ($ciBuildOnly)
+                {
+                  $arguments += "-p:ContinuousIntegrationTimestamp=$continuousIntegrationTimestamp"
+                  $arguments += "-p:BuildSha=$buildSha"
+                }
+
+                switch ($type)
+                {
+                  'withPdbs' { $arguments += '-p:PackPdb=true', '-p:IncludeSymbols=false' }
+                  'embeddedPdbs' { $arguments += '-p:DebugType=embedded', '-p:IncludeSymbols=false' }
+                }
+
+                foreach ($projectFile in $projectFiles)
+                {
+                  echo "Type: $type, Configuration: $configuration, Project: $projectFile"
+                  echo "Pack command: dotnet $(($arguments + $projectFile) -join ' ')"
+                  & dotnet ($arguments + $projectFile)
+                }
+              }
+            }
+          }
+
+          echo "pushToAzureArtifacts=$pushToAzureArtifacts" >> $env:GITHUB_ENV
+          echo "pushToMygetOrg=$pushToMygetOrg" >> $env:GITHUB_ENV
+          echo "pushToNugetOrg=$pushToNugetOrg" >> $env:GITHUB_ENV
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: nupkgs
+          path: nupkgs
+      - name: "NuGet Push - myget.org - Debug"
+        if: ${{ env.pushToMygetOrg == 'true' }}
+        working-directory: nupkgs
+        shell: pwsh
+        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json'
+      - name: "NuGet Push - myget.org - Release"
+        if: ${{ env.pushToMygetOrg == 'true' }}
+        working-directory: nupkgs
+        shell: pwsh
+        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json'
+      - name: "NuGet Push - nuget.org - Release"
+        if: ${{ env.pushToNugetOrg == 'true' }}
+        working-directory: nupkgs
+        shell: pwsh
+        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.NUGETORG_EFCOREJET_ALLPACKAGES_PUSHNEW }}' --source 'https://api.nuget.org/v3/index.json'

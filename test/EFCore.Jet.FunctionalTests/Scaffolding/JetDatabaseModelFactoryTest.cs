@@ -827,7 +827,7 @@ CREATE TABLE DefaultComputedValues (
                 },
                 "DROP TABLE DefaultComputedValues;");
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet can only understand literal defaults")]
         public void Non_literal_bool_default_values_are_passed_through()
             => Test(
                 @"
@@ -979,7 +979,7 @@ CREATE TABLE MyTable (
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet can only understand literal defaults")]
         public void Non_literal_int_default_values_are_passed_through()
             => Test(
                 @"
@@ -1149,7 +1149,7 @@ CREATE TABLE MyTable (
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet can only understand literal defaults")]
         public void Non_literal_or_non_parsable_DateTime_default_values_are_passed_through()
             => Test(
                 @"
@@ -1219,14 +1219,13 @@ CREATE TABLE MyTable (
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact(Skip = "Jet does not have datetimeoffset data type")]
+        [ConditionalFact]
         public void Simple_DateTimeOffset_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 @"
 CREATE TABLE MyTable (
 	Id int,
-	A datetimeoffset DEFAULT ('1973-09-03T12:00:01.0000000+10:00'),
-	B datetimeoffset DEFAULT (CONVERT([datetimeoffset],('1973-09-03T01:02:03'))),
+	A varchar(50) DEFAULT '1973-09-03T12:00:01.0000000+10:00'
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1235,17 +1234,11 @@ CREATE TABLE MyTable (
                     var columns = dbModel.Tables.Single().Columns;
 
                     var column = columns.Single(c => c.Name == "A");
-                    Assert.Equal("('1973-09-03T12:00:01.0000000+10:00')", column.DefaultValueSql);
+                    Assert.Equal("'1973-09-03T12:00:01.0000000+10:00'", column.DefaultValueSql);
                     Assert.Equal(
                         new DateTimeOffset(new DateTime(1973, 9, 3, 12, 0, 1, 0, DateTimeKind.Unspecified),
                             new TimeSpan(0, 10, 0, 0, 0)),
                         column.DefaultValue);
-
-                    column = columns.Single(c => c.Name == "B");
-                    Assert.Equal("(CONVERT([datetimeoffset],'1973-09-03T01:02:03'))", column.DefaultValueSql);
-                    Assert.Equal(
-                        new DateTime(1973, 9, 3, 1, 2, 3, 0, DateTimeKind.Unspecified),
-                        ((DateTimeOffset)column.DefaultValue!).DateTime);
                 },
                 "DROP TABLE MyTable;");
 
@@ -1269,7 +1262,7 @@ CREATE TABLE MyTable (
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet can only understand literal defaults")]
         public void Non_literal_Guid_default_values_are_passed_through()
             => Test(
                 @"

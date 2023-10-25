@@ -6,6 +6,7 @@ using System.Data;
 using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -19,6 +20,7 @@ using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -300,14 +302,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 return null;
             }
 
-            Unwrap();
-            if (defaultValueSql.StartsWith("CONVERT", StringComparison.OrdinalIgnoreCase))
-            {
-                defaultValueSql = defaultValueSql.Substring(defaultValueSql.IndexOf(',') + 1);
-                defaultValueSql = defaultValueSql.Substring(0, defaultValueSql.LastIndexOf(')'));
-                Unwrap();
-            }
-
             if (defaultValueSql.Equals("NULL", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
@@ -350,6 +344,10 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
                 if (type == typeof(string))
                 {
+                    if (DateTimeOffset.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out DateTimeOffset dateTimeOffset))
+                    {
+                        return dateTimeOffset;
+                    }
                     return defaultValueSql;
                 }
 
@@ -365,40 +363,32 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     return guid;
                 }
 
-                if (type == typeof(DateTime)
-                    && DateTime.TryParse(defaultValueSql, out var dateTime))
+                if (type == typeof(DateTime))
                 {
-                    return dateTime;
-                }
+                    if (Regex.IsMatch(defaultValueSql, @"^\d{4}-\d{2}-\d{2}$", default, TimeSpan.FromMilliseconds(1000.0)))
+                    {
+                        return DateOnly.Parse(defaultValueSql, CultureInfo.InvariantCulture);
+                    }
 
-                if (type == typeof(DateOnly)
-                    && DateOnly.TryParse(defaultValueSql, out var dateOnly))
-                {
-                    return dateOnly;
-                }
+                    if (Regex.IsMatch(defaultValueSql, @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,7})?$", default, TimeSpan.FromMilliseconds(1000.0)))
+                    {
+                        return DateTime.Parse(defaultValueSql, CultureInfo.InvariantCulture);
+                    }
+                    if (Regex.IsMatch(defaultValueSql, @"^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$", default, TimeSpan.FromMilliseconds(1000.0)))
+                    {
+                        if (TimeSpan.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out var timeSpan)
+                            && timeSpan >= TimeOnly.MinValue.ToTimeSpan()
+                            && timeSpan <= TimeOnly.MaxValue.ToTimeSpan())
+                        {
+                            return TimeOnly.Parse(defaultValueSql, CultureInfo.InvariantCulture);
+                        }
 
-                if ((type == typeof(TimeOnly) || (type == typeof(DateOnly)))
-                    && TimeOnly.TryParse(defaultValueSql, out var timeOnly))
-                {
-                    return timeOnly;
-                }
-
-                if (type == typeof(DateTimeOffset)
-                    && DateTimeOffset.TryParse(defaultValueSql, out var dateTimeOffset))
-                {
-                    return dateTimeOffset;
+                        return timeSpan;
+                    }
                 }
             }
 
             return null;
-
-            void Unwrap()
-            {
-                while (defaultValueSql.StartsWith('(') && defaultValueSql.EndsWith(')'))
-                {
-                    defaultValueSql = (defaultValueSql.Substring(1, defaultValueSql.Length - 2)).Trim();
-                }
-            }
         }
 
         private string GetStoreType(string dataTypeName, int precision, int scale, int maxLength)

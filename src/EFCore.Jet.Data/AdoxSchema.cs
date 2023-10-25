@@ -629,7 +629,7 @@ namespace EntityFrameworkCore.Jet.Data
                 case DataTypeEnum.adCurrency:
                     return "currency";
                 case DataTypeEnum.adDate:
-                    return "date";
+                    return "datetime";
                 case DataTypeEnum.adBoolean:
                     return "bit";
                 case DataTypeEnum.adDecimal:

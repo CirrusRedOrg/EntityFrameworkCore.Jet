@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         public static void TestFixtureSetup(TestContext context)
         {
             using var connection = Helpers.CreateAndOpenDatabase(StoreName);
-            
+
             var scriptPath = Path.Combine(Path.GetDirectoryName(typeof(JetInformationSchemaTest).Assembly.Location) ?? string.Empty, "Northwind.sql");
             var script = File.ReadAllText(scriptPath);
             Helpers.ExecuteScript(connection, script);
@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
 
         private void AssertDataReaderContent(string actual, string expected)
             => Assert.AreEqual(expected.Trim(), actual);
-        
+
         [DataTestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             var result = Helpers.GetDataReaderContent(connection, @"SELECT * FROM `INFORMATION_SCHEMA.TABLES`
 WHERE TABLE_TYPE <> 'SYSTEM TABLE'
 ORDER BY TABLE_NAME");
-            
+
             AssertDataReaderContent(result, $@"
 `TABLE_NAME` | `TABLE_TYPE` | `VALIDATION_RULE` | `VALIDATION_TEXT`
 --- | --- | --- | ---
@@ -73,7 +73,7 @@ Suppliers | BASE TABLE |  |
 Ten Most Expensive Products | VIEW |  | 
 Territories | BASE TABLE |  |");
         }
-        
+
         [DataTestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
@@ -86,7 +86,7 @@ Territories | BASE TABLE |  |");
 WHERE TABLE_NAME IN ('Orders', 'Order Details Extended', 'Categories')
 ORDER BY TABLE_NAME,
          COLUMN_NAME");
-            
+
             AssertDataReaderContent(result, @"
 `TABLE_NAME` | `COLUMN_NAME` | `ORDINAL_POSITION` | `DATA_TYPE` | `IS_NULLABLE` | `CHARACTER_MAXIMUM_LENGTH` | `NUMERIC_PRECISION` | `NUMERIC_SCALE` | `COLUMN_DEFAULT` | `VALIDATION_RULE` | `VALIDATION_TEXT` | `IDENTITY_SEED` | `IDENTITY_INCREMENT`
 --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
@@ -130,7 +130,7 @@ WHERE TABLE_NAME = 'Orders' OR
       TABLE_NAME = 'Order Details'
 ORDER BY TABLE_NAME,
          INDEX_NAME");
-            
+
             AssertDataReaderContent(result, @"
 `TABLE_NAME` | `INDEX_NAME` | `INDEX_TYPE` | `IS_NULLABLE` | `IGNORES_NULLS`
 --- | --- | --- | --- | ---
@@ -170,7 +170,7 @@ WHERE TABLE_NAME = 'Orders' OR
 ORDER BY TABLE_NAME,
          INDEX_NAME,
          ORDINAL_POSITION");
-            
+
             AssertDataReaderContent(result, @"
 `TABLE_NAME` | `INDEX_NAME` | `ORDINAL_POSITION` | `COLUMN_NAME` | `IS_DESCENDING`
 --- | --- | --- | --- | ---
@@ -196,7 +196,7 @@ Orders | ShippedDateDescending | 0 | ShippedDate | True
 Orders | ShippersOrders | 0 | ShipVia | False
 Orders | ShipPostalCode | 0 | ShipPostalCode | False");
         }
-        
+
         [DataTestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
@@ -209,7 +209,7 @@ Orders | ShipPostalCode | 0 | ShipPostalCode | False");
 WHERE PRINCIPAL_TABLE_NAME = 'Orders' AND 
       REFERENCING_TABLE_NAME = 'Order Details'
 ORDER BY RELATION_NAME");
-            
+
             AssertDataReaderContent(result, @"
 `RELATION_NAME` | `REFERENCING_TABLE_NAME` | `PRINCIPAL_TABLE_NAME` | `RELATION_TYPE` | `ON_DELETE` | `ON_UPDATE` | `IS_ENFORCED` | `IS_INHERITED`
 --- | --- | --- | --- | --- | --- | --- | ---
@@ -227,7 +227,7 @@ FK_Order_Details_Orders | Order Details | Orders | MANY | NO ACTION | NO ACTION 
                 @"SELECT * FROM `INFORMATION_SCHEMA.RELATION_COLUMNS`
 WHERE RELATION_NAME = 'FK_Order_Details_Orders'
 ORDER BY RELATION_NAME, REFERENCING_COLUMN_NAME, PRINCIPAL_COLUMN_NAME");
-            
+
             AssertDataReaderContent(result, @"
 `RELATION_NAME` | `REFERENCING_COLUMN_NAME` | `PRINCIPAL_COLUMN_NAME` | `ORDINAL_POSITION`
 --- | --- | --- | ---
@@ -244,7 +244,7 @@ FK_Order_Details_Orders | OrderID | OrderID | 1");
                 connection,
                 @"SELECT * FROM `INFORMATION_SCHEMA.CHECK_CONSTRAINTS`
 ORDER BY TABLE_NAME, CONSTRAINT_NAME");
-            
+
             AssertDataReaderContent(result, $@"
 `TABLE_NAME` | `CONSTRAINT_NAME` | `CHECK_CLAUSE`
 --- | --- | ---

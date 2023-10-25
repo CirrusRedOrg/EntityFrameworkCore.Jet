@@ -132,7 +132,41 @@ jobs:
       - name: Install .NET SDK
         shell: pwsh
         run: |
-          &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          function Retry-Command {
+              [CmdletBinding()]
+              Param(
+                [Parameter(Position=0, Mandatory=$true)]
+                [ScriptBlock]$ScriptBlock,
+          
+                [Parameter(Position=1, Mandatory=$false)]
+                [int]$Maximum = 5,
+          
+                [Parameter(Mandatory=$false)]
+                [switch]$ExponentialBackoff
+              )
+          
+              $attempt = 0
+          
+              do {
+                if ($attempt -gt 0 -and $ExponentialBackoff) {
+                  Start-Sleep -Seconds ([Math]::Pow(2, $attempt) - 1)          
+                }
+          
+                $attempt++
+                try {
+                  $ScriptBlock.Invoke()
+                  return
+                } catch {
+                  Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                }
+              } while ($attempt -lt $Maximum)
+          
+              throw 'Max retries exceeded.'
+          }
+          
+          Retry-Command {
+              &([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          } -Maximum 10 -ExponentialBackoff
       - name: .NET Information After SDK Install
         shell: pwsh
         run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
@@ -229,8 +263,9 @@ jobs:
           $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
 
           if (Test-Path $establishedGreenTestsFilePath) {
-              $notGreenAnymore = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath) | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
-
+              $diffResult = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath)
+          
+              $notGreenAnymore = $diffResult | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
               if ($null -ne $notGreenAnymore) {
                   echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
                   $notGreenAnymore
@@ -238,10 +273,17 @@ jobs:
               }
           
               echo 'All tests that passed in previous runs still passed in this run.'
-              Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
-          
-              $commitGreenTestsFile = $establishedGreenTestsFilePath
-              echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+
+              $newlyGreenTests = $diffResult | Where-Object { $_.SideIndicator -eq '=>' } | Select-Object -ExpandProperty InputObject
+              if ($newlyGreenTests.Length -gt 0) {
+                Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
+                
+                echo "`nThe following new tests passed that did not pass before:`n"
+                $newlyGreenTests
+
+                $commitGreenTestsFile = $establishedGreenTestsFilePath
+                echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+              }
           }
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'
@@ -280,6 +322,5 @@ jobs:
       - name: 'Final Status'
         shell: pwsh
         run: |
-          echo 'needs.CheckArtifacts.outputs.hasGreenTestsArtifacts: ${{ needs.CheckArtifacts.outputs.hasGreenTestsArtifacts }}'
           echo 'All workflows succeeded.'
           exit 0

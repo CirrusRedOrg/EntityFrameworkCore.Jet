@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Reflection.Metadata;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
@@ -119,6 +120,21 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             {
                 parameter.Scale = unchecked((byte)Scale.Value);
             }
+
+            if (parameter.Value is decimal dec)
+            {
+                parameter.Value = decimal.Round(dec, parameter.Scale);
+            }
+        }
+
+        protected override string GenerateNonNullSqlLiteral(object value)
+        {
+
+            if (value is decimal dec && Scale.HasValue)
+            {
+                return base.GenerateNonNullSqlLiteral(decimal.Round(dec, Scale.Value));
+            }
+            return base.GenerateNonNullSqlLiteral(value);
         }
     }
 }

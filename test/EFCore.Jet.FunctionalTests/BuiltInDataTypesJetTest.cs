@@ -416,7 +416,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
                 byte? param3 = null;
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.ByteAsTinyint == param3));
 
-                bool? param4 = null;
+                bool? param4 = false;//bit is never nullable
                 Assert.Same(entity, context.Set<MappedNullableDataTypes>().Single(e => e.Int == 911 && e.BoolAsBit == param4));
 
                 decimal? param5 = null;
@@ -598,62 +598,57 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"{AssertSqlHelper.Declaration("@p0='77'")}
-{AssertSqlHelper.Declaration("@p1='True'")}
-{AssertSqlHelper.Declaration("@p2='80' (Size = 1)")}
-{AssertSqlHelper.Declaration("@p3='0x5D5E5F60' (Nullable = false) (Size = 8000)")}
-{AssertSqlHelper.Declaration("@p4='0x61626364' (Nullable = false) (Size = 8000)")}
-{AssertSqlHelper.Declaration("@p5='0x595A5B5C' (Nullable = false) (Size = 8000)")}
-{AssertSqlHelper.Declaration("@p6='B' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p7='C' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p8='73'")}
-{AssertSqlHelper.Declaration("@p9='E' (Nullable = false) (Size = 1)")}
-{AssertSqlHelper.Declaration("@p10='F' (Nullable = false) (Size = 1)")}
-{AssertSqlHelper.Declaration("@p11='H' (Nullable = false) (Size = 1)")}
-{AssertSqlHelper.Declaration("@p12='D' (Nullable = false) (Size = 1)")}
-{AssertSqlHelper.Declaration("@p13='G' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p14='A' (Nullable = false) (Size = 1) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p15='2015-01-02T10:11:12' (DbType = Date)")}
-{AssertSqlHelper.Declaration("@p16='2019-01-02T14:11:12' (DbType = DateTime)")}
-{AssertSqlHelper.Declaration("@p17='2017-01-02T12:11:12'")}
-{AssertSqlHelper.Declaration("@p18='2018-01-02T13:11:12' (DbType = DateTime)")}
-{AssertSqlHelper.Declaration("@p19='2016-01-02T11:11:12.0000000+00:00'")}
-{AssertSqlHelper.Declaration("@p20='101.1'")}
-{AssertSqlHelper.Declaration("@p21='102.2'")}
-{AssertSqlHelper.Declaration("@p22='81.1'")}
-{AssertSqlHelper.Declaration("@p23='103.3'")}
-{AssertSqlHelper.Declaration("@p24='82.2'")}
-{AssertSqlHelper.Declaration("@p25='85.5'")}
-{AssertSqlHelper.Declaration("@p26='83.3'")}
-{AssertSqlHelper.Declaration("@p27='Value4' (Nullable = false) (Size = 20)")}
-{AssertSqlHelper.Declaration("@p28='Value2' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p29='84.4'")}
-{AssertSqlHelper.Declaration("@p30='a8f9f951-145f-4545-ac60-b92ff57ada47'")}
-{AssertSqlHelper.Declaration("@p31='78'")}
-{AssertSqlHelper.Declaration("@p32='-128'")}
-{AssertSqlHelper.Declaration("@p33='128' (Size = 1)")}
-{AssertSqlHelper.Declaration("@p34='79'")}
-{AssertSqlHelper.Declaration("@p35='887876'")}
-{AssertSqlHelper.Declaration("@p36='Bang!' (Nullable = false) (Size = 5)")}
-{AssertSqlHelper.Declaration("@p37='Your' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p38='strong' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p39='help' (Nullable = false) (Size = 4000)")}
-{AssertSqlHelper.Declaration("@p40='anyone!' (Nullable = false) (Size = 4000)")}
-{AssertSqlHelper.Declaration("@p41='Gumball Rules OK!' (Nullable = false) (Size = 4000)")}
-{AssertSqlHelper.Declaration(@"@p42='"
-                + entity.StringAsNvarcharMax
-                + @"' (Nullable = false) (Size = -1)")}
-{AssertSqlHelper.Declaration("@p43='Gumball Rules!' (Nullable = false) (Size = 8000) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p44='"
-                + entity.StringAsVarcharMax
-                + @"' (Nullable = false) (Size = -1) (DbType = AnsiString)")}
-{AssertSqlHelper.Declaration("@p45='11:15:12'")}
-{AssertSqlHelper.Declaration("@p46='65535'")}
-{AssertSqlHelper.Declaration("@p47='-1'")}
-{AssertSqlHelper.Declaration("@p48='4294967295'")}
-{AssertSqlHelper.Declaration("@p49='-1'")}
-{AssertSqlHelper.Declaration("@p50='-1'")}
-{AssertSqlHelper.Declaration("@p51='18446744073709551615'")}",
+               $@"@p0='77'
+@p1='True'
+@p2='80' (Size = 1)
+@p3='0x5D5E5F60' (Nullable = false) (Size = 510)
+@p4='0x61626364' (Nullable = false) (Size = 510)
+@p5='0x595A5B5C' (Nullable = false) (Size = 510)
+@p6='B' (Nullable = false) (Size = 1)
+@p7='C' (Nullable = false) (Size = 1)
+@p8='73'
+@p9='E' (Nullable = false) (Size = 1)
+@p10='F' (Nullable = false) (Size = 1)
+@p11='H' (Nullable = false) (Size = 1)
+@p12='D' (Nullable = false) (Size = 1)
+@p13='G' (Nullable = false) (Size = 1)
+@p14='A' (Nullable = false) (Size = 1)
+@p15='2015-01-02T00:00:00.0000000' (DbType = Date)
+@p16='2015-01-02T00:00:00.0000000' (DbType = DateTime)
+@p17='2019-01-02T14:11:12.0000000' (DbType = DateTime)
+@p18='101' (Precision = 18)
+@p19='102' (Precision = 18)
+@p20='81.1' (Precision = 3) (Scale = 1) (DbType = Currency)
+@p21='103' (Precision = 18)
+@p22='85.5'
+@p23='83.3'
+@p24='4'
+@p25='Value2' (Nullable = false) (Size = 255)
+@p26='84.4'
+@p27='a8f9f951-145f-4545-ac60-b92ff57ada47'
+@p28='78' (DbType = Object)
+@p29='-128'
+@p30='128' (Size = 1)
+@p31='79'
+@p32='Your' (Nullable = false) (Size = 255)
+@p33='And now' (Nullable = false) (Size = 255)
+@p34='strong' (Nullable = false) (Size = 255)
+@p35='this...' (Nullable = false) (Size = 255)
+@p36='help' (Nullable = false) (Size = 255)
+@p37='anyone!' (Nullable = false) (Size = 255)
+@p38='Gumball Rules OK!' (Nullable = false) (Size = 255)
+@p39='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD' (Nullable = false) (Size = 255)
+@p40='Gumball Rules!' (Nullable = false) (Size = 255)
+@p41='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' (Nullable = false) (Size = 255)
+@p42='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE' (Nullable = false) (Size = 255)
+@p43='11:15:12'
+@p44='11:15:12'
+@p45='65535'
+@p46='-1'
+@p47='4294967295' (DbType = Object)
+@p48='-1'
+@p49='18446744073709551615' (Precision = 20)
+@p50='18446744073709551615' (Precision = 20)",
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -753,13 +748,13 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
                 DateTimeAsDatetime = new DateTime(2019, 1, 2, 14, 11, 12),
                 TimeOnlyAsTime = new TimeOnly(11, 15, 12),
                 TimeSpanAsTime = new TimeSpan(11, 15, 12),
-                StringAsVarcharMax = string.Concat(Enumerable.Repeat("C", 8001)),
+                StringAsVarcharMax = string.Concat(Enumerable.Repeat("C", 255)),
                 StringAsCharVaryingMax = "Your",
                 StringAsCharacterVaryingMax = "strong",
-                StringAsNvarcharMax = string.Concat(Enumerable.Repeat("D", 4001)),
+                StringAsNvarcharMax = string.Concat(Enumerable.Repeat("D", 255)),
                 StringAsNationalCharVaryingMax = "help",
                 StringAsNationalCharacterVaryingMax = "anyone!",
-                StringAsVarcharMaxUtf8 = string.Concat(Enumerable.Repeat("E", 4001)),
+                StringAsVarcharMaxUtf8 = string.Concat(Enumerable.Repeat("E", 255)),
                 StringAsCharVaryingMaxUtf8 = "And now",
                 StringAsCharacterVaryingMaxUtf8 = "this...",
                 StringAsText = "Gumball Rules!",
@@ -818,10 +813,10 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p15='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = Date)
 @p16='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = DateTime)
 @p17='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
-@p18='101' (Nullable = true) (Precision = 18) (Scale = 2)
-@p19='102' (Nullable = true) (Precision = 18) (Scale = 2)
+@p18='101' (Nullable = true) (Precision = 18)
+@p19='102' (Nullable = true) (Precision = 18)
 @p20='81.1' (Nullable = true) (Precision = 3) (Scale = 1) (DbType = Currency)
-@p21='103' (Nullable = true) (Precision = 18) (Scale = 2)
+@p21='103' (Nullable = true) (Precision = 18)
 @p22='85.5' (Nullable = true)
 @p23='83.3' (Nullable = true)
 @p24='4' (Nullable = true)
@@ -1008,10 +1003,10 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p15=NULL (DbType = Date)
 @p16=NULL (DbType = DateTime)
 @p17=NULL (DbType = DateTime)
-@p18=NULL (Precision = 18) (Scale = 2) (DbType = Decimal)
-@p19=NULL (Precision = 18) (Scale = 2) (DbType = Decimal)
+@p18=NULL (Precision = 18) (DbType = Decimal)
+@p19=NULL (Precision = 18) (DbType = Decimal)
 @p20=NULL (DbType = Currency)
-@p21=NULL (Precision = 18) (Scale = 2) (DbType = Decimal)
+@p21=NULL (Precision = 18) (DbType = Decimal)
 @p22=NULL (DbType = Double)
 @p23=NULL (DbType = Double)
 @p24=NULL (DbType = Int32)
@@ -1285,9 +1280,9 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
             var parameters = DumpParameters();
             Assert.Equal(
                $@"@p0='77'
-@p1='102' (Size = 3) (Precision = 18) (Scale = 2)
-@p2='101' (Size = 3) (Precision = 5) (Scale = 2)
-@p3='103' (Size = 3) (Precision = 5) (Scale = 2)
+@p1='102' (Precision = 3)
+@p2='101' (Precision = 3)
+@p3='103' (Precision = 3)
 @p4='85.55'
 @p5='85.5'
 @p6='83.33000183105469'
@@ -1407,10 +1402,10 @@ parameters,
 @p14='2015-01-02T00:00:00.0000000' (DbType = Date)
 @p15='2015-01-02T00:00:00.0000000' (DbType = DateTime)
 @p16='2019-01-02T14:11:12.0000000' (DbType = DateTime)
-@p17='101' (Precision = 18) (Scale = 2)
-@p18='102' (Precision = 18) (Scale = 2)
+@p17='101' (Precision = 18)
+@p18='102' (Precision = 18)
 @p19='81.1' (Precision = 3) (Scale = 1) (DbType = Currency)
-@p20='103' (Precision = 18) (Scale = 2)
+@p20='103' (Precision = 18)
 @p21='85.5'
 @p22='83.3'
 @p23='4'
@@ -1600,10 +1595,10 @@ parameters,
 @p14='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = Date)
 @p15='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = DateTime)
 @p16='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
-@p17='101' (Nullable = true) (Precision = 18) (Scale = 2)
-@p18='102' (Nullable = true) (Precision = 18) (Scale = 2)
+@p17='101' (Nullable = true) (Precision = 18)
+@p18='102' (Nullable = true) (Precision = 18)
 @p19='81.1' (Nullable = true) (Precision = 3) (Scale = 1) (DbType = Currency)
-@p20='103' (Nullable = true) (Precision = 18) (Scale = 2)
+@p20='103' (Nullable = true) (Precision = 18)
 @p21='85.5' (Nullable = true)
 @p22='83.3' (Nullable = true)
 @p23='4' (Nullable = true)
@@ -1790,10 +1785,10 @@ parameters,
 @p14=NULL (DbType = Date)
 @p15=NULL (DbType = DateTime)
 @p16=NULL (DbType = DateTime)
-@p17=NULL (Precision = 18) (Scale = 2) (DbType = Decimal)
-@p18=NULL (Precision = 18) (Scale = 2) (DbType = Decimal)
+@p17=NULL (Precision = 18) (DbType = Decimal)
+@p18=NULL (Precision = 18) (DbType = Decimal)
 @p19=NULL (DbType = Currency)
-@p20=NULL (Precision = 18) (Scale = 2) (DbType = Decimal)
+@p20=NULL (Precision = 18) (DbType = Decimal)
 @p21=NULL (DbType = Double)
 @p22=NULL (DbType = Double)
 @p23=NULL (DbType = Int32)
@@ -2083,9 +2078,9 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='102' (Size = 3) (Precision = 18) (Scale = 2)
-@p1='101' (Size = 3) (Precision = 18) (Scale = 2)
-@p2='103' (Size = 3) (Precision = 18) (Scale = 2)
+               $@"@p0='102' (Precision = 3)
+@p1='101' (Precision = 3)
+@p2='103' (Precision = 3)
 @p3='85.55'
 @p4='85.5'
 @p5='83.33000183105469'
@@ -2626,10 +2621,10 @@ MappedDataTypes.CharAsVarchar ---> [varchar] [MaxLength = 1]
 MappedDataTypes.DateOnlyAsDate ---> [datetime]
 MappedDataTypes.DateTimeAsDate ---> [datetime]
 MappedDataTypes.DateTimeAsDatetime ---> [datetime]
-MappedDataTypes.Decimal ---> [decimal] [Precision = 18 Scale = 2]
-MappedDataTypes.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 2]
+MappedDataTypes.Decimal ---> [decimal] [Precision = 18 Scale = 0]
+MappedDataTypes.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 0]
 MappedDataTypes.DecimalAsMoney ---> [currency]
-MappedDataTypes.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 2]
+MappedDataTypes.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 0]
 MappedDataTypes.DoubleAsDoublePrecision ---> [double]
 MappedDataTypes.DoubleAsFloat ---> [double]
 MappedDataTypes.EnumAsNvarchar20 ---> [integer]
@@ -2677,10 +2672,10 @@ MappedDataTypesWithIdentity.CharAsVarchar ---> [varchar] [MaxLength = 1]
 MappedDataTypesWithIdentity.DateOnlyAsDate ---> [datetime]
 MappedDataTypesWithIdentity.DateTimeAsDate ---> [datetime]
 MappedDataTypesWithIdentity.DateTimeAsDatetime ---> [datetime]
-MappedDataTypesWithIdentity.Decimal ---> [decimal] [Precision = 18 Scale = 2]
-MappedDataTypesWithIdentity.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 2]
+MappedDataTypesWithIdentity.Decimal ---> [decimal] [Precision = 18 Scale = 0]
+MappedDataTypesWithIdentity.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 0]
 MappedDataTypesWithIdentity.DecimalAsMoney ---> [currency]
-MappedDataTypesWithIdentity.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 2]
+MappedDataTypesWithIdentity.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 0]
 MappedDataTypesWithIdentity.DoubleAsDoublePrecision ---> [double]
 MappedDataTypesWithIdentity.DoubleAsFloat ---> [double]
 MappedDataTypesWithIdentity.EnumAsNvarchar20 ---> [integer]
@@ -2729,10 +2724,10 @@ MappedNullableDataTypes.CharAsVarchar ---> [nullable varchar] [MaxLength = 1]
 MappedNullableDataTypes.DateOnlyAsDate ---> [nullable datetime]
 MappedNullableDataTypes.DateTimeAsDate ---> [nullable datetime]
 MappedNullableDataTypes.DateTimeAsDatetime ---> [nullable datetime]
-MappedNullableDataTypes.Decimal ---> [nullable decimal] [Precision = 18 Scale = 2]
-MappedNullableDataTypes.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 2]
+MappedNullableDataTypes.Decimal ---> [nullable decimal] [Precision = 18 Scale = 0]
+MappedNullableDataTypes.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 0]
 MappedNullableDataTypes.DecimalAsMoney ---> [nullable currency]
-MappedNullableDataTypes.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 2]
+MappedNullableDataTypes.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 0]
 MappedNullableDataTypes.DoubleAsDoublePrecision ---> [nullable double]
 MappedNullableDataTypes.DoubleAsFloat ---> [nullable double]
 MappedNullableDataTypes.EnumAsNvarchar20 ---> [nullable integer]
@@ -2780,10 +2775,10 @@ MappedNullableDataTypesWithIdentity.CharAsVarchar ---> [nullable varchar] [MaxLe
 MappedNullableDataTypesWithIdentity.DateOnlyAsDate ---> [nullable datetime]
 MappedNullableDataTypesWithIdentity.DateTimeAsDate ---> [nullable datetime]
 MappedNullableDataTypesWithIdentity.DateTimeAsDatetime ---> [nullable datetime]
-MappedNullableDataTypesWithIdentity.Decimal ---> [nullable decimal] [Precision = 18 Scale = 2]
-MappedNullableDataTypesWithIdentity.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 2]
+MappedNullableDataTypesWithIdentity.Decimal ---> [nullable decimal] [Precision = 18 Scale = 0]
+MappedNullableDataTypesWithIdentity.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 0]
 MappedNullableDataTypesWithIdentity.DecimalAsMoney ---> [nullable currency]
-MappedNullableDataTypesWithIdentity.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 2]
+MappedNullableDataTypesWithIdentity.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 0]
 MappedNullableDataTypesWithIdentity.DoubleAsDoublePrecision ---> [nullable double]
 MappedNullableDataTypesWithIdentity.DoubleAsFloat ---> [nullable double]
 MappedNullableDataTypesWithIdentity.EnumAsNvarchar20 ---> [nullable integer]
@@ -2824,9 +2819,9 @@ MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDecimal52 ---> [decimal] 
 MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsNumeric52 ---> [decimal] [Precision = 5 Scale = 2]
 MappedPrecisionAndScaledDataTypesWithIdentity.Id ---> [counter]
 MappedPrecisionAndScaledDataTypesWithIdentity.Int ---> [integer]
-MappedScaledDataTypes.DecimalAsDec3 ---> [decimal] [Precision = 18 Scale = 2]
-MappedScaledDataTypes.DecimalAsDecimal3 ---> [decimal] [Precision = 5 Scale = 2]
-MappedScaledDataTypes.DecimalAsNumeric3 ---> [decimal] [Precision = 5 Scale = 2]
+MappedScaledDataTypes.DecimalAsDec3 ---> [decimal] [Precision = 3 Scale = 0]
+MappedScaledDataTypes.DecimalAsDecimal3 ---> [decimal] [Precision = 3 Scale = 0]
+MappedScaledDataTypes.DecimalAsNumeric3 ---> [decimal] [Precision = 3 Scale = 0]
 MappedScaledDataTypes.FloatAsDoublePrecision25 ---> [double]
 MappedScaledDataTypes.FloatAsDoublePrecision3 ---> [double]
 MappedScaledDataTypes.FloatAsFloat25 ---> [double]
@@ -2834,9 +2829,9 @@ MappedScaledDataTypes.FloatAsFloat3 ---> [double]
 MappedScaledDataTypes.Id ---> [integer]
 MappedScaledDataTypes.TimeOnlyAsTime3 ---> [datetime]
 MappedScaledDataTypes.TimeSpanAsTime3 ---> [datetime]
-MappedScaledDataTypesWithIdentity.DecimalAsDec3 ---> [decimal] [Precision = 18 Scale = 2]
-MappedScaledDataTypesWithIdentity.DecimalAsDecimal3 ---> [decimal] [Precision = 18 Scale = 2]
-MappedScaledDataTypesWithIdentity.DecimalAsNumeric3 ---> [decimal] [Precision = 18 Scale = 2]
+MappedScaledDataTypesWithIdentity.DecimalAsDec3 ---> [decimal] [Precision = 3 Scale = 0]
+MappedScaledDataTypesWithIdentity.DecimalAsDecimal3 ---> [decimal] [Precision = 3 Scale = 0]
+MappedScaledDataTypesWithIdentity.DecimalAsNumeric3 ---> [decimal] [Precision = 3 Scale = 0]
 MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision25 ---> [double]
 MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision3 ---> [double]
 MappedScaledDataTypesWithIdentity.FloatAsFloat25 ---> [double]

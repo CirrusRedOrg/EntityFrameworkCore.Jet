@@ -46,11 +46,11 @@ jobs:
               core.setOutput('hasGreenTestsArtifacts', 'true');
             }
       - name: 'Download artifact'
-        if: steps.DownloadGreenTests.output.hasGreenTestsArtifacts == 'true'
+        if: steps.DownloadGreenTests.outputs.hasGreenTestsArtifacts == 'true'
         shell: pwsh
         run: Expand-Archive green-tests.zip -DestinationPath './test/EFCore.Jet.FunctionalTests/GreenTests' -Force
       - name: 'Commit Green Tests'
-        if: steps.DownloadGreenTests.output.hasGreenTestsArtifacts == 'true'
+        if: steps.DownloadGreenTests.outputs.hasGreenTestsArtifacts == 'true'
         shell: pwsh
         run: |
           if ((git status -s).Length -gt 0) {

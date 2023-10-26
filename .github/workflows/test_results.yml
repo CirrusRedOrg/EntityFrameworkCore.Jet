@@ -1,0 +1,43 @@
+name: ReportTestResults
+on:
+  workflow_run:
+    workflows:
+      - PullRequest
+    types:
+      - completed
+permissions:
+  contents: read
+  actions: read
+  checks: write
+jobs:
+  Report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Check Artifact'
+        id: CheckArtifact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{ github.event.workflow_run.id }},
+            });
+            
+            var testResultsArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "test-results"
+            });
+            
+            if (testResultsArtifacts.length > 0) {
+              core.setOutput('testResultsArtifactAvailable', 'true');
+              console.log('Test results artifact found.')
+            }
+      - name: 'Publish Test Report'
+        if: steps.CheckArtifact.outputs.testResultsArtifactAvailable == 'true'
+        uses: dorny/test-reporter@v1
+        with:
+          name: 'All Tests'
+          artifact: test-results
+          path: '**/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: false

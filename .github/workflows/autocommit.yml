@@ -1,4 +1,4 @@
-name: AutoCommit
+﻿name: AutoCommit
 on:
   workflow_run:
     workflows:
@@ -6,6 +6,19 @@ on:
     types:
       - completed
 jobs:
+#  Info:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: 'Output Information'
+#        shell: pwsh
+#        run: |
+#          echo 'Event: ${{ github.event.workflow_run.event }}'
+#          echo 'Conclusion: ${{ github.event.workflow_run.conclusion }}'
+#          echo 'Author: ${{ github.event.workflow_run.head_commit.author.email }}'
+#        - name: 'Log Event Context'
+#          shell: pwsh
+#          run: |
+#            echo '${{ toJson(github.event) }}'
   AutoCommit:
     runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_commit.author.email != 'github-actions@github.com' || github.event.workflow_run.head_commit.message != '[GitHub Actions] Update green tests.')
@@ -18,39 +31,29 @@ jobs:
           token: ${{ secrets.GH_PUBLIC_REPOSITORIES_TOKEN }}
           fetch-depth: 0
       - name: 'Download Green Tests'
-        id: DownloadGreenTests
-        uses: actions/github-script@v6
+        uses: actions/github-script@v3.1.0
         with:
           script: |
-            var allArtifacts = await github.actions.listWorkflowRunArtifacts({
+            var artifacts = await github.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
                run_id: ${{ github.event.workflow_run.id }},
             });
-            
-            var greenTestArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
+            var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "green-tests"
+            })[0];
+            var download = await github.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
             });
-            
-            if (greenTestArtifacts.length > 0) {
-              var download = await github.actions.downloadArtifact({
-                 owner: context.repo.owner,
-                 repo: context.repo.repo,
-                 artifact_id: greenTestArtifacts[0].id,
-                 archive_format: 'zip',
-              });
-            
-              var fs = require('fs');
-              fs.writeFileSync('${{ github.workspace }}/green-tests.zip', Buffer.from(download.data));
-              
-              core.setOutput('hasGreenTestsArtifacts', 'true');
-            }
+            var fs = require('fs');
+            fs.writeFileSync('${{ github.workspace }}/green-tests.zip', Buffer.from(download.data));
       - name: 'Download artifact'
-        if: steps.DownloadGreenTests.output.hasGreenTestsArtifacts == 'true'
         shell: pwsh
         run: Expand-Archive green-tests.zip -DestinationPath './test/EFCore.Jet.FunctionalTests/GreenTests' -Force
       - name: 'Commit Green Tests'
-        if: steps.DownloadGreenTests.output.hasGreenTestsArtifacts == 'true'
         shell: pwsh
         run: |
           if ((git status -s).Length -gt 0) {

@@ -30,12 +30,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             : base(dependencies)
         {
             _jetOptionsExtension = dependencies.ContextOptions.FindExtension<JetOptionsExtension>() ?? new JetOptionsExtension();
-
-            if (_jetOptionsExtension.DataAccessProviderFactory == null &&
-                ((JetConnection) DbConnection).DataAccessProviderFactory == null)
-            {
-                throw new InvalidOperationException(JetStrings.DataAccessProviderFactory);
-            }
         }
 
         /// <summary>
@@ -44,7 +38,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         protected override DbConnection CreateDbConnection()
         {
-            var connection = (JetConnection) JetFactory.Instance.CreateConnection();
+            var connection = (JetConnection)JetFactory.Instance.CreateConnection();
             connection.DataAccessProviderFactory = _jetOptionsExtension.DataAccessProviderFactory!;
             connection.ConnectionString = ConnectionString!;
 
@@ -57,7 +51,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public virtual IJetRelationalConnection CreateEmptyConnection()
         {
-            var connection = (JetConnection) JetFactory.Instance.CreateConnection();
+            var connection = (JetConnection)JetFactory.Instance.CreateConnection();
             connection.DataAccessProviderFactory = _jetOptionsExtension.DataAccessProviderFactory!;
             connection.IsEmpty = true;
 

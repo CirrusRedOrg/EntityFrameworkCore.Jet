@@ -87,7 +87,7 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             if (jetOptions.DataAccessProviderFactory == null)
             {
-                throw new InvalidOperationException(JetStrings.DataAccessProviderFactory);
+                return DataAccessProviderType.Unconfgiured;
             }
 
             if (jetOptions.DataAccessProviderFactory

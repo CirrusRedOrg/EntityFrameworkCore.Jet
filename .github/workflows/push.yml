@@ -131,7 +131,41 @@ jobs:
       - name: Install .NET SDK
         shell: pwsh
         run: |
-          &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          function Retry-Command {
+              [CmdletBinding()]
+              Param(
+                [Parameter(Position=0, Mandatory=$true)]
+                [ScriptBlock]$ScriptBlock,
+          
+                [Parameter(Position=1, Mandatory=$false)]
+                [int]$Maximum = 5,
+          
+                [Parameter(Mandatory=$false)]
+                [switch]$ExponentialBackoff
+              )
+          
+              $attempt = 0
+          
+              do {
+                if ($attempt -gt 0 -and $ExponentialBackoff) {
+                  Start-Sleep -Seconds ([Math]::Pow(2, $attempt) - 1)          
+                }
+          
+                $attempt++
+                try {
+                  $ScriptBlock.Invoke()
+                  return
+                } catch {
+                  Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                }
+              } while ($attempt -lt $Maximum)
+          
+              throw 'Max retries exceeded.'
+          }
+          
+          Retry-Command {
+              &([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          } -Maximum 10 -ExponentialBackoff
       - name: .NET Information After SDK Install
         shell: pwsh
         run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }

@@ -29,7 +29,7 @@ jobs:
           
           mv /usr/local/bin/node /usr/local/bin/node_org
           echo '#!/bin/bash' >> /usr/local/bin/node
-          echo '/usr/local/bin/node_org --stack-size=8192 $@' >> /usr/local/bin/node
+          echo '/usr/local/bin/node_org --stack-size=8192 --max-old-space-size=4096 $@' >> /usr/local/bin/node
           cat /usr/local/bin/node
           chmod +x /usr/local/bin/node
 

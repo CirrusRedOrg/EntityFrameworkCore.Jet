@@ -21,7 +21,7 @@ jobs:
           # executed:
           #     RangeError: Maximum call stack size exceeded
           #
-          # We explicitly increase the stack max. stack size here to workaround this issue.
+          # We explicitly increase the stack max. stack size here to work around this issue.
           #
           
           which node
@@ -29,7 +29,7 @@ jobs:
           
           mv /usr/local/bin/node /usr/local/bin/node_org
           echo '#!/bin/bash' >> /usr/local/bin/node
-          echo '/usr/local/bin/node_org --stack-size=8192 --max-old-space-size=4096 $@' >> /usr/local/bin/node
+          echo '/usr/local/bin/node_org --stack-size=4096 $@' >> /usr/local/bin/node
           cat /usr/local/bin/node
           chmod +x /usr/local/bin/node
 
@@ -57,9 +57,18 @@ jobs:
       - name: 'Publish Test Report'
         if: steps.CheckArtifact.outputs.testResultsArtifactAvailable == 'true'
         uses: dorny/test-reporter@v1
+        env:
+          #
+          # Can throw the following exception, when enough tests have been executed:
+          #     FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+          #
+          # We explicitly increase the max. heap size here to work around this issue.
+          #
+          NODE_OPTIONS: --max-old-space-size=8192
         with:
           name: 'All Tests'
           artifact: test-results
           path: '**/*.trx'
           reporter: dotnet-trx
-          fail-on-error: false
+          only-summary: 'true'
+          fail-on-error: 'false'

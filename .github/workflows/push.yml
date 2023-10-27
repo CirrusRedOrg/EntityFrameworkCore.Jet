@@ -13,7 +13,7 @@ env:
   buildConfiguration: 'Debug'
   skipTests: false
   deterministicTests: true
-  uploadTestResults: false
+  uploadTestResults: true
 jobs:
   Preconditions:
     runs-on: ubuntu-latest
@@ -212,33 +212,38 @@ jobs:
         run: |
           & '${{ env.dotnetExecutable }}' build --configuration '${{ env.buildConfiguration }}'
       - name: 'Run Tests: EFCore.Jet.Data.Tests'
-        if: env.skipTests != 'true'
+        if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Run Tests: EFCore.Jet.Tests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
       - name: 'Run Tests: EFCore.Jet.FunctionalTests'
-        if: env.skipTests != 'true'
+        if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
           exit 0
-      - name: 'Run Tests: EFCore.Jet.Tests'
-        if: env.skipTests != 'true'
+      - name: 'Rename Test Results'
+        if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
-          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+          Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
       - name: 'Upload Test Results'
-        if: env.skipTests != 'true' && env.uploadTestResults == 'true'
+        if: always() && env.skipTests != 'true' && env.uploadTestResults == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: |
-            test\EFCore.Jet.Data.Tests\TestResults
-            test\EFCore.Jet.FunctionalTests\TestResults
-            test\EFCore.Jet.Tests\TestResults
+            test\EFCore.Jet.Data.Tests\TestResults\*.trx
+            test\EFCore.Jet.FunctionalTests\TestResults\*.trx
+            test\EFCore.Jet.Tests\TestResults\*.trx
       - name: 'Check Tests: EFCore.Jet.FunctionalTests'
         if: env.skipTests != 'true'
         shell: pwsh

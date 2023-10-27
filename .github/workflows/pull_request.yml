@@ -228,8 +228,45 @@ jobs:
         if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
-          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path '.\test\EFCore.Jet.FunctionalTests\TestResults' -PathType Container) {
+              Get-ChildItem '.\test\EFCore.Jet.FunctionalTests\TestResults' | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+            $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $testResultsDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+          
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
           exit 0
       - name: 'Rename Test Results'
         if: always() && env.skipTests != 'true'
@@ -254,8 +291,8 @@ jobs:
           $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
 
           if ($null -eq $currentTestRunTrx) {
-              echo "Test runner crashed."
-              exit 2
+              echo 'Test runner log file is missing.'
+              exit 3
           }
 
           $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')

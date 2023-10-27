@@ -6,7 +6,9 @@ using System.Data;
 using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
@@ -17,6 +19,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -28,13 +32,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     {
         private static string ObjectKey([NotNull] string name)
             => "`" + name + "`";
-        
+
         private static string TableKey(DatabaseTable table)
             => TableKey(table.Name);
-        
+
         private static string TableKey(String tableName)
             => ObjectKey(tableName);
-        
+
         private static string ColumnKey(DatabaseTable table, string columnName)
             => TableKey(table) + "." + ObjectKey(columnName);
 
@@ -43,20 +47,22 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             @"(?<=^`).*(?=`$)",
             @"(?<=^\[).*(?=\]$)$",
         };
-        
+
         private static readonly Regex _defaultDateTimeValue = new Regex(@"\(*(?:#0?1/0?1/0?100#)|(?:#0?0:0?0:0?0#)|(?:(['""])(0?0:0?0:0?0)|0?100-0?1-0?1(?: \2)\1)\)*");
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
-        
+        private readonly IRelationalTypeMappingSource _typeMappingSource;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetDatabaseModelFactory([NotNull] IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
+        public JetDatabaseModelFactory([NotNull] IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
+            IRelationalTypeMappingSource typeMappingSource)
         {
             Check.NotNull(logger, nameof(logger));
 
             _logger = logger;
+            _typeMappingSource = typeMappingSource;
         }
 
         /// <summary>
@@ -97,13 +103,33 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
             try
             {
+                databaseModel.DatabaseName = connection.Database;
+
+                var schemaList = options.Schemas.ToList();
                 var tableList = options.Tables.ToList();
                 var tableFilter = GenerateTableFilter(tableList.Select(Parse).ToList());
-                
-                foreach (var table in GetTables(connection, tableFilter))
+
+                var tables = GetTables(connection, databaseModel, tableFilter);
+                foreach (var table in tables)
                 {
-                    table.Database = databaseModel;
                     databaseModel.Tables.Add(table);
+                }
+
+                foreach (var schema in schemaList
+                             .Except(
+                                 databaseModel.Sequences.Select(s => s.Schema)
+                                     .Concat(databaseModel.Tables.Select(t => t.Schema))))
+                {
+                    _logger.MissingSchemaWarning(schema);
+                }
+
+                foreach (var table in tableList)
+                {
+                    var parsedTableName = Parse(table);
+                    if (databaseModel.Tables.All(t => t.Name != parsedTableName))
+                    {
+                        _logger.MissingTableWarning(table);
+                    }
                 }
 
                 var tableNames = databaseModel.Tables.Select(t => t.Name).ToList();
@@ -147,6 +173,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private IReadOnlyList<DatabaseTable> GetTables(
             DbConnection connection,
+            DatabaseModel databaseModel,
             Func<string, string, bool>? filter)
         {
             var tables = new List<DatabaseTable>();
@@ -162,14 +189,12 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var type = reader.GetValueOrDefault<string>("TABLE_TYPE");
                     var validationRule = reader.GetValueOrDefault<string>("VALIDATION_RULE");
                     var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
-                    
+
                     _logger.TableFound(name!);
 
                     var table = string.Equals(type, "BASE TABLE", StringComparison.OrdinalIgnoreCase)
-                        ? new DatabaseTable()
-                        : new DatabaseView();
-
-                    table.Name = name!;
+                        ? new DatabaseTable() { Database = databaseModel, Name = name! }
+                        : new DatabaseView() { Database = databaseModel, Name = name! };
 
                     var isValidByFilter = filter?.Invoke(table.Schema!, table.Name) ?? true;
                     if (isValidByFilter)
@@ -188,7 +213,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
             return tables;
         }
-        
+
         private void GetColumns(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
             using var command = connection.CreateCommand();
@@ -214,7 +239,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     var validationText = reader.GetValueOrDefault<string>("VALIDATION_TEXT");
                     var identitySeed = reader.GetValueOrDefault<int?>("IDENTITY_SEED");
                     var identityIncrement = reader.GetValueOrDefault<int?>("IDENTITY_INCREMENT");
-                    var computedValue = (string?) null; // TODO: Implement support for expressions
+                    var computedValue = (string?)null; // TODO: Implement support for expressions
                                                        // (DAO Field2 (though not mentioned)).
                                                        // Might have no equivalent in ADOX.
                     var computedIsPersisted = false;
@@ -232,16 +257,17 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         defaultValue,
                         computedValue,
                         computedIsPersisted);
-                    
+
                     var storeType = GetStoreType(dataTypeName!, precision, scale, maxLength);
-                    defaultValue = FilterClrDefaults(dataTypeName!, nullable, defaultValue);
-                    
+                    object? defaultValueobj = TryParseClrDefault(dataTypeName!, defaultValue);
+
                     var column = new DatabaseColumn
                     {
                         Table = table,
                         Name = columnName!,
                         StoreType = storeType,
                         IsNullable = nullable,
+                        DefaultValue = defaultValueobj,
                         DefaultValueSql = defaultValue,
                         ComputedColumnSql = null,
                         ValueGenerated = identitySeed.HasValue
@@ -261,63 +287,115 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 }
             }
         }
-        
-        private static string? FilterClrDefaults(string dataTypeName, bool nullable, string? defaultValue)
+
+        private object? TryParseClrDefault(string dataTypeName, string? defaultValueSql)
         {
-            if (defaultValue == null)
+            defaultValueSql = defaultValueSql?.Trim();
+            if (string.IsNullOrEmpty(defaultValueSql))
             {
                 return null;
             }
 
-            if (nullable)
-            {
-                return defaultValue;
-            }
-
-            if (defaultValue == "0")
-            {
-                if (dataTypeName == "smallint"
-                    || dataTypeName == "integer"
-                    || dataTypeName == "single"
-                    || dataTypeName == "double"
-                    || dataTypeName == "currency"
-                    || dataTypeName == "bit"
-                    || dataTypeName == "decimal"
-                    || dataTypeName == "byte")
-                {
-                    return null;
-                }
-            }
-            else if (defaultValue == "0.0")
-            {
-                if (dataTypeName == "decimal"
-                    || dataTypeName == "double"
-                    || dataTypeName == "single"
-                    || dataTypeName == "currency")
-                {
-                    return null;
-                }
-            }
-            else if ((defaultValue == "('1900-01-01T00:00:00.000')" && (dataTypeName == "datetime" || dataTypeName == "smalldatetime")) ||
-                     (dataTypeName == "guid" && defaultValue == "'00000000-0000-0000-0000-000000000000'") ||
-                     (defaultValue == "('0001-01-01')" && dataTypeName == "date") ||
-                     (defaultValue == "('0001-01-01')" && dataTypeName == "date") ||
-                     (defaultValue == "('0001-01-01T00:00:00.000')" && dataTypeName == "datetime2") ||
-                     (defaultValue == "('0001-01-01T00:00:00.000+00:00')" && dataTypeName == "datetimeoffset") ||
-                     (defaultValue == "('00:00:00')" && dataTypeName == "time") ||
-                     (defaultValue == "('00000000-0000-0000-0000-000000000000')" && dataTypeName == "uniqueidentifier")
-                     )
+            var mapping = _typeMappingSource.FindMapping(dataTypeName);
+            if (mapping == null)
             {
                 return null;
             }
 
-            return defaultValue;
+            if (defaultValueSql.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var type = mapping.ClrType;
+            if (type == typeof(bool)
+                && int.TryParse(defaultValueSql, out var intValue))
+            {
+                return intValue != 0;
+            }
+
+            if (type.IsNumeric())
+            {
+                try
+                {
+                    return Convert.ChangeType(defaultValueSql, type);
+                }
+                catch
+                {
+                    // Ignored
+                    return null;
+                }
+            }
+
+            if (defaultValueSql.Equals("TRUE", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (defaultValueSql.Equals("FALSE", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if ((defaultValueSql.StartsWith('\'') || defaultValueSql.StartsWith("'", StringComparison.OrdinalIgnoreCase))
+                && defaultValueSql.EndsWith('\''))
+            {
+                var startIndex = defaultValueSql.IndexOf('\'');
+                defaultValueSql = defaultValueSql.Substring(startIndex + 1, defaultValueSql.Length - (startIndex + 2));
+
+                if (type == typeof(string))
+                {
+                    if (DateTimeOffset.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out DateTimeOffset dateTimeOffset))
+                    {
+                        return dateTimeOffset;
+                    }
+                    return defaultValueSql;
+                }
+
+                if (type == typeof(bool)
+                    && bool.TryParse(defaultValueSql, out var boolValue))
+                {
+                    return boolValue;
+                }
+
+                if (type == typeof(Guid)
+                    && Guid.TryParse(defaultValueSql, out var guid))
+                {
+                    return guid;
+                }
+
+                if (type == typeof(DateTime))
+                {
+                    if (Regex.IsMatch(defaultValueSql, @"^\d{4}-\d{2}-\d{2}$", default, TimeSpan.FromMilliseconds(1000.0)))
+                    {
+                        return DateOnly.Parse(defaultValueSql, CultureInfo.InvariantCulture);
+                    }
+
+                    if (Regex.IsMatch(defaultValueSql, @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,7})?$", default, TimeSpan.FromMilliseconds(1000.0)))
+                    {
+                        return DateTime.Parse(defaultValueSql, CultureInfo.InvariantCulture);
+                    }
+                    if (Regex.IsMatch(defaultValueSql, @"^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$", default, TimeSpan.FromMilliseconds(1000.0)))
+                    {
+                        if (TimeSpan.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out var timeSpan)
+                            && timeSpan >= TimeOnly.MinValue.ToTimeSpan()
+                            && timeSpan <= TimeOnly.MaxValue.ToTimeSpan())
+                        {
+                            return TimeOnly.Parse(defaultValueSql, CultureInfo.InvariantCulture);
+                        }
+
+                        return timeSpan;
+                    }
+                }
+            }
+
+            return null;
         }
 
         private string GetStoreType(string dataTypeName, int precision, int scale, int maxLength)
         {
             if (precision > 0 &&
-                string.Equals(dataTypeName, "decimal", StringComparison.OrdinalIgnoreCase))
+                (string.Equals(dataTypeName, "decimal", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(dataTypeName, "numeric", StringComparison.OrdinalIgnoreCase)))
             {
                 return $"{dataTypeName}({precision}, {scale})";
             }
@@ -325,16 +403,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             if (maxLength > 0)
             {
                 return $"{dataTypeName}({maxLength})";
-            }
-
-            if (string.Equals(dataTypeName, "varchar", StringComparison.OrdinalIgnoreCase))
-            {
-                return "longchar";
-            }
-
-            if (string.Equals(dataTypeName, "varbinary", StringComparison.OrdinalIgnoreCase))
-            {
-                return "longbinary";
             }
 
             return dataTypeName;
@@ -379,7 +447,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     if (indexColumns?.Any() ?? false)
                     {
                         object? indexOrKey = null;
-                        
+
                         if (indexType == "PRIMARY")
                         {
                             var primaryKey = new DatabasePrimaryKey
@@ -423,7 +491,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                     _logger.IndexSkipped(indexName!, tableName!, isUnique);
                                     continue;
                                 }
-                            
+
                                 var index = new DatabaseIndex
                                 {
                                     Table = table,
@@ -452,11 +520,11 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                     case DatabasePrimaryKey primaryKey:
                                         primaryKey.Columns.Add(column);
                                         break;
-                                    
+
                                     case DatabaseUniqueConstraint uniqueConstraint:
                                         uniqueConstraint.Columns.Add(column);
                                         break;
-                                    
+
                                     case DatabaseIndex index:
                                         index.Columns.Add(column);
                                         break;
@@ -467,7 +535,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 }
             }
         }
-        
+
         private void GetRelations(DbConnection connection, IReadOnlyList<DatabaseTable> tables)
         {
             var relationTable = new DataTable();
@@ -514,7 +582,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                             referencingTableName!,
                             principalTableName!,
                             onDelete!);
-                        
+
                         var principalTable = tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName)) ??
                                              tables.FirstOrDefault(t => string.Equals(t.Name, principalTableName, StringComparison.OrdinalIgnoreCase));
                         if (principalTable == null)
@@ -525,7 +593,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                 principalTableName);
                             continue;
                         }
-                        
+
                         var foreignKey = new DatabaseForeignKey
                         {
                             Name = relationName,
@@ -564,7 +632,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         {
                             continue;
                         }
-                        
+
                         if (foreignKey.Columns.SequenceEqual(foreignKey.PrincipalColumns))
                         {
                             _logger.ReflexiveConstraintIgnored(
@@ -603,7 +671,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                     return null;
             }
         }
-        
+
         protected virtual Func<string, string, bool>? GenerateTableFilter(IReadOnlyList<string> tables)
             => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string, string, bool>?)null;
     }

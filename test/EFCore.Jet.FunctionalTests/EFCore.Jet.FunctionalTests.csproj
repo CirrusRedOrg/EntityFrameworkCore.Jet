@@ -12,7 +12,7 @@
 			<Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
 		</Compile>
 	</ItemGroup>
-	
+
 	<ItemGroup>
 		<PackageReference Include="MSTest.TestFramework" />
 		<PackageReference Include="xunit.core" />
@@ -30,10 +30,7 @@
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
 		<PackageReference Include="Microsoft.EntityFrameworkCore" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design"/>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" />
 	</ItemGroup>
 
@@ -82,9 +79,9 @@
 		<None Remove="TestResults\**" />
 	</ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
-    </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<None Update="config.json">

@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
@@ -61,7 +62,8 @@ WHERE 1 = 2;
             }
 
             var logger = Context.GetService<IDiagnosticsLogger<DbLoggerCategory.Scaffolding>>();
-            JetDatabaseModelFactory modelFactory = new JetDatabaseModelFactory(logger);
+            var typeMappingSource = Context.GetService<IRelationalTypeMappingSource>();
+            JetDatabaseModelFactory modelFactory = new JetDatabaseModelFactory(logger, typeMappingSource);
             using (var connection = GetConnection())
             {
                 var model = modelFactory.Create(connection, new DatabaseModelFactoryOptions(tableNames));

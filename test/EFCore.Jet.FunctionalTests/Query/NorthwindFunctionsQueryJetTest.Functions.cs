@@ -1046,7 +1046,7 @@ WHERE `o`.`OrderID` = 11077 AND EXP(CDBL(`o`.`Discount`)) > 1.0");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / 2.3025850929940459) < 0.0");
+WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / 2.302585092994046) < 0.0");
         }
 
         public override async Task Where_math_log(bool isAsync)
@@ -1185,7 +1185,7 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.1415926535897931)) > 0.0
+WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.141592653589793)) > 0.0
 """);
         }
 
@@ -1197,7 +1197,7 @@ WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.1415926535897
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (3.1415926535897931 / 180.0)) > 0.0
+WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (3.141592653589793 / 180.0)) > 0.0
 """);
         }
 

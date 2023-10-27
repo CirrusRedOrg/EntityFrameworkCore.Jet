@@ -1,0 +1,65 @@
+﻿name: AutoCommit
+on:
+  workflow_run:
+    workflows:
+      - PullRequest
+    types:
+      - completed
+jobs:
+  AutoCommit:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_commit.author.email != 'github-actions@github.com' || github.event.workflow_run.head_commit.message != '[GitHub Actions] Update green tests.')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{ secrets.GH_PUBLIC_REPOSITORIES_TOKEN }}
+          fetch-depth: 0
+      - name: 'Download Green Tests'
+        id: DownloadGreenTests
+        uses: actions/github-script@v6
+        with:
+          script: |
+            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{ github.event.workflow_run.id }},
+            });
+            
+            var greenTestArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "green-tests"
+            });
+            
+            if (greenTestArtifacts.length > 0) {
+              var download = await github.rest.actions.downloadArtifact({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 artifact_id: greenTestArtifacts[0].id,
+                 archive_format: 'zip',
+              });
+            
+              var fs = require('fs');
+              fs.writeFileSync('${{ github.workspace }}/green-tests.zip', Buffer.from(download.data));
+              
+              core.setOutput('hasGreenTestsArtifacts', 'true');
+            }
+      - name: 'Download artifact'
+        if: steps.DownloadGreenTests.outputs.hasGreenTestsArtifacts == 'true'
+        shell: pwsh
+        run: Expand-Archive green-tests.zip -DestinationPath './test/EFCore.Jet.FunctionalTests/GreenTests' -Force
+      - name: 'Commit Green Tests'
+        if: steps.DownloadGreenTests.outputs.hasGreenTestsArtifacts == 'true'
+        shell: pwsh
+        run: |
+          if ((git status -s).Length -gt 0) {
+            git config --global user.name github-actions
+            git config --global user.email github-actions@github.com
+            git add ./test/EFCore.Jet.FunctionalTests/GreenTests/
+            git status
+            git commit -m "[GitHub Actions] Update green tests."
+            git push          
+          } else {
+            echo 'Nothing to commit.'
+          }

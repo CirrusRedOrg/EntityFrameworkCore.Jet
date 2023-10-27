@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Data;
 using System.Linq;
@@ -141,8 +142,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                         if (isApplyExpression)
                         {
-                            throw new InvalidOperationException(
-                                "Jet does not support APPLY statements. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
+                            throw new UnreachableException();
                         }
 
                         if (index > 0)
@@ -379,7 +379,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Visit(jsonScalarExpression.Json);
                 return jsonScalarExpression;
             }
-            return base.VisitJsonScalar(jsonScalarExpression);
+
+            throw new UnreachableException();
         }
 
         private bool IsNonComposedSetOperation(SelectExpression selectExpression)
@@ -826,6 +827,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
         protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
-            => throw new InvalidOperationException(CoreStrings.TranslationFailed(rowNumberExpression));
+            => throw new UnreachableException();
     }
 }

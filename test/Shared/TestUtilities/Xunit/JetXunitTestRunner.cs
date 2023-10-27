@@ -152,7 +152,11 @@ public class JetXunitTestRunner : XunitTestRunner
                 else if (message.StartsWith("The LINQ expression '") &&
                          message.Contains("' could not be translated."))
                 {
-                    var expectedUnsupportedTranslation = message.Contains("RowNumberExpression");
+                    var expectedUnsupportedTranslation = message.Contains("OUTER APPLY") ||
+                                                         message.Contains("CROSS APPLY") ||
+                                                         message.Contains("ROW_NUMBER() OVER") ||
+                                                         message.Contains("EXCEPT") ||
+                                                         message.Contains("INTERSECT");
 
                     skip = expectedUnsupportedTranslation;
                     unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
@@ -160,22 +164,22 @@ public class JetXunitTestRunner : XunitTestRunner
 
                 if (skip)
                 {
-                    // var sb = new StringBuilder();
-                    // sb.AppendLine(message.ReplaceLineEndings(" "));
-                    // sb.AppendLine("-----");
-                    //
-                    // File.AppendAllText("ExpectedUnsupportedTranslations.txt", sb.ToString());
+                    var sb = new StringBuilder();
+                    sb.AppendLine(message.ReplaceLineEndings(" "));
+                    sb.AppendLine("-----");
+
+                    File.AppendAllText("ExpectedUnsupportedTranslations.txt", sb.ToString());
 
                     break;
                 }
 
                 if (unexpectedUnsupportedTranslation)
                 {
-                    // var sb = new StringBuilder();
-                    // sb.AppendLine(message.ReplaceLineEndings(" "));
-                    // sb.AppendLine("-----");
-                    //
-                    // File.AppendAllText("UnsupportedTranslations.txt", sb.ToString());
+                    var sb = new StringBuilder();
+                    sb.AppendLine(message.ReplaceLineEndings(" "));
+                    sb.AppendLine("-----");
+
+                    File.AppendAllText("UnexpectedUnsupportedTranslations.txt", sb.ToString());
                 }
             }
         }

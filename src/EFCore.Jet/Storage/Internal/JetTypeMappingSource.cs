@@ -37,12 +37,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetByteTypeMapping _byte = new JetByteTypeMapping("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new ShortTypeMapping("smallint", DbType.Int16);
         private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
-        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("decimal", precision: 20, scale: 0, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetLongTypeMapping _bigint = new JetLongTypeMapping("decimal(20, 0)", precision: 20, scale: 0, StoreTypePostfix.PrecisionAndScale);
 
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");
 
-        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal(18, 2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetDecimalTypeMapping _decimal18_0 = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 0);
         private readonly JetCurrencyTypeMapping _currency = new JetCurrencyTypeMapping("currency");
 
         private readonly JetDateTimeTypeMapping _datetime;
@@ -145,9 +146,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"ieeedouble",                 new[] { _double }},
                     {"number",                     new[] { _double }},
 
-                    {"decimal",                    new[] { _decimal }},
-                    {"numeric",                    new[] { _decimal }},
-                    {"dec",                        new[] { _decimal }},
+                    {"decimal",                    new[] { _decimal18_0 }},
+                    {"numeric",                    new[] { _decimal18_0 }},
+                    {"dec",                        new[] { _decimal18_0 }},
 
                     {"currency",                   new[] { _currency }},
                     {"money",                      new[] { _currency }},
@@ -380,6 +381,44 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             }
 
             return null;
+        }
+
+        private static readonly List<string> NameBasesUsingPrecision = new()
+        {
+            "decimal",
+            "dec",
+            "numeric"
+        };
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override string? ParseStoreTypeName(
+            string? storeTypeName,
+            ref bool? unicode,
+            ref int? size,
+            ref int? precision,
+            ref int? scale)
+        {
+            if (storeTypeName == null)
+            {
+                return null;
+            }
+
+            var originalSize = size;
+            var parsedName = base.ParseStoreTypeName(storeTypeName, ref unicode, ref size, ref precision, ref scale);
+
+            if (size.HasValue
+                && NameBasesUsingPrecision.Any(n => storeTypeName.StartsWith(n, StringComparison.OrdinalIgnoreCase)))
+            {
+                precision = size;
+                size = originalSize;
+            }
+
+            return parsedName;
         }
     }
 }

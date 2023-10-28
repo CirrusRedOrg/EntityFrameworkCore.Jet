@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetDateTimeOffsetTypeMapping : DateTimeOffsetTypeMapping
     {
         private readonly IJetOptions _options;
-        private const string DateTimeOffsetFormatConst = @"'{0:yyyy\-MM\-dd HH\:mm\:ss.FFFFFFFzzz}'";
+        private const string DateTimeOffsetFormatConst = @"'{0:yyyy-MM-ddTHH:mm:ss.fffffffzzz}'";
         public JetDateTimeOffsetTypeMapping(
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)

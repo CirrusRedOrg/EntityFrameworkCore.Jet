@@ -18,11 +18,11 @@ namespace EntityFrameworkCore.Jet.Data
         {
             _naturalOnly = naturalOnly;
         }
-        
+
         public AdoxSchema(JetConnection connection, bool readOnly)
         {
             _connection = new ComObject("ADODB.Connection");
-            
+
             try
             {
                 var connectionString = GetOleDbConnectionString(connection.ActiveConnectionString);
@@ -46,7 +46,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw;
             }
         }
-        
+
         private static string GetOleDbConnectionString(string fileNameOrConnectionString)
         {
             if (JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString) &&
@@ -54,15 +54,15 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 return fileNameOrConnectionString;
             }
-            
+
             var filePath = JetStoreDatabaseHandling.ExpandFileName(JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString));
             var connectionString = JetConnection.GetConnectionString(filePath, DataAccessProviderType.OleDb);
 
             if (JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString) &&
                 JetConnection.GetDataAccessProviderType(fileNameOrConnectionString) == DataAccessProviderType.Odbc)
             {
-                var oldCsb = new DbConnectionStringBuilder(true) {ConnectionString = fileNameOrConnectionString};
-                var newCsb = new DbConnectionStringBuilder {ConnectionString = connectionString};
+                var oldCsb = new DbConnectionStringBuilder(true) { ConnectionString = fileNameOrConnectionString };
+                var newCsb = new DbConnectionStringBuilder { ConnectionString = connectionString };
 
                 newCsb.SetUserId(oldCsb.GetUserId(DataAccessProviderType.Odbc), DataAccessProviderType.OleDb);
                 newCsb.SetPassword(oldCsb.GetPassword(DataAccessProviderType.Odbc), DataAccessProviderType.OleDb);
@@ -74,11 +74,11 @@ namespace EntityFrameworkCore.Jet.Data
 
             return connectionString;
         }
-        
+
         public override DataTable GetTables()
         {
             var dataTable = SchemaTables.GetTablesDataTable();
-            
+
             // Only necessary, if ADOX is used in conjunction with ODBC.
             // var procedureSet = new HashSet<string>();
             // using var procedures = _catalog.Procedures;
@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Jet.Data
             //         procedureSet.Add(procedureName);
             //     }
             // }
-            
+
             using var tables = _catalog.Tables;
             var tableCount = tables.Count;
 
@@ -102,7 +102,7 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 using var table = tables[i];
                 using var properties = table.properties;
-                
+
                 var tableName = (string)table.Name;
 
                 // Depending on the provider (ODBC or OLE DB) used, the Tables collection might contain VIEWs
@@ -110,7 +110,7 @@ namespace EntityFrameworkCore.Jet.Data
                 // We make sure here, that we exclude any procedures from the returned table list.
                 // if (!procedureSet.Contains(tableName))
                 {
-                    var tableType = (string) table.Type;
+                    var tableType = (string)table.Type;
 
                     Debug.Assert(
                         tableType == "TABLE" ||
@@ -133,7 +133,7 @@ namespace EntityFrameworkCore.Jet.Data
                     {
                         tableType = "BASE TABLE";
                     }
-                    
+
                     var validationRule = GetPropertyValue<string>(properties, "Jet OLEDB:Table Validation Rule");
                     validationRule = string.IsNullOrEmpty(validationRule)
                         ? null
@@ -151,7 +151,7 @@ namespace EntityFrameworkCore.Jet.Data
                         validationText);
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -159,41 +159,41 @@ namespace EntityFrameworkCore.Jet.Data
         public override DataTable GetColumns()
         {
             var dataTable = SchemaTables.GetColumnsDataTable();
-            
+
             // There is no way to get the ordinal position of a column with ADOX. Looks like someone at Microsoft just forgot to
             // implement it.
             // Therefore, either DAO has to be used, or ADOX together with the OpenSchema()
             // method.
-            
+
             Dictionary<(string TableName, string ColumnName), int> ordinalPositions = null;
-            
+
             if (!_naturalOnly)
             {
                 using (var recordset = _connection.OpenSchema(SchemaEnum.adSchemaColumns))
                 {
                     ordinalPositions = new Dictionary<(string TableName, string ColumnName), int>();
-            
+
                     using var fields = recordset.Fields;
                     using var tableNameField = fields["TABLE_NAME"];
                     using var columnNameField = fields["COLUMN_NAME"];
                     using var ordinalPositionField = fields["ORDINAL_POSITION"];
-            
+
                     recordset.MoveFirst();
-            
+
                     while (!recordset.EOF)
                     {
-                        var tableName = (string) tableNameField.Value;
-                        var columnName = (string) columnNameField.Value;
-                        var ordinalPosition = (int) ordinalPositionField.Value - 1;
-            
+                        var tableName = (string)tableNameField.Value;
+                        var columnName = (string)columnNameField.Value;
+                        var ordinalPosition = (int)ordinalPositionField.Value - 1;
+
                         ordinalPositions.Add((tableName, columnName), ordinalPosition);
                         recordset.MoveNext();
                     }
-            
+
                     recordset.Close();
                 }
             }
-            
+
             using var tables = _catalog.Tables;
             var tableCount = tables.Count;
 
@@ -211,20 +211,20 @@ namespace EntityFrameworkCore.Jet.Data
                     using var properties = column.Properties;
 
                     var columnName = (string)column.Name;
-                    var attributes = (ColumnAttributesEnum) column.Attributes;
+                    var attributes = (ColumnAttributesEnum)column.Attributes;
                     var ordinalPosition = ordinalPositions?[(tableName, columnName)] ?? j;
                     var dataType = (DataTypeEnum)column.Type;
-                    
+
                     // This in inpercise in ADOX, especially for Views. The "Nullable" property is even worse.
                     var nullable = (attributes & ColumnAttributesEnum.adColNullable) == ColumnAttributesEnum.adColNullable;
 
                     var isIdentity = dataType == DataTypeEnum.adInteger &&
                                      GetPropertyValue<bool>(properties, "Autoincrement");
                     var seed = isIdentity
-                        ? (int?) GetPropertyValue<int>(properties, "Seed")
+                        ? (int?)GetPropertyValue<int>(properties, "Seed")
                         : null;
                     var increment = isIdentity
-                        ? (int?) GetPropertyValue<int>(properties, "Increment")
+                        ? (int?)GetPropertyValue<int>(properties, "Increment")
                         : null;
                     var dataTypeString = GetDataTypeString(dataType, isIdentity);
                     var numericPrecision = dataType == DataTypeEnum.adDecimal || dataType == DataTypeEnum.adNumeric
@@ -233,8 +233,8 @@ namespace EntityFrameworkCore.Jet.Data
                     var numericScale = dataType == DataTypeEnum.adDecimal || dataType == DataTypeEnum.adNumeric
                         ? (int?)(byte)column.NumericScale
                         : null;
-                            
-                    var size = (int) column.DefinedSize;
+
+                    var size = (int)column.DefinedSize;
                     var length = GetMaxLength(dataType, size);
 
                     var defaultValue = GetPropertyValue<string>(properties, "Default");
@@ -243,7 +243,7 @@ namespace EntityFrameworkCore.Jet.Data
                     validationRule = string.IsNullOrEmpty(validationRule)
                         ? null
                         : validationRule;
-                    
+
                     var validationText = GetPropertyValue<string>(properties, "Jet OLEDB:Column Validation Text");
                     validationText = string.IsNullOrEmpty(validationText)
                         ? null
@@ -265,7 +265,7 @@ namespace EntityFrameworkCore.Jet.Data
                         increment);
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -273,7 +273,7 @@ namespace EntityFrameworkCore.Jet.Data
         public override DataTable GetIndexes()
         {
             var dataTable = SchemaTables.GetIndexesDataTable();
-            
+
             using var tables = _catalog.Tables;
             var tableCount = tables.Count;
 
@@ -281,18 +281,18 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 using var table = tables[i];
                 var tableName = (string)table.Name;
-                
+
                 using var indexes = table.Indexes;
-                var indexCount = (int) indexes.Count;
+                var indexCount = (int)indexes.Count;
 
                 for (var j = 0; j < indexCount; j++)
                 {
                     using var index = indexes[j];
 
-                    var indexName = (string) index.Name;
-                    var indexNulls = (AllowNullsEnum) index.IndexNulls;
-                    var isPrimaryKey = (bool) index.PrimaryKey;
-                    var isUnique = (bool) index.Unique;
+                    var indexName = (string)index.Name;
+                    var indexNulls = (AllowNullsEnum)index.IndexNulls;
+                    var isPrimaryKey = (bool)index.PrimaryKey;
+                    var isUnique = (bool)index.Unique;
                     var isNullable = indexNulls != AllowNullsEnum.adIndexNullsDisallow;
                     var ignoreNulls = isNullable && indexNulls != AllowNullsEnum.adIndexNullsAllow;
 
@@ -320,7 +320,7 @@ namespace EntityFrameworkCore.Jet.Data
                         ignoreNulls);
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -328,7 +328,7 @@ namespace EntityFrameworkCore.Jet.Data
         public override DataTable GetIndexColumns()
         {
             var dataTable = SchemaTables.GetIndexColumnsDataTable();
-            
+
             using var tables = _catalog.Tables;
             var tableCount = tables.Count;
 
@@ -338,24 +338,24 @@ namespace EntityFrameworkCore.Jet.Data
                 var tableName = (string)table.Name;
 
                 using var indexes = table.Indexes;
-                var indexCount = (int) indexes.Count;
+                var indexCount = (int)indexes.Count;
 
                 for (var j = 0; j < indexCount; j++)
                 {
                     using var index = indexes[j];
 
-                    var indexName = (string) index.Name;
-                    
+                    var indexName = (string)index.Name;
+
                     using var columns = index.Columns;
-                    var columnCount = (int) columns.Count;
+                    var columnCount = (int)columns.Count;
 
                     for (var k = 0; k < columnCount; k++)
                     {
                         using var column = columns[k];
 
-                        var fieldName = (string) column.Name;
+                        var fieldName = (string)column.Name;
                         var ordinalPosition = k;
-                        var sortOrder = (SortOrderEnum) column.SortOrder;
+                        var sortOrder = (SortOrderEnum)column.SortOrder;
                         var isDescending = sortOrder == SortOrderEnum.adSortDescending;
 
                         dataTable.Rows.Add(
@@ -367,7 +367,7 @@ namespace EntityFrameworkCore.Jet.Data
                     }
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -375,7 +375,7 @@ namespace EntityFrameworkCore.Jet.Data
         public override DataTable GetRelations()
         {
             var dataTable = SchemaTables.GetRelationsDataTable();
-            
+
             using var tables = _catalog.Tables;
             var tableCount = tables.Count;
 
@@ -385,18 +385,18 @@ namespace EntityFrameworkCore.Jet.Data
                 var referencingTableName = (string)table.Name;
 
                 using var keys = table.Keys;
-                var keyCount = (int) keys.Count;
+                var keyCount = (int)keys.Count;
 
                 for (var j = 0; j < keyCount; j++)
                 {
                     using var key = keys[j];
 
-                    var relationName = (string) key.Name;
-                    var principalTableName = (string) key.RelatedTable;
+                    var relationName = (string)key.Name;
+                    var principalTableName = (string)key.RelatedTable;
 
                     var relationType = !_naturalOnly ? "MANY" : null; // we don't know what kind of relationship this is
 
-                    var updateRule = (RuleEnum) key.UpdateRule;
+                    var updateRule = (RuleEnum)key.UpdateRule;
                     var onUpdate = updateRule switch
                     {
                         RuleEnum.adRINone => "NO ACTION",
@@ -405,8 +405,8 @@ namespace EntityFrameworkCore.Jet.Data
                         RuleEnum.adRISetDefault => "SET DEFAULT",
                         _ => "NO ACTION",
                     };
-                    
-                    var deleteRule = (RuleEnum) key.DeleteRule;
+
+                    var deleteRule = (RuleEnum)key.DeleteRule;
                     var onDelete = deleteRule switch
                     {
                         RuleEnum.adRINone => "NO ACTION",
@@ -415,9 +415,9 @@ namespace EntityFrameworkCore.Jet.Data
                         RuleEnum.adRISetDefault => "SET DEFAULT",
                         _ => "NO ACTION",
                     };
-                    
-                    var isEnforced = _naturalOnly ? null : (bool?) true;
-                    var isInherited = _naturalOnly ? null : (bool?) true;
+
+                    var isEnforced = _naturalOnly ? null : (bool?)true;
+                    var isInherited = _naturalOnly ? null : (bool?)true;
 
                     dataTable.Rows.Add(
                         relationName,
@@ -430,7 +430,7 @@ namespace EntityFrameworkCore.Jet.Data
                         isInherited);
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -438,35 +438,35 @@ namespace EntityFrameworkCore.Jet.Data
         public override DataTable GetRelationColumns()
         {
             var dataTable = SchemaTables.GetRelationColumnsDataTable();
-            
+
             using var tables = _catalog.Tables;
             var tableCount = tables.Count;
 
             for (var i = 0; i < tableCount; i++)
             {
                 using var table = tables[i];
-                
+
                 using var keys = table.Keys;
-                var keyCount = (int) keys.Count;
+                var keyCount = (int)keys.Count;
 
                 for (var j = 0; j < keyCount; j++)
                 {
                     using var key = keys[j];
 
-                    var relationName = (string) key.Name;
-                    var relationType = (KeyTypeEnum) key.Type;
+                    var relationName = (string)key.Name;
+                    var relationType = (KeyTypeEnum)key.Type;
 
                     if (relationType == KeyTypeEnum.adKeyForeign)
                     {
                         using var columns = key.Columns;
-                        var columnCount = (int) columns.Count;
+                        var columnCount = (int)columns.Count;
 
                         for (var k = 0; k < columnCount; k++)
                         {
                             using var column = columns[k];
 
-                            var referencingColumnName = (string) column.Name;
-                            var principalColumnName = (string) column.RelatedColumn;
+                            var referencingColumnName = (string)column.Name;
+                            var principalColumnName = (string)column.RelatedColumn;
 
                             dataTable.Rows.Add(
                                 relationName,
@@ -477,7 +477,7 @@ namespace EntityFrameworkCore.Jet.Data
                     }
                 }
             }
-            
+
             dataTable.AcceptChanges();
             return dataTable;
         }
@@ -485,7 +485,7 @@ namespace EntityFrameworkCore.Jet.Data
         public override DataTable GetCheckConstraints()
         {
             var dataTable = SchemaTables.GetCheckConstraintsDataTable();
-            
+
             var checkConstraints = new Dictionary<string, string>();
 
             using (var recordset = _connection.OpenSchema(SchemaEnum.adSchemaCheckConstraints))
@@ -499,8 +499,8 @@ namespace EntityFrameworkCore.Jet.Data
 
                 while (!recordset.EOF)
                 {
-                    var constraintName = (string) constraintNameField.Value;
-                    var checkClause = (string) checkClauseField.Value;
+                    var constraintName = (string)constraintNameField.Value;
+                    var checkClause = (string)checkClauseField.Value;
 
                     checkConstraints.Add(constraintName, checkClause);
                     recordset.MoveNext();
@@ -518,8 +518,8 @@ namespace EntityFrameworkCore.Jet.Data
 
                 while (!recordset.EOF)
                 {
-                    var tableName = (string) tableNameField.Value;
-                    var constraintName = (string) constraintNameField.Value;
+                    var tableName = (string)tableNameField.Value;
+                    var constraintName = (string)constraintNameField.Value;
                     //var constraintType = (string) constraintTypeField.Value;
                     //if (constraintType.StartsWith("CHECK", StringComparison.OrdinalIgnoreCase) &&
 
@@ -643,7 +643,7 @@ namespace EntityFrameworkCore.Jet.Data
                 case DataTypeEnum.adUnsignedInt:
                     return null;
                 case DataTypeEnum.adBigInt:
-                    return "integer";
+                    return "bigint";
                 case DataTypeEnum.adGUID:
                     return "guid";
                 case DataTypeEnum.adBinary:
@@ -718,7 +718,7 @@ namespace EntityFrameworkCore.Jet.Data
                 return defaultValue;
             }
         }
-        
+
         protected static Dictionary<string, object> GetProperties(dynamic properties)
         {
             var propertyMap = new Dictionary<string, object>();
@@ -742,13 +742,13 @@ namespace EntityFrameworkCore.Jet.Data
 
             return propertyMap;
         }
-        
+
         public override void Dispose()
         {
             _connection.Dispose();
             _catalog.Dispose();
         }
-        
+
         protected enum RuleEnum
         {
             adRINone = 0,
@@ -756,7 +756,7 @@ namespace EntityFrameworkCore.Jet.Data
             adRISetNull = 2,
             adRISetDefault = 3,
         }
-        
+
         protected enum SortOrderEnum
         {
             adSortAscending = 1,
@@ -777,14 +777,14 @@ namespace EntityFrameworkCore.Jet.Data
             adIndexNullsIgnore = 2,
             adIndexNullsIgnoreAny = 4,
         }
-        
+
         [Flags]
         protected enum ColumnAttributesEnum
         {
             adColFixed = 1,
             adColNullable = 2,
         }
-        
+
         protected enum DataTypeEnum
         {
             adEmpty = 0,
@@ -885,7 +885,7 @@ namespace EntityFrameworkCore.Jet.Data
             adCmdFile = 0x00000100,
             adCmdTableDirect = 0x00000200,
         }
-        
+
         [Flags]
         protected enum ExecuteOptionEnum
         {

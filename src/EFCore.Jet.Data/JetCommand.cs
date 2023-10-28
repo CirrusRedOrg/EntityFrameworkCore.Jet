@@ -294,7 +294,7 @@ namespace EntityFrameworkCore.Jet.Data
             // For all other types of statements, the return value is -1. If a rollback occurs, the return value is also -1.
             // This is how it is stated in the docs, however, the underlying connection actually seems to be returning 0
             // for statements like CREATE TABLE/INDEX, EXEC etc.
-            var commandType = newCommandText.Trim().Substring(0, 10);
+            var commandType = newCommandText.Trim().Substring(0, 6);
             if (commandType.Contains("INSERT", StringComparison.OrdinalIgnoreCase) ||
                 commandType.Contains("UPDATE", StringComparison.OrdinalIgnoreCase) ||
                 commandType.Contains("DELETE", StringComparison.OrdinalIgnoreCase))

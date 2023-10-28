@@ -4,5 +4,6 @@ namespace EntityFrameworkCore.Jet.Data
     {
         Odbc,
         OleDb,
+        Unconfgiured
     };
 }

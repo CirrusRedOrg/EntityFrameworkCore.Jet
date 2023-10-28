@@ -21,14 +21,14 @@ namespace EntityFrameworkCore.Jet.Data
         internal DbConnection? InnerConnection { get; private set; }
 
         internal JetTransaction? ActiveTransaction { get; set; }
-        
+
         internal int RowCount { get; set; }
-        
+
         internal string? ActiveConnectionString { get; private set; }
         internal string? FileNameOrConnectionString => ConnectionString;
 
         public const string DefaultDualTableName = "#Dual";
-        
+
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
@@ -96,9 +96,6 @@ namespace EntityFrameworkCore.Jet.Data
             get => JetFactory?.InnerFactory;
             set
             {
-                if (value == null)
-                    throw new ArgumentNullException(nameof(value));
-
                 if (JetFactory != null && JetFactory != value)
                     throw new InvalidOperationException($"The {DataAccessProviderFactory} property can only be set once.");
 
@@ -186,7 +183,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// </summary>
         public override string ConnectionString
         {
-            get => _connectionString;
+            get => _connectionString ?? "";
             set
             {
                 if (State != ConnectionState.Closed)
@@ -325,7 +322,7 @@ namespace EntityFrameworkCore.Jet.Data
                 : null;
 
             string connectionString;
-            
+
             if (IsConnectionString(fileNameOrConnectionString))
             {
                 // If the connection string is an actual connection string and not just a file path, then we should
@@ -354,7 +351,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             DataAccessProviderFactory ??= JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
-            
+
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.
             // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
@@ -369,11 +366,11 @@ namespace EntityFrameworkCore.Jet.Data
 
                 if (provider == null)
                     throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
-                    
+
                 connectionStringBuilder.SetProvider(provider);
                 connectionString = connectionStringBuilder.ToString();
             }
-            
+
             // Enable ExtendedAnsiSQL when using ODBC to support ODBC 4.0 statements (like CREATE VIEW).
             if (dataAccessProviderType == DataAccessProviderType.Odbc)
             {
@@ -385,7 +382,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
 
             connectionString = ExpandDatabaseFilePath(connectionString, DataAccessProviderFactory);
-            
+
             try
             {
                 InnerConnection = InnerConnectionFactory.Instance.OpenConnection(
@@ -465,7 +462,7 @@ namespace EntityFrameworkCore.Jet.Data
                 // SqlCommand will complain if the command text is empty
                 commandText = Environment.NewLine;
 
-            var command = (JetCommand) JetFactory.CreateCommand();
+            var command = (JetCommand)JetFactory.CreateCommand();
             command.CommandText = commandText;
 
             if (commandTimeout.HasValue)
@@ -532,7 +529,7 @@ namespace EntityFrameworkCore.Jet.Data
             //
             // Create database:
             //
-            
+
             var databaseCreator = JetDatabaseCreator.CreateInstance(schemaProviderType);
             databaseCreator.CreateDatabase(fileNameOrConnectionString, version, collatingOrder, databasePassword);
 
@@ -560,7 +557,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             using var connection = new JetConnection(connectionString, dataAccessProviderFactory);
             connection.Open();
-            
+
             using var schemaProvider = SchemaProvider.CreateInstance(schemaProviderType, connection);
             schemaProvider.EnsureDualTable();
         }
@@ -570,7 +567,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType? dataAccessProviderType = null)
         {
-            var providerType = dataAccessProviderType ?? JetConfiguration.DefaultDataAccessProviderType; 
+            var providerType = dataAccessProviderType ?? JetConfiguration.DefaultDataAccessProviderType;
             return GetConnectionString(fileNameOrConnectionString, providerType, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
         }
 
@@ -589,7 +586,7 @@ namespace EntityFrameworkCore.Jet.Data
             => dataAccessProviderType == DataAccessProviderType.OleDb
                 ? $"Provider={provider};Data Source={JetStoreDatabaseHandling.ExpandFileName(fileName)}"
                 : $"Driver={{{provider}}};DBQ={JetStoreDatabaseHandling.ExpandFileName(fileName)}";
-        
+
         private static string ExpandDatabaseFilePath(string connectionString, DbProviderFactory dataAccessProviderFactory)
         {
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
@@ -614,7 +611,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public bool DatabaseExists()
             => DatabaseExists(_connectionString);
-        
+
         public SchemaProviderType SchemaProviderType { get; set; }
 
         public static bool DatabaseExists(string fileNameOrConnectionString)

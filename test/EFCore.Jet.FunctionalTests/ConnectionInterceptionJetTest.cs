@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 => base.InjectInterceptors(serviceCollection.AddEntityFrameworkJet(), injectedInterceptors);
         }
         protected override DbContextOptionsBuilder ConfigureProvider(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseJet(new JetConnection("Database=ConnectionInterceptionTest"));
+        => optionsBuilder.UseJet();
 
         protected override BadUniverseContext CreateBadUniverse(DbContextOptionsBuilder optionsBuilder)
             => new BadUniverseContext(optionsBuilder.UseJet(new FakeDbConnection()).Options);

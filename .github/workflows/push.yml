@@ -1,11 +1,6 @@
-name: Build
+name: Push
 on:
   push:
-    branches:
-      - '**'
-    paths-ignore:
-      - '**.md'
-  pull_request:
     branches:
       - '**'
     paths-ignore:
@@ -14,13 +9,54 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
+  checkoutFetchDepth: 1
   buildConfiguration: 'Debug'
   skipTests: false
   deterministicTests: true
-  autoCommitGreenTests: true
-  uploadTestResults: false
+  uploadTestResults: true
 jobs:
+  Preconditions:
+    runs-on: ubuntu-latest
+    outputs:
+      lastCommitIsAutoCommit: ${{ steps.GetHeadCommitInfo.outputs.lastCommitIsAutoCommit }}
+      lastCommitCreatedBeforeSeconds: ${{ steps.GetHeadCommitInfo.outputs.lastCommitCreatedBeforeSeconds }}
+    steps:
+      - name: 'General Information'
+        shell: pwsh
+        run: |
+          echo 'EventName: ${{ github.event_name }}'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.checkoutFetchDepth }}
+      - name: 'Get Head Commit Info'
+        id: GetHeadCommitInfo
+        shell: pwsh
+        run: |
+          git log -${{ env.checkoutFetchDepth }} --pretty=%B
+          
+          $headCommitMessage = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%B
+          echo "headCommitMessage: = $headCommitMessage"
+          
+          $headCommitAuthorName = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%an
+          echo "headCommitAuthorName: = $headCommitAuthorName"
+
+          $headCommitAuthorEmail = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ae
+          echo "headCommitAuthorEmail: = $headCommitAuthorEmail"
+
+          $headCommitDateTime = Get-Date (git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ci)
+          echo "headCommitDateTime: = $headCommitDateTime"
+
+          $lastCommitIsAutoCommit = $headCommitAuthorEmail -eq 'github-actions@github.com' -and $headCommitMessage -eq '[GitHub Actions] Update green tests.'
+          echo "lastCommitIsAutoCommit=$lastCommitIsAutoCommit" >> $env:GITHUB_OUTPUT
+          echo "lastCommitIsAutoCommit: = $lastCommitIsAutoCommit"
+
+          $lastCommitCreatedBeforeSeconds = [int]((Get-Date) - $headCommitDateTime).TotalSeconds
+          echo "lastCommitCreatedBeforeSeconds=$lastCommitCreatedBeforeSeconds" >> $env:GITHUB_OUTPUT
+          echo "lastCommitCreatedBeforeSeconds: = $lastCommitCreatedBeforeSeconds"
   BuildAndTest:
+    needs: Preconditions
+    if: needs.Preconditions.outputs.lastCommitIsAutoCommit != 'true' || needs.Preconditions.outputs.lastCommitCreatedBeforeSeconds > 300
     strategy:
       fail-fast: false
       matrix:
@@ -95,7 +131,41 @@ jobs:
       - name: Install .NET SDK
         shell: pwsh
         run: |
-          &([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          function Retry-Command {
+              [CmdletBinding()]
+              Param(
+                [Parameter(Position=0, Mandatory=$true)]
+                [ScriptBlock]$ScriptBlock,
+          
+                [Parameter(Position=1, Mandatory=$false)]
+                [int]$Maximum = 5,
+          
+                [Parameter(Mandatory=$false)]
+                [switch]$ExponentialBackoff
+              )
+          
+              $attempt = 0
+          
+              do {
+                if ($attempt -gt 0 -and $ExponentialBackoff) {
+                  Start-Sleep -Seconds ([Math]::Pow(2, $attempt) - 1)          
+                }
+          
+                $attempt++
+                try {
+                  $ScriptBlock.Invoke()
+                  return
+                } catch {
+                  Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                }
+              } while ($attempt -lt $Maximum)
+          
+              throw 'Max retries exceeded.'
+          }
+          
+          Retry-Command {
+              &([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          } -Maximum 10 -ExponentialBackoff
       - name: .NET Information After SDK Install
         shell: pwsh
         run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
@@ -142,33 +212,75 @@ jobs:
         run: |
           & '${{ env.dotnetExecutable }}' build --configuration '${{ env.buildConfiguration }}'
       - name: 'Run Tests: EFCore.Jet.Data.Tests'
-        if: env.skipTests != 'true'
+        if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
-      - name: 'Run Tests: EFCore.Jet.FunctionalTests'
-        if: env.skipTests != 'true'
-        shell: pwsh
-        run: |
-          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
-          exit 0
       - name: 'Run Tests: EFCore.Jet.Tests'
-        if: env.skipTests != 'true'
+        if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path '.\test\EFCore.Jet.FunctionalTests\TestResults' -PathType Container) {
+              Get-ChildItem '.\test\EFCore.Jet.FunctionalTests\TestResults' | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+            $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $testResultsDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+          
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
+          exit 0
+      - name: 'Rename Test Results'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
       - name: 'Upload Test Results'
-        if: env.skipTests != 'true' && env.uploadTestResults == 'true'
+        if: always() && env.skipTests != 'true' && env.uploadTestResults == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: |
-            test\EFCore.Jet.Data.Tests\TestResults
-            test\EFCore.Jet.FunctionalTests\TestResults
-            test\EFCore.Jet.Tests\TestResults
+            test\EFCore.Jet.Data.Tests\TestResults\*.trx
+            test\EFCore.Jet.FunctionalTests\TestResults\*.trx
+            test\EFCore.Jet.Tests\TestResults\*.trx
       - name: 'Check Tests: EFCore.Jet.FunctionalTests'
         if: env.skipTests != 'true'
         shell: pwsh
@@ -178,8 +290,8 @@ jobs:
           $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
 
           if ($null -eq $currentTestRunTrx) {
-              echo "Test runner crashed."
-              exit 2
+              echo 'Test runner log file is missing.'
+              exit 3
           }
 
           $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')
@@ -192,8 +304,9 @@ jobs:
           $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
 
           if (Test-Path $establishedGreenTestsFilePath) {
-              $notGreenAnymore = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath) | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+              $diffResult = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath)
 
+              $notGreenAnymore = $diffResult | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
               if ($null -ne $notGreenAnymore) {
                   echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
                   $notGreenAnymore
@@ -201,10 +314,17 @@ jobs:
               }
           
               echo 'All tests that passed in previous runs still passed in this run.'
-              Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
+
+              $newlyGreenTests = $diffResult | Where-Object { $_.SideIndicator -eq '=>' } | Select-Object -ExpandProperty InputObject
+              if ($newlyGreenTests.Length -gt 0) {
+                Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
           
-              $commitGreenTestsFile = $establishedGreenTestsFilePath
-              echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+                echo "`nThe following new tests passed that did not pass before:`n"
+                $newlyGreenTests
+
+                $commitGreenTestsFile = $establishedGreenTestsFilePath
+                echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+            }
           }
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'
@@ -213,43 +333,9 @@ jobs:
         with:
           name: green-tests
           path: ${{ env.commitGreenTestsFile }}
-  Commit:
-    needs: BuildAndTest
-    runs-on: ubuntu-latest
-    outputs:
-      committedGreenTests: ${{ steps.commit.outputs.committedGreenTests }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: 'Download Green Tests'
-        uses: actions/download-artifact@v3
-        with:
-          name: green-tests
-          path: test/EFCore.Jet.FunctionalTests/GreenTests
-      - name: 'Commit Green Tests'
-        id: commit
-        if: env.autoCommitGreenTests == 'true'
-        shell: pwsh
-        run: |
-          git config --global user.name github-actions
-          git config --global user.email github-actions@github.com
-          git add ./test/EFCore.Jet.FunctionalTests/GreenTests/
-          git status
-          
-          if ((git status -s).Length -gt 0) {
-            git commit -m "[GitHub Actions] Update green tests."
-            git push
-
-            $committedGreenTests = 'true'
-            echo "committedGreenTests=$committedGreenTests" >> $env:GITHUB_OUTPUT
-          } else {
-            echo 'Nothing to commit.'
-          }
   NuGet:
-    needs:
-      - BuildAndTest
-      - Commit
-    if: github.event_name == 'push' && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
+    needs: BuildAndTest
+    if: always() && (needs.BuildAndTest.result == 'success' || needs.BuildAndTest.result == 'skipped') && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

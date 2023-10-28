@@ -1,0 +1,368 @@
+name: PullRequest
+on:
+  pull_request:
+    branches:
+      - '**'
+    paths-ignore:
+      - '**.md'
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  checkoutFetchDepth: 2
+  buildConfiguration: 'Debug'
+  skipTests: false
+  deterministicTests: true
+  autoCommitGreenTests: true
+  uploadTestResults: true
+jobs:
+  Preconditions:
+    runs-on: ubuntu-latest
+    outputs:
+      lastCommitIsAutoCommit: ${{ steps.GetHeadCommitInfo.outputs.lastCommitIsAutoCommit }}
+      lastCommitCreatedBeforeSeconds: ${{ steps.GetHeadCommitInfo.outputs.lastCommitCreatedBeforeSeconds }}
+    steps:
+      - name: 'General Information'
+        shell: pwsh
+        run: |
+          echo 'EventName: ${{ github.event_name }}'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.checkoutFetchDepth }}
+      - name: 'Get Head Commit Info'
+        id: GetHeadCommitInfo
+        shell: pwsh
+        run: |
+          git log -${{ env.checkoutFetchDepth }} --pretty=%B
+          
+          $headCommitMessage = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%B
+          echo "headCommitMessage: = $headCommitMessage"
+          
+          $headCommitAuthorName = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%an
+          echo "headCommitAuthorName: = $headCommitAuthorName"
+
+          $headCommitAuthorEmail = git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ae
+          echo "headCommitAuthorEmail: = $headCommitAuthorEmail"
+
+          $headCommitDateTime = Get-Date (git log -1 --skip "$(${{ env.checkoutFetchDepth }} - 1)" --pretty=%ci)
+          echo "headCommitDateTime: = $headCommitDateTime"
+
+          $lastCommitIsAutoCommit = $headCommitAuthorEmail -eq 'github-actions@github.com' -and $headCommitMessage -eq '[GitHub Actions] Update green tests.'
+          echo "lastCommitIsAutoCommit=$lastCommitIsAutoCommit" >> $env:GITHUB_OUTPUT
+          echo "lastCommitIsAutoCommit: = $lastCommitIsAutoCommit"
+
+          $lastCommitCreatedBeforeSeconds = [int]((Get-Date) - $headCommitDateTime).TotalSeconds
+          echo "lastCommitCreatedBeforeSeconds=$lastCommitCreatedBeforeSeconds" >> $env:GITHUB_OUTPUT
+          echo "lastCommitCreatedBeforeSeconds: = $lastCommitCreatedBeforeSeconds"
+  BuildAndTest:
+    needs: Preconditions
+    if: needs.Preconditions.outputs.lastCommitIsAutoCommit != 'true' || needs.Preconditions.outputs.lastCommitCreatedBeforeSeconds > 300
+    strategy:
+      fail-fast: false
+      matrix:
+        aceVersion:
+          - 2010
+          - 2016
+        aceArchitecture:
+          - x64
+          - x86
+        dataAccessProviderType:
+          - ODBC
+          - OLE DB
+        os:
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set additional variables
+        shell: pwsh
+        run: |
+          $os = '${{ matrix.os }}'.Split('-')[0]
+          echo "os=$os" >> $env:GITHUB_ENV
+
+          $dotnetInstallDirectory = '.\.dotnet_${{ matrix.aceArchitecture }}'
+          echo "dotnetInstallDirectory=$dotnetInstallDirectory" >> $env:GITHUB_ENV
+          
+          $dotnetExecutable = Join-Path $dotnetInstallDirectory 'dotnet.exe'
+          echo "dotnetExecutable=$dotnetExecutable" >> $env:GITHUB_ENV
+          
+          $aceUrls = @{
+            '2010' = @{
+              'x64' = 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
+              'x86' = 'https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+              'silent' = '/passive /quiet /norestart REBOOT=ReallySuppress'
+            }
+           '2016' = @{
+              'x64' = 'https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/AccessDatabaseEngine_X64.exe'
+              'x86' = 'https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/AccessDatabaseEngine.exe'
+              'silent' = '/passive /quiet /norestart REBOOT=ReallySuppress'
+            }
+          }
+          
+          $aceUrl = $aceUrls['${{ matrix.aceVersion }}']['${{ matrix.aceArchitecture }}']
+          echo "aceUrl=$aceUrl" >> $env:GITHUB_ENV
+          
+          $aceSilentInstallArgument = $aceUrls['${{ matrix.aceVersion }}']['silent']
+          echo "aceSilentInstallArgument=$aceSilentInstallArgument" >> $env:GITHUB_ENV
+          
+          $defaultConnection = '${{ matrix.dataAccessProviderType }}' -eq 'ODBC' ? 'DBQ=Jet.accdb' : 'Data Source=Jet.accdb;Persist Security Info=False;'
+          echo "defaultConnection=$defaultConnection" >> $env:GITHUB_ENV
+      - name: Output Variables
+        shell: pwsh
+        run: |
+          echo "os: ${{ env.os }}"
+          echo "buildConfiguration: ${{ env.buildConfiguration }}"
+          echo "aceVersion: ${{ matrix.aceVersion }}"
+          echo "aceArchitecture: ${{ matrix.aceArchitecture }}"
+          echo "aceUrl: ${{ env.aceUrl }}"
+          echo "aceSilentInstallArgument: ${{ env.aceSilentInstallArgument }}"
+          echo "dataAccessProviderType: ${{ matrix.dataAccessProviderType }}"
+          echo "defaultConnection: ${{ env.defaultConnection }}"
+          echo "skipTests: ${{ env.skipTests }}"
+          echo "dotnetInstallDirectory: ${{ env.dotnetInstallDirectory }}"
+          echo "dotnetExecutable: ${{ env.dotnetExecutable }}"
+
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.repository: ${{ github.repository }}"
+      - name: .NET Information Before SDK Install
+        shell: pwsh
+        run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
+      - name: Install .NET SDK
+        shell: pwsh
+        run: |
+          function Retry-Command {
+              [CmdletBinding()]
+              Param(
+                [Parameter(Position=0, Mandatory=$true)]
+                [ScriptBlock]$ScriptBlock,
+          
+                [Parameter(Position=1, Mandatory=$false)]
+                [int]$Maximum = 5,
+          
+                [Parameter(Mandatory=$false)]
+                [switch]$ExponentialBackoff
+              )
+          
+              $attempt = 0
+          
+              do {
+                if ($attempt -gt 0 -and $ExponentialBackoff) {
+                  Start-Sleep -Seconds ([Math]::Pow(2, $attempt) - 1)          
+                }
+          
+                $attempt++
+                try {
+                  $ScriptBlock.Invoke()
+                  return
+                } catch {
+                  Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                }
+              } while ($attempt -lt $Maximum)
+          
+              throw 'Max retries exceeded.'
+          }
+          
+          Retry-Command {
+              &([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
+          } -Maximum 10 -ExponentialBackoff
+      - name: .NET Information After SDK Install
+        shell: pwsh
+        run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
+      - name: ACE Information Before ACE Install
+        shell: pwsh
+        run: |
+          'DAO:'
+          Get-ChildItem 'HKLM:\SOFTWARE\Classes\DAO.DBEngine*' | Select-Object
+          
+          'OLE DB:'
+          foreach ($provider in [System.Data.OleDb.OleDbEnumerator]::GetRootEnumerator())
+          {
+              $v = New-Object PSObject        
+              for ($i = 0; $i -lt $provider.FieldCount; $i++) 
+              {
+                  Add-Member -in $v NoteProperty $provider.GetName($i) $provider.GetValue($i)
+              }
+              $v
+          }
+      - name: Install Access Database Engine
+        shell: pwsh
+        run: |
+          $setupFileName = 'AccessDatabaseEngine_${{ matrix.aceVersion }}_${{ matrix.aceArchitecture }}.exe'
+          Invoke-WebRequest '${{ env.aceUrl }}' -OutFile $setupFileName
+          & ".\$setupFileName" ${{ env.aceSilentInstallArgument }} | Out-Default
+      - name: ACE Information After ACE Install
+        shell: pwsh
+        run: |
+          'DAO:'
+          Get-ChildItem 'HKLM:\SOFTWARE\Classes\DAO.DBEngine*' | Select-Object
+          
+          'OLE DB:'
+          foreach ($provider in [System.Data.OleDb.OleDbEnumerator]::GetRootEnumerator())
+          {
+              $v = New-Object PSObject        
+              for ($i = 0; $i -lt $provider.FieldCount; $i++) 
+              {
+                  Add-Member -in $v NoteProperty $provider.GetName($i) $provider.GetValue($i)
+              }
+              $v
+          }
+      - name: Build Solution
+        shell: pwsh
+        run: |
+          & '${{ env.dotnetExecutable }}' build --configuration '${{ env.buildConfiguration }}'
+      - name: 'Run Tests: EFCore.Jet.Data.Tests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Run Tests: EFCore.Jet.Tests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path '.\test\EFCore.Jet.FunctionalTests\TestResults' -PathType Container) {
+              Get-ChildItem '.\test\EFCore.Jet.FunctionalTests\TestResults' | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+            $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $testResultsDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+          
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
+          exit 0
+      - name: 'Rename Test Results'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
+      - name: 'Upload Test Results'
+        if: always() && env.skipTests != 'true' && env.uploadTestResults == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            test\EFCore.Jet.Data.Tests\TestResults\*.trx
+            test\EFCore.Jet.FunctionalTests\TestResults\*.trx
+            test\EFCore.Jet.Tests\TestResults\*.trx
+      - name: 'Check Tests: EFCore.Jet.FunctionalTests'
+        if: env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          # Create text file with all tests that passed.
+          $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
+          $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+
+          if ($null -eq $currentTestRunTrx) {
+              echo 'Test runner log file is missing.'
+              exit 3
+          }
+
+          $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')
+          (Select-Xml -Path  $currentTestRunTrx.FullName -XPath "//ns:UnitTestResult" -Namespace @{"ns"="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}).Node | Sort-Object -Property testName -CaseSensitive | ForEach-Object { "$($_.outcome -eq 'Passed' ? 'P' : $_.outcome -eq 'NotExecuted' ? 'N' : $_.outcome -eq 'Failed' ? 'F' : 'U') $($_.testName)" } | Add-Content $allTestsFilePath
+
+          $greenTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_Passed.txt')
+          Get-Content $allTestsFilePath | Where-Object { $_.StartsWith('P ') } | ForEach-Object { $_.Substring(2) } | Add-Content $greenTestsFilePath
+
+          # Compare test file against previously committed file.
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+
+          if (Test-Path $establishedGreenTestsFilePath) {
+              $diffResult = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath)
+          
+              $notGreenAnymore = $diffResult | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+              if ($null -ne $notGreenAnymore) {
+                  echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
+                  $notGreenAnymore
+                  exit 1
+              }
+          
+              echo 'All tests that passed in previous runs still passed in this run.'
+
+              $newlyGreenTests = $diffResult | Where-Object { $_.SideIndicator -eq '=>' } | Select-Object -ExpandProperty InputObject
+              if ($newlyGreenTests.Length -gt 0) {
+                Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
+                
+                echo "`nThe following new tests passed that did not pass before:`n"
+                $newlyGreenTests
+
+                $commitGreenTestsFile = $establishedGreenTestsFilePath
+                echo "commitGreenTestsFile=$commitGreenTestsFile" >> $env:GITHUB_ENV
+              }
+          }
+          echo 'Check succeeded.'
+      - name: 'Upload Green Tests'
+        if: env.commitGreenTestsFile != '' && env.autoCommitGreenTests == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: green-tests
+          path: ${{ env.commitGreenTestsFile }}
+  CheckArtifacts:
+    needs: BuildAndTest
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      hasGreenTestsArtifacts: ${{ steps.CheckGreenTestsArtifacts.outputs.hasGreenTestsArtifacts }}
+    steps:
+      - name: 'Download Green Tests'
+        uses: actions/download-artifact@v3
+        continue-on-error: true
+        with:
+          name: green-tests
+          path: green-tests
+      - name: 'Check Green Tests Artifacts'
+        id: CheckGreenTestsArtifacts
+        shell: pwsh
+        run: |
+          dir -Recurse | Select-Object -ExpandProperty FullName
+
+          $hasGreenTestsArtifacts = (Test-Path 'green-tests') -and (Get-ChildItem 'green-tests').Length -gt 0
+          echo "hasGreenTestsArtifacts=$hasGreenTestsArtifacts" >> $env:GITHUB_OUTPUT
+          echo "hasGreenTestsArtifacts: $hasGreenTestsArtifacts"
+  Status:
+    needs: CheckArtifacts
+    if: always() && needs.CheckArtifacts.result == 'success' && needs.CheckArtifacts.outputs.hasGreenTestsArtifacts != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Final Status'
+        shell: pwsh
+        run: |
+          echo 'All workflows succeeded.'
+          exit 0

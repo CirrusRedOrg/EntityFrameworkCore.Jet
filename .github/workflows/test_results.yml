@@ -1,0 +1,74 @@
+name: ReportTestResults
+on:
+  workflow_run:
+    workflows:
+      - PullRequest
+    types:
+      - completed
+permissions:
+  contents: read
+  actions: read
+  checks: write
+jobs:
+  Report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Add default settings to node calls'
+        shell: bash
+        run: |
+          #
+          # The later used dorny/test-reporter@v1 action can throw the following exception when enough tests have been
+          # executed:
+          #     RangeError: Maximum call stack size exceeded
+          #
+          # We explicitly increase the stack max. stack size here to work around this issue.
+          #
+          
+          which node
+          node --version
+          
+          mv /usr/local/bin/node /usr/local/bin/node_org
+          echo '#!/bin/bash' >> /usr/local/bin/node
+          echo '/usr/local/bin/node_org --stack-size=4096 $@' >> /usr/local/bin/node
+          cat /usr/local/bin/node
+          chmod +x /usr/local/bin/node
+
+          which node
+          node --version
+      - name: 'Check Artifact'
+        id: CheckArtifact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{ github.event.workflow_run.id }},
+            });
+            
+            var testResultsArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "test-results"
+            });
+            
+            if (testResultsArtifacts.length > 0) {
+              core.setOutput('testResultsArtifactAvailable', 'true');
+              console.log('Test results artifact found.')
+            }
+      - name: 'Publish Test Report'
+        if: steps.CheckArtifact.outputs.testResultsArtifactAvailable == 'true'
+        uses: dorny/test-reporter@v1
+        env:
+          #
+          # Can throw the following exception, when enough tests have been executed:
+          #     FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+          #
+          # We explicitly increase the max. heap size here to work around this issue.
+          #
+          NODE_OPTIONS: --max-old-space-size=8192
+        with:
+          name: 'All Tests'
+          artifact: test-results
+          path: '**/*.trx'
+          reporter: dotnet-trx
+          only-summary: 'true'
+          fail-on-error: 'false'

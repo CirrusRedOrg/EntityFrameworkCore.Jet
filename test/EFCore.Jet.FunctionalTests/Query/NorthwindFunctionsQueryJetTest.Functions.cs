@@ -2076,12 +2076,12 @@ WHERE MID(`c`.`CustomerID`, 1 + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`
             await base.Substring_with_one_arg_with_closure(async);
 
             AssertSql(
-                """
+                $"""
 @__start_0='2'
 
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`CustomerID`, @__start_0 + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`.`CustomerID`))) = 'FKI'
+WHERE MID(`c`.`CustomerID`, {AssertSqlHelper.Parameter("@__start_0")} + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`.`CustomerID`))) = 'FKI'
 """);
         }
 

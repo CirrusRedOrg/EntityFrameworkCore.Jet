@@ -1517,7 +1517,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Customers` AS `c`
-        WHERE `c`.`ContactName` IS NULL OR LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) <> `c`.`ContactName`), TRUE, FALSE)
+        WHERE `c`.`ContactName` IS NULL OR LEFT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) <> `c`.`ContactName`), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }

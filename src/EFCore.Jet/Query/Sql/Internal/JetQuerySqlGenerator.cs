@@ -513,7 +513,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             parent.TryPeek(out var exp);
-            if (sqlConstantExpression.Value is null && exp is ProjectionExpression && (sqlConstantExpression.Type == typeof(int) || sqlConstantExpression.Type == typeof(double) || sqlConstantExpression.Type == typeof(float) || sqlConstantExpression.Type == typeof(decimal) || sqlConstantExpression.Type == typeof(short)))
+            if (sqlConstantExpression.Value is null && exp is ProjectionExpression && (sqlConstantExpression.Type.IsNumeric() || sqlConstantExpression.Type == typeof(bool)))
             {
                 Sql.Append("CVar(");
                 Sql.Append(sqlConstantExpression.TypeMapping!.GenerateSqlLiteral(sqlConstantExpression.Value));
@@ -792,6 +792,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             using (Sql.Indent())
             {
+                parent.Push(caseExpression);
                 foreach (var whenClause in caseExpression.WhenClauses)
                 {
                     Sql.Append("IIF(");
@@ -821,6 +822,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 }
 
                 Sql.Append(new string(')', caseExpression.WhenClauses.Count));
+                parent.Pop();
             }
 
             return caseExpression;

@@ -9114,7 +9114,7 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
 
         AssertSql(
             """
-SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)), -1)
+SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), -1)
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -9160,7 +9160,7 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`Nickname`, NULL) IS NOT NULL
 
         AssertSql(
             """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -9177,7 +9177,7 @@ ORDER BY `t`.`Note`
 
         AssertSql(
             """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)) AS `Id`
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) AS `Id`
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -9194,7 +9194,7 @@ ORDER BY `t`.`Note`
 
         AssertSql(
             """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`t0`.`Nickname`) IS NULL, NULL, CLNG(LEN(`t0`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `t0`.`SquadId`, NULL) + 1
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`

@@ -79,6 +79,8 @@ namespace EntityFrameworkCore.Jet.Data
                 return ulongValue != 0;
             if (value is decimal decimalValue)
                 return decimalValue != 0;
+            if (value is string stringValue)
+                return stringValue != "0";
 
             return (bool)value;
         }

@@ -308,11 +308,11 @@ WHERE UCASE(`l0`.`Name`) LIKE 'L%'
             await base.Method_call_on_optional_navigation_translates_to_null_conditional_properly_for_arguments(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE `l0`.`Name` = '' OR (`l0`.`Name` IS NOT NULL AND LEFT(`l0`.`Name`, LEN(`l0`.`Name`)) = `l0`.`Name`)
+WHERE `l0`.`Name` IS NOT NULL AND LEFT(`l0`.`Name`, IIF(LEN(`l0`.`Name`) IS NULL, 0, LEN(`l0`.`Name`))) = `l0`.`Name`
 """);
         }
 

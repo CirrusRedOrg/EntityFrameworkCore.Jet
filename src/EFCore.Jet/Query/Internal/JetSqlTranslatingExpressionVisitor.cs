@@ -307,15 +307,18 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                                             new[]
                                             {
                                                 translatedInstance,
-                                                _sqlExpressionFactory.Function(
-                                                    "LEN",
-                                                    new[] { translatedPattern },
-                                                    nullable: true,
-                                                    argumentsPropagateNullability: new[] { true },
-                                                    typeof(int))
+                                                _sqlExpressionFactory.Coalesce(
+                                                    _sqlExpressionFactory.Function(
+                                                        "LEN",
+                                                        new[] { translatedPattern },
+                                                        nullable: true,
+                                                        argumentsPropagateNullability: new[] { true },
+                                                        typeof(int)),
+                                                    _sqlExpressionFactory.Constant(0)
+                                                    )
                                             },
                                             nullable: true,
-                                            argumentsPropagateNullability: new[] { true, true },
+                                            argumentsPropagateNullability: new[] { true, false },
                                             typeof(string),
                                             stringTypeMapping),
                                         translatedPattern))),

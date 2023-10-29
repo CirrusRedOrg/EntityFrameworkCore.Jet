@@ -148,12 +148,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             _sqlExpressionFactory.Add(
                                 arguments[0],
                                 _sqlExpressionFactory.Constant(1)),
-                            _sqlExpressionFactory.Function(
-                                "LEN",
-                                new[] { instance },
-                                nullable: true,
-                                argumentsPropagateNullability: new[] { true },
-                                typeof(int))
+                            _sqlExpressionFactory.Coalesce(
+                                _sqlExpressionFactory.Function(
+                                    "LEN",
+                                    new[] { instance },
+                                    nullable: true,
+                                    argumentsPropagateNullability: new[] { true },
+                                    typeof(int)),
+                                _sqlExpressionFactory.Constant(0)
+                            )
                         },
                         nullable: true,
                         argumentsPropagateNullability: new[] { true, true, true },
@@ -241,12 +244,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new[]
                     {
                             argument,
-                            _sqlExpressionFactory.Function(
-                                "LEN",
-                                new[] { argument },
-                                nullable: true,
-                                argumentsPropagateNullability: new[] { true },
-                                typeof(int)),
+                            _sqlExpressionFactory.Coalesce(
+                                _sqlExpressionFactory.Function(
+                                    "LEN",
+                                    new[] { argument },
+                                    nullable: true,
+                                    argumentsPropagateNullability: new[] { true },
+                                    typeof(int)),
+                                _sqlExpressionFactory.Constant(0)
+                            ),
                             _sqlExpressionFactory.Constant(1)
                     },
                     nullable: true,

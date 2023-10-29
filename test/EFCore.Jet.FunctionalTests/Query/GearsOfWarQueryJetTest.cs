@@ -8184,7 +8184,7 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
 
             AssertSql(
                 """
-SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)), -1)
+SELECT IIF(`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL, IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL), -1)
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 """);
@@ -8221,7 +8221,7 @@ WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
 
             AssertSql(
                 """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
@@ -8235,7 +8235,7 @@ ORDER BY `t`.`Note`
 
             AssertSql(
                 """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)) AS `Id`
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) AS `Id`
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL
@@ -8249,7 +8249,7 @@ ORDER BY `t`.`Note`
 
             AssertSql(
                 """
-SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, CVar(NULL)), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
+SELECT IIF(`t`.`GearNickName` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))), NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL), IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL) + 1
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL

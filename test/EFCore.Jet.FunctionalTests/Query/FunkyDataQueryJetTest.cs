@@ -280,58 +280,52 @@ FROM `FunkyCustomers` AS `f`
             await base.String_starts_with_on_argument_with_bracket(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE '[[]%')
+WHERE `f`.`FirstName` LIKE '[[]%'
 """,
-//
-"""
+                //
+                """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'B[[]%')
+WHERE `f`.`FirstName` LIKE 'B[[]%'
 """,
-//
-"""
+                //
+                """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND (`f`.`FirstName` LIKE 'B[[][[]a[^]%')
+WHERE `f`.`FirstName` LIKE 'B[[][[]a[^]%'
 """,
-//
-"""
-@__prm1_0='[' (Size = 255)
-@__prm1_0='[' (Size = 255)
-@__prm1_0='[' (Size = 255)
+                //
+                """
+@__prm1_0_rewritten='[[]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE @__prm1_0 = '' OR (`f`.`FirstName` IS NOT NULL AND LEFT(`f`.`FirstName`, LEN(@__prm1_0)) = @__prm1_0)
+WHERE `f`.`FirstName` LIKE @__prm1_0_rewritten
 """,
-//
-"""
-@__prm2_0='B[' (Size = 255)
-@__prm2_0='B[' (Size = 255)
-@__prm2_0='B[' (Size = 255)
+                //
+                """
+@__prm2_0_rewritten='B[[]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE @__prm2_0 = '' OR (`f`.`FirstName` IS NOT NULL AND LEFT(`f`.`FirstName`, LEN(@__prm2_0)) = @__prm2_0)
+WHERE `f`.`FirstName` LIKE @__prm2_0_rewritten
 """,
-//
-"""
-@__prm3_0='B[[a^' (Size = 255)
-@__prm3_0='B[[a^' (Size = 255)
-@__prm3_0='B[[a^' (Size = 255)
+                //
+                """
+@__prm3_0_rewritten='B[[][[]a[^]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE @__prm3_0 = '' OR (`f`.`FirstName` IS NOT NULL AND LEFT(`f`.`FirstName`, LEN(@__prm3_0)) = @__prm3_0)
+WHERE `f`.`FirstName` LIKE @__prm3_0_rewritten
 """,
-//
-"""
+                //
+                """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`LastName` = '' OR (`f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, LEN(`f`.`LastName`)) = `f`.`LastName`)
+WHERE `f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, IIF(LEN(`f`.`LastName`) IS NULL, 0, LEN(`f`.`LastName`))) = `f`.`LastName`
 """);
         }
 
@@ -344,7 +338,7 @@ WHERE `f`.`LastName` = '' OR (`f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS 
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`
+WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`
 """);
         }
 
@@ -353,11 +347,11 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`
             await base.String_starts_with_on_argument_with_wildcard_column_negated(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (`f0`.`LastName` <> '' OR `f0`.`LastName` IS NULL) AND `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, LEN(`f0`.`LastName`)) <> `f0`.`LastName`
+WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR LEFT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) <> `f0`.`LastName`
 """);
         }
 
@@ -488,7 +482,7 @@ FROM `FunkyCustomers` AS `f`
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`
+WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`
 """);
         }
 
@@ -497,11 +491,11 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.
             await base.String_ends_with_on_argument_with_wildcard_column_negated(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (`f0`.`LastName` <> '' OR `f0`.`LastName` IS NULL) AND `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) <> `f0`.`LastName`
+WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) <> `f0`.`LastName`
 """);
         }
 
@@ -514,7 +508,7 @@ WHERE (`f0`.`LastName` <> '' OR `f0`.`LastName` IS NULL) AND `f`.`FirstName` IS 
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`, TRUE, FALSE) = TRUE
+WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`, TRUE, FALSE) = TRUE
 """);
         }
 
@@ -527,7 +521,7 @@ WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) <> `f0`.`LastName`, TRUE, FALSE) = TRUE
+WHERE IIF(`f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) <> `f0`.`LastName`, TRUE, FALSE) = TRUE
 """);
         }
 
@@ -540,7 +534,7 @@ WHERE IIF(`f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`First
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`, TRUE, FALSE) = `f`.`NullableBool`
+WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`, TRUE, FALSE) = `f`.`NullableBool`
 """);
         }
 
@@ -553,7 +547,7 @@ WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, LEN(`f0`.`LastName`)) = `f0`.`LastName`, TRUE, FALSE) <> `f`.`NullableBool` OR `f`.`NullableBool` IS NULL
+WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`, TRUE, FALSE) <> `f`.`NullableBool` OR `f`.`NullableBool` IS NULL
 """);
         }
 

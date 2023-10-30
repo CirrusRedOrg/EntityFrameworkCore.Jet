@@ -319,6 +319,8 @@ namespace Microsoft.EntityFrameworkCore
                 = optionsBuilder.Options.FindExtension<CoreOptionsExtension>()
                   ?? new CoreOptionsExtension();
 
+            coreOptionsExtension = RelationalOptionsExtension.WithDefaultWarningConfiguration(coreOptionsExtension);
+
             coreOptionsExtension = coreOptionsExtension.WithWarningsConfiguration(
                 coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
                     RelationalEventId.AmbientTransactionWarning, WarningBehavior.Throw));

@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             IServiceCollection services,
             Action<RelationalDbContextOptionsBuilder<JetDbContextOptionsBuilder, JetOptionsExtension>> relationalAction)
             => new DbContextOptionsBuilder()
-                .UseInternalServiceProvider(services.AddEntityFrameworkJet().BuildServiceProvider())
+                .UseInternalServiceProvider(services.AddEntityFrameworkJet().BuildServiceProvider(validateScopes: true))
                 .UseJet("Data Source=LoggingJetTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
 
         protected override TestLogger CreateTestLogger()

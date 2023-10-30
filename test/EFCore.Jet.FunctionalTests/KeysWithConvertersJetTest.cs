@@ -21,6 +21,6 @@ public class KeysWithConvertersJetTest : KeysWithConvertersTestBase<
             => JetTestStoreFactory.Instance;
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-            => builder.UseJet(JetTestStore.CreateConnectionString("KeysWithConvertersJetTest"), TestEnvironment.DataAccessProviderFactory);
+            => builder.UseJet();
     }
 }

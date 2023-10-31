@@ -30,6 +30,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
             conventionSet.Add(new RelationalMaxIdentifierLengthConvention(64, Dependencies, RelationalDependencies));
             conventionSet.Add(new JetIndexConvention(Dependencies, RelationalDependencies, _sqlGenerationHelper));
 
+            conventionSet.Replace<CascadeDeleteConvention>(
+                new JetOnDeleteConvention(Dependencies, RelationalDependencies));
             conventionSet.Replace<StoreGenerationConvention>(
                 new JetStoreGenerationConvention(Dependencies, RelationalDependencies));
             conventionSet.Replace<ValueGenerationConvention>(

@@ -95,7 +95,6 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 
 INSERT INTO `MeterReadingDetails` (`Id`, `CurrentRead`, `PreviousRead`)
 VALUES (@p1, @p2, @p3);
-SELECT @@ROWCOUNT;
 """,
 //
 """

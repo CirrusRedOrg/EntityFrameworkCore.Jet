@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using EntityFrameworkCore.Jet.Metadata;
+using EntityFrameworkCore.Jet.Utilities;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -32,6 +33,17 @@ namespace EntityFrameworkCore.Jet.Update.Internal
             [NotNull] UpdateSqlGeneratorDependencies dependencies)
             : base(dependencies)
         {
+        }
+
+        public override ResultSetMapping AppendInsertOperation(StringBuilder commandStringBuilder, IReadOnlyModificationCommand command,
+            int commandPosition, out bool requiresTransaction)
+        {
+            //No database columns need to be read back
+            if (command.ColumnModifications.All(o => !o.IsRead))
+            {
+                return AppendInsertReturningOperation(commandStringBuilder, command, commandPosition, out requiresTransaction);
+            }
+            return base.AppendInsertOperation(commandStringBuilder, command, commandPosition, out requiresTransaction);
         }
 
         public ResultSetMapping AppendBulkInsertOperation(StringBuilder commandStringBuilder, IReadOnlyList<IReadOnlyModificationCommand> modificationCommands, int commandPosition, out bool requiresTransaction)

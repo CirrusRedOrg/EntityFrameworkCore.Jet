@@ -643,25 +643,23 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     + _eol
                     + "    `NotFigTime` datetime NOT NULL,"
                     + _eol
-                    + "    `ToEat` tinyint NOT NULL,"
+                    + "    `ToEat` byte NOT NULL,"
                     + _eol
-                    + "    `OrNothing` float NOT NULL,"
+                    + "    `OrNothing` double NOT NULL,"
                     + _eol
                     + "    `Fuse` smallint NOT NULL,"
                     + _eol
-                    + "    `WayRound` bigint NOT NULL,"
+                    + "    `WayRound` decimal(20,0) NOT NULL,"
                     + _eol
-                    + "    `On` real NOT NULL,"
+                    + "    `On` single NOT NULL,"
                     + _eol
-                    + "    `AndChew` varbinary(max) NULL,"
+                    + "    `AndChew` longbinary NULL,"
                     + _eol
-                    + "    `AndRow` rowversion NULL,"
+                    + "    `AndRow` varbinary(8) NULL,"
                     + _eol
                     + "    CONSTRAINT `PK_Blogs` PRIMARY KEY (`Key1`, `Key2`)"
                     + _eol
                     + ");"
-                    + _eol
-                    + "GO"
                     + _eol
                     + _eol
                     + _eol,

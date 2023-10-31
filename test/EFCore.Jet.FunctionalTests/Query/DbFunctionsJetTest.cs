@@ -49,6 +49,7 @@ FROM `Customers` AS `c`
 WHERE `c`.`ContactName` LIKE `c`.`ContactName`");
         }
 
+        [ConditionalTheory(Skip = "No escape character support in Jet")]
         public override async Task Like_literal_with_escape(bool async)
         {
             await base.Like_literal_with_escape(async);
@@ -71,6 +72,7 @@ WHERE 'FOO' LIKE '%O%'
 """);
         }
 
+        [ConditionalTheory(Skip = "No escape character support in Jet")]
         public override async Task Like_all_literals_with_escape(bool async)
         {
             await base.Like_all_literals_with_escape(async);
@@ -83,6 +85,7 @@ WHERE N'%' LIKE N'!%' ESCAPE N'!'
 """);
         }
 
+        [ConditionalTheory(Skip = "No ecollate support in Jet")]
         public override async Task Collate_case_insensitive(bool async)
         {
             await base.Collate_case_insensitive(async);
@@ -95,6 +98,7 @@ WHERE [c].[ContactName] COLLATE Latin1_General_CI_AI = N'maria anders'
 """);
         }
 
+        [ConditionalTheory(Skip = "No collate support in Jet")]
         public override async Task Collate_case_sensitive(bool async)
         {
             await base.Collate_case_sensitive(async);
@@ -107,6 +111,7 @@ WHERE [c].[ContactName] COLLATE Latin1_General_CS_AS = N'maria anders'
 """);
         }
 
+        [ConditionalTheory(Skip = "No collate support in Jet")]
         public override async Task Collate_case_sensitive_constant(bool async)
         {
             await base.Collate_case_sensitive_constant(async);

@@ -366,6 +366,11 @@ namespace EntityFrameworkCore.Jet.Data
 
         protected virtual IList<JetCommand> SplitCommands()
         {
+            //Remove any tag lines from the sql created by ef core. Jet doesn't like comments/tags in the SQL
+            var lines = CommandText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            var filteredLines = lines.Where(line => !line.TrimStart().StartsWith("--"));
+            CommandText = string.Join(Environment.NewLine, filteredLines).TrimStart();
+
             // At this point, all parameters have already been expanded.
 
             var parser = new JetCommandParser(CommandText);

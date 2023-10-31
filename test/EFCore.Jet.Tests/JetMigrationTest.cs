@@ -27,13 +27,13 @@ namespace EntityFrameworkCore.Jet
                                 });
                         });
                 });
-            
+
             var cookies = context.Set<Cookie>()
                 .ToList();
-            
+
             Assert.Single(cookies);
             Assert.Equal(new DateTime(2021, 12, 31), cookies[0].BestServedBefore);
-            
+
             AssertSql(
                 $@"CREATE TABLE `Cookie` (
     `CookieId` counter NOT NULL,
@@ -44,7 +44,6 @@ namespace EntityFrameworkCore.Jet
 
 INSERT INTO `Cookie` (`CookieId`, `Name`)
 VALUES (1, 'Basic');
-SELECT @@ROWCOUNT;
 
 SELECT `c`.`CookieId`, `c`.`BestServedBefore`, `c`.`Name`
 FROM `Cookie` AS `c`");
@@ -60,7 +59,7 @@ FROM `Cookie` AS `c`");
                     {
                         entity.Property(e => e.CookieId)
                             .HasColumnType("counter");
-                        
+
                         entity.HasData(
                             new Cookie { CookieId = 1, Name = "Chocolate Chip" });
                     });
@@ -69,11 +68,11 @@ FROM `Cookie` AS `c`");
                     {
                         entity.Property(e => e.BackeryId)
                             .HasColumnType("counter");
-                        
+
                         entity.HasData(
                             new Backery { BackeryId = 1, Name = "Bread & Cookies" });
                     });
-            
+
                     builder.Entity<CookieBackery>(entity =>
                     {
                         entity.HasKey(e => new { e.CookieId, e.BackeryId });
@@ -85,17 +84,17 @@ FROM `Cookie` AS `c`");
                         entity.HasOne(d => d.Backery)
                             .WithMany()
                             .HasForeignKey(d => d.BackeryId);
-                        
+
                         entity.HasData(
                             new CookieBackery { CookieId = 1, BackeryId = 1 });
                     });
                 });
-            
+
             var cookieBackeries = context.Set<CookieBackery>()
                 .Include(cb => cb.Cookie)
                 .Include(cb => cb.Backery)
                 .ToList();
-            
+
             Assert.Single(cookieBackeries);
             Assert.Equal(1, cookieBackeries[0].Cookie.CookieId);
             Assert.Equal(1, cookieBackeries[0].Backery.BackeryId);
@@ -124,15 +123,12 @@ CREATE TABLE `CookieBackery` (
 
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
-SELECT @@ROWCOUNT;
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
-SELECT @@ROWCOUNT;
 
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
-SELECT @@ROWCOUNT;
 
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
 
@@ -152,7 +148,7 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
                     {
                         entity.Property(e => e.CookieId)
                             .HasColumnType("int");
-                        
+
                         entity.HasData(
                             new Cookie { CookieId = 1, Name = "Chocolate Chip" });
                     });
@@ -161,11 +157,11 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
                     {
                         entity.Property(e => e.BackeryId)
                             .HasColumnType("int");
-                        
+
                         entity.HasData(
                             new Backery { BackeryId = 1, Name = "Bread & Cookies" });
                     });
-            
+
                     builder.Entity<CookieBackery>(entity =>
                     {
                         entity.HasKey(e => new { e.CookieId, e.BackeryId });
@@ -177,17 +173,17 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
                         entity.HasOne(d => d.Backery)
                             .WithMany()
                             .HasForeignKey(d => d.BackeryId);
-                        
+
                         entity.HasData(
                             new CookieBackery { CookieId = 1, BackeryId = 1 });
                     });
                 });
-            
+
             var cookieBackeries = context.Set<CookieBackery>()
                 .Include(cb => cb.Cookie)
                 .Include(cb => cb.Backery)
                 .ToList();
-            
+
             Assert.Single(cookieBackeries);
             Assert.Equal(1, cookieBackeries[0].Cookie.CookieId);
             Assert.Equal(1, cookieBackeries[0].Backery.BackeryId);
@@ -216,15 +212,12 @@ CREATE TABLE `CookieBackery` (
 
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
-SELECT @@ROWCOUNT;
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
-SELECT @@ROWCOUNT;
 
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
-SELECT @@ROWCOUNT;
 
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
 
@@ -244,7 +237,7 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
                     {
                         entity.Property(e => e.CookieId)
                             .HasColumnType("int");
-                        
+
                         entity.HasData(
                             new Cookie { CookieId = 1, Name = "Chocolate Chip" });
                     });
@@ -253,11 +246,11 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
                     {
                         entity.Property(e => e.BackeryId)
                             .HasColumnType("int");
-                        
+
                         entity.HasData(
                             new Backery { BackeryId = 1, Name = "Bread & Cookies" });
                     });
-            
+
                     builder.Entity<CookieBackery>(entity =>
                     {
                         entity.HasKey(e => new { e.CookieId, e.BackeryId });
@@ -275,17 +268,17 @@ INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
                         entity.HasOne(d => d.Backery)
                             .WithMany()
                             .HasForeignKey(d => d.BackeryId);
-                        
+
                         entity.HasData(
                             new CookieBackery { CookieId = 1, BackeryId = 1 });
                     });
                 });
-            
+
             var cookieBackeries = context.Set<CookieBackery>()
                 .Include(cb => cb.Cookie)
                 .Include(cb => cb.Backery)
                 .ToList();
-            
+
             Assert.Single(cookieBackeries);
             Assert.Equal(1, cookieBackeries[0].Cookie.CookieId);
             Assert.Equal(1, cookieBackeries[0].Backery.BackeryId);
@@ -314,15 +307,12 @@ CREATE TABLE `CookieBackery` (
 
 INSERT INTO `Backery` (`BackeryId`, `Name`)
 VALUES (1, 'Bread & Cookies');
-SELECT @@ROWCOUNT;
 
 INSERT INTO `Cookie` (`CookieId`, `BestServedBefore`, `Name`)
 VALUES (1, #1899-12-30#, 'Chocolate Chip');
-SELECT @@ROWCOUNT;
 
 INSERT INTO `CookieBackery` (`BackeryId`, `CookieId`)
 VALUES (1, 1);
-SELECT @@ROWCOUNT;
 
 CREATE INDEX `IX_CookieBackery_BackeryId` ON `CookieBackery` (`BackeryId`);
 

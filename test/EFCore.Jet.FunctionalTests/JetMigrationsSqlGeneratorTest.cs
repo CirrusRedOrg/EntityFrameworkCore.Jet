@@ -312,7 +312,7 @@ CREATE INDEX `IX_Person_Name` ON `Person` (`Name`);
 
             AssertSql(
                 @"ALTER TABLE `Person` ALTER COLUMN `Id` DROP DEFAULT;
-ALTER TABLE `Person` ALTER COLUMN `Id` integer NOT NULL;
+ALTER TABLE `Person` ALTER COLUMN `Id` decimal(20,0) NOT NULL;
 ");
         }
 
@@ -366,97 +366,97 @@ ALTER TABLE `Person` ALTER COLUMN `Id` integer NOT NULL;
 ");
         }
 
-//         [ConditionalFact]
-//         public virtual void CreateDatabaseOperation_with_filename()
-//         {
-//             Generate(
-//                 new JetCreateDatabaseOperation { Name = "Northwind", FileName = "Narf.mdf" });
-//
-//             var expectedFile = Path.GetFullPath("Narf.mdf");
-//             var expectedLog = Path.GetFullPath("Narf_log.ldf");
-//
-//             AssertSql(
-//                 $@"CREATE DATABASE [Northwind]
-// ON (NAME = 'Narf', FILENAME = '{expectedFile}')
-// LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
-// GO
-//
-// IF SERVERPROPERTY('EngineEdition') <> 5
-// BEGIN
-//     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
-// END;
-// ");
-//         }
+        //         [ConditionalFact]
+        //         public virtual void CreateDatabaseOperation_with_filename()
+        //         {
+        //             Generate(
+        //                 new JetCreateDatabaseOperation { Name = "Northwind", FileName = "Narf.mdf" });
+        //
+        //             var expectedFile = Path.GetFullPath("Narf.mdf");
+        //             var expectedLog = Path.GetFullPath("Narf_log.ldf");
+        //
+        //             AssertSql(
+        //                 $@"CREATE DATABASE [Northwind]
+        // ON (NAME = 'Narf', FILENAME = '{expectedFile}')
+        // LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
+        // GO
+        //
+        // IF SERVERPROPERTY('EngineEdition') <> 5
+        // BEGIN
+        //     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
+        // END;
+        // ");
+        //         }
 
-//         [ConditionalFact]
-//         public virtual void CreateDatabaseOperation_with_filename_and_datadirectory()
-//         {
-//             var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-//
-//             Generate(
-//                 new JetCreateDatabaseOperation { Name = "Northwind", FileName = "|DataDirectory|Narf.mdf" });
-//
-//             var expectedFile = Path.Combine(baseDirectory, "Narf.mdf");
-//             var expectedLog = Path.Combine(baseDirectory, "Narf_log.ldf");
-//
-//             AssertSql(
-//                 $@"CREATE DATABASE [Northwind]
-// ON (NAME = 'Narf', FILENAME = '{expectedFile}')
-// LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
-// GO
-//
-// IF SERVERPROPERTY('EngineEdition') <> 5
-// BEGIN
-//     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
-// END;
-// ");
-//         }
+        //         [ConditionalFact]
+        //         public virtual void CreateDatabaseOperation_with_filename_and_datadirectory()
+        //         {
+        //             var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        //
+        //             Generate(
+        //                 new JetCreateDatabaseOperation { Name = "Northwind", FileName = "|DataDirectory|Narf.mdf" });
+        //
+        //             var expectedFile = Path.Combine(baseDirectory, "Narf.mdf");
+        //             var expectedLog = Path.Combine(baseDirectory, "Narf_log.ldf");
+        //
+        //             AssertSql(
+        //                 $@"CREATE DATABASE [Northwind]
+        // ON (NAME = 'Narf', FILENAME = '{expectedFile}')
+        // LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
+        // GO
+        //
+        // IF SERVERPROPERTY('EngineEdition') <> 5
+        // BEGIN
+        //     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
+        // END;
+        // ");
+        //         }
 
-//         [ConditionalFact]
-//         public virtual void CreateDatabaseOperation_with_filename_and_custom_datadirectory()
-//         {
-//             var dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
-//
-//             AppDomain.CurrentDomain.SetData("DataDirectory", dataDirectory);
-//
-//             Generate(
-//                 new JetCreateDatabaseOperation { Name = "Northwind", FileName = "|DataDirectory|Narf.mdf" });
-//
-//             AppDomain.CurrentDomain.SetData("DataDirectory", null);
-//
-//             var expectedFile = Path.Combine(dataDirectory, "Narf.mdf");
-//             var expectedLog = Path.Combine(dataDirectory, "Narf_log.ldf");
-//
-//             AssertSql(
-//                 $@"CREATE DATABASE [Northwind]
-// ON (NAME = 'Narf', FILENAME = '{expectedFile}')
-// LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
-// GO
-//
-// IF SERVERPROPERTY('EngineEdition') <> 5
-// BEGIN
-//     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
-// END;
-// ");
-//         }
+        //         [ConditionalFact]
+        //         public virtual void CreateDatabaseOperation_with_filename_and_custom_datadirectory()
+        //         {
+        //             var dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+        //
+        //             AppDomain.CurrentDomain.SetData("DataDirectory", dataDirectory);
+        //
+        //             Generate(
+        //                 new JetCreateDatabaseOperation { Name = "Northwind", FileName = "|DataDirectory|Narf.mdf" });
+        //
+        //             AppDomain.CurrentDomain.SetData("DataDirectory", null);
+        //
+        //             var expectedFile = Path.Combine(dataDirectory, "Narf.mdf");
+        //             var expectedLog = Path.Combine(dataDirectory, "Narf_log.ldf");
+        //
+        //             AssertSql(
+        //                 $@"CREATE DATABASE [Northwind]
+        // ON (NAME = 'Narf', FILENAME = '{expectedFile}')
+        // LOG ON (NAME = 'Narf_log', FILENAME = '{expectedLog}');
+        // GO
+        //
+        // IF SERVERPROPERTY('EngineEdition') <> 5
+        // BEGIN
+        //     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
+        // END;
+        // ");
+        //         }
 
-//         [ConditionalFact]
-//         public virtual void CreateDatabaseOperation_with_collation()
-//         {
-//             Generate(
-//                 new JetCreateDatabaseOperation { Name = "Northwind", Collation = "German_PhoneBook_CI_AS" });
-//
-//             AssertSql(
-//                 @"CREATE DATABASE [Northwind]
-// COLLATE German_PhoneBook_CI_AS;
-// GO
-//
-// IF SERVERPROPERTY('EngineEdition') <> 5
-// BEGIN
-//     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
-// END;
-// ");
-//         }
+        //         [ConditionalFact]
+        //         public virtual void CreateDatabaseOperation_with_collation()
+        //         {
+        //             Generate(
+        //                 new JetCreateDatabaseOperation { Name = "Northwind", Collation = "German_PhoneBook_CI_AS" });
+        //
+        //             AssertSql(
+        //                 @"CREATE DATABASE [Northwind]
+        // COLLATE German_PhoneBook_CI_AS;
+        // GO
+        //
+        // IF SERVERPROPERTY('EngineEdition') <> 5
+        // BEGIN
+        //     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
+        // END;
+        // ");
+        //         }
 
         [ConditionalFact]
         public virtual void AlterDatabaseOperation_collation()
@@ -694,8 +694,9 @@ VALUES ('John', 'Snow');
 
             AssertSql(
                 @"INSERT INTO `People` (`First Name`)
-VALUES ('John'),
-('Daenerys');
+VALUES ('John');
+INSERT INTO `People` (`First Name`)
+VALUES ('Daenerys');
 ");
         }
 
@@ -976,30 +977,18 @@ SELECT @@ROWCOUNT;
                 MigrationsSqlGenerationOptions.Idempotent);
 
             AssertSql(
-                @"CREATE INDEX `IX_Table1_Column1` ON `Table1` (`Column1`) WHERE [Column1] IS NOT NULL;
+                @"CREATE INDEX `IX_Table1_Column1` ON `Table1` (`Column1`) WITH [Column1] IS NOT NULL;
 ");
         }
-
-        [ConditionalFact]
-        public virtual void CreateIndex_generates_exec_when_legacy_filter_and_idempotent()
+        [ConditionalTheory(Skip = "No sequences")]
+        public override void Sequence_restart_operation(long? startsAt)
         {
-            Generate(
-                modelBuilder =>
-                {
-                    modelBuilder
-                        .HasAnnotation(CoreAnnotationNames.ProductVersion, "1.1.0")
-                        .Entity("Table1").Property<int?>("Column1");
-                },
-                migrationBuilder => migrationBuilder.CreateIndex(
-                    name: "IX_Table1_Column1",
-                    table: "Table1",
-                    column: "Column1",
-                    unique: true),
-                MigrationsSqlGenerationOptions.Idempotent);
+            base.Sequence_restart_operation(startsAt);
 
-            AssertSql(
-                @"CREATE UNIQUE INDEX `IX_Table1_Column1` ON `Table1` (`Column1`) WHERE `Column1` IS NOT NULL';
-");
+            var expectedSql = startsAt.HasValue
+                ? @$"ALTER SEQUENCE [dbo].[TestRestartSequenceOperation] RESTART WITH {startsAt};"
+                : @"ALTER SEQUENCE [dbo].[TestRestartSequenceOperation] RESTART;";
+            AssertSql(expectedSql);
         }
 
         [ConditionalFact]
@@ -1021,7 +1010,7 @@ SELECT @@ROWCOUNT;
                 $@"ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2019-01-01#;
 ");
         }
-        
+
         public JetMigrationsSqlGeneratorTest()
             : base(
                 JetTestHelpers.Instance,

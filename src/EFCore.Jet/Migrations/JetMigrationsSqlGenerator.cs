@@ -16,6 +16,9 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text;
+using EntityFrameworkCore.Jet.Update.Internal;
+using Microsoft.EntityFrameworkCore.Update;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Migrations
@@ -38,22 +41,25 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
         private IReadOnlyList<MigrationOperation> _operations = null!;
         private RelationalTypeMapping _stringTypeMapping;
-
+        private readonly ICommandBatchPreparer _commandBatchPreparer;
         /// <summary>
         ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
         /// </summary>
         /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
         /// <param name="migrationsAnnotations"> Provider-specific Migrations annotations to use. </param>
         /// <param name="options"> Provider-specific options. </param>
+        /// <param name="commandBatchPreparer">The command batch preparer.</param>
         public JetMigrationsSqlGenerator(
             [NotNull] MigrationsSqlGeneratorDependencies dependencies,
             [NotNull] IMigrationsAnnotationProvider migrationsAnnotations,
-            [NotNull] IJetOptions options)
+            [NotNull] IJetOptions options,
+            ICommandBatchPreparer commandBatchPreparer)
             : base(dependencies)
         {
             _migrationsAnnotations = migrationsAnnotations;
             _options = options;
             _stringTypeMapping = dependencies.TypeMappingSource.FindMapping(typeof(string))!;
+            _commandBatchPreparer = commandBatchPreparer;
         }
 
         /// <summary>
@@ -701,6 +707,41 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
                     EndStatement(builder, operation.SuppressTransaction);
                 }
+            }
+        }
+
+        protected override void Generate(
+            InsertDataOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
+            bool terminate = true)
+        {
+            var sqlBuilder = new StringBuilder();
+
+            var modificationCommands = GenerateModificationCommands(operation, model).ToList();
+            var updateSqlGenerator = (IJetUpdateSqlGenerator)Dependencies.UpdateSqlGenerator;
+
+            foreach (var batch in _commandBatchPreparer.CreateCommandBatches(modificationCommands, moreCommandSets: true))
+            {
+                updateSqlGenerator.AppendBulkInsertOperation(sqlBuilder, batch.ModificationCommands, commandPosition: 0);
+            }
+
+            if (Options.HasFlag(MigrationsSqlGenerationOptions.Idempotent))
+            {
+                builder
+                    .Append("EXEC('")
+                    .Append(sqlBuilder.ToString().TrimEnd('\n', '\r', ';').Replace("'", "''"))
+                    .Append("')")
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+            }
+            else
+            {
+                builder.Append(sqlBuilder.ToString());
+            }
+
+            if (terminate)
+            {
+                builder.EndCommand();
             }
         }
 

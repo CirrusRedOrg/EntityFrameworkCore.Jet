@@ -159,7 +159,6 @@ WHERE ([c].[Capacity] IS NOT NULL) AND ([c].[FuelType] IS NOT NULL)
 
 INSERT INTO `LicensedOperators` (`VehicleName`, `LicenseType`)
 VALUES (@p0, @p1);
-SELECT @@ROWCOUNT;
 """
 ,
 """

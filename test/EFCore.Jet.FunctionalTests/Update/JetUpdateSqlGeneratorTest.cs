@@ -132,11 +132,8 @@ OUTPUT INSERTED.[Id], INSERTED.[Computed], i._Position;
 """
 INSERT INTO `Ducks` (`Id`, `Name`, `Quacks`, `ConcurrencyToken`)
 VALUES (@p0, @p1, @p2, @p3);
-SELECT @@ROWCOUNT;
-
 INSERT INTO `Ducks` (`Id`, `Name`, `Quacks`, `ConcurrencyToken`)
 VALUES (@p0, @p1, @p2, @p3);
-SELECT @@ROWCOUNT;
 """,
             stringBuilder.ToString());
         Assert.Equal(ResultSetMapping.NoResults, grouping);
@@ -179,11 +176,8 @@ INNER JOIN @inserted0 i ON ([t].[Id] = [i].[Id]);
 """
 INSERT INTO `Ducks`
 DEFAULT VALUES;
-SELECT @@ROWCOUNT;
-
 INSERT INTO `Ducks`
 DEFAULT VALUES;
-SELECT @@ROWCOUNT;
 """;
         AssertBaseline(expectedText, stringBuilder.ToString());
         Assert.Equal(ResultSetMapping.NoResults, grouping);

@@ -18,10 +18,11 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         public IReadOnlyList<int> GetStateIndices(char state, int start = 0, int length = -1)
-            => GetStateIndices(new[] {state}, start, length);
+            => GetStateIndices(new[] { state }, start, length);
 
         public IReadOnlyList<int> GetStateIndices(char[] states, int start = 0, int length = -1)
         {
+            if (States.Length == 0) return new List<int>();
             if (states == null)
             {
                 throw new ArgumentNullException(nameof(states));

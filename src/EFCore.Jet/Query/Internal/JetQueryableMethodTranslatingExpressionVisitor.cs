@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -171,5 +172,85 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     protected override ShapedQueryExpression? TranslateDefaultIfEmpty(ShapedQueryExpression source, Expression? defaultValue)
     {
         return base.TranslateDefaultIfEmpty(source, defaultValue);
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected override bool IsValidSelectExpressionForExecuteDelete(
+        SelectExpression selectExpression,
+        StructuralTypeShaperExpression shaper,
+        [NotNullWhen(true)] out TableExpression? tableExpression)
+    {
+        if (selectExpression.Offset == null
+            && selectExpression.GroupBy.Count == 0
+            && selectExpression.Having == null
+            && selectExpression.Orderings.Count == 0)
+        {
+            TableExpressionBase table;
+            if (selectExpression.Tables.Count == 1)
+            {
+                table = selectExpression.Tables[0];
+            }
+            else
+            {
+                var projectionBindingExpression = (ProjectionBindingExpression)shaper.ValueBufferExpression;
+                var projection = (StructuralTypeProjectionExpression)selectExpression.GetProjection(projectionBindingExpression);
+                var column = projection.BindProperty(shaper.StructuralType.GetProperties().First());
+                table = column.Table;
+                if (table is JoinExpressionBase joinExpressionBase)
+                {
+                    table = joinExpressionBase.Table;
+                }
+            }
+
+            if (table is TableExpression te)
+            {
+                tableExpression = te;
+                return true;
+            }
+        }
+
+        tableExpression = null;
+        return false;
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected override bool IsValidSelectExpressionForExecuteUpdate(
+        SelectExpression selectExpression,
+        TableExpressionBase table,
+        [NotNullWhen(true)] out TableExpression? tableExpression)
+    {
+        if (selectExpression is
+            {
+                Offset: null,
+                IsDistinct: false,
+                GroupBy: [],
+                Having: null,
+                Orderings: []
+            })
+        {
+            if (selectExpression.Tables.Count > 1 && table is JoinExpressionBase joinExpressionBase)
+            {
+                table = joinExpressionBase.Table;
+            }
+
+            if (table is TableExpression te)
+            {
+                tableExpression = te;
+                return true;
+            }
+        }
+
+        tableExpression = null;
+        return false;
     }
 }

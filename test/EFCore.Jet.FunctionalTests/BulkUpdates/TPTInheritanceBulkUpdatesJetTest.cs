@@ -90,10 +90,9 @@ public class TPTInheritanceBulkUpdatesJetTest : TPTInheritanceBulkUpdatesTestBas
 
         AssertExecuteUpdateSql(
             """
-UPDATE [a]
-SET [a].[Name] = N'Animal'
-FROM [Animals] AS [a]
-WHERE [a].[Name] = N'Great spotted kiwi'
+UPDATE `Animals` AS `a`
+SET `a`.`Name` = 'Animal'
+WHERE `a`.`Name` = 'Great spotted kiwi'
 """);
     }
 
@@ -103,11 +102,10 @@ WHERE [a].[Name] = N'Great spotted kiwi'
 
         AssertExecuteUpdateSql(
             """
-UPDATE [a]
-SET [a].[Name] = N'NewBird'
-FROM [Animals] AS [a]
-LEFT JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
-WHERE [k].[Id] IS NOT NULL
+UPDATE `Animals` AS `a`
+LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
+SET `a`.`Name` = 'NewBird'
+WHERE `k`.`Id` IS NOT NULL
 """);
     }
 
@@ -124,11 +122,10 @@ WHERE [k].[Id] IS NOT NULL
 
         AssertExecuteUpdateSql(
             """
-UPDATE [a]
-SET [a].[Name] = N'SomeOtherKiwi'
-FROM [Animals] AS [a]
-INNER JOIN [Birds] AS [b] ON [a].[Id] = [b].[Id]
-INNER JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
+UPDATE (`Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
+SET `a`.`Name` = 'SomeOtherKiwi'
 """);
     }
 
@@ -138,11 +135,10 @@ INNER JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
 
         AssertExecuteUpdateSql(
             """
-UPDATE [k]
-SET [k].[FoundOn] = CAST(0 AS tinyint)
-FROM [Animals] AS [a]
-INNER JOIN [Birds] AS [b] ON [a].[Id] = [b].[Id]
-INNER JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
+UPDATE (`Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
+SET `k`.`FoundOn` = CBYTE(0)
 """);
     }
 
@@ -160,7 +156,7 @@ INNER JOIN [Kiwi] AS [k] ON [a].[Id] = [k].[Id]
         AssertExecuteUpdateSql(
             """
 UPDATE `Countries` AS `c`
-SET `Name` = 'Monovia'
+SET `c`.`Name` = 'Monovia'
 WHERE (
     SELECT COUNT(*)
     FROM ((`Animals` AS `a`
@@ -176,9 +172,9 @@ WHERE (
         await base.Update_where_using_hierarchy_derived(async);
 
         AssertExecuteUpdateSql(
-"""
+            """
 UPDATE `Countries` AS `c`
-SET `Name` = 'Monovia'
+SET `c`.`Name` = 'Monovia'
 WHERE (
     SELECT COUNT(*)
     FROM ((`Animals` AS `a`
@@ -200,14 +196,24 @@ WHERE (
     {
         await base.Update_with_interface_in_property_expression(async);
 
-        AssertExecuteUpdateSql();
+        AssertExecuteUpdateSql(
+            """
+UPDATE `Drinks` AS `d`
+INNER JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`
+SET `c`.`SugarGrams` = 0
+""");
     }
 
     public override async Task Update_with_interface_in_EF_Property_in_property_expression(bool async)
     {
         await base.Update_with_interface_in_EF_Property_in_property_expression(async);
 
-        AssertExecuteUpdateSql();
+        AssertExecuteUpdateSql(
+            """
+UPDATE `Drinks` AS `d`
+INNER JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`
+SET `c`.`SugarGrams` = 0
+""");
     }
 
     protected override void ClearLog()

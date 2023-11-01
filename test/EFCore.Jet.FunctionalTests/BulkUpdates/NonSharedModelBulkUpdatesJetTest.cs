@@ -26,7 +26,8 @@ public class NonSharedModelBulkUpdatesJetTest : NonSharedModelBulkUpdatesTestBas
 
         AssertSql(
 """
-DELETE FROM `Owner` AS `o`
+DELETE `o`.*
+FROM `Owner` AS `o`
 """);
     }
 
@@ -36,7 +37,8 @@ DELETE FROM `Owner` AS `o`
 
         AssertSql(
 """
-DELETE FROM `Owner` AS `o`
+DELETE `o`.*
+FROM `Owner` AS `o`
 """);
     }
 
@@ -54,7 +56,7 @@ DELETE FROM `Owner` AS `o`
         AssertSql(
 """
 UPDATE `Owner` AS `o`
-SET `Title` = 'SomeValue'
+SET `o`.`Title` = 'SomeValue'
 """);
     }
 
@@ -65,7 +67,7 @@ SET `Title` = 'SomeValue'
         AssertSql(
 """
 UPDATE `Owner` AS `o`
-SET `Title` = IIF(`o`.`Title` IS NULL, '', `o`.`Title`) & '_Suffix'
+SET `o`.`Title` = IIF(`o`.`Title` IS NULL, '', `o`.`Title`) & '_Suffix'
 """);
     }
 
@@ -76,8 +78,8 @@ SET `Title` = IIF(`o`.`Title` IS NULL, '', `o`.`Title`) & '_Suffix'
         AssertSql(
             """
 UPDATE `Owner` AS `o`
-SET `OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`Title`))),
-    `Title` = (`o`.`OwnedReference_Number` & '')
+SET `o`.`OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`Title`))),
+    `o`.`Title` = (`o`.`OwnedReference_Number` & '')
 """);
     }
 
@@ -88,7 +90,7 @@ SET `OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`
         AssertSql(
             """
 UPDATE `Blogs` AS `b`
-SET `CreationTimestamp` = #2020-01-01#
+SET `b`.`CreationTimestamp` = #2020-01-01#
 """);
     }
 
@@ -99,8 +101,8 @@ SET `CreationTimestamp` = #2020-01-01#
         AssertSql(
             """
 UPDATE `BlogsPart1` AS `b0`
-SET `Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`))),
-    `Title` = (`b0`.`Rating` & '')
+SET `b0`.`Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`))),
+    `b0`.`Title` = (`b0`.`Rating` & '')
 """);
     }
 
@@ -110,9 +112,9 @@ SET `Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`))),
 
         AssertSql(
 """
-DELETE FROM [c]
-FROM [Context30572_Principal] AS [c]
-LEFT JOIN [Context30572_Dependent] AS [c0] ON [c].[DependentId] = [c0].[Id]
+DELETE `c`.*
+FROM `Context30572_Principal` AS `c`
+LEFT JOIN `Context30572_Dependent` AS `c0` ON `c`.`DependentId` = `c0`.`Id`
 """);
     }
 
@@ -122,13 +124,10 @@ LEFT JOIN [Context30572_Dependent] AS [c0] ON [c].[DependentId] = [c0].[Id]
 
         AssertSql(
 """
-DELETE FROM `Posts` AS `p`
-WHERE `p`.`Id` IN (
-    SELECT `p0`.`Id`
-    FROM `Posts` AS `p0`
-    LEFT JOIN `Blogs` AS `b` ON `p0`.`BlogId` = `b`.`Id`
-    WHERE `b`.`Title` LIKE 'Arthur%'
-)
+DELETE `p`.*
+FROM `Posts` AS `p`
+LEFT JOIN `Blogs` AS `b` ON `p`.`BlogId` = `b`.`Id`
+WHERE `b`.`Title` LIKE 'Arthur%'
 """);
     }
 

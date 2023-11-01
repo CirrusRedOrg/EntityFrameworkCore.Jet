@@ -111,122 +111,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 }
 
                 List<ColumnExpression> colexp = new List<ColumnExpression>();
-                // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
-                // TODO: This does not properly handle all cases (especially when cross joins are involved).
-                if (selectExpression.Tables.Any())
-                {
-                    Sql.AppendLine()
-                        .Append("FROM ");
-
-                    const int maxTablesWithoutBrackets = 2;
-
-                    Sql.Append(
-                        new string(
-                            '(',
-                            Math.Max(
-                                0,
-                                selectExpression
-                                    .Tables
-                                    .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) -
-                                maxTablesWithoutBrackets)));
-
-                    for (var index = 0; index < selectExpression.Tables.Count; index++)
-                    {
-                        var tableExpression = selectExpression.Tables[index];
-
-                        var isApplyExpression = tableExpression is CrossApplyExpression ||
-                                                tableExpression is OuterApplyExpression;
-
-                        var isCrossExpression = tableExpression is CrossJoinExpression ||
-                                                tableExpression is CrossApplyExpression;
-
-                        if (isApplyExpression)
-                        {
-                            throw new UnreachableException();
-                        }
-
-                        if (index > 0)
-                        {
-                            if (isCrossExpression)
-                            {
-                                Sql.Append(",");
-                            }
-                            else if (index >= maxTablesWithoutBrackets)
-                            {
-                                Sql.Append(")");
-                            }
-
-                            Sql.AppendLine();
-                        }
-
-                        List<ColumnExpression> tempcolexp;
-                        if (tableExpression is InnerJoinExpression expression)
-                        {
-                            SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
-                            SqlUnaryExpression? unaryJoin = expression.JoinPredicate as SqlUnaryExpression;
-                            if (binaryJoin != null)
-                            {
-                                tempcolexp = ExtractColumnExpressions(binaryJoin!);
-                            }
-                            else if (unaryJoin != null)
-                            {
-                                tempcolexp = ExtractColumnExpressions(unaryJoin!);
-                            }
-                            else
-                            {
-                                tempcolexp = new List<ColumnExpression>();
-                            }
-
-                            bool refrencesfirsttable = false;
-                            foreach (ColumnExpression col in tempcolexp)
-                            {
-                                if (col.Table == selectExpression.Tables[0])
-                                {
-                                    refrencesfirsttable = true;
-                                    break;
-                                }
-                            }
-
-                            if (refrencesfirsttable)
-                            {
-                                Visit(tableExpression);
-                                continue;
-                            }
-                            else
-                            {
-                                colexp.AddRange(tempcolexp);
-                            }
-
-                            /*if (expression.JoinPredicate is SqlBinaryExpression { Left: ColumnExpression left, Right: ColumnExpression right })
-                            {
-                                var lt = left.Table == selectExpression.Tables[0];
-                                var rt = right.Table == selectExpression.Tables[0];
-                                if (lt || rt)
-                                {
-                                    Visit(tableExpression);
-                                    continue;
-                                }
-                                else
-                                {
-                                    colexp.Add(left);
-                                    colexp.Add(right);
-                                }
-                            }*/
-                            Sql.Append("LEFT JOIN ");
-                            Visit(expression.Table);
-                            Sql.Append(" ON ");
-                            Visit(expression.JoinPredicate);
-                        }
-                        else
-                        {
-                            Visit(tableExpression);
-                        }
-                    }
-                }
-                else
-                {
-                    GeneratePseudoFromClause();
-                }
+                VisitJetTables(selectExpression.Tables, true, out colexp);
 
                 if (selectExpression.Predicate != null || colexp.Count > 0)
                 {
@@ -302,6 +187,128 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             return selectExpression;
+        }
+
+        private void VisitJetTables(IReadOnlyList<TableExpressionBase> Tables, bool addfromsql, out List<ColumnExpression> colexp)
+        {
+            colexp = new List<ColumnExpression>();
+            // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
+            // TODO: This does not properly handle all cases (especially when cross joins are involved).
+            if (Tables.Any())
+            {
+                if (addfromsql)
+                {
+                    Sql.AppendLine().Append("FROM ");
+                }
+
+                const int maxTablesWithoutBrackets = 2;
+
+                Sql.Append(
+                    new string(
+                        '(',
+                        Math.Max(
+                            0,
+                            Tables
+                                .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) -
+                            maxTablesWithoutBrackets)));
+
+                for (var index = 0; index < Tables.Count; index++)
+                {
+                    var tableExpression = Tables[index];
+
+                    var isApplyExpression = tableExpression is CrossApplyExpression ||
+                                            tableExpression is OuterApplyExpression;
+
+                    var isCrossExpression = tableExpression is CrossJoinExpression ||
+                                            tableExpression is CrossApplyExpression;
+
+                    if (isApplyExpression)
+                    {
+                        throw new UnreachableException();
+                    }
+
+                    if (index > 0)
+                    {
+                        if (isCrossExpression)
+                        {
+                            Sql.Append(",");
+                        }
+                        else if (index >= maxTablesWithoutBrackets)
+                        {
+                            Sql.Append(")");
+                        }
+
+                        Sql.AppendLine();
+                    }
+
+                    List<ColumnExpression> tempcolexp;
+                    if (tableExpression is InnerJoinExpression expression)
+                    {
+                        SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
+                        SqlUnaryExpression? unaryJoin = expression.JoinPredicate as SqlUnaryExpression;
+                        if (binaryJoin != null)
+                        {
+                            tempcolexp = ExtractColumnExpressions(binaryJoin!);
+                        }
+                        else if (unaryJoin != null)
+                        {
+                            tempcolexp = ExtractColumnExpressions(unaryJoin!);
+                        }
+                        else
+                        {
+                            tempcolexp = new List<ColumnExpression>();
+                        }
+
+                        bool refrencesfirsttable = false;
+                        foreach (ColumnExpression col in tempcolexp)
+                        {
+                            if (col.Table == Tables[0])
+                            {
+                                refrencesfirsttable = true;
+                                break;
+                            }
+                        }
+
+                        if (refrencesfirsttable)
+                        {
+                            Visit(tableExpression);
+                            continue;
+                        }
+                        else
+                        {
+                            colexp.AddRange(tempcolexp);
+                        }
+
+                        /*if (expression.JoinPredicate is SqlBinaryExpression { Left: ColumnExpression left, Right: ColumnExpression right })
+                        {
+                            var lt = left.Table == selectExpression.Tables[0];
+                            var rt = right.Table == selectExpression.Tables[0];
+                            if (lt || rt)
+                            {
+                                Visit(tableExpression);
+                                continue;
+                            }
+                            else
+                            {
+                                colexp.Add(left);
+                                colexp.Add(right);
+                            }
+                        }*/
+                        Sql.Append("LEFT JOIN ");
+                        Visit(expression.Table);
+                        Sql.Append(" ON ");
+                        Visit(expression.JoinPredicate);
+                    }
+                    else
+                    {
+                        Visit(tableExpression);
+                    }
+                }
+            }
+            else
+            {
+                GeneratePseudoFromClause();
+            }
         }
 
         private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
@@ -830,5 +837,94 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
             => throw new UnreachableException();
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitDelete(DeleteExpression deleteExpression)
+        {
+            var selectExpression = deleteExpression.SelectExpression;
+
+            if (selectExpression.Offset == null
+                && selectExpression.Having == null
+                && selectExpression.Orderings.Count == 0
+                && selectExpression.GroupBy.Count == 0
+                && selectExpression.Projection.Count == 0)
+            {
+                Sql.Append("DELETE ");
+                GenerateTop(selectExpression);
+
+                Sql.Append($"{Dependencies.SqlGenerationHelper.DelimitIdentifier(deleteExpression.Table.Alias)}.*");
+
+                VisitJetTables(selectExpression.Tables, true, out _);
+
+                if (selectExpression.Predicate != null)
+                {
+                    Sql.AppendLine().Append("WHERE ");
+
+                    Visit(selectExpression.Predicate);
+                }
+
+                GenerateLimitOffset(selectExpression);
+
+                return deleteExpression;
+            }
+
+            throw new InvalidOperationException(
+                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(RelationalQueryableExtensions.ExecuteDelete)));
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitUpdate(UpdateExpression updateExpression)
+        {
+            var selectExpression = updateExpression.SelectExpression;
+
+            if (selectExpression.Offset == null
+                && selectExpression.Having == null
+                && selectExpression.Orderings.Count == 0
+                && selectExpression.GroupBy.Count == 0
+                && selectExpression.Projection.Count == 0)
+            {
+                Sql.Append("UPDATE ");
+                GenerateTop(selectExpression);
+
+                VisitJetTables(selectExpression.Tables, false, out _);
+
+                Sql.AppendLine().Append("SET ");
+                Visit(updateExpression.ColumnValueSetters[0].Column);
+                Sql.Append(" = ");
+                Visit(updateExpression.ColumnValueSetters[0].Value);
+
+                using (Sql.Indent())
+                {
+                    foreach (var columnValueSetter in updateExpression.ColumnValueSetters.Skip(1))
+                    {
+                        Sql.AppendLine(",");
+                        Visit(columnValueSetter.Column);
+                        Sql.Append(" = ");
+                        Visit(columnValueSetter.Value);
+                    }
+                }
+
+                if (selectExpression.Predicate != null)
+                {
+                    Sql.AppendLine().Append("WHERE ");
+                    Visit(selectExpression.Predicate);
+                }
+
+                return updateExpression;
+            }
+
+            throw new InvalidOperationException(
+                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(RelationalQueryableExtensions.ExecuteUpdate)));
+        }
     }
 }

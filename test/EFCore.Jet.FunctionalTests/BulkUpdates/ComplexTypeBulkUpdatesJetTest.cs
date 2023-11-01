@@ -24,7 +24,8 @@ public class ComplexTypeBulkUpdatesJetTest : ComplexTypeBulkUpdatesTestBase<
 
         AssertSql(
             """
-DELETE FROM `Customer` AS `c`
+DELETE `c`.*
+FROM `Customer` AS `c`
 WHERE `c`.`Name` = 'Monty Elias'
 """);
     }
@@ -43,7 +44,7 @@ WHERE `c`.`Name` = 'Monty Elias'
         AssertExecuteUpdateSql(
             """
 UPDATE `Customer` AS `c`
-SET `ShippingAddress_ZipCode` = 12345
+SET `c`.`ShippingAddress_ZipCode` = 12345
 WHERE `c`.`ShippingAddress_ZipCode` = 7728
 """);
     }
@@ -55,7 +56,7 @@ WHERE `c`.`ShippingAddress_ZipCode` = 7728
         AssertExecuteUpdateSql(
             """
 UPDATE `Customer` AS `c`
-SET `ShippingAddress_Country_FullName` = 'United States Modified'
+SET `c`.`ShippingAddress_Country_FullName` = 'United States Modified'
 WHERE `c`.`ShippingAddress_Country_Code` = 'US'
 """);
     }
@@ -67,9 +68,9 @@ WHERE `c`.`ShippingAddress_Country_Code` = 'US'
         AssertExecuteUpdateSql(
             """
 UPDATE `Customer` AS `c`
-SET `BillingAddress_ZipCode` = 54321,
-    `ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`,
-    `Name` = `c`.`Name` & 'Modified'
+SET `c`.`BillingAddress_ZipCode` = 54321,
+    `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`,
+    `c`.`Name` = `c`.`Name` & 'Modified'
 WHERE `c`.`ShippingAddress_ZipCode` = 7728
 """);
     }
@@ -81,7 +82,7 @@ WHERE `c`.`ShippingAddress_ZipCode` = 7728
         AssertExecuteUpdateSql(
             """
 UPDATE `Customer` AS `c`
-SET `ShippingAddress_ZipCode` = 12345
+SET `c`.`ShippingAddress_ZipCode` = 12345
 """);
     }
 
@@ -92,8 +93,8 @@ SET `ShippingAddress_ZipCode` = 12345
         AssertExecuteUpdateSql(
             """
 UPDATE `Customer` AS `c`
-SET `BillingAddress_ZipCode` = 54321,
-    `ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`
+SET `c`.`BillingAddress_ZipCode` = 54321,
+    `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`
 """);
     }
 

@@ -188,9 +188,9 @@ ORDER BY `v`.`Name`
             AssertSql(
 """
 UPDATE `Vehicles` AS `v`
-SET `SeatingCapacity` = 1
+SET `v`.`SeatingCapacity` = 1
 """,
-                //
+//
 """
 SELECT IIF(NOT EXISTS (
         SELECT 1

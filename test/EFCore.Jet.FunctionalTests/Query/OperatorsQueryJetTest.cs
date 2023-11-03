@@ -14,7 +14,7 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class OperatorsQuerySqlServerTest : OperatorsQueryTestBase
+public class OperatorsQueryJetTest : OperatorsQueryTestBase
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;

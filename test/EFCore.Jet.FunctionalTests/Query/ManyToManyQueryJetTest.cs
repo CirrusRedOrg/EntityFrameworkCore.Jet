@@ -104,18 +104,21 @@ WHERE (
         await base.Skip_navigation_count_with_predicate(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[Name]
-FROM [EntityOnes] AS [e]
-ORDER BY (
-    SELECT COUNT(*)
-    FROM [JoinOneToBranch] AS [j]
-    INNER JOIN (
-        SELECT [e0].[Id], [e0].[Discriminator], [e0].[Name], [e0].[Number], [e0].[IsGreen]
-        FROM [EntityRoots] AS [e0]
-        WHERE [e0].[Discriminator] IN (N'EntityBranch', N'EntityLeaf')
-    ) AS [t] ON [j].[EntityBranchId] = [t].[Id]
-    WHERE [e].[Id] = [j].[EntityOneId] AND ([t].[Name] IS NOT NULL) AND ([t].[Name] LIKE N'L%')), [e].[Id]
+            """
+SELECT `t1`.`Id`, `t1`.`Name`, `t1`.`c`
+FROM (
+    SELECT `e`.`Id`, `e`.`Name`, (
+        SELECT COUNT(*)
+        FROM `JoinOneToBranch` AS `j0`
+        INNER JOIN (
+            SELECT `e1`.`Id`, `e1`.`Discriminator`, `e1`.`Name`, `e1`.`Number`, `e1`.`IsGreen`
+            FROM `EntityRoots` AS `e1`
+            WHERE `e1`.`Discriminator` IN ('EntityBranch', 'EntityLeaf')
+        ) AS `t0` ON `j0`.`EntityBranchId` = `t0`.`Id`
+        WHERE `e`.`Id` = `j0`.`EntityOneId` AND (`t0`.`Name` LIKE 'L%')) AS `c`
+    FROM `EntityOnes` AS `e`
+) AS `t1`
+ORDER BY `t1`.`c`, `t1`.`Id`
 """);
     }
 
@@ -140,14 +143,17 @@ WHERE (
         await base.Skip_navigation_long_count_with_predicate(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[CollectionInverseId], [e].[ExtraId], [e].[Name], [e].[ReferenceInverseId]
-FROM [EntityTwos] AS [e]
-ORDER BY (
-    SELECT COUNT_BIG(*)
-    FROM [EntityTwoEntityTwo] AS [e0]
-    INNER JOIN [EntityTwos] AS [e1] ON [e0].[SelfSkipSharedLeftId] = [e1].[Id]
-    WHERE [e].[Id] = [e0].[SelfSkipSharedRightId] AND ([e1].[Name] IS NOT NULL) AND ([e1].[Name] LIKE N'L%')) DESC, [e].[Id]
+            """
+SELECT `t`.`Id`, `t`.`CollectionInverseId`, `t`.`ExtraId`, `t`.`Name`, `t`.`ReferenceInverseId`, `t`.`c`
+FROM (
+    SELECT `e`.`Id`, `e`.`CollectionInverseId`, `e`.`ExtraId`, `e`.`Name`, `e`.`ReferenceInverseId`, (
+        SELECT COUNT(*)
+        FROM `EntityTwoEntityTwo` AS `e2`
+        INNER JOIN `EntityTwos` AS `e3` ON `e2`.`SelfSkipSharedLeftId` = `e3`.`Id`
+        WHERE `e`.`Id` = `e2`.`SelfSkipSharedRightId` AND (`e3`.`Name` LIKE 'L%')) AS `c`
+    FROM `EntityTwos` AS `e`
+) AS `t`
+ORDER BY `t`.`c` DESC, `t`.`Id`
 """);
     }
 

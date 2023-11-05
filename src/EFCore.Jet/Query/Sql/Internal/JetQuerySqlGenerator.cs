@@ -443,7 +443,21 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     orderingExpression.IsAscending);
             }
 
-            return base.VisitOrdering(orderingExpression);
+            if (orderingExpression.Expression is SqlConstantExpression or SqlParameterExpression)
+            {
+                Sql.Append("1");
+            }
+            else
+            {
+                Visit(orderingExpression.Expression);
+            }
+
+            if (!orderingExpression.IsAscending)
+            {
+                Sql.Append(" DESC");
+            }
+
+            return orderingExpression;
         }
 
         protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)

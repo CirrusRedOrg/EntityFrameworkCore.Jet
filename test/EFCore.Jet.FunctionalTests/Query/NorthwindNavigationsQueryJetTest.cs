@@ -597,12 +597,17 @@ WHERE 5 < (
             await base.Collection_orderby_nav_prop_count(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-ORDER BY (
-    SELECT COUNT(*)
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`), `c`.`CustomerID`");
+                """
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT COUNT(*)
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
+    FROM `Customers` AS `c`
+) AS `t`
+ORDER BY `t`.`c`, `t`.`CustomerID`
+""");
         }
 
         public override async Task Collection_select_nav_prop_long_count(bool isAsync)

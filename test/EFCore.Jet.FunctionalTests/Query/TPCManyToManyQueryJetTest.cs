@@ -110,20 +110,23 @@ WHERE (
         await base.Skip_navigation_count_with_predicate(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[Name]
-FROM [EntityOnes] AS [e]
-ORDER BY (
-    SELECT COUNT(*)
-    FROM [JoinOneToBranch] AS [j]
-    INNER JOIN (
-        SELECT [b].[Id], [b].[Name], [b].[Number], NULL AS [IsGreen], N'EntityBranch' AS [Discriminator]
-        FROM [Branches] AS [b]
-        UNION ALL
-        SELECT [l].[Id], [l].[Name], [l].[Number], [l].[IsGreen], N'EntityLeaf' AS [Discriminator]
-        FROM [Leaves] AS [l]
-    ) AS [t] ON [j].[EntityBranchId] = [t].[Id]
-    WHERE [e].[Id] = [j].[EntityOneId] AND ([t].[Name] IS NOT NULL) AND ([t].[Name] LIKE N'L%')), [e].[Id]
+            """
+SELECT `t3`.`Id`, `t3`.`Name`, `t3`.`c`
+FROM (
+    SELECT `e`.`Id`, `e`.`Name`, (
+        SELECT COUNT(*)
+        FROM `JoinOneToBranch` AS `j0`
+        INNER JOIN (
+            SELECT `b0`.`Id`, `b0`.`Name`, `b0`.`Number`, CVar(NULL) AS `IsGreen`, 'EntityBranch' AS `Discriminator`
+            FROM `Branches` AS `b0`
+            UNION ALL
+            SELECT `l0`.`Id`, `l0`.`Name`, `l0`.`Number`, `l0`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
+            FROM `Leaves` AS `l0`
+        ) AS `t1` ON `j0`.`EntityBranchId` = `t1`.`Id`
+        WHERE `e`.`Id` = `j0`.`EntityOneId` AND (`t1`.`Name` LIKE 'L%')) AS `c`
+    FROM `EntityOnes` AS `e`
+) AS `t3`
+ORDER BY `t3`.`c`, `t3`.`Id`
 """);
     }
 
@@ -148,14 +151,17 @@ WHERE (
         await base.Skip_navigation_long_count_with_predicate(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[CollectionInverseId], [e].[ExtraId], [e].[Name], [e].[ReferenceInverseId]
-FROM [EntityTwos] AS [e]
-ORDER BY (
-    SELECT COUNT_BIG(*)
-    FROM [EntityTwoEntityTwo] AS [e0]
-    INNER JOIN [EntityTwos] AS [e1] ON [e0].[SelfSkipSharedLeftId] = [e1].[Id]
-    WHERE [e].[Id] = [e0].[SelfSkipSharedRightId] AND ([e1].[Name] IS NOT NULL) AND ([e1].[Name] LIKE N'L%')) DESC, [e].[Id]
+            """
+SELECT `t`.`Id`, `t`.`CollectionInverseId`, `t`.`ExtraId`, `t`.`Name`, `t`.`ReferenceInverseId`, `t`.`c`
+FROM (
+    SELECT `e`.`Id`, `e`.`CollectionInverseId`, `e`.`ExtraId`, `e`.`Name`, `e`.`ReferenceInverseId`, (
+        SELECT COUNT(*)
+        FROM `EntityTwoEntityTwo` AS `e2`
+        INNER JOIN `EntityTwos` AS `e3` ON `e2`.`SelfSkipSharedLeftId` = `e3`.`Id`
+        WHERE `e`.`Id` = `e2`.`SelfSkipSharedRightId` AND (`e3`.`Name` LIKE 'L%')) AS `c`
+    FROM `EntityTwos` AS `e`
+) AS `t`
+ORDER BY `t`.`c` DESC, `t`.`Id`
 """);
     }
 
@@ -2206,20 +2212,23 @@ WHERE (
         await base.Skip_navigation_count_with_predicate_unidirectional(async);
 
         AssertSql(
-"""
-SELECT [u].[Id], [u].[Name]
-FROM [UnidirectionalEntityOnes] AS [u]
-ORDER BY (
-    SELECT COUNT(*)
-    FROM [UnidirectionalJoinOneToBranch] AS [u0]
-    INNER JOIN (
-        SELECT [u1].[Id], [u1].[Name], [u1].[Number], NULL AS [IsGreen], N'UnidirectionalEntityBranch' AS [Discriminator]
-        FROM [UnidirectionalBranches] AS [u1]
-        UNION ALL
-        SELECT [u2].[Id], [u2].[Name], [u2].[Number], [u2].[IsGreen], N'UnidirectionalEntityLeaf' AS [Discriminator]
-        FROM [UnidirectionalLeaves] AS [u2]
-    ) AS [t] ON [u0].[UnidirectionalEntityBranchId] = [t].[Id]
-    WHERE [u].[Id] = [u0].[UnidirectionalEntityOneId] AND ([t].[Name] IS NOT NULL) AND ([t].[Name] LIKE N'L%')), [u].[Id]
+            """
+SELECT `t3`.`Id`, `t3`.`Name`, `t3`.`c`
+FROM (
+    SELECT `u`.`Id`, `u`.`Name`, (
+        SELECT COUNT(*)
+        FROM `UnidirectionalJoinOneToBranch` AS `u3`
+        INNER JOIN (
+            SELECT `u4`.`Id`, `u4`.`Name`, `u4`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+            FROM `UnidirectionalBranches` AS `u4`
+            UNION ALL
+            SELECT `u5`.`Id`, `u5`.`Name`, `u5`.`Number`, `u5`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`
+            FROM `UnidirectionalLeaves` AS `u5`
+        ) AS `t1` ON `u3`.`UnidirectionalEntityBranchId` = `t1`.`Id`
+        WHERE `u`.`Id` = `u3`.`UnidirectionalEntityOneId` AND (`t1`.`Name` LIKE 'L%')) AS `c`
+    FROM `UnidirectionalEntityOnes` AS `u`
+) AS `t3`
+ORDER BY `t3`.`c`, `t3`.`Id`
 """);
     }
 

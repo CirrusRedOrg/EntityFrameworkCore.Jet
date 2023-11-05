@@ -367,15 +367,18 @@ ORDER BY (
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-ORDER BY (
-    SELECT TOP(1) [o0].[OrderID]
-    FROM [Order Details] AS [o0]
-    WHERE [o].[OrderID] = [o0].[OrderID]) DESC, (
-    SELECT TOP(1) [o1].[ProductID]
-    FROM [Order Details] AS [o1]
-    WHERE [o].[OrderID] = [o1].[OrderID]) DESC
+SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`c`, `t`.`c0`
+FROM (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, (
+        SELECT TOP 1 `o2`.`OrderID`
+        FROM `Order Details` AS `o2`
+        WHERE `o`.`OrderID` = `o2`.`OrderID`) AS `c`, (
+        SELECT TOP 1 `o3`.`ProductID`
+        FROM `Order Details` AS `o3`
+        WHERE `o`.`OrderID` = `o3`.`OrderID`) AS `c0`
+    FROM `Orders` AS `o`
+) AS `t`
+ORDER BY `t`.`c` DESC, `t`.`c0` DESC
 """);
         }
 
@@ -3075,21 +3078,24 @@ FROM `Orders` AS `o`
             await base.Subquery_member_pushdown_does_not_change_original_subquery_model(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT `t`.`OrderID` AS `OrderId`, (
-    SELECT TOP 1 `c`.`City`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` = `t`.`CustomerID`) AS `City`
+                """
+SELECT `t0`.`OrderId`, `t0`.`City`, `t0`.`c`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    ORDER BY `o`.`OrderID`
-) AS `t`
-ORDER BY (
-    SELECT TOP 1 `c0`.`City`
-    FROM `Customers` AS `c0`
-    WHERE `c0`.`CustomerID` = `t`.`CustomerID`)");
+    SELECT `t`.`OrderID` AS `OrderId`, (
+        SELECT TOP 1 `c0`.`City`
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`CustomerID` = `t`.`CustomerID`) AS `City`, (
+        SELECT TOP 1 `c1`.`City`
+        FROM `Customers` AS `c1`
+        WHERE `c1`.`CustomerID` = `t`.`CustomerID`) AS `c`
+    FROM (
+        SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`
+) AS `t0`
+ORDER BY `t0`.`c`
+""");
         }
 
         public override async Task Subquery_member_pushdown_does_not_change_original_subquery_model2(bool isAsync)
@@ -3097,21 +3103,24 @@ ORDER BY (
             await base.Subquery_member_pushdown_does_not_change_original_subquery_model2(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
-
-SELECT `t`.`OrderID` AS `OrderId`, (
-    SELECT TOP 1 `c`.`City`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` = `t`.`CustomerID`) AS `City`
+                """
+SELECT `t0`.`OrderId`, `t0`.`City`, `t0`.`c`
 FROM (
-    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    ORDER BY `o`.`OrderID`
-) AS `t`
-ORDER BY (
-    SELECT TOP 1 `c0`.`City`
-    FROM `Customers` AS `c0`
-    WHERE `c0`.`CustomerID` = `t`.`CustomerID`)");
+    SELECT `t`.`OrderID` AS `OrderId`, (
+        SELECT TOP 1 `c0`.`City`
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`CustomerID` = `t`.`CustomerID`) AS `City`, (
+        SELECT TOP 1 `c1`.`City`
+        FROM `Customers` AS `c1`
+        WHERE `c1`.`CustomerID` = `t`.`CustomerID`) AS `c`
+    FROM (
+        SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`
+) AS `t0`
+ORDER BY `t0`.`c`
+""");
         }
 
         public override async Task Query_expression_with_to_string_and_contains(bool isAsync)
@@ -3807,21 +3816,26 @@ ORDER BY `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`)
             await base.Anonymous_subquery_orderby(isAsync);
 
             AssertSql(
-                $@"SELECT (
-    SELECT TOP 1 `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-    ORDER BY `o`.`OrderID` DESC) AS `A`
-FROM `Customers` AS `c`
-WHERE (
-    SELECT COUNT(*)
-    FROM `Orders` AS `o0`
-    WHERE `c`.`CustomerID` = `o0`.`CustomerID`) > 1
-ORDER BY (
-    SELECT TOP 1 `o1`.`OrderDate`
-    FROM `Orders` AS `o1`
-    WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-    ORDER BY `o1`.`OrderID` DESC)");
+                """
+    SELECT `t`.`A`, `t`.`c`
+    FROM (
+        SELECT (
+            SELECT TOP 1 `o1`.`OrderDate`
+            FROM `Orders` AS `o1`
+            WHERE `c`.`CustomerID` = `o1`.`CustomerID`
+            ORDER BY `o1`.`OrderID` DESC) AS `A`, (
+            SELECT TOP 1 `o2`.`OrderDate`
+            FROM `Orders` AS `o2`
+            WHERE `c`.`CustomerID` = `o2`.`CustomerID`
+            ORDER BY `o2`.`OrderID` DESC) AS `c`
+        FROM `Customers` AS `c`
+        WHERE (
+            SELECT COUNT(*)
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
+    ) AS `t`
+    ORDER BY `t`.`c`
+    """);
         }
 
         public override async Task DTO_member_distinct_where(bool isAsync)
@@ -3922,21 +3936,26 @@ FROM (
             await base.DTO_subquery_orderby(isAsync);
 
             AssertSql(
-                $@"SELECT (
-    SELECT TOP 1 `o`.`OrderDate`
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`
-    ORDER BY `o`.`OrderID` DESC) AS `Property`
-FROM `Customers` AS `c`
-WHERE (
-    SELECT COUNT(*)
-    FROM `Orders` AS `o0`
-    WHERE `c`.`CustomerID` = `o0`.`CustomerID`) > 1
-ORDER BY (
-    SELECT TOP 1 `o1`.`OrderDate`
-    FROM `Orders` AS `o1`
-    WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-    ORDER BY `o1`.`OrderID` DESC)");
+                """
+SELECT `t`.`Property`, `t`.`c`
+FROM (
+    SELECT (
+        SELECT TOP 1 `o1`.`OrderDate`
+        FROM `Orders` AS `o1`
+        WHERE `c`.`CustomerID` = `o1`.`CustomerID`
+        ORDER BY `o1`.`OrderID` DESC) AS `Property`, (
+        SELECT TOP 1 `o2`.`OrderDate`
+        FROM `Orders` AS `o2`
+        WHERE `c`.`CustomerID` = `o2`.`CustomerID`
+        ORDER BY `o2`.`OrderID` DESC) AS `c`
+    FROM `Customers` AS `c`
+    WHERE (
+        SELECT COUNT(*)
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
+) AS `t`
+ORDER BY `t`.`c`
+""");
         }
 
         public override async Task Include_with_orderby_skip_preserves_ordering(bool isAsync)

@@ -39,6 +39,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             {
                 query = new JetDateTimeExpressionVisitor(RelationalDependencies.SqlExpressionFactory, _relationalTypeMappingSource).Visit(query);
             }
+            query = _skipWithoutOrderByInSplitQueryVerifier.Visit(query);
             query = _liftOrderByPostprocessor.Process(query);
             return query;
         }

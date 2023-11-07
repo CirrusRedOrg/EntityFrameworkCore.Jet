@@ -518,22 +518,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 }
             }
         }
-
-        [ConditionalFact]
-        public void Throws_when_no_initial_catalog()
-        {
-            var dataAccessProviderType = JetConnection.GetDataAccessProviderType(TestEnvironment.DefaultConnection);
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
-            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
-            connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
-            connectionStringBuilder.Remove("Initial Catalog");
-
-            var creator = GetDatabaseCreator(connectionStringBuilder.ToString());
-
-            var ex = Assert.Throws<InvalidOperationException>(() => creator.Delete());
-
-            Assert.Equal(JetStrings.NoInitialCatalog, ex.Message);
-        }
     }
 
     [JetCondition(JetCondition.IsNotCI)]

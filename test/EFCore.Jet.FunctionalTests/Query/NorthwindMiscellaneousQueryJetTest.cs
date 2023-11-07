@@ -968,15 +968,17 @@ ORDER BY NOT (IIF(`p`.`UnitsInStock` > 0, TRUE, FALSE)), `p`.`ProductID`");
             await base.OrderBy_any(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-ORDER BY CASE
-    WHEN EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE (`c`.`CustomerID` = `o`.`CustomerID`) AND (`o`.`OrderID` > 11000)) THEN True
-    ELSE False
-END, `c`.`CustomerID`");
+                """
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(EXISTS (
+            SELECT 1
+            FROM `Orders` AS `o0`
+            WHERE `c`.`CustomerID` = `o0`.`CustomerID` AND `o0`.`OrderID` > 11000), TRUE, FALSE) AS `c`
+    FROM `Customers` AS `c`
+) AS `t`
+ORDER BY NOT (`t`.`c`), `t`.`CustomerID`
+""");
         }
 
         public override async Task Skip(bool isAsync)
@@ -2259,16 +2261,18 @@ FROM (SELECT COUNT(*) FROM `#Dual`)");
             await base.OrderBy_correlated_subquery1(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE 'A' & '%'
-ORDER BY CASE
-    WHEN EXISTS (
-        SELECT 1
-        FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = `c`.`CustomerID`) THEN True
-    ELSE False
-END, `c`.`CustomerID`");
+                """
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, IIF(EXISTS (
+            SELECT 1
+            FROM `Customers` AS `c1`
+            WHERE `c1`.`CustomerID` = `c`.`CustomerID`), TRUE, FALSE) AS `c`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'A%'
+) AS `t`
+ORDER BY NOT (`t`.`c`), `t`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_correlated_subquery2(bool isAsync)

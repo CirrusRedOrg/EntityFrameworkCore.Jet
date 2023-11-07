@@ -5,18 +5,15 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
-/// <summary>
-///     Converts <see cref="SqlServerOpenJsonExpression" /> expressions with WITH (the default) to OPENJSON without WITH when an
-///     ordering still exists on the [key] column, i.e. when the ordering of the original JSON array needs to be preserved
-///     (e.g. limit/offset).
-/// </summary>
 /// <remarks>
 ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
 ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -71,23 +68,29 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
 
                     for (int i = 0; i < selectExpression.Orderings.Count; i++)
                     {
-                        if (selectExpression.Orderings[i].Expression is ScalarSubqueryExpression scalarSubqueryExpression)
+                        var sqlExpression = selectExpression.Orderings[i].Expression;
+                        if (sqlExpression is not ColumnExpression)
                         {
-                            int index = selectExpression.AddToProjection(scalarSubqueryExpression);
-                            columnsToRewrite.Add(i, (index, null, selectExpression.Orderings[i].IsAscending, true, false));
+                            bool containsscalar = sqlExpression is ScalarSubqueryExpression;
+                            containsscalar = containsscalar || TryPeekFunction(sqlExpression as SqlFunctionExpression) || TryPeekCase(sqlExpression as CaseExpression) || TryPeekExists(sqlExpression as ExistsExpression);
+                            if (containsscalar)
+                            {
+                                int index = selectExpression.AddToProjection(sqlExpression);
+                                columnsToRewrite.Add(i, (index, null, selectExpression.Orderings[i].IsAscending, true, false));
+                            }
                         }
                         else
                         {
-                            var foundproj = selectExpression.Projection.SingleOrDefault(p =>
-                                p.Expression.Equals(selectExpression.Orderings[i].Expression));
-                            if (foundproj == null && selectExpression.Orderings[i].Expression is ColumnExpression colexp && !selectExpression.Tables.Contains(colexp.Table))
+                            var foundproj = selectExpression.Projection.FirstOrDefault(p =>
+                                p.Expression.Equals(sqlExpression));
+                            if (foundproj == null && sqlExpression is ColumnExpression colexp && !selectExpression.Tables.Contains(colexp.Table))
                             {
-                                var ix = selectExpression.AddToProjection(selectExpression.Orderings[i].Expression);
+                                var ix = selectExpression.AddToProjection(sqlExpression);
                                 columnsToRewrite.Add(i, (ix, null, selectExpression.Orderings[i].IsAscending, false, false));
                             }
                             else
                             {
-                                bool referouter = selectExpression.Orderings[i].Expression is ColumnExpression colexp1 &&
+                                bool referouter = sqlExpression is ColumnExpression colexp1 &&
                                                   selectExpression.Tables.Contains(colexp1.Table);
                                 columnsToRewrite.Add(i,
                                     (null, selectExpression.Orderings[i], selectExpression.Orderings[i].IsAscending, false, referouter));
@@ -137,5 +140,25 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
         }
 
         return base.Visit(expression);
+    }
+
+    private bool TryPeekExists(ExistsExpression? existsExpression)
+    {
+        return existsExpression is not null;
+    }
+
+    private bool TryPeekCase(CaseExpression? sqlExpression)
+    {
+        if (sqlExpression is null) return false;
+        if (sqlExpression.ElseResult is ScalarSubqueryExpression) return true;
+        if (sqlExpression.WhenClauses.Any(x => x.Result is ScalarSubqueryExpression)) return true;
+        if (sqlExpression.Operand is ScalarSubqueryExpression) return true;
+        return false;
+    }
+
+    private bool TryPeekFunction(SqlFunctionExpression? sqlExpression)
+    {
+        if (sqlExpression is null) return false;
+        return sqlExpression.Arguments != null && sqlExpression.Arguments.Any(x => x is ScalarSubqueryExpression);
     }
 }

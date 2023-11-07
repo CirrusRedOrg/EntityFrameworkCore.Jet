@@ -5334,19 +5334,24 @@ ORDER BY NOT (`t`.`c`), `t`.`Nickname`, `t`.`SquadId`, `t`.`Nickname0`
             await base.Include_collection_with_complex_OrderBy3(isAsync);
 
             AssertSql(
-                $@"SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`
-FROM `Gears` AS `g`
-LEFT JOIN (
-    SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`Discriminator`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`
-    FROM `Gears` AS `g0`
-    WHERE `g0`.`Discriminator` IN ('Gear', 'Officer')
-) AS `t` ON (`g`.`Nickname` = `t`.`LeaderNickname`) AND (`g`.`SquadId` = `t`.`LeaderSquadId`)
-WHERE `g`.`Discriminator` IN ('Gear', 'Officer') AND (`g`.`Discriminator` = 'Officer')
-ORDER BY (
-    SELECT TOP 1 `w`.`IsAutomatic`
-    FROM `Weapons` AS `w`
-    WHERE `g`.`FullName` = `w`.`OwnerFullName`
-    ORDER BY `w`.`Id`), `g`.`Nickname`, `g`.`SquadId`, `t`.`Nickname`, `t`.`SquadId`");
+                """
+SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Nickname0`, `t`.`SquadId0`, `t`.`AssignedCityName0`, `t`.`CityOfBirthName0`, `t`.`Discriminator0`, `t`.`FullName0`, `t`.`HasSoulPatch0`, `t`.`LeaderNickname0`, `t`.`LeaderSquadId0`, `t`.`Rank0`, `t`.`c`
+FROM (
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `g0`.`Nickname` AS `Nickname0`, `g0`.`SquadId` AS `SquadId0`, `g0`.`AssignedCityName` AS `AssignedCityName0`, `g0`.`CityOfBirthName` AS `CityOfBirthName0`, `g0`.`Discriminator` AS `Discriminator0`, `g0`.`FullName` AS `FullName0`, `g0`.`HasSoulPatch` AS `HasSoulPatch0`, `g0`.`LeaderNickname` AS `LeaderNickname0`, `g0`.`LeaderSquadId` AS `LeaderSquadId0`, `g0`.`Rank` AS `Rank0`, IIF((
+            SELECT TOP 1 `w0`.`IsAutomatic`
+            FROM `Weapons` AS `w0`
+            WHERE `g`.`FullName` = `w0`.`OwnerFullName`
+            ORDER BY `w0`.`Id`) IS NULL, FALSE, (
+            SELECT TOP 1 `w0`.`IsAutomatic`
+            FROM `Weapons` AS `w0`
+            WHERE `g`.`FullName` = `w0`.`OwnerFullName`
+            ORDER BY `w0`.`Id`)) AS `c`
+    FROM `Gears` AS `g`
+    LEFT JOIN `Gears` AS `g0` ON `g`.`Nickname` = `g0`.`LeaderNickname` AND `g`.`SquadId` = `g0`.`LeaderSquadId`
+    WHERE `g`.`Discriminator` = 'Officer'
+) AS `t`
+ORDER BY NOT (`t`.`c`), `t`.`Nickname`, `t`.`SquadId`, `t`.`Nickname0`
+""");
         }
 
         public override async Task Correlated_collection_with_complex_OrderBy(bool isAsync)

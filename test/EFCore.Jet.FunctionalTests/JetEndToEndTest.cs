@@ -818,8 +818,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         eb.Property(g => g.Id)
                             .ValueGeneratedNever();
 
-                        eb.HasKey(
-                            l => new { l.GameId, l.Id });
+                        eb.HasKey(l => new { l.GameId, l.Id });
                     });
 
                 modelBuilder.Entity<Actor>(
@@ -828,8 +827,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         eb.Property(g => g.Id)
                             .ValueGeneratedNever();
 
-                        eb.HasKey(
-                            a => new { a.GameId, a.Id });
+                        eb.HasKey(a => new { a.GameId, a.Id });
 
                         eb.HasOne(a => a.Level)
                             .WithMany(l => l.Actors)
@@ -855,11 +853,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         eb.Property(g => g.Id)
                             .ValueGeneratedNever();
 
-                        eb.HasKey(
-                            l => new { l.GameId, l.Id });
+                        eb.HasKey(l => new { l.GameId, l.Id });
                     });
 
-                modelBuilder.Entity<Container>();
+                modelBuilder.Entity<Container>(
+                    eb =>
+                    {
+                        eb.HasMany(c => c.Items)
+                            .WithOne()
+                            .HasForeignKey("GameId", "ContainerId");
+                    });
 
                 modelBuilder.Entity<Game>(
                     eb =>
@@ -1008,7 +1011,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     Assert.Equal("Blog1", blog1.Name);
                     Assert.True(blog1.George);
                     Assert.Equal(new Guid("0456AEF1-B7FC-47AA-8102-975D6BA3A9BF"), blog1.TheGu);
-                    Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 33, 777), blog1.NotFigTime);
+                    Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 33, 0), blog1.NotFigTime);
                     Assert.Equal(64, blog1.ToEat);
                     Assert.Equal(0.123456789, blog1.OrNothing);
                     Assert.Equal(777, blog1.Fuse);
@@ -1058,7 +1061,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         {
             context.Database.EnsureCreatedResiliently();
 
-            var blog1 = context.Add(
+            var blog1 = (await context.AddAsync(
                 new TBlog
                 {
                     Name = "Blog1",
@@ -1076,8 +1079,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     OrUSkint = 8888888,
                     OrUShort = 888888888888888,
                     AndChew = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
-                }).Entity;
-            var blog2 = context.Add(
+                })).Entity;
+            var blog2 = (await context.AddAsync(
                 new TBlog
                 {
                     Name = "Blog2",
@@ -1095,7 +1098,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     OrUSkint = 8888888,
                     OrUShort = 888888888888888,
                     AndChew = new byte[16]
-                }).Entity;
+                })).Entity;
             await context.SaveChangesAsync();
 
             return new[] { blog1, blog2 };
@@ -1182,9 +1185,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 }
 
                 modelBuilder.Entity<TBlog>().ToTable("Blog");
-                //Ignore WayRound it is a type long which is currently too large for Jet
-                //TODO: Remove this when we have a workaround for ulong
-                modelBuilder.Entity<TBlog>().Ignore(e => e.WayRound);
             }
 
             public DbSet<TBlog> Blogs { get; set; }

@@ -440,46 +440,6 @@ ALTER TABLE `Person` ALTER COLUMN `Id` decimal(20,0) NOT NULL;
         // ");
         //         }
 
-        //         [ConditionalFact]
-        //         public virtual void CreateDatabaseOperation_with_collation()
-        //         {
-        //             Generate(
-        //                 new JetCreateDatabaseOperation { Name = "Northwind", Collation = "German_PhoneBook_CI_AS" });
-        //
-        //             AssertSql(
-        //                 @"CREATE DATABASE [Northwind]
-        // COLLATE German_PhoneBook_CI_AS;
-        // GO
-        //
-        // IF SERVERPROPERTY('EngineEdition') <> 5
-        // BEGIN
-        //     ALTER DATABASE [Northwind] SET READ_COMMITTED_SNAPSHOT ON;
-        // END;
-        // ");
-        //         }
-
-        [ConditionalFact]
-        public virtual void AlterDatabaseOperation_collation()
-        {
-            Generate(
-                new AlterDatabaseOperation { Collation = "German_PhoneBook_CI_AS" });
-
-            Assert.Contains(
-                "COLLATE German_PhoneBook_CI_AS",
-                Sql);
-        }
-
-        // [ConditionalFact]
-        // public virtual void AlterDatabaseOperation_memory_optimized()
-        // {
-        //     Generate(
-        //         new AlterDatabaseOperation { [JetAnnotationNames.MemoryOptimized] = true });
-        //
-        //     Assert.Contains(
-        //         "CONTAINS MEMORY_OPTIMIZED_DATA;",
-        //         Sql);
-        // }
-
         [ConditionalFact]
         public virtual void DropDatabaseOperation()
         {

@@ -855,11 +855,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 && selectExpression.Projection.Count == 0)
             {
                 Sql.Append("DELETE ");
-                GenerateTop(selectExpression);
 
-                Sql.Append($"{Dependencies.SqlGenerationHelper.DelimitIdentifier(deleteExpression.Table.Alias)}.*");
+                if (selectExpression.Tables.Count > 1)
+                {
+                    Sql.Append($"{Dependencies.SqlGenerationHelper.DelimitIdentifier(deleteExpression.Table.Alias)}.*");
+                    Sql.AppendLine();
+                }
 
-                VisitJetTables(selectExpression.Tables, true, out _);
+                Sql.Append("FROM ");
+                VisitJetTables(selectExpression.Tables, false, out _);
 
                 if (selectExpression.Predicate != null)
                 {
@@ -891,10 +895,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 && selectExpression.Having == null
                 && selectExpression.Orderings.Count == 0
                 && selectExpression.GroupBy.Count == 0
-                && selectExpression.Projection.Count == 0)
+                && selectExpression.Projection.Count == 0
+                && selectExpression.Limit == null)
             {
                 Sql.Append("UPDATE ");
-                GenerateTop(selectExpression);
 
                 VisitJetTables(selectExpression.Tables, false, out _);
 

@@ -42,8 +42,7 @@ public class TPTFiltersInheritanceBulkUpdatesJetTest : TPTFiltersInheritanceBulk
 
         AssertSql(
             """
-DELETE `c`.*
-FROM `Countries` AS `c`
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM ((`Animals` AS `a`
@@ -60,8 +59,7 @@ WHERE (
 
         AssertSql(
             """
-DELETE `c`.*
-FROM `Countries` AS `c`
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM ((`Animals` AS `a`

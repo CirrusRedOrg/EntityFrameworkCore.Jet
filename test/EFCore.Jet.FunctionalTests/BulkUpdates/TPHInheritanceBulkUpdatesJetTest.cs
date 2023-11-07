@@ -30,8 +30,7 @@ public class TPHInheritanceBulkUpdatesJetTest : TPHInheritanceBulkUpdatesTestBas
 
         AssertSql(
             """
-DELETE `a`.*
-FROM `Animals` AS `a`
+DELETE FROM `Animals` AS `a`
 WHERE `a`.`Name` = 'Great spotted kiwi'
 """);
     }
@@ -42,8 +41,7 @@ WHERE `a`.`Name` = 'Great spotted kiwi'
 
         AssertSql(
             """
-DELETE `a`.*
-FROM `Animals` AS `a`
+DELETE FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`Name` = 'Great spotted kiwi'
 """);
     }
@@ -54,8 +52,7 @@ WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`Name` = 'Great spotted kiwi'
 
         AssertSql(
             """
-DELETE `c`.*
-FROM `Countries` AS `c`
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM `Animals` AS `a`
@@ -69,8 +66,7 @@ WHERE (
 
         AssertSql(
             """
-DELETE `c`.*
-FROM `Countries` AS `c`
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM `Animals` AS `a`
@@ -125,8 +121,7 @@ WHERE [a].[Id] IN (
 
         AssertSql(
             """
-DELETE `a`.*
-FROM `Animals` AS `a`
+DELETE FROM `Animals` AS `a`
 WHERE `a`.`Id` IN (
     SELECT `t0`.`Id`
     FROM (

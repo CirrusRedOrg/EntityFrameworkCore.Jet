@@ -188,7 +188,8 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         if (selectExpression.Offset == null
             && selectExpression.GroupBy.Count == 0
             && selectExpression.Having == null
-            && selectExpression.Orderings.Count == 0)
+            && selectExpression.Orderings.Count == 0
+            && selectExpression.Limit == null)
         {
             TableExpressionBase table;
             if (selectExpression.Tables.Count == 1)
@@ -235,7 +236,8 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
                 IsDistinct: false,
                 GroupBy: [],
                 Having: null,
-                Orderings: []
+                Orderings: [],
+                Limit: null
             })
         {
             if (selectExpression.Tables.Count > 1 && table is JoinExpressionBase joinExpressionBase)

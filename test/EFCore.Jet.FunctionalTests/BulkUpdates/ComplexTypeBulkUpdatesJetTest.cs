@@ -24,8 +24,7 @@ public class ComplexTypeBulkUpdatesJetTest : ComplexTypeBulkUpdatesTestBase<
 
         AssertSql(
             """
-DELETE `c`.*
-FROM `Customer` AS `c`
+DELETE FROM `Customer` AS `c`
 WHERE `c`.`Name` = 'Monty Elias'
 """);
     }

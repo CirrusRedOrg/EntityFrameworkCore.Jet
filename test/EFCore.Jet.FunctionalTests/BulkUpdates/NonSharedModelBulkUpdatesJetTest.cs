@@ -26,8 +26,7 @@ public class NonSharedModelBulkUpdatesJetTest : NonSharedModelBulkUpdatesTestBas
 
         AssertSql(
 """
-DELETE `o`.*
-FROM `Owner` AS `o`
+DELETE FROM `Owner` AS `o`
 """);
     }
 
@@ -37,8 +36,7 @@ FROM `Owner` AS `o`
 
         AssertSql(
 """
-DELETE `o`.*
-FROM `Owner` AS `o`
+DELETE FROM `Owner` AS `o`
 """);
     }
 

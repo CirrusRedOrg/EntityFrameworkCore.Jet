@@ -28,8 +28,7 @@ public class NorthwindBulkUpdatesJetTest : NorthwindBulkUpdatesTestBase<Northwin
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` < 10300
 """);
     }
@@ -40,8 +39,7 @@ WHERE `o`.`OrderID` < 10300
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` < 10300
 """);
     }
@@ -54,14 +52,12 @@ WHERE `o`.`OrderID` < 10300
             """
 @__quantity_0='1' (Nullable = true) (DbType = Int16)
 
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE `o`.`Quantity` = @__quantity_0
 """,
             //
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE 0 = 1
 """);
     }
@@ -72,8 +68,7 @@ WHERE 0 = 1
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
@@ -219,8 +214,7 @@ WHERE EXISTS (
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` < (
     SELECT TOP 1 (
         SELECT TOP 1 `o1`.`OrderID`
@@ -273,8 +267,7 @@ WHERE `o0`.`OrderID` IN (
 
         AssertSql(
             """
-    DELETE `o`.*
-    FROM `Order Details` AS `o`
+    DELETE FROM `Order Details` AS `o`
     WHERE EXISTS (
         SELECT 1
         FROM (
@@ -301,8 +294,7 @@ WHERE `o0`.`OrderID` IN (
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` < 10300
 """);
     }
@@ -326,8 +318,7 @@ WHERE `o`.`OrderID` < 10250
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
@@ -373,8 +364,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
@@ -396,8 +386,7 @@ WHERE EXISTS (
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
@@ -486,8 +475,7 @@ WHERE EXISTS (
 
         AssertSql(
             """
-DELETE `o`.*
-FROM `Order Details` AS `o`
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
@@ -751,13 +739,14 @@ INNER JOIN (
         await base.Update_Where_Take_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-@__p_0='4'
-
-UPDATE TOP(@__p_0) [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+INNER JOIN (
+    SELECT TOP 4 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'F%'
+) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+SET `c`.`ContactName` = 'Updated'
 """);
     }
 

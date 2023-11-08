@@ -471,11 +471,9 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-@__p_0='10'
-
-SELECT TOP(@__p_0) [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
-FROM [Employees] AS [e]
-ORDER BY (SELECT 1)
+SELECT TOP 10 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+ORDER BY 1
 """);
         }
 

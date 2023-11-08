@@ -17,7 +17,7 @@ public class Ef6GroupByJetTest : Ef6GroupByTestBase<Ef6GroupByJetTest.Ef6GroupBy
         : base(fixture)
     {
         Fixture.TestSqlLoggerFactory.Clear();
-        //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     [ConditionalFact]
@@ -523,17 +523,17 @@ ORDER BY CAST(LEN((
         await base.Whats_new_2021_sample_5(async);
 
         AssertSql(
-"""
-SELECT (
-    SELECT TOP(1) [p1].[LastName]
-    FROM [Person] AS [p1]
-    WHERE [p].[FirstName] = [p1].[FirstName] OR (([p].[FirstName] IS NULL) AND ([p1].[FirstName] IS NULL)))
-FROM [Person] AS [p]
-GROUP BY [p].[FirstName]
-ORDER BY (
-    SELECT TOP(1) [p1].[LastName]
-    FROM [Person] AS [p1]
-    WHERE [p].[FirstName] = [p1].[FirstName] OR (([p].[FirstName] IS NULL) AND ([p1].[FirstName] IS NULL)))
+            """
+SELECT `t`.`c`
+FROM (
+    SELECT (
+        SELECT TOP 1 `p1`.`LastName`
+        FROM `Person` AS `p1`
+        WHERE `p`.`FirstName` = `p1`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p1`.`FirstName` IS NULL)) AS `c`, `p`.`FirstName`
+    FROM `Person` AS `p`
+    GROUP BY `p`.`FirstName`
+) AS `t`
+ORDER BY `t`.`c`
 """);
     }
 
@@ -542,18 +542,18 @@ ORDER BY (
         await base.Whats_new_2021_sample_6(async);
 
         AssertSql(
-"""
-SELECT (
-    SELECT TOP(1) [p1].[MiddleInitial]
-    FROM [Person] AS [p1]
-    WHERE [p1].[Age] = 20 AND [p].[Id] = [p1].[Id])
-FROM [Person] AS [p]
-WHERE [p].[Age] = 20
-GROUP BY [p].[Id]
-ORDER BY (
-    SELECT TOP(1) [p1].[MiddleInitial]
-    FROM [Person] AS [p1]
-    WHERE [p1].[Age] = 20 AND [p].[Id] = [p1].[Id])
+            """
+SELECT `t`.`c`
+FROM (
+    SELECT (
+        SELECT TOP 1 `p1`.`MiddleInitial`
+        FROM `Person` AS `p1`
+        WHERE `p1`.`Age` = 20 AND `p`.`Id` = `p1`.`Id`) AS `c`, `p`.`Id`
+    FROM `Person` AS `p`
+    WHERE `p`.`Age` = 20
+    GROUP BY `p`.`Id`
+) AS `t`
+ORDER BY `t`.`c`
 """);
     }
 

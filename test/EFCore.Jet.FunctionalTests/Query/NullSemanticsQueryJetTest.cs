@@ -886,12 +886,12 @@ WHERE `e`.`NullableStringA` = 'Foo' OR `e`.`NullableStringA` IS NULL
             await base.Where_multiple_ands_with_nullable_parameter_and_constant(async);
 
             AssertSql(
-"""
+$"""
 @__prm3_2='Blah' (Size = 255)
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringA` <> @__prm3_2
+WHERE (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringA` <> {AssertSqlHelper.Parameter("@__prm3_2")}
 """);
         }
 
@@ -900,12 +900,12 @@ WHERE (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL) AND `e`.
             await base.Where_multiple_ands_with_nullable_parameter_and_constant_not_optimized(async);
 
             AssertSql(
-"""
+$"""
 @__prm3_2='Blah' (Size = 255)
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringB` IS NOT NULL AND (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringA` <> @__prm3_2
+WHERE `e`.`NullableStringB` IS NOT NULL AND (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringA` <> {AssertSqlHelper.Parameter("@__prm3_2")}
 """);
         }
 
@@ -1277,20 +1277,20 @@ WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`
             base.Switching_parameter_value_to_null_produces_different_cache_entry();
 
             AssertSql(
-                """
+                $"""
 @__p_0='True'
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE @__p_0 = TRUE
+WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
 """,
                 //
-                """
+                $"""
 @__p_0='False'
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE @__p_0 = TRUE
+WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
 """);
         }
 
@@ -1650,36 +1650,36 @@ WHERE IIF(`e`.`NullableIntA` IS NULL, 0, `e`.`NullableIntA`) <> 0
             await base.Negated_order_comparison_on_non_nullable_arguments_gets_optimized(async);
 
             AssertSql(
-"""
+$"""
 @__i_0='1'
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`IntA` <= @__i_0
+WHERE `e`.`IntA` <= {AssertSqlHelper.Parameter("@__i_0")}
 """,
 //
-"""
+$"""
 @__i_0='1'
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`IntA` < @__i_0
+WHERE `e`.`IntA` < {AssertSqlHelper.Parameter("@__i_0")}
 """,
 //
-"""
+$"""
 @__i_0='1'
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`IntA` >= @__i_0
+WHERE `e`.`IntA` >= {AssertSqlHelper.Parameter("@__i_0")}
 """,
 //
-"""
+$"""
 @__i_0='1'
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`IntA` > @__i_0
+WHERE `e`.`IntA` > {AssertSqlHelper.Parameter("@__i_0")}
 """);
         }
 
@@ -2007,12 +2007,12 @@ FROM `Entities1` AS `e`
 WHERE `e`.`NullableBoolA` IS NOT NULL
 """,
 //
-"""
+$"""
 @__prm_0='False'
 
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE @__prm_0 = IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
+WHERE {AssertSqlHelper.Parameter("@__prm_0")} = IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
 """,
 //
 """
@@ -2033,12 +2033,12 @@ FROM `Entities1` AS `e`
 WHERE `e`.`NullableBoolA` IS NULL
 """,
 //
-"""
+$"""
 @__prm_0='False'
 
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE @__prm_0 = IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
+WHERE {AssertSqlHelper.Parameter("@__prm_0")} = IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
 """);
         }
 
@@ -2053,12 +2053,12 @@ FROM `Entities1` AS `e`
 WHERE `e`.`NullableBoolA` IS NULL
 """,
 //
-"""
+$"""
 @__prm_0='False'
 
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE @__prm_0 <> IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
+WHERE {AssertSqlHelper.Parameter("@__prm_0")} <> IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
 """,
 //
 """
@@ -2079,12 +2079,12 @@ FROM `Entities1` AS `e`
 WHERE `e`.`NullableIntA` IS NULL
 """,
 //
-"""
+$"""
 @__prm_0='False'
 
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE @__prm_0 <> IIF(`e`.`NullableIntA` IS NOT NULL, TRUE, FALSE)
+WHERE {AssertSqlHelper.Parameter("@__prm_0")} <> IIF(`e`.`NullableIntA` IS NOT NULL, TRUE, FALSE)
 """,
 //
 """
@@ -2105,12 +2105,12 @@ FROM `Entities1` AS `e`
 WHERE `e`.`NullableBoolA` IS NOT NULL
 """,
 //
-"""
+$"""
 @__prm_0='False'
 
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE @__prm_0 <> IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
+WHERE {AssertSqlHelper.Parameter("@__prm_0")} <> IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
 """);
         }
 

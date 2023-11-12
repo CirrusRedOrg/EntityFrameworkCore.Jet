@@ -239,18 +239,29 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (_lastOrDefaultMethodInfoWithoutArgs.Equals(method))
             {
                 var argument = arguments[0];
+                var lenfunction = _sqlExpressionFactory.Function(
+                    "LEN",
+                    new[] { argument },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true },
+                    typeof(int));
+                var casefunc = _sqlExpressionFactory.Case(
+                    new[]
+                    {
+                        new CaseWhenClause(
+                            _sqlExpressionFactory.Equal(
+                                lenfunction,
+                                _sqlExpressionFactory.Constant(0)),
+                            _sqlExpressionFactory.Constant(1))
+                    },
+                    lenfunction);
                 return _sqlExpressionFactory.Function(
                     "MID",
                     new[]
                     {
                             argument,
                             _sqlExpressionFactory.Coalesce(
-                                _sqlExpressionFactory.Function(
-                                    "LEN",
-                                    new[] { argument },
-                                    nullable: true,
-                                    argumentsPropagateNullability: new[] { true },
-                                    typeof(int)),
+                                casefunc,
                                 _sqlExpressionFactory.Constant(0)
                             ),
                             _sqlExpressionFactory.Constant(1)

@@ -334,7 +334,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                                         _sqlExpressionFactory.GreaterThan(
                                             _sqlExpressionFactory.Function(
                                                 "INSTR",
-                                                new[] { _sqlExpressionFactory.Constant(1), translatedPattern, translatedInstance, _sqlExpressionFactory.Constant(1) },
+                                                new[] { _sqlExpressionFactory.Constant(1), translatedInstance, translatedPattern, _sqlExpressionFactory.Constant(1) },
                                                 nullable: true,
                                                 argumentsPropagateNullability: new[] { false, true, true, false },
                                                 typeof(int)),

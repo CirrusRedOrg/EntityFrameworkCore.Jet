@@ -1031,7 +1031,7 @@ WHERE `e`.`NullableStringC` <> IIF(`e`.`NullableStringA` = `e`.`NullableStringB`
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL AND (INSTR(1, `e`.`NullableStringB`, `e`.`NullableStringA`, 1) > 0 OR (`e`.`NullableStringB` LIKE '')) AND `e`.`BoolA` = TRUE
+WHERE `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL AND (INSTR(1, `e`.`NullableStringA`, `e`.`NullableStringB`, 1) > 0 OR (`e`.`NullableStringB` LIKE '')) AND `e`.`BoolA` = TRUE
 """);
         }
 
@@ -1808,10 +1808,10 @@ FROM `Entities1` AS `e`
             await base.Nullable_string_FirstOrDefault_compared_to_nullable_string_LastOrDefault(async);
 
             AssertSql(
-            """
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE MID(`e`.`NullableStringA`, 1, 1) = MID(`e`.`NullableStringB`, IIF(LEN(`e`.`NullableStringB`) IS NULL, 0, LEN(`e`.`NullableStringB`)), 1) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
+WHERE MID(`e`.`NullableStringA`, 1, 1) = MID(`e`.`NullableStringB`, IIF(IIF(LEN(`e`.`NullableStringB`) = 0, 1, LEN(`e`.`NullableStringB`)) IS NULL, 0, IIF(LEN(`e`.`NullableStringB`) = 0, 1, LEN(`e`.`NullableStringB`))), 1) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
 """);
         }
 

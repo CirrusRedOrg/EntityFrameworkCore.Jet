@@ -294,7 +294,7 @@ WHERE MID(`c`.`ContactName`, 1, 1) = 'A'
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`)), 1) = 's'
+WHERE MID(`c`.`ContactName`, IIF(IIF(LEN(`c`.`ContactName`) = 0, 1, LEN(`c`.`ContactName`)) IS NULL, 0, IIF(LEN(`c`.`ContactName`) = 0, 1, LEN(`c`.`ContactName`))), 1) = 's'
 """);
         }
 

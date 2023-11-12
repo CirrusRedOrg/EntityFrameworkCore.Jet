@@ -140,10 +140,12 @@ FROM `FunkyCustomers` AS `f`
             await base.String_contains_on_argument_with_wildcard_column(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
+                """
+SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (`f0`.`LastName` LIKE '') OR INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0");
+WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0 OR (`f0`.`LastName` LIKE ''))
+""");
         }
 
         public override async Task String_contains_on_argument_with_wildcard_column_negated(bool isAsync)
@@ -151,10 +153,12 @@ WHERE (`f0`.`LastName` LIKE '') OR INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1)
             await base.String_contains_on_argument_with_wildcard_column_negated(isAsync);
 
             AssertSql(
-                $@"SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
+                """
+SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE NOT ((`f0`.`LastName` LIKE '') OR INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0)");
+WHERE NOT (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0 OR (`f0`.`LastName` LIKE '')))
+""");
         }
 
         public override async Task String_starts_with_on_argument_with_wildcard_constant(bool isAsync)

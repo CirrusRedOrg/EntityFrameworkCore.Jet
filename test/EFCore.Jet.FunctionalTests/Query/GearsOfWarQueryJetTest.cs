@@ -2806,7 +2806,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
                 """
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
 FROM `Tags` AS `t`
-WHERE `t`.`Id` IN ('{d2c26679-562b-44d1-ab96-23d1775e0926}', '{23cbcf9b-ce14-45cf-aafa-2c2667ebfdd3}', '{ab1b82d7-88db-42bd-a132-7eef9aa68af4}')
+WHERE `t`.`Id` IN ('{df36f493-463f-4123-83f9-6b135deeb7ba}', '{23cbcf9b-ce14-45cf-aafa-2c2667ebfdd3}', '{ab1b82d7-88db-42bd-a132-7eef9aa68af4}')
 """);
         }
 
@@ -7066,19 +7066,19 @@ FROM `Gears` AS `g`
             await base.FirstOrDefault_navigation_access_entity_equality_in_where_predicate_apply_peneding_selector(isAsync);
 
             AssertSql(
-"""
-SELECT `f`.`Id`, `f`.`CapitalName`, `f`.`Discriminator`, `f`.`Name`, `f`.`ServerAddress`, `f`.`CommanderName`, `f`.`Eradicated`
-FROM `Factions` AS `f`
-LEFT JOIN `Cities` AS `c` ON `f`.`CapitalName` = `c`.`Name`
+                """
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+FROM `Gears` AS `g`
+LEFT JOIN `Cities` AS `c` ON `g`.`AssignedCityName` = `c`.`Name`
 WHERE `c`.`Name` = (
     SELECT TOP 1 `c0`.`Name`
-    FROM `Gears` AS `g`
-    INNER JOIN `Cities` AS `c0` ON `g`.`CityOfBirthName` = `c0`.`Name`
-    ORDER BY `g`.`Nickname`) OR (`c`.`Name` IS NULL AND (
+    FROM `Gears` AS `g0`
+    INNER JOIN `Cities` AS `c0` ON `g0`.`CityOfBirthName` = `c0`.`Name`
+    ORDER BY `g0`.`Nickname`) OR (`c`.`Name` IS NULL AND (
     SELECT TOP 1 `c0`.`Name`
-    FROM `Gears` AS `g`
-    INNER JOIN `Cities` AS `c0` ON `g`.`CityOfBirthName` = `c0`.`Name`
-    ORDER BY `g`.`Nickname`) IS NULL)
+    FROM `Gears` AS `g0`
+    INNER JOIN `Cities` AS `c0` ON `g0`.`CityOfBirthName` = `c0`.`Name`
+    ORDER BY `g0`.`Nickname`) IS NULL)
 """);
         }
 
@@ -7303,9 +7303,9 @@ WHERE DATALENGTH(`s`.`Banner5`) = 5
             await base.Conditional_expression_with_test_being_simplified_to_constant_complex(isAsync);
 
             AssertSql(
-"""
+                """
 @__prm_0='True'
-@__prm2_1='Dom's Lancer' (Size = 255)
+@__prm2_1='Marcus' Lancer' (Size = 255)
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
 FROM `Gears` AS `g`
@@ -7438,10 +7438,10 @@ WHERE CBYTE(`l`.`ThreatLevel`) >= CBYTE(5)
 
             AssertSql(
                 """
-    SELECT `l`.`Name`, `l`.`Discriminator`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`
-    FROM `LocustLeaders` AS `l`
-    WHERE CLNG(`l`.`ThreatLevel`) >= (5 + CLNG(`l`.`ThreatLevel`))
-    """);
+SELECT `l`.`Name`, `l`.`Discriminator`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`
+FROM `LocustLeaders` AS `l`
+WHERE CLNG(`l`.`ThreatLevel`) <= (5 + CLNG(`l`.`ThreatLevel`))
+""");
         }
 
         public override async Task TimeSpan_Hours(bool async)
@@ -7508,7 +7508,7 @@ WHERE DATEPART('h', `m`.`Duration`) = 1
                 """
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('n', `m`.`Duration`) = 1
+WHERE DATEPART('n', `m`.`Duration`) = 2
 """);
         }
 
@@ -7520,7 +7520,7 @@ WHERE DATEPART('n', `m`.`Duration`) = 1
                 """
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('s', `m`.`Duration`) = 1
+WHERE DATEPART('s', `m`.`Duration`) = 3
 """);
         }
 
@@ -7926,16 +7926,18 @@ ORDER BY `g`.`Nickname`, `t`.`Id`
             await base.FirstOrDefault_over_int_compared_to_zero(async);
 
             AssertSql(
-"""
+                """
 SELECT `s`.`Name`
 FROM `Squads` AS `s`
-WHERE `s`.`Name` = 'Kilo' AND IIF((
+WHERE `s`.`Name` = 'Delta' AND IIF((
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE
+        ORDER BY `g`.`FullName`) IS NULL, 0, (
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE)) <> 0
+        WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE
+        ORDER BY `g`.`FullName`)) <> 0
 """);
         }
 
@@ -8855,9 +8857,8 @@ WHERE `g`.`HasSoulPatch` = TRUE AND `g`.`HasSoulPatch` IN (FALSE, TRUE)
 
             AssertSql(
                 """
-@__place_0='Seattle' (Size = 255)
-@__place_0_1='Seattle' (Size = 100)
-@__place_0_1='Seattle' (Size = 100)
+@__place_0='Ephyra's location' (Size = 255), @__place_0_1='Ephyra's location' (Size = 100)
+@__place_0_1='Ephyra's location' (Size = 100)
 
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
@@ -9345,6 +9346,21 @@ WHERE NOT EXISTS (
 """);
         }
 
+        public override async Task Where_subquery_equality_to_null_with_composite_key_should_match_nulls(bool async)
+        {
+            await base.Where_subquery_equality_to_null_with_composite_key_should_match_nulls(async);
+
+            AssertSql(
+                """
+SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
+FROM [Squads] AS [s]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Gears] AS [g]
+    WHERE [s].[Id] = [g].[SquadId] AND [g].[FullName] = N'Anthony Carmine')
+""");
+        }
+
         public override async Task Where_subquery_equality_to_null_without_composite_key(bool async)
         {
             await base.Where_subquery_equality_to_null_without_composite_key(async);
@@ -9357,6 +9373,21 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM `Weapons` AS `w`
     WHERE `g`.`FullName` = `w`.`OwnerFullName`)
+""");
+        }
+
+        public override async Task Where_subquery_equality_to_null_without_composite_key_should_match_null(bool async)
+        {
+            await base.Where_subquery_equality_to_null_without_composite_key_should_match_null(async);
+
+            AssertSql(
+                """
+SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
+FROM [Gears] AS [g]
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM [Weapons] AS [w]
+    WHERE [g].[FullName] = [w].[OwnerFullName] AND [w].[Name] = N'Hammer of Dawn')
 """);
         }
 

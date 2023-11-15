@@ -102,7 +102,7 @@ INNER JOIN (
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-WHERE `t`.`CustomerID` = 'ALFKI'");
+WHERE `t`.`CustomerID` = 'HANAR'");
         }
 
         public override async Task Join_customers_orders_with_subquery_anonymous_property_method(bool isAsync)
@@ -131,7 +131,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'
         FROM `Orders` AS `o`
         ORDER BY `o`.`OrderID`
     ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-    WHERE `t`.`CustomerID` = 'ALFKI'
+    WHERE `t`.`CustomerID` = 'HANAR'
     """);
         }
 
@@ -164,7 +164,7 @@ WHERE `t`.`CustomerID` = 'ALFKI'");
         WHERE `o`.`OrderID` > 0
         ORDER BY `o`.`OrderID`
     ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-    WHERE `t`.`CustomerID` = 'ALFKI'
+    WHERE `t`.`CustomerID` = 'HANAR'
     """);
         }
 

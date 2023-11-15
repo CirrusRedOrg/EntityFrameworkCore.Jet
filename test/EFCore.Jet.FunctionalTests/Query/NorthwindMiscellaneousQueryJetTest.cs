@@ -641,13 +641,14 @@ WHERE (
             await base.Where_query_composition_entity_equality_multiple_elements_SingleOrDefault(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 WHERE (
     SELECT TOP 1 `e0`.`EmployeeID`
     FROM `Employees` AS `e0`
-    WHERE `e0`.`EmployeeID` <> `e`.`ReportsTo` OR `e`.`ReportsTo` IS NULL) = 0
+    WHERE `e0`.`EmployeeID` <> `e`.`ReportsTo` OR `e`.`ReportsTo` IS NULL
+    ORDER BY `e0`.`EmployeeID`) = 1
 """);
         }
 
@@ -1422,7 +1423,7 @@ FROM `Customers` AS `c`
 WHERE (`c`.`City` <> 'London' OR `c`.`City` IS NULL) AND NOT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` LIKE 'A%')
+    WHERE `o`.`CustomerID` LIKE 'ABC%')
 """);
         }
 
@@ -1437,7 +1438,7 @@ FROM `Customers` AS `c`
 WHERE NOT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` LIKE 'A%') AND (`c`.`City` <> 'London' OR `c`.`City` IS NULL)
+    WHERE `o`.`CustomerID` LIKE 'ABC%') AND (`c`.`City` <> 'London' OR `c`.`City` IS NULL)
 """);
         }
 
@@ -1742,12 +1743,14 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.Where_Join_Any(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
+WHERE (`c`.`CustomerID` LIKE 'A%') AND EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderDate` = #2008-10-24#)");
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderDate` = #1998-01-15#)
+""");
         }
 
         public override async Task Where_Join_Exists(bool isAsync)
@@ -3135,7 +3138,7 @@ ORDER BY `t0`.`c`
 """
 SELECT `o`.`CustomerID`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` IS NOT NULL AND ((`o`.`EmployeeID` & '') LIKE '%10%')
+WHERE `o`.`OrderDate` IS NOT NULL AND ((`o`.`EmployeeID` & '') LIKE '%7%')
 """);
         }
 
@@ -5239,7 +5242,7 @@ SELECT `t`.`c`
 FROM (
     SELECT DISTINCT DATEPART('yyyy', `o`.`OrderDate`) AS `c`
     FROM `Orders` AS `o`
-    WHERE `o`.`OrderID` < 10000
+    WHERE `o`.`OrderID` < 20000
 ) AS `t`
 """);
         }

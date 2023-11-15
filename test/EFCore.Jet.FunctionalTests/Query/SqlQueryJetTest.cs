@@ -221,7 +221,7 @@ FROM (
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-            //
+//
 """
 p0='Berlin' (Size = 255)
 p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
@@ -337,7 +337,7 @@ FROM (
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-            //
+//
 """
 p0='Berlin' (Size = 255)
 p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
@@ -394,7 +394,7 @@ WHERE `m`.`ContactTitle` = @__contactTitle_1
 """
 SELECT * FROM `Customers` WHERE `City` = 'London'
 """,
-            //
+//
 """
 SELECT * FROM `Customers` WHERE `City` = 'Seattle'
 """);
@@ -411,7 +411,7 @@ p1='Sales Representative' (Size = 255)
 
 SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @p1
 """,
-            //
+//
 """
 p0='Madrid' (Size = 255)
 p1='Accounting Manager' (Size = 255)
@@ -454,23 +454,23 @@ FROM (
 """
 SELECT * FROM `Customers` WHERE `ContactName` LIKE '%z%'
 """,
-            //
+//
 """
 SELECT * FROM `Customers`
 """);
     }
 
-    public override async Task SqlQueryRaw_composed_with_nullable_predicate(bool async)
+    public override async Task SqlQueryRaw_composed_with_predicate(bool async)
     {
-        await base.SqlQueryRaw_composed_with_nullable_predicate(async);
+        await base.SqlQueryRaw_composed_with_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`
 FROM (
     SELECT * FROM `Customers`
 ) AS `m`
-WHERE `m`.`ContactName` = `m`.`CompanyName`
+WHERE MID(`m`.`ContactName`, 0 + 1, 1) = MID(`m`.`CompanyName`, 0 + 1, 1)
 """);
     }
 
@@ -508,7 +508,7 @@ p0='London' (Size = 255)
 
 SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @title
 """,
-            //
+//
 """
 @city='London' (Nullable = false) (Size = 6)
 p1='Sales Representative' (Size = 255)
@@ -527,7 +527,7 @@ SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p1
 
 SELECT * FROM `Customers` WHERE `CustomerID` = @id
 """,
-            //
+//
 """
 @id='ALFKI' (Nullable = false) (Size = 5)
 
@@ -572,7 +572,7 @@ FROM (
     SELECT * FROM `Orders` WHERE `OrderID` >= @p0
 ) AS `m`
 """,
-            //
+//
 """
 @__max_1='10400'
 p0='10300'
@@ -588,7 +588,7 @@ WHERE `m`.`OrderID` <= @__max_1 AND `m`.`OrderID` IN (
     ) AS `m0`
 )
 """,
-            //
+//
 """
 @__max_1='10400'
 p0='10300'
@@ -734,7 +734,7 @@ WHERE `m`.`CustomerID` IN (
     ) AS `m0`
 )
 """,
-            //
+//
 """
 @city='London' (Nullable = false) (Size = 6)
 p1='Sales Representative' (Size = 255)

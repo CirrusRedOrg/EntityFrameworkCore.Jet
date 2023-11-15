@@ -166,7 +166,7 @@ WHERE NOT (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND (INST
             await base.String_starts_with_on_argument_with_wildcard_constant(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
 WHERE `f`.`FirstName` LIKE '[%]B%'
@@ -175,7 +175,7 @@ WHERE `f`.`FirstName` LIKE '[%]B%'
                 """
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE 'a[_]%'
+WHERE `f`.`FirstName` LIKE '[_]B%'
 """,
                 //
                 """
@@ -228,7 +228,7 @@ WHERE `f`.`FirstName` LIKE @__prm1_0_rewritten
 """,
                 //
                 """
-@__prm2_0_rewritten='a[_]%' (Size = 255)
+@__prm2_0_rewritten='[_]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -364,16 +364,16 @@ WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR LEFT(`f`.`FirstName`
             await base.String_ends_with_on_argument_with_wildcard_constant(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE '%[%]B'
+WHERE `f`.`FirstName` LIKE '%[%]r'
 """,
                 //
                 """
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE '%a[_]'
+WHERE `f`.`FirstName` LIKE '%r[_]'
 """,
                 //
                 """
@@ -391,13 +391,13 @@ WHERE `f`.`FirstName` IS NOT NULL
                 """
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE '%[_]Ba[_]'
+WHERE `f`.`FirstName` LIKE '%[_]r[_]'
 """,
                 //
                 """
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE '%[%]B[%]a[%]r' OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE '%a[%]r[%]' OR `f`.`FirstName` IS NULL
 """,
                 //
                 """
@@ -418,7 +418,7 @@ FROM `FunkyCustomers` AS `f`
 
             AssertSql(
                 """
-@__prm1_0_rewritten='%[%]B' (Size = 255)
+@__prm1_0_rewritten='%[%]r' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -426,7 +426,7 @@ WHERE `f`.`FirstName` LIKE @__prm1_0_rewritten
 """,
                 //
                 """
-@__prm2_0_rewritten='%a[_]' (Size = 255)
+@__prm2_0_rewritten='%r[_]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -448,7 +448,7 @@ WHERE `f`.`FirstName` LIKE @__prm4_0_rewritten
 """,
                 //
                 """
-@__prm5_0_rewritten='%[_]Ba[_]' (Size = 255)
+@__prm5_0_rewritten='%[_]r[_]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
@@ -456,7 +456,7 @@ WHERE `f`.`FirstName` LIKE @__prm5_0_rewritten
 """,
                 //
                 """
-@__prm6_0_rewritten='%[%]B[%]a[%]r' (Size = 255)
+@__prm6_0_rewritten='%a[%]r[%]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`

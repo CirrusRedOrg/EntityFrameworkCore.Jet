@@ -215,8 +215,7 @@ WHERE `c`.`ContactName` LIKE '%m'
             await AssertQuery(
                 isAsync,
                 ss => ss.Set<Customer>().Where(c => c.ContactName.Contains("M")), // case-insensitive
-                ss => ss.Set<Customer>().Where(c => c.ContactName.Contains("M") || c.ContactName.Contains("m")), // case-sensitive
-                entryCount: 34);
+                ss => ss.Set<Customer>().Where(c => c.ContactName.Contains("M") || c.ContactName.Contains("m"))); // case-sensitive
 
             AssertSql(
                 """
@@ -305,8 +304,7 @@ WHERE MID(`c`.`ContactName`, IIF(IIF(LEN(`c`.`ContactName`) = 0, 1, LEN(`c`.`Con
                 ss => ss.Set<Customer>().Where(c => c.ContactName.Contains(LocalMethod1())), // case-insensitive
                 ss => ss.Set<Customer>().Where(
                     c => c.ContactName.Contains(LocalMethod1().ToLower())
-                        || c.ContactName.Contains(LocalMethod1().ToUpper())), // case-sensitive
-                entryCount: 34);
+                         || c.ContactName.Contains(LocalMethod1().ToUpper()))); // case-sensitive
 
             AssertSql(
                 $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -1616,8 +1614,7 @@ WHERE `o`.`CustomerID` = 'ALFKI' AND CONVERT(bit, CONVERT(bigint, `o`.`OrderID` 
                 await AssertQuery(
                     isAsync,
                     ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
-                        .Where(convertMethod),
-                    entryCount: 6);
+                        .Where(convertMethod));
             }
 
             AssertSql(
@@ -1669,8 +1666,7 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, 
                 await AssertQuery(
                     isAsync,
                     ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
-                        .Where(convertMethod),
-                    entryCount: 6);
+                        .Where(convertMethod));
             }
 
             AssertSql(
@@ -1722,8 +1718,7 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, 
                 await AssertQuery(
                     isAsync,
                     ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
-                        .Where(convertMethod),
-                    entryCount: 6);
+                        .Where(convertMethod));
             }
 
             AssertSql(
@@ -1775,8 +1770,7 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, 
                 await AssertQuery(
                     isAsync,
                     ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
-                        .Where(convertMethod),
-                    entryCount: 6);
+                        .Where(convertMethod));
             }
 
             AssertSql(
@@ -1828,8 +1822,7 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (IIF((`o`.`OrderID` MOD 1 & '') IS NULL, 
                 await AssertQuery(
                     isAsync,
                     ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
-                        .Where(convertMethod),
-                    entryCount: 6);
+                        .Where(convertMethod));
             }
 
             AssertSql(
@@ -1921,8 +1914,7 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND (CONVERT(bigint, CONVERT(nvarchar(max), `
                 await AssertQuery(
                     isAsync,
                     ss => ss.Set<Order>().Where(o => o.CustomerID == "ALFKI")
-                        .Where(convertMethod),
-                    entryCount: 6);
+                        .Where(convertMethod));
             }
 
             AssertSql(

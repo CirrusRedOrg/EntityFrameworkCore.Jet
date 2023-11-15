@@ -1084,7 +1084,7 @@ WHERE `e`.`StringA` IN ('Foo', 'Bar')",
                 //
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`StringA` LIKE 'A%'");
+WHERE `e`.`StringA` LIKE 'B%'");
         }
 
         public override async Task Where_nested_conditional_search_condition_in_result(bool async)

@@ -2283,27 +2283,29 @@ ORDER BY NOT (`t`.`c`), `t`.`CustomerID`
             await base.OrderBy_correlated_subquery2(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE (`o`.`OrderID` <= 10250) AND (((
-    SELECT TOP 1 `c`.`City`
-    FROM `Customers` AS `c`
-    ORDER BY CASE
-        WHEN EXISTS (
-            SELECT 1
-            FROM `Customers` AS `c0`
-            WHERE `c0`.`CustomerID` = 'ALFKI') THEN True
-        ELSE False
-    END) <> 'Nowhere') OR (
-    SELECT TOP 1 `c`.`City`
-    FROM `Customers` AS `c`
-    ORDER BY CASE
-        WHEN EXISTS (
-            SELECT 1
-            FROM `Customers` AS `c0`
-            WHERE `c0`.`CustomerID` = 'ALFKI') THEN True
-        ELSE False
-    END) IS NULL)");
+WHERE `o`.`OrderID` <= 10250 AND ((
+    SELECT `t`.`City`
+    FROM (
+        SELECT TOP 1 `c`.`City`, IIF(EXISTS (
+                SELECT 1
+                FROM `Customers` AS `c1`
+                WHERE `c1`.`CustomerID` = 'ALFKI'), TRUE, FALSE) AS `c`, `c`.`CustomerID`
+        FROM `Customers` AS `c`
+    ) AS `t`
+    ORDER BY NOT (`t`.`c`)) <> 'Nowhere' OR (
+    SELECT `t`.`City`
+    FROM (
+        SELECT TOP 1 `c`.`City`, IIF(EXISTS (
+                SELECT 1
+                FROM `Customers` AS `c1`
+                WHERE `c1`.`CustomerID` = 'ALFKI'), TRUE, FALSE) AS `c`, `c`.`CustomerID`
+        FROM `Customers` AS `c`
+    ) AS `t`
+    ORDER BY NOT (`t`.`c`)) IS NULL)
+""");
         }
 
         public override async Task Where_subquery_recursive_trivial(bool isAsync)

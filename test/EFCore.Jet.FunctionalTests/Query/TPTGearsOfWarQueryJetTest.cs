@@ -10403,13 +10403,13 @@ WHERE NOT EXISTS (
 
         AssertSql(
             """
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
 WHERE NOT EXISTS (
     SELECT 1
-    FROM [Gears] AS [g]
-    LEFT JOIN [Officers] AS [o] ON [g].[Nickname] = [o].[Nickname] AND [g].[SquadId] = [o].[SquadId]
-    WHERE [s].[Id] = [g].[SquadId] AND [g].[FullName] = N'Anthony Carmine')
+    FROM `Gears` AS `g`
+    LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
+    WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`FullName` = 'Anthony Carmine')
 """);
     }
 
@@ -10435,15 +10435,13 @@ WHERE NOT EXISTS (
 
         AssertSql(
             """
-SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], CASE
-    WHEN [o].[Nickname] IS NOT NULL THEN N'Officer'
-END AS [Discriminator]
-FROM [Gears] AS [g]
-LEFT JOIN [Officers] AS [o] ON [g].[Nickname] = [o].[Nickname] AND [g].[SquadId] = [o].[SquadId]
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
+FROM `Gears` AS `g`
+LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
 WHERE NOT EXISTS (
     SELECT 1
-    FROM [Weapons] AS [w]
-    WHERE [g].[FullName] = [w].[OwnerFullName] AND [w].[Name] = N'Hammer of Dawn')
+    FROM `Weapons` AS `w`
+    WHERE `g`.`FullName` = `w`.`OwnerFullName` AND `w`.`Name` = 'Hammer of Dawn')
 """);
     }
 

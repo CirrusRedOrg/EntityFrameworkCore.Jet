@@ -1,14 +1,8 @@
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
-using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -65,14 +59,15 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
             case SelectExpression selectExpression:
                 {
                     Dictionary<int, (int? indexcol, OrderingExpression? orderexp, bool ascend, bool rewrite, bool referstocurouter)> columnsToRewrite = new();
-
+                    bool isscalarselect = selectExpression is { Limit: SqlConstantExpression { Value: 1 }, Projection.Count: 1 };
                     for (int i = 0; i < selectExpression.Orderings.Count; i++)
                     {
                         var sqlExpression = selectExpression.Orderings[i].Expression;
                         if (sqlExpression is not ColumnExpression)
                         {
-                            bool containsscalar = sqlExpression is ScalarSubqueryExpression;
-                            containsscalar = containsscalar || TryPeekFunction(sqlExpression as SqlFunctionExpression) || TryPeekCase(sqlExpression as CaseExpression) || TryPeekExists(sqlExpression as ExistsExpression);
+                            var locate = new JetLocateScalarSubqueryVisitor(_typeMappingSource, _sqlExpressionFactory);
+                            var locatedExpression = locate.Visit(sqlExpression);
+                            bool containsscalar = locatedExpression is ScalarSubqueryExpression or ExistsExpression;
                             if (containsscalar)
                             {
                                 int index = selectExpression.AddToProjection(sqlExpression);
@@ -134,31 +129,30 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                             selectExpression.AppendOrdering(new OrderingExpression(newcolexp, ascending));
                         }
                     }
+
+                    if (isscalarselect)
+                    {
+                        List<ProjectionExpression> newProjections = new List<ProjectionExpression>();
+                        for (int j = 0; j < selectExpression.Projection.Count; j++)
+                        {
+                            var proj = selectExpression.Projection[j];
+                            var item = columnsToRewrite.SingleOrDefault(c => c.Value.indexcol == j);
+                            if (item.Value.indexcol == null)
+                            {
+                                newProjections.Add(proj);
+                            }
+
+                        }
+
+                        selectExpression = selectExpression.Update(newProjections, selectExpression.Tables, selectExpression.Predicate,
+                            selectExpression.GroupBy, selectExpression.Having, selectExpression.Orderings,
+                            selectExpression.Limit, selectExpression.Offset);
+                    }
                     var result = base.Visit(selectExpression);
                     return result;
                 }
         }
 
         return base.Visit(expression);
-    }
-
-    private bool TryPeekExists(ExistsExpression? existsExpression)
-    {
-        return existsExpression is not null;
-    }
-
-    private bool TryPeekCase(CaseExpression? sqlExpression)
-    {
-        if (sqlExpression is null) return false;
-        if (sqlExpression.ElseResult is ScalarSubqueryExpression) return true;
-        if (sqlExpression.WhenClauses.Any(x => x.Result is ScalarSubqueryExpression)) return true;
-        if (sqlExpression.Operand is ScalarSubqueryExpression) return true;
-        return false;
-    }
-
-    private bool TryPeekFunction(SqlFunctionExpression? sqlExpression)
-    {
-        if (sqlExpression is null) return false;
-        return sqlExpression.Arguments != null && sqlExpression.Arguments.Any(x => x is ScalarSubqueryExpression);
     }
 }

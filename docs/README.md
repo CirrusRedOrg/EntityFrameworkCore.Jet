@@ -10,6 +10,7 @@
 
 | EntityFrameworkCore.Jet Version | EntityFrameworkCore Version | .NET Core |
 | ------------- | ------------- | ------------- |
+| 8.0.0-alpha.1 | 8.0.0-rc.1 | 8.0.x |
 | 7.0.x | 7.0.x | 6.0.x/7.0.x |
 | 6.0.x | 6.0.x | 6.0.x |
 

@@ -1,0 +1,17 @@
+name: PullRequestWithoutCi
+on:
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - '!**'
+      - '**.md'
+jobs:
+  Status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Final Status'
+        shell: pwsh
+        run: |
+          echo 'All workflows succeeded.'
+          exit 0

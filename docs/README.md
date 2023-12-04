@@ -8,8 +8,9 @@
 
 ## Compatibility Matrix
 
-| EntityFrameworkCore.Jet Version | EntityFrameworkCore Version | .NET Core |
-| ------------- | ------------- | ------------- |
+| EntityFrameworkCore.Jet Version | EntityFrameworkCore Version | .NET Core | Notes |
+| ------------- | ------------- | ------------- | ------------- |
+| 8.0.x | 8.0.x | 8.0.x | Alpha 2 onwards is compatible with EF Core RTM |
 | 7.0.x | 7.0.x | 6.0.x/7.0.x |
 | 6.0.x | 6.0.x | 6.0.x |
 

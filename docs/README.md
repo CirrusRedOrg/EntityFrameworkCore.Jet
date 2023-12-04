@@ -44,7 +44,7 @@ To use the latest daily builds, add a `NuGet.config` file to your solution root,
 </configuration>
 ```
 
-There are two daily build feeds available, one with (optimized) `Release` configuration builds and one with (unoptimized) `Debug` configuration builds.
+There are two daily build feeds available, one with production-ready (optimized) `Release` configuration builds and one with (unoptimized) `Debug` configuration builds.
 All packages use SourceLink.
   
 ## Fluent API

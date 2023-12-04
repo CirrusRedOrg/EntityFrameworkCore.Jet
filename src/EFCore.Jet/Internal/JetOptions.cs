@@ -31,6 +31,7 @@ namespace EntityFrameworkCore.Jet.Internal
             EnableMillisecondsSupport = jetOptions.EnableMillisecondsSupport;
             ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString!;
             UseShortTextForSystemString = jetOptions.UseShortTextForSystemString;
+            DateTimeOffsetType = jetOptions.DateTimeOffsetType;
         }
 
         /// <summary>
@@ -79,6 +80,13 @@ namespace EntityFrameworkCore.Jet.Internal
                 throw new InvalidOperationException(
                     CoreStrings.SingletonOptionChanged(
                         nameof(JetOptionsExtension.UseShortTextForSystemString),
+                        nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
+            }
+            if (DateTimeOffsetType != jetOptions.DateTimeOffsetType)
+            {
+                throw new InvalidOperationException(
+                    CoreStrings.SingletonOptionChanged(
+                        nameof(JetOptionsExtension.DateTimeOffsetType),
                         nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
             }
         }
@@ -159,5 +167,7 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual string? ConnectionString { get; private set; }
+
+        public DateTimeOffsetType DateTimeOffsetType { get; private set; }
     }
 }

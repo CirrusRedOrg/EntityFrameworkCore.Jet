@@ -25,6 +25,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         private bool _useOuterSelectSkipEmulationViaDataReader;
         private bool _enableMillisecondsSupport;
         private bool _useShortTextForSystemString;
+        private DateTimeOffsetType _dateTimeOffsetType = DateTimeOffsetType.SaveAsString;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -185,6 +186,23 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
             var clone = (JetOptionsExtension)Clone();
 
             clone._useShortTextForSystemString = enabled;
+
+            return clone;
+        }
+
+        public virtual DateTimeOffsetType DateTimeOffsetType => _dateTimeOffsetType;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual JetOptionsExtension WithUseDateTimeOffsetType(DateTimeOffsetType dateTimeOffsetType = DateTimeOffsetType.SaveAsString)
+        {
+            var clone = (JetOptionsExtension)Clone();
+
+            clone._dateTimeOffsetType = dateTimeOffsetType;
 
             return clone;
         }

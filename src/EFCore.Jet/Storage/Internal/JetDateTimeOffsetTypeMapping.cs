@@ -37,8 +37,21 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
-                parameter.Value = dateTimeOffset.ToString("O");
-                parameter.DbType = System.Data.DbType.String;
+                if (_options.DateTimeOffsetType == DateTimeOffsetType.SaveAsString)
+                {
+                    parameter.Value = dateTimeOffset.ToString("O");
+                    parameter.DbType = System.Data.DbType.String;
+                }
+                else if (_options.DateTimeOffsetType == DateTimeOffsetType.SaveAsDateTime)
+                {
+                    parameter.Value = dateTimeOffset.DateTime;
+                    parameter.DbType = System.Data.DbType.DateTime;
+                }
+                else if (_options.DateTimeOffsetType == DateTimeOffsetType.SaveAsDateTimeUtc)
+                {
+                    parameter.Value = dateTimeOffset.UtcDateTime;
+                    parameter.DbType = System.Data.DbType.DateTime;
+                }
             }
 
             base.ConfigureParameter(parameter);

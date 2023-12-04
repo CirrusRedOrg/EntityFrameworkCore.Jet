@@ -305,6 +305,8 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
                     = Extension._enableMillisecondsSupport.GetHashCode().ToString(CultureInfo.InvariantCulture);
                 debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseShortTextForSystemString)]
                     = Extension._useShortTextForSystemString.GetHashCode().ToString(CultureInfo.InvariantCulture);
+                debugInfo["Jet:" + nameof(JetDbContextOptionsBuilder.UseDateTimeOffsetType)]
+                    = Extension._dateTimeOffsetType.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
     }

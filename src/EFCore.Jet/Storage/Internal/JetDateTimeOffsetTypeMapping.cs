@@ -2,6 +2,7 @@
 
 using System;
 using System.Data.Common;
+using System.Globalization;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -12,13 +13,12 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     {
         private readonly IJetOptions _options;
         private const string DateTimeOffsetFormatConst = @"'{0:yyyy-MM-ddTHH:mm:ss.fffffffzzz}'";
+        private const string DateTimeFormatConst = @"'{0:yyyy-MM-dd HH:mm:ss}'";
         public JetDateTimeOffsetTypeMapping(
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)
             : base(
-                storeType, System.Data.DbType.String) // delibrately use DbType.DateTime, because OleDb will throw a
-                                                      // "No mapping exists from DbType DateTimeOffset to a known OleDbType."
-                                                      // exception when using DbType.DateTimeOffset.
+                storeType, options.DateTimeOffsetType == DateTimeOffsetType.SaveAsString ? System.Data.DbType.String : System.Data.DbType.DateTime)
         {
             _options = options;
         }
@@ -37,20 +37,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
-                if (_options.DateTimeOffsetType == DateTimeOffsetType.SaveAsString)
+                switch (_options.DateTimeOffsetType)
                 {
-                    parameter.Value = dateTimeOffset.ToString("O");
-                    parameter.DbType = System.Data.DbType.String;
-                }
-                else if (_options.DateTimeOffsetType == DateTimeOffsetType.SaveAsDateTime)
-                {
-                    parameter.Value = dateTimeOffset.DateTime;
-                    parameter.DbType = System.Data.DbType.DateTime;
-                }
-                else if (_options.DateTimeOffsetType == DateTimeOffsetType.SaveAsDateTimeUtc)
-                {
-                    parameter.Value = dateTimeOffset.UtcDateTime;
-                    parameter.DbType = System.Data.DbType.DateTime;
+                    case DateTimeOffsetType.SaveAsString:
+                        parameter.Value = dateTimeOffset.ToString("O");
+                        parameter.DbType = System.Data.DbType.String;
+                        break;
+                    case DateTimeOffsetType.SaveAsDateTime:
+                        parameter.Value = dateTimeOffset.DateTime;
+                        parameter.DbType = System.Data.DbType.DateTime;
+                        break;
+                    case DateTimeOffsetType.SaveAsDateTimeUtc:
+                        parameter.Value = dateTimeOffset.UtcDateTime;
+                        parameter.DbType = System.Data.DbType.DateTime;
+                        break;
                 }
             }
 
@@ -59,5 +59,27 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override string SqlLiteralFormatString
             => DateTimeOffsetFormatConst;
+
+        protected override string GenerateNonNullSqlLiteral(object value)
+        {
+            if (value is not DateTimeOffset offset) return base.GenerateNonNullSqlLiteral(value);
+            switch (_options.DateTimeOffsetType)
+            {
+                case DateTimeOffsetType.SaveAsString:
+                    return base.GenerateNonNullSqlLiteral(offset);
+                case DateTimeOffsetType.SaveAsDateTime:
+                    {
+                        var dateTime = offset.DateTime;
+                        return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime);
+                    }
+                case DateTimeOffsetType.SaveAsDateTimeUtc:
+                    {
+                        var dateTimeUtc = offset.DateTime;
+                        return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTimeUtc);
+                    }
+                default:
+                    return "";
+            }
+        }
     }
 }

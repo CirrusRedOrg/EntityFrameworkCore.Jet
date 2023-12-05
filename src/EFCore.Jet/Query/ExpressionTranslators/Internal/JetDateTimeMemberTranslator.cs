@@ -27,8 +27,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         /// </summary>
         public SqlExpression? Translate(SqlExpression? instance, MemberInfo member, Type returnType, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (member.DeclaringType == typeof(DateTime) /*||
-                member.DeclaringType == typeof(DateTimeOffset)*/)
+            if (member.DeclaringType == typeof(DateTime) ||
+                member.DeclaringType == typeof(DateTimeOffset))
             {
                 if (instance == null)
                 {

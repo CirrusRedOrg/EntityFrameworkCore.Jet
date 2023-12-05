@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 [NotNull] string storeType,
                 [NotNull] IJetOptions options)
             : base(
-                storeType, options.DateTimeOffsetType == DateTimeOffsetType.SaveAsString ? System.Data.DbType.String : System.Data.DbType.DateTime)
+                storeType, System.Data.DbType.DateTime)
         {
             _options = options;
         }
@@ -37,21 +37,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
-                switch (_options.DateTimeOffsetType)
-                {
-                    case DateTimeOffsetType.SaveAsString:
-                        parameter.Value = dateTimeOffset.ToString("O");
-                        parameter.DbType = System.Data.DbType.String;
-                        break;
-                    case DateTimeOffsetType.SaveAsDateTime:
-                        parameter.Value = dateTimeOffset.DateTime;
-                        parameter.DbType = System.Data.DbType.DateTime;
-                        break;
-                    case DateTimeOffsetType.SaveAsDateTimeUtc:
-                        parameter.Value = dateTimeOffset.UtcDateTime;
-                        parameter.DbType = System.Data.DbType.DateTime;
-                        break;
-                }
+                parameter.Value = dateTimeOffset.DateTime;
+                parameter.DbType = System.Data.DbType.DateTime;
             }
 
             base.ConfigureParameter(parameter);
@@ -63,23 +50,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override string GenerateNonNullSqlLiteral(object value)
         {
             if (value is not DateTimeOffset offset) return base.GenerateNonNullSqlLiteral(value);
-            switch (_options.DateTimeOffsetType)
-            {
-                case DateTimeOffsetType.SaveAsString:
-                    return base.GenerateNonNullSqlLiteral(offset);
-                case DateTimeOffsetType.SaveAsDateTime:
-                    {
-                        var dateTime = offset.DateTime;
-                        return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime);
-                    }
-                case DateTimeOffsetType.SaveAsDateTimeUtc:
-                    {
-                        var dateTimeUtc = offset.DateTime;
-                        return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTimeUtc);
-                    }
-                default:
-                    return "";
-            }
+            var dateTime = offset.DateTime;
+            return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime);
         }
     }
 }

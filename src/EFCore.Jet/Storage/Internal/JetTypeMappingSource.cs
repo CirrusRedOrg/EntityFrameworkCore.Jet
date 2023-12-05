@@ -92,7 +92,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
             _dateasdatetime = new JetDateTimeTypeMapping("date", options, dbType: DbType.Date);
-            _datetimeoffset = new JetDateTimeOffsetTypeMapping(options.DateTimeOffsetType == DateTimeOffsetType.SaveAsString ? "varchar(50)" : "datetime", options);
+            _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
             _dateonly = new JetDateOnlyTypeMapping("date", options, dbType: DbType.Date);
             _timeonly = new JetTimeOnlyTypeMapping("time", options);
             _timespan = new JetTimeSpanTypeMapping("datetime", options);

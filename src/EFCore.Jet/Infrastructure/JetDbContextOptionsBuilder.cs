@@ -66,9 +66,6 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         public virtual JetDbContextOptionsBuilder UseShortTextForSystemString(bool enabled = true)
             => WithOption(e => e.WithUseShortTextForSystemString(enabled));
 
-        public virtual JetDbContextOptionsBuilder UseDateTimeOffsetType(DateTimeOffsetType dateTimeOffsetType = DateTimeOffsetType.SaveAsString)
-            => WithOption(e => e.WithUseDateTimeOffsetType(dateTimeOffsetType));
-
         /// <summary>
         ///     Configures the context to use the default retrying <see cref="IExecutionStrategy" />.
         /// </summary>

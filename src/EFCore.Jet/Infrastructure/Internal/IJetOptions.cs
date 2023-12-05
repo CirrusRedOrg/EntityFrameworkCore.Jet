@@ -16,13 +16,5 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         bool UseOuterSelectSkipEmulationViaDataReader { get; }
         bool EnableMillisecondsSupport { get; }
         bool UseShortTextForSystemString { get; }
-        DateTimeOffsetType DateTimeOffsetType { get; }
-    }
-
-    public enum DateTimeOffsetType
-    {
-        SaveAsString = 0,
-        SaveAsDateTime = 1,
-        SaveAsDateTimeUtc = 2
     }
 }

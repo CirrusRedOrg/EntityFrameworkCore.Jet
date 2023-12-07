@@ -351,7 +351,7 @@ jobs:
       - name: NuGet Pack
         shell: pwsh
         run: |
-          $tagName = `No tag`
+          $tagName = "No tag"
           try { $tagName = git describe --exact-match --tags } catch { echo 'No tags found' }
           $officialBuild = $tagName -match '(?<=^v)\d+\.\d+\.\d+.*$'
           $officialVersion = $Matches.0

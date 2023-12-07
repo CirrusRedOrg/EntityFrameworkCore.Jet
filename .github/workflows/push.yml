@@ -351,8 +351,7 @@ jobs:
       - name: NuGet Pack
         shell: pwsh
         run: |
-          $tagName = "No tag"
-          try { $tagName = git describe --exact-match --tags } catch { echo 'No tags found' }
+          $tagName = git tag --points-at HEAD
           $officialBuild = $tagName -match '(?<=^v)\d+\.\d+\.\d+.*$'
           $officialVersion = $Matches.0
           $wipBuild = '${{ github.ref }}' -match '^refs/heads/.*-wip$'

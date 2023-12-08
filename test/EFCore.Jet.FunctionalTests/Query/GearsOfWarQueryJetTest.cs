@@ -2563,9 +2563,11 @@ WHERE DATEPART('yyyy', `m`.`Timeline`) = 2");
             await base.Where_datetimeoffset_month_component(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('m', `m`.`Timeline`) = 1");
+WHERE DATEPART('m', `m`.`Timeline`) = 1
+""");
         }
 
         public override async Task Where_datetimeoffset_dayofyear_component(bool isAsync)
@@ -2573,9 +2575,11 @@ WHERE DATEPART('m', `m`.`Timeline`) = 1");
             await base.Where_datetimeoffset_dayofyear_component(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART(dayofyear, `m`.`Timeline`) = 2");
+WHERE DATEPART('y', `m`.`Timeline`) = 2
+""");
         }
 
         public override async Task Where_datetimeoffset_day_component(bool isAsync)

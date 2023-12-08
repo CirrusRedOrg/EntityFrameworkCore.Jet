@@ -28,4 +28,16 @@ public class TPCGearsOfWarQueryJetFixture : TPCGearsOfWarQueryRelationalFixture
 
         base.Seed(context);
     }
+
+    public new ISetSource GetExpectedData()
+    {
+        var data = (GearsOfWarData)base.GetExpectedData();
+
+        foreach (var mission in data.Missions)
+        {
+            mission.Timeline = JetTestHelpers.GetExpectedValue(mission.Timeline);
+        }
+
+        return data;
+    }
 }

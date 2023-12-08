@@ -210,7 +210,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
             else if (value is DateTime dateTime)
             {
-                return new DateTimeOffset(dateTime);
+                return new DateTimeOffset(dateTime, TimeSpan.Zero);
             }
 
             return (DateTimeOffset)value;

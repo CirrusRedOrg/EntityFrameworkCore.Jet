@@ -3738,10 +3738,10 @@ WHERE DATEPART(year, [m].[Timeline]) = 2
         await base.Where_datetimeoffset_month_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(month, [m].[Timeline]) = 1
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('m', `m`.`Timeline`) = 1
 """);
     }
 
@@ -3750,10 +3750,10 @@ WHERE DATEPART(month, [m].[Timeline]) = 1
         await base.Where_datetimeoffset_dayofyear_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(dayofyear, [m].[Timeline]) = 2
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('y', `m`.`Timeline`) = 2
 """);
     }
 

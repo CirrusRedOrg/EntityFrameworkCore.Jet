@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // OLE DB can't handle the DateTimeOffset type.
             if (parameter.Value is DateTimeOffset dateTimeOffset)
             {
-                parameter.Value = dateTimeOffset.DateTime;
+                parameter.Value = dateTimeOffset.UtcDateTime;
                 parameter.DbType = System.Data.DbType.DateTime;
             }
 
@@ -50,7 +50,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override string GenerateNonNullSqlLiteral(object value)
         {
             if (value is not DateTimeOffset offset) return base.GenerateNonNullSqlLiteral(value);
-            var dateTime = offset.DateTime;
+            var dateTime = offset.UtcDateTime;
             return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime);
         }
     }

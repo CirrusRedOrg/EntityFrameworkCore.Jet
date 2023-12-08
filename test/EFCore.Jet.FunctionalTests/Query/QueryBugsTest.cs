@@ -10321,7 +10321,7 @@ WHERE `e`.`DateTime` = CDATE(@__parameter_0)
 
                 AssertSql(
 """
-@__parameter_0='2021-11-12T13:14:15.0000000' (DbType = DateTime)
+@__parameter_0='2021-11-12T03:14:15.0000000Z' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTimeOffset`
 FROM `Entities` AS `e`

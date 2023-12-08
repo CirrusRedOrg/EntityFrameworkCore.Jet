@@ -26,5 +26,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             base.Seed(context);
         }
+
+        public override ISetSource GetExpectedData()
+        {
+            var data = (GearsOfWarData)base.GetExpectedData();
+
+            foreach (var mission in data.Missions)
+            {
+                mission.Timeline = JetTestHelpers.GetExpectedValue(mission.Timeline);
+            }
+
+            return data;
+        }
     }
 }

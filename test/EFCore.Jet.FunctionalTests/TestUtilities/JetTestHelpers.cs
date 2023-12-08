@@ -6,6 +6,7 @@ using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
@@ -26,5 +27,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public override LoggingDefinitions LoggingDefinitions { get; } = new JetLoggingDefinitions();
 
         public string GetStoreName(string storeNameWithoutSuffix) => $"{storeNameWithoutSuffix}.accdb";
+
+        public static DateTimeOffset GetExpectedValue(DateTimeOffset value)
+        {
+            var val = value.UtcDateTime;
+            return new DateTimeOffset(new DateTime(val.Year, val.Month, val.Day, val.Hour, val.Minute, val.Second), TimeSpan.Zero);
+        }
     }
 }

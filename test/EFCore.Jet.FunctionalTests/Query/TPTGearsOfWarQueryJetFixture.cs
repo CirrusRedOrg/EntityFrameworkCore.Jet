@@ -29,7 +29,7 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
         base.Seed(context);
     }
 
-    public new ISetSource GetExpectedData()
+    public override ISetSource GetExpectedData()
     {
         var data = (GearsOfWarData)base.GetExpectedData();
 

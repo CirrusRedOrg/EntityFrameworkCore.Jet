@@ -47,7 +47,7 @@
 		<Error Condition="'$(VersionPrefix)' == ''" Text="The 'VersionPrefix' property needs to be set."/>
 		<Error Condition="'$(PreReleaseVersionLabel)' == ''" Text="The 'PreReleaseVersionLabel' property needs to be set."/>
 		<Error Condition="'$(PreReleaseVersionIteration)' == ''" Text="The 'PreReleaseVersionIteration' property needs to be set."/>
-		<Error Condition="'$(OfficialVersion)' != '' And '$(OfficialVersion)' != '$(VersionPrefix)' And '$(OfficialVersion)' != '$(VersionPrefix)-$(VersionSuffix)'" Text="The 'OfficialVersion' property needs to be identical to the 'VersionPrefix' property or to a combination of the 'VersionPrefix' and the 'VersionSuffix' properties. $(OfficialVersion) $(VersionPrefix) $(VersionSuffix)"/>
+		<Error Condition="'$(OfficialVersion)' != '' And '$(OfficialVersion)' != '$(VersionPrefix)' And '$(OfficialVersion)' != '$(VersionPrefix)-$(VersionSuffix)'" Text="The 'OfficialVersion' property needs to be identical to the 'VersionPrefix' property or to a combination of the 'VersionPrefix' and the 'VersionSuffix' properties."/>
 		<!--
         <Message Importance="high" Text="VersionPrefix: $(VersionPrefix)" />
         <Message Importance="high" Text="VersionSuffix: $(VersionSuffix)" />

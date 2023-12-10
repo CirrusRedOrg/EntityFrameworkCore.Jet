@@ -395,7 +395,7 @@ jobs:
                 if ($officialBuild)
                 {
                   $finalOfficialVersion = $officialVersion
-
+                  $ciBuildOnly = False
                   if ($configuration -eq 'Debug')
                   {
                     $finalOfficialVersion += '-debug'

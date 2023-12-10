@@ -5,6 +5,9 @@ on:
       - '**'
     paths-ignore:
       - '**.md'
+  release:
+    types:
+      - published
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
@@ -354,8 +357,7 @@ jobs:
       - name: NuGet Pack
         shell: pwsh
         run: |
-          $tagName = git tag --points-at HEAD
-          $officialBuild = $tagName -match '(?<=^v)\d+\.\d+\.\d+.*$'
+          $officialBuild = '${{ github.ref }}' -match '(?<=^refs/tags/)\d+\.\d+\.\d+.*$'
           $officialVersion = $Matches.0
           $wipBuild = '${{ github.ref }}' -match '^refs/heads/.*-wip$'
           $ciBuildOnly = $wipBuild -or ('${{ github.ref }}' -match '^refs/heads/(?:master|.*-servicing)$')
@@ -395,7 +397,6 @@ jobs:
                 if ($officialBuild)
                 {
                   $finalOfficialVersion = $officialVersion
-                  $ciBuildOnly = False
                   if ($configuration -eq 'Debug')
                   {
                     $finalOfficialVersion += '-debug'

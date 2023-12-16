@@ -217,8 +217,7 @@ AS DELETE FROM [Entity] WHERE [Id] = @Id
 """
 @p0='1'
 
-SET NOCOUNT ON;
-EXEC [Entity_Delete] @p0;
+EXEC `Entity_Delete` p0;
 """);
     }
 
@@ -227,7 +226,7 @@ EXEC [Entity_Delete] @p0;
         await base.Delete_and_insert(
             async,
 """
-CREATE PROCEDURE Entity_Insert(@Name varchar(max), @Id int OUT)
+CREATE PROCEDURE Entity_Insert(@Name varchar(255), @Id int OUT)
 AS BEGIN
     INSERT INTO [Entity] ([Name]) VALUES (@Name);
     SET @Id = SCOPE_IDENTITY();
@@ -607,7 +606,7 @@ END;
 SET NOCOUNT ON;
 EXEC [Parent_Insert] @p0 OUTPUT, @p1;
 """,
-            //
+//
 """
 @p2='1'
 @p3='8'
@@ -637,7 +636,7 @@ END
 SET NOCOUNT ON;
 EXEC [Parent_Insert] @p0 OUTPUT, @p1;
 """,
-            //
+//
 """
 @p2='1'
 @p3='8'

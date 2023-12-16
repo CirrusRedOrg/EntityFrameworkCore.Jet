@@ -2587,9 +2587,11 @@ WHERE DATEPART('y', `m`.`Timeline`) = 2
             await base.Where_datetimeoffset_day_component(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('d', `m`.`Timeline`) = 2");
+WHERE DATEPART('d', `m`.`Timeline`) = 2
+""");
         }
 
         public override async Task Where_datetimeoffset_hour_component(bool isAsync)
@@ -2607,9 +2609,11 @@ WHERE DATEPART('h', `m`.`Timeline`) = 10");
             await base.Where_datetimeoffset_minute_component(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('n', `m`.`Timeline`) = 0");
+WHERE DATEPART('n', `m`.`Timeline`) = 0
+""");
         }
 
         public override async Task Where_datetimeoffset_second_component(bool isAsync)
@@ -2617,9 +2621,11 @@ WHERE DATEPART('n', `m`.`Timeline`) = 0");
             await base.Where_datetimeoffset_second_component(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEPART('s', `m`.`Timeline`) = 0");
+WHERE DATEPART('s', `m`.`Timeline`) = 0
+""");
         }
 
         public override async Task Where_datetimeoffset_millisecond_component(bool isAsync)
@@ -2646,8 +2652,10 @@ FROM `Missions` AS `m`");
             await base.DateTimeOffset_DateAdd_AddDays(isAsync);
 
             AssertSql(
-                $@"SELECT DATEADD('d', CAST(1.0E0 AS int), `m`.`Timeline`)
-FROM `Missions` AS `m`");
+                """
+SELECT DATEADD('d', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
+""");
         }
 
         public override async Task DateTimeOffset_DateAdd_AddHours(bool isAsync)
@@ -2655,8 +2663,10 @@ FROM `Missions` AS `m`");
             await base.DateTimeOffset_DateAdd_AddHours(isAsync);
 
             AssertSql(
-                $@"SELECT DATEADD('h', CAST(1.0E0 AS int), `m`.`Timeline`)
-FROM `Missions` AS `m`");
+                """
+SELECT DATEADD('h', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
+""");
         }
 
         public override async Task DateTimeOffset_DateAdd_AddMinutes(bool isAsync)
@@ -2664,8 +2674,10 @@ FROM `Missions` AS `m`");
             await base.DateTimeOffset_DateAdd_AddMinutes(isAsync);
 
             AssertSql(
-                $@"SELECT DATEADD('n', CAST(1.0E0 AS int), `m`.`Timeline`)
-FROM `Missions` AS `m`");
+                """
+SELECT DATEADD('n', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
+""");
         }
 
         public override async Task DateTimeOffset_DateAdd_AddSeconds(bool isAsync)
@@ -2673,8 +2685,10 @@ FROM `Missions` AS `m`");
             await base.DateTimeOffset_DateAdd_AddSeconds(isAsync);
 
             AssertSql(
-                $@"SELECT DATEADD('s', CAST(1.0E0 AS int), `m`.`Timeline`)
-FROM `Missions` AS `m`");
+                """
+SELECT DATEADD('s', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
+""");
         }
 
         public override async Task DateTimeOffset_DateAdd_AddMilliseconds(bool isAsync)
@@ -8957,8 +8971,8 @@ FROM `Gears` AS `g`
             await base.DateTimeOffset_DateAdd_AddYears(async);
 
             AssertSql(
-    """
-SELECT DATEADD(year, CAST(1 AS int), `m`.`Timeline`)
+                """
+SELECT DATEADD('yyyy', 1, `m`.`Timeline`)
 FROM `Missions` AS `m`
 """);
         }

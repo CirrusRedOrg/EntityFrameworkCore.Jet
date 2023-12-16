@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     {
                         nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
                             false, new[] { false }, returnType),
-                        nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                        nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("UTCNOW", Array.Empty<SqlExpression>(),
                             false, new[] { false }, returnType),
                         _ => null,
                     };

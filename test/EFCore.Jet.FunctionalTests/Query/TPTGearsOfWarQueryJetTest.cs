@@ -3013,10 +3013,10 @@ WHERE DATEPART('y', `m`.`Timeline`) = 2
         await base.Where_datetimeoffset_day_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(day, [m].[Timeline]) = 2
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('d', `m`.`Timeline`) = 2
 """);
     }
 
@@ -3037,10 +3037,10 @@ WHERE DATEPART(hour, [m].[Timeline]) = 10
         await base.Where_datetimeoffset_minute_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(minute, [m].[Timeline]) = 0
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('n', `m`.`Timeline`) = 0
 """);
     }
 
@@ -3049,10 +3049,10 @@ WHERE DATEPART(minute, [m].[Timeline]) = 0
         await base.Where_datetimeoffset_second_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(second, [m].[Timeline]) = 0
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('s', `m`.`Timeline`) = 0
 """);
     }
 
@@ -3073,9 +3073,9 @@ WHERE DATEPART(millisecond, [m].[Timeline]) = 0
         await base.DateTimeOffset_DateAdd_AddMonths(async);
 
         AssertSql(
-"""
-SELECT DATEADD(month, CAST(1 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('m', 1, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3084,9 +3084,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddDays(async);
 
         AssertSql(
-"""
-SELECT DATEADD(day, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('d', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3095,9 +3095,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddHours(async);
 
         AssertSql(
-"""
-SELECT DATEADD(hour, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('h', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3106,9 +3106,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddMinutes(async);
 
         AssertSql(
-"""
-SELECT DATEADD(minute, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('n', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3117,9 +3117,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddSeconds(async);
 
         AssertSql(
-"""
-SELECT DATEADD(second, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('s', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -9623,10 +9623,9 @@ ORDER BY [g].[Nickname], [g].[SquadId], [s].[Id]
         await base.DateTimeOffset_DateAdd_AddYears(async);
 
         AssertSql(
-"""
-SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
-FROM `Gears` AS `g`
-LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
+            """
+SELECT DATEADD('yyyy', 1, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 

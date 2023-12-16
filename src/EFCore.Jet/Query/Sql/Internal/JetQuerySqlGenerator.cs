@@ -368,9 +368,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 if (parent.TryPeek(out var exp) && exp is SqlBinaryExpression)
                 {
+                    Sql.Append("IIF(");
+                    base.VisitColumn(columnExpression);
+                    Sql.Append(" IS NULL, NULL, ");
                     Sql.Append(function);
                     Sql.Append("(");
                     base.VisitColumn(columnExpression);
+                    Sql.Append(")");
                     Sql.Append(")");
                     return columnExpression;
                 }

@@ -3762,10 +3762,10 @@ WHERE DATEPART('y', `m`.`Timeline`) = 2
         await base.Where_datetimeoffset_day_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(day, [m].[Timeline]) = 2
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('d', `m`.`Timeline`) = 2
 """);
     }
 
@@ -3786,10 +3786,10 @@ WHERE DATEPART(hour, [m].[Timeline]) = 10
         await base.Where_datetimeoffset_minute_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(minute, [m].[Timeline]) = 0
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('n', `m`.`Timeline`) = 0
 """);
     }
 
@@ -3798,10 +3798,10 @@ WHERE DATEPART(minute, [m].[Timeline]) = 0
         await base.Where_datetimeoffset_second_component(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(second, [m].[Timeline]) = 0
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('s', `m`.`Timeline`) = 0
 """);
     }
 
@@ -3822,9 +3822,9 @@ WHERE DATEPART(millisecond, [m].[Timeline]) = 0
         await base.DateTimeOffset_DateAdd_AddMonths(async);
 
         AssertSql(
-"""
-SELECT DATEADD(month, CAST(1 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('m', 1, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3833,9 +3833,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddDays(async);
 
         AssertSql(
-"""
-SELECT DATEADD(day, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('d', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3844,9 +3844,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddHours(async);
 
         AssertSql(
-"""
-SELECT DATEADD(hour, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('h', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3855,9 +3855,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddMinutes(async);
 
         AssertSql(
-"""
-SELECT DATEADD(minute, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('n', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -3866,9 +3866,9 @@ FROM [Missions] AS [m]
         await base.DateTimeOffset_DateAdd_AddSeconds(async);
 
         AssertSql(
-"""
-SELECT DATEADD(second, CAST(1.0E0 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('s', 1.0, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -4852,7 +4852,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 """);
     }
 
@@ -4876,7 +4876,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`)
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`)
 LEFT JOIN `Squads` AS `s` ON `t0`.`SquadId` = `s`.`Id`
 """);
     }
@@ -4901,7 +4901,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`)
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`)
 LEFT JOIN (
     SELECT `t2`.`Nickname`, `t2`.`SquadId`, `t2`.`AssignedCityName`, `t2`.`CityOfBirthName`, `t2`.`FullName`, `t2`.`HasSoulPatch`, `t2`.`LeaderNickname`, `t2`.`LeaderSquadId`, `t2`.`Rank`, `t2`.`Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
     FROM (
@@ -4937,7 +4937,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 """);
     }
 
@@ -4961,7 +4961,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 """);
     }
 
@@ -4985,7 +4985,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 """);
     }
 
@@ -5189,7 +5189,7 @@ LEFT JOIN (
         UNION ALL
         SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
         FROM `Officers` AS `o`
-    ) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+    ) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 ) AS `t1` ON `l`.`Id` = `t1`.`LocustHordeId`
 ORDER BY `l`.`Id`, `t1`.`Name`, `t1`.`Nickname`
 """);
@@ -6712,7 +6712,7 @@ FROM (
         UNION ALL
         SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
         FROM `Officers` AS `o`
-    ) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`)
+    ) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`)
     LEFT JOIN `Tags` AS `t1` ON (`t0`.`Nickname` = `t1`.`GearNickName` OR (`t0`.`Nickname` IS NULL AND `t1`.`GearNickName` IS NULL)) AND (`t0`.`SquadId` = `t1`.`GearSquadId` OR (`t0`.`SquadId` IS NULL AND `t1`.`GearSquadId` IS NULL))
     ORDER BY `t1`.`Note`
 ) AS `t2`
@@ -6726,16 +6726,16 @@ ORDER BY `t2`.`Note`, `t2`.`Name`, `t2`.`Nickname`, `t2`.`SquadId`, `t2`.`Id`
         await base.Select_required_navigation_on_derived_type(async);
 
         AssertSql(
-"""
-SELECT [l].[Name]
+            """
+SELECT `l`.`Name`
 FROM (
-    SELECT NULL AS [HighCommandId]
-    FROM [LocustLeaders] AS [l0]
+    SELECT CVar(NULL) AS `HighCommandId`
+    FROM `LocustLeaders` AS `l0`
     UNION ALL
-    SELECT [l1].[HighCommandId]
-    FROM [LocustCommanders] AS [l1]
-) AS [t]
-LEFT JOIN [LocustHighCommands] AS [l] ON [t].[HighCommandId] = [l].[Id]
+    SELECT `l1`.`HighCommandId`
+    FROM `LocustCommanders` AS `l1`
+) AS `t`
+LEFT JOIN `LocustHighCommands` AS `l` ON IIF(`t`.`HighCommandId` IS NULL, NULL, CLNG(`t`.`HighCommandId`)) = `l`.`Id`
 """);
     }
 
@@ -6762,17 +6762,17 @@ INNER JOIN `Cities` AS `c` ON `t`.`CityOfBirthName` = `c`.`Name`
         await base.Where_required_navigation_on_derived_type(async);
 
         AssertSql(
-"""
-SELECT [t].[Name], [t].[LocustHordeId], [t].[ThreatLevel], [t].[ThreatLevelByte], [t].[ThreatLevelNullableByte], [t].[DefeatedByNickname], [t].[DefeatedBySquadId], [t].[HighCommandId], [t].[Discriminator]
+            """
+SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
 FROM (
-    SELECT [l0].[Name], [l0].[LocustHordeId], [l0].[ThreatLevel], [l0].[ThreatLevelByte], [l0].[ThreatLevelNullableByte], NULL AS [DefeatedByNickname], NULL AS [DefeatedBySquadId], NULL AS [HighCommandId], N'LocustLeader' AS [Discriminator]
-    FROM [LocustLeaders] AS [l0]
+    SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, CVar(NULL) AS `DefeatedBySquadId`, CVar(NULL) AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    FROM `LocustLeaders` AS `l0`
     UNION ALL
-    SELECT [l1].[Name], [l1].[LocustHordeId], [l1].[ThreatLevel], [l1].[ThreatLevelByte], [l1].[ThreatLevelNullableByte], [l1].[DefeatedByNickname], [l1].[DefeatedBySquadId], [l1].[HighCommandId], N'LocustCommander' AS [Discriminator]
-    FROM [LocustCommanders] AS [l1]
-) AS [t]
-LEFT JOIN [LocustHighCommands] AS [l] ON [t].[HighCommandId] = [l].[Id]
-WHERE [l].[IsOperational] = CAST(1 AS bit)
+    SELECT `l1`.`Name`, `l1`.`LocustHordeId`, `l1`.`ThreatLevel`, `l1`.`ThreatLevelByte`, `l1`.`ThreatLevelNullableByte`, `l1`.`DefeatedByNickname`, `l1`.`DefeatedBySquadId`, `l1`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
+    FROM `LocustCommanders` AS `l1`
+) AS `t`
+LEFT JOIN `LocustHighCommands` AS `l` ON IIF(`t`.`HighCommandId` IS NULL, NULL, CLNG(`t`.`HighCommandId`)) = `l`.`Id`
+WHERE `l`.`IsOperational` = TRUE
 """);
     }
 
@@ -11029,7 +11029,7 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t0].[Nickname]
         await base.Accessing_derived_property_using_hard_and_soft_cast(async);
 
         AssertSql(
-            """
+"""
 SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
 FROM (
     SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, CVar(NULL) AS `DefeatedBySquadId`, CVar(NULL) AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
@@ -11038,10 +11038,10 @@ FROM (
     SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
     FROM `LocustCommanders` AS `l0`
 ) AS `t`
-WHERE `t`.`Discriminator` = 'LocustCommander' AND (CLNG(`t`.`HighCommandId`) <> 0 OR CLNG(`t`.`HighCommandId`) IS NULL)
+WHERE `t`.`Discriminator` = 'LocustCommander' AND (IIF(`t`.`HighCommandId` IS NULL, NULL, CLNG(`t`.`HighCommandId`)) <> 0 OR IIF(`t`.`HighCommandId` IS NULL, NULL, CLNG(`t`.`HighCommandId`)) IS NULL)
 """,
-            //
-            """
+                //
+                """
 SELECT `t`.`Name`, `t`.`LocustHordeId`, `t`.`ThreatLevel`, `t`.`ThreatLevelByte`, `t`.`ThreatLevelNullableByte`, `t`.`DefeatedByNickname`, `t`.`DefeatedBySquadId`, `t`.`HighCommandId`, `t`.`Discriminator`
 FROM (
     SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, CVar(NULL) AS `DefeatedBySquadId`, CVar(NULL) AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
@@ -11050,7 +11050,7 @@ FROM (
     SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
     FROM `LocustCommanders` AS `l0`
 ) AS `t`
-WHERE `t`.`Discriminator` = 'LocustCommander' AND (CLNG(`t`.`HighCommandId`) <> 0 OR CLNG(`t`.`HighCommandId`) IS NULL)
+WHERE `t`.`Discriminator` = 'LocustCommander' AND (IIF(`t`.`HighCommandId` IS NULL, NULL, CLNG(`t`.`HighCommandId`)) <> 0 OR IIF(`t`.`HighCommandId` IS NULL, NULL, CLNG(`t`.`HighCommandId`)) IS NULL)
 """);
     }
 
@@ -11074,7 +11074,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 WHERE `t`.`Name` LIKE '%Queen%'
 """);
     }
@@ -11891,9 +11891,9 @@ ORDER BY [t].[Nickname], [t].[SquadId], [s].[Id]
         await base.DateTimeOffset_DateAdd_AddYears(async);
 
         AssertSql(
-"""
-SELECT DATEADD(year, CAST(1 AS int), [m].[Timeline])
-FROM [Missions] AS [m]
+            """
+SELECT DATEADD('yyyy', 1, `m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
     }
 
@@ -12166,7 +12166,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`)
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`)
 LEFT JOIN `Weapons` AS `w` ON `t0`.`FullName` = `w`.`OwnerFullName`
 WHERE `t`.`Name` LIKE '%Queen%'
 ORDER BY `t`.`Name`, `t0`.`Nickname`, `t0`.`SquadId`
@@ -12869,7 +12869,7 @@ LEFT JOIN (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND CLNG(`t`.`DefeatedBySquadId`) = `t0`.`SquadId`
+) AS `t0` ON `t`.`DefeatedByNickname` = `t0`.`Nickname` AND IIF(`t`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`t`.`DefeatedBySquadId`)) = `t0`.`SquadId`
 """);
     }
 

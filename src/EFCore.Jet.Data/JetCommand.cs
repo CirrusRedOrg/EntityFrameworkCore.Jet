@@ -397,22 +397,27 @@ namespace EntityFrameworkCore.Jet.Data
                         }
                         else
                         {
-                            for (var i = 0; i < usedParameterCount && command.Parameters.Count > 0; i++)
+                            //don't touch parameters if EXEC stored procedure. Jet parameters do not use the @ symbol with parameter arguments in EXEC.
+                            //As such this code would not find any parameters and clear them all out.
+                            if (!commandText.StartsWith("EXEC", StringComparison.InvariantCultureIgnoreCase))
                             {
-                                command.Parameters.RemoveAt(0);
+                                for (var i = 0; i < usedParameterCount && command.Parameters.Count > 0; i++)
+                                {
+                                    command.Parameters.RemoveAt(0);
+                                }
+
+                                var parameterIndices = parser.GetStateIndices(
+                                    new[] { '@', '?' },
+                                    currentCommandStart,
+                                    commandDelimiter - currentCommandStart);
+
+                                while (command.Parameters.Count > parameterIndices.Count)
+                                {
+                                    command.Parameters.RemoveAt(parameterIndices.Count);
+                                }
+
+                                usedParameterCount += parameterIndices.Count;
                             }
-
-                            var parameterIndices = parser.GetStateIndices(
-                                new[] { '@', '?' },
-                                currentCommandStart,
-                                commandDelimiter - currentCommandStart);
-
-                            while (command.Parameters.Count > parameterIndices.Count)
-                            {
-                                command.Parameters.RemoveAt(parameterIndices.Count);
-                            }
-
-                            usedParameterCount += parameterIndices.Count;
                         }
 
                         commands.Add(command);

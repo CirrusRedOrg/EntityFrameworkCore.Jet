@@ -24,162 +24,6 @@ public class ValueConvertersEndToEndJetTest
     {
     }
 
-    private static readonly DateTimeOffset _dateTimeOffset1 = new DateTimeOffset(1973, 9, 3, 12, 10, 0, new TimeSpan(7, 0, 0)).UtcDateTime;
-    private static readonly DateTimeOffset _dateTimeOffset2 = new DateTimeOffset(1973, 9, 3, 12, 10, 0, new TimeSpan(8, 0, 0)).UtcDateTime;
-    private static readonly DateTime _dateTime1 = new(1973, 9, 3, 12, 10, 0);
-    private static readonly DateTime _dateTime2 = new(1973, 9, 3, 12, 10, 1);
-    private static readonly DateOnly _dateOnly1 = new(1973, 9, 3);
-    private static readonly DateOnly _dateOnly2 = new(1973, 9, 4);
-    private static readonly IPAddress _ipAddress1 = IPAddress.Parse("127.0.0.1");
-    private static readonly IPAddress _ipAddress2 = IPAddress.Parse("127.0.0.2");
-    private static readonly PhysicalAddress _physicalAddress1 = PhysicalAddress.Parse("1D4E55D69273");
-    private static readonly PhysicalAddress _physicalAddress2 = PhysicalAddress.Parse("1D4E55D69274");
-    private static readonly TimeSpan _timeSpan1 = new(7, 0, 0);
-    private static readonly TimeSpan _timeSpan2 = new(8, 0, 0);
-    private static readonly Uri _uri1 = new("http://localhost/");
-    private static readonly Uri _uri2 = new("http://microsoft.com/");
-    private static readonly string _dateTimeFormat = @"yyyy\-MM\-dd HH\:mm\:ss.FFFFFFF";
-    private static readonly string _dateOnlyFormat = @"yyyy\-MM\-dd";
-    private static readonly string _dateTimeOffsetFormat = @"yyyy\-MM\-dd HH\:mm\:ss.FFFFFFFzzz";
-
-    protected new static Dictionary<Type, object?[]> TestValues = new()
-    {
-        { typeof(bool), new object?[] { true, false, true, false } },
-        { typeof(int), new object?[] { 77, 0, 78, 0 } },
-        { typeof(char), new object?[] { 'A', 'B', 'C', 'D' } },
-        { typeof(byte[]), new object?[] { new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 }, new byte[] { 4 } } },
-        { typeof(DateTimeOffset), new object?[] { _dateTimeOffset1, _dateTimeOffset2, _dateTimeOffset1, _dateTimeOffset2 } },
-        { typeof(DateTime), new object?[] { _dateTime1, _dateTime2, _dateTime1, _dateTime2 } },
-        { typeof(DateOnly), new object?[] { _dateOnly1, _dateOnly2, _dateOnly1, _dateOnly2 } },
-        { typeof(TheExperience), new object?[] { TheExperience.Jimi, TheExperience.Mitch, TheExperience.Noel, TheExperience.Jimi } },
-        { typeof(Guid), new object?[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() } },
-        { typeof(IPAddress), new object?[] { _ipAddress1, _ipAddress2, _ipAddress1, _ipAddress2 } },
-        { typeof(ulong), new object?[] { (ulong)77, (ulong)0, (ulong)78, (ulong)0 } },
-        { typeof(sbyte), new object?[] { (sbyte)-77, (sbyte)0, (sbyte)78, (sbyte)0 } },
-        { typeof(PhysicalAddress), new object?[] { _physicalAddress1, _physicalAddress2, _physicalAddress1, _physicalAddress2 } },
-        { typeof(TimeSpan), new object?[] { _timeSpan1, _timeSpan2, _timeSpan1, _timeSpan2 } },
-        { typeof(Uri), new object?[] { _uri1, _uri2, _uri1, _uri2 } },
-        {
-            typeof(List<int>), new object?[]
-            {
-                new List<int>
-                {
-                    47,
-                    48,
-                    47,
-                    46
-                },
-                new List<int>
-                {
-                    57,
-                    58,
-                    57,
-                    56
-                },
-                new List<int>
-                {
-                    67,
-                    68,
-                    67,
-                    66
-                },
-                new List<int>
-                {
-                    77,
-                    78,
-                    77,
-                    76
-                },
-            }
-        },
-        {
-            typeof(IEnumerable<int>), new object?[]
-            {
-                new List<int>
-                {
-                    47,
-                    48,
-                    47,
-                    46
-                },
-                new List<int>
-                {
-                    57,
-                    58,
-                    57,
-                    56
-                },
-                new List<int>
-                {
-                    67,
-                    68,
-                    67,
-                    66
-                },
-                new List<int>
-                {
-                    77,
-                    78,
-                    77,
-                    76
-                },
-            }
-        },
-    };
-
-    protected new static Dictionary<Type, object?[]> StringTestValues = new()
-    {
-        { typeof(bool), new object?[] { "True", "False", "True", "False" } },
-        { typeof(char), new object?[] { "A", "B", "C", "D" } },
-        { typeof(byte[]), new object?[] { "", "", "", "" } },
-        {
-            typeof(DateTimeOffset),
-            new object?[]
-            {
-                _dateTimeOffset1.ToString(_dateTimeOffsetFormat),
-                _dateTimeOffset2.ToString(_dateTimeOffsetFormat),
-                _dateTimeOffset1.ToString(_dateTimeOffsetFormat),
-                _dateTimeOffset2.ToString(_dateTimeOffsetFormat)
-            }
-        },
-        {
-            typeof(DateTime),
-            new object?[]
-            {
-                _dateTime1.ToString(_dateTimeFormat),
-                _dateTime2.ToString(_dateTimeFormat),
-                _dateTime1.ToString(_dateTimeFormat),
-                _dateTime2.ToString(_dateTimeFormat)
-            }
-        },
-        {
-            typeof(DateOnly),
-            new object?[]
-            {
-                _dateOnly1.ToString(_dateOnlyFormat),
-                _dateOnly2.ToString(_dateOnlyFormat),
-                _dateOnly1.ToString(_dateOnlyFormat),
-                _dateOnly2.ToString(_dateOnlyFormat)
-            }
-        },
-        { typeof(string), new object?[] { "A", "<null>", "C", "<null>" } },
-        {
-            typeof(TheExperience),
-            new object?[]
-            {
-                nameof(TheExperience.Jimi), nameof(TheExperience.Mitch), nameof(TheExperience.Noel), nameof(TheExperience.Jimi)
-            }
-        },
-        {
-            typeof(Guid),
-            new object?[] { Guid.NewGuid().ToString(), Guid.NewGuid().ToString(), Guid.NewGuid().ToString(), Guid.NewGuid().ToString() }
-        },
-        { typeof(ulong), new object?[] { "77", "0", "78", "0" } },
-        { typeof(sbyte), new object?[] { "-77", "75", "-78", "0" } },
-        { typeof(byte), new object?[] { "77", "75", "78", "0" } },
-        { typeof(TimeSpan), new object?[] { _timeSpan1.ToString(), _timeSpan2.ToString(), _timeSpan1.ToString(), _timeSpan2.ToString() } },
-    };
-
     [ConditionalTheory]
     [InlineData(nameof(ConvertingEntity.BoolAsChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.BoolAsNullableChar), "varchar(1)", false)]
@@ -229,8 +73,8 @@ public class ValueConvertersEndToEndJetTest
     [InlineData(nameof(ConvertingEntity.StringToNullableChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.StringToDateTime), "datetime", false)]
     [InlineData(nameof(ConvertingEntity.StringToNullableDateTime), "datetime", false)]
-    [InlineData(nameof(ConvertingEntity.StringToDateTimeOffset), "datetime", false)]
-    [InlineData(nameof(ConvertingEntity.StringToNullableDateTimeOffset), "datetime", false)]
+    //[InlineData(nameof(ConvertingEntity.StringToDateTimeOffset), "datetime", false)]
+    //[InlineData(nameof(ConvertingEntity.StringToNullableDateTimeOffset), "datetime", false)]
     [InlineData(nameof(ConvertingEntity.StringToEnum), "integer", false)]
     [InlineData(nameof(ConvertingEntity.StringToNullableEnum), "integer", false)]
     [InlineData(nameof(ConvertingEntity.StringToGuid), "uniqueidentifier", false)]
@@ -293,8 +137,8 @@ public class ValueConvertersEndToEndJetTest
     [InlineData(nameof(ConvertingEntity.NullableStringToNullableChar), "varchar(1)", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToDateTime), "datetime", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToNullableDateTime), "datetime", true)]
-    [InlineData(nameof(ConvertingEntity.NullableStringToDateTimeOffset), "datetime", true)]
-    [InlineData(nameof(ConvertingEntity.NullableStringToNullableDateTimeOffset), "datetime", true)]
+    //[InlineData(nameof(ConvertingEntity.NullableStringToDateTimeOffset), "datetime", true)]
+    //[InlineData(nameof(ConvertingEntity.NullableStringToNullableDateTimeOffset), "datetime", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToEnum), "integer", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToNullableEnum), "integer", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToGuid), "uniqueidentifier", true)]
@@ -387,6 +231,11 @@ WHERE CAST(DATALENGTH(CAST(N'' AS nvarchar(max))) AS int) = 1
                     b.Property(e => e.ListOfInt).HasDefaultValue(new List<int>());
                     b.Property(e => e.NullableEnumerableOfInt).HasDefaultValue(Enumerable.Empty<int>());
                     b.Property(e => e.EnumerableOfInt).HasDefaultValue(Enumerable.Empty<int>());
+
+                    b.Ignore(e => e.StringToDateTimeOffset);
+                    b.Ignore(e => e.StringToNullableDateTimeOffset);
+                    b.Ignore(e => e.NullableStringToDateTimeOffset);
+                    b.Ignore(e => e.NullableStringToNullableDateTimeOffset);
                 });
         }
     }

@@ -12,12 +12,18 @@ using Xunit;
 using Xunit.Abstractions;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using System.Data.Odbc;
+using EntityFrameworkCore.Jet.Storage.Internal;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class FromSqlQueryJetTest : FromSqlQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+public class FromSqlQueryJetTest : FromSqlQueryTestBase<FromSqlQueryJetTest.FromSqlQueryJetTestFixture>
 {
-    public FromSqlQueryJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+    public FromSqlQueryJetTest(FromSqlQueryJetTestFixture fixture, ITestOutputHelper testOutputHelper)
         : base(fixture)
     {
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
@@ -1003,4 +1009,81 @@ FROM (
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+    public class FromSqlQueryJetTestFixture : NorthwindQueryJetFixture<NoopModelCustomizer>
+    {
+        protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
+            => base.AddServices(serviceCollection)
+                .AddSingleton<IRelationalTransactionFactory, TestRelationalTransactionFactory>()
+                .AddScoped<IJetRelationalConnection, TestJetConnection>()
+                .AddSingleton<IRelationalCommandBuilderFactory, TestRelationalCommandBuilderFactory>();
+    }
+
+    public override async Task FromSql_used_twice_without_parameters(bool async)
+    {
+        await AssertAny(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT 'ALFKI' AS [CustomerID] FROM `#Dual`"))
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+
+        await AssertAny(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT 'ALFKI' AS [CustomerID] FROM `#Dual`"))
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+    }
+
+    public override async Task FromSql_used_twice_with_parameters(bool async)
+    {
+        await AssertAny(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT {0} AS [CustomerID] FROM `#Dual`"), "ALFKI")
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+
+        await AssertAny(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT {0} AS [CustomerID] FROM `#Dual`"), "ALFKI")
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+    }
+
+    public override async Task FromSql_Count_used_twice_without_parameters(bool async)
+    {
+        await AssertCount(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT 'ALFKI' AS [CustomerID] FROM `#Dual`"))
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+
+        await AssertCount(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT 'ALFKI' AS [CustomerID] FROM `#Dual`"))
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+    }
+
+    public override async Task FromSql_Count_used_twice_with_parameters(bool async)
+    {
+        await AssertCount(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT {0} AS [CustomerID] FROM `#Dual`"), "ALFKI")
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+
+        await AssertCount(
+            async,
+            ss => ((DbSet<OrderQuery>)ss.Set<OrderQuery>())
+                .FromSqlRaw(NormalizeDelimitersInRawString("SELECT {0} AS [CustomerID] FROM `#Dual`"), "ALFKI")
+                .IgnoreQueryFilters(),
+            ss => ss.Set<Customer>().Where(x => x.CustomerID == "ALFKI").Select(x => new OrderQuery(x.CustomerID)));
+    }
 }

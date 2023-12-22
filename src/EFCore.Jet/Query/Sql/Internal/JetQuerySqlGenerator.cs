@@ -948,5 +948,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             throw new InvalidOperationException(
                 RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(RelationalQueryableExtensions.ExecuteUpdate)));
         }
+
+        /// <inheritdoc />
+        protected override void CheckComposableSqlTrimmed(ReadOnlySpan<char> sql)
+        {
+            base.CheckComposableSqlTrimmed(sql);
+
+            if (sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RelationalStrings.FromSqlNonComposable);
+            }
+        }
     }
 }

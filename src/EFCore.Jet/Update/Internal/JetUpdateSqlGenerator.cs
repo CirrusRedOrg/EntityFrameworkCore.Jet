@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -156,6 +157,105 @@ namespace EntityFrameworkCore.Jet.Update.Internal
                             return false;
                         }, " AND ");
             }
+        }
+
+        public override ResultSetMapping AppendStoredProcedureCall(
+        StringBuilder commandStringBuilder,
+        IReadOnlyModificationCommand command,
+        int commandPosition,
+        out bool requiresTransaction)
+        {
+            Check.DebugAssert(command.StoreStoredProcedure is not null, "command.StoredProcedure is not null");
+
+            var storedProcedure = command.StoreStoredProcedure;
+
+            var resultSetMapping = ResultSetMapping.NoResults;
+
+            foreach (var resultColumn in storedProcedure.ResultColumns)
+            {
+                resultSetMapping = ResultSetMapping.LastInResultSet;
+
+                if (resultColumn == command.RowsAffectedColumn)
+                {
+                    resultSetMapping |= ResultSetMapping.ResultSetWithRowsAffectedOnly;
+                }
+                else
+                {
+                    resultSetMapping = ResultSetMapping.LastInResultSet;
+                    break;
+                }
+            }
+
+            Check.DebugAssert(
+                storedProcedure.Parameters.Any() || storedProcedure.ResultColumns.Any(),
+                "Stored procedure call with neither parameters nor result columns");
+
+            commandStringBuilder.Append("EXEC ");
+
+            if (storedProcedure.ReturnValue is not null)
+            {
+                var returnValueModification = command.ColumnModifications.First(c => c.Column is IStoreStoredProcedureReturnValue);
+
+                Check.DebugAssert(returnValueModification.UseCurrentValueParameter, "returnValueModification.UseCurrentValueParameter");
+                Check.DebugAssert(!returnValueModification.UseOriginalValueParameter, "!returnValueModification.UseOriginalValueParameter");
+
+                SqlGenerationHelper.GenerateParameterNamePlaceholder(commandStringBuilder, returnValueModification.ParameterName!);
+
+                commandStringBuilder.Append(" = ");
+
+                resultSetMapping |= ResultSetMapping.HasOutputParameters;
+            }
+
+            SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, storedProcedure.Name, storedProcedure.Schema);
+
+            if (storedProcedure.Parameters.Any())
+            {
+                commandStringBuilder.Append(' ');
+
+                var first = true;
+
+                // Only positional parameter style supported for now, see #28439
+
+                // Note: the column modifications are already ordered according to the sproc parameter ordering
+                // (see ModificationCommand.GenerateColumnModifications)
+                for (var i = 0; i < command.ColumnModifications.Count; i++)
+                {
+                    var columnModification = command.ColumnModifications[i];
+
+                    if (columnModification.Column is not IStoreStoredProcedureParameter parameter)
+                    {
+                        continue;
+                    }
+
+                    if (first)
+                    {
+                        first = false;
+                    }
+                    else
+                    {
+                        commandStringBuilder.Append(", ");
+                    }
+
+                    Check.DebugAssert(columnModification.UseParameter, "Column modification matched a parameter, but UseParameter is false");
+
+                    commandStringBuilder.Append(columnModification.UseOriginalValueParameter
+                        ? columnModification.OriginalParameterName!
+                        : columnModification.ParameterName!);
+
+                    // Note that in/out parameters also get suffixed with OUTPUT in SQL Server
+                    if (parameter.Direction.HasFlag(ParameterDirection.Output))
+                    {
+                        commandStringBuilder.Append(" OUTPUT");
+                        resultSetMapping |= ResultSetMapping.HasOutputParameters;
+                    }
+                }
+            }
+
+            commandStringBuilder.AppendLine(SqlGenerationHelper.StatementTerminator);
+
+            requiresTransaction = true;
+
+            return resultSetMapping;
         }
     }
 }

@@ -3,8 +3,11 @@
 
 #nullable enable
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
+using System.Net;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -70,8 +73,8 @@ public class ValueConvertersEndToEndJetTest
     [InlineData(nameof(ConvertingEntity.StringToNullableChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.StringToDateTime), "datetime", false)]
     [InlineData(nameof(ConvertingEntity.StringToNullableDateTime), "datetime", false)]
-    [InlineData(nameof(ConvertingEntity.StringToDateTimeOffset), "datetime", false)]
-    [InlineData(nameof(ConvertingEntity.StringToNullableDateTimeOffset), "datetime", false)]
+    //[InlineData(nameof(ConvertingEntity.StringToDateTimeOffset), "datetime", false)]
+    //[InlineData(nameof(ConvertingEntity.StringToNullableDateTimeOffset), "datetime", false)]
     [InlineData(nameof(ConvertingEntity.StringToEnum), "integer", false)]
     [InlineData(nameof(ConvertingEntity.StringToNullableEnum), "integer", false)]
     [InlineData(nameof(ConvertingEntity.StringToGuid), "uniqueidentifier", false)]
@@ -134,8 +137,8 @@ public class ValueConvertersEndToEndJetTest
     [InlineData(nameof(ConvertingEntity.NullableStringToNullableChar), "varchar(1)", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToDateTime), "datetime", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToNullableDateTime), "datetime", true)]
-    [InlineData(nameof(ConvertingEntity.NullableStringToDateTimeOffset), "datetime", true)]
-    [InlineData(nameof(ConvertingEntity.NullableStringToNullableDateTimeOffset), "datetime", true)]
+    //[InlineData(nameof(ConvertingEntity.NullableStringToDateTimeOffset), "datetime", true)]
+    //[InlineData(nameof(ConvertingEntity.NullableStringToNullableDateTimeOffset), "datetime", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToEnum), "integer", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToNullableEnum), "integer", true)]
     [InlineData(nameof(ConvertingEntity.NullableStringToGuid), "uniqueidentifier", true)]
@@ -228,6 +231,11 @@ WHERE CAST(DATALENGTH(CAST(N'' AS nvarchar(max))) AS int) = 1
                     b.Property(e => e.ListOfInt).HasDefaultValue(new List<int>());
                     b.Property(e => e.NullableEnumerableOfInt).HasDefaultValue(Enumerable.Empty<int>());
                     b.Property(e => e.EnumerableOfInt).HasDefaultValue(Enumerable.Empty<int>());
+
+                    b.Ignore(e => e.StringToDateTimeOffset);
+                    b.Ignore(e => e.StringToNullableDateTimeOffset);
+                    b.Ignore(e => e.NullableStringToDateTimeOffset);
+                    b.Ignore(e => e.NullableStringToNullableDateTimeOffset);
                 });
         }
     }

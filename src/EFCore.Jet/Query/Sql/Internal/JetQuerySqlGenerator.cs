@@ -368,9 +368,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 if (parent.TryPeek(out var exp) && exp is SqlBinaryExpression)
                 {
+                    Sql.Append("IIF(");
+                    base.VisitColumn(columnExpression);
+                    Sql.Append(" IS NULL, NULL, ");
                     Sql.Append(function);
                     Sql.Append("(");
                     base.VisitColumn(columnExpression);
+                    Sql.Append(")");
                     Sql.Append(")");
                     return columnExpression;
                 }
@@ -943,6 +947,17 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             throw new InvalidOperationException(
                 RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(RelationalQueryableExtensions.ExecuteUpdate)));
+        }
+
+        /// <inheritdoc />
+        protected override void CheckComposableSqlTrimmed(ReadOnlySpan<char> sql)
+        {
+            base.CheckComposableSqlTrimmed(sql);
+
+            if (sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(RelationalStrings.FromSqlNonComposable);
+            }
         }
     }
 }

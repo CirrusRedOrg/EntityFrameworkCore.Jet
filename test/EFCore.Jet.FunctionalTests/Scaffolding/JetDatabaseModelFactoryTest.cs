@@ -1135,7 +1135,7 @@ CREATE TABLE MyTable (
                 @"
 CREATE TABLE MyTable (
 	Id int,
-	A datetime DEFAULT #1973-09-03 12:00:01#
+	A datetime DEFAULT '1973-09-03 12:00:01'
 );",
                 Enumerable.Empty<string>(),
                 Enumerable.Empty<string>(),
@@ -1144,7 +1144,7 @@ CREATE TABLE MyTable (
                     var columns = dbModel.Tables.Single().Columns;
 
                     var column = columns.Single(c => c.Name == "A");
-                    Assert.Equal("('1973-09-03T12:00:01')", column.DefaultValueSql);
+                    Assert.Equal("'1973-09-03 12:00:01'", column.DefaultValueSql);
                     Assert.Equal(new DateTime(1973, 9, 3, 12, 0, 1, 0, DateTimeKind.Unspecified), column.DefaultValue);
                 },
                 "DROP TABLE MyTable;");

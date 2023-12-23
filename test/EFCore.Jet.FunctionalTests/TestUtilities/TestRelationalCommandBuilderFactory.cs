@@ -107,7 +107,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 IReadOnlyList<IRelationalParameter> parameters)
             {
                 _realRelationalCommand = new RelationalCommand(dependencies, commandText, parameters);
-                
+
                 _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
                     ? number => OleDbExceptionFactory.CreateException(number)
                     : number => OdbcExceptionFactory.CreateException(number);
@@ -219,7 +219,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 RelationalCommandParameterObject parameterObject,
                 Guid commandId,
                 DbCommandMethod commandMethod)
-                => throw new NotSupportedException();
+                => _realRelationalCommand.CreateDbCommand(parameterObject, commandId, commandMethod);
 
             public void PopulateFrom(IRelationalCommandTemplate commandTemplate)
                 => _realRelationalCommand.PopulateFrom(commandTemplate);

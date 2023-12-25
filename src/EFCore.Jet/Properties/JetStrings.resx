@@ -262,4 +262,7 @@
 	<data name="DataAccessProviderFactory" xml:space="preserve">
     <value>The JetConnection has been configured without specifying a DataAccessProviderFactory. This property needs to be set to an object of type OdbcFactory or OleDbFactory.</value>
   </data>
+	<data name="QueryingIntoJsonCollectionsNotSupported" xml:space="preserve">
+    <value>MS Access/Jet does not support querying into JSON collections.</value>
+  </data>
 </root>

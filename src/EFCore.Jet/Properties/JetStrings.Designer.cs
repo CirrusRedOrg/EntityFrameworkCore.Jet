@@ -243,6 +243,13 @@ namespace EntityFrameworkCore.Jet.Internal
         public static string DataAccessProviderFactory
             => GetString("DataAccessProviderFactory");
 
+        /// <summary>
+        ///     MS Access/Jet does not support querying into JSON collections.
+        /// </summary>
+        public static string QueryingIntoJsonCollectionsNotSupported()
+            => string.Format(
+                GetString("QueryingIntoJsonCollectionsNotSupported"));
+
         private static string GetString(string name, params string[] formatterNames)
         {
             var value = _resourceManager.GetString(name);

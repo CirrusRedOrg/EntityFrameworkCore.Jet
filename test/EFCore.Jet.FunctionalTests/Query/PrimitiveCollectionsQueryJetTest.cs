@@ -4,12 +4,14 @@
 using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -222,10 +224,8 @@ WHERE `p`.`Id` NOT IN (2, 999)
 """);
     }
 
-    public override async Task Parameter_collection_Count(bool async)
-    {
-        await base.Parameter_collection_Count(async);
-    }
+    public override Task Parameter_collection_Count(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_Count(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override async Task Parameter_collection_of_ints_Contains(bool async)
     {
@@ -335,35 +335,24 @@ WHERE 0 = 1
 """);
     }
 
-    public override async Task Column_collection_of_ints_Contains(bool async)
-    {
-        await base.Column_collection_of_ints_Contains(async);
-    }
+    public override Task Column_collection_of_ints_Contains(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_ints_Contains(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_of_nullable_ints_Contains(bool async)
-    {
-        await base.Column_collection_of_nullable_ints_Contains(async);
-    }
+    public override Task Column_collection_of_nullable_ints_Contains(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_nullable_ints_Contains(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_of_nullable_ints_Contains_null(bool async)
-    {
-        await base.Column_collection_of_nullable_ints_Contains_null(async);
-    }
+    public override Task Column_collection_of_nullable_ints_Contains_null(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_nullable_ints_Contains_null(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_of_strings_contains_null(bool async)
-    {
-        await base.Column_collection_of_strings_contains_null(async);
-    }
 
-    public override async Task Column_collection_of_nullable_strings_contains_null(bool async)
-    {
-        await base.Column_collection_of_nullable_strings_contains_null(async);
-    }
+    public override Task Column_collection_of_strings_contains_null(bool async)
+        => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null(async));
 
-    public override async Task Column_collection_of_bools_Contains(bool async)
-    {
-        await base.Column_collection_of_bools_Contains(async);
-    }
+    public override Task Column_collection_of_nullable_strings_contains_null(bool async)
+        => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null(async));
+
+    public override Task Column_collection_of_bools_Contains(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_bools_Contains(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     [ConditionalFact]
     public virtual async Task Json_representation_of_bool_array()
@@ -375,45 +364,29 @@ WHERE 0 = 1
             await context.Database.SqlQuery<string>($"SELECT [Bools] AS [Value] FROM [PrimitiveCollectionsEntity] WHERE [Id] = 1").SingleAsync());
     }
 
-    public override async Task Column_collection_Count_method(bool async)
-    {
-        await base.Column_collection_Count_method(async);
-    }
+    public override Task Column_collection_Count_method(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Count_method(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_Length(bool async)
-    {
-        await base.Column_collection_Length(async);
-    }
+    public override Task Column_collection_Length(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Length(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_index_int(bool async)
-    {
-        await base.Column_collection_index_int(async);
-    }
+    public override Task Column_collection_index_int(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_index_int(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_index_string(bool async)
-    {
-        await base.Column_collection_index_string(async);
-    }
+    public override Task Column_collection_index_string(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_index_string(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_index_datetime(bool async)
-    {
-        await base.Column_collection_index_datetime(async);
-    }
+    public override Task Column_collection_index_datetime(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_index_datetime(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_index_beyond_end(bool async)
-    {
-        await base.Column_collection_index_beyond_end(async);
-    }
+    public override Task Column_collection_index_beyond_end(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_index_beyond_end(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Nullable_reference_column_collection_index_equals_nullable_column(bool async)
-    {
-        await base.Column_collection_index_beyond_end(async);
-    }
+    public override Task Nullable_reference_column_collection_index_equals_nullable_column(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_index_beyond_end(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Non_nullable_reference_column_collection_index_equals_nullable_column(bool async)
-    {
-        await base.Column_collection_index_beyond_end(async);
-    }
+    public override Task Non_nullable_reference_column_collection_index_equals_nullable_column(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_index_beyond_end(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override async Task Inline_collection_index_Column(bool async)
     {
@@ -431,45 +404,29 @@ WHERE (
 """);
     }
 
-    public override async Task Parameter_collection_index_Column_equal_Column(bool async)
-    {
-        await base.Parameter_collection_index_Column_equal_Column(async);
-    }
+    public override Task Parameter_collection_index_Column_equal_Column(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_index_Column_equal_Column(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Parameter_collection_index_Column_equal_constant(bool async)
-    {
-        await base.Parameter_collection_index_Column_equal_constant(async);
-    }
+    public override Task Parameter_collection_index_Column_equal_constant(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_index_Column_equal_constant(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_ElementAt(bool async)
-    {
-        await base.Column_collection_ElementAt(async);
-    }
+    public override Task Column_collection_ElementAt(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_ElementAt(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_Skip(bool async)
-    {
-        await base.Column_collection_Skip(async);
-    }
+    public override Task Column_collection_Skip(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Skip(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_Take(bool async)
-    {
-        await base.Column_collection_Take(async);
-    }
+    public override Task Column_collection_Take(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Take(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_Skip_Take(bool async)
-    {
-        await base.Column_collection_Skip_Take(async);
-    }
+    public override Task Column_collection_Skip_Take(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Skip_Take(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_OrderByDescending_ElementAt(bool async)
-    {
-        await base.Column_collection_OrderByDescending_ElementAt(async);
-    }
+    public override Task Column_collection_OrderByDescending_ElementAt(bool async)
+        => AssertTranslationFailed(() => base.Column_collection_OrderByDescending_ElementAt(async));
 
-    public override async Task Column_collection_Any(bool async)
-    {
-        await base.Column_collection_Any(async);
-    }
+    public override Task Column_collection_Any(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Any(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override Task Column_collection_Distinct(bool async)
         => AssertTranslationFailed(() => base.Column_collection_Distinct(async));
@@ -489,30 +446,20 @@ ORDER BY `p`.`Id`
     public override Task Column_collection_Join_parameter_collection(bool async)
         => AssertTranslationFailed(() => base.Column_collection_Join_parameter_collection(async));
 
-    public override async Task Inline_collection_Join_ordered_column_collection(bool async)
-    {
-        await base.Inline_collection_Join_ordered_column_collection(async);
-    }
+    public override Task Inline_collection_Join_ordered_column_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Inline_collection_Join_ordered_column_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Parameter_collection_Concat_column_collection(bool async)
-    {
-        await base.Parameter_collection_Concat_column_collection(async);
-    }
+    public override Task Parameter_collection_Concat_column_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_Concat_column_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_Union_parameter_collection(bool async)
-    {
-        await base.Column_collection_Union_parameter_collection(async);
-    }
+    public override Task Column_collection_Union_parameter_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Union_parameter_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Column_collection_Intersect_inline_collection(bool async)
-    {
-        await base.Column_collection_Intersect_inline_collection(async);
-    }
+    public override Task Column_collection_Intersect_inline_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_Intersect_inline_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Inline_collection_Except_column_collection(bool async)
-    {
-        await base.Inline_collection_Except_column_collection(async);
-    }
+    public override Task Inline_collection_Except_column_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Inline_collection_Except_column_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override async Task Column_collection_equality_parameter_collection(bool async)
     {
@@ -554,20 +501,14 @@ WHERE `p`.`Ints` = '[1,10]'
         AssertSql();
     }
 
-    public override async Task Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(bool async)
-    {
-        await base.Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(async);
-    }
+    public override Task Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_in_subquery_Union_column_collection_as_compiled_query(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Parameter_collection_in_subquery_Union_column_collection(bool async)
-    {
-        await base.Parameter_collection_in_subquery_Union_column_collection(async);
-    }
+    public override Task Parameter_collection_in_subquery_Union_column_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_in_subquery_Union_column_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Parameter_collection_in_subquery_Union_column_collection_nested(bool async)
-    {
-        await base.Parameter_collection_in_subquery_Union_column_collection_nested(async);
-    }
+    public override Task Parameter_collection_in_subquery_Union_column_collection_nested(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_in_subquery_Union_column_collection_nested(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override void Parameter_collection_in_subquery_and_Convert_as_compiled_query()
     {
@@ -577,16 +518,13 @@ WHERE `p`.`Ints` = '[1,10]'
     public override Task Parameter_collection_in_subquery_Count_as_compiled_query(bool async)
         => AssertTranslationFailed(() => base.Parameter_collection_in_subquery_Count_as_compiled_query(async));
 
-    public override async Task Column_collection_in_subquery_Union_parameter_collection(bool async)
-    {
-        await base.Column_collection_in_subquery_Union_parameter_collection(async);
-    }
+    public override Task Column_collection_in_subquery_Union_parameter_collection(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_in_subquery_Union_parameter_collection(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    public override async Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(
-        bool async)
-    {
-        await base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(async);
-    }
+    // Base implementation asserts that a different exception is thrown
+    public override Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(bool async)
+        => Assert.ThrowsAsync<EqualException>(
+            () => base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query(async));
 
     public override async Task Project_collection_of_ints_simple(bool async)
     {

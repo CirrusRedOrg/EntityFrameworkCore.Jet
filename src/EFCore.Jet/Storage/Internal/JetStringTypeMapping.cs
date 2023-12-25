@@ -114,6 +114,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             return _keepLineBreakCharacters
                 ? escaped
                 : escaped
+                    .Replace("\r\n", "' & CHR(13) & CHR(10) & '")
                     .Replace("\r", "' & CHR(13) & '")
                     .Replace("\n", "' & CHR(10) & '");
         }

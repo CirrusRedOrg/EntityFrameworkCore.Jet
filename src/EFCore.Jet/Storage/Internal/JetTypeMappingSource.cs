@@ -329,12 +329,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     const int maxIndexedCharColumnSize = 255;
 
                     var size = mappingInfo.Size ?? (mappingInfo.IsKeyOrIndex ? (int?)maxIndexedCharColumnSize : null);
+                    bool extendtolongchar = false;
                     if (size > maxCharColumnSize)
                     {
                         size = isFixedLength ? maxCharColumnSize : (int?)null;
+                        extendtolongchar = true;
                     }
 
-                    if (_options.UseShortTextForSystemString && size == null)
+                    if (_options.UseShortTextForSystemString && size == null && !extendtolongchar)
 
                     {
                         return new JetStringTypeMapping("varchar", unicode: true, size: 255);

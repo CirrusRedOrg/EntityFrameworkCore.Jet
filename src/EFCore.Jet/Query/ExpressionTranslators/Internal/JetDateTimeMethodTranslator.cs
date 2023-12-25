@@ -38,6 +38,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), new[] {typeof(double)})!, "millisecond"}
         };
 
+        private static readonly Dictionary<MethodInfo, string> _methodInfoDateDiffMapping = new()
+        {
+            { typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.ToUnixTimeSeconds), Type.EmptyTypes)!, "s" },
+            { typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.ToUnixTimeMilliseconds), Type.EmptyTypes)!, "millisecond" }
+        };
+
         public JetDateTimeMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
             => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
@@ -84,6 +90,21 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     argumentsPropagateNullability: new[] { false, false, true },
                     instance.Type,
                     instance.TypeMapping);
+            }
+
+            if (_methodInfoDateDiffMapping.TryGetValue(method, out var timePart))
+            {
+                return _sqlExpressionFactory.Function(
+                    "DATEDIFF",
+                    new[]
+                    {
+                        new SqlConstantExpression(Expression.Constant(timePart), null),
+                        _sqlExpressionFactory.Constant(DateTimeOffset.UnixEpoch, instance!.TypeMapping),
+                        instance
+                    },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { false, true, true },
+                    typeof(long));
             }
 
             return null;

@@ -51,7 +51,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             if (value is not DateTimeOffset offset) return base.GenerateNonNullSqlLiteral(value);
             var dateTime = offset.UtcDateTime;
-            return string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime);
+            return $"CDATE({string.Format(CultureInfo.InvariantCulture, DateTimeFormatConst, dateTime)})";
         }
     }
 }

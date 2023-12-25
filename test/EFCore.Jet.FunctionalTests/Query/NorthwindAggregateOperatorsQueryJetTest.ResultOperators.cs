@@ -1855,29 +1855,23 @@ FROM `Customers` AS `c`");
         {
             await base.Contains_top_level(isAsync);
 
-            // issue #15994
-            //            AssertSql(
-            //                $@"{AssertSqlHelper.Declaration("@__p_0='ALFKI' (Size = 4000)")}
+            AssertSql(
+                $"""
+@__p_0='ALFKI' (Size = 5)
 
-            //SELECT CASE
-            //    WHEN @__p_0 IN (
-            //        SELECT `c`.`CustomerID`
-            //        FROM `Customers` AS `c`
-            //    )
-            //    THEN True ELSE False
-            //END");
+SELECT IIF({AssertSqlHelper.Parameter("@__p_0")} IN (
+        SELECT `c`.`CustomerID`
+        FROM `Customers` AS `c`
+    ), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Contains_with_local_anonymous_type_array_closure(bool isAsync)
         {
-            await base.Contains_with_local_anonymous_type_array_closure(isAsync);
+            await AssertTranslationFailed(() => base.Contains_with_local_anonymous_type_array_closure(isAsync));
 
-            AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`",
-                //
-                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM `Order Details` AS `o`");
+            AssertSql();
         }
 
         public override async Task OfType_Select(bool async)

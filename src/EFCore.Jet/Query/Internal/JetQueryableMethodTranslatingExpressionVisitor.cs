@@ -8,6 +8,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -172,6 +173,19 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     protected override ShapedQueryExpression? TranslateDefaultIfEmpty(ShapedQueryExpression source, Expression? defaultValue)
     {
         return base.TranslateDefaultIfEmpty(source, defaultValue);
+    }
+
+    protected override ShapedQueryExpression?
+        TranslatePrimitiveCollection(SqlExpression sqlExpression, IProperty? property, string tableAlias)
+    {
+        AddTranslationErrorDetails(JetStrings.QueryingIntoJsonCollectionsNotSupported());
+        return base.TranslatePrimitiveCollection(sqlExpression, property, tableAlias);
+    }
+
+    protected override ShapedQueryExpression? TranslateElementAtOrDefault(ShapedQueryExpression source, Expression index, bool returnDefault)
+    {
+        AddTranslationErrorDetails(JetStrings.QueryingIntoJsonCollectionsNotSupported());
+        return null;
     }
 
     /// <summary>

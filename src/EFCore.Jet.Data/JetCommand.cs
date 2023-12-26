@@ -554,12 +554,11 @@ namespace EntityFrameworkCore.Jet.Data
             // in TOP clauses.
             var parameters = InnerCommand.Parameters.Cast<DbParameter>()
                 .ToList();
+            var lastCommandText = InnerCommand.CommandText;
+            var commandText = lastCommandText;
 
             if (parameters.Count > 0)
             {
-                var lastCommandText = InnerCommand.CommandText;
-                var commandText = lastCommandText;
-
                 while ((commandText = _topMultiParameterRegularExpression.Replace(
                            lastCommandText,
                            match =>
@@ -587,24 +586,23 @@ namespace EntityFrameworkCore.Jet.Data
                     lastCommandText = commandText;
                 }
 
-                while ((commandText = _topMultiArgumentRegularExpression.Replace(
-                           lastCommandText,
-                           match =>
-                           {
-                               var first = match.Groups["first"];
-                               var sec = match.Groups["sec"];
-                               return (Convert.ToInt32(first.Value) + Convert.ToInt32(sec.Value)).ToString();
-                           },
-                           1)) != lastCommandText)
-                {
-                    lastCommandText = commandText;
-                }
-
-                InnerCommand.CommandText = commandText;
-
                 InnerCommand.Parameters.Clear();
                 InnerCommand.Parameters.AddRange(parameters.ToArray());
             }
+            while ((commandText = _topMultiArgumentRegularExpression.Replace(
+                       lastCommandText,
+                       match =>
+                       {
+                           var first = match.Groups["first"];
+                           var sec = match.Groups["sec"];
+                           return (Convert.ToInt32(first.Value) + Convert.ToInt32(sec.Value)).ToString();
+                       },
+                       1)) != lastCommandText)
+            {
+                lastCommandText = commandText;
+            }
+
+            InnerCommand.CommandText = commandText;
         }
 
         private void ModifyOuterSelectTopValueForOuterSelectSkipEmulationViaDataReader()

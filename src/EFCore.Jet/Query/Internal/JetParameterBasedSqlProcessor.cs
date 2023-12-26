@@ -40,19 +40,19 @@ public class JetParameterBasedSqlProcessor : RelationalParameterBasedSqlProcesso
         IReadOnlyDictionary<string, object?> parametersValues,
         out bool canCache)
     {
-        queryExpression = base.Optimize(queryExpression, parametersValues, out canCache);
+        var optimizedQueryExpression = base.Optimize(queryExpression, parametersValues, out canCache);
 
-        /*optimizedQueryExpression = new SkipTakeCollapsingExpressionVisitor(Dependencies.SqlExpressionFactory)
-            .Process(optimizedQueryExpression, parametersValues, out var canCache2);*/
+        optimizedQueryExpression = new SkipTakeCollapsingExpressionVisitor(Dependencies.SqlExpressionFactory)
+            .Process(optimizedQueryExpression, parametersValues, out var canCache2);
 
-        //canCache &= canCache2;
+        canCache &= canCache2;
 
-        queryExpression = new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory).Visit(queryExpression);
+        optimizedQueryExpression = new SearchConditionConvertingExpressionVisitor(Dependencies.SqlExpressionFactory).Visit(optimizedQueryExpression);
 
         // Run the compatibility checks as late in the query pipeline (before the actual SQL translation happens) as reasonable.
-        queryExpression = new JetCompatibilityExpressionVisitor().Visit(queryExpression);
+        optimizedQueryExpression = new JetCompatibilityExpressionVisitor().Visit(optimizedQueryExpression);
 
-        return queryExpression;
+        return optimizedQueryExpression;
     }
 
     /// <inheritdoc />

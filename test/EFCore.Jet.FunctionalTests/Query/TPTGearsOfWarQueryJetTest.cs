@@ -6,8 +6,11 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Linq;
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
+using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
+using System;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -2974,13 +2977,17 @@ WHERE CONVERT(date, [m].[Timeline]) > @__Date_0
 
     public override async Task Where_datetimeoffset_year_component(bool async)
     {
-        await base.Where_datetimeoffset_year_component(async);
+        await AssertQuery(
+            async,
+            ss => from m in ss.Set<Mission>()
+                  where m.Timeline.Year == 102
+                  select m);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(year, [m].[Timeline]) = 2
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('yyyy', `m`.`Timeline`) = 102
 """);
     }
 
@@ -3022,13 +3029,17 @@ WHERE DATEPART('d', `m`.`Timeline`) = 2
 
     public override async Task Where_datetimeoffset_hour_component(bool async)
     {
-        await base.Where_datetimeoffset_hour_component(async);
+        await AssertQuery(
+            async,
+            ss => from m in ss.Set<Mission>()
+                  where m.Timeline.Hour == 8
+                  select m);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE DATEPART(hour, [m].[Timeline]) = 10
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEPART('h', `m`.`Timeline`) = 8
 """);
     }
 
@@ -7167,16 +7178,24 @@ WHERE (
 
     public override async Task DateTimeOffset_Contains_Less_than_Greater_than(bool async)
     {
-        await base.DateTimeOffset_Contains_Less_than_Greater_than(async);
+        var dto = JetTestHelpers.GetExpectedValue(new DateTimeOffset(599898024001234567, new TimeSpan(1, 30, 0)));
+        var start = dto.AddDays(-1);
+        var end = dto.AddDays(1);
+        var dates = new[] { dto };
+
+        await AssertQuery(
+            async,
+            ss => ss.Set<Mission>().Where(
+                m => start <= m.Timeline.Date && m.Timeline < end && dates.Contains(m.Timeline)));
 
         AssertSql(
-"""
-@__start_0='1902-01-01T10:00:00.1234567+01:30'
-@__end_1='1902-01-03T10:00:00.1234567+01:30'
+            $"""
+@__start_0='1902-01-01T08:30:00.0000000Z' (DbType = DateTime)
+@__end_1='1902-01-03T08:30:00.0000000Z' (DbType = DateTime)
 
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE @__start_0 <= CAST(CONVERT(date, [m].[Timeline]) AS datetimeoffset) AND [m].[Timeline] < @__end_1 AND [m].[Timeline] = '1902-01-02T10:00:00.1234567+01:30'
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE {AssertSqlHelper.Parameter("@__start_0")} <= DATEVALUE(`m`.`Timeline`) AND `m`.`Timeline` < {AssertSqlHelper.Parameter("@__end_1")} AND `m`.`Timeline` = CDATE('1902-01-02 08:30:00')
 """);
     }
 
@@ -8228,15 +8247,19 @@ ORDER BY NOT (`w0`.`IsAutomatic`)
 
     public override async Task DateTimeOffset_Date_returns_datetime(bool async)
     {
-        await base.DateTimeOffset_Date_returns_datetime(async);
+        var dateTimeOffset = new DateTimeOffset(102, 3, 1, 8, 0, 0, new TimeSpan(-5, 0, 0));
+
+        await AssertQuery(
+            async,
+            ss => ss.Set<Mission>().Where(m => m.Timeline.Date >= dateTimeOffset.Date));
 
         AssertSql(
-"""
-@__dateTimeOffset_Date_0='0002-03-01T00:00:00.0000000'
+            $"""
+@__dateTimeOffset_Date_0='0102-03-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE CONVERT(date, [m].[Timeline]) >= @__dateTimeOffset_Date_0
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEVALUE(`m`.`Timeline`) >= CDATE({AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")})
 """);
     }
 
@@ -10628,22 +10651,20 @@ ORDER BY [g].[Nickname], [g].[SquadId], [s].[Id], [s1].[SquadId]
         await base.DateTimeOffset_to_unix_time_seconds(async);
 
         AssertSql(
-"""
-@__unixEpochSeconds_0='0'
+            $"""
+@__unixEpochSeconds_0='0' (DbType = Object)
 
-SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], CASE
-    WHEN [o].[Nickname] IS NOT NULL THEN N'Officer'
-END AS [Discriminator], [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name], [s1].[SquadId], [s1].[MissionId]
-FROM [Gears] AS [g]
-LEFT JOIN [Officers] AS [o] ON [g].[Nickname] = [o].[Nickname] AND [g].[SquadId] = [o].[SquadId]
-INNER JOIN [Squads] AS [s] ON [g].[SquadId] = [s].[Id]
-LEFT JOIN [SquadMissions] AS [s1] ON [s].[Id] = [s1].[SquadId]
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `s1`.`SquadId`, `s1`.`MissionId`
+FROM ((`Gears` AS `g`
+LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`)
+INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`)
+LEFT JOIN `SquadMissions` AS `s1` ON `s`.`Id` = `s1`.`SquadId`
 WHERE NOT EXISTS (
     SELECT 1
-    FROM [SquadMissions] AS [s0]
-    INNER JOIN [Missions] AS [m] ON [s0].[MissionId] = [m].[Id]
-    WHERE [s].[Id] = [s0].[SquadId] AND @__unixEpochSeconds_0 = DATEDIFF_BIG(second, '1970-01-01T00:00:00.0000000+00:00', [m].[Timeline]))
-ORDER BY [g].[Nickname], [g].[SquadId], [s].[Id], [s1].[SquadId]
+    FROM `SquadMissions` AS `s0`
+    INNER JOIN `Missions` AS `m` ON `s0`.`MissionId` = `m`.`Id`
+    WHERE `s`.`Id` = `s0`.`SquadId` AND {AssertSqlHelper.Parameter("@__unixEpochSeconds_0")} = DATEDIFF('s', CDATE('1970-01-01 00:00:00'), `m`.`Timeline`))
+ORDER BY `g`.`Nickname`, `g`.`SquadId`, `s`.`Id`, `s1`.`SquadId`
 """);
     }
 

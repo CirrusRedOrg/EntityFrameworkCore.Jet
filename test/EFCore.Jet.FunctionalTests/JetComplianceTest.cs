@@ -31,7 +31,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             typeof(ComplexNavigationsSharedTypeQueryTestBase<>),
             typeof(ComplexNavigationsCollectionsSharedTypeQueryRelationalTestBase<>),
             typeof(ComplexNavigationsCollectionsSharedTypeQueryTestBase<>),
-            typeof(ComplexNavigationsCollectionsSplitSharedTypeQueryRelationalTestBase<>)
+            typeof(ComplexNavigationsCollectionsSplitSharedTypeQueryRelationalTestBase<>),
+            //No user defined functions in MS Access/Jet
+            typeof(UdfDbFunctionTestBase<>),
         };
 
         protected override Assembly TargetAssembly { get; } = typeof(JetComplianceTest).Assembly;

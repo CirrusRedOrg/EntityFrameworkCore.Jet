@@ -5465,18 +5465,31 @@ CROSS APPLY (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE 0 = 1
+SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+FROM (
+    SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+    FROM (
+        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        WHERE 0 = 1
+    ) AS `t`
+    WHERE 0 = 1
+) AS `t0`
+ORDER BY `t0`.`CustomerID`
 """,
                 //
                 """
-@__p_0='1'
-
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]
-OFFSET @__p_0 ROWS FETCH NEXT @__p_0 ROWS ONLY
+SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+FROM (
+    SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+    FROM (
+        SELECT TOP 2 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY `t`.`CustomerID` DESC
+) AS `t0`
+ORDER BY `t0`.`CustomerID`
 """);
         }
 
@@ -5486,16 +5499,20 @@ OFFSET @__p_0 ROWS FETCH NEXT @__p_0 ROWS ONLY
 
             AssertSql(
                 """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Orders] AS [o]
-        WHERE 0 = 1) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
-ORDER BY [c].[CustomerID]
+        FROM (
+            SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+            FROM (
+                SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                FROM `Orders` AS `o`
+                WHERE 0 = 1
+            ) AS `t`
+            WHERE 0 = 1
+        ) AS `t0`), TRUE, FALSE)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`
 """);
         }
 

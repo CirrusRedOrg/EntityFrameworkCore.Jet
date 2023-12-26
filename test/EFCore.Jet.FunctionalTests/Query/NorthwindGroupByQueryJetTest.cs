@@ -2758,13 +2758,17 @@ INNER JOIN (
 
             AssertSql(
                 """
-SELECT [t].[CustomerID] AS [Key], COUNT(*) AS [Total]
+SELECT `t0`.`CustomerID` AS `Key`, COUNT(*) AS `Total`
 FROM (
-    SELECT [o].[CustomerID]
-    FROM [Orders] AS [o]
+    SELECT `t`.`CustomerID`
+    FROM (
+        SELECT `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        WHERE 0 = 1
+    ) AS `t`
     WHERE 0 = 1
-) AS [t]
-GROUP BY [t].[CustomerID]
+) AS `t0`
+GROUP BY `t0`.`CustomerID`
 """);
         }
 

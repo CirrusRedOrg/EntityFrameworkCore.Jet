@@ -9599,7 +9599,7 @@ FROM (`Gears` AS `g`
 INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`)
 LEFT JOIN `SquadMissions` AS `s1` ON `s`.`Id` = `s1`.`SquadId`
 WHERE NOT EXISTS (
-    SELECT 1
+    SELECT `s0`.`SquadId`
     FROM `SquadMissions` AS `s0`
     INNER JOIN `Missions` AS `m` ON `s0`.`MissionId` = `m`.`Id`
     WHERE `s`.`Id` = `s0`.`SquadId` AND {AssertSqlHelper.Parameter("@__unixEpochSeconds_0")} = DATEDIFF('s', CDATE('1970-01-01 00:00:00'), `m`.`Timeline`))

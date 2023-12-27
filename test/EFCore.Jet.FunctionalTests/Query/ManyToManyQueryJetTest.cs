@@ -24,11 +24,11 @@ public class ManyToManyQueryJetTest : ManyToManyQueryRelationalTestBase<ManyToMa
         await base.Skip_navigation_all(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`Name`
 FROM `EntityOnes` AS `e`
 WHERE NOT EXISTS (
-    SELECT 1
+    SELECT `j`.`OneId`
     FROM `JoinOneToTwo` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
     WHERE `e`.`Id` = `j`.`OneId` AND (`e0`.`Name` NOT LIKE '%B%' OR `e0`.`Name` IS NULL))

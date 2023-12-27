@@ -30,11 +30,11 @@ public class TPTManyToManyQueryJetTest : TPTManyToManyQueryRelationalTestBase<TP
         await base.Skip_navigation_all(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`Name`
 FROM `EntityOnes` AS `e`
 WHERE NOT EXISTS (
-    SELECT 1
+    SELECT `j`.`OneId`
     FROM `JoinOneToTwo` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
     WHERE `e`.`Id` = `j`.`OneId` AND (`e0`.`Name` NOT LIKE '%B%' OR `e0`.`Name` IS NULL))
@@ -2089,11 +2089,11 @@ ORDER BY [e].[Id], [t1].[Id], [t1].[OneId], [t1].[TwoId], [t1].[ThreeId], [t1].[
         await base.Skip_navigation_all_unidirectional(async);
 
         AssertSql(
-"""
+            """
 SELECT `u`.`Id`, `u`.`Name`
 FROM `UnidirectionalEntityOnes` AS `u`
 WHERE NOT EXISTS (
-    SELECT 1
+    SELECT `u0`.`OneId`
     FROM `UnidirectionalJoinOneToTwo` AS `u0`
     INNER JOIN `UnidirectionalEntityTwos` AS `u1` ON `u0`.`TwoId` = `u1`.`Id`
     WHERE `u`.`Id` = `u0`.`OneId` AND (`u1`.`Name` NOT LIKE '%B%' OR `u1`.`Name` IS NULL))

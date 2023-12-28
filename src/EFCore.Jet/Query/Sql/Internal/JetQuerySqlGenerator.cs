@@ -107,7 +107,35 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 }
                 else
                 {
-                    Sql.Append("1");
+                    if (selectExpression.Predicate == null)
+                    {
+                        Sql.Append("1");
+                    }
+                    else
+                    {
+                        //The WHERE clause can only refer to columns in the projection
+                        List<ColumnExpression> cols = new List<ColumnExpression>();
+                        if (selectExpression.Predicate is SqlBinaryExpression binaryExpression)
+                        {
+                            cols = ExtractColumnExpressions(binaryExpression);
+                        }
+                        else if (selectExpression.Predicate is SqlUnaryExpression unaryExpression)
+                        {
+                            cols = ExtractColumnExpressions(unaryExpression);
+                        }
+
+                        var collist = cols.Where(c =>
+                            selectExpression.Tables.Contains(c.Table)).ToList();
+                        parent.TryPeek(out var parentExpression);
+                        if (selectExpression.Tables.Count > 1 && selectExpression.Tables.Any(c => c is InnerJoinExpression) && collist.Count > 0 && parentExpression is SqlUnaryExpression or SqlBinaryExpression)
+                        {
+                            Visit(collist[0]);
+                        }
+                        else
+                        {
+                            Sql.Append("1");
+                        }
+                    }
                 }
 
                 List<ColumnExpression> colexp = new List<ColumnExpression>();
@@ -121,7 +149,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     if (selectExpression.Predicate != null)
                     {
                         if (colexp.Count > 0) Sql.Append("(");
+                        parent.Push(selectExpression.Predicate);
                         Visit(selectExpression.Predicate);
+                        parent.Pop();
                         if (colexp.Count > 0) Sql.Append(")");
                     }
 

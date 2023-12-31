@@ -484,7 +484,7 @@ COMMIT TRANSACTION;
                         b.HasIndex("NormalizedName")
                             .IsUnique()
                             .HasName("RoleNameIndex") // Don't change to HasDatabaseName
-                            .HasFilter("`NormalizedName` IS NOT NULL");
+                            .HasFilter("IGNORE NULL");
 
                         b.ToTable("AspNetRoles");
                     });
@@ -557,7 +557,7 @@ COMMIT TRANSACTION;
                         b.HasIndex("NormalizedUserName")
                             .IsUnique()
                             .HasName("UserNameIndex")
-                            .HasFilter("`NormalizedUserName` IS NOT NULL");
+                            .HasFilter("IGNORE NULL");
 
                         b.ToTable("AspNetUsers");
                     });
@@ -725,7 +725,7 @@ COMMIT TRANSACTION;
                         b.HasIndex("NormalizedName")
                             .IsUnique()
                             .HasName("RoleNameIndex")
-                            .HasFilter("`NormalizedName` IS NOT NULL");
+                            .HasFilter("IGNORE NULL");
 
                         b.ToTable("AspNetRoles");
                     });
@@ -798,7 +798,7 @@ COMMIT TRANSACTION;
                         b.HasIndex("NormalizedUserName")
                             .IsUnique()
                             .HasName("UserNameIndex")
-                            .HasFilter("`NormalizedUserName` IS NOT NULL");
+                            .HasFilter("IGNORE NULL");
 
                         b.ToTable("AspNetUsers");
                     });
@@ -969,7 +969,7 @@ COMMIT TRANSACTION;
                         b.HasIndex("NormalizedName")
                             .IsUnique()
                             .HasName("RoleNameIndex")
-                            .HasFilter("`NormalizedName` IS NOT NULL");
+                            .HasFilter("IGNORE NULL");
 
                         b.ToTable("AspNetRoles");
                     });
@@ -1060,7 +1060,7 @@ COMMIT TRANSACTION;
                         b.HasIndex("NormalizedUserName")
                             .IsUnique()
                             .HasName("UserNameIndex")
-                            .HasFilter("`NormalizedUserName` IS NOT NULL");
+                            .HasFilter("IGNORE NULL");
 
                         b.ToTable("AspNetUsers");
                     });

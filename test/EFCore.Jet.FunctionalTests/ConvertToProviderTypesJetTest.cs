@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Linq;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -182,6 +183,9 @@ UnicodeDataTypes.StringUnicode ---> `nullable nvarchar` [MaxLength = -1]
 
             public override DateTime DefaultDateTime => new DateTime();
             public override bool PreservesDateTimeKind { get; }
+
+            public override string ReallyLargeString
+                => string.Join("", Enumerable.Repeat("testphrase", 25));
 
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                 => base

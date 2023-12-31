@@ -114,7 +114,7 @@ namespace Microsoft.EntityFrameworkCore
         protected override bool ShouldRetryOn(Exception exception)
         {
             var exceptionFullName = exception.GetType().FullName;
-            
+
             if (exceptionFullName != "System.Data.OleDb.OleDbException" &&
                 exceptionFullName != "System.Data.Odbc.OdbcException")
                 return false;
@@ -122,6 +122,10 @@ namespace Microsoft.EntityFrameworkCore
             if (_additionalErrorNumbers != null)
             {
                 dynamic sqlException = exception;
+                if (_additionalErrorNumbers.Contains(exception.HResult))
+                {
+                    return true;
+                }
                 foreach (var err in sqlException.Errors)
                 {
                     if (_additionalErrorNumbers.Contains(err.NativeError))

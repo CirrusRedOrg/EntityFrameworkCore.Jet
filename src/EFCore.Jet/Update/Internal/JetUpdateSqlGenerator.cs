@@ -116,7 +116,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
                 .Append(SqlGenerationHelper.StatementTerminator).AppendLine()
                 .AppendLine();
 
-            return ResultSetMapping.LastInResultSet;
+            return ResultSetMapping.LastInResultSet | ResultSetMapping.ResultSetWithRowsAffectedOnly;
         }
 
         //If multiple columns were output, the SQL Server behavior is to produce a INSERT INTO ... OUTPUT statement

@@ -698,7 +698,6 @@ FROM `Customers` AS `c`");
 FROM `Customers` AS `c`");
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault(isAsync);
@@ -2351,7 +2350,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 SELECT 1
 FROM `Customers` AS `c`
 """,
-                //
+//
 """
 SELECT 1
 FROM `Customers` AS `c`

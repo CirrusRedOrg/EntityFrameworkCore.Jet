@@ -216,14 +216,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             public override bool PreservesDateTimeKind { get; }
 
             public override string ReallyLargeString
-            {
-                get
-                {
-                    //Jet max is 255
-                    var res = string.Join("", Enumerable.Repeat("testphrase", 25));
-                    return res;
-                }
-            }
+                => string.Join("", Enumerable.Repeat("testphrase", 25));
 
             public override int LongStringLength => 255;
 

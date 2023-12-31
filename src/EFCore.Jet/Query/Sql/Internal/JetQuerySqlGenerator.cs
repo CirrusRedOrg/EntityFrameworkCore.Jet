@@ -568,7 +568,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             parent.TryPeek(out var exp);
-            if (sqlConstantExpression.Value is null && exp is ProjectionExpression && (sqlConstantExpression.Type.IsNumeric() || sqlConstantExpression.Type == typeof(bool)))
+            if (sqlConstantExpression.Value is null && exp is ProjectionExpression && (sqlConstantExpression.Type.IsNumeric() || sqlConstantExpression.Type.IsEnum || sqlConstantExpression.Type == typeof(bool)))
             {
                 Sql.Append("CVar(");
                 Sql.Append(sqlConstantExpression.TypeMapping!.GenerateSqlLiteral(sqlConstantExpression.Value));

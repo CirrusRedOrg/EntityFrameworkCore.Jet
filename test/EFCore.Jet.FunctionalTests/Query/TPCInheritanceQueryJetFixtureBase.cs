@@ -11,4 +11,7 @@ public abstract class TPCInheritanceQueryJetFixtureBase : TPCInheritanceQueryFix
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
+
+    public override bool UseGeneratedKeys
+        => false;
 }

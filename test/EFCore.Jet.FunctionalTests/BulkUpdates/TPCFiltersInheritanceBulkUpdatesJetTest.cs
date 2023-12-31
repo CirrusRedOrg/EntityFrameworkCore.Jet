@@ -33,10 +33,9 @@ public class TPCFiltersInheritanceBulkUpdatesJetTest : TPCFiltersInheritanceBulk
         await base.Delete_where_hierarchy_derived(async);
 
         AssertSql(
-"""
-DELETE FROM [k]
-FROM [Kiwi] AS [k]
-WHERE [k].[CountryId] = 1 AND [k].[Name] = N'Great spotted kiwi'
+            """
+DELETE FROM `Kiwi` AS `k`
+WHERE `k`.`CountryId` = 1 AND `k`.`Name` = 'Great spotted kiwi'
 """);
     }
 
@@ -45,19 +44,18 @@ WHERE [k].[CountryId] = 1 AND [k].[Name] = N'Great spotted kiwi'
         await base.Delete_where_using_hierarchy(async);
 
         AssertSql(
-"""
-DELETE FROM [c]
-FROM [Countries] AS [c]
+            """
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM (
-        SELECT [e].[Id], [e].[CountryId], [e].[Name], [e].[Species], [e].[EagleId], [e].[IsFlightless], [e].[Group], NULL AS [FoundOn], N'Eagle' AS [Discriminator]
-        FROM [Eagle] AS [e]
+        SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+        FROM `Eagle` AS `e`
         UNION ALL
-        SELECT [k].[Id], [k].[CountryId], [k].[Name], [k].[Species], [k].[EagleId], [k].[IsFlightless], NULL AS [Group], [k].[FoundOn], N'Kiwi' AS [Discriminator]
-        FROM [Kiwi] AS [k]
-    ) AS [t]
-    WHERE [t].[CountryId] = 1 AND [c].[Id] = [t].[CountryId] AND [t].[CountryId] > 0) > 0
+        SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+        FROM `Kiwi` AS `k`
+    ) AS `t`
+    WHERE `t`.`CountryId` = 1 AND `c`.`Id` = `t`.`CountryId` AND `t`.`CountryId` > 0) > 0
 """);
     }
 
@@ -66,16 +64,15 @@ WHERE (
         await base.Delete_where_using_hierarchy_derived(async);
 
         AssertSql(
-"""
-DELETE FROM [c]
-FROM [Countries] AS [c]
+            """
+DELETE FROM `Countries` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM (
-        SELECT [k].[Id], [k].[CountryId], [k].[Name], [k].[Species], [k].[EagleId], [k].[IsFlightless], NULL AS [Group], [k].[FoundOn], N'Kiwi' AS [Discriminator]
-        FROM [Kiwi] AS [k]
-    ) AS [t]
-    WHERE [t].[CountryId] = 1 AND [c].[Id] = [t].[CountryId] AND [t].[CountryId] > 0) > 0
+        SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+        FROM `Kiwi` AS `k`
+    ) AS `t`
+    WHERE `t`.`CountryId` = 1 AND `c`.`Id` = `t`.`CountryId` AND `t`.`CountryId` > 0) > 0
 """);
     }
 
@@ -114,6 +111,20 @@ WHERE (
         AssertSql();
     }
 
+    public override async Task Update_base_type(bool async)
+    {
+        await base.Update_base_type(async);
+
+        AssertExecuteUpdateSql();
+    }
+
+    public override async Task Update_base_type_with_OfType(bool async)
+    {
+        await base.Update_base_type_with_OfType(async);
+
+        AssertExecuteUpdateSql();
+    }
+
     public override async Task Update_where_hierarchy_subquery(bool async)
     {
         await base.Update_where_hierarchy_subquery(async);
@@ -121,25 +132,61 @@ WHERE (
         AssertExecuteUpdateSql();
     }
 
+    public override async Task Update_base_property_on_derived_type(bool async)
+    {
+        await base.Update_base_property_on_derived_type(async);
+
+        AssertExecuteUpdateSql(
+            """
+UPDATE `Kiwi` AS `k`
+SET `k`.`Name` = 'SomeOtherKiwi'
+WHERE `k`.`CountryId` = 1
+""");
+    }
+
+    public override async Task Update_derived_property_on_derived_type(bool async)
+    {
+        await base.Update_derived_property_on_derived_type(async);
+
+        AssertExecuteUpdateSql(
+            """
+UPDATE `Kiwi` AS `k`
+SET `k`.`FoundOn` = CBYTE(0)
+WHERE `k`.`CountryId` = 1
+""");
+    }
+
     public override async Task Update_where_using_hierarchy(bool async)
     {
         await base.Update_where_using_hierarchy(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[Name] = N'Monovia'
-FROM [Countries] AS [c]
+            """
+UPDATE `Countries` AS `c`
+SET `c`.`Name` = 'Monovia'
 WHERE (
     SELECT COUNT(*)
     FROM (
-        SELECT [e].[Id], [e].[CountryId], [e].[Name], [e].[Species], [e].[EagleId], [e].[IsFlightless], [e].[Group], NULL AS [FoundOn], N'Eagle' AS [Discriminator]
-        FROM [Eagle] AS [e]
+        SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+        FROM `Eagle` AS `e`
         UNION ALL
-        SELECT [k].[Id], [k].[CountryId], [k].[Name], [k].[Species], [k].[EagleId], [k].[IsFlightless], NULL AS [Group], [k].[FoundOn], N'Kiwi' AS [Discriminator]
-        FROM [Kiwi] AS [k]
-    ) AS [t]
-    WHERE [t].[CountryId] = 1 AND [c].[Id] = [t].[CountryId] AND [t].[CountryId] > 0) > 0
+        SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+        FROM `Kiwi` AS `k`
+    ) AS `t`
+    WHERE `t`.`CountryId` = 1 AND `c`.`Id` = `t`.`CountryId` AND `t`.`CountryId` > 0) > 0
+""");
+    }
+
+    public override async Task Update_base_and_derived_types(bool async)
+    {
+        await base.Update_base_and_derived_types(async);
+
+        AssertExecuteUpdateSql(
+            """
+UPDATE `Kiwi` AS `k`
+SET `k`.`FoundOn` = CBYTE(0),
+    `k`.`Name` = 'Kiwi'
+WHERE `k`.`CountryId` = 1
 """);
     }
 
@@ -148,17 +195,16 @@ WHERE (
         await base.Update_where_using_hierarchy_derived(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[Name] = N'Monovia'
-FROM [Countries] AS [c]
+            """
+UPDATE `Countries` AS `c`
+SET `c`.`Name` = 'Monovia'
 WHERE (
     SELECT COUNT(*)
     FROM (
-        SELECT [k].[Id], [k].[CountryId], [k].[Name], [k].[Species], [k].[EagleId], [k].[IsFlightless], NULL AS [Group], [k].[FoundOn], N'Kiwi' AS [Discriminator]
-        FROM [Kiwi] AS [k]
-    ) AS [t]
-    WHERE [t].[CountryId] = 1 AND [c].[Id] = [t].[CountryId] AND [t].[CountryId] > 0) > 0
+        SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+        FROM `Kiwi` AS `k`
+    ) AS `t`
+    WHERE `t`.`CountryId` = 1 AND `c`.`Id` = `t`.`CountryId` AND `t`.`CountryId` > 0) > 0
 """);
     }
 

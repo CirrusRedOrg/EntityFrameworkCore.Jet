@@ -9,4 +9,7 @@ public class TPCFiltersInheritanceQueryJetFixture : TPCInheritanceQueryJetFixtur
 {
     public override bool EnableFilters
         => true;
+
+    public override bool UseGeneratedKeys
+        => false;
 }

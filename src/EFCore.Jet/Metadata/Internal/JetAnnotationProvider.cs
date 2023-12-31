@@ -83,13 +83,11 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
             }*/
 
             var table = StoreObjectIdentifier.Table(column.Table.Name, column.Table.Schema);
-            var property = column.PropertyMappings.Where(
-                    m =>
-                        (m.TableMapping.IsSharedTablePrincipal ?? true) && m.TableMapping.TypeBase == m.Property.DeclaringType)
+            var property = column.PropertyMappings
                 .Select(m => m.Property)
                 .FirstOrDefault(
                     p => p.GetValueGenerationStrategy(table)
-                        == JetValueGenerationStrategy.IdentityColumn);
+                         == JetValueGenerationStrategy.IdentityColumn);
             if (property != null)
             {
                 var seed = property.GetJetIdentitySeed(table);

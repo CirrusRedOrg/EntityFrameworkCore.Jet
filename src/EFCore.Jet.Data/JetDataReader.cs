@@ -115,6 +115,15 @@ namespace EntityFrameworkCore.Jet.Data
                 return checked((byte)ulongValue);
             if (value is decimal decimalValue)
                 return (byte)decimalValue;
+            if (value is string stringvalue)
+            {
+                if (byte.TryParse(stringvalue, out var result))
+                {
+                    return result;
+                }
+                var bt = Encoding.Unicode.GetBytes(stringvalue);
+                if (bt.Length > 0) return bt[0];
+            }
 
             return (byte)value;
         }

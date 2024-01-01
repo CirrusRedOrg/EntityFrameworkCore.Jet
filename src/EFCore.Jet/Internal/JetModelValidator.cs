@@ -250,48 +250,64 @@ namespace EntityFrameworkCore.Jet.Internal
             var duplicatePropertyStrategy = duplicateProperty.GetValueGenerationStrategy(storeObject);
             if (propertyStrategy != duplicatePropertyStrategy)
             {
-                throw new InvalidOperationException(
-                    JetStrings.DuplicateColumnNameValueGenerationStrategyMismatch(
-                        duplicateProperty.DeclaringType.DisplayName(),
-                        duplicateProperty.Name,
-                        property.DeclaringType.DisplayName(),
-                        property.Name,
-                        columnName,
-                        storeObject.DisplayName()));
+                var isConflicting = ((IConventionProperty)property)
+                                    .FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)
+                                    ?.GetConfigurationSource()
+                                    == ConfigurationSource.Explicit
+                                    || propertyStrategy != JetValueGenerationStrategy.None;
+                var isDuplicateConflicting = ((IConventionProperty)duplicateProperty)
+                                             .FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)
+                                             ?.GetConfigurationSource()
+                                             == ConfigurationSource.Explicit
+                                             || duplicatePropertyStrategy != JetValueGenerationStrategy.None;
+
+                if (isConflicting && isDuplicateConflicting)
+                {
+                    throw new InvalidOperationException(
+                        JetStrings.DuplicateColumnNameValueGenerationStrategyMismatch(
+                            duplicateProperty.DeclaringType.DisplayName(),
+                            duplicateProperty.Name,
+                            property.DeclaringType.DisplayName(),
+                            property.Name,
+                            columnName,
+                            storeObject.DisplayName()));
+                }
             }
-
-            switch (propertyStrategy)
+            else
             {
-                case JetValueGenerationStrategy.IdentityColumn:
-                    var increment = property.GetJetIdentityIncrement(storeObject);
-                    var duplicateIncrement = duplicateProperty.GetJetIdentityIncrement(storeObject);
-                    if (increment != duplicateIncrement)
-                    {
-                        throw new InvalidOperationException(
-                            JetStrings.DuplicateColumnIdentityIncrementMismatch(
-                                duplicateProperty.DeclaringType.DisplayName(),
-                                duplicateProperty.Name,
-                                property.DeclaringType.DisplayName(),
-                                property.Name,
-                                columnName,
-                                storeObject.DisplayName()));
-                    }
+                switch (propertyStrategy)
+                {
+                    case JetValueGenerationStrategy.IdentityColumn:
+                        var increment = property.GetJetIdentityIncrement(storeObject);
+                        var duplicateIncrement = duplicateProperty.GetJetIdentityIncrement(storeObject);
+                        if (increment != duplicateIncrement)
+                        {
+                            throw new InvalidOperationException(
+                                JetStrings.DuplicateColumnIdentityIncrementMismatch(
+                                    duplicateProperty.DeclaringType.DisplayName(),
+                                    duplicateProperty.Name,
+                                    property.DeclaringType.DisplayName(),
+                                    property.Name,
+                                    columnName,
+                                    storeObject.DisplayName()));
+                        }
 
-                    var seed = property.GetJetIdentitySeed(storeObject);
-                    var duplicateSeed = duplicateProperty.GetJetIdentitySeed(storeObject);
-                    if (seed != duplicateSeed)
-                    {
-                        throw new InvalidOperationException(
-                            JetStrings.DuplicateColumnIdentitySeedMismatch(
-                                duplicateProperty.DeclaringType.DisplayName(),
-                                duplicateProperty.Name,
-                                property.DeclaringType.DisplayName(),
-                                property.Name,
-                                columnName,
-                                storeObject.DisplayName()));
-                    }
+                        var seed = property.GetJetIdentitySeed(storeObject);
+                        var duplicateSeed = duplicateProperty.GetJetIdentitySeed(storeObject);
+                        if (seed != duplicateSeed)
+                        {
+                            throw new InvalidOperationException(
+                                JetStrings.DuplicateColumnIdentitySeedMismatch(
+                                    duplicateProperty.DeclaringType.DisplayName(),
+                                    duplicateProperty.Name,
+                                    property.DeclaringType.DisplayName(),
+                                    property.Name,
+                                    columnName,
+                                    storeObject.DisplayName()));
+                        }
 
-                    break;
+                        break;
+                }
             }
         }
     }

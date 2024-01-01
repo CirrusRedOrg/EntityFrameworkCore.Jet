@@ -58,7 +58,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
                     if (declaringTable.Name != null!)
                     {
-                        strategy = property.GetValueGenerationStrategy(declaringTable);
+                        strategy = property.GetValueGenerationStrategy(declaringTable, Dependencies.TypeMappingSource);
                         if (strategy == JetValueGenerationStrategy.None
                             && !IsStrategyNoneNeeded(property, declaringTable))
                         {
@@ -70,7 +70,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                         var declaringView = property.GetMappedStoreObjects(StoreObjectType.View).FirstOrDefault();
                         if (declaringView.Name != null!)
                         {
-                            strategy = property.GetValueGenerationStrategy(declaringView);
+                            strategy = property.GetValueGenerationStrategy(declaringView, Dependencies.TypeMappingSource);
                             if (strategy == JetValueGenerationStrategy.None
                                 && !IsStrategyNoneNeeded(property, declaringView))
                             {

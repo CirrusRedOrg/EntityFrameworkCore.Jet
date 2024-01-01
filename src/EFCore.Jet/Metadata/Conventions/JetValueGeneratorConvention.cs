@@ -67,6 +67,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 return null;
             }
 
+            if (!MappingStrategyAllowsValueGeneration(property, property.DeclaringType.GetMappingStrategy()))
+            {
+                return null;
+            }
+
             // If the first mapping can be value generated then we'll consider all mappings to be value generated
             // as this is a client-side configuration and can't be specified per-table.
             return GetValueGenerated(property, declaringTable);
@@ -80,9 +85,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <returns>The store value generation strategy to set for the given property.</returns>
         public new static ValueGenerated? GetValueGenerated(IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
             => RelationalValueGenerationConvention.GetValueGenerated(property, storeObject)
-               ?? (property.GetValueGenerationStrategy(storeObject) != JetValueGenerationStrategy.None
-                   ? ValueGenerated.OnAdd
-                   : null);
+                      ?? (property.GetValueGenerationStrategy(storeObject) != JetValueGenerationStrategy.None
+                          ? ValueGenerated.OnAdd
+                          : null);
 
     }
 }

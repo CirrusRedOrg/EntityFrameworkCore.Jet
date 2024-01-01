@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Linq;
 using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Storage;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -191,34 +192,71 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
         public static JetValueGenerationStrategy GetValueGenerationStrategy(
-            [NotNull] this IReadOnlyProperty property,
+            this IReadOnlyProperty property,
             in StoreObjectIdentifier storeObject)
+            => GetValueGenerationStrategy(property, storeObject, null);
+
+        internal static JetValueGenerationStrategy GetValueGenerationStrategy(
+            this IReadOnlyProperty property,
+            in StoreObjectIdentifier storeObject,
+            ITypeMappingSource? typeMappingSource)
         {
-            var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
-            if (annotation != null)
+            var @override = property.FindOverrides(storeObject)?.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
+            if (@override != null)
             {
-                return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
+                return (JetValueGenerationStrategy?)@override.Value ?? JetValueGenerationStrategy.None;
             }
 
+            var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
+            if (annotation?.Value != null
+                && StoreObjectIdentifier.Create(property.DeclaringType, storeObject.StoreObjectType) == storeObject)
+            {
+                return (JetValueGenerationStrategy)annotation.Value;
+            }
+
+            var table = storeObject;
             var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);
             if (sharedTableRootProperty != null)
             {
-                return sharedTableRootProperty.GetValueGenerationStrategy(storeObject)
-                    == JetValueGenerationStrategy.IdentityColumn
-                        ? JetValueGenerationStrategy.IdentityColumn
-                        : JetValueGenerationStrategy.None;
+                return sharedTableRootProperty.GetValueGenerationStrategy(storeObject, typeMappingSource)
+                       == JetValueGenerationStrategy.IdentityColumn
+                       && table.StoreObjectType == StoreObjectType.Table
+                       && !property.GetContainingForeignKeys().Any(
+                           fk =>
+                               !fk.IsBaseLinking()
+                               || (StoreObjectIdentifier.Create(fk.PrincipalEntityType, StoreObjectType.Table)
+                                       is StoreObjectIdentifier principal
+                                   && fk.GetConstraintName(table, principal) != null))
+                    ? JetValueGenerationStrategy.IdentityColumn
+                    : JetValueGenerationStrategy.None;
             }
 
             if (property.ValueGenerated != ValueGenerated.OnAdd
-                || property.GetContainingForeignKeys().Any(fk => !fk.IsBaseLinking())
+                || table.StoreObjectType != StoreObjectType.Table
                 || property.TryGetDefaultValue(storeObject, out _)
                 || property.GetDefaultValueSql(storeObject) != null
-                || property.GetComputedColumnSql(storeObject) != null)
+                || property.GetComputedColumnSql(storeObject) != null
+                || property.GetContainingForeignKeys()
+                    .Any(
+                        fk =>
+                            !fk.IsBaseLinking()
+                            || (StoreObjectIdentifier.Create(fk.PrincipalEntityType, StoreObjectType.Table)
+                                    is StoreObjectIdentifier principal
+                                && fk.GetConstraintName(table, principal) != null)))
             {
                 return JetValueGenerationStrategy.None;
             }
 
-            return GetDefaultValueGenerationStrategy(property);
+            var defaultStrategy = GetDefaultValueGenerationStrategy(property, storeObject, typeMappingSource);
+            if (defaultStrategy != JetValueGenerationStrategy.None)
+            {
+                if (annotation != null)
+                {
+                    return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
+                }
+            }
+
+            return defaultStrategy;
         }
 
         private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(IReadOnlyProperty property)
@@ -229,6 +267,21 @@ namespace Microsoft.EntityFrameworkCore
                    && IsCompatibleWithValueGeneration(property)
                     ? JetValueGenerationStrategy.IdentityColumn
                     : JetValueGenerationStrategy.None;
+        }
+
+        private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(
+            IReadOnlyProperty property,
+            in StoreObjectIdentifier storeObject,
+            ITypeMappingSource? typeMappingSource)
+        {
+            var modelStrategy = property.DeclaringType.Model.GetValueGenerationStrategy();
+
+            return modelStrategy == JetValueGenerationStrategy.IdentityColumn
+                   && IsCompatibleWithValueGeneration(property, storeObject, typeMappingSource)
+                ? property.DeclaringType.GetMappingStrategy() == RelationalAnnotationNames.TpcMappingStrategy
+                    ? JetValueGenerationStrategy.None
+                    : JetValueGenerationStrategy.IdentityColumn
+                : JetValueGenerationStrategy.None;
         }
 
         /// <summary>
@@ -295,13 +348,33 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> <c>true</c> if compatible. </returns>
         public static bool IsCompatibleWithValueGeneration([NotNull] IReadOnlyProperty property)
         {
-            var type = property.ClrType;
+            var valueConverter = property.GetValueConverter()
+                                 ?? property.FindTypeMapping()?.Converter;
+
+            var type = (valueConverter?.ProviderClrType ?? property.ClrType).UnwrapNullableType();
+            return type.IsInteger()
+                   || type.IsEnum
+                   || type == typeof(decimal);
+        }
+
+        private static bool IsCompatibleWithValueGeneration(
+            IReadOnlyProperty property,
+            in StoreObjectIdentifier storeObject,
+            ITypeMappingSource? typeMappingSource)
+        {
+            if (storeObject.StoreObjectType != StoreObjectType.Table)
+            {
+                return false;
+            }
+
+            var valueConverter = property.GetValueConverter()
+                                 ?? (property.FindRelationalTypeMapping(storeObject)
+                                     ?? typeMappingSource?.FindMapping((IProperty)property))?.Converter;
+
+            var type = (valueConverter?.ProviderClrType ?? property.ClrType).UnwrapNullableType();
 
             return (type.IsInteger()
-                    || type == typeof(decimal))
-                   && (property.GetValueConverter()
-                       ?? property.FindTypeMapping()?.Converter)
-                   == null;
+                    || type == typeof(decimal));
         }
 
         /// <summary>

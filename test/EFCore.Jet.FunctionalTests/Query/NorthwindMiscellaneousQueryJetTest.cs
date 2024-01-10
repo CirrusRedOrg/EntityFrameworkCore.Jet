@@ -513,23 +513,23 @@ ORDER BY `t`.`EmployeeID`
             await base.Where_query_composition_is_not_null(isAsync);
 
             AssertSql(
-                """
-    SELECT `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
+"""
+SELECT `t`.`EmployeeID`, `t`.`City`, `t`.`Country`, `t`.`FirstName`, `t`.`ReportsTo`, `t`.`Title`
+FROM (
+    SELECT TOP 3 `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
     FROM (
-        SELECT TOP 3 `t`.`EmployeeID`, `t`.`City`, `t`.`Country`, `t`.`FirstName`, `t`.`ReportsTo`, `t`.`Title`
-        FROM (
-            SELECT TOP 7 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-            FROM `Employees` AS `e`
-            ORDER BY `e`.`EmployeeID`
-        ) AS `t`
-        ORDER BY `t`.`EmployeeID` DESC
+        SELECT TOP 7 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+        FROM `Employees` AS `e`
+        ORDER BY `e`.`EmployeeID`
     ) AS `t0`
-    WHERE EXISTS (
-        SELECT 1
-        FROM `Employees` AS `e0`
-        WHERE `e0`.`EmployeeID` = `t0`.`ReportsTo`)
-    ORDER BY `t0`.`EmployeeID`
-    """);
+    ORDER BY `t0`.`EmployeeID` DESC
+) AS `t`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Employees` AS `e0`
+    WHERE `e0`.`EmployeeID` = `t`.`ReportsTo`)
+ORDER BY `t`.`EmployeeID`
+""");
         }
 
         public override async Task Where_query_composition_entity_equality_one_element_SingleOrDefault(bool isAsync)
@@ -1067,20 +1067,20 @@ SKIP {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Join_Customers_Orders_Skip_Take_followed_by_constant_projection(isAsync);
 
             AssertSql(
-                """
-    SELECT 'Foo'
+"""
+SELECT `t0`.`c`
+FROM (
+    SELECT TOP 5 `t`.`c`, `t`.`OrderID`
     FROM (
-        SELECT TOP 5 `t`.`OrderID`
-        FROM (
-            SELECT TOP 15 `o`.`OrderID`
-            FROM `Customers` AS `c`
-            INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-            ORDER BY `o`.`OrderID`
-        ) AS `t`
-        ORDER BY `t`.`OrderID` DESC
-    ) AS `t0`
-    ORDER BY `t0`.`OrderID`
-    """);
+        SELECT TOP 15 'Foo' AS `c`, `o`.`OrderID`
+        FROM `Customers` AS `c`
+        INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`
+    ORDER BY `t`.`OrderID` DESC
+) AS `t0`
+ORDER BY `t0`.`OrderID`
+""");
         }
 
         public override async Task Join_Customers_Orders_Projection_With_String_Concat_Skip_Take(bool isAsync)
@@ -1088,20 +1088,20 @@ SKIP {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Join_Customers_Orders_Projection_With_String_Concat_Skip_Take(isAsync);
 
             AssertSql(
-                """
-    SELECT (IIF(`t0`.`ContactName` IS NULL, '', `t0`.`ContactName`) & ' ') & IIF(`t0`.`ContactTitle` IS NULL, '', `t0`.`ContactTitle`) AS `Contact`, `t0`.`OrderID`
+"""
+SELECT `t0`.`Contact`, `t0`.`OrderID`
+FROM (
+    SELECT TOP 5 `t`.`Contact`, `t`.`OrderID`
     FROM (
-        SELECT TOP 5 `t`.`ContactName`, `t`.`ContactTitle`, `t`.`OrderID`
-        FROM (
-            SELECT TOP 15 `c`.`ContactName`, `c`.`ContactTitle`, `o`.`OrderID`
-            FROM `Customers` AS `c`
-            INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-            ORDER BY `o`.`OrderID`
-        ) AS `t`
-        ORDER BY `t`.`OrderID` DESC
-    ) AS `t0`
-    ORDER BY `t0`.`OrderID`
-    """);
+        SELECT TOP 15 (IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & ' ') & IIF(`c`.`ContactTitle` IS NULL, '', `c`.`ContactTitle`) AS `Contact`, `o`.`OrderID`
+        FROM `Customers` AS `c`
+        INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`
+    ORDER BY `t`.`OrderID` DESC
+) AS `t0`
+ORDER BY `t0`.`OrderID`
+""");
         }
 
         public override async Task Join_Customers_Orders_Orders_Skip_Take_Same_Properties(bool isAsync)
@@ -1109,21 +1109,21 @@ SKIP {AssertSqlHelper.Parameter("@__p_0")}");
             await base.Join_Customers_Orders_Orders_Skip_Take_Same_Properties(isAsync);
 
             AssertSql(
-                """
-    SELECT `t0`.`OrderID`, `t0`.`CustomerID0` AS `CustomerIDA`, `t0`.`CustomerID1` AS `CustomerIDB`, `t0`.`ContactName` AS `ContactNameA`, `t0`.`ContactName0` AS `ContactNameB`
+"""
+SELECT `t0`.`OrderID`, `t0`.`CustomerIDA`, `t0`.`CustomerIDB`, `t0`.`ContactNameA`, `t0`.`ContactNameB`
+FROM (
+    SELECT TOP 5 `t`.`OrderID`, `t`.`CustomerIDA`, `t`.`CustomerIDB`, `t`.`ContactNameA`, `t`.`ContactNameB`
     FROM (
-        SELECT TOP 5 `t`.`OrderID`, `t`.`CustomerID0`, `t`.`ContactName`, `t`.`CustomerID1`, `t`.`ContactName0`
-        FROM (
-            SELECT TOP 15 `o`.`OrderID`, `c`.`CustomerID` AS `CustomerID0`, `c`.`ContactName`, `c0`.`CustomerID` AS `CustomerID1`, `c0`.`ContactName` AS `ContactName0`
-            FROM (`Orders` AS `o`
-            INNER JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
-            INNER JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
-            ORDER BY `o`.`OrderID`
-        ) AS `t`
-        ORDER BY `t`.`OrderID` DESC
-    ) AS `t0`
-    ORDER BY `t0`.`OrderID`
-    """);
+        SELECT TOP 15 `o`.`OrderID`, `c`.`CustomerID` AS `CustomerIDA`, `c0`.`CustomerID` AS `CustomerIDB`, `c`.`ContactName` AS `ContactNameA`, `c0`.`ContactName` AS `ContactNameB`
+        FROM (`Orders` AS `o`
+        INNER JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+        INNER JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+        ORDER BY `o`.`OrderID`
+    ) AS `t`
+    ORDER BY `t`.`OrderID` DESC
+) AS `t0`
+ORDER BY `t0`.`OrderID`
+""");
         }
 
         public override async Task Ternary_should_not_evaluate_both_sides(bool async)
@@ -2027,18 +2027,22 @@ FROM (
             await base.Skip_Take_Distinct(isAsync);
 
             AssertSql(
-                """
-    SELECT DISTINCT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+"""
+SELECT DISTINCT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+FROM (
+    SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
     FROM (
-        SELECT TOP 10 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+        SELECT TOP 10 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
             SELECT TOP 15 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
             FROM `Customers` AS `c`
             ORDER BY `c`.`ContactName`
-        ) AS `t`
-        ORDER BY `t`.`ContactName` DESC
-    ) AS `t0`
-    """);
+        ) AS `t0`
+        ORDER BY `t0`.`ContactName` DESC
+    ) AS `t1`
+    ORDER BY `t1`.`ContactName`
+) AS `t`
+""");
         }
 
         public override async Task Skip_Take_Any(bool isAsync)
@@ -2046,20 +2050,21 @@ FROM (
             await base.Skip_Take_Any(isAsync);
 
             AssertSql(
-                """
-    SELECT IIF(EXISTS (
-            SELECT 1
+"""
+SELECT IIF(EXISTS (
+        SELECT 1
+        FROM (
+            SELECT TOP 10 `t`.`CustomerID`, `t`.`ContactName`
             FROM (
-                SELECT TOP 10 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
-                FROM (
-                    SELECT TOP 15 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`ContactName`
-                ) AS `t`
-                ORDER BY `t`.`ContactName` DESC
-            ) AS `t0`), TRUE, FALSE)
-    FROM (SELECT COUNT(*) FROM `#Dual`)
-    """);
+                SELECT TOP 15 `c`.`CustomerID`, `c`.`ContactName`
+                FROM `Customers` AS `c`
+                ORDER BY `c`.`ContactName`
+            ) AS `t`
+            ORDER BY `t`.`ContactName` DESC
+        ) AS `t0`
+        ORDER BY `t0`.`ContactName`), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Skip_Take_All(bool isAsync)
@@ -2071,15 +2076,19 @@ FROM (
 SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM (
-            SELECT TOP 7 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+            SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
             FROM (
-                SELECT TOP 11 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                FROM `Customers` AS `c`
-                ORDER BY `c`.`CustomerID`
-            ) AS `t`
-            ORDER BY `t`.`CustomerID` DESC
-        ) AS `t0`
-        WHERE `t0`.`CustomerID` NOT LIKE 'B%'), TRUE, FALSE)
+                SELECT TOP 7 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+                FROM (
+                    SELECT TOP 11 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    ORDER BY `c`.`CustomerID`
+                ) AS `t0`
+                ORDER BY `t0`.`CustomerID` DESC
+            ) AS `t1`
+            ORDER BY `t1`.`CustomerID`
+        ) AS `t`
+        WHERE `t`.`CustomerID` NOT LIKE 'B%'), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2107,21 +2116,25 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             await base.Skip_Take_Any_with_predicate(isAsync);
 
             AssertSql(
-                """
-    SELECT IIF(EXISTS (
-            SELECT 1
+"""
+SELECT IIF(EXISTS (
+        SELECT 1
+        FROM (
+            SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
             FROM (
-                SELECT TOP 7 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+                SELECT TOP 7 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
                 FROM (
                     SELECT TOP 12 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
                     FROM `Customers` AS `c`
                     ORDER BY `c`.`CustomerID`
-                ) AS `t`
-                ORDER BY `t`.`CustomerID` DESC
-            ) AS `t0`
-            WHERE `t0`.`CustomerID` LIKE 'C%'), TRUE, FALSE)
-    FROM (SELECT COUNT(*) FROM `#Dual`)
-    """);
+                ) AS `t0`
+                ORDER BY `t0`.`CustomerID` DESC
+            ) AS `t1`
+            ORDER BY `t1`.`CustomerID`
+        ) AS `t`
+        WHERE `t`.`CustomerID` LIKE 'C%'), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Take_Any_with_predicate(bool isAsync)
@@ -2215,15 +2228,12 @@ ORDER BY `t`.`OrderID`");
             await base.Distinct_Take_Count(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT COUNT(*)
 FROM (
-    SELECT TOP 5 `t`.`OrderID`
-    FROM (
-        SELECT DISTINCT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-        FROM `Orders` AS `o`
-    ) AS `t`
-) AS `t0`
+    SELECT DISTINCT TOP 5 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+) AS `t`
 """);
         }
 
@@ -3448,18 +3458,18 @@ SKIP {AssertSqlHelper.Parameter("@__p_1")} FETCH NEXT {AssertSqlHelper.Parameter
             await base.OrderBy_skip_take_take(isAsync);
 
             AssertSql(
-                """
-SELECT TOP 3 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+"""
+SELECT TOP 3 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
 FROM (
-    SELECT TOP 8 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+    SELECT TOP 8 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
     FROM (
         SELECT TOP 13 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
         FROM `Customers` AS `c`
         ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-    ) AS `t`
-    ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
-) AS `t0`
-ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
+    ) AS `t0`
+    ORDER BY `t0`.`ContactTitle` DESC, `t0`.`ContactName` DESC
+) AS `t`
+ORDER BY `t`.`ContactTitle`, `t`.`ContactName`
 """);
         }
 
@@ -3468,26 +3478,26 @@ ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
             await base.OrderBy_skip_take_take_take_take(isAsync);
 
             AssertSql(
-                """
-SELECT TOP 5 `t2`.`CustomerID`, `t2`.`Address`, `t2`.`City`, `t2`.`CompanyName`, `t2`.`ContactName`, `t2`.`ContactTitle`, `t2`.`Country`, `t2`.`Fax`, `t2`.`Phone`, `t2`.`PostalCode`, `t2`.`Region`
+"""
+SELECT TOP 5 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
 FROM (
-    SELECT TOP 8 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+    SELECT TOP 8 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
     FROM (
-        SELECT TOP 10 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+        SELECT TOP 10 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
         FROM (
-            SELECT TOP 15 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+            SELECT TOP 15 `t2`.`CustomerID`, `t2`.`Address`, `t2`.`City`, `t2`.`CompanyName`, `t2`.`ContactName`, `t2`.`ContactTitle`, `t2`.`Country`, `t2`.`Fax`, `t2`.`Phone`, `t2`.`PostalCode`, `t2`.`Region`
             FROM (
                 SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
                 FROM `Customers` AS `c`
                 ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-            ) AS `t`
-            ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
-        ) AS `t0`
-        ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
-    ) AS `t1`
-    ORDER BY `t1`.`ContactTitle`, `t1`.`ContactName`
-) AS `t2`
-ORDER BY `t2`.`ContactTitle`, `t2`.`ContactName`
+            ) AS `t2`
+            ORDER BY `t2`.`ContactTitle` DESC, `t2`.`ContactName` DESC
+        ) AS `t`
+        ORDER BY `t`.`ContactTitle`, `t`.`ContactName`
+    ) AS `t0`
+    ORDER BY `t0`.`ContactTitle`, `t0`.`ContactName`
+) AS `t1`
+ORDER BY `t1`.`ContactTitle`, `t1`.`ContactName`
 """);
         }
 
@@ -3525,18 +3535,22 @@ SKIP {AssertSqlHelper.Parameter("@__p_0")}");
             await base.OrderBy_skip_take_distinct(isAsync);
 
             AssertSql(
-                """
-    SELECT DISTINCT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+"""
+SELECT DISTINCT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+FROM (
+    SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
     FROM (
-        SELECT TOP 15 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+        SELECT TOP 15 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
             SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
             FROM `Customers` AS `c`
             ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-        ) AS `t`
-        ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
-    ) AS `t0`
-    """);
+        ) AS `t0`
+        ORDER BY `t0`.`ContactTitle` DESC, `t0`.`ContactName` DESC
+    ) AS `t1`
+    ORDER BY `t1`.`ContactTitle`, `t1`.`ContactName`
+) AS `t`
+""");
         }
 
         public override async Task OrderBy_coalesce_take_distinct(bool isAsync)
@@ -3557,18 +3571,22 @@ FROM (
             await base.OrderBy_coalesce_skip_take_distinct(isAsync);
 
             AssertSql(
-                """
-    SELECT DISTINCT `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`
+"""
+SELECT DISTINCT `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
+FROM (
+    SELECT `t1`.`ProductID`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice`, `t1`.`UnitsInStock`
     FROM (
-        SELECT TOP 15 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
+        SELECT TOP 15 `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`, `t0`.`c`
         FROM (
             SELECT TOP 20 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
             FROM `Products` AS `p`
             ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
-        ) AS `t`
-        ORDER BY `t`.`c` DESC
-    ) AS `t0`
-    """);
+        ) AS `t0`
+        ORDER BY `t0`.`c` DESC
+    ) AS `t1`
+    ORDER BY `t1`.`c`
+) AS `t`
+""");
         }
 
         public override async Task OrderBy_coalesce_skip_take_distinct_take(bool isAsync)
@@ -3576,20 +3594,21 @@ FROM (
             await base.OrderBy_coalesce_skip_take_distinct_take(isAsync);
 
             AssertSql(
-                """
-SELECT TOP 5 `t1`.`ProductID`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice`, `t1`.`UnitsInStock`
+"""
+SELECT DISTINCT TOP 5 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
 FROM (
-    SELECT DISTINCT `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`
+    SELECT `t1`.`ProductID`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice`, `t1`.`UnitsInStock`
     FROM (
-        SELECT TOP 15 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
+        SELECT TOP 15 `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`, `t0`.`c`
         FROM (
             SELECT TOP 20 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
             FROM `Products` AS `p`
             ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
-        ) AS `t`
-        ORDER BY `t`.`c` DESC
-    ) AS `t0`
-) AS `t1`
+        ) AS `t0`
+        ORDER BY `t0`.`c` DESC
+    ) AS `t1`
+    ORDER BY `t1`.`c`
+) AS `t`
 """);
         }
 
@@ -3598,21 +3617,25 @@ FROM (
             await base.OrderBy_skip_take_distinct_orderby_take(isAsync);
 
             AssertSql(
-                """
-SELECT TOP 8 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+"""
+SELECT TOP 8 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
 FROM (
-    SELECT DISTINCT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+    SELECT DISTINCT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
     FROM (
-        SELECT TOP 15 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+        SELECT `t2`.`CustomerID`, `t2`.`Address`, `t2`.`City`, `t2`.`CompanyName`, `t2`.`ContactName`, `t2`.`ContactTitle`, `t2`.`Country`, `t2`.`Fax`, `t2`.`Phone`, `t2`.`PostalCode`, `t2`.`Region`
         FROM (
-            SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
-        ) AS `t`
-        ORDER BY `t`.`ContactTitle` DESC, `t`.`ContactName` DESC
-    ) AS `t0`
-) AS `t1`
-ORDER BY `t1`.`ContactTitle`
+            SELECT TOP 15 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+            FROM (
+                SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                FROM `Customers` AS `c`
+                ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
+            ) AS `t1`
+            ORDER BY `t1`.`ContactTitle` DESC, `t1`.`ContactName` DESC
+        ) AS `t2`
+        ORDER BY `t2`.`ContactTitle`, `t2`.`ContactName`
+    ) AS `t`
+) AS `t0`
+ORDER BY `t0`.`ContactTitle`
 """);
         }
 
@@ -4572,19 +4595,19 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             await base.OrderBy_Dto_projection_skip_take(isAsync);
 
             AssertSql(
-                """
-    SELECT `t0`.`CustomerID` AS `Id`
+"""
+SELECT `t0`.`Id`
+FROM (
+    SELECT TOP 10 `t`.`Id`
     FROM (
-        SELECT TOP 10 `t`.`CustomerID`
-        FROM (
-            SELECT TOP 15 `c`.`CustomerID`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`CustomerID`
-        ) AS `t`
-        ORDER BY `t`.`CustomerID` DESC
-    ) AS `t0`
-    ORDER BY `t0`.`CustomerID`
-    """);
+        SELECT TOP 15 `c`.`CustomerID` AS `Id`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY `t`.`Id` DESC
+) AS `t0`
+ORDER BY `t0`.`Id`
+""");
         }
 
         public override async Task Join_take_count_works(bool isAsync)
@@ -4944,20 +4967,20 @@ ORDER BY `t`.`OrderID`
             await base.Projection_skip_take_projection(async);
 
             AssertSql(
-                """
+"""
 SELECT `c`.`City`
 FROM (
-    SELECT TOP 10 `t`.`OrderID`, `t`.`CustomerID`
+    SELECT TOP 10 `t0`.`OrderID`, `t0`.`CustomerID`
     FROM (
         SELECT TOP 15 `o`.`OrderID`, `o`.`CustomerID`
         FROM `Orders` AS `o`
         WHERE `o`.`OrderID` < 10300
         ORDER BY `o`.`OrderID`
-    ) AS `t`
-    ORDER BY `t`.`OrderID` DESC
-) AS `t0`
-LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`
-ORDER BY `t0`.`OrderID`
+    ) AS `t0`
+    ORDER BY `t0`.`OrderID` DESC
+) AS `t`
+LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`
+ORDER BY `t`.`OrderID`
 """);
         }
 
@@ -5498,18 +5521,15 @@ ORDER BY `t0`.`CustomerID`
             await base.Skip_0_Take_0_works_when_constant(async);
 
             AssertSql(
-                """
+"""
 SELECT IIF(EXISTS (
         SELECT 1
         FROM (
-            SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-            FROM (
-                SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                FROM `Orders` AS `o`
-                WHERE 0 = 1
-            ) AS `t`
+            SELECT `o`.`OrderID`
+            FROM `Orders` AS `o`
             WHERE 0 = 1
-        ) AS `t0`), TRUE, FALSE)
+        ) AS `t`
+        WHERE 0 = 1), TRUE, FALSE)
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`
@@ -5591,7 +5611,7 @@ ORDER BY `c`.`CustomerID`
             {
                 // Outer query is buffered by default
                 await context.Database.ExecuteSqlRawAsync(
-                    "[dbo].[CustOrderHist] @CustomerID = {0}",
+                    "EXEC CustOrderHist CustomerID = {0}",
                     asyncEnumerator.Current.CustomerID);
             }
         }

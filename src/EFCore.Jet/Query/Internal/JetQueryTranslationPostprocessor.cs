@@ -17,6 +17,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         private readonly IJetOptions _options;
         private readonly SkipWithoutOrderByInSplitQueryVerifier _skipWithoutOrderByInSplitQueryVerifier = new();
         private readonly JetLiftOrderByPostprocessor _liftOrderByPostprocessor;
+        private readonly JetSkipTakePostprocessor _skipTakePostprocessor;
 
         public JetQueryTranslationPostprocessor(
             QueryTranslationPostprocessorDependencies dependencies,
@@ -29,10 +30,13 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             _relationalTypeMappingSource = relationalTypeMappingSource;
             _options = options;
             _liftOrderByPostprocessor = new JetLiftOrderByPostprocessor(relationalTypeMappingSource, relationalDependencies.SqlExpressionFactory);
+            _skipTakePostprocessor = new JetSkipTakePostprocessor(relationalTypeMappingSource,
+                relationalDependencies.SqlExpressionFactory);
         }
 
         public override Expression Process(Expression query)
         {
+            query = _skipTakePostprocessor.Process(query);
             query = base.Process(query);
 
             if (_options.EnableMillisecondsSupport)
@@ -40,7 +44,9 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 query = new JetDateTimeExpressionVisitor(RelationalDependencies.SqlExpressionFactory, _relationalTypeMappingSource).Visit(query);
             }
             query = _skipWithoutOrderByInSplitQueryVerifier.Visit(query);
+
             query = _liftOrderByPostprocessor.Process(query);
+
             return query;
         }
 

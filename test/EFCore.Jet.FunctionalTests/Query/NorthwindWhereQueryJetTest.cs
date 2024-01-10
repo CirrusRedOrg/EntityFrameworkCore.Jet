@@ -803,7 +803,7 @@ WHERE MID(`c`.`City`, 1 + 1, 2) = 'ea'");
             await base.Where_datetimeoffset_utcnow(async);
 
             AssertSql(
-                """
+"""
 @__myDatetimeOffset_0='2015-04-10T00:00:00.0000000-08:00'
 
 SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]

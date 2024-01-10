@@ -999,19 +999,23 @@ GROUP BY `t`.`CustomerID`");
             await base.OrderBy_Skip_Take_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                """
-    SELECT MAX(`t0`.`OrderID`)
+"""
+SELECT MAX(`t`.`OrderID`)
+FROM (
+    SELECT `t1`.`OrderID`, `t1`.`CustomerID`
     FROM (
-        SELECT TOP 500 `t`.`OrderID`, `t`.`CustomerID`
+        SELECT TOP 500 `t0`.`OrderID`, `t0`.`CustomerID`
         FROM (
             SELECT TOP 580 `o`.`OrderID`, `o`.`CustomerID`
             FROM `Orders` AS `o`
             ORDER BY `o`.`OrderID`
-        ) AS `t`
-        ORDER BY `t`.`OrderID` DESC
-    ) AS `t0`
-    GROUP BY `t0`.`CustomerID`
-    """);
+        ) AS `t0`
+        ORDER BY `t0`.`OrderID` DESC
+    ) AS `t1`
+    ORDER BY `t1`.`OrderID`
+) AS `t`
+GROUP BY `t`.`CustomerID`
+""");
         }
 
         public override async Task Distinct_GroupBy_Aggregate(bool isAsync)
@@ -1078,7 +1082,7 @@ GROUP BY `o0`.`CustomerID`");
             await base.Join_complex_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT `t0`.`CustomerID` AS `Key`, AVG(CDBL(`t`.`OrderID`)) AS `Count`
 FROM (
     SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
@@ -1087,14 +1091,18 @@ FROM (
     ORDER BY `o`.`OrderDate`
 ) AS `t`
 INNER JOIN (
-    SELECT TOP 50 `t1`.`CustomerID`
+    SELECT `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
     FROM (
-        SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
-        ORDER BY `c`.`City`
+        SELECT TOP 50 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+        FROM (
+            SELECT TOP 60 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            FROM `Customers` AS `c`
+            WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
+            ORDER BY `c`.`City`
+        ) AS `t0`
+        ORDER BY `t0`.`City` DESC
     ) AS `t1`
-    ORDER BY `t1`.`City` DESC
+    ORDER BY `t1`.`City`
 ) AS `t0` ON `t`.`CustomerID` = `t0`.`CustomerID`
 GROUP BY `t0`.`CustomerID`
 """);
@@ -1174,26 +1182,30 @@ GROUP BY `c`.`Country`");
             await base.GroupJoin_complex_GroupBy_Aggregate(isAsync);
 
             AssertSql(
-                """
-SELECT `t1`.`CustomerID` AS `Key`, AVG(CDBL(`t1`.`OrderID`)) AS `Count`
+"""
+SELECT `t0`.`CustomerID` AS `Key`, AVG(CDBL(`t0`.`OrderID`)) AS `Count`
 FROM (
-    SELECT TOP 50 `t`.`CustomerID`
+    SELECT `t2`.`CustomerID`
     FROM (
-        SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
-        ORDER BY `c`.`City`
-    ) AS `t`
-    ORDER BY `t`.`City` DESC
-) AS `t0`
+        SELECT TOP 50 `t1`.`CustomerID`, `t1`.`City`
+        FROM (
+            SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
+            FROM `Customers` AS `c`
+            WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
+            ORDER BY `c`.`City`
+        ) AS `t1`
+        ORDER BY `t1`.`City` DESC
+    ) AS `t2`
+    ORDER BY `t2`.`City`
+) AS `t`
 INNER JOIN (
     SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10400
     ORDER BY `o`.`OrderDate`
-) AS `t1` ON `t0`.`CustomerID` = `t1`.`CustomerID`
-WHERE `t1`.`OrderID` > 10300
-GROUP BY `t1`.`CustomerID`
+) AS `t0` ON `t`.`CustomerID` = `t0`.`CustomerID`
+WHERE `t0`.`OrderID` > 10300
+GROUP BY `t0`.`CustomerID`
 """);
         }
 
@@ -2757,18 +2769,21 @@ INNER JOIN (
             await base.GroupBy_aggregate_after_skip_0_take_0(async);
 
             AssertSql(
-                """
-SELECT `t0`.`CustomerID` AS `Key`, COUNT(*) AS `Total`
+"""
+SELECT `t`.`CustomerID` AS `Key`, COUNT(*) AS `Total`
 FROM (
-    SELECT `t`.`CustomerID`
+    SELECT `t1`.`CustomerID`
     FROM (
-        SELECT `o`.`CustomerID`
-        FROM `Orders` AS `o`
+        SELECT `t0`.`CustomerID`
+        FROM (
+            SELECT `o`.`CustomerID`
+            FROM `Orders` AS `o`
+            WHERE 0 = 1
+        ) AS `t0`
         WHERE 0 = 1
-    ) AS `t`
-    WHERE 0 = 1
-) AS `t0`
-GROUP BY `t0`.`CustomerID`
+    ) AS `t1`
+) AS `t`
+GROUP BY `t`.`CustomerID`
 """);
         }
 
@@ -2777,12 +2792,19 @@ GROUP BY `t0`.`CustomerID`
             await base.GroupBy_skip_0_take_0_aggregate(async);
 
             AssertSql(
-                """
-SELECT [o].[CustomerID] AS [Key], COUNT(*) AS [Total]
-FROM [Orders] AS [o]
-WHERE [o].[OrderID] > 10500
-GROUP BY [o].[CustomerID]
-HAVING 0 = 1
+"""
+SELECT `t0`.`Key`, `t0`.`Total`
+FROM (
+    SELECT `t`.`Key`, `t`.`Total`
+    FROM (
+        SELECT `o`.`CustomerID` AS `Key`, COUNT(*) AS `Total`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 10500
+        GROUP BY `o`.`CustomerID`
+        HAVING 0 = 1
+    ) AS `t`
+    WHERE 0 = 1
+) AS `t0`
 """);
         }
 

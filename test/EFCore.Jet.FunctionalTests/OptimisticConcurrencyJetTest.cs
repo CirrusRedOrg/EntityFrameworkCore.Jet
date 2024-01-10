@@ -367,13 +367,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Property_entry_original_value_is_set();
 
             AssertSql(
-                """
+"""
 SELECT TOP(1) [e].[Id], [e].[EngineSupplierId], [e].[Name], [e].[StorageLocation_Latitude], [e].[StorageLocation_Longitude]
 FROM [Engines] AS [e]
 ORDER BY [e].[Id]
 """,
                 //
-                """
+"""
 @p1='1'
 @p2='Mercedes' (Size = 450)
 @p0='FO 108X' (Size = 4000)

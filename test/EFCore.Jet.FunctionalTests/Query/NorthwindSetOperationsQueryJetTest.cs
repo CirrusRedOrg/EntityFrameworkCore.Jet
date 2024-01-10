@@ -325,28 +325,28 @@ ORDER BY `t`.`CompanyName`
             await base.Select_Union_different_fields_in_anonymous_with_subquery(isAsync);
 
             AssertSql(
-                """
-    SELECT `t1`.`Foo`, `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+"""
+SELECT `t0`.`Foo`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+FROM (
+    SELECT TOP 10 `t1`.`Foo`, `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
     FROM (
-        SELECT TOP 10 `t0`.`Foo`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
+        SELECT TOP 11 `t`.`Foo`, `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
         FROM (
-            SELECT TOP 11 `t`.`Foo`, `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
-            FROM (
-                SELECT `c`.`City` AS `Foo`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                FROM `Customers` AS `c`
-                WHERE `c`.`City` = 'Berlin'
-                UNION
-                SELECT `c0`.`Region` AS `Foo`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                FROM `Customers` AS `c0`
-                WHERE `c0`.`City` = 'London'
-            ) AS `t`
-            ORDER BY `t`.`Foo`
-        ) AS `t0`
-        ORDER BY `t0`.`Foo` DESC
+            SELECT `c`.`City` AS `Foo`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+            FROM `Customers` AS `c`
+            WHERE `c`.`City` = 'Berlin'
+            UNION
+            SELECT `c0`.`Region` AS `Foo`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+            FROM `Customers` AS `c0`
+            WHERE `c0`.`City` = 'London'
+        ) AS `t`
+        ORDER BY `t`.`Foo`
     ) AS `t1`
-    WHERE `t1`.`Foo` = 'Berlin'
-    ORDER BY `t1`.`Foo`
-    """);
+    ORDER BY `t1`.`Foo` DESC
+) AS `t0`
+WHERE `t0`.`Foo` = 'Berlin'
+ORDER BY `t0`.`Foo`
+""");
         }
 
         public override async Task Union_Include(bool isAsync)

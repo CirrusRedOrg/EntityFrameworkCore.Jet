@@ -148,15 +148,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 .Where(b => !string.IsNullOrEmpty(b))
                 .ToList();
 
-            ExecuteBatch(
-                Connection,
-                false,
-                batches,
-                (command, batch) =>
+            Execute(
+            Connection, command =>
+            {
+                foreach (var batch in batches)
                 {
                     command.CommandText = batch;
                     command.ExecuteNonQuery();
-                });
+                }
+
+                return 0;
+            }, "");
         }
 
         public void DeleteDatabase()
@@ -249,46 +251,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                     parameters
                 },
                 state => ExecuteCommand(state.connection, state.execute, state.sql, state.useTransaction, state.parameters));
-
-        private static void ExecuteBatch<T>(
-            DbConnection connection, bool useTransaction, IEnumerable<T> items, Action<DbCommand, T> execute)
-        {
-            if (connection.State != ConnectionState.Closed)
-            {
-                connection.Close();
-            }
-
-            connection.Open();
-            try
-            {
-                using (var transaction = useTransaction
-                    ? connection.BeginTransaction()
-                    : null)
-                {
-                    foreach (var item in items)
-                    {
-                        new TestJetRetryingExecutionStrategy().Execute(
-                            () =>
-                            {
-                                using (var command = CreateCommand(connection))
-                                {
-                                    command.Transaction = transaction;
-                                    execute(command, item);
-                                }
-                            });
-                    }
-
-                    transaction?.Commit();
-                }
-            }
-            finally
-            {
-                if (connection.State != ConnectionState.Closed)
-                {
-                    connection.Close();
-                }
-            }
-        }
 
         private static T ExecuteCommand<T>(
             DbConnection connection, Func<DbCommand, T> execute, string sql, bool useTransaction, object[] parameters)

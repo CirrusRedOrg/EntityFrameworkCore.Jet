@@ -21,10 +21,10 @@ namespace EntityFrameworkCore.Jet.Data
         private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
         private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
-        private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
-        private static readonly Regex _topMultiParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+top\s+)(?'first'@\w+|\?)(\s)(\+)(\s+)(?'sec'@\w+|\?)", RegexOptions.IgnoreCase);
-        private static readonly Regex _topMultiArgumentRegularExpression = new Regex(@"(?<=(?:^|\s)SELECT\s+TOP\s+)(?'first'\d+|\?)(\s)(\+)(\s+)(?'sec'\d+|\?)", RegexOptions.IgnoreCase);
-        private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+(distinct\s+)??top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topMultiParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+(distinct\s+)??top\s+)(?'first'@\w+|\?)(\s)(\+)(\s+)(?'sec'@\w+|\?)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topMultiArgumentRegularExpression = new Regex(@"(?<=(?:^|\s)SELECT\s+(distinct\s+)??TOP\s+)(?'first'\d+|\?)(\s)(\+)(\s+)(?'sec'\d+|\?)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+(distinct\s+)??top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
         private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline);

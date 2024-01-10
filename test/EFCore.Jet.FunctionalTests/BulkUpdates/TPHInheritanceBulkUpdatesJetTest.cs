@@ -120,20 +120,21 @@ WHERE [a].[Id] IN (
         await base.Delete_where_hierarchy_subquery(async);
 
         AssertSql(
-            """
+"""
 DELETE FROM `Animals` AS `a`
 WHERE `a`.`Id` IN (
     SELECT `t0`.`Id`
     FROM (
-        SELECT TOP 3 `t`.`Id`, `t`.`CountryId`, `t`.`Discriminator`, `t`.`Name`, `t`.`Species`, `t`.`EagleId`, `t`.`IsFlightless`, `t`.`Group`, `t`.`FoundOn`
+        SELECT TOP 3 `t`.`Id`, `t`.`Name`
         FROM (
-            SELECT TOP 3 `a0`.`Id`, `a0`.`CountryId`, `a0`.`Discriminator`, `a0`.`Name`, `a0`.`Species`, `a0`.`EagleId`, `a0`.`IsFlightless`, `a0`.`Group`, `a0`.`FoundOn`
+            SELECT TOP 3 `a0`.`Id`, `a0`.`Name`
             FROM `Animals` AS `a0`
             WHERE `a0`.`Name` = 'Great spotted kiwi'
             ORDER BY `a0`.`Name`
         ) AS `t`
         ORDER BY `t`.`Name` DESC
     ) AS `t0`
+    ORDER BY `t0`.`Name`
 )
 """);
     }

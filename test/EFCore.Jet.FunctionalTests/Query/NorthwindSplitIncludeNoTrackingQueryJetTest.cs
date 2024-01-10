@@ -226,44 +226,52 @@ ORDER BY `t`.`CustomerID`
 
         AssertSql(
 """
-@__p_0='1'
-
-SELECT [c].[CustomerID]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'A%'
-ORDER BY [c].[CustomerID]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
-""",
-//
-"""
-@__p_0='1'
-
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [t].[CustomerID]
+SELECT `t0`.`CustomerID`
 FROM (
-    SELECT [c].[CustomerID]
-    FROM [Customers] AS [c]
-    WHERE [c].[CustomerID] LIKE N'A%'
-    ORDER BY [c].[CustomerID]
-    OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
-) AS [t]
-INNER JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID]
-ORDER BY [t].[CustomerID], [o].[OrderID]
+    SELECT TOP 1 `t`.`CustomerID`
+    FROM (
+        SELECT TOP 2 `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'A%'
+        ORDER BY `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY `t`.`CustomerID` DESC
+) AS `t0`
+ORDER BY `t0`.`CustomerID`
 """,
-//
+            //
 """
-@__p_0='1'
-
-SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice], [t].[CustomerID], [o].[OrderID]
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t0`.`CustomerID`
 FROM (
-    SELECT [c].[CustomerID]
-    FROM [Customers] AS [c]
-    WHERE [c].[CustomerID] LIKE N'A%'
-    ORDER BY [c].[CustomerID]
-    OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
-) AS [t]
-INNER JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID]
-INNER JOIN [Order Details] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-ORDER BY [t].[CustomerID], [o].[OrderID]
+    SELECT TOP 1 `t`.`CustomerID`
+    FROM (
+        SELECT TOP 2 `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'A%'
+        ORDER BY `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY `t`.`CustomerID` DESC
+) AS `t0`
+INNER JOIN `Orders` AS `o` ON `t0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `t0`.`CustomerID`, `o`.`OrderID`
+""",
+            //
+"""
+SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `t0`.`CustomerID`, `o`.`OrderID`
+FROM ((
+    SELECT TOP 1 `t`.`CustomerID`
+    FROM (
+        SELECT TOP 2 `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'A%'
+        ORDER BY `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY `t`.`CustomerID` DESC
+) AS `t0`
+INNER JOIN `Orders` AS `o` ON `t0`.`CustomerID` = `o`.`CustomerID`)
+LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE `o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL
+ORDER BY `t0`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -309,19 +317,19 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `t`,
 (
-    SELECT TOP 2 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+    SELECT TOP 2 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
     FROM (
         SELECT TOP 4 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
         FROM `Customers` AS `c0`
         ORDER BY `c0`.`CustomerID`
-    ) AS `t1`
-    ORDER BY `t1`.`CustomerID` DESC
+    ) AS `t0`
+    ORDER BY `t0`.`CustomerID` DESC
 ) AS `t0`
 ORDER BY `t`.`CustomerID`, `t0`.`CustomerID`
 """,
-                //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t2`.`CustomerID`, `t2`.`CustomerID0`
+            //
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t1`.`CustomerID`, `t1`.`CustomerID0`
 FROM (
     SELECT TOP 1 `t`.`CustomerID`, `t0`.`CustomerID` AS `CustomerID0`
     FROM (
@@ -330,22 +338,22 @@ FROM (
         ORDER BY `c`.`CustomerID`
     ) AS `t`,
     (
-        SELECT TOP 2 `t1`.`CustomerID`
+        SELECT TOP 2 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
-            SELECT TOP 4 `c0`.`CustomerID`
+            SELECT TOP 4 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
             FROM `Customers` AS `c0`
             ORDER BY `c0`.`CustomerID`
-        ) AS `t1`
-        ORDER BY `t1`.`CustomerID` DESC
+        ) AS `t0`
+        ORDER BY `t0`.`CustomerID` DESC
     ) AS `t0`
     ORDER BY `t`.`CustomerID`
-) AS `t2`
-INNER JOIN `Orders` AS `o` ON `t2`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t2`.`CustomerID`, `t2`.`CustomerID0`
+) AS `t1`
+INNER JOIN `Orders` AS `o` ON `t1`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `t1`.`CustomerID`, `t1`.`CustomerID0`
 """,
-                //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t2`.`CustomerID`, `t2`.`CustomerID0`
+            //
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t1`.`CustomerID`, `t1`.`CustomerID0`
 FROM (
     SELECT TOP 1 `t`.`CustomerID`, `t0`.`CustomerID` AS `CustomerID0`
     FROM (
@@ -354,18 +362,18 @@ FROM (
         ORDER BY `c`.`CustomerID`
     ) AS `t`,
     (
-        SELECT TOP 2 `t1`.`CustomerID`
+        SELECT TOP 2 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
-            SELECT TOP 4 `c0`.`CustomerID`
+            SELECT TOP 4 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
             FROM `Customers` AS `c0`
             ORDER BY `c0`.`CustomerID`
-        ) AS `t1`
-        ORDER BY `t1`.`CustomerID` DESC
+        ) AS `t0`
+        ORDER BY `t0`.`CustomerID` DESC
     ) AS `t0`
     ORDER BY `t`.`CustomerID`
-) AS `t2`
-INNER JOIN `Orders` AS `o` ON `t2`.`CustomerID0` = `o`.`CustomerID`
-ORDER BY `t2`.`CustomerID`, `t2`.`CustomerID0`
+) AS `t1`
+INNER JOIN `Orders` AS `o` ON `t1`.`CustomerID0` = `o`.`CustomerID`
+ORDER BY `t1`.`CustomerID`, `t1`.`CustomerID0`
 """);
     }
 
@@ -395,8 +403,8 @@ ORDER BY `c`.`CustomerID`
         await base.Include_duplicate_reference(async);
 
         AssertSql(
-            """
-SELECT `t2`.`OrderID`, `t2`.`CustomerID`, `t2`.`EmployeeID`, `t2`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t2`.`OrderID0`, `t2`.`CustomerID0`, `t2`.`EmployeeID0`, `t2`.`OrderDate0`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+"""
+SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t1`.`OrderID0`, `t1`.`CustomerID0`, `t1`.`EmployeeID0`, `t1`.`OrderDate0`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM ((
     SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t0`.`OrderID` AS `OrderID0`, `t0`.`CustomerID` AS `CustomerID0`, `t0`.`EmployeeID` AS `EmployeeID0`, `t0`.`OrderDate` AS `OrderDate0`
     FROM (
@@ -405,18 +413,22 @@ FROM ((
         ORDER BY `o`.`CustomerID`, `o`.`OrderID`
     ) AS `t`,
     (
-        SELECT TOP 2 `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
+        SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
         FROM (
-            SELECT TOP 4 `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-            FROM `Orders` AS `o0`
-            ORDER BY `o0`.`CustomerID`, `o0`.`OrderID`
+            SELECT TOP 2 `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
+            FROM (
+                SELECT TOP 4 `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                FROM `Orders` AS `o0`
+                ORDER BY `o0`.`CustomerID`, `o0`.`OrderID`
+            ) AS `t0`
+            ORDER BY `t0`.`CustomerID` DESC, `t0`.`OrderID` DESC
         ) AS `t1`
-        ORDER BY `t1`.`CustomerID` DESC, `t1`.`OrderID` DESC
+        ORDER BY `t1`.`CustomerID`, `t1`.`OrderID`
     ) AS `t0`
-) AS `t2`
-LEFT JOIN `Customers` AS `c` ON `t2`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Customers` AS `c0` ON `t2`.`CustomerID0` = `c0`.`CustomerID`
-ORDER BY `t2`.`CustomerID`, `t2`.`OrderID`
+) AS `t1`
+LEFT JOIN `Customers` AS `c` ON `t1`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `t1`.`CustomerID0` = `c0`.`CustomerID`
+ORDER BY `t1`.`CustomerID`, `t1`.`OrderID`
 """);
     }
 
@@ -516,17 +528,17 @@ ORDER BY NOT (`t`.`c`), `t`.`c0`, `t`.`OrderID`, `t`.`CustomerID`
 """
 SELECT `o0`.`CustomerID`
 FROM (
-    SELECT TOP 2 `t`.`OrderID`, `t`.`ProductID`
+    SELECT TOP 2 `t0`.`OrderID`, `t0`.`ProductID`
     FROM (
         SELECT TOP 3 `o`.`OrderID`, `o`.`ProductID`
         FROM `Order Details` AS `o`
         WHERE `o`.`Quantity` = 10
         ORDER BY `o`.`OrderID`, `o`.`ProductID`
-    ) AS `t`
-    ORDER BY `t`.`OrderID` DESC, `t`.`ProductID` DESC
-) AS `t0`
-INNER JOIN `Orders` AS `o0` ON `t0`.`OrderID` = `o0`.`OrderID`
-ORDER BY `t0`.`OrderID`, `t0`.`ProductID`
+    ) AS `t0`
+    ORDER BY `t0`.`OrderID` DESC, `t0`.`ProductID` DESC
+) AS `t`
+INNER JOIN `Orders` AS `o0` ON `t`.`OrderID` = `o0`.`OrderID`
+ORDER BY `t`.`OrderID`, `t`.`ProductID`
 """);
     }
 
@@ -1218,8 +1230,8 @@ ORDER BY `t0`.`CustomerID`, `o`.`OrderID`
         await base.Include_duplicate_reference2(async);
 
         AssertSql(
-            """
-SELECT `t2`.`OrderID`, `t2`.`CustomerID`, `t2`.`EmployeeID`, `t2`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t2`.`OrderID0`, `t2`.`CustomerID0`, `t2`.`EmployeeID0`, `t2`.`OrderDate0`
+"""
+SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t1`.`OrderID0`, `t1`.`CustomerID0`, `t1`.`EmployeeID0`, `t1`.`OrderDate0`
 FROM (
     SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t0`.`OrderID` AS `OrderID0`, `t0`.`CustomerID` AS `CustomerID0`, `t0`.`EmployeeID` AS `EmployeeID0`, `t0`.`OrderDate` AS `OrderDate0`
     FROM (
@@ -1228,17 +1240,21 @@ FROM (
         ORDER BY `o`.`OrderID`
     ) AS `t`,
     (
-        SELECT TOP 2 `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
+        SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
         FROM (
-            SELECT TOP 4 `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-            FROM `Orders` AS `o0`
-            ORDER BY `o0`.`OrderID`
+            SELECT TOP 2 `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
+            FROM (
+                SELECT TOP 4 `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                FROM `Orders` AS `o0`
+                ORDER BY `o0`.`OrderID`
+            ) AS `t0`
+            ORDER BY `t0`.`OrderID` DESC
         ) AS `t1`
-        ORDER BY `t1`.`OrderID` DESC
+        ORDER BY `t1`.`OrderID`
     ) AS `t0`
-) AS `t2`
-LEFT JOIN `Customers` AS `c` ON `t2`.`CustomerID` = `c`.`CustomerID`
-ORDER BY `t2`.`OrderID`
+) AS `t1`
+LEFT JOIN `Customers` AS `c` ON `t1`.`CustomerID` = `c`.`CustomerID`
+ORDER BY `t1`.`OrderID`
 """);
     }
 
@@ -1272,8 +1288,8 @@ ORDER BY `p`.`ProductID`
         await base.Include_duplicate_reference3(async);
 
         AssertSql(
-            """
-SELECT `t2`.`OrderID`, `t2`.`CustomerID`, `t2`.`EmployeeID`, `t2`.`OrderDate`, `t2`.`OrderID0`, `t2`.`CustomerID0`, `t2`.`EmployeeID0`, `t2`.`OrderDate0`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+"""
+SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`, `t1`.`OrderID0`, `t1`.`CustomerID0`, `t1`.`EmployeeID0`, `t1`.`OrderDate0`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (
     SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t0`.`OrderID` AS `OrderID0`, `t0`.`CustomerID` AS `CustomerID0`, `t0`.`EmployeeID` AS `EmployeeID0`, `t0`.`OrderDate` AS `OrderDate0`
     FROM (
@@ -1282,17 +1298,21 @@ FROM (
         ORDER BY `o`.`OrderID`
     ) AS `t`,
     (
-        SELECT TOP 2 `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
+        SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
         FROM (
-            SELECT TOP 4 `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-            FROM `Orders` AS `o0`
-            ORDER BY `o0`.`OrderID`
+            SELECT TOP 2 `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
+            FROM (
+                SELECT TOP 4 `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                FROM `Orders` AS `o0`
+                ORDER BY `o0`.`OrderID`
+            ) AS `t0`
+            ORDER BY `t0`.`OrderID` DESC
         ) AS `t1`
-        ORDER BY `t1`.`OrderID` DESC
+        ORDER BY `t1`.`OrderID`
     ) AS `t0`
-) AS `t2`
-LEFT JOIN `Customers` AS `c` ON `t2`.`CustomerID0` = `c`.`CustomerID`
-ORDER BY `t2`.`OrderID`
+) AS `t1`
+LEFT JOIN `Customers` AS `c` ON `t1`.`CustomerID0` = `c`.`CustomerID`
+ORDER BY `t1`.`OrderID`
 """);
     }
 
@@ -1739,56 +1759,56 @@ WHERE `o`.`CustomerID` = 'ALFKI'
         await base.Multi_level_includes_are_applied_with_skip_take(async);
 
         AssertSql(
-            """
-SELECT TOP 1 `t0`.`CustomerID`
+"""
+SELECT TOP 1 `t`.`CustomerID`
 FROM (
-    SELECT TOP 1 `t`.`CustomerID`
+    SELECT TOP 1 `t0`.`CustomerID`
     FROM (
         SELECT TOP 2 `c`.`CustomerID`
         FROM `Customers` AS `c`
         WHERE `c`.`CustomerID` LIKE 'A%'
         ORDER BY `c`.`CustomerID`
-    ) AS `t`
-    ORDER BY `t`.`CustomerID` DESC
-) AS `t0`
-ORDER BY `t0`.`CustomerID`
+    ) AS `t0`
+    ORDER BY `t0`.`CustomerID` DESC
+) AS `t`
+ORDER BY `t`.`CustomerID`
 """,
             //
-            """
+"""
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t1`.`CustomerID`
 FROM (
-    SELECT TOP 1 `t0`.`CustomerID`
+    SELECT TOP 1 `t`.`CustomerID`
     FROM (
-        SELECT TOP 1 `t`.`CustomerID`
+        SELECT TOP 1 `t0`.`CustomerID`
         FROM (
             SELECT TOP 2 `c`.`CustomerID`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` LIKE 'A%'
             ORDER BY `c`.`CustomerID`
-        ) AS `t`
-        ORDER BY `t`.`CustomerID` DESC
-    ) AS `t0`
-    ORDER BY `t0`.`CustomerID`
+        ) AS `t0`
+        ORDER BY `t0`.`CustomerID` DESC
+    ) AS `t`
+    ORDER BY `t`.`CustomerID`
 ) AS `t1`
 INNER JOIN `Orders` AS `o` ON `t1`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `t1`.`CustomerID`, `o`.`OrderID`
 """,
             //
-            """
+"""
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `t1`.`CustomerID`, `o`.`OrderID`
 FROM ((
-    SELECT TOP 1 `t0`.`CustomerID`
+    SELECT TOP 1 `t`.`CustomerID`
     FROM (
-        SELECT TOP 1 `t`.`CustomerID`
+        SELECT TOP 1 `t0`.`CustomerID`
         FROM (
             SELECT TOP 2 `c`.`CustomerID`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` LIKE 'A%'
             ORDER BY `c`.`CustomerID`
-        ) AS `t`
-        ORDER BY `t`.`CustomerID` DESC
-    ) AS `t0`
-    ORDER BY `t0`.`CustomerID`
+        ) AS `t0`
+        ORDER BY `t0`.`CustomerID` DESC
+    ) AS `t`
+    ORDER BY `t`.`CustomerID`
 ) AS `t1`
 INNER JOIN `Orders` AS `o` ON `t1`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
@@ -2171,19 +2191,19 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `t`,
 (
-    SELECT TOP 2 `t1`.`CustomerID`, `t1`.`Address`, `t1`.`City`, `t1`.`CompanyName`, `t1`.`ContactName`, `t1`.`ContactTitle`, `t1`.`Country`, `t1`.`Fax`, `t1`.`Phone`, `t1`.`PostalCode`, `t1`.`Region`
+    SELECT TOP 2 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
     FROM (
         SELECT TOP 4 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
         FROM `Customers` AS `c0`
         ORDER BY `c0`.`CustomerID`
-    ) AS `t1`
-    ORDER BY `t1`.`CustomerID` DESC
+    ) AS `t0`
+    ORDER BY `t0`.`CustomerID` DESC
 ) AS `t0`
 ORDER BY `t`.`CustomerID`, `t0`.`CustomerID`
 """,
-                //
-                """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t2`.`CustomerID`, `t2`.`CustomerID0`
+            //
+"""
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t1`.`CustomerID`, `t1`.`CustomerID0`
 FROM (
     SELECT TOP 1 `t`.`CustomerID`, `t0`.`CustomerID` AS `CustomerID0`
     FROM (
@@ -2192,18 +2212,18 @@ FROM (
         ORDER BY `c`.`CustomerID`
     ) AS `t`,
     (
-        SELECT TOP 2 `t1`.`CustomerID`
+        SELECT TOP 2 `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
         FROM (
-            SELECT TOP 4 `c0`.`CustomerID`
+            SELECT TOP 4 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
             FROM `Customers` AS `c0`
             ORDER BY `c0`.`CustomerID`
-        ) AS `t1`
-        ORDER BY `t1`.`CustomerID` DESC
+        ) AS `t0`
+        ORDER BY `t0`.`CustomerID` DESC
     ) AS `t0`
     ORDER BY `t`.`CustomerID`
-) AS `t2`
-INNER JOIN `Orders` AS `o` ON `t2`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t2`.`CustomerID`, `t2`.`CustomerID0`
+) AS `t1`
+INNER JOIN `Orders` AS `o` ON `t1`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `t1`.`CustomerID`, `t1`.`CustomerID0`
 """);
     }
 

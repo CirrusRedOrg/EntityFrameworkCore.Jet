@@ -1,6 +1,6 @@
 <Project>
 	<PropertyGroup>
-		<EFCoreVersion>[8.0.0, 9.0.0)</EFCoreVersion>
+		<EFCoreVersion>[8.0.1, 9.0.0)</EFCoreVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -12,7 +12,7 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
 		<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="8.0.0" />
 		<PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
-		<PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
+		<PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0" />
 
 		<!-- EFCore.Jet -->
 		<PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
@@ -28,7 +28,7 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.7.2" />
+		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.8.0" />
 		<PackageReference Update="MSTest.TestAdapter" Version="3.1.1" />
 		<PackageReference Update="MSTest.TestFramework" Version="3.1.1" />
 		<PackageReference Update="coverlet.collector" Version="6.0.0" />
@@ -47,6 +47,6 @@
 		<!-- EFCore.Jet.Tests -->
 		<PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
 		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="8.0.0" />
-		<PackageReference Update="Moq" Version="4.20.69" />
+		<PackageReference Update="Moq" Version="4.20.70" />
 	</ItemGroup>
 </Project>

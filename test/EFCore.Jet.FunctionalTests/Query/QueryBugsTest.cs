@@ -3869,17 +3869,11 @@ WHERE `r`.`MyTime` = #2018-10-07#
                 AssertSql(
                     """
 @__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
-@__keys_0='["0a47bcb7-a1cb-4345-8944-c58f82d6aac7","5f221fb9-66f4-442a-92c9-d97ed5989cc7"]' (Size = 4000)
+@__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
 
-SELECT [t].[Id], [t].[Type]
-FROM [Todos] AS [t]
-WHERE CASE
-    WHEN [t].[Type] = 0 THEN @__key_2
-    ELSE @__key_2
-END IN (
-    SELECT [k].[value]
-    FROM OPENJSON(@__keys_0) WITH ([value] uniqueidentifier '$') AS [k]
-)
+SELECT `t`.`Id`, `t`.`Type`
+FROM `Todos` AS `t`
+WHERE IIF(`t`.`Type` = 0, @__key_2, @__key_2) IN ('{0a47bcb7-a1cb-4345-8944-c58f82d6aac7}', '{5f221fb9-66f4-442a-92c9-d97ed5989cc7}')
 """);
             }
         }

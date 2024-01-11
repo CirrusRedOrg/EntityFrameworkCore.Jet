@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -61,6 +62,10 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                 return shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
             case SelectExpression selectExpression:
                 {
+                    if (selectExpression.Offset is not null && selectExpression.Orderings.Count == 0)
+                    {
+                        throw new InvalidOperationException(JetStrings.SplitQueryOffsetWithoutOrderBy);
+                    }
                     if (selectExpression.Offset is not null && selectExpression.Limit is not null)
                     {
                         SqlExpression offset = selectExpression.Offset!;

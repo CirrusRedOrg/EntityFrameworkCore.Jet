@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -23,6 +24,7 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
     private readonly IRelationalTypeMappingSource _typeMappingSource;
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
     private Stack<SelectExpression> parent = new Stack<SelectExpression>();
+    private readonly QuerySplittingBehavior? _splittingBehavior;
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -31,9 +33,11 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
     /// </summary>
     public JetSkipTakePostprocessor(
         IRelationalTypeMappingSource typeMappingSource,
-        ISqlExpressionFactory sqlExpressionFactory)
+        ISqlExpressionFactory sqlExpressionFactory,
+        QuerySplittingBehavior? splittingBehavior)
     {
         (_typeMappingSource, _sqlExpressionFactory) = (typeMappingSource, sqlExpressionFactory);
+        _splittingBehavior = splittingBehavior;
     }
 
     /// <summary>
@@ -62,11 +66,11 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                 return shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
             case SelectExpression selectExpression:
                 {
-                    if (selectExpression.Offset is not null && selectExpression.Orderings.Count == 0)
+                    if (selectExpression.Orderings.Count == 0 && selectExpression.Offset is not null && _splittingBehavior == QuerySplittingBehavior.SplitQuery)
                     {
                         throw new InvalidOperationException(JetStrings.SplitQueryOffsetWithoutOrderBy);
                     }
-                    if (selectExpression.Offset is not null && selectExpression.Limit is not null)
+                    else if (selectExpression.Offset is not null && selectExpression.Limit is not null)
                     {
                         SqlExpression offset = selectExpression.Offset!;
                         SqlExpression limit = selectExpression.Limit!;
@@ -95,9 +99,7 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                             }
                             else
                             {
-                                {
-                                    selectExpression.ReverseOrderings();
-                                }
+                                selectExpression.ReverseOrderings();
                             }
                         }
                         else

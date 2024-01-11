@@ -3995,21 +3995,21 @@ ORDER BY `t`.`c`
             await base.Include_with_orderby_skip_preserves_ordering(isAsync);
 
             AssertSql(
-                """
-    SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+"""
+SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM (
+    SELECT TOP 5 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
     FROM (
-        SELECT TOP 5 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
-        FROM (
-            SELECT TOP 45 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
-            ORDER BY `c`.`City`, `c`.`CustomerID`
-        ) AS `t`
-        ORDER BY `t`.`City` DESC, `t`.`CustomerID` DESC
-    ) AS `t0`
-    LEFT JOIN `Orders` AS `o` ON `t0`.`CustomerID` = `o`.`CustomerID`
-    ORDER BY `t0`.`City`, `t0`.`CustomerID`
-    """);
+        SELECT TOP 45 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
+        ORDER BY `c`.`City`, `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY `t`.`City` DESC, `t`.`CustomerID` DESC
+) AS `t0`
+LEFT JOIN `Orders` AS `o` ON `t0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `t0`.`City`, `t0`.`CustomerID`
+""");
         }
 
         public override async Task Int16_parameter_can_be_used_for_int_column(bool isAsync)
@@ -5028,7 +5028,7 @@ ORDER BY `t`.`OrderID`, `o0`.`OrderID`
             await base.Collection_projection_skip_take(async);
 
             AssertSql(
-                """
+"""
 SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
     SELECT TOP 10 `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`

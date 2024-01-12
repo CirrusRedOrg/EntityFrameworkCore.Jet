@@ -74,49 +74,37 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                     {
                         SqlExpression offset = selectExpression.Offset!;
                         SqlExpression limit = selectExpression.Limit!;
+                        var total = new SqlBinaryExpression(ExpressionType.Add, offset, limit, typeof(int),
+                            RelationalTypeMapping.NullMapping);
                         MethodInfo? dynMethodO = selectExpression.GetType().GetMethod("set_Offset",
                             BindingFlags.NonPublic | BindingFlags.Instance);
                         MethodInfo? dynMethod1 = selectExpression.GetType().GetMethod("set_Limit",
                             BindingFlags.NonPublic | BindingFlags.Instance);
                         SqlExpression mynullexp = null!;
                         dynMethodO?.Invoke(selectExpression, new object[] { mynullexp });
-                        dynMethod1?.Invoke(selectExpression, new object[] { mynullexp });
-
-                        var total = new SqlBinaryExpression(ExpressionType.Add, offset, limit, typeof(int),
-                            RelationalTypeMapping.NullMapping);
-                        selectExpression.ApplyLimit(total);
+                        dynMethod1?.Invoke(selectExpression, new object[] { total });
 
                         selectExpression.ReverseOrderings();
 
                         selectExpression.ApplyLimit(limit);
 
                         parent.TryPeek(out var parentselect);
-                        if (parentselect != null)
+                        if (parentselect != null && parentselect.Orderings.Count > 0)
                         {
-                            if (parentselect.Orderings.Count > 0)
-                            {
-
-                            }
-                            else
-                            {
-                                selectExpression.ReverseOrderings();
-                            }
                         }
                         else
                         {
                             selectExpression.ReverseOrderings();
                         }
-                        
-
                     }
 
                     parent.Push(selectExpression);
-                    selectExpression = (SelectExpression)base.Visit(selectExpression);
+                    var newselectExpression = (SelectExpression)base.Visit(selectExpression);
                     parent.Pop();
-                    return selectExpression;
+                    return newselectExpression;
                 }
+            default:
+                return base.Visit(expression);
         }
-
-        return base.Visit(expression);
     }
 }

@@ -91,15 +91,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     Sql.Append("DISTINCT ");
                 }
 
-                if (selectExpression.Tags.Contains("DeepSkip"))
-                {
-
-                }
-                else
-                {
-                    GenerateTop(selectExpression);
-                }
-
+                GenerateTop(selectExpression);
 
                 if (selectExpression.Projection.Any())
                 {

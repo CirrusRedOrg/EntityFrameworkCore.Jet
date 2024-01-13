@@ -9480,13 +9480,18 @@ ORDER BY `g`.`Nickname`, `g`.`SquadId`, `g0`.`Nickname`
             await base.ElementAt_basic_with_OrderBy(async);
 
             AssertSql(
-                """
-@__p_0='0'
-
-SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-FROM [Gears] AS [g]
-ORDER BY [g].[FullName]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+"""
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`
+FROM (
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`
+    FROM (
+        SELECT TOP 1 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+        FROM `Gears` AS `g`
+        ORDER BY `g`.`FullName`
+    ) AS `t`
+    ORDER BY `t`.`FullName` DESC
+) AS `t0`
+ORDER BY `t0`.`FullName`
 """);
         }
 
@@ -9495,13 +9500,18 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
             await base.ElementAtOrDefault_basic_with_OrderBy(async);
 
             AssertSql(
-                """
-@__p_0='1'
-
-SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-FROM [Gears] AS [g]
-ORDER BY [g].[FullName]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+"""
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`
+FROM (
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`
+    FROM (
+        SELECT TOP 2 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+        FROM `Gears` AS `g`
+        ORDER BY `g`.`FullName`
+    ) AS `t`
+    ORDER BY `t`.`FullName` DESC
+) AS `t0`
+ORDER BY `t0`.`FullName`
 """);
         }
 
@@ -9510,13 +9520,18 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
             await base.ElementAtOrDefault_basic_with_OrderBy_parameter(async);
 
             AssertSql(
-                """
-@__p_0='2'
-
-SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[Discriminator], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank]
-FROM [Gears] AS [g]
-ORDER BY [g].[FullName]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+"""
+SELECT `t0`.`Nickname`, `t0`.`SquadId`, `t0`.`AssignedCityName`, `t0`.`CityOfBirthName`, `t0`.`Discriminator`, `t0`.`FullName`, `t0`.`HasSoulPatch`, `t0`.`LeaderNickname`, `t0`.`LeaderSquadId`, `t0`.`Rank`
+FROM (
+    SELECT TOP 1 `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`Discriminator`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`
+    FROM (
+        SELECT TOP 3 `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+        FROM `Gears` AS `g`
+        ORDER BY `g`.`FullName`
+    ) AS `t`
+    ORDER BY `t`.`FullName` DESC
+) AS `t0`
+ORDER BY `t0`.`FullName`
 """);
         }
 

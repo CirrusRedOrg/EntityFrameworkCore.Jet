@@ -81,12 +81,6 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         return base.TranslatePrimitiveCollection(sqlExpression, property, tableAlias);
     }
 
-    protected override ShapedQueryExpression? TranslateElementAtOrDefault(ShapedQueryExpression source, Expression index, bool returnDefault)
-    {
-        AddTranslationErrorDetails(JetStrings.QueryingIntoJsonCollectionsNotSupported());
-        return null;
-    }
-
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in

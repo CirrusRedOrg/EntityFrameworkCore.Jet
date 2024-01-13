@@ -6,6 +6,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.TestModels.StoreValueGenerationModel;
 using Microsoft.EntityFrameworkCore.Update;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Update;
@@ -33,14 +34,29 @@ public abstract class StoreValueGenerationJetFixtureBase : StoreValueGenerationF
 
         foreach (var table in tables)
         {
-            builder.AppendLine($"TRUNCATE TABLE {table};");
-        }
-
-        foreach (var sequence in context.Model.GetSequences().Select(s => helper.DelimitIdentifier(s.Name, s.Schema)))
-        {
-            builder.AppendLine($"ALTER SEQUENCE {sequence} RESTART WITH 1;");
+            builder.AppendLine($"DELETE * FROM {table};");
+            if (!table.Contains("WithNoDatabaseGenerated"))
+            {
+                builder.AppendLine($"ALTER TABLE {table} ALTER COLUMN `Id` COUNTER(1,1);");
+            }
         }
 
         return builder.ToString();
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+    {
+        base.OnModelCreating(modelBuilder, context);
+        foreach (var name in new[]
+                 {
+                     nameof(StoreValueGenerationContext.WithSomeDatabaseGenerated),
+                     nameof(StoreValueGenerationContext.WithSomeDatabaseGenerated2)
+                 })
+        {
+            modelBuilder
+                .SharedTypeEntity<StoreValueGenerationData>(name)
+                .Property(w => w.Data1)
+                .HasComputedColumnSql(null);
+        }
     }
 }

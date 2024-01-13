@@ -3930,27 +3930,25 @@ WHERE IIF(`t`.`Type` = 0, @__key_2, @__key_2) IN ('{0a47bcb7-a1cb-4345-8944-c58f
                         }).ToList();
 
                 Assert.Single(partners);
+                //Note - collection order is flipped compared to SQL Server. MS Access has different ordering on ORDER BY columns if same value
                 Assert.Collection(
                     partners[0].Addresses,
                     t =>
                     {
-                        Assert.NotNull(t.Turnovers);
-                        Assert.Equal(10, t.Turnovers.AmountIn);
+                        Assert.Null(t.Turnovers);
                     },
                     t =>
                     {
-                        Assert.Null(t.Turnovers);
+                        Assert.NotNull(t.Turnovers);
+                        Assert.Equal(10, t.Turnovers.AmountIn);
                     });
 
                 AssertSql(
                     """
-SELECT [p].[Id], CASE
-    WHEN [a].[Turnovers_AmountIn] IS NULL THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END, [a].[Turnovers_AmountIn], [a].[Id]
-FROM [Partners] AS [p]
-LEFT JOIN [Address13157] AS [a] ON [p].[Id] = [a].[Partner13157Id]
-ORDER BY [p].[Id]
+SELECT `p`.`Id`, IIF(`a`.`Turnovers_AmountIn` IS NULL, TRUE, FALSE), `a`.`Turnovers_AmountIn`, `a`.`Id`
+FROM `Partners` AS `p`
+LEFT JOIN `Address13157` AS `a` ON `p`.`Id` = `a`.`Partner13157Id`
+ORDER BY `p`.`Id`
 """);
             }
         }
@@ -4121,10 +4119,10 @@ FROM [InventoryPools] AS [i]
 
                 AssertSql(
                     """
-SELECT TOP(1) [p].[Id], [p].[ChildId], [c].[Id], [c].[ParentId], [c].[ULongRowVersion]
-FROM [Parents] AS [p]
-LEFT JOIN [Children] AS [c] ON [p].[ChildId] = [c].[Id]
-ORDER BY [p].[Id]
+SELECT TOP 1 `p`.`Id`, `p`.`ChildId`, `c`.`Id`, `c`.`ParentId`, `c`.`ULongRowVersion`
+FROM `Parents` AS `p`
+LEFT JOIN `Children` AS `c` ON `p`.`ChildId` = `c`.`Id`
+ORDER BY `p`.`Id`
 """);
             }
         }
@@ -4140,10 +4138,10 @@ ORDER BY [p].[Id]
 
                 AssertSql(
                     """
-SELECT TOP(1) [c].[ULongRowVersion]
-FROM [Parents] AS [p]
-LEFT JOIN [Children] AS [c] ON [p].[ChildId] = [c].[Id]
-ORDER BY [p].[Id]
+SELECT TOP 1 `c`.`ULongRowVersion`
+FROM `Parents` AS `p`
+LEFT JOIN `Children` AS `c` ON `p`.`ChildId` = `c`.`Id`
+ORDER BY `p`.`Id`
 """);
             }
         }
@@ -4168,7 +4166,7 @@ ORDER BY [p].[Id]
                     .HasConversion(new NumberToBytesConverter<ulong>())
                     .IsRowVersion()
                     .IsRequired()
-                    .HasColumnType("RowVersion");
+                    .HasColumnType("varchar(8)");
 
                 modelBuilder.Entity<Parent12518>();
             }

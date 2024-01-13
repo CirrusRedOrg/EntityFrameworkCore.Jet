@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
@@ -15,16 +16,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetMemberTranslatorProvider([NotNull] RelationalMemberTranslatorProviderDependencies dependencies)
+        public JetMemberTranslatorProvider([NotNull] RelationalMemberTranslatorProviderDependencies dependencies, IRelationalTypeMappingSource typeMappingSource)
             : base(dependencies)
         {
             var sqlExpressionFactory = (JetSqlExpressionFactory)dependencies.SqlExpressionFactory;
 
-            // ReSharper disable once VirtualMemberCallInConstructor
             AddTranslators(new IMemberTranslator[]
             {
                 new JetDateOnlyMemberTranslator(sqlExpressionFactory),
-                new JetDateTimeMemberTranslator(sqlExpressionFactory),
+                new JetDateTimeMemberTranslator(sqlExpressionFactory, typeMappingSource),
                 new JetStringMemberTranslator(sqlExpressionFactory),
                 new JetTimeSpanMemberTranslator(sqlExpressionFactory),
                 new JetTimeOnlyMemberTranslator(sqlExpressionFactory)

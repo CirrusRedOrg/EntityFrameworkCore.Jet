@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
@@ -16,10 +17,30 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     /// </summary>
     public class JetDateTimeMemberTranslator : IMemberTranslator
     {
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private static readonly Dictionary<string, string> DatePartMapping
+            = new()
+            {
+                { nameof(DateTime.Year), "yyyy" },
+                { nameof(DateTime.Month), "m" },
+                { nameof(DateTime.DayOfYear), "y" },
+                { nameof(DateTime.Day), "d" },
+                { nameof(DateTime.Hour), "h" },
+                { nameof(DateTime.Minute), "n" },
+                { nameof(DateTime.Second), "s" },
+                { nameof(DateTime.DayOfWeek), "w" },
+                //{ nameof(DateTime.Millisecond), "millisecond" }
+            };
 
-        public JetDateTimeMemberTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private readonly IRelationalTypeMappingSource _typeMappingSource;
+
+        public JetDateTimeMemberTranslator(
+            ISqlExpressionFactory sqlExpressionFactory,
+            IRelationalTypeMappingSource typeMappingSource)
+        {
+            _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+            _typeMappingSource = typeMappingSource;
+        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -30,20 +51,34 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (member.DeclaringType == typeof(DateTime) ||
                 member.DeclaringType == typeof(DateTimeOffset))
             {
-                if (instance == null)
+                if (DatePartMapping.TryGetValue(member.Name, out var datePart))
                 {
-                    return member.Name switch
+                    var datePartFunc = _sqlExpressionFactory.Function(
+                        "DATEPART",
+                        new[]
+                        {
+                            _sqlExpressionFactory.Constant(datePart),
+                            instance!,
+                        },
+                        false,
+                        new[] { false },
+                        returnType);
+                    if (datePart == "w")
                     {
-                        nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
-                            false, new[] { false }, returnType),
-                        nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
-                            false, new[] { false }, returnType),
-                        _ => null,
-                    };
+                        return _sqlExpressionFactory.Subtract(
+                            datePartFunc,
+                            _sqlExpressionFactory.Constant(1));
+                    }
+
+                    return datePartFunc;
                 }
 
                 return member.Name switch
                 {
+                    nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                        false, new[] { false }, returnType),
+                    nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                        false, new[] { false }, returnType),
                     nameof(DateTime.Today) => _sqlExpressionFactory.Function(
                         "DATEVALUE",
                         new[]
@@ -55,32 +90,19 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         new[] { false },
                         returnType),
 
-                    nameof(DateTime.Year) => GetDatePartExpression(instance, returnType, "yyyy"),
-                    nameof(DateTime.Month) => GetDatePartExpression(instance, returnType, "m"),
-                    nameof(DateTime.DayOfYear) => GetDatePartExpression(instance, returnType, "y"),
-                    nameof(DateTime.Day) => GetDatePartExpression(instance, returnType, "d"),
-                    nameof(DateTime.Hour) => GetDatePartExpression(instance, returnType, "h"),
-                    nameof(DateTime.Minute) => GetDatePartExpression(instance, returnType, "n"),
-                    nameof(DateTime.Second) => GetDatePartExpression(instance, returnType, "s"),
-                    nameof(DateTime.Millisecond) => null, // Not supported in Jet
-
-                    nameof(DateTime.DayOfWeek) => _sqlExpressionFactory.Subtract(
-                        GetDatePartExpression(instance, returnType, "w"),
-                        _sqlExpressionFactory.Constant(1)),
-
                     nameof(DateTime.Date) => _sqlExpressionFactory.NullChecked(
-                        instance,
+                        instance!,
                         _sqlExpressionFactory.Function(
                             "DATEVALUE",
-                            new[] { instance },
+                            new[] { instance! },
                             false,
                             new[] { false },
                             returnType)),
                     nameof(DateTime.TimeOfDay) => _sqlExpressionFactory.NullChecked(
-                        instance,
+                        instance!,
                         _sqlExpressionFactory.Function(
                             "TIMEVALUE",
-                            new[] { instance },
+                            new[] { instance! },
                             false,
                             new[] { false },
                             returnType)),
@@ -91,23 +113,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 };
             }
             return null;
-        }
-
-        private SqlExpression GetDatePartExpression(
-            SqlExpression instance,
-            Type returnType,
-            string datePart)
-        {
-            return _sqlExpressionFactory.Function(
-                "DATEPART",
-                new[]
-                {
-                    _sqlExpressionFactory.Constant(datePart),
-                    instance,
-                },
-                false,
-                new[] { false },
-                returnType);
         }
     }
 }

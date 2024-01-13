@@ -32,6 +32,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             typeof(ComplexNavigationsCollectionsSharedTypeQueryRelationalTestBase<>),
             typeof(ComplexNavigationsCollectionsSharedTypeQueryTestBase<>),
             typeof(ComplexNavigationsCollectionsSplitSharedTypeQueryRelationalTestBase<>),
+            typeof(UpdatesTestBase<>),
+            typeof(UpdatesRelationalTestBase<>),
             //No user defined functions in MS Access/Jet
             typeof(UdfDbFunctionTestBase<>),
         };

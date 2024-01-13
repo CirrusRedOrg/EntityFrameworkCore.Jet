@@ -1,9 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Linq;
+using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.TestModels.StoreValueGenerationModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Update;
 using Xunit;
@@ -22,7 +26,7 @@ public class StoreValueGenerationIdentityJetTest : StoreValueGenerationTestBase<
         : base(fixture)
     {
         Fixture.TestSqlLoggerFactory.Clear();
-        // Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
     protected override bool ShouldCreateImplicitTransaction(
@@ -31,19 +35,25 @@ public class StoreValueGenerationIdentityJetTest : StoreValueGenerationTestBase<
         GeneratedValues generatedValues,
         bool withSameEntityType)
     {
-        // For multiple operations, we specifically optimize multiple insertions of the same entity type with a single command (e.g. MERGE)
-        // (as long as there are writable columns)
-        if (firstOperationType is EntityState.Added
-            && secondOperationType is EntityState.Added
-            && withSameEntityType
-            && generatedValues != GeneratedValues.All)
+        if (generatedValues is GeneratedValues.Some or GeneratedValues.All
+            && firstOperationType is EntityState.Added or EntityState.Modified)
         {
-            return false;
+            //The GeneratedValues.Some table used to use a complex computed column (Data1 = Data2 + 1). This required getting the output when add or modify.
+            //Since we have overridden it so that we specifiy both Data1 and Data2, the only output is the Id which is only with Add.
+            //Modify does not require an output and will not have an implicit transaction as long as it is the only operation
+            //If there is a second operation, then it will require an implicit transaction
+            return firstOperationType is not EntityState.Modified || generatedValues is not GeneratedValues.Some || secondOperationType is not null;
         }
 
-        // Other single operations should never be in a transaction (always executed in a single SQL command)
         return secondOperationType is not null;
     }
+
+    protected override int ShouldExecuteInNumberOfCommands(
+        EntityState firstOperationType,
+        EntityState? secondOperationType,
+        GeneratedValues generatedValues,
+        bool withDatabaseGenerated)
+        => secondOperationType is null ? 1 : 2;
 
     #region Single operation
 
@@ -53,13 +63,14 @@ public class StoreValueGenerationIdentityJetTest : StoreValueGenerationTestBase<
 
         AssertSql(
 """
-@p0='1000'
+@p0='1001'
+@p1='1000'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [WithSomeDatabaseGenerated] ([Data2])
-OUTPUT INSERTED.[Id], INSERTED.[Data1]
-VALUES (@p0);
+INSERT INTO `WithSomeDatabaseGenerated` (`Data1`, `Data2`)
+VALUES (@p0, @p1);
+SELECT `Id`
+FROM `WithSomeDatabaseGenerated`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """);
     }
 
@@ -73,9 +84,7 @@ VALUES (@p0);
 @p1='1000'
 @p2='1000'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [WithNoDatabaseGenerated] ([Id], [Data1], [Data2])
+INSERT INTO `WithNoDatabaseGenerated` (`Id`, `Data1`, `Data2`)
 VALUES (@p0, @p1, @p2);
 """);
     }
@@ -86,11 +95,11 @@ VALUES (@p0, @p1, @p2);
 
         AssertSql(
 """
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [WithAllDatabaseGenerated]
-OUTPUT INSERTED.[Id], INSERTED.[Data1], INSERTED.[Data2]
+INSERT INTO `WithAllDatabaseGenerated`
 DEFAULT VALUES;
+SELECT `Id`, `Data1`, `Data2`
+FROM `WithAllDatabaseGenerated`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """);
     }
 
@@ -100,14 +109,13 @@ DEFAULT VALUES;
 
         AssertSql(
 """
-@p1='1'
-@p0='1000'
+@p0='1001'
+@p1='1000'
+@p2='1'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-UPDATE [WithSomeDatabaseGenerated] SET [Data2] = @p0
-OUTPUT INSERTED.[Data1]
-WHERE [Id] = @p1;
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -117,15 +125,13 @@ WHERE [Id] = @p1;
 
         AssertSql(
 """
-@p2='1'
 @p0='1000'
 @p1='1000'
+@p2='1'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-UPDATE [WithNoDatabaseGenerated] SET [Data1] = @p0, [Data2] = @p1
-OUTPUT 1
-WHERE [Id] = @p2;
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -137,11 +143,9 @@ WHERE [Id] = @p2;
 """
 @p0='1'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-DELETE FROM [WithSomeDatabaseGenerated]
-OUTPUT 1
-WHERE [Id] = @p0;
+DELETE FROM `WithSomeDatabaseGenerated`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -154,20 +158,27 @@ WHERE [Id] = @p0;
         await base.Add_Add_with_same_entity_type_and_generated_values(async);
 
         AssertSql(
-"""
-@p0='1000'
-@p1='1001'
+            """
+            @p0='1001'
+            @p1='1000'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-MERGE [WithSomeDatabaseGenerated] USING (
-VALUES (@p0, 0),
-(@p1, 1)) AS i ([Data2], _Position) ON 1=0
-WHEN NOT MATCHED THEN
-INSERT ([Data2])
-VALUES (i.[Data2])
-OUTPUT INSERTED.[Id], INSERTED.[Data1], i._Position;
-""");
+            INSERT INTO `WithSomeDatabaseGenerated` (`Data1`, `Data2`)
+            VALUES (@p0, @p1);
+            SELECT `Id`
+            FROM `WithSomeDatabaseGenerated`
+            WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+            """,
+            //
+            """
+            @p0='1002'
+            @p1='1001'
+
+            INSERT INTO `WithSomeDatabaseGenerated` (`Data1`, `Data2`)
+            VALUES (@p0, @p1);
+            SELECT `Id`
+            FROM `WithSomeDatabaseGenerated`
+            WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+            """);
     }
 
     public override async Task Add_Add_with_same_entity_type_and_no_generated_values(bool async)
@@ -179,15 +190,18 @@ OUTPUT INSERTED.[Id], INSERTED.[Data1], i._Position;
 @p0='100'
 @p1='1000'
 @p2='1000'
-@p3='101'
-@p4='1001'
-@p5='1001'
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [WithNoDatabaseGenerated] ([Id], [Data1], [Data2])
-VALUES (@p0, @p1, @p2),
-(@p3, @p4, @p5);
+INSERT INTO `WithNoDatabaseGenerated` (`Id`, `Data1`, `Data2`)
+VALUES (@p0, @p1, @p2);
+""",
+            //
+"""
+@p0='101'
+@p1='1001'
+@p2='1001'
+
+INSERT INTO `WithNoDatabaseGenerated` (`Id`, `Data1`, `Data2`)
+VALUES (@p0, @p1, @p2);
 """);
     }
 
@@ -197,13 +211,19 @@ VALUES (@p0, @p1, @p2),
 
         AssertSql(
 """
-SET NOCOUNT ON;
-INSERT INTO [WithAllDatabaseGenerated]
-OUTPUT INSERTED.[Id], INSERTED.[Data1], INSERTED.[Data2]
+INSERT INTO `WithAllDatabaseGenerated`
 DEFAULT VALUES;
-INSERT INTO [WithAllDatabaseGenerated]
-OUTPUT INSERTED.[Id], INSERTED.[Data1], INSERTED.[Data2]
+SELECT `Id`, `Data1`, `Data2`
+FROM `WithAllDatabaseGenerated`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+""",
+            //
+"""
+INSERT INTO `WithAllDatabaseGenerated`
 DEFAULT VALUES;
+SELECT `Id`, `Data1`, `Data2`
+FROM `WithAllDatabaseGenerated`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """);
     }
 
@@ -213,18 +233,23 @@ DEFAULT VALUES;
 
         AssertSql(
 """
-@p1='1'
-@p0='1000'
-@p3='2'
-@p2='1001'
+@p0='1001'
+@p1='1000'
+@p2='1'
 
-SET NOCOUNT ON;
-UPDATE [WithSomeDatabaseGenerated] SET [Data2] = @p0
-OUTPUT INSERTED.[Data1]
-WHERE [Id] = @p1;
-UPDATE [WithSomeDatabaseGenerated] SET [Data2] = @p2
-OUTPUT INSERTED.[Data1]
-WHERE [Id] = @p3;
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='1002'
+@p1='1001'
+@p2='2'
+
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -234,20 +259,23 @@ WHERE [Id] = @p3;
 
         AssertSql(
 """
-@p2='1'
 @p0='1000'
 @p1='1000'
-@p5='2'
-@p3='1001'
-@p4='1001'
+@p2='1'
 
-SET NOCOUNT ON;
-UPDATE [WithNoDatabaseGenerated] SET [Data1] = @p0, [Data2] = @p1
-OUTPUT 1
-WHERE [Id] = @p2;
-UPDATE [WithNoDatabaseGenerated] SET [Data1] = @p3, [Data2] = @p4
-OUTPUT 1
-WHERE [Id] = @p5;
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='1001'
+@p1='1001'
+@p2='2'
+
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -258,15 +286,18 @@ WHERE [Id] = @p5;
         AssertSql(
 """
 @p0='1'
-@p1='2'
 
-SET NOCOUNT ON;
-DELETE FROM [WithSomeDatabaseGenerated]
-OUTPUT 1
-WHERE [Id] = @p0;
-DELETE FROM [WithSomeDatabaseGenerated]
-OUTPUT 1
-WHERE [Id] = @p1;
+DELETE FROM `WithSomeDatabaseGenerated`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='2'
+
+DELETE FROM `WithSomeDatabaseGenerated`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -279,18 +310,27 @@ WHERE [Id] = @p1;
         await base.Add_Add_with_different_entity_types_and_generated_values(async);
 
         AssertSql(
-"""
-@p0='1000'
-@p1='1001'
+            """
+            @p0='1001'
+            @p1='1000'
 
-SET NOCOUNT ON;
-INSERT INTO [WithSomeDatabaseGenerated] ([Data2])
-OUTPUT INSERTED.[Id], INSERTED.[Data1]
-VALUES (@p0);
-INSERT INTO [WithSomeDatabaseGenerated2] ([Data2])
-OUTPUT INSERTED.[Id], INSERTED.[Data1]
-VALUES (@p1);
-""");
+            INSERT INTO `WithSomeDatabaseGenerated` (`Data1`, `Data2`)
+            VALUES (@p0, @p1);
+            SELECT `Id`
+            FROM `WithSomeDatabaseGenerated`
+            WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+            """,
+            //
+            """
+            @p0='1002'
+            @p1='1001'
+
+            INSERT INTO `WithSomeDatabaseGenerated2` (`Data1`, `Data2`)
+            VALUES (@p0, @p1);
+            SELECT `Id`
+            FROM `WithSomeDatabaseGenerated2`
+            WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+            """);
     }
 
     public override async Task Add_Add_with_different_entity_types_and_no_generated_values(bool async)
@@ -302,15 +342,18 @@ VALUES (@p1);
 @p0='100'
 @p1='1000'
 @p2='1000'
-@p3='101'
-@p4='1001'
-@p5='1001'
 
-SET NOCOUNT ON;
-INSERT INTO [WithNoDatabaseGenerated] ([Id], [Data1], [Data2])
+INSERT INTO `WithNoDatabaseGenerated` (`Id`, `Data1`, `Data2`)
 VALUES (@p0, @p1, @p2);
-INSERT INTO [WithNoDatabaseGenerated2] ([Id], [Data1], [Data2])
-VALUES (@p3, @p4, @p5);
+""",
+            //
+"""
+@p0='101'
+@p1='1001'
+@p2='1001'
+
+INSERT INTO `WithNoDatabaseGenerated2` (`Id`, `Data1`, `Data2`)
+VALUES (@p0, @p1, @p2);
 """);
     }
 
@@ -320,13 +363,19 @@ VALUES (@p3, @p4, @p5);
 
         AssertSql(
 """
-SET NOCOUNT ON;
-INSERT INTO [WithAllDatabaseGenerated]
-OUTPUT INSERTED.[Id], INSERTED.[Data1], INSERTED.[Data2]
+INSERT INTO `WithAllDatabaseGenerated`
 DEFAULT VALUES;
-INSERT INTO [WithAllDatabaseGenerated2]
-OUTPUT INSERTED.[Id], INSERTED.[Data1], INSERTED.[Data2]
+SELECT `Id`, `Data1`, `Data2`
+FROM `WithAllDatabaseGenerated`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+""",
+            //
+"""
+INSERT INTO `WithAllDatabaseGenerated2`
 DEFAULT VALUES;
+SELECT `Id`, `Data1`, `Data2`
+FROM `WithAllDatabaseGenerated2`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """);
     }
 
@@ -336,18 +385,23 @@ DEFAULT VALUES;
 
         AssertSql(
 """
-@p1='1'
-@p0='1000'
-@p3='2'
-@p2='1001'
+@p0='1001'
+@p1='1000'
+@p2='1'
 
-SET NOCOUNT ON;
-UPDATE [WithSomeDatabaseGenerated] SET [Data2] = @p0
-OUTPUT INSERTED.[Data1]
-WHERE [Id] = @p1;
-UPDATE [WithSomeDatabaseGenerated2] SET [Data2] = @p2
-OUTPUT INSERTED.[Data1]
-WHERE [Id] = @p3;
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='1002'
+@p1='1001'
+@p2='2'
+
+UPDATE `WithSomeDatabaseGenerated2` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -357,20 +411,23 @@ WHERE [Id] = @p3;
 
         AssertSql(
 """
-@p2='1'
 @p0='1000'
 @p1='1000'
-@p5='2'
-@p3='1001'
-@p4='1001'
+@p2='1'
 
-SET NOCOUNT ON;
-UPDATE [WithNoDatabaseGenerated] SET [Data1] = @p0, [Data2] = @p1
-OUTPUT 1
-WHERE [Id] = @p2;
-UPDATE [WithNoDatabaseGenerated2] SET [Data1] = @p3, [Data2] = @p4
-OUTPUT 1
-WHERE [Id] = @p5;
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='1001'
+@p1='1001'
+@p2='2'
+
+UPDATE `WithNoDatabaseGenerated2` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -381,15 +438,18 @@ WHERE [Id] = @p5;
         AssertSql(
 """
 @p0='1'
-@p1='2'
 
-SET NOCOUNT ON;
-DELETE FROM [WithSomeDatabaseGenerated]
-OUTPUT 1
-WHERE [Id] = @p0;
-DELETE FROM [WithSomeDatabaseGenerated2]
-OUTPUT 1
-WHERE [Id] = @p1;
+DELETE FROM `WithSomeDatabaseGenerated`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='2'
+
+DELETE FROM `WithSomeDatabaseGenerated2`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
 """);
     }
 
@@ -406,15 +466,21 @@ WHERE [Id] = @p1;
         AssertSql(
 """
 @p0='1'
+
+DELETE FROM `WithSomeDatabaseGenerated`
+WHERE `Id` = @p0;
+SELECT @@ROWCOUNT;
+""",
+            //
+"""
+@p0='1002'
 @p1='1001'
 
-SET NOCOUNT ON;
-DELETE FROM [WithSomeDatabaseGenerated]
-OUTPUT 1
-WHERE [Id] = @p0;
-INSERT INTO [WithSomeDatabaseGenerated] ([Data2])
-OUTPUT INSERTED.[Id], INSERTED.[Data1]
-VALUES (@p1);
+INSERT INTO `WithSomeDatabaseGenerated` (`Data1`, `Data2`)
+VALUES (@p0, @p1);
+SELECT `Id`
+FROM `WithSomeDatabaseGenerated`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """);
     }
 
@@ -427,11 +493,220 @@ VALUES (@p1);
         bool async,
         bool withSameEntityType = true)
     {
-        await base.Test(firstOperationType, secondOperationType, generatedValues, async, withSameEntityType);
+        await using var context = CreateContext();
+
+        var firstDbSet = generatedValues switch
+        {
+            GeneratedValues.Some => context.WithSomeDatabaseGenerated,
+            GeneratedValues.None => context.WithNoDatabaseGenerated,
+            GeneratedValues.All => context.WithAllDatabaseGenerated,
+            _ => throw new ArgumentOutOfRangeException(nameof(generatedValues))
+        };
+
+        var secondDbSet = secondOperationType is null
+            ? null
+            : (generatedValues, withSameEntityType) switch
+            {
+                (GeneratedValues.Some, true) => context.WithSomeDatabaseGenerated,
+                (GeneratedValues.Some, false) => context.WithSomeDatabaseGenerated2,
+                (GeneratedValues.None, true) => context.WithNoDatabaseGenerated,
+                (GeneratedValues.None, false) => context.WithNoDatabaseGenerated2,
+                (GeneratedValues.All, true) => context.WithAllDatabaseGenerated,
+                (GeneratedValues.All, false) => context.WithAllDatabaseGenerated2,
+                _ => throw new ArgumentOutOfRangeException(nameof(generatedValues))
+            };
+
+        StoreValueGenerationData first;
+        StoreValueGenerationData? second;
+
+        switch (firstOperationType)
+        {
+            case EntityState.Added:
+                switch (generatedValues)
+                {
+                    case GeneratedValues.Some:
+                        first = new StoreValueGenerationData { Data2 = 1000 };
+                        first.Data1 = first.Data2 + 1;
+                        firstDbSet.Add(first);
+                        break;
+                    case GeneratedValues.None:
+                        first = new StoreValueGenerationData
+                        {
+                            Id = 100,
+                            Data1 = 1000,
+                            Data2 = 1000
+                        };
+                        firstDbSet.Add(first);
+                        break;
+                    case GeneratedValues.All:
+                        first = new StoreValueGenerationData();
+                        firstDbSet.Add(first);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(generatedValues));
+                }
+
+                break;
+
+            case EntityState.Modified:
+                switch (generatedValues)
+                {
+                    case GeneratedValues.Some:
+                        first = firstDbSet.OrderBy(w => w.Id).First();
+                        first.Data2 = 1000;
+                        first.Data1 = first.Data2 + 1;
+                        break;
+                    case GeneratedValues.None:
+                        first = firstDbSet.OrderBy(w => w.Id).First();
+                        (first.Data1, first.Data2) = (1000, 1000);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(generatedValues));
+                }
+
+                break;
+
+            case EntityState.Deleted:
+                switch (generatedValues)
+                {
+                    case GeneratedValues.Some:
+                        first = firstDbSet.OrderBy(w => w.Id).First();
+                        context.Remove(first);
+                        break;
+                    case GeneratedValues.None:
+                        first = firstDbSet.OrderBy(w => w.Id).First();
+                        context.Remove(first);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(generatedValues));
+                }
+
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(firstOperationType));
+        }
+
+        switch (secondOperationType)
+        {
+            case EntityState.Added:
+                switch (generatedValues)
+                {
+                    case GeneratedValues.Some:
+                        second = new StoreValueGenerationData { Data2 = 1001 };
+                        second.Data1 = second.Data2 + 1;
+                        secondDbSet!.Add(second);
+                        break;
+                    case GeneratedValues.None:
+                        second = new StoreValueGenerationData
+                        {
+                            Id = 101,
+                            Data1 = 1001,
+                            Data2 = 1001
+                        };
+                        secondDbSet!.Add(second);
+                        break;
+                    case GeneratedValues.All:
+                        second = new StoreValueGenerationData();
+                        secondDbSet!.Add(second);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(generatedValues));
+                }
+
+                break;
+
+            case EntityState.Modified:
+                switch (generatedValues)
+                {
+                    case GeneratedValues.Some:
+                        second = secondDbSet!.OrderBy(w => w.Id).Skip(1).First();
+                        second.Data2 = 1001;
+                        second.Data1 = second.Data2 + 1;
+                        break;
+                    case GeneratedValues.None:
+                        second = secondDbSet!.OrderBy(w => w.Id).Skip(1).First();
+                        (second.Data1, second.Data2) = (1001, 1001);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(generatedValues));
+                }
+
+                break;
+
+            case EntityState.Deleted:
+                switch (generatedValues)
+                {
+                    case GeneratedValues.Some:
+                        second = secondDbSet!.OrderBy(w => w.Id).Skip(1).First();
+                        context.Remove(second);
+                        break;
+                    case GeneratedValues.None:
+                        second = secondDbSet!.OrderBy(w => w.Id).Skip(1).First();
+                        context.Remove(second);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(generatedValues));
+                }
+
+                break;
+
+            case null:
+                second = null;
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(firstOperationType));
+        }
+
+        // Execute
+        Fixture.ListLoggerFactory.Clear();
+
+        if (async)
+        {
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            context.SaveChanges();
+        }
+
+        // Make sure a transaction was created (or not)
+        if (ShouldCreateImplicitTransaction(firstOperationType, secondOperationType, generatedValues, withSameEntityType))
+        {
+            Assert.Contains(Fixture.ListLoggerFactory.Log, l => l.Id == RelationalEventId.TransactionStarted);
+            Assert.Contains(Fixture.ListLoggerFactory.Log, l => l.Id == RelationalEventId.TransactionCommitted);
+        }
+        else
+        {
+            Assert.DoesNotContain(Fixture.ListLoggerFactory.Log, l => l.Id == RelationalEventId.TransactionStarted);
+            Assert.DoesNotContain(Fixture.ListLoggerFactory.Log, l => l.Id == RelationalEventId.TransactionCommitted);
+        }
+
+        // Make sure the updates executed in the expected number of commands
+        Assert.Equal(
+            ShouldExecuteInNumberOfCommands(firstOperationType, secondOperationType, generatedValues, withSameEntityType),
+            Fixture.ListLoggerFactory.Log.Count(l => l.Id == RelationalEventId.CommandExecuted));
+
+        // To make sure generated values have been propagated, re-load the rows from the database and compare
+        context.ChangeTracker.Clear();
+
+        using (Fixture.TestSqlLoggerFactory.SuspendRecordingEvents())
+        {
+            if (firstOperationType != EntityState.Deleted)
+            {
+                Assert.Equal(await firstDbSet.FindAsync(first.Id), first);
+            }
+
+            if (second is not null && secondOperationType != EntityState.Deleted)
+            {
+                Assert.Equal(await secondDbSet!.FindAsync(second.Id), second);
+            }
+        }
 
         if (!ShouldCreateImplicitTransaction(firstOperationType, secondOperationType, generatedValues, withSameEntityType))
         {
-            Assert.Contains("SET IMPLICIT_TRANSACTIONS OFF", Fixture.TestSqlLoggerFactory.SqlStatements[0]);
+            //Assert.Contains("SET IMPLICIT_TRANSACTIONS OFF", Fixture.TestSqlLoggerFactory.SqlStatements[0]);
         }
     }
 

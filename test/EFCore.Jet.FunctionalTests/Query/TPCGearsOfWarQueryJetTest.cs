@@ -9707,7 +9707,7 @@ FROM (
 """
 @__p_0='False'
 
-SELECT @__p_0
+SELECT CBOOL(@__p_0)
 FROM (
     SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
     FROM `Gears` AS `g`

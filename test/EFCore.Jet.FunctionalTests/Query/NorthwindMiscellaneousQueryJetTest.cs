@@ -2584,13 +2584,15 @@ ORDER BY IIF(`c`.`Region` IS NULL, 'ZZ', `c`.`Region`), `c`.`CustomerID`");
             await base.Null_Coalesce_Short_Circuit(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
+                $"""
+@__p_0='False'
 
-SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, {AssertSqlHelper.Parameter("@__p_0")} AS `Test`
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, CBOOL({AssertSqlHelper.Parameter("@__p_0")}) AS `Test`
 FROM (
     SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-) AS `t`");
+) AS `t`
+""");
         }
 
         public override async Task Null_Coalesce_Short_Circuit_with_server_correlated_leftover(bool isAsync)
@@ -5687,7 +5689,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
                 """
 @__Any_0='True'
 
-SELECT @__Any_0
+SELECT CBOOL(@__Any_0)
 FROM `Employees` AS `e`,
 `Employees` AS `e0`
 """,

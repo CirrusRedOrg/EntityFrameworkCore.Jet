@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -639,14 +640,16 @@ ORDER BY `t`.`Key`
             await base.GroupBy_param_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                """
+@__a_0='2'
 
-SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, MIN(`t`.`OrderID`) AS `Min`, `t`.`Key`, MAX(`t`.`OrderID`) AS `Max`, AVG(CAST(`t`.`OrderID` AS float)) AS `Avg`
+SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, MIN(`t`.`OrderID`) AS `Min`, `t`.`Key`, MAX(`t`.`OrderID`) AS `Max`, AVG(CDBL(`t`.`OrderID`)) AS `Avg`
 FROM (
-    SELECT `o`.`OrderID`, ? AS `Key`
+    SELECT `o`.`OrderID`, CLNG(@__a_0) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
-GROUP BY `t`.`Key`");
+GROUP BY `t`.`Key`
+""");
         }
 
         public override async Task GroupBy_param_with_element_selector_Select_Sum(bool isAsync)
@@ -654,14 +657,16 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                $"""
+@__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
-    SELECT `o`.`OrderID`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`
+    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
-GROUP BY `t`.`Key`");
+GROUP BY `t`.`Key`
+""");
         }
 
         public override async Task GroupBy_param_with_element_selector_Select_Sum2(bool isAsync)
@@ -669,14 +674,16 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum2(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                $"""
+@__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
-    SELECT `o`.`OrderID`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`
+    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
-GROUP BY `t`.`Key`");
+GROUP BY `t`.`Key`
+""");
         }
 
         public override async Task GroupBy_param_with_element_selector_Select_Sum3(bool isAsync)
@@ -684,14 +691,16 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum3(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                $"""
+@__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`
 FROM (
-    SELECT `o`.`OrderID`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`
+    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
-GROUP BY `t`.`Key`");
+GROUP BY `t`.`Key`
+""");
         }
 
         public override async Task GroupBy_param_with_element_selector_Select_Sum_Min_Key_Max_Avg(bool isAsync)
@@ -699,13 +708,16 @@ GROUP BY `t`.`Key`");
             await base.GroupBy_param_with_element_selector_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $@"@__a_0='2'
+                $"""
+@__a_0='2'
+
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, `t`.`Key`
 FROM (
-    SELECT `o`.`OrderID`, {AssertSqlHelper.Parameter("@__a_0")} AS `Key`
+    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
-GROUP BY `t`.`Key`");
+GROUP BY `t`.`Key`
+""");
         }
 
         public override async Task GroupBy_anonymous_key_type_mismatch_with_aggregate(bool isAsync)

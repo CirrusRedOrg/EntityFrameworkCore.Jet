@@ -169,7 +169,7 @@ GROUP BY `a`.`FirstName`
 """
 @__p_0='False'
 
-SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, @__p_0 AS `logicExpression`
+SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, CBOOL(@__p_0) AS `logicExpression`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
 """);

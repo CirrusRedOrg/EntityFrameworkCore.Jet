@@ -7026,7 +7026,7 @@ FROM `Gears` AS `g`
 """
 @__p_0='False'
 
-SELECT @__p_0
+SELECT CBOOL(@__p_0)
 FROM `Gears` AS `g`
 """);
         }

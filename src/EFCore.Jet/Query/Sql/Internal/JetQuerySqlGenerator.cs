@@ -502,6 +502,29 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Sql.Append(")");
                 return sqlParameterExpression;
             }
+
+            //GroupBy_param_Select_Sum_Min_Key_Max_Avg
+            //Subquery has parameter as a projection with alias
+            //Parent query references that alias in the GroupBy and in the outer projection
+            //Query returns a variant object of value NULL instead of the expected type (in this case integer)
+            //Nullable object must have a value
+            //Specifically converting the parameter to its type fixes the problem
+            //This does do it for all cases which changes the SQL
+            //Don't have the required info in this function to detect the specific prerequisites for this problem
+            //TODO: Optimize elsewhere if possible - Expression Visitor?
+            if (parent.TryPeek(out var parentexp))
+            {
+                if (parentexp is ProjectionExpression { Alias: not null })
+                {
+                    if (_convertMappings.TryGetValue(sqlParameterExpression.Type.Name, out var conv))
+                    {
+                        Sql.Append($"{conv}(");
+                        base.VisitSqlParameter(sqlParameterExpression);
+                        Sql.Append(")");
+                        return sqlParameterExpression;
+                    }
+                }
+            }
             return base.VisitSqlParameter(sqlParameterExpression);
         }
 

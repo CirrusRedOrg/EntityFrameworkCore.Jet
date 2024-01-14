@@ -144,10 +144,12 @@ WHERE `e`.`EmployeeID` = 1");
             await base.Select_bool_closure_with_order_parameter_with_cast_to_nullable(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__boolean_0='False'")}
+                $"""
+@__boolean_0='False'
 
-SELECT {AssertSqlHelper.Parameter("@__boolean_0")}
-FROM `Customers` AS `c`");
+SELECT CBOOL({AssertSqlHelper.Parameter("@__boolean_0")})
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_scalar(bool isAsync)
@@ -238,10 +240,12 @@ FROM `Customers` AS `c`");
             await base.Select_local(isAsync);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__x_0='10'")}
+                $"""
+@__x_0='10'
 
-SELECT {AssertSqlHelper.Parameter("@__x_0")}
-FROM `Customers` AS `c`");
+SELECT CLNG({AssertSqlHelper.Parameter("@__x_0")})
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_scalar_primitive_after_take(bool isAsync)

@@ -24,13 +24,16 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            return _methodInfo.Equals(method)
+            /*(return _methodInfo.Equals(method)
                 ? _sqlExpressionFactory.Function(
                     "NEWGUID",
                     Array.Empty<SqlExpression>(),
                     false,
                     new[] { false },
                     method.ReturnType)
+                : null;*/
+            return _methodInfo.Equals(method)
+                ? _sqlExpressionFactory.Constant(Guid.NewGuid(), method.ReturnType)
                 : null;
         }
     }

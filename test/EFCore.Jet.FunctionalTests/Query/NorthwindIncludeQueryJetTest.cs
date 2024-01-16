@@ -274,23 +274,24 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`
             await base.Include_collection_order_by_collection_column(async);
 
             AssertSql(
-                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+                """
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
-    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-        SELECT TOP 1 `o`.`OrderDate`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-        ORDER BY `o`.`OrderDate` DESC) AS `c`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'W' & '%'
-    ORDER BY (
-        SELECT TOP 1 `o`.`OrderDate`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-        ORDER BY `o`.`OrderDate` DESC) DESC
+    SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
+    FROM (
+        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+            SELECT TOP 1 `o`.`OrderDate`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+            ORDER BY `o`.`OrderDate` DESC) AS `c`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'W%'
+    ) AS `t`
+    ORDER BY `t`.`c` DESC
 ) AS `t`
 LEFT JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `t`.`c` DESC, `t`.`CustomerID`, `o0`.`OrderID`");
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`
+""");
         }
 
         public override async Task Include_collection_order_by_key(bool async)
@@ -1065,27 +1066,28 @@ ORDER BY `t`.`c`, `t`.`c0`, `t`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`");
             await base.Then_include_collection_order_by_collection_column(async);
 
             AssertSql(
-                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`
+                """
+SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`
 FROM (
-    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-        SELECT TOP 1 `o`.`OrderDate`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-        ORDER BY `o`.`OrderDate` DESC) AS `c`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'W' & '%'
-    ORDER BY (
-        SELECT TOP 1 `o`.`OrderDate`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-        ORDER BY `o`.`OrderDate` DESC) DESC
+    SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
+    FROM (
+        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+            SELECT TOP 1 `o`.`OrderDate`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+            ORDER BY `o`.`OrderDate` DESC) AS `c`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'W%'
+    ) AS `t`
+    ORDER BY `t`.`c` DESC
 ) AS `t`
 LEFT JOIN (
     SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o1`.`OrderID` AS `OrderID0`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
     FROM `Orders` AS `o0`
     LEFT JOIN `Order Details` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
 ) AS `t0` ON `t`.`CustomerID` = `t0`.`CustomerID`
-ORDER BY `t`.`c` DESC, `t`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID0`, `t0`.`ProductID`");
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID0`
+""");
         }
 
         public override async Task Include_collection_with_conditional_order_by(bool async)

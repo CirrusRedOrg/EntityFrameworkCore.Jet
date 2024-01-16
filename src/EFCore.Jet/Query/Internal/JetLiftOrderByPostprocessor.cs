@@ -55,7 +55,21 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
         switch (expression)
         {
             case ShapedQueryExpression shapedQueryExpression:
-                return shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
+                shapedQueryExpression = shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
+                //shapedQueryExpression = shapedQueryExpression.UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
+                Visit(shapedQueryExpression.ShaperExpression);
+                return shapedQueryExpression;
+            case RelationalSplitCollectionShaperExpression relationalSplitCollectionShaperExpression:
+                foreach (var table in relationalSplitCollectionShaperExpression.SelectExpression.Tables)
+                {
+                    Visit(table);
+                }
+
+                Visit(relationalSplitCollectionShaperExpression.InnerShaper);
+
+                return relationalSplitCollectionShaperExpression;
+            case NonQueryExpression nonQueryExpression:
+                return nonQueryExpression;
             case SelectExpression selectExpression:
                 {
                     Dictionary<int, (int? indexcol, OrderingExpression? orderexp, bool ascend, bool rewrite, bool referstocurouter)> columnsToRewrite = new();
@@ -72,6 +86,15 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                             {
                                 int index = selectExpression.AddToProjection(sqlExpression);
                                 columnsToRewrite.Add(i, (index, null, selectExpression.Orderings[i].IsAscending, true, false));
+                            }
+
+                            if (locatedExpression is SqlFunctionExpression)
+                            {
+                                var existingIndex = selectExpression.Projection.ToList().FindIndex(pe => pe.Expression.Equals(sqlExpression));
+                                if (existingIndex != -1)
+                                {
+                                    columnsToRewrite.Add(i, (existingIndex, null, selectExpression.Orderings[i].IsAscending, true, false));
+                                }
                             }
                         }
                         else
@@ -111,7 +134,20 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                     }
 
                     selectExpression.ClearOrdering();
-                    selectExpression.PushdownIntoSubquery();
+                    //Keep the limit in parent expression
+                    if (selectExpression.Limit != null)
+                    {
+                        var limit = selectExpression.Limit;
+                        selectExpression = selectExpression.Update(selectExpression.Projection, selectExpression.Tables,
+                            selectExpression.Predicate, selectExpression.GroupBy, selectExpression.Having,
+                            selectExpression.Orderings, null, null);
+                        selectExpression.PushdownIntoSubquery();
+                        selectExpression.ApplyLimit(limit);
+                    }
+                    else
+                    {
+                        selectExpression.PushdownIntoSubquery();
+                    }
 
                     for (int j = 0; j < columnsToRewrite.Count; j++)
                     {

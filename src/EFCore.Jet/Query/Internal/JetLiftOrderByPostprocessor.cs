@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -56,17 +57,14 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
         {
             case ShapedQueryExpression shapedQueryExpression:
                 shapedQueryExpression = shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
-                //shapedQueryExpression = shapedQueryExpression.UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
-                Visit(shapedQueryExpression.ShaperExpression);
+                shapedQueryExpression = shapedQueryExpression.UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
                 return shapedQueryExpression;
             case RelationalSplitCollectionShaperExpression relationalSplitCollectionShaperExpression:
-                foreach (var table in relationalSplitCollectionShaperExpression.SelectExpression.Tables)
-                {
-                    Visit(table);
-                }
-
-                Visit(relationalSplitCollectionShaperExpression.InnerShaper);
-
+                var newSelect = Visit(relationalSplitCollectionShaperExpression.SelectExpression);
+                var newInner = Visit(relationalSplitCollectionShaperExpression.InnerShaper);
+                relationalSplitCollectionShaperExpression = relationalSplitCollectionShaperExpression.Update(
+                    relationalSplitCollectionShaperExpression.ParentIdentifier,
+                    relationalSplitCollectionShaperExpression.ChildIdentifier, (SelectExpression)newSelect, newInner);
                 return relationalSplitCollectionShaperExpression;
             case NonQueryExpression nonQueryExpression:
                 return nonQueryExpression;
@@ -77,7 +75,7 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                     for (int i = 0; i < selectExpression.Orderings.Count; i++)
                     {
                         var sqlExpression = selectExpression.Orderings[i].Expression;
-                        if (sqlExpression is not ColumnExpression)
+                        if (sqlExpression is not ColumnExpression && sqlExpression is not SqlConstantExpression && sqlExpression is not SqlParameterExpression)
                         {
                             var locate = new JetLocateScalarSubqueryVisitor(_typeMappingSource, _sqlExpressionFactory);
                             var locatedExpression = locate.Visit(sqlExpression);
@@ -86,51 +84,32 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                             {
                                 int index = selectExpression.AddToProjection(sqlExpression);
                                 columnsToRewrite.Add(i, (index, null, selectExpression.Orderings[i].IsAscending, true, false));
+                                continue;
                             }
 
-                            if (locatedExpression is SqlFunctionExpression)
+                            var existingIndex = selectExpression.Projection.ToList().FindIndex(pe => pe.Expression.Equals(sqlExpression));
+                            if (existingIndex != -1)
                             {
-                                var existingIndex = selectExpression.Projection.ToList().FindIndex(pe => pe.Expression.Equals(sqlExpression));
-                                if (existingIndex != -1)
-                                {
-                                    columnsToRewrite.Add(i, (existingIndex, null, selectExpression.Orderings[i].IsAscending, true, false));
-                                }
+                                columnsToRewrite.Add(i, (existingIndex, null, selectExpression.Orderings[i].IsAscending, true, false));
                             }
                         }
                         else
                         {
-                            var foundproj = selectExpression.Projection.FirstOrDefault(p =>
-                                p.Expression.Equals(sqlExpression));
-                            if (foundproj == null && sqlExpression is ColumnExpression colexp && !selectExpression.Tables.Contains(colexp.Table))
-                            {
-                                var ix = selectExpression.AddToProjection(sqlExpression);
-                                columnsToRewrite.Add(i, (ix, null, selectExpression.Orderings[i].IsAscending, false, false));
-                            }
-                            else
+                            var existingIndex = selectExpression.Projection.ToList().FindIndex(pe => pe.Expression.Equals(sqlExpression));
+                            if (existingIndex != -1)
                             {
                                 bool referouter = sqlExpression is ColumnExpression colexp1 &&
-                                                  selectExpression.Tables.Contains(colexp1.Table);
+                                    selectExpression.Tables.Contains(colexp1.Table);
                                 columnsToRewrite.Add(i,
-                                    (null, selectExpression.Orderings[i], selectExpression.Orderings[i].IsAscending, false, referouter));
+                                    (existingIndex, selectExpression.Orderings[i], selectExpression.Orderings[i].IsAscending, false, referouter));
                             }
+                            
                         }
                     }
 
                     if (columnsToRewrite.Count == 0 || columnsToRewrite.All(p => p.Value.rewrite == false))
                     {
                         return base.Visit(expression);
-                    }
-
-                    for (int A = 0; A < columnsToRewrite.Count; A++)
-                    {
-                        if (!columnsToRewrite[A].referstocurouter)
-                        {
-                            continue;
-                        }
-                        var col = columnsToRewrite[A].orderexp!.Expression as ColumnExpression;
-                        var colitem = columnsToRewrite[A];
-                        colitem.indexcol = selectExpression.AddToProjection(col!);
-                        columnsToRewrite[A] = colitem;
                     }
 
                     selectExpression.ClearOrdering();

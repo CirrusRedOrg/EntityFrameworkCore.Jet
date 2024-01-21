@@ -3845,9 +3845,12 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`)
+SELECT `t`.`A`
+FROM (
+    SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
+    FROM `Customers` AS `c`
+) AS `t`
+ORDER BY `t`.`A`
 """);
         }
 

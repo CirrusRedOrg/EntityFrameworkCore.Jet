@@ -5797,10 +5797,13 @@ ORDER BY NOT (IIF(`w`.`Name` = 'Marcus'' Lancer' AND `w`.`Name` IS NOT NULL, TRU
 
             AssertSql(
                 """
+SELECT `t`.`Binary`
+FROM (
     SELECT `w`.`Id` + 2 AS `Binary`
     FROM `Weapons` AS `w`
-    ORDER BY `w`.`Id` + 2
-    """);
+) AS `t`
+ORDER BY `t`.`Binary`
+""");
         }
 
         public override async Task String_compare_with_null_conditional_argument(bool isAsync)

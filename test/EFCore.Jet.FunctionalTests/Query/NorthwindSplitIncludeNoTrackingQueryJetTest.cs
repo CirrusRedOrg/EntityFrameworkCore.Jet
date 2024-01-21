@@ -150,35 +150,37 @@ ORDER BY [t].[c], [t].[CustomerID]
         await base.Include_collection_order_by_collection_column(async);
 
         AssertSql(
-"""
-SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'W%'
-ORDER BY (
-    SELECT TOP(1) [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderDate] DESC) DESC, [c].[CustomerID]
-""",
-//
-"""
-SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate], [t].[CustomerID]
+            """
+SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
 FROM (
-    SELECT TOP(1) [c].[CustomerID], (
-        SELECT TOP(1) [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-        ORDER BY [o].[OrderDate] DESC) AS [c]
-    FROM [Customers] AS [c]
-    WHERE [c].[CustomerID] LIKE N'W%'
-    ORDER BY (
-        SELECT TOP(1) [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-        ORDER BY [o].[OrderDate] DESC) DESC
-) AS [t]
-INNER JOIN [Orders] AS [o0] ON [t].[CustomerID] = [o0].[CustomerID]
-ORDER BY [t].[c] DESC, [t].[CustomerID]
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT TOP 1 `o0`.`OrderDate`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+        ORDER BY `o0`.`OrderDate` DESC) AS `c`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'W%'
+) AS `t`
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`
+""",
+            //
+            """
+SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `t`.`CustomerID`
+FROM (
+    SELECT TOP 1 `t`.`CustomerID`, `t`.`c`
+    FROM (
+        SELECT `c`.`CustomerID`, (
+            SELECT TOP 1 `o`.`OrderDate`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+            ORDER BY `o`.`OrderDate` DESC) AS `c`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'W%'
+    ) AS `t`
+    ORDER BY `t`.`c` DESC
+) AS `t`
+INNER JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`
 """);
     }
 
@@ -500,20 +502,23 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
         await base.Include_collection_with_multiple_conditional_order_by(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 ORDER BY NOT (IIF(`o`.`OrderID` > 0, TRUE, FALSE)), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, ''), `o`.`OrderID`, `c`.`CustomerID`
 """,
-//
-"""
+            //
+            """
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `t`.`OrderID`, `t`.`CustomerID`
 FROM (
-    SELECT TOP 5 `o`.`OrderID`, `c`.`CustomerID`, IIF(`o`.`OrderID` > 0, TRUE, FALSE) AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
-    FROM `Orders` AS `o`
-    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-    ORDER BY NOT (IIF(`o`.`OrderID` > 0, TRUE, FALSE)), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '')
+    SELECT TOP 5 `t`.`OrderID`, `t`.`CustomerID`, `t`.`c`, `t`.`c0`
+    FROM (
+        SELECT `o`.`OrderID`, `c`.`CustomerID`, IIF(`o`.`OrderID` > 0, TRUE, FALSE) AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
+        FROM `Orders` AS `o`
+        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY NOT (`t`.`c`), `t`.`c0`
 ) AS `t`
 INNER JOIN `Order Details` AS `o0` ON `t`.`OrderID` = `o0`.`OrderID`
 ORDER BY NOT (`t`.`c`), `t`.`c0`, `t`.`OrderID`, `t`.`CustomerID`
@@ -1345,55 +1350,61 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
         AssertSql(
 """
-SELECT TOP(1) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'W%'
-ORDER BY (
-    SELECT TOP(1) [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderDate] DESC) DESC, [c].[CustomerID]
-""",
-//
-"""
-SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate], [t].[CustomerID]
+SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
 FROM (
-    SELECT TOP(1) [c].[CustomerID], (
-        SELECT TOP(1) [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-        ORDER BY [o].[OrderDate] DESC) AS [c]
-    FROM [Customers] AS [c]
-    WHERE [c].[CustomerID] LIKE N'W%'
-    ORDER BY (
-        SELECT TOP(1) [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-        ORDER BY [o].[OrderDate] DESC) DESC
-) AS [t]
-INNER JOIN [Orders] AS [o0] ON [t].[CustomerID] = [o0].[CustomerID]
-ORDER BY [t].[c] DESC, [t].[CustomerID], [o0].[OrderID]
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT TOP 1 `o0`.`OrderDate`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+        ORDER BY `o0`.`OrderDate` DESC) AS `c`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'W%'
+) AS `t`
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`
 """,
-//
-"""
-SELECT [o1].[OrderID], [o1].[ProductID], [o1].[Discount], [o1].[Quantity], [o1].[UnitPrice], [t].[CustomerID], [o0].[OrderID]
+                //
+                """
+SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `t`.`CustomerID`
 FROM (
-    SELECT TOP(1) [c].[CustomerID], (
-        SELECT TOP(1) [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-        ORDER BY [o].[OrderDate] DESC) AS [c]
-    FROM [Customers] AS [c]
-    WHERE [c].[CustomerID] LIKE N'W%'
-    ORDER BY (
-        SELECT TOP(1) [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-        ORDER BY [o].[OrderDate] DESC) DESC
-) AS [t]
-INNER JOIN [Orders] AS [o0] ON [t].[CustomerID] = [o0].[CustomerID]
-INNER JOIN [Order Details] AS [o1] ON [o0].[OrderID] = [o1].[OrderID]
-ORDER BY [t].[c] DESC, [t].[CustomerID], [o0].[OrderID]
+    SELECT TOP 1 `t`.`CustomerID`, `t`.`c`
+    FROM (
+        SELECT `c`.`CustomerID`, (
+            SELECT TOP 1 `o`.`OrderDate`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+            ORDER BY `o`.`OrderDate` DESC) AS `c`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'W%'
+    ) AS `t`
+    ORDER BY `t`.`c` DESC
+) AS `t`
+INNER JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`, `o0`.`OrderID`
+""",
+                //
+                """
+SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`, `t`.`CustomerID`, `o0`.`OrderID`
+FROM ((
+    SELECT TOP 1 `t`.`CustomerID`, `t`.`c`, `t`.`c0`
+    FROM (
+        SELECT `c`.`CustomerID`, (
+            SELECT TOP 1 `o`.`OrderDate`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+            ORDER BY `o`.`OrderDate` DESC) AS `c`, (
+            SELECT TOP 1 `o1`.`OrderDate`
+            FROM `Orders` AS `o1`
+            WHERE `c`.`CustomerID` = `o1`.`CustomerID`
+            ORDER BY `o1`.`OrderDate` DESC) AS `c0`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'W%'
+    ) AS `t`
+    ORDER BY `t`.`c0` DESC
+) AS `t`
+INNER JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`)
+LEFT JOIN `Order Details` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+WHERE `o0`.`OrderID` IS NOT NULL AND `o1`.`OrderID` IS NOT NULL
+ORDER BY `t`.`c` DESC, `t`.`CustomerID`, `o0`.`OrderID`
 """);
     }
 
@@ -1822,20 +1833,23 @@ ORDER BY `t1`.`CustomerID`, `o`.`OrderID`
         await base.Repro9735(async);
 
         AssertSql(
-        """
+            """
 SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 ORDER BY NOT (IIF(`c`.`CustomerID` IS NOT NULL, TRUE, FALSE)), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, ''), `o`.`OrderID`, `c`.`CustomerID`
 """,
-        //
-        """
+            //
+            """
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `t`.`OrderID`, `t`.`CustomerID`
 FROM (
-    SELECT TOP 2 `o`.`OrderID`, `c`.`CustomerID`, IIF(`c`.`CustomerID` IS NOT NULL, TRUE, FALSE) AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
-    FROM `Orders` AS `o`
-    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-    ORDER BY NOT (IIF(`c`.`CustomerID` IS NOT NULL, TRUE, FALSE)), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '')
+    SELECT TOP 2 `t`.`OrderID`, `t`.`CustomerID`, `t`.`c`, `t`.`c0`
+    FROM (
+        SELECT `o`.`OrderID`, `c`.`CustomerID`, IIF(`c`.`CustomerID` IS NOT NULL, TRUE, FALSE) AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
+        FROM `Orders` AS `o`
+        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    ) AS `t`
+    ORDER BY NOT (`t`.`c`), `t`.`c0`
 ) AS `t`
 INNER JOIN `Order Details` AS `o0` ON `t`.`OrderID` = `o0`.`OrderID`
 ORDER BY NOT (`t`.`c`), `t`.`c0`, `t`.`OrderID`, `t`.`CustomerID`

@@ -8117,10 +8117,13 @@ ORDER BY NOT (IIF(`w`.`Name` = 'Marcus'' Lancer' AND `w`.`Name` IS NOT NULL, TRU
         await base.Double_order_by_binary_expression(async);
 
         AssertSql(
-"""
-SELECT `w`.`Id` + 2 AS `Binary`
-FROM `Weapons` AS `w`
-ORDER BY `w`.`Id` + 2
+            """
+SELECT `t`.`Binary`
+FROM (
+    SELECT `w`.`Id` + 2 AS `Binary`
+    FROM `Weapons` AS `w`
+) AS `t`
+ORDER BY `t`.`Binary`
 """);
     }
 

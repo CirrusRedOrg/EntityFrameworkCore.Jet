@@ -3573,16 +3573,19 @@ FROM (
             await base.OrderBy_coalesce_skip_take_distinct(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT DISTINCT `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
 FROM (
     SELECT `t1`.`ProductID`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice`, `t1`.`UnitsInStock`
     FROM (
         SELECT TOP 15 `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`, `t0`.`c`
         FROM (
-            SELECT TOP 20 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
-            FROM `Products` AS `p`
-            ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
+            SELECT TOP 20 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`, `t`.`c`
+            FROM (
+                SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
+                FROM `Products` AS `p`
+            ) AS `t`
+            ORDER BY `t`.`c`
         ) AS `t0`
         ORDER BY `t0`.`c` DESC
     ) AS `t1`
@@ -3596,16 +3599,19 @@ FROM (
             await base.OrderBy_coalesce_skip_take_distinct_take(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT DISTINCT TOP 5 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`
 FROM (
     SELECT `t1`.`ProductID`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice`, `t1`.`UnitsInStock`
     FROM (
         SELECT TOP 15 `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`, `t0`.`c`
         FROM (
-            SELECT TOP 20 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
-            FROM `Products` AS `p`
-            ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
+            SELECT TOP 20 `t`.`ProductID`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice`, `t`.`UnitsInStock`, `t`.`c`
+            FROM (
+                SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
+                FROM `Products` AS `p`
+            ) AS `t`
+            ORDER BY `t`.`c`
         ) AS `t0`
         ORDER BY `t0`.`c` DESC
     ) AS `t1`
@@ -3839,9 +3845,12 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`)
+SELECT `t`.`A`
+FROM (
+    SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
+    FROM `Customers` AS `c`
+) AS `t`
+ORDER BY `t`.`A`
 """);
         }
 

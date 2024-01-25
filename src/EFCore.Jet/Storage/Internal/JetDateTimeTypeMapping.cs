@@ -39,6 +39,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         protected override void ConfigureParameter(DbParameter parameter)
         {
+            if (parameter.Value is DateTime { Ticks: 0 })
+            {
+                parameter.Value = DateTime.FromOADate(0);
+            }
             base.ConfigureParameter(parameter);
 
             if (_options.EnableMillisecondsSupport &&
@@ -63,7 +67,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         public virtual string GenerateNonNullSqlLiteral(object value, bool defaultClauseCompatible)
         {
             var dateTime = ConvertToDateTimeCompatibleValue(value);
-
+            if (dateTime is DateTime { Ticks: 0 })
+            {
+                dateTime = DateTime.FromOADate(0);
+            }
             dateTime = CheckDateTimeValue(dateTime);
 
             var literal = new StringBuilder();

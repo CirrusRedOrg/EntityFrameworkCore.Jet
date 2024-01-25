@@ -1,5 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Data.Odbc;
+using System.Data.OleDb;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
@@ -67,22 +69,16 @@ FROM `Alphabetical list of products` AS `a`
 
         public override async Task KeylessEntity_with_nav_defining_query(bool isAsync)
         {
-            await base.KeylessEntity_with_nav_defining_query(isAsync);
-
-            AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__ef_filter___searchTerm_0='A' (Size = 4000)")}
-
-{AssertSqlHelper.Declaration("@__ef_filter___searchTerm_1='A' (Size = 4000)")}
-
-SELECT `c`.`CompanyName`, (
-    SELECT COUNT(*)
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `OrderCount`, {AssertSqlHelper.Parameter("@__ef_filter___searchTerm_0")} AS `SearchTerm`
-FROM `Customers` AS `c`
-WHERE (({AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")} = '') OR (`c`.`CompanyName` IS NOT NULL AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")})) = {AssertSqlHelper.Parameter("@__ef_filter___searchTerm_1")}))) AND ((
-    SELECT COUNT(*)
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 0)");
+            // FromSql mapping. Issue #21627.
+            var testStore = (JetTestStore)Fixture.TestStore;
+            if (testStore.IsOleDb())
+            {
+                await Assert.ThrowsAsync<OleDbException>(() => base.KeylessEntity_with_nav_defining_query(isAsync));
+            }
+            else
+            {
+                await Assert.ThrowsAsync<OdbcException>(() => base.KeylessEntity_with_nav_defining_query(isAsync));
+            }
         }
 
         public override async Task KeylessEntity_with_mixed_tracking(bool isAsync)

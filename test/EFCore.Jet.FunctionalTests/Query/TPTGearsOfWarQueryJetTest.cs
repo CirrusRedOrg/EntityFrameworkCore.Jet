@@ -9833,14 +9833,21 @@ WHERE `m`.`CodeName` = 'Operation Foobar'
 
     public override async Task ToString_guid_property_projection(bool async)
     {
-        await base.ToString_guid_property_projection(async);
+        await AssertQuery(
+            async,
+            ss => ss.Set<CogTag>().Select(
+                ct => new { A = ct.GearNickName, B = ct.Id.ToString("B") }),
+            elementSorter: e => e.B,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.A, a.A);
+                Assert.Equal(e.B.ToLower(), a.B.ToLower());
+            });
 
         AssertSql(
-"""
-SELECT `f`.`Id`, `f`.`CapitalName`, `f`.`Name`, `f`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`, IIF(`l`.`Id` IS NOT NULL, 'LocustHorde', NULL) AS `Discriminator`, `c`.`Name`, `c`.`Location`, `c`.`Nation`
-FROM (`Factions` AS `f`
-LEFT JOIN `LocustHordes` AS `l` ON `f`.`Id` = `l`.`Id`)
-LEFT JOIN `Cities` AS `c` ON `f`.`CapitalName` = `c`.`Name`
+            """
+SELECT `t`.`GearNickName`, `t`.`Id`
+FROM `Tags` AS `t`
 """);
     }
 

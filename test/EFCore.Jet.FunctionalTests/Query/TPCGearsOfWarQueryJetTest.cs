@@ -12128,12 +12128,21 @@ WHERE `m`.`CodeName` = 'Operation Foobar'
 
     public override async Task ToString_guid_property_projection(bool async)
     {
-        await base.ToString_guid_property_projection(async);
+        await AssertQuery(
+            async,
+            ss => ss.Set<CogTag>().Select(
+                ct => new { A = ct.GearNickName, B = ct.Id.ToString("B") }),
+            elementSorter: e => e.B,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.A, a.A);
+                Assert.Equal(e.B.ToLower(), a.B.ToLower());
+            });
 
         AssertSql(
-"""
-SELECT [t].[GearNickName] AS [A], CONVERT(varchar(36), [t].[Id]) AS [B]
-FROM [Tags] AS [t]
+            """
+SELECT `t`.`GearNickName`, `t`.`Id`
+FROM `Tags` AS `t`
 """);
     }
 

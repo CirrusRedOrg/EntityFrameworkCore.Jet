@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 using System.Data;
 using System.Data.Common;
+using System.Linq;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -37,7 +38,18 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //Needs to be Object. Using BigInt doesn't always work
             //If the argument value is a long and within Int32 range, having it as BigInt in x86 works
             //When running in x64 it fails to convert. Using Object bypasses the conversion
-            parameter.DbType = System.Data.DbType.Object;
+
+            var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
+            var setoledbtype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OleDbType");
+
+            if (setodbctype != null)
+            {
+                setodbctype.Invoke(parameter, new object?[] { 7 });
+            }
+            else if (setoledbtype != null)
+            {
+                setoledbtype.Invoke(parameter, new object?[] { 131 });
+            }
         }
     }
 }

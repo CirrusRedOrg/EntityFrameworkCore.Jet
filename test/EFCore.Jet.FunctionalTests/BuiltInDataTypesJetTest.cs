@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.OleDb;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -19,6 +20,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable ParameterOnlyUsedForPreconditionCheck.Local
@@ -590,11 +592,13 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types()
         {
+            bool isoledb = false;
             var entity = CreateMappedDataTypes(77);
             using (var context = CreateContext())
             {
                 context.Set<MappedDataTypes>().Add(entity);
-
+                isoledb = ((EntityFrameworkCore.Jet.Data.JetConnection)context.Database.GetDbConnection())
+                    .DataAccessProviderFactory is OleDbFactory;
                 Assert.Equal(1, context.SaveChanges());
             }
 
@@ -620,7 +624,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p17='2019-01-02T14:11:12.0000000' (DbType = DateTime)
 @p18='101' (Precision = 18)
 @p19='102' (Precision = 18)
-@p20='81.1' (Precision = 3) (Scale = 1) (DbType = Currency)
+@p20='81.1' (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
 @p21='103' (Precision = 18)
 @p22='85.5'
 @p23='83.3'
@@ -628,7 +632,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p25='Value2' (Nullable = false) (Size = 255)
 @p26='84.4'
 @p27='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p28='78' (DbType = Object)
+@p28='78' (DbType = Decimal)
 @p29='-128'
 @p30='128' (Size = 1)
 @p31='79'
@@ -647,7 +651,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p44='11:15:12'
 @p45='65535'
 @p46='-1'
-@p47='4294967295' (DbType = Object)
+@p47='4294967295' (DbType = Decimal)
 @p48='-1'
 @p49='18446744073709551615' (Precision = 20)
 @p50='18446744073709551615' (Precision = 20)",
@@ -788,10 +792,12 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types()
         {
+            bool isoledb = false;
             using (var context = CreateContext())
             {
                 context.Set<MappedNullableDataTypes>().Add(CreateMappedNullableDataTypes(77));
-
+                isoledb = ((EntityFrameworkCore.Jet.Data.JetConnection)context.Database.GetDbConnection())
+                    .DataAccessProviderFactory is OleDbFactory;
                 Assert.Equal(1, context.SaveChanges());
             }
 
@@ -817,7 +823,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p17='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
 @p18='101' (Nullable = true) (Precision = 18)
 @p19='102' (Nullable = true) (Precision = 18)
-@p20='81.1' (Nullable = true) (Precision = 3) (Scale = 1) (DbType = Currency)
+@p20='81.1' (Nullable = true) (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
 @p21='103' (Nullable = true) (Precision = 18)
 @p22='85.5' (Nullable = true)
 @p23='83.3' (Nullable = true)
@@ -825,7 +831,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p25='Value2' (Size = 255)
 @p26='84.4' (Nullable = true)
 @p27='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p28='78' (Nullable = true) (DbType = Object)
+@p28='78' (Nullable = true) (DbType = Decimal)
 @p29='-128' (Nullable = true)
 @p30='128' (Nullable = true) (Size = 1)
 @p31='79' (Nullable = true)
@@ -844,7 +850,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p44='11:15:12' (Nullable = true)
 @p45='65535' (Nullable = true)
 @p46='-1' (Nullable = true)
-@p47='4294967295' (Nullable = true) (DbType = Object)
+@p47='4294967295' (Nullable = true) (DbType = Decimal)
 @p48='-1' (Nullable = true)
 @p49='18446744073709551615' (Nullable = true) (Precision = 20)
 @p50='18446744073709551615' (Nullable = true) (Precision = 20)",
@@ -978,10 +984,12 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null()
         {
+            bool isoledb = false;
             using (var context = CreateContext())
             {
                 context.Set<MappedNullableDataTypes>().Add(new MappedNullableDataTypes { Int = 78 });
-
+                isoledb = ((EntityFrameworkCore.Jet.Data.JetConnection)context.Database.GetDbConnection())
+                    .DataAccessProviderFactory is OleDbFactory;
                 Assert.Equal(1, context.SaveChanges());
             }
 
@@ -1007,7 +1015,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p17=NULL (DbType = DateTime)
 @p18=NULL (Precision = 18) (DbType = Decimal)
 @p19=NULL (Precision = 18) (DbType = Decimal)
-@p20=NULL (DbType = Currency)
+@p20=NULL {(isoledb ? "(DbType = Currency)" : "(DbType = Decimal)")}
 @p21=NULL (Precision = 18) (DbType = Decimal)
 @p22=NULL (DbType = Double)
 @p23=NULL (DbType = Double)
@@ -1015,7 +1023,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p25=NULL (Size = 255)
 @p26=NULL (DbType = Single)
 @p27=NULL (DbType = Guid)
-@p28=NULL (DbType = Object)
+@p28=NULL (DbType = Decimal)
 @p29=NULL (DbType = Int16)
 @p30=NULL (DbType = Byte)
 @p31=NULL (DbType = Int16)
@@ -1034,7 +1042,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p44=NULL (DbType = Time)
 @p45=NULL (DbType = Int32)
 @p46=NULL (DbType = Int16)
-@p47=NULL (DbType = Object)
+@p47=NULL (DbType = Decimal)
 @p48=NULL (DbType = Int32)
 @p49=NULL (Precision = 20) (DbType = Decimal)
 @p50=NULL (Precision = 20) (DbType = Decimal)",
@@ -1378,10 +1386,12 @@ parameters,
         [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_identity()
         {
+            bool isoledb = false;
             using (var context = CreateContext())
             {
                 context.Set<MappedDataTypesWithIdentity>().Add(CreateMappedDataTypesWithIdentity(77));
-
+                isoledb = ((EntityFrameworkCore.Jet.Data.JetConnection)context.Database.GetDbConnection())
+                    .DataAccessProviderFactory is OleDbFactory;
                 Assert.Equal(1, context.SaveChanges());
             }
 
@@ -1406,7 +1416,7 @@ parameters,
 @p16='2019-01-02T14:11:12.0000000' (DbType = DateTime)
 @p17='101' (Precision = 18)
 @p18='102' (Precision = 18)
-@p19='81.1' (Precision = 3) (Scale = 1) (DbType = Currency)
+@p19='81.1' (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
 @p20='103' (Precision = 18)
 @p21='85.5'
 @p22='83.3'
@@ -1415,7 +1425,7 @@ parameters,
 @p25='84.4'
 @p26='a8f9f951-145f-4545-ac60-b92ff57ada47'
 @p27='77'
-@p28='78' (DbType = Object)
+@p28='78' (DbType = Decimal)
 @p29='-128'
 @p30='128' (Size = 1)
 @p31='79'
@@ -1434,7 +1444,7 @@ parameters,
 @p44='11:15:12'
 @p45='65535'
 @p46='-1'
-@p47='4294967295' (DbType = Object)
+@p47='4294967295' (DbType = Decimal)
 @p48='-1'
 @p49='18446744073709551615' (Precision = 20)
 @p50='18446744073709551615' (Precision = 20)",
@@ -1571,10 +1581,12 @@ parameters,
         [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_with_identity()
         {
+            bool isoledb = false;
             using (var context = CreateContext())
             {
                 context.Set<MappedNullableDataTypesWithIdentity>().Add(CreateMappedNullableDataTypesWithIdentity(77));
-
+                isoledb = ((EntityFrameworkCore.Jet.Data.JetConnection)context.Database.GetDbConnection())
+                    .DataAccessProviderFactory is OleDbFactory;
                 Assert.Equal(1, context.SaveChanges());
             }
 
@@ -1599,7 +1611,7 @@ parameters,
 @p16='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
 @p17='101' (Nullable = true) (Precision = 18)
 @p18='102' (Nullable = true) (Precision = 18)
-@p19='81.1' (Nullable = true) (Precision = 3) (Scale = 1) (DbType = Currency)
+@p19='81.1' (Nullable = true) (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
 @p20='103' (Nullable = true) (Precision = 18)
 @p21='85.5' (Nullable = true)
 @p22='83.3' (Nullable = true)
@@ -1608,7 +1620,7 @@ parameters,
 @p25='84.4' (Nullable = true)
 @p26='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
 @p27='77' (Nullable = true)
-@p28='78' (Nullable = true) (DbType = Object)
+@p28='78' (Nullable = true) (DbType = Decimal)
 @p29='-128' (Nullable = true)
 @p30='128' (Nullable = true) (Size = 1)
 @p31='79' (Nullable = true)
@@ -1626,7 +1638,7 @@ parameters,
 @p43='11:15:12' (Nullable = true)
 @p44='11:15:12' (Nullable = true)
 @p45='65535' (Nullable = true)
-@p46='4294967295' (Nullable = true) (DbType = Object)
+@p46='4294967295' (Nullable = true) (DbType = Decimal)
 @p47='-1' (Nullable = true)
 @p48='18446744073709551615' (Nullable = true) (Precision = 20)
 @p49='18446744073709551615' (Nullable = true) (Precision = 20)
@@ -1761,10 +1773,12 @@ parameters,
         [ConditionalFact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_with_identity()
         {
+            bool isoledb = false;
             using (var context = CreateContext())
             {
                 context.Set<MappedNullableDataTypesWithIdentity>().Add(new MappedNullableDataTypesWithIdentity { Int = 78 });
-
+                isoledb = ((EntityFrameworkCore.Jet.Data.JetConnection)context.Database.GetDbConnection())
+                    .DataAccessProviderFactory is OleDbFactory;
                 Assert.Equal(1, context.SaveChanges());
             }
 
@@ -1789,7 +1803,7 @@ parameters,
 @p16=NULL (DbType = DateTime)
 @p17=NULL (Precision = 18) (DbType = Decimal)
 @p18=NULL (Precision = 18) (DbType = Decimal)
-@p19=NULL (DbType = Currency)
+@p19=NULL {(isoledb ? "(DbType = Currency)" : "(DbType = Decimal)")}
 @p20=NULL (Precision = 18) (DbType = Decimal)
 @p21=NULL (DbType = Double)
 @p22=NULL (DbType = Double)
@@ -1798,7 +1812,7 @@ parameters,
 @p25=NULL (DbType = Single)
 @p26=NULL (DbType = Guid)
 @p27='78' (Nullable = true)
-@p28=NULL (DbType = Object)
+@p28=NULL (DbType = Decimal)
 @p29=NULL (DbType = Int16)
 @p30=NULL (DbType = Byte)
 @p31=NULL (DbType = Int16)
@@ -1816,7 +1830,7 @@ parameters,
 @p43=NULL (DbType = Time)
 @p44=NULL (DbType = Time)
 @p45=NULL (DbType = Int32)
-@p46=NULL (DbType = Object)
+@p46=NULL (DbType = Decimal)
 @p47=NULL (DbType = Int32)
 @p48=NULL (Precision = 20) (DbType = Decimal)
 @p49=NULL (Precision = 20) (DbType = Decimal)

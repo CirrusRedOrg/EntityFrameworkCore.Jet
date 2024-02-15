@@ -237,7 +237,7 @@ WHERE `c`.`ShippingAddress_AddressLine1` = '804 S. Lakeshore Road' AND `c`.`Ship
         await base.Complex_type_equals_parameter(async);
 
         AssertSql(
-            """
+            $"""
 @__entity_equality_address_0_AddressLine1='804 S. Lakeshore Road' (Size = 255)
 @__entity_equality_address_0_ZipCode='38654' (Nullable = true)
 @__entity_equality_address_0_Code='US' (Size = 255)
@@ -245,7 +245,7 @@ WHERE `c`.`ShippingAddress_AddressLine1` = '804 S. Lakeshore Road' AND `c`.`Ship
 
 SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
 FROM `Customer` AS `c`
-WHERE `c`.`ShippingAddress_AddressLine1` = @__entity_equality_address_0_AddressLine1 AND `c`.`ShippingAddress_AddressLine2` IS NULL AND `c`.`ShippingAddress_ZipCode` = @__entity_equality_address_0_ZipCode AND `c`.`ShippingAddress_Country_Code` = @__entity_equality_address_0_Code AND `c`.`ShippingAddress_Country_FullName` = @__entity_equality_address_0_FullName
+WHERE `c`.`ShippingAddress_AddressLine1` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_AddressLine1")} AND `c`.`ShippingAddress_AddressLine2` IS NULL AND `c`.`ShippingAddress_ZipCode` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_ZipCode")} AND `c`.`ShippingAddress_Country_Code` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_Code")} AND `c`.`ShippingAddress_Country_FullName` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_FullName")}
 """);
     }
 
@@ -268,7 +268,7 @@ WHERE `c`.`ShippingAddress_AddressLine1` = @__entity_equality_address_0_AddressL
         await base.Contains_over_complex_type(async);
 
         AssertSql(
-            """
+            $"""
 @__entity_equality_address_0_AddressLine1='804 S. Lakeshore Road' (Size = 255)
 @__entity_equality_address_0_ZipCode='38654' (Nullable = true)
 @__entity_equality_address_0_Code='US' (Size = 255)
@@ -279,7 +279,7 @@ FROM `Customer` AS `c`
 WHERE EXISTS (
     SELECT 1
     FROM `Customer` AS `c0`
-    WHERE `c0`.`ShippingAddress_AddressLine1` = @__entity_equality_address_0_AddressLine1 AND `c0`.`ShippingAddress_AddressLine2` IS NULL AND `c0`.`ShippingAddress_ZipCode` = @__entity_equality_address_0_ZipCode AND `c0`.`ShippingAddress_Country_Code` = @__entity_equality_address_0_Code AND `c0`.`ShippingAddress_Country_FullName` = @__entity_equality_address_0_FullName)
+    WHERE `c0`.`ShippingAddress_AddressLine1` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_AddressLine1")} AND `c0`.`ShippingAddress_AddressLine2` IS NULL AND `c0`.`ShippingAddress_ZipCode` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_ZipCode")} AND `c0`.`ShippingAddress_Country_Code` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_Code")} AND `c0`.`ShippingAddress_Country_FullName` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_FullName")})
 """);
     }
 
@@ -602,7 +602,7 @@ WHERE `v`.`ShippingAddress_AddressLine1` = '804 S. Lakeshore Road' AND `v`.`Ship
         await base.Struct_complex_type_equals_parameter(async);
 
         AssertSql(
-            """
+            $"""
 @__entity_equality_address_0_AddressLine1='804 S. Lakeshore Road' (Size = 255)
 @__entity_equality_address_0_ZipCode='38654' (Nullable = true)
 @__entity_equality_address_0_Code='US' (Size = 255)
@@ -610,7 +610,7 @@ WHERE `v`.`ShippingAddress_AddressLine1` = '804 S. Lakeshore Road' AND `v`.`Ship
 
 SELECT `v`.`Id`, `v`.`Name`, `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v`.`ShippingAddress_AddressLine1`, `v`.`ShippingAddress_AddressLine2`, `v`.`ShippingAddress_ZipCode`, `v`.`ShippingAddress_Country_Code`, `v`.`ShippingAddress_Country_FullName`
 FROM `ValuedCustomer` AS `v`
-WHERE `v`.`ShippingAddress_AddressLine1` = @__entity_equality_address_0_AddressLine1 AND `v`.`ShippingAddress_AddressLine2` IS NULL AND `v`.`ShippingAddress_ZipCode` = @__entity_equality_address_0_ZipCode AND `v`.`ShippingAddress_Country_Code` = @__entity_equality_address_0_Code AND `v`.`ShippingAddress_Country_FullName` = @__entity_equality_address_0_FullName
+WHERE `v`.`ShippingAddress_AddressLine1` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_AddressLine1")} AND `v`.`ShippingAddress_AddressLine2` IS NULL AND `v`.`ShippingAddress_ZipCode` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_ZipCode")} AND `v`.`ShippingAddress_Country_Code` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_Code")} AND `v`.`ShippingAddress_Country_FullName` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_FullName")}
 """);
     }
 
@@ -626,7 +626,7 @@ WHERE `v`.`ShippingAddress_AddressLine1` = @__entity_equality_address_0_AddressL
         await base.Contains_over_struct_complex_type(async);
 
         AssertSql(
-            """
+            $"""
 @__entity_equality_address_0_AddressLine1='804 S. Lakeshore Road' (Size = 255)
 @__entity_equality_address_0_ZipCode='38654' (Nullable = true)
 @__entity_equality_address_0_Code='US' (Size = 255)
@@ -637,7 +637,7 @@ FROM `ValuedCustomer` AS `v`
 WHERE EXISTS (
     SELECT 1
     FROM `ValuedCustomer` AS `v0`
-    WHERE `v0`.`ShippingAddress_AddressLine1` = @__entity_equality_address_0_AddressLine1 AND `v0`.`ShippingAddress_AddressLine2` IS NULL AND `v0`.`ShippingAddress_ZipCode` = @__entity_equality_address_0_ZipCode AND `v0`.`ShippingAddress_Country_Code` = @__entity_equality_address_0_Code AND `v0`.`ShippingAddress_Country_FullName` = @__entity_equality_address_0_FullName)
+    WHERE `v0`.`ShippingAddress_AddressLine1` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_AddressLine1")} AND `v0`.`ShippingAddress_AddressLine2` IS NULL AND `v0`.`ShippingAddress_ZipCode` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_ZipCode")} AND `v0`.`ShippingAddress_Country_Code` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_Code")} AND `v0`.`ShippingAddress_Country_FullName` = {AssertSqlHelper.Parameter("@__entity_equality_address_0_FullName")})
 """);
     }
 

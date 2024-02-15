@@ -3,6 +3,7 @@
 
 // ReSharper disable InconsistentNaming
 
+using System.Data.Odbc;
 using System.Data.OleDb;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,15 +25,15 @@ public class SimpleQueryJetTest : SimpleQueryRelationalTestBase
         await base.Multiple_nested_reference_navigations(async);
 
         AssertSql(
-"""
+$"""
 @__p_0='3'
 
 SELECT TOP 1 `s`.`Id`, `s`.`Email`, `s`.`Logon`, `s`.`ManagerId`, `s`.`Name`, `s`.`SecondaryManagerId`
 FROM `Staff` AS `s`
-WHERE `s`.`Id` = @__p_0
+WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 """,
 //
-"""
+$"""
 @__id_0='1'
 
 SELECT TOP 2 `a`.`Id`, `a`.`Complete`, `a`.`Deleted`, `a`.`PeriodEnd`, `a`.`PeriodStart`, `a`.`StaffId`, `s`.`Id`, `s`.`Email`, `s`.`Logon`, `s`.`ManagerId`, `s`.`Name`, `s`.`SecondaryManagerId`, `s0`.`Id`, `s0`.`Email`, `s0`.`Logon`, `s0`.`ManagerId`, `s0`.`Name`, `s0`.`SecondaryManagerId`, `s1`.`Id`, `s1`.`Email`, `s1`.`Logon`, `s1`.`ManagerId`, `s1`.`Name`, `s1`.`SecondaryManagerId`
@@ -40,7 +41,7 @@ FROM ((`Appraisals` AS `a`
 INNER JOIN `Staff` AS `s` ON `a`.`StaffId` = `s`.`Id`)
 LEFT JOIN `Staff` AS `s0` ON `s`.`ManagerId` = `s0`.`Id`)
 LEFT JOIN `Staff` AS `s1` ON `s`.`SecondaryManagerId` = `s1`.`Id`
-WHERE `a`.`Id` = @__id_0
+WHERE `a`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """);
     }
 
@@ -49,12 +50,12 @@ WHERE `a`.`Id` = @__id_0
         await base.Comparing_enum_casted_to_byte_with_int_parameter(async);
 
         AssertSql(
-"""
+$"""
 @__bitterTaste_0='1'
 
 SELECT `i`.`IceCreamId`, `i`.`Name`, `i`.`Taste`
 FROM `IceCreams` AS `i`
-WHERE `i`.`Taste` = @__bitterTaste_0
+WHERE `i`.`Taste` = {AssertSqlHelper.Parameter("@__bitterTaste_0")}
 """);
     }
 
@@ -134,7 +135,7 @@ SELECT cast(null as int) AS MyValue
         await base.Unwrap_convert_node_over_projection_when_translating_contains_over_subquery(async);
 
         AssertSql(
-"""
+$"""
 @__currentUserId_0='1'
 
 SELECT IIF(`u`.`Id` IN (
@@ -144,7 +145,7 @@ SELECT IIF(`u`.`Id` IN (
         WHERE `m`.`GroupId` IN (
             SELECT `m0`.`GroupId`
             FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @__currentUserId_0
+            WHERE `m0`.`UserId` = {AssertSqlHelper.Parameter("@__currentUserId_0")}
         )
     ), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
@@ -156,7 +157,7 @@ FROM `Users` AS `u`
         await base.Unwrap_convert_node_over_projection_when_translating_contains_over_subquery_2(async);
 
         AssertSql(
-"""
+$"""
 @__currentUserId_0='1'
 
 SELECT IIF(`u`.`Id` IN (
@@ -168,7 +169,7 @@ SELECT IIF(`u`.`Id` IN (
             SELECT `g0`.`Id`
             FROM `Memberships` AS `m0`
             INNER JOIN `Groups` AS `g0` ON `m0`.`GroupId` = `g0`.`Id`
-            WHERE `m0`.`UserId` = @__currentUserId_0
+            WHERE `m0`.`UserId` = {AssertSqlHelper.Parameter("@__currentUserId_0")}
         )
     ), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
@@ -180,7 +181,7 @@ FROM `Users` AS `u`
         await base.Unwrap_convert_node_over_projection_when_translating_contains_over_subquery_3(async);
 
         AssertSql(
-"""
+$"""
 @__currentUserId_0='1'
 
 SELECT IIF(EXISTS (
@@ -190,7 +191,7 @@ SELECT IIF(EXISTS (
         WHERE `m`.`GroupId` IN (
             SELECT `m0`.`GroupId`
             FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @__currentUserId_0
+            WHERE `m0`.`UserId` = {AssertSqlHelper.Parameter("@__currentUserId_0")}
         ) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
 """);
@@ -201,7 +202,7 @@ FROM `Users` AS `u`
         await base.GroupBy_aggregate_on_right_side_of_join(async);
 
         AssertSql(
-"""
+$"""
 @__orderId_0='123456'
 @__orderId_0='123456'
 
@@ -210,10 +211,10 @@ FROM `OrderItems` AS `o`
 INNER JOIN (
     SELECT `o0`.`OrderId` AS `Key`, MAX(IIF(`o0`.`ShippingDate` IS NULL AND `o0`.`CancellationDate` IS NULL, `o0`.`OrderId`, `o0`.`OrderId` - 10000000)) AS `IsPending`
     FROM `OrderItems` AS `o0`
-    WHERE `o0`.`OrderId` = @__orderId_0
+    WHERE `o0`.`OrderId` = {AssertSqlHelper.Parameter("@__orderId_0")}
     GROUP BY `o0`.`OrderId`
 ) AS `t` ON `o`.`OrderId` = `t`.`Key`
-WHERE `o`.`OrderId` = @__orderId_0
+WHERE `o`.`OrderId` = {AssertSqlHelper.Parameter("@__orderId_0")}
 ORDER BY `o`.`OrderId`
 """);
     }
@@ -223,17 +224,17 @@ ORDER BY `o`.`OrderId`
         await base.Enum_with_value_converter_matching_take_value(async);
 
         AssertSql(
-"""
+$"""
 @__orderItemType_1='MyType1' (Nullable = false) (Size = 255)
 @__orderItemType_1='MyType1' (Nullable = false) (Size = 255)
 
 SELECT `o1`.`Id`, IIF((
         SELECT TOP 1 `o2`.`Price`
         FROM `OrderItems` AS `o2`
-        WHERE `o1`.`Id` = `o2`.`Order26472Id` AND `o2`.`Type` = @__orderItemType_1) IS NULL, 0.0, (
+        WHERE `o1`.`Id` = `o2`.`Order26472Id` AND `o2`.`Type` = {AssertSqlHelper.Parameter("@__orderItemType_1")}) IS NULL, 0.0, (
         SELECT TOP 1 `o2`.`Price`
         FROM `OrderItems` AS `o2`
-        WHERE `o1`.`Id` = `o2`.`Order26472Id` AND `o2`.`Type` = @__orderItemType_1)) AS `SpecialSum`
+        WHERE `o1`.`Id` = `o2`.`Order26472Id` AND `o2`.`Type` = {AssertSqlHelper.Parameter("@__orderItemType_1")})) AS `SpecialSum`
 FROM (
     SELECT TOP 1 `o`.`Id`
     FROM `Orders` AS `o`
@@ -449,20 +450,20 @@ WHERE [t0].[SomeOtherNullableDateTime] IS NOT NULL
         await base.StoreType_for_UDF_used(async);
 
         AssertSql(
-"""
+$"""
 @__date_0='2012-12-12T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
-WHERE `m`.`SomeDate` = CDATE(@__date_0)
+WHERE `m`.`SomeDate` = CDATE({AssertSqlHelper.Parameter("@__date_0")})
 """,
 //
-"""
+$"""
 @__date_0='2012-12-12T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
-WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE(@__date_0)
+WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE({AssertSqlHelper.Parameter("@__date_0")})
 """);
     }
 
@@ -539,7 +540,15 @@ WHERE `t`.`Species` LIKE 'F%'
         using var context = contextFactory.CreateContext();
         
         var parameter = TestEnvironment.DataAccessProviderFactory.CreateParameter();
-        parameter.Value = 1;
+        if (parameter is OdbcParameter odbcParameter)
+        {
+            odbcParameter.Value = 1;
+            odbcParameter.OdbcType = OdbcType.Int;//Looks like odbcparameter doesnt automatically infer the type
+        }
+        else if (parameter is OleDbParameter oleDbParameter)
+        {
+            oleDbParameter.Value = 1;
+        }
         
         var query = context.DemoEntities
             .FromSqlRaw("SELECT * FROM DemoEntities WHERE Id = {0}", parameter)
@@ -560,7 +569,7 @@ WHERE `t`.`Species` LIKE 'F%'
         }
 
         AssertSql(
-"""
+$"""
 p0='1'
 
 SELECT `d`.`Id` AS `Key`, COUNT(*) AS `Aggregate`
@@ -568,7 +577,7 @@ FROM `DemoEntities` AS `d`
 WHERE `d`.`Id` IN (
     SELECT `e`.`Id`
     FROM (
-        SELECT * FROM DemoEntities WHERE Id = @p0
+        SELECT * FROM DemoEntities WHERE Id = {AssertSqlHelper.Parameter("@p0")}
     ) AS `e`
 )
 GROUP BY `d`.`Id`

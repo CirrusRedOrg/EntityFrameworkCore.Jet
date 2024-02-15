@@ -1131,12 +1131,12 @@ ORDER BY `t0`.`OrderID`
             await base.Ternary_should_not_evaluate_both_sides(async);
 
             AssertSql(
-                """
+                $"""
 @__p_0='none' (Size = 255)
 @__p_1='none' (Size = 255)
 @__p_2='none' (Size = 255)
 
-SELECT `c`.`CustomerID`, @__p_0 AS `Data1`, @__p_1 AS `Data2`, @__p_2 AS `Data3`
+SELECT `c`.`CustomerID`, {AssertSqlHelper.Parameter("@__p_0")} AS `Data1`, {AssertSqlHelper.Parameter("@__p_1")} AS `Data2`, {AssertSqlHelper.Parameter("@__p_2")} AS `Data3`
 FROM `Customers` AS `c`
 """);
         }
@@ -1617,14 +1617,14 @@ WHERE `c`.`City` IN ('London', 'Berlin', 'Seattle', 'Lisboa')");
             await base.Where_select_many_or_with_parameter(isAsync);
 
             AssertSql(
-"""
+$"""
 @__london_0='London' (Size = 15)
 @__lisboa_1='Lisboa' (Size = 15)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
-WHERE `c`.`City` = @__london_0 OR `c`.`City` = 'Berlin' OR `c`.`City` = 'Seattle' OR `c`.`City` = @__lisboa_1
+WHERE `c`.`City` = {AssertSqlHelper.Parameter("@__london_0")} OR `c`.`City` = 'Berlin' OR `c`.`City` = 'Seattle' OR `c`.`City` = {AssertSqlHelper.Parameter("@__lisboa_1")}
 """);
         }
 
@@ -2802,13 +2802,13 @@ WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__p_0")})");
             await base.Environment_newline_is_funcletized(isAsync);
 
             AssertSql(
-                """
+                $"""
 @__NewLine_0_rewritten='%
 %' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE @__NewLine_0_rewritten
+WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__NewLine_0_rewritten")}
 """);
         }
 
@@ -2839,10 +2839,10 @@ FROM `Orders` AS `o`
             await base.Concat_parameter_string_int(async);
 
             AssertSql(
-                """
+                $"""
 @__parameter_0='-' (Size = 255)
 
-SELECT @__parameter_0 & (`o`.`OrderID` & '')
+SELECT {AssertSqlHelper.Parameter("@__parameter_0")} & (`o`.`OrderID` & '')
 FROM `Orders` AS `o`
 """);
         }
@@ -2967,12 +2967,12 @@ WHERE (IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE) BAND IIF(`c`.`CustomerID` = 
             await base.Where_bitwise_binary_not(isAsync);
 
             AssertSql(
-                """
+                $"""
 @__negatedId_0='-10249'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE  (BNOT`o`.`OrderID`) = @__negatedId_0
+WHERE  (BNOT`o`.`OrderID`) = {AssertSqlHelper.Parameter("@__negatedId_0")}
 """);
         }
 
@@ -3037,13 +3037,13 @@ ORDER BY `c`.`CustomerID`");
             await base.Parameter_extraction_short_circuits_1(isAsync);
 
             AssertSql(
-"""
+$"""
 @__dateFilter_Value_Month_0='7'
 @__dateFilter_Value_Year_1='1996'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` < 10400 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('m', `o`.`OrderDate`) = @__dateFilter_Value_Month_0 AND DATEPART('yyyy', `o`.`OrderDate`) = @__dateFilter_Value_Year_1
+WHERE `o`.`OrderID` < 10400 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('m', `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__dateFilter_Value_Month_0")} AND DATEPART('yyyy', `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__dateFilter_Value_Year_1")}
 """,
 //
 """
@@ -3058,13 +3058,13 @@ WHERE `o`.`OrderID` < 10400
             await base.Parameter_extraction_short_circuits_2(isAsync);
 
             AssertSql(
-"""
+$"""
 @__dateFilter_Value_Month_0='7'
 @__dateFilter_Value_Year_1='1996'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` < 10400 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('m', `o`.`OrderDate`) = @__dateFilter_Value_Month_0 AND DATEPART('yyyy', `o`.`OrderDate`) = @__dateFilter_Value_Year_1
+WHERE `o`.`OrderID` < 10400 AND `o`.`OrderDate` IS NOT NULL AND DATEPART('m', `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__dateFilter_Value_Month_0")} AND DATEPART('yyyy', `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__dateFilter_Value_Year_1")}
 """,
 //
 """
@@ -3079,13 +3079,13 @@ WHERE 0 = 1
             await base.Parameter_extraction_short_circuits_3(isAsync);
 
             AssertSql(
-"""
+$"""
 @__dateFilter_Value_Month_0='7'
 @__dateFilter_Value_Year_1='1996'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` < 10400 OR (`o`.`OrderDate` IS NOT NULL AND DATEPART('m', `o`.`OrderDate`) = @__dateFilter_Value_Month_0 AND DATEPART('yyyy', `o`.`OrderDate`) = @__dateFilter_Value_Year_1)
+WHERE `o`.`OrderID` < 10400 OR (`o`.`OrderDate` IS NOT NULL AND DATEPART('m', `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__dateFilter_Value_Month_0")} AND DATEPART('yyyy', `o`.`OrderDate`) = {AssertSqlHelper.Parameter("@__dateFilter_Value_Year_1")})
 """,
 //
 """
@@ -3304,12 +3304,12 @@ ORDER BY `o`.`OrderID`
             await base.Select_expression_references_are_updated_correctly_with_subquery(isAsync);
 
             AssertSql(
-"""
+$"""
 @__nextYear_0='2017'
 
 SELECT DISTINCT DATEPART('yyyy', `o`.`OrderDate`)
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) < @__nextYear_0
+WHERE `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) < {AssertSqlHelper.Parameter("@__nextYear_0")}
 """);
         }
 
@@ -4372,12 +4372,12 @@ FROM (
             await base.Comparing_to_fixed_string_parameter(isAsync);
 
             AssertSql(
-                """
+                $"""
 @__prefix_0_rewritten='A%' (Size = 5)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE @__prefix_0_rewritten
+WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__prefix_0_rewritten")}
 """);
         }
 
@@ -5165,12 +5165,12 @@ FROM `Order Details` AS `o`
             await base.Entity_equality_with_null_coalesce_client_side(async);
 
             AssertSql(
-                """
+                $"""
 @__entity_equality_p_0_CustomerID='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__entity_equality_p_0_CustomerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__entity_equality_p_0_CustomerID")}
 """);
         }
 
@@ -5356,7 +5356,7 @@ ORDER BY `c`.`CustomerID`
             await base.Distinct_followed_by_ordering_on_condition(async);
 
             AssertSql(
-                """
+                $"""
 @__searchTerm_0='c' (Size = 15)
 @__searchTerm_0='c' (Size = 15)
 
@@ -5366,7 +5366,7 @@ FROM (
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
 ) AS `t`
-ORDER BY IIF(@__searchTerm_0 = '', 0, INSTR(1, `t`.`City`, @__searchTerm_0, 1) - 1), `t`.`City`
+ORDER BY IIF({AssertSqlHelper.Parameter("@__searchTerm_0")} = '', 0, INSTR(1, `t`.`City`, {AssertSqlHelper.Parameter("@__searchTerm_0")}, 1) - 1), `t`.`City`
 """);
         }
 
@@ -5695,10 +5695,10 @@ SELECT IIF(EXISTS (
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
                 //
-                """
+                $"""
 @__Any_0='True'
 
-SELECT CBOOL(@__Any_0)
+SELECT CBOOL({AssertSqlHelper.Parameter("@__Any_0")})
 FROM `Employees` AS `e`,
 `Employees` AS `e0`
 """,
@@ -5908,20 +5908,20 @@ ORDER BY `c`.`CustomerID`
             await base.Where_Property_shadow_closure(async);
 
             AssertSql(
-                """
+                $"""
 @__value_0='Sales Representative' (Size = 30)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE `e`.`Title` = @__value_0
+WHERE `e`.`Title` = {AssertSqlHelper.Parameter("@__value_0")}
 """,
                 //
-                """
+                $"""
 @__value_0='Steven' (Size = 10)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE `e`.`FirstName` = @__value_0
+WHERE `e`.`FirstName` = {AssertSqlHelper.Parameter("@__value_0")}
 """);
         }
 
@@ -6028,12 +6028,12 @@ WHERE `e`.`Title` = 'Sales Representative'
             await base.Where_Property_when_shadow_unconstrained_generic_method(async);
 
             AssertSql(
-                """
+                $"""
 @__value_0='Sales Representative' (Size = 30)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE `e`.`Title` = @__value_0
+WHERE `e`.`Title` = {AssertSqlHelper.Parameter("@__value_0")}
 """);
         }
 
@@ -6137,31 +6137,31 @@ SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 """,
                 //
-                """
+                $"""
 @__firstOrder_OrderID_0='10248'
 
 SELECT IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` = @__firstOrder_OrderID_0), TRUE, FALSE)
+        WHERE `o`.`OrderID` = {AssertSqlHelper.Parameter("@__firstOrder_OrderID_0")}), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
                 //
-                """
+                $"""
 @__Any_0='True'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE @__Any_0 = TRUE
+WHERE {AssertSqlHelper.Parameter("@__Any_0")} = TRUE
 """,
                 //
-                """
+                $"""
 @__firstOrder_OrderID_0='10248'
 
 SELECT IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` = @__firstOrder_OrderID_0), TRUE, FALSE)
+        WHERE `o`.`OrderID` = {AssertSqlHelper.Parameter("@__firstOrder_OrderID_0")}), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -6205,7 +6205,7 @@ FROM `Orders` AS `o`
 ORDER BY `o`.`OrderID`
 """,
                 //
-                """
+                $"""
 @__firstOrder_OrderID_0='10248'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -6213,7 +6213,7 @@ FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Orders` AS `o0`
-    WHERE `o0`.`OrderID` = @__firstOrder_OrderID_0 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o`.`CustomerID` IS NULL)))
+    WHERE `o0`.`OrderID` = {AssertSqlHelper.Parameter("@__firstOrder_OrderID_0")} AND (`o0`.`CustomerID` = `o`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o`.`CustomerID` IS NULL)))
 """);
         }
 

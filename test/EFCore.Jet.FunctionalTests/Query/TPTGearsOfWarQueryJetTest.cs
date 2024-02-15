@@ -2966,12 +2966,12 @@ WHERE [m].[Timeline] <> CAST(SYSUTCDATETIME() AS datetimeoffset)
         await base.Where_datetimeoffset_date_component(async);
 
         AssertSql(
-"""
-@__Date_0='0001-01-01T00:00:00.0000000'
+            $"""
+@__Date_0='0001-01-01T00:00:00.0000000' (DbType = DateTime)
 
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE CONVERT(date, [m].[Timeline]) > @__Date_0
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEVALUE(`m`.`Timeline`) > {AssertSqlHelper.Parameter("@__Date_0")}
 """);
     }
 
@@ -8262,7 +8262,7 @@ ORDER BY NOT (`w0`.`IsAutomatic`)
 
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEVALUE(`m`.`Timeline`) >= CDATE({AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")})
+WHERE DATEVALUE(`m`.`Timeline`) >= {AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")}
 """);
     }
 
@@ -10671,7 +10671,7 @@ ORDER BY [g].[Nickname], [g].[SquadId], [s].[Id], [s1].[SquadId]
 
         AssertSql(
             $"""
-@__unixEpochSeconds_0='0' (DbType = Object)
+@__unixEpochSeconds_0='0' (DbType = Decimal)
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `s1`.`SquadId`, `s1`.`MissionId`
 FROM ((`Gears` AS `g`

@@ -94,17 +94,21 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //Suspect this will also fix any formatting erros with , and . for decimal separator and space and , for digit separator
             //OdbcType.Numeric = 7;
             //OleDbType.Numeric = 131;
-            var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
-            var setoledbtype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OleDbType");
+            if (parameter.DbType != System.Data.DbType.Currency)
+            {
+                var setodbctype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OdbcType");
+                var setoledbtype = parameter.GetType().GetMethods().FirstOrDefault(x => x.Name == "set_OleDbType");
 
-            if (setodbctype != null)
-            {
-                setodbctype.Invoke(parameter, new object?[] { 7 });
+                if (setodbctype != null)
+                {
+                    setodbctype.Invoke(parameter, new object?[] { 7 });
+                }
+                else if (setoledbtype != null)
+                {
+                    setoledbtype.Invoke(parameter, new object?[] { 131 });
+                }
             }
-            else if (setoledbtype != null)
-            {
-                setoledbtype.Invoke(parameter, new object?[] { 131 });
-            }
+
             if (Size.HasValue
                 && Size.Value != -1)
             {

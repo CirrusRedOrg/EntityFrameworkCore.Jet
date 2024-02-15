@@ -1917,20 +1917,20 @@ WHERE [e].[PermissionByte] & [e].[PermissionByte] = [e].[PermissionByte]
                 Assert.Equal(2, context.Cache.Count);
 
                 AssertSql(
-"""
+$"""
 @__id_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """,
 //
-"""
+$"""
 @__id_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """);
             }
 
@@ -1952,20 +1952,20 @@ WHERE `e`.`Id` = @__id_0
                 Assert.Equal(2, context.Cache.Count);
 
                 AssertSql(
-"""
+$"""
 @__id_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """,
 //
-"""
+$"""
 @__id_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """);
             }
 
@@ -1989,7 +1989,7 @@ WHERE `e`.`Id` = @__id_0
                 Assert.Equal(2, context.Cache.Count);
 
                 AssertSql(
-"""
+$"""
 @__id_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`
@@ -1997,11 +1997,11 @@ FROM `Entities` AS `e`
 WHERE `e`.`Id` IN (
     SELECT `e0`.`Id`
     FROM `Entities` AS `e0`
-    WHERE `e0`.`Id` = @__id_0
+    WHERE `e0`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 )
 """,
 //
-"""
+$"""
 @__id_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`
@@ -2009,7 +2009,7 @@ FROM `Entities` AS `e`
 WHERE `e`.`Id` IN (
     SELECT `e0`.`Id`
     FROM `Entities` AS `e0`
-    WHERE `e0`.`Id` = @__id_0
+    WHERE `e0`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 )
 """);
             }
@@ -2034,12 +2034,12 @@ WHERE `e`.`Id` IN (
                 Assert.Equal(3, context.Cache.Count);
 
                 AssertSql(
-"""
+$"""
 @__name_0='A' (Size = 255)
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Name` = @__name_0
+WHERE `e`.`Name` = {AssertSqlHelper.Parameter("@__name_0")}
 """,
 //
 """
@@ -2716,28 +2716,28 @@ ORDER BY `p`.`Id`
                 Assert.Equal(2, context.Blogs.Count());
 
                 AssertSql(
-"""
+$"""
 @__ef_filter__Tenant_0='0'
 
 SELECT `b`.`Id`, `b`.`SomeValue`
 FROM `Blogs` AS `b`
-WHERE `b`.`SomeValue` = @__ef_filter__Tenant_0
+WHERE `b`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}
 """,
 //
-"""
+$"""
 @__ef_filter__Tenant_0='1'
 
 SELECT `b`.`Id`, `b`.`SomeValue`
 FROM `Blogs` AS `b`
-WHERE `b`.`SomeValue` = @__ef_filter__Tenant_0
+WHERE `b`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}
 """,
 //
-"""
+$"""
 @__ef_filter__Tenant_0='2'
 
 SELECT COUNT(*)
 FROM `Blogs` AS `b`
-WHERE `b`.`SomeValue` = @__ef_filter__Tenant_0
+WHERE `b`.`SomeValue` = {AssertSqlHelper.Parameter("@__ef_filter__Tenant_0")}
 """);
             }
         }
@@ -3867,13 +3867,13 @@ WHERE `r`.`MyTime` = #2018-10-07#
                 Assert.Single(query);
 
                 AssertSql(
-                    """
+                    $$"""
 @__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
 @__key_2='5f221fb9-66f4-442a-92c9-d97ed5989cc7'
 
 SELECT `t`.`Id`, `t`.`Type`
 FROM `Todos` AS `t`
-WHERE IIF(`t`.`Type` = 0, @__key_2, @__key_2) IN ('{0a47bcb7-a1cb-4345-8944-c58f82d6aac7}', '{5f221fb9-66f4-442a-92c9-d97ed5989cc7}')
+WHERE IIF(`t`.`Type` = 0, {{AssertSqlHelper.Parameter("@__key_2")}}, {{AssertSqlHelper.Parameter("@__key_2")}}) IN ('{0a47bcb7-a1cb-4345-8944-c58f82d6aac7}', '{5f221fb9-66f4-442a-92c9-d97ed5989cc7}')
 """);
             }
         }
@@ -4013,11 +4013,11 @@ ORDER BY `p`.`Id`
                 context.SaveChanges();
 
                 AssertSql(
-"""
+$"""
 @p0='BaseEntity13079' (Nullable = false) (Size = 21)
 
 INSERT INTO `BaseEntities` (`Discriminator`)
-VALUES (@p0);
+VALUES ({AssertSqlHelper.Parameter("@p0")});
 SELECT `Id`
 FROM `BaseEntities`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
@@ -4962,12 +4962,12 @@ WHERE `r`.`OwnedEntity_OwnedValue` = 'Abc'
                 var entities = context.Set<MyContext17276.Parent17276>().Where(specification.Criteria).ToList();
 
                 AssertSql(
-"""
+$"""
 @__id_0='1'
 
 SELECT `p`.`Id`, `p`.`RemovableEntityId`
 FROM `Parents` AS `p`
-WHERE `p`.`Id` = @__id_0
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """);
             }
         }
@@ -5075,12 +5075,12 @@ WHERE `f`.`String` = '1337'
                 Assert.Empty(result);
 
                 AssertSql(
-"""
+$"""
 @__bar_Value_0='1337' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
-WHERE `f`.`String` = @__bar_Value_0
+WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__bar_Value_0")}
 """);
             }
 
@@ -5095,12 +5095,12 @@ WHERE `f`.`String` = @__bar_Value_0
                 Assert.Empty(result);
 
                 AssertSql(
-"""
+$"""
 @__ToString_0='1337' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
-WHERE `f`.`String` = @__ToString_0
+WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__ToString_0")}
 """);
             }
 
@@ -5115,12 +5115,12 @@ WHERE `f`.`String` = @__ToString_0
                 Assert.Empty(result);
 
                 AssertSql(
-"""
+$"""
 @__p_0='1337' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`String`
 FROM `Foos` AS `f`
-WHERE `f`.`String` = @__p_0
+WHERE `f`.`String` = {AssertSqlHelper.Parameter("@__p_0")}
 """);
             }
 
@@ -6038,7 +6038,7 @@ WHERE `e`.`Id` = 1
                 Assert.Equal(1, query);
 
                 AssertSql(
-"""
+$"""
 @__action_0='1'
 
 SELECT COUNT(*)
@@ -6046,7 +6046,7 @@ FROM `Offers` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `OfferActions` AS `o0`
-    WHERE `o`.`Id` = `o0`.`OfferId` AND `o0`.`Action` = @__action_0)
+    WHERE `o`.`Id` = `o0`.`OfferId` AND `o0`.`Action` = {AssertSqlHelper.Parameter("@__action_0")})
 """);
             }
         }
@@ -6132,12 +6132,12 @@ WHERE EXISTS (
                 Assert.Equal(1, query.Id);
 
                 AssertSql(
-"""
+$"""
 @__id_0='1'
 
 SELECT TOP 1 `m`.`Id`, `m`.`Name`, `m`.`NavigationEntityId`
 FROM `MockEntities` AS `m`
-WHERE `m`.`Id` = @__id_0
+WHERE `m`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 """);
             }
 
@@ -7379,16 +7379,16 @@ WHERE `b`.`Id` = 1
                 Assert.Equal(MyContext19206.TestType19206.Integration, item.t2.Type);
 
                 AssertSql(
-"""
+$"""
 p0='0'
 p1='1'
 
 SELECT `e`.`Id`, `e`.`Type`, `e0`.`Id`, `e0`.`Type`
 FROM (
-    Select * from Tests Where Type = @p0
+    Select * from Tests Where Type = {AssertSqlHelper.Parameter("@p0")}
 ) AS `e`,
 (
-    Select * from Tests Where Type = @p1
+    Select * from Tests Where Type = {AssertSqlHelper.Parameter("@p1")}
 ) AS `e0`
 """);
             }
@@ -7448,20 +7448,20 @@ FROM (
                 Assert.True(query2.All(x => x.TenantId == 2));
 
                 AssertSql(
-"""
+$"""
 @__ef_filter__p_0='1'
 
 SELECT `e`.`Id`, `e`.`Name`, `e`.`TenantId`
 FROM `Entities` AS `e`
-WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = @__ef_filter__p_0
+WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = {AssertSqlHelper.Parameter("@__ef_filter__p_0")}
 """,
 //
-"""
+$"""
 @__ef_filter__p_0='2'
 
 SELECT `e`.`Id`, `e`.`Name`, `e`.`TenantId`
 FROM `Entities` AS `e`
-WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = @__ef_filter__p_0
+WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = {AssertSqlHelper.Parameter("@__ef_filter__p_0")}
 """);
             }
         }
@@ -8026,23 +8026,23 @@ ORDER BY `t`.`Id` DESC, `t2`.`Id`, `t2`.`Id0`, `t2`.`Id1`
                 Assert.Single(equalQuery);
 
                 AssertSql(
-"""
+$"""
 @__k_0='1'
 
 SELECT TOP 1 `a`.`Id`, `a`.`Name`
 FROM `Autos` AS `a`
-WHERE `a`.`Id` = @__k_0
+WHERE `a`.`Id` = {AssertSqlHelper.Parameter("@__k_0")}
 """,
 //
-"""
+$"""
 @__p_0='2'
 
 SELECT TOP 1 `a`.`Id`, `a`.`Name`
 FROM `Autos` AS `a`
-WHERE `a`.`Id` = @__p_0
+WHERE `a`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 """,
 //
-"""
+$"""
 @__entity_equality_a_0_Id='1' (Nullable = true)
 @__entity_equality_b_1_Id='2' (Nullable = true)
 @__entity_equality_b_1_Id='2' (Nullable = true)
@@ -8052,7 +8052,7 @@ SELECT `e`.`Id`, `e`.`AnotherAutoId`, `e`.`AutoId`
 FROM (`EqualAutos` AS `e`
 LEFT JOIN `Autos` AS `a` ON `e`.`AutoId` = `a`.`Id`)
 LEFT JOIN `Autos` AS `a0` ON `e`.`AnotherAutoId` = `a0`.`Id`
-WHERE (`a`.`Id` = @__entity_equality_a_0_Id AND `a0`.`Id` = @__entity_equality_b_1_Id) OR (`a`.`Id` = @__entity_equality_b_1_Id AND `a0`.`Id` = @__entity_equality_a_0_Id)
+WHERE (`a`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_a_0_Id")} AND `a0`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_b_1_Id")}) OR (`a`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_b_1_Id")} AND `a0`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_a_0_Id")})
 """);
             }
         }
@@ -10274,12 +10274,12 @@ ORDER BY `t`.`Id`
                 _ = context.Entities.Where(x => x.DateTime == parameter).Select(e => e.DateTime).FirstOrDefault();
 
                 AssertSql(
-"""
+$"""
 @__parameter_0='2021-11-12T13:14:15.0000000' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTime`
 FROM `Entities` AS `e`
-WHERE `e`.`DateTime` = CDATE(@__parameter_0)
+WHERE `e`.`DateTime` = CDATE({AssertSqlHelper.Parameter("@__parameter_0")})
 """);
             }
         }
@@ -10312,12 +10312,12 @@ WHERE `e`.`DateTime` = CDATE(@__parameter_0)
                 _ = context.Entities.Where(x => x.DateTimeOffset == parameter).Select(e => e.DateTimeOffset).FirstOrDefault();
 
                 AssertSql(
-"""
+$"""
 @__parameter_0='2021-11-12T03:14:15.0000000Z' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTimeOffset`
 FROM `Entities` AS `e`
-WHERE `e`.`DateTimeOffset` = @__parameter_0
+WHERE `e`.`DateTimeOffset` = {AssertSqlHelper.Parameter("@__parameter_0")}
 """);
             }
         }
@@ -10350,12 +10350,12 @@ WHERE `e`.`DateTimeOffset` = @__parameter_0
                 _ = context.Entities.Where(x => x.TimeSpan == parameter).Select(e => e.TimeSpan).FirstOrDefault();
 
                 AssertSql(
-"""
+$"""
 @__parameter_0='12:34:56.7890123'
 
 SELECT TOP 1 `e`.`TimeSpan`
 FROM `Entities` AS `e`
-WHERE `e`.`TimeSpan` = @__parameter_0
+WHERE `e`.`TimeSpan` = {AssertSqlHelper.Parameter("@__parameter_0")}
 """);
             }
         }

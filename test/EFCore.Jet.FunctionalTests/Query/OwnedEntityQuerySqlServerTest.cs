@@ -106,12 +106,12 @@ ORDER BY [w].[Id], [w0].[WarehouseCode]
         await base.Owned_collection_basic_split_query(async);
 
         AssertSql(
-"""
+$"""
 @__id_0='6c1ae3e5-30b9-4c77-8d98-f02075974a0a'
 
 SELECT TOP 1 `l`.`Id`
 FROM `Location25680` AS `l`
-WHERE `l`.`Id` = @__id_0
+WHERE `l`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
 ORDER BY `l`.`Id`
 """);
     }

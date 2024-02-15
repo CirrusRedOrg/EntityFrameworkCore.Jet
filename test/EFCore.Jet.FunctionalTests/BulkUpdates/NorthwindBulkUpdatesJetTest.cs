@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -49,11 +50,11 @@ WHERE `o`.`OrderID` < 10300
         await base.Delete_Where_parameter(async);
 
         AssertSql(
-            """
+            $"""
 @__quantity_0='1' (Nullable = true) (DbType = Int16)
 
 DELETE FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` = @__quantity_0
+WHERE `o`.`Quantity` = {AssertSqlHelper.Parameter("@__quantity_0")}
 """,
             //
             """
@@ -644,20 +645,20 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_parameter_set_constant(async);
 
         AssertExecuteUpdateSql(
-            """
+            $"""
 @__customer_0='ALFKI' (Size = 5)
 
 UPDATE `Customers` AS `c`
 SET `c`.`ContactName` = 'Updated'
-WHERE `c`.`CustomerID` = @__customer_0
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customer_0")}
 """,
             //
-            """
+            $"""
 @__customer_0='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customer_0
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customer_0")}
 """,
             //
             """
@@ -678,11 +679,11 @@ WHERE 0 = 1
         await base.Update_Where_set_parameter(async);
 
         AssertExecuteUpdateSql(
-            """
+            $"""
 @__value_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = @__value_0
+SET `c`.`ContactName` = {AssertSqlHelper.Parameter("@__value_0")}
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -692,11 +693,11 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_set_parameter_from_closure_array(async);
 
         AssertExecuteUpdateSql(
-            """
+            $"""
 @__p_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = @__p_0
+SET `c`.`ContactName` = {AssertSqlHelper.Parameter("@__p_0")}
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -718,11 +719,11 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_set_parameter_from_multilevel_property_access(async);
 
         AssertExecuteUpdateSql(
-            """
+            $"""
 @__container_Containee_Property_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = @__container_Containee_Property_0
+SET `c`.`ContactName` = {AssertSqlHelper.Parameter("@__container_Containee_Property_0")}
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -1030,11 +1031,11 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_set_property_plus_parameter(async);
 
         AssertExecuteUpdateSql(
-            """
+            $"""
 @__value_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & @__value_0
+SET `c`.`ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & {AssertSqlHelper.Parameter("@__value_0")}
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -1094,12 +1095,12 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_multiple_set(async);
 
         AssertExecuteUpdateSql(
-            """
+            $"""
 @__value_0='Abc' (Size = 30)
 
 UPDATE `Customers` AS `c`
 SET `c`.`City` = 'Seattle',
-    `c`.`ContactName` = @__value_0
+    `c`.`ContactName` = {AssertSqlHelper.Parameter("@__value_0")}
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }

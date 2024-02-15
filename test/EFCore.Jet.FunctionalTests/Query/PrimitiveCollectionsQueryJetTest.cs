@@ -162,13 +162,13 @@ WHERE `p`.`Id` IN (2, 999, 1000)
         await base.Inline_collection_Contains_with_all_parameters(async);
 
         AssertSql(
-            """
+            $"""
 @__i_0='2'
 @__j_1='999'
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE `p`.`Id` IN (@__i_0, @__j_1)
+WHERE `p`.`Id` IN ({AssertSqlHelper.Parameter("@__i_0")}, {AssertSqlHelper.Parameter("@__j_1")})
 """);
     }
 
@@ -177,12 +177,12 @@ WHERE `p`.`Id` IN (@__i_0, @__j_1)
         await base.Inline_collection_Contains_with_constant_and_parameter(async);
 
         AssertSql(
-            """
+            $"""
 @__j_0='999'
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE `p`.`Id` IN (2, @__j_0)
+WHERE `p`.`Id` IN (2, {AssertSqlHelper.Parameter("@__j_0")})
 """);
     }
 
@@ -191,12 +191,12 @@ WHERE `p`.`Id` IN (2, @__j_0)
         await base.Inline_collection_Contains_with_mixed_value_types(async);
 
         AssertSql(
-            """
+            $"""
 @__i_0='11'
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE `p`.`Int` IN (999, @__i_0, `p`.`Id`, `p`.`Id` + `p`.`Int`)
+WHERE `p`.`Int` IN (999, {AssertSqlHelper.Parameter("@__i_0")}, `p`.`Id`, `p`.`Id` + `p`.`Int`)
 """);
     }
 
@@ -466,12 +466,12 @@ ORDER BY `p`.`Id`
         await base.Column_collection_equality_parameter_collection(async);
 
         AssertSql(
-            """
+            $"""
 @__ints_0='[1,10]' (Size = 255)
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE `p`.`Ints` = @__ints_0
+WHERE `p`.`Ints` = {AssertSqlHelper.Parameter("@__ints_0")}
 """);
     }
 

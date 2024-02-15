@@ -7391,7 +7391,7 @@ ORDER BY NOT (`w0`.`IsAutomatic`)
 
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEVALUE(`m`.`Timeline`) >= CDATE({AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")})
+WHERE DATEVALUE(`m`.`Timeline`) >= {AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")}
 """);
         }
 
@@ -9620,7 +9620,7 @@ ORDER BY [g].[Nickname], [g].[SquadId], [s].[Id], [s1].[SquadId]
 
             AssertSql(
                 $"""
-@__unixEpochSeconds_0='0' (DbType = Object)
+@__unixEpochSeconds_0='0' (DbType = Decimal)
 
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `s1`.`SquadId`, `s1`.`MissionId`
 FROM (`Gears` AS `g`

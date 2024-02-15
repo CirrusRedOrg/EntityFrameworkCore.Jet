@@ -20,15 +20,15 @@ public class ManyToManyHeterogeneousQueryJetTest : ManyToManyHeterogeneousQueryR
         await base.Many_to_many_load_works_when_join_entity_has_custom_key(async);
 
         AssertSql(
-"""
+$"""
 @__p_0='1'
 
 SELECT TOP 1 `m`.`Id`
 FROM `ManyM_DB` AS `m`
-WHERE `m`.`Id` = @__p_0
+WHERE `m`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 """,
             //
-"""
+$"""
 @__p_0='1'
 @__p_0='1'
 
@@ -43,21 +43,21 @@ LEFT JOIN (
     SELECT `m2`.`Id`, `m2`.`ManyM_Id`, `m2`.`ManyN_Id`, `m3`.`Id` AS `Id0`
     FROM `ManyMN_DB` AS `m2`
     INNER JOIN `ManyM_DB` AS `m3` ON `m2`.`ManyM_Id` = `m3`.`Id`
-    WHERE `m3`.`Id` = @__p_0
+    WHERE `m3`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `t0` ON `t`.`Id` = `t0`.`ManyN_Id`
-WHERE `m`.`Id` = @__p_0
+WHERE `m`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `m`.`Id`, `t`.`Id0`, `t`.`Id`, `t0`.`Id`
 """,
             //
-"""
+$"""
 @__p_0='1'
 
 SELECT TOP 1 `m`.`Id`
 FROM `ManyN_DB` AS `m`
-WHERE `m`.`Id` = @__p_0
+WHERE `m`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 """,
             //
-"""
+$"""
 @__p_0='1'
 @__p_0='1'
 
@@ -72,9 +72,9 @@ LEFT JOIN (
     SELECT `m2`.`Id`, `m2`.`ManyM_Id`, `m2`.`ManyN_Id`, `m3`.`Id` AS `Id0`
     FROM `ManyMN_DB` AS `m2`
     INNER JOIN `ManyN_DB` AS `m3` ON `m2`.`ManyN_Id` = `m3`.`Id`
-    WHERE `m3`.`Id` = @__p_0
+    WHERE `m3`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `t0` ON `t`.`Id` = `t0`.`ManyM_Id`
-WHERE `m`.`Id` = @__p_0
+WHERE `m`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `m`.`Id`, `t`.`Id0`, `t`.`Id`, `t0`.`Id`
 """);
     }

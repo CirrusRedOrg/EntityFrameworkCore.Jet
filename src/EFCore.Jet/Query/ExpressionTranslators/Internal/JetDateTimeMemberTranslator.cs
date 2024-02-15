@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         _sqlExpressionFactory.IsNull(checkSqlExpression),
                         _sqlExpressionFactory.Constant(
                             null,
-                            notNullSqlExpression.TypeMapping))
+                            checkSqlExpression.TypeMapping))
                 },
                 notNullSqlExpression);
     }

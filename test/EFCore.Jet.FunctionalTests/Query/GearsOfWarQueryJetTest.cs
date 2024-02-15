@@ -7391,7 +7391,7 @@ ORDER BY NOT (`w0`.`IsAutomatic`)
 
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEVALUE(`m`.`Timeline`) >= CDATE({AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")})
+WHERE DATEVALUE(`m`.`Timeline`) >= {AssertSqlHelper.Parameter("@__dateTimeOffset_Date_0")}
 """);
         }
 

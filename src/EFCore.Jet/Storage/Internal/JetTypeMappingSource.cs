@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Storage;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -44,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal(18, 2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         private readonly JetDecimalTypeMapping _decimal18_0 = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 0);
-        private readonly JetCurrencyTypeMapping _currency = new JetCurrencyTypeMapping("currency");
+        private readonly JetDecimalTypeMapping _currency = new JetDecimalTypeMapping("currency", DbType.Currency, storeTypePostfix:StoreTypePostfix.None);
 
         private readonly JetDateTimeTypeMapping _datetime;
         private readonly JetDateTimeTypeMapping _dateasdatetime;

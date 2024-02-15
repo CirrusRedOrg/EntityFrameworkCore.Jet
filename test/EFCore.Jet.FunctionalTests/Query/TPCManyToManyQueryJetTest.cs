@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -2028,7 +2029,7 @@ LEFT JOIN (
         await base.Contains_on_skip_collection_navigation(async);
 
         AssertSql(
-"""
+$"""
 @__entity_equality_two_0_Id='1' (Nullable = true)
 
 SELECT `e`.`Id`, `e`.`Name`
@@ -2037,7 +2038,7 @@ WHERE EXISTS (
     SELECT 1
     FROM `JoinOneToTwo` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-    WHERE `e`.`Id` = `j`.`OneId` AND `e0`.`Id` = @__entity_equality_two_0_Id)
+    WHERE `e`.`Id` = `j`.`OneId` AND `e0`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_two_0_Id")})
 """);
     }
 
@@ -2773,7 +2774,7 @@ LEFT JOIN (
         await base.Contains_on_skip_collection_navigation_unidirectional(async);
 
         AssertSql(
-"""
+$"""
 @__entity_equality_two_0_Id='1' (Nullable = true)
 
 SELECT `u`.`Id`, `u`.`Name`
@@ -2782,7 +2783,7 @@ WHERE EXISTS (
     SELECT 1
     FROM `UnidirectionalJoinOneToTwo` AS `u0`
     INNER JOIN `UnidirectionalEntityTwos` AS `u1` ON `u0`.`TwoId` = `u1`.`Id`
-    WHERE `u`.`Id` = `u0`.`OneId` AND `u1`.`Id` = @__entity_equality_two_0_Id)
+    WHERE `u`.`Id` = `u0`.`OneId` AND `u1`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_two_0_Id")})
 """);
     }
 

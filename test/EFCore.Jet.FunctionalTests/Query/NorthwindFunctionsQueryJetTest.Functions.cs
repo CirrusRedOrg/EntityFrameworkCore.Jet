@@ -37,52 +37,52 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.TimeSpan_Compare_to_simple_zero(async, compareTo);
 
             AssertSql(
-"""
+$"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` = CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
 //
-"""
+$"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <> CDATE(@__myDatetime_0) OR `o`.`OrderDate` IS NULL
+WHERE `o`.`OrderDate` <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")}) OR `o`.`OrderDate` IS NULL
 """,
 //
-"""
+$"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
 //
-"""
+$"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
 //
-"""
+$"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
 //
-"""
+$"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """);
         }
 
@@ -103,12 +103,12 @@ WHERE `c`.`ContactName` LIKE 'M%'
             await base.String_StartsWith_Parameter(async);
 
             AssertSql(
-                """
+                $"""
 @__pattern_0_rewritten='M%' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE @__pattern_0_rewritten
+WHERE `c`.`ContactName` LIKE {AssertSqlHelper.Parameter("@__pattern_0_rewritten")}
 """);
         }
 
@@ -165,12 +165,12 @@ WHERE `c`.`ContactName` LIKE '%b'
             await base.String_EndsWith_Parameter(async);
 
             AssertSql(
-                """
+                $"""
 @__pattern_0_rewritten='%b' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE @__pattern_0_rewritten
+WHERE `c`.`ContactName` LIKE {AssertSqlHelper.Parameter("@__pattern_0_rewritten")}
 """);
         }
 
@@ -266,12 +266,12 @@ WHERE `c`.`ContactName` LIKE '%     %'
             await base.String_Contains_parameter_with_whitespace(async);
 
             AssertSql(
-                """
+                $"""
 @__pattern_0_rewritten='%     %' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE @__pattern_0_rewritten
+WHERE `c`.`ContactName` LIKE {AssertSqlHelper.Parameter("@__pattern_0_rewritten")}
 """);
         }
 
@@ -1986,13 +1986,13 @@ WHERE (INSTR(1, `c`.`ContactName`, 'a', 1) - 1) = 1
             await base.Indexof_with_one_parameter_arg(async);
 
             AssertSql(
-                """
+                $"""
 @__pattern_0='a' (Size = 30)
 @__pattern_0='a' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF(@__pattern_0 = '', 0, INSTR(1, `c`.`ContactName`, @__pattern_0, 1) - 1) = 1
+WHERE IIF({AssertSqlHelper.Parameter("@__pattern_0")} = '', 0, INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 1) - 1) = 1
 """);
         }
 

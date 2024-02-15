@@ -121,14 +121,14 @@ WHERE `v`.`Capacity` IS NOT NULL AND `v`.`FuelType` IS NOT NULL
             await base.Can_change_dependent_instance_non_derived();
 
             AssertSql(
-"""
+$"""
 @p0='LicensedOperator' (Nullable = false) (Size = 21)
 @p1='Repair' (Size = 255)
 @p2='repairman' (Size = 255)
 @p3='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `Operator_Discriminator` = @p0, `LicenseType` = @p1, `Operator_Name` = @p2
-WHERE `Name` = @p3;
+UPDATE `Vehicles` SET `Operator_Discriminator` = {AssertSqlHelper.Parameter("@p0")}, `LicenseType` = {AssertSqlHelper.Parameter("@p1")}, `Operator_Name` = {AssertSqlHelper.Parameter("@p2")}
+WHERE `Name` = {AssertSqlHelper.Parameter("@p3")};
 SELECT @@ROWCOUNT;
 """,
 //
@@ -145,12 +145,12 @@ WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
             await base.Can_change_principal_instance_non_derived();
 
             AssertSql(
-"""
+$"""
 @p0='2'
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `SeatingCapacity` = @p0
-WHERE `Name` = @p1;
+UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
 SELECT @@ROWCOUNT;
 """,
 //

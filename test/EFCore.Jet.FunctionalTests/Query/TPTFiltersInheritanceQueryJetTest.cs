@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -185,14 +186,14 @@ INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 """,
             //
-"""
+$"""
 @__p_0='1'
 
 SELECT TOP 1 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
-WHERE `a`.`Id` = @__p_0
+WHERE `a`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 """);
     }
 

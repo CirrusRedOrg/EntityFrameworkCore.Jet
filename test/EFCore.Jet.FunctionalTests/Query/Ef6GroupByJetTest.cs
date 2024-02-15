@@ -166,10 +166,10 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_conditional_expression_containing_group_key(async);
 
         AssertSql(
-"""
+$"""
 @__p_0='False'
 
-SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, CBOOL(@__p_0) AS `logicExpression`
+SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, CBOOL({AssertSqlHelper.Parameter("@__p_0")}) AS `logicExpression`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
 """);
@@ -767,7 +767,7 @@ ORDER BY [t].[FirstName], [t0].[Id]
         await base.Whats_new_2021_sample_7(async);
 
         AssertSql(
-"""
+$"""
 @__size_0='11'
 @__size_0='11'
 
@@ -777,11 +777,11 @@ SELECT `p0`.`LastName`, `f`.`Size`, (
     LEFT JOIN `Feet` AS `f0` ON `p1`.`Id` = `f0`.`Id`)
     LEFT JOIN `Person` AS `p2` ON `f0`.`Id` = `p2`.`Id`)
     LEFT JOIN `Feet` AS `f1` ON `p1`.`Id` = `f1`.`Id`
-    WHERE `f0`.`Size` = @__size_0 AND `p1`.`MiddleInitial` IS NOT NULL AND (`f0`.`Id` <> 1 OR `f0`.`Id` IS NULL) AND (`f`.`Size` = `f0`.`Size` OR (`f`.`Size` IS NULL AND `f0`.`Size` IS NULL)) AND (`p0`.`LastName` = `p2`.`LastName` OR (`p0`.`LastName` IS NULL AND `p2`.`LastName` IS NULL))) AS `Min`
+    WHERE `f0`.`Size` = {AssertSqlHelper.Parameter("@__size_0")} AND `p1`.`MiddleInitial` IS NOT NULL AND (`f0`.`Id` <> 1 OR `f0`.`Id` IS NULL) AND (`f`.`Size` = `f0`.`Size` OR (`f`.`Size` IS NULL AND `f0`.`Size` IS NULL)) AND (`p0`.`LastName` = `p2`.`LastName` OR (`p0`.`LastName` IS NULL AND `p2`.`LastName` IS NULL))) AS `Min`
 FROM (`Person` AS `p`
 LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`)
 LEFT JOIN `Person` AS `p0` ON `f`.`Id` = `p0`.`Id`
-WHERE `f`.`Size` = @__size_0 AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
+WHERE `f`.`Size` = {AssertSqlHelper.Parameter("@__size_0")} AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
 GROUP BY `f`.`Size`, `p0`.`LastName`
 """);
     }

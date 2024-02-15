@@ -13123,7 +13123,7 @@ ORDER BY [t].[Nickname], [t].[SquadId], [s].[Id], [s1].[SquadId]
 
         AssertSql(
             $"""
-@__unixEpochSeconds_0='0' (DbType = Object)
+@__unixEpochSeconds_0='0' (DbType = Decimal)
 
 SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`, `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `s1`.`SquadId`, `s1`.`MissionId`
 FROM ((

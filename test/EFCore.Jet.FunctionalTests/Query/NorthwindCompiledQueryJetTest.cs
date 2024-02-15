@@ -197,7 +197,7 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
             await base.Compiled_query_with_max_parameters();
 
             AssertSql(
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -216,10 +216,10 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s15")}
 """,
                 //
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -239,11 +239,11 @@ WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` =
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s15")}
 ORDER BY `c`.`CustomerID`
 """,
                 //
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -262,10 +262,10 @@ ORDER BY `c`.`CustomerID`
 
 SELECT COUNT(*)
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s15")}
 """,
                 //
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -284,10 +284,10 @@ WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` =
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s15")}
 """,
                 //
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -307,11 +307,11 @@ WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` =
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s15")}
 ORDER BY `c`.`CustomerID`
 """,
                 //
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -330,10 +330,10 @@ ORDER BY `c`.`CustomerID`
 
 SELECT COUNT(*)
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14 OR `c`.`CustomerID` = @__s15
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s15")}
 """,
                 //
-"""
+$"""
 @__s1='ALFKI' (Size = 5)
 @__s2='ANATR' (Size = 5)
 @__s3='ANTON' (Size = 5)
@@ -351,7 +351,7 @@ WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` =
 
 SELECT COUNT(*)
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__s1 OR `c`.`CustomerID` = @__s2 OR `c`.`CustomerID` = @__s3 OR `c`.`CustomerID` = @__s4 OR `c`.`CustomerID` = @__s5 OR `c`.`CustomerID` = @__s6 OR `c`.`CustomerID` = @__s7 OR `c`.`CustomerID` = @__s8 OR `c`.`CustomerID` = @__s9 OR `c`.`CustomerID` = @__s10 OR `c`.`CustomerID` = @__s11 OR `c`.`CustomerID` = @__s12 OR `c`.`CustomerID` = @__s13 OR `c`.`CustomerID` = @__s14
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s1")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s2")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s3")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s4")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s5")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s6")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s7")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s8")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s9")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s10")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s11")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s12")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s13")} OR `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__s14")}
 """);
         }
 
@@ -452,20 +452,20 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             await base.First_query_with_cancellation_async();
 
             AssertSql(
-"""
+$"""
 @__customerID='ALFKI' (Size = 5)
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """,
                 //
-"""
+$"""
 @__customerID='ANATR' (Size = 5)
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """);
         }
 
@@ -486,20 +486,20 @@ ORDER BY `c`.`CustomerID`
             await base.First_query_with_single_parameter_async();
 
             AssertSql(
-"""
+$"""
 @__customerID='ALFKI' (Size = 5)
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """,
                 //
-"""
+$"""
 @__customerID='ANATR' (Size = 5)
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """);
         }
 
@@ -534,20 +534,20 @@ WHERE 0 = 1
             await base.Query_with_three_parameters_async();
 
             AssertSql(
-"""
+$"""
 @__customerID='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """,
                 //
-"""
+$"""
 @__customerID='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """);
         }
 
@@ -556,20 +556,20 @@ WHERE `c`.`CustomerID` = @__customerID
             await base.Query_with_two_parameters_async();
 
             AssertSql(
-"""
+$"""
 @__customerID='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """,
                 //
-"""
+$"""
 @__customerID='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """);
         }
 
@@ -592,20 +592,20 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
             await base.Query_with_single_parameter_async();
 
             AssertSql(
-"""
+ $"""
 @__customerID='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """,
                 //
-"""
+$"""
 @__customerID='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 """);
         }
 
@@ -704,23 +704,23 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
             base.Query_with_single_parameter_with_include();
 
             AssertSql(
-"""
+$"""
 @__customerID='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 ORDER BY `c`.`CustomerID`
 """,
                 //
-"""
+$"""
 @__customerID='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` = @__customerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
 ORDER BY `c`.`CustomerID`
 """);
         }

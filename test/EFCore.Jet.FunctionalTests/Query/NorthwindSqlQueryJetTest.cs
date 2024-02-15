@@ -71,10 +71,10 @@ INNER JOIN (
         await base.SqlQuery_over_int_with_parameter(async);
 
         AssertSql(
-            """
+            $"""
 p0='10'
 
-SELECT `ProductID` FROM `Products` WHERE `ProductID` = @p0
+SELECT `ProductID` FROM `Products` WHERE `ProductID` = {AssertSqlHelper.Parameter("@p0")}
 """);
     }
 

@@ -1987,7 +1987,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)");
             await base.List_Contains_over_entityType_should_rewrite_to_identity_equality(isAsync);
 
             AssertSql(
-                """
+                $"""
     @__entity_equality_someOrder_0_OrderID='10248' (Nullable = true)
     
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -1995,7 +1995,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)");
     WHERE EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = @__entity_equality_someOrder_0_OrderID)
+        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = {AssertSqlHelper.Parameter("@__entity_equality_someOrder_0_OrderID")})
     """);
         }
 

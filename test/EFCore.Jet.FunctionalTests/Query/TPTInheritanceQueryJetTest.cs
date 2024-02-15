@@ -4,6 +4,7 @@
 // ReSharper disable InconsistentNaming
 
 using System.Threading.Tasks;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
@@ -472,13 +473,13 @@ INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """,
 //
-"""
+$"""
 @p0='0'
 @p1='Bald eagle' (Size = 255)
 @p2='Haliaeetus leucocephalus' (Size = 100)
 
 INSERT INTO `Animals` (`CountryId`, `Name`, `Species`)
-VALUES (@p0, @p1, @p2);
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")});
 SELECT `Id`
 FROM `Animals`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;

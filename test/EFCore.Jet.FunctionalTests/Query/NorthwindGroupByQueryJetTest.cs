@@ -640,12 +640,12 @@ ORDER BY `t`.`Key`
             await base.GroupBy_param_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                """
+                $"""
 @__a_0='2'
 
 SELECT IIF(SUM(`t`.`OrderID`) IS NULL, 0, SUM(`t`.`OrderID`)) AS `Sum`, MIN(`t`.`OrderID`) AS `Min`, `t`.`Key`, MAX(`t`.`OrderID`) AS `Max`, AVG(CDBL(`t`.`OrderID`)) AS `Avg`
 FROM (
-    SELECT `o`.`OrderID`, CLNG(@__a_0) AS `Key`
+    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
     FROM `Orders` AS `o`
 ) AS `t`
 GROUP BY `t`.`Key`

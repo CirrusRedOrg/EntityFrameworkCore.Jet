@@ -24,23 +24,23 @@ public class EntitySplittingSqlServerTest : EntitySplittingTestBase
         await base.Can_roundtrip();
 
         AssertSql(
-"""
+$"""
 @p0='2' (Nullable = true)
 
 INSERT INTO `MeterReadings` (`ReadingStatus`)
-VALUES (@p0);
+VALUES ({AssertSqlHelper.Parameter("@p0")});
 SELECT `Id`
 FROM `MeterReadings`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
 //
-"""
+$"""
 @p1='1'
 @p2='100' (Size = 255)
 @p3=NULL (Size = 255)
 
 INSERT INTO `MeterReadingDetails` (`Id`, `CurrentRead`, `PreviousRead`)
-VALUES (@p1, @p2, @p3);
+VALUES ({AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")});
 """,
 //
 """

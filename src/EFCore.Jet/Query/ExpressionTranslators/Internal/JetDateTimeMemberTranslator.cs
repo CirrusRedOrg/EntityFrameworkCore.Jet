@@ -90,7 +90,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         new[] { false },
                         returnType),
 
-                    nameof(DateTime.Date) => _sqlExpressionFactory.NullChecked(
+                    nameof(DateTime.Date) => DateTimeNullChecked(
                         instance!,
                         _sqlExpressionFactory.Function(
                             "DATEVALUE",
@@ -114,5 +114,19 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             }
             return null;
         }
+
+        public CaseExpression DateTimeNullChecked(
+            SqlExpression checkSqlExpression,
+            SqlExpression notNullSqlExpression)
+            => _sqlExpressionFactory.Case(
+                new[]
+                {
+                    new CaseWhenClause(
+                        _sqlExpressionFactory.IsNull(checkSqlExpression),
+                        _sqlExpressionFactory.Constant(
+                            null,
+                            notNullSqlExpression.TypeMapping))
+                },
+                notNullSqlExpression);
     }
 }

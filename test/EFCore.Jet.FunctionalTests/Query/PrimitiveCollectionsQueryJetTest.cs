@@ -77,13 +77,14 @@ WHERE `p`.`NullableInt` IS NULL OR `p`.`NullableInt` = 999
         await base.Inline_collection_Count_with_one_value(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(2 AS int))) AS [v]([Value])
-    WHERE [v].[Value] > [p].[Id]) = 1
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`) AS `v`
+    WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
     }
 
@@ -92,13 +93,17 @@ WHERE (
         await base.Inline_collection_Count_with_two_values(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(2 AS int)), (999)) AS [v]([Value])
-    WHERE [v].[Value] > [p].[Id]) = 1
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT 999 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
     }
 
@@ -107,13 +112,20 @@ WHERE (
         await base.Inline_collection_Count_with_three_values(async);
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`String`, `p`.`Strings`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(2 AS int)), (999), (1000)) AS [v]([Value])
-    WHERE [v].[Value] > [p].[Id]) = 2
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT 999 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT 1000 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`
+    WHERE `v`.`Value` > `p`.`Id`) = 2
 """);
     }
 

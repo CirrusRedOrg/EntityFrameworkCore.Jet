@@ -751,6 +751,71 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return crossJoinExpression;
         }
 
+        private Expression VisitRowValuePrivate(RowValueExpression rowValueExpression, IReadOnlyList<string> columnNames)
+        {
+            var values = rowValueExpression.Values;
+            var count = values.Count;
+            for (var i = 0; i < count; i++)
+            {
+                if (i > 0)
+                {
+                    Sql.Append(", ");
+                }
+
+                Visit(values[i]);
+                Sql.Append(" AS ");
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnNames[i]));
+            }
+
+            return rowValueExpression;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override Expression VisitValues(ValuesExpression valuesExpression)
+        {
+            base.VisitValues(valuesExpression);
+
+            return valuesExpression;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override void GenerateValues(ValuesExpression valuesExpression)
+        {
+            if (valuesExpression.RowValues.Count == 0)
+            {
+                throw new InvalidOperationException(RelationalStrings.EmptyCollectionNotSupportedAsInlineQueryRoot);
+            }
+
+            var rowValues = valuesExpression.RowValues;
+
+            for (var i = 0; i < rowValues.Count; i++)
+            {
+                Sql.Append("SELECT ");
+
+                VisitRowValuePrivate(valuesExpression.RowValues[i], valuesExpression.ColumnNames);
+                GeneratePseudoFromClause();
+                var alias = valuesExpression.Alias;
+                Sql.Append(" AS ");
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(alias + "_" + i));
+                if (i != rowValues.Count - 1)
+                {
+                    Sql.AppendLine();
+                    Sql.AppendLine("UNION");
+                }
+            }
+        }
+
+
         /// <summary>Generates the TOP part of the SELECT statement,</summary>
         /// <param name="selectExpression"> The select expression. </param>
         protected override void GenerateTop(SelectExpression selectExpression)

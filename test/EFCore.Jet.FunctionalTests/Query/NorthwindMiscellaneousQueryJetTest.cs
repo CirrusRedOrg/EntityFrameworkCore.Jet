@@ -6727,6 +6727,129 @@ WHERE NOT EXISTS (
 """);
         }
 
+        public override async Task Contains_over_concatenated_columns_with_different_sizes(bool async)
+        {
+            await base.Contains_over_concatenated_columns_with_different_sizes(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` & `c`.`CompanyName` IN ('ALFKIAlfreds Futterkiste', 'ANATRAna Trujillo Emparedados y helados')
+""");
+        }
+
+        public override async Task Contains_over_concatenated_column_and_constant(bool async)
+        {
+            await base.Contains_over_concatenated_column_and_constant(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` & 'SomeConstant' IN ('ALFKISomeConstant', 'ANATRSomeConstant', 'ALFKIX')
+""");
+        }
+
+        public override async Task Contains_over_concatenated_columns_both_fixed_length(bool async)
+        {
+            await base.Contains_over_concatenated_columns_both_fixed_length(async);
+
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+WHERE IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & IIF(`c`.`CustomerID` IS NULL, '', `c`.`CustomerID`) IN ('ALFKIALFKI', 'ALFKI', 'ANATRAna Trujillo Emparedados y helados', 'ANATRANATR')
+""");
+        }
+
+        public override async Task Contains_over_concatenated_column_and_parameter(bool async)
+        {
+            await base.Contains_over_concatenated_column_and_parameter(async);
+
+            AssertSql(
+                """
+@__someVariable_1='SomeVariable' (Size = 255)
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` & @__someVariable_1 IN ('ALFKISomeVariable', 'ANATRSomeVariable', 'ALFKIX')
+""");
+        }
+
+        public override async Task Contains_over_concatenated_parameter_and_constant(bool async)
+        {
+            await base.Contains_over_concatenated_parameter_and_constant(async);
+
+            AssertSql(
+                """
+@__Contains_0='True'
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE @__Contains_0 = TRUE
+""");
+        }
+
+        public override async Task Subquery_with_navigation_inside_inline_collection(bool async)
+        {
+            await base.Subquery_with_navigation_inside_inline_collection(async);
+
+            AssertSql(
+                """
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE (
+    SELECT COALESCE(SUM([v].[Value]), 0)
+    FROM (VALUES (CAST(100 AS int)), ((
+        SELECT COUNT(*)
+        FROM [Orders] AS [o]
+        WHERE [c].[CustomerID] = [o].[CustomerID]))) AS [v]([Value])) > 101
+""");
+        }
+
+        public override async Task Parameter_collection_Contains_with_projection_and_ordering(bool async)
+        {
+#if DEBUG
+            // GroupBy debug assert. Issue #26104.
+            Assert.StartsWith(
+                "Missing alias in the list",
+                (await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => base.Parameter_collection_Contains_with_projection_and_ordering(async))).Message);
+#else
+        await base.Parameter_collection_Contains_with_projection_and_ordering(async);
+
+        AssertSql(
+            """
+@__ids_0='[10248,10249]' (Size = 4000)
+
+SELECT [o].[Quantity] AS [Key], (
+    SELECT MAX([o3].[OrderDate])
+    FROM [Order Details] AS [o2]
+    INNER JOIN [Orders] AS [o3] ON [o2].[OrderID] = [o3].[OrderID]
+    WHERE [o2].[OrderID] IN (
+        SELECT [i1].[value]
+        FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i1]
+    ) AND [o].[Quantity] = [o2].[Quantity]) AS [MaxTimestamp]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] IN (
+    SELECT [i].[value]
+    FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i]
+)
+GROUP BY [o].[Quantity]
+ORDER BY (
+    SELECT MAX([o3].[OrderDate])
+    FROM [Order Details] AS [o2]
+    INNER JOIN [Orders] AS [o3] ON [o2].[OrderID] = [o3].[OrderID]
+    WHERE [o2].[OrderID] IN (
+        SELECT [i0].[value]
+        FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i0]
+    ) AND [o].[Quantity] = [o2].[Quantity])
+""");
+#endif
+        }
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected.Select(s => s.Trim()).ToArray());
 

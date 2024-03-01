@@ -1,6 +1,6 @@
 <Project>
 	<PropertyGroup>
-		<EFCoreVersion>[8.0.1, 9.0.0)</EFCoreVersion>
+		<EFCoreVersion>[8.0.2, 9.0.0)</EFCoreVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -28,10 +28,10 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-		<PackageReference Update="MSTest.TestAdapter" Version="3.2.0" />
-		<PackageReference Update="MSTest.TestFramework" Version="3.2.0" />
-		<PackageReference Update="coverlet.collector" Version="6.0.0" />
+		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+		<PackageReference Update="MSTest.TestAdapter" Version="3.2.2" />
+		<PackageReference Update="MSTest.TestFramework" Version="3.2.2" />
+		<PackageReference Update="coverlet.collector" Version="6.0.1" />
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.3" />
 
 		<!-- EFCore.Jet.FunctionalTests -->

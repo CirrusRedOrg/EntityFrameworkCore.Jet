@@ -2009,9 +2009,9 @@ WHERE `c`.`Location` LIKE '%Jacinto%'
 """);
         }
 
-        public override async Task Non_unicode_string_literals_is_used_for_non_unicode_column_with_concat(bool isAsync)
+        public override async Task Unicode_string_literals_is_used_for_non_unicode_column_with_concat(bool isAsync)
         {
-            await base.Non_unicode_string_literals_is_used_for_non_unicode_column_with_concat(isAsync);
+            await base.Unicode_string_literals_is_used_for_non_unicode_column_with_concat(isAsync);
 
             AssertSql(
 """

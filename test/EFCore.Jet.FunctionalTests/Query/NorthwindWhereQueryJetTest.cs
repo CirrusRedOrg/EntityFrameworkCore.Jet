@@ -1447,7 +1447,7 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
 
             AssertSql(
                 $"""
-    @__i_0='A' (Size = 5)
+    @__i_0='A' (Size = 255)
     
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1461,7 +1461,7 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
 
             AssertSql(
                 $"""
-    @__i_0='A' (Size = 5)
+    @__i_0='A' (Size = 255)
     
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1475,8 +1475,8 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
 
             AssertSql(
                 $"""
-@__i_0='A' (Size = 5)
-@__j_1='B' (Size = 5)
+@__i_0='A' (Size = 255)
+@__j_1='B' (Size = 255)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1490,9 +1490,9 @@ WHERE ({AssertSqlHelper.Parameter("@__i_0")} & ({AssertSqlHelper.Parameter("@__j
 
             AssertSql(
                 $"""
-@__i_0='A' (Size = 5)
-@__j_1='B' (Size = 5)
-@__k_2='C' (Size = 5)
+@__i_0='A' (Size = 255)
+@__j_1='B' (Size = 255)
+@__k_2='C' (Size = 255)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -2949,6 +2949,49 @@ WHERE IIF(`p`.`UnitPrice` IS NULL, NULL, CDBL(`p`.`UnitPrice`)) > 100.0
         public override async Task Where_client_deep_inside_predicate_and_server_top_level(bool async)
         {
             await base.Where_client_deep_inside_predicate_and_server_top_level(async);
+
+            AssertSql();
+        }
+
+        public override async Task EF_Constant(bool async)
+        {
+            await base.EF_Constant(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
+        }
+
+        public override async Task EF_Constant_with_subtree(bool async)
+        {
+            await base.EF_Constant_with_subtree(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
+        }
+
+        public override async Task EF_Constant_does_not_parameterized_as_part_of_bigger_subtree(bool async)
+        {
+            await base.EF_Constant_does_not_parameterized_as_part_of_bigger_subtree(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = ('ALF' & 'KI')
+""");
+        }
+
+        public override async Task EF_Constant_with_non_evaluatable_argument_throws(bool async)
+        {
+            await base.EF_Constant_with_non_evaluatable_argument_throws(async);
 
             AssertSql();
         }

@@ -2953,6 +2953,49 @@ WHERE IIF(`p`.`UnitPrice` IS NULL, NULL, CDBL(`p`.`UnitPrice`)) > 100.0
             AssertSql();
         }
 
+        public override async Task EF_Constant(bool async)
+        {
+            await base.EF_Constant(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
+        }
+
+        public override async Task EF_Constant_with_subtree(bool async)
+        {
+            await base.EF_Constant_with_subtree(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
+        }
+
+        public override async Task EF_Constant_does_not_parameterized_as_part_of_bigger_subtree(bool async)
+        {
+            await base.EF_Constant_does_not_parameterized_as_part_of_bigger_subtree(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = ('ALF' & 'KI')
+""");
+        }
+
+        public override async Task EF_Constant_with_non_evaluatable_argument_throws(bool async)
+        {
+            await base.EF_Constant_with_non_evaluatable_argument_throws(async);
+
+            AssertSql();
+        }
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

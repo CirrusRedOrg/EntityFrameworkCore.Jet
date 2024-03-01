@@ -2464,6 +2464,86 @@ FROM [Customers] AS [c]
 """);
         }
 
+        public override async Task Contains_inside_aggregate_function_with_GroupBy(bool async)
+        {
+            await base.Contains_inside_aggregate_function_with_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT COUNT(IIF(`c`.`City` IN ('London', 'Berlin'), 1, NULL))
+FROM `Customers` AS `c`
+GROUP BY `c`.`Country`
+""");
+        }
+
+        public override async Task Contains_inside_Average_without_GroupBy(bool async)
+        {
+            await base.Contains_inside_Average_without_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT AVG(IIF(`c`.`City` IN ('London', 'Berlin'), 1.0, 0.0))
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task Contains_inside_Sum_without_GroupBy(bool async)
+        {
+            await base.Contains_inside_Sum_without_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT IIF(SUM(IIF(`c`.`City` IN ('London', 'Berlin'), 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` IN ('London', 'Berlin'), 1, 0)))
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task Contains_inside_Count_without_GroupBy(bool async)
+        {
+            await base.Contains_inside_Count_without_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM `Customers` AS `c`
+WHERE `c`.`City` IN ('London', 'Berlin')
+""");
+        }
+
+        public override async Task Contains_inside_LongCount_without_GroupBy(bool async)
+        {
+            await base.Contains_inside_LongCount_without_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM `Customers` AS `c`
+WHERE `c`.`City` IN ('London', 'Berlin')
+""");
+        }
+
+        public override async Task Contains_inside_Max_without_GroupBy(bool async)
+        {
+            await base.Contains_inside_Max_without_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT MAX(IIF(`c`.`City` IN ('London', 'Berlin'), 1, 0))
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task Contains_inside_Min_without_GroupBy(bool async)
+        {
+            await base.Contains_inside_Min_without_GroupBy(async);
+
+            AssertSql(
+                """
+SELECT MIN(IIF(`c`.`City` IN ('London', 'Berlin'), 1, 0))
+FROM `Customers` AS `c`
+""");
+        }
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

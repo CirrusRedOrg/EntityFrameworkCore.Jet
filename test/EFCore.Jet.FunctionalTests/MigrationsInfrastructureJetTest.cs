@@ -145,81 +145,10 @@ COMMIT TRANSACTION;
         }
 
         public override void Can_generate_idempotent_up_scripts()
-        {
-            base.Can_generate_idempotent_up_scripts();
+            => Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_up_scripts());
 
-            Assert.Equal(
-                @"IF OBJECT_ID('`__EFMigrationsHistory`') IS NULL
-BEGIN
-    CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` nvarchar(150) NOT NULL,
-        `ProductVersion` nvarchar(32) NOT NULL,
-        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-    );
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
-BEGIN
-    CREATE TABLE `Table1` (
-        `Id` int NOT NULL,
-        `Foo` int NOT NULL,
-        CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
-    );
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
-BEGIN
-    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-    VALUES ('00000000000001_Migration1', '7.0.0-test');
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
-BEGIN
-    EXEC sp_rename '`Table1`.`Foo`', 'Bar', 'COLUMN';
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
-BEGIN
-    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-    VALUES ('00000000000002_Migration2', '7.0.0-test');
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000003_Migration3')
-BEGIN
-    CREATE DATABASE TransactionSuppressed;
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000003_Migration3')
-BEGIN
-    DROP DATABASE TransactionSuppressed;
-END;
-
-GO
-
-IF NOT EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000003_Migration3')
-BEGIN
-    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-    VALUES ('00000000000003_Migration3', '7.0.0-test');
-END;
-
-GO
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
-        }
+        public override void Can_generate_idempotent_up_scripts_noTransactions()
+            => Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_up_scripts_noTransactions());
 
         public override void Can_generate_down_scripts()
         {
@@ -250,44 +179,7 @@ COMMIT TRANSACTION;
         }
 
         public override void Can_generate_idempotent_down_scripts()
-        {
-            base.Can_generate_idempotent_down_scripts();
-
-            Assert.Equal(
-                @"IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
-BEGIN
-    EXEC sp_rename '`Table1`.`Bar`', 'Foo', 'COLUMN';
-END;
-
-GO
-
-IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000002_Migration2')
-BEGIN
-    DELETE FROM `__EFMigrationsHistory`
-    WHERE `MigrationId` = '00000000000002_Migration2';
-END;
-
-GO
-
-IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
-BEGIN
-    DROP TABLE `Table1`;
-END;
-
-GO
-
-IF EXISTS(SELECT * FROM `__EFMigrationsHistory` WHERE `MigrationId` = '00000000000001_Migration1')
-BEGIN
-    DELETE FROM `__EFMigrationsHistory`
-    WHERE `MigrationId` = '00000000000001_Migration1';
-END;
-
-GO
-
-",
-                Sql,
-                ignoreLineEndingDifferences: true);
-        }
+            => Assert.Throws<NotSupportedException>(() => base.Can_generate_idempotent_down_scripts());
 
         public override void Can_generate_one_down_script()
         {

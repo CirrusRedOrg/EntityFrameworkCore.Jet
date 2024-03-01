@@ -1447,7 +1447,7 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
 
             AssertSql(
                 $"""
-    @__i_0='A' (Size = 5)
+    @__i_0='A' (Size = 255)
     
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1461,7 +1461,7 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
 
             AssertSql(
                 $"""
-    @__i_0='A' (Size = 5)
+    @__i_0='A' (Size = 255)
     
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1475,8 +1475,8 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
 
             AssertSql(
                 $"""
-@__i_0='A' (Size = 5)
-@__j_1='B' (Size = 5)
+@__i_0='A' (Size = 255)
+@__j_1='B' (Size = 255)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -1490,9 +1490,9 @@ WHERE ({AssertSqlHelper.Parameter("@__i_0")} & ({AssertSqlHelper.Parameter("@__j
 
             AssertSql(
                 $"""
-@__i_0='A' (Size = 5)
-@__j_1='B' (Size = 5)
-@__k_2='C' (Size = 5)
+@__i_0='A' (Size = 255)
+@__j_1='B' (Size = 255)
+@__k_2='C' (Size = 255)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`

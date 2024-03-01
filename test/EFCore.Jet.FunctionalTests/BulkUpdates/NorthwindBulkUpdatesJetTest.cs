@@ -1032,7 +1032,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             $"""
-@__value_0='Abc' (Size = 30)
+@__value_0='Abc' (Size = 255)
 
 UPDATE `Customers` AS `c`
 SET `c`.`ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & {AssertSqlHelper.Parameter("@__value_0")}

@@ -101,6 +101,13 @@ VALUES ('00000000000003_Migration3', '7.0.0-test');
 
 COMMIT TRANSACTION;
 
+BEGIN TRANSACTION;
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000004_Migration4', '7.0.0-test');
+
+COMMIT TRANSACTION;
+
 ",
                 Sql,
                 ignoreLineEndingDifferences: true);

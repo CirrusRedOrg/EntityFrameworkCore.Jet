@@ -467,7 +467,7 @@ ALTER TABLE `Person` ALTER COLUMN `Id` decimal(20,0) NOT NULL;
 ");
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Jet does not support schema")]
         public virtual void MoveTableOperation_legacy()
         {
             Generate(

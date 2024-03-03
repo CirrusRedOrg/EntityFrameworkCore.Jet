@@ -1262,12 +1262,12 @@ CROSS APPLY (
             SelectMany_with_collection_being_correlated_subquery_which_references_non_mapped_properties_from_inner_and_outer_entity(
                 bool isAsync)
         {
-            await base
-                .SelectMany_with_collection_being_correlated_subquery_which_references_non_mapped_properties_from_inner_and_outer_entity(
-                    isAsync);
+            await AssertUnableToTranslateEFProperty(
+                () => base
+                    .SelectMany_with_collection_being_correlated_subquery_which_references_non_mapped_properties_from_inner_and_outer_entity(
+                        isAsync));
 
-            AssertSql(
-                $@"");
+            AssertSql();
         }
 
         public override async Task Select_with_complex_expression_that_can_be_funcletized(bool isAsync)

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -277,7 +278,8 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                             QueryCompilationContext.QueryContextParameter);
 
                         var escapedPatternParameter =
-                            _queryCompilationContext.RegisterRuntimeParameter(patternParameter.Name + "_rewritten", lambda);
+                            _queryCompilationContext.RegisterRuntimeParameter(
+                                $"{patternParameter.Name}_{methodType.ToString().ToLower(CultureInfo.InvariantCulture)}", lambda);
 
                         translation = _sqlExpressionFactory.Like(
                             translatedInstance,

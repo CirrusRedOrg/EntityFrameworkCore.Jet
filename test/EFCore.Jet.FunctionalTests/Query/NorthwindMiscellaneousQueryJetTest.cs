@@ -2803,12 +2803,12 @@ WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__p_0")})");
 
             AssertSql(
                 $"""
-@__NewLine_0_rewritten='%
+@__NewLine_0_contains='%
 %' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__NewLine_0_rewritten")}
+WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__NewLine_0_contains")}
 """);
         }
 
@@ -4373,11 +4373,11 @@ FROM (
 
             AssertSql(
                 $"""
-@__prefix_0_rewritten='A%' (Size = 5)
+@__prefix_0_startswith='A%' (Size = 5)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__prefix_0_rewritten")}
+WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__prefix_0_startswith")}
 """);
         }
 

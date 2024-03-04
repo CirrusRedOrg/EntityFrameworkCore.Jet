@@ -350,7 +350,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                                 ? _fixedLengthUnicodeString.StoreTypeNameBase
                                 : _variableLengthUnicodeString.StoreTypeNameBase,
                             size: size,
-                            unicode: true);
+                            unicode: true,
+                            useKeyComparison: mappingInfo.IsKeyOrIndex);
                 }
 
                 if (clrType == typeof(byte[]))

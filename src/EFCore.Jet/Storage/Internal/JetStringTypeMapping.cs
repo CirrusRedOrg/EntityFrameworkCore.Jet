@@ -4,6 +4,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 
@@ -18,6 +19,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly bool _keepLineBreakCharacters;
         private readonly int _maxSpecificSize;
 
+        private static readonly CaseInsensitiveValueComparer CaseInsensitiveValueComparer = new();
+
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -28,10 +31,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             int? size = null,
             bool fixedLength = false,
             StoreTypePostfix? storeTypePostfix = null,
-            bool keepLineBreakCharacters = false)
+            bool keepLineBreakCharacters = false,
+            bool useKeyComparison = false)
             : this(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(typeof(string), jsonValueReaderWriter: JsonStringReaderWriter.Instance),
+                    new CoreTypeMappingParameters(typeof(string), comparer: useKeyComparison ? CaseInsensitiveValueComparer : null, keyComparer:useKeyComparison ? CaseInsensitiveValueComparer : null, jsonValueReaderWriter: JsonStringReaderWriter.Instance),
                     storeType ?? GetStoreName(fixedLength),
                     storeTypePostfix ?? StoreTypePostfix.Size,
                     (fixedLength

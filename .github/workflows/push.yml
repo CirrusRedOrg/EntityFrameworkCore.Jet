@@ -387,7 +387,7 @@ jobs:
             });
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.startsWith("test-results_")
+              return artifact.name.startsWith("green-tests_")
             });
             
             if (artifacts.length > 0) {

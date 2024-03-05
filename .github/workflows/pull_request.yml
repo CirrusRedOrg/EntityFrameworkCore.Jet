@@ -110,7 +110,7 @@ jobs:
           $defaultConnection = '${{ matrix.dataAccessProviderType }}' -eq 'ODBC' ? 'DBQ=Jet.accdb' : 'Data Source=Jet.accdb;Persist Security Info=False;'
           echo "defaultConnection=$defaultConnection" >> $env:GITHUB_ENV
 
-          $matrixId = '${{ matrix.aceVersion }}-${{ matrix.aceArchitecture }}-' + '${{ matrix.dataAccessProviderType }}'.Replace(' ', '') + '${{ matrix.os }}'
+          $matrixId = '${{ matrix.aceVersion }}-${{ matrix.aceArchitecture }}-' + '${{ matrix.dataAccessProviderType }}'.Replace(' ', '') + '-${{ matrix.os }}'
           echo "matrixId=$matrixId" >> $env:GITHUB_ENV
       - name: Output Variables
         shell: pwsh
@@ -385,7 +385,7 @@ jobs:
             });
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.startsWith("test-results_")
+              return artifact.name.startsWith("green-tests_")
             });
             
             if (artifacts.length > 0) {

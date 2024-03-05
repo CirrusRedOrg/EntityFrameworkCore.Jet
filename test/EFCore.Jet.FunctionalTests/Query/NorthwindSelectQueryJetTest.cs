@@ -28,6 +28,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
+        [ConditionalFact]
+        public virtual void DummyTestToCheckTestRelatedCiWorkflows()
+        {
+        }
+
         public override async Task Projection_when_arithmetic_expression_precedence(bool isAsync)
         {
             await base.Projection_when_arithmetic_expression_precedence(isAsync);

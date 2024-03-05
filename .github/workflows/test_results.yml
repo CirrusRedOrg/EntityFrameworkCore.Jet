@@ -46,13 +46,13 @@ jobs:
                run_id: ${{ github.event.workflow_run.id }},
             });
             
-            var testResultsArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "test-results"
+            var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "test-results";
             });
             
-            if (testResultsArtifacts.length > 0) {
+            if (artifacts.length > 0) {
               core.setOutput('testResultsArtifactAvailable', 'true');
-              console.log('Test results artifact found.')
+              console.log('Test results artifact found.');
             }
       # The dorny/test-reporter@v1 action doesn't support actions/upload-artifact@v4 yet.
       # We therefore download the artifact manually and feed it to dorny/test-reporter@v1 as local files.
@@ -60,12 +60,53 @@ jobs:
         id: DownloadArtifact
         if: steps.CheckArtifact.outputs.testResultsArtifactAvailable == 'true'
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          name: test-results
+          # name: test-results
           path: test-results
-          run-id: ${{ github.event.workflow_run.id }}
+          merge-multiple: true
+          # run-id: ${{ github.event.workflow_run.id }}
+      - name: 'Download Test Results'
+        id: DownloadTestResults
+        if: steps.DownloadArtifact.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{ github.event.workflow_run.id }},
+            });
+            
+            console.log('context.repo.owner = ' + context.repo.owner);
+            console.log('context.repo.repo = ' + context.repo.repo);
+            
+            var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "test-results";
+            });
+            
+            if (artifacts.length > 0) {
+              var download = await github.rest.actions.downloadArtifact({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 artifact_id: artifacts[0].id,
+                 archive_format: 'zip',
+              });
+            
+              var fs = require('fs');
+              fs.writeFileSync('${{ github.workspace }}/test-results.zip', Buffer.from(download.data));
+            
+              core.setOutput('hasTestResultsArtifact', 'true');
+            }
+      - name: 'Extract Artifact'
+        id: ExtractArtifact
+        if: steps.DownloadTestResults.conclusion == 'success' && steps.DownloadTestResults.outputs.hasTestResultsArtifact == 'true'
+        shell: pwsh
+        run: |
+          Expand-Archive test-results.zip -DestinationPath './test-results' -Force
+          dir -Recurse | Select-Object -ExpandProperty FullName
       - name: 'Publish Test Report'
-        if: steps.DownloadArtifact.result == 'success'
+        if: steps.DownloadArtifact.outcome == 'success' || steps.ExtractArtifact.conclusion == 'success'
         uses: dorny/test-reporter@v1
         env:
           #

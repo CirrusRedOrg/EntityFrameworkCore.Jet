@@ -344,8 +344,8 @@ jobs:
     needs: BuildAndTest
     if: always()
     outputs:
-      testResultsAvailable: ${{ steps.MergeTestResults.result == 'success' }}
-      greenTestsAvailable: ${{ steps.MergeGreenTests.result == 'success' }}
+      testResultsAvailable: ${{ steps.MergeTestResults.conclusion == 'success' }}
+      greenTestsAvailable: ${{ steps.MergeGreenTests.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: 'Check Test Results Artifacts'
@@ -360,12 +360,12 @@ jobs:
             });
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.startsWith("test-results_")
+              return artifact.name.startsWith("test-results_");
             });
             
             if (artifacts.length > 0) {
               core.setOutput('artifactsAvailable', 'true');
-              console.log('Test results artifacts found.')
+              console.log('Test results artifacts found.');
             }
       - name: 'Merge Test Results'
         id: MergeTestResults
@@ -387,12 +387,12 @@ jobs:
             });
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.startsWith("green-tests_")
+              return artifact.name.startsWith("green-tests_");
             });
             
             if (artifacts.length > 0) {
               core.setOutput('artifactsAvailable', 'true');
-              console.log('Green Tests Artifacts found.')
+              console.log('Green Tests Artifacts found.');
             }
       - name: 'Merge Green Tests'
         id: MergeGreenTests

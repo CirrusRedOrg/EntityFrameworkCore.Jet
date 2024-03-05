@@ -902,7 +902,7 @@ WHERE `o`.`Quantity` < 5 AND FIX(`o`.`UnitPrice`) > 10.0");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CDBL(`o`.`Discount`)^3.0 > 0.004999999888241291");
+WHERE CDBL(`o`.`Discount`)^3.0 > 0.00499999988824129");
         }
 
         public override async Task Where_math_square(bool async)
@@ -913,7 +913,7 @@ WHERE CDBL(`o`.`Discount`)^3.0 > 0.004999999888241291");
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE CDBL(`o`.`Discount`)^2.0 > 0.05000000074505806
+WHERE CDBL(`o`.`Discount`)^2.0 > 0.0500000007450581
 """);
         }
 
@@ -1044,7 +1044,7 @@ WHERE `o`.`OrderID` = 11077 AND EXP(CDBL(`o`.`Discount`)) > 1.0");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / 2.302585092994046) < 0.0");
+WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / 2.30258509299405) < 0.0");
         }
 
         public override async Task Where_math_log(bool isAsync)
@@ -1084,7 +1084,7 @@ WHERE `o`.`OrderID` = 11077 AND SQR(CDBL(`o`.`Discount`)) > 0.0");
             AssertSql(
                 $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (1.5707963267948966 + ATN(-CDBL(`o`.`Discount`) / SQR(-(CDBL(`o`.`Discount`) * CDBL(`o`.`Discount`)) + 1.0))) > 1.0");
+WHERE `o`.`OrderID` = 11077 AND (1.5707963267949 + ATN(-CDBL(`o`.`Discount`) / SQR(-(CDBL(`o`.`Discount`) * CDBL(`o`.`Discount`)) + 1.0))) > 1.0");
         }
 
         public override async Task Where_math_asin(bool isAsync)
@@ -1183,7 +1183,7 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.141592653589793)) > 0.0
+WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.14159265358979)) > 0.0
 """);
         }
 
@@ -1195,7 +1195,7 @@ WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (180.0 / 3.1415926535897
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (3.141592653589793 / 180.0)) > 0.0
+WHERE `o`.`OrderID` = 11077 AND (CDBL(`o`.`Discount`) * (3.14159265358979 / 180.0)) > 0.0
 """);
         }
 
@@ -1339,7 +1339,7 @@ WHERE `o`.`OrderID` = 11077 AND EXP(`o`.`Discount`) > 1
     """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(`o`.`Discount`) / 2.3025851) < 0
+WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(`o`.`Discount`) / 2.302585) < 0
 """);
         }
 
@@ -1387,7 +1387,7 @@ WHERE `o`.`OrderID` = 11077 AND SQR(`o`.`Discount`) > 0
     """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (1.5707963267948966 + ATN(-`o`.`Discount` / SQR(-(`o`.`Discount` * `o`.`Discount`) + 1))) > 1.0
+WHERE `o`.`OrderID` = 11077 AND (1.5707963267949 + ATN(-`o`.`Discount` / SQR(-(`o`.`Discount` * `o`.`Discount`) + 1))) > 1.0
 """);
         }
 
@@ -1483,7 +1483,7 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (180 / 3.1415927)) > 0
+WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (180 / 3.141593)) > 0
 """);
         }
 
@@ -1495,7 +1495,7 @@ WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (180 / 3.1415927)) > 0
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (3.1415927 / 180)) > 0
+WHERE `o`.`OrderID` = 11077 AND (`o`.`Discount` * (3.141593 / 180)) > 0
 """);
         }
 

@@ -29,7 +29,7 @@ jobs:
         run: |
           echo 'EventName: ${{ github.event_name }}'
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: ${{ env.checkoutFetchDepth }}
       - name: 'Get Head Commit Info'
@@ -77,7 +77,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set additional variables
         shell: pwsh
         run: |
@@ -111,6 +111,9 @@ jobs:
           
           $defaultConnection = '${{ matrix.dataAccessProviderType }}' -eq 'ODBC' ? 'DBQ=Jet.accdb' : 'Data Source=Jet.accdb;Persist Security Info=False;'
           echo "defaultConnection=$defaultConnection" >> $env:GITHUB_ENV
+
+          $matrixId = '${{ matrix.aceVersion }}-${{ matrix.aceArchitecture }}-' + '${{ matrix.dataAccessProviderType }}'.Replace(' ', '') + '${{ matrix.os }}'
+          echo "matrixId=$matrixId" >> $env:GITHUB_ENV
       - name: Output Variables
         shell: pwsh
         run: |
@@ -122,6 +125,7 @@ jobs:
           echo "aceSilentInstallArgument: ${{ env.aceSilentInstallArgument }}"
           echo "dataAccessProviderType: ${{ matrix.dataAccessProviderType }}"
           echo "defaultConnection: ${{ env.defaultConnection }}"
+          echo "matrixId: ${{ env.matrixId }}"
           echo "skipTests: ${{ env.skipTests }}"
           echo "dotnetInstallDirectory: ${{ env.dotnetInstallDirectory }}"
           echo "dotnetExecutable: ${{ env.dotnetExecutable }}"
@@ -277,9 +281,9 @@ jobs:
           Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
       - name: 'Upload Test Results'
         if: always() && env.skipTests != 'true' && env.uploadTestResults == 'true'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results_${{ env.matrixId }}
           path: |
             test\EFCore.Jet.Data.Tests\TestResults\*.trx
             test\EFCore.Jet.FunctionalTests\TestResults\*.trx
@@ -332,19 +336,83 @@ jobs:
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'
         if: ${{ env.commitGreenTestsFile != '' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
+        with:
+          name: green-tests_${{ env.matrixId }}
+          path: ${{ env.commitGreenTestsFile }}
+  MergeArtifacts:
+    needs: BuildAndTest
+    if: always()
+    outputs:
+      testResultsAvailable: ${{ steps.MergeTestResults.result == 'success' }}
+      greenTestsAvailable: ${{ steps.MergeGreenTests.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Check Test Results Artifacts'
+        id: CheckTestResultsArtifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: '${{ github.run_id }}',
+            });
+            
+            var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name.startsWith("test-results_")
+            });
+            
+            if (artifacts.length > 0) {
+              core.setOutput('artifactsAvailable', 'true');
+              console.log('Test results artifacts found.')
+            }
+      - name: 'Merge Test Results'
+        id: MergeTestResults
+        if: steps.CheckTestResultsArtifacts.outputs.artifactsAvailable == 'true'
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: test-results
+          pattern: test-results_*
+          delete-merged: true
+      - name: 'Check Green Tests Artifacts'
+        id: CheckGreenTestsArtifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: '${{ github.run_id }}',
+            });
+            
+            var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name.startsWith("test-results_")
+            });
+            
+            if (artifacts.length > 0) {
+              core.setOutput('artifactsAvailable', 'true');
+              console.log('Green Tests Artifacts found.')
+            }
+      - name: 'Merge Green Tests'
+        id: MergeGreenTests
+        if: steps.CheckGreenTestsArtifacts.outputs.artifactsAvailable == 'true'
+        uses: actions/upload-artifact/merge@v4
         with:
           name: green-tests
-          path: ${{ env.commitGreenTestsFile }}
+          pattern: green-tests_*
+          delete-merged: true
   NuGet:
-    needs: BuildAndTest
-    if: always() && (needs.BuildAndTest.result == 'success' || needs.BuildAndTest.result == 'skipped') && (github.event_name == 'push' || github.event_name == 'release') && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
+    needs:
+      - BuildAndTest
+      - MergeArtifacts
+    if: always() && (needs.BuildAndTest.result == 'success' || needs.BuildAndTest.result == 'skipped') && (github.event_name == 'push' || github.event_name == 'release') && needs.MergeArtifacts.result == 'success' && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
       - name: .NET Information
@@ -422,7 +490,7 @@ jobs:
           echo "pushToMygetOrg=$pushToMygetOrg" >> $env:GITHUB_ENV
           echo "pushToNugetOrg=$pushToNugetOrg" >> $env:GITHUB_ENV
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nupkgs
           path: nupkgs

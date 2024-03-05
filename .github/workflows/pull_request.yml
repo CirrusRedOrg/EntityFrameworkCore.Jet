@@ -342,8 +342,8 @@ jobs:
     needs: BuildAndTest
     if: always()
     outputs:
-      testResultsAvailable: ${{ steps.MergeTestResults.result == 'success' }}
-      greenTestsAvailable: ${{ steps.MergeGreenTests.result == 'success' }}
+      testResultsAvailable: ${{ steps.MergeTestResults.conclusion == 'success' }}
+      greenTestsAvailable: ${{ steps.MergeGreenTests.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: 'Check Test Results Artifacts'
@@ -358,12 +358,12 @@ jobs:
             });
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.startsWith("test-results_")
+              return artifact.name.startsWith("test-results_");
             });
             
             if (artifacts.length > 0) {
               core.setOutput('artifactsAvailable', 'true');
-              console.log('Test results artifacts found.')
+              console.log('Test results artifacts found.');
             }
       - name: 'Merge Test Results'
         id: MergeTestResults
@@ -385,12 +385,12 @@ jobs:
             });
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name.startsWith("green-tests_")
+              return artifact.name.startsWith("green-tests_");
             });
             
             if (artifacts.length > 0) {
               core.setOutput('artifactsAvailable', 'true');
-              console.log('Green Tests Artifacts found.')
+              console.log('Green Tests Artifacts found.');
             }
       - name: 'Merge Green Tests'
         id: MergeGreenTests
@@ -407,12 +407,17 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     outputs:
-      hasGreenTestsArtifacts: ${{ steps.CheckGreenTestsArtifacts.outputs.hasGreenTestsArtifacts }}
+      hasGreenTestsArtifacts: ${{ steps.CheckGreenTestsArtifacts.outputs.hasGreenTestsArtifacts == 'true' }}
     steps:
+#      - name: 'Debug'
+#        shell: pwsh
+#        env:
+#          NEEDS_CONTEXT: ${{ toJson(needs) }}
+#        run: |
+#          echo $env:NEEDS_CONTEXT
       - name: 'Download Green Tests'
         if: needs.MergeArtifacts.outputs.greenTestsAvailable == 'true'
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: green-tests
           path: green-tests

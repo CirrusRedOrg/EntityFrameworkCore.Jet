@@ -63,6 +63,7 @@ jobs:
         with:
           name: test-results
           path: test-results
+          run-id: ${{ github.event.workflow_run.id }}
       - name: 'Publish Test Report'
         if: steps.DownloadArtifact.result == 'success'
         uses: dorny/test-reporter@v1

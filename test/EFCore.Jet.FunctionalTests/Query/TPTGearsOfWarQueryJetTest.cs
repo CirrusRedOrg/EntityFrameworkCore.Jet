@@ -8137,10 +8137,10 @@ WHERE CHARINDEX(0x01, [s].[Banner]) > 0
         await base.Byte_array_filter_by_length_literal(async);
 
         AssertSql(
-"""
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
-WHERE CAST(DATALENGTH([s].[Banner]) AS int) = 1
+            """
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
+WHERE LENB(`s`.`Banner`) = 2
 """);
     }
 
@@ -8149,12 +8149,12 @@ WHERE CAST(DATALENGTH([s].[Banner]) AS int) = 1
         await base.Byte_array_filter_by_length_parameter(async);
 
         AssertSql(
-"""
-@__p_0='1'
+            """
+@__p_0='2'
 
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
-WHERE CAST(DATALENGTH([s].[Banner]) AS int) = @__p_0
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
+WHERE LENB(`s`.`Banner`) = @__p_0
 """);
     }
 
@@ -8163,12 +8163,13 @@ WHERE CAST(DATALENGTH([s].[Banner]) AS int) = @__p_0
         base.Byte_array_filter_by_length_parameter_compiled();
 
         AssertSql(
-"""
-@__byteArrayParam='0x2A80' (Size = 8000)
+            """
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
 
 SELECT COUNT(*)
-FROM [Squads] AS [s]
-WHERE CAST(DATALENGTH([s].[Banner]) AS int) = CAST(DATALENGTH(@__byteArrayParam) AS int)
+FROM `Squads` AS `s`
+WHERE LENB(`s`.`Banner`) = IIF(LENB(@__byteArrayParam) IS NULL, NULL, CLNG(LENB(@__byteArrayParam)))
 """);
     }
 
@@ -8989,10 +8990,10 @@ ORDER BY [g].[Nickname], [g].[SquadId], [c].[Name]
         await base.First_on_byte_array(async);
 
         AssertSql(
-"""
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
-WHERE CAST(SUBSTRING([s].[Banner], 1, 1) AS tinyint) = CAST(2 AS tinyint)
+            """
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
+WHERE ASCB(MIDB(`s`.`Banner`, 1, 1)) = 2
 """);
     }
 
@@ -9001,9 +9002,10 @@ WHERE CAST(SUBSTRING([s].[Banner], 1, 1) AS tinyint) = CAST(2 AS tinyint)
         await base.Array_access_on_byte_array(async);
 
         AssertSql(
-"""
-SELECT `g`.`Nickname`, `g`.`AssignedCityName`
-FROM `Gears` AS `g`
+            """
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
+WHERE ASCB(MIDB(`s`.`Banner5`, 2 + 1, 1)) = 6
 """);
     }
 
@@ -10635,9 +10637,9 @@ WHERE (
         await base.Using_indexer_on_byte_array_and_string_in_projection(async);
 
         AssertSql(
-"""
-SELECT [s].[Id], CAST(SUBSTRING([s].[Banner], 0 + 1, 1) AS tinyint), [s].[Name]
-FROM [Squads] AS [s]
+            """
+SELECT `s`.`Id`, ASCB(MIDB(`s`.`Banner`, 0 + 1, 1)), `s`.`Name`
+FROM `Squads` AS `s`
 """);
     }
 

@@ -149,7 +149,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
 
             var isBinaryMaxDataType = GetProviderType(sqlExpression) == "varbinary(max)" || sqlExpression is SqlParameterExpression;
             var dataLengthSqlFunction = Dependencies.SqlExpressionFactory.Function(
-                "DATALENGTH",
+                "LENB",
                 new[] { sqlExpression },
                 nullable: true,
                 argumentsPropagateNullability: new[] { true },
@@ -417,23 +417,25 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
         var visitedIndex = Visit(index);
 
         return visitedArray is SqlExpression sqlArray
-               && visitedIndex is SqlExpression sqlIndex
-            ? Dependencies.SqlExpressionFactory.Convert(
-                Dependencies.SqlExpressionFactory.Function(
-                    "MID",
-                    new[]
-                    {
-                        sqlArray,
-                        Dependencies.SqlExpressionFactory.Add(
-                            Dependencies.SqlExpressionFactory.ApplyDefaultTypeMapping(sqlIndex),
-                            Dependencies.SqlExpressionFactory.Constant(1)),
-                        Dependencies.SqlExpressionFactory.Constant(1)
-                    },
+            && visitedIndex is SqlExpression sqlIndex
+                ? Dependencies.SqlExpressionFactory.Function(
+                    "ASCB",
+                    new[] { Dependencies.SqlExpressionFactory.Function(
+                        "MIDB",
+                        new[] { 
+                            sqlArray,
+                            Dependencies.SqlExpressionFactory.Add(
+                                Dependencies.SqlExpressionFactory.ApplyDefaultTypeMapping(sqlIndex),
+                                Dependencies.SqlExpressionFactory.Constant(1)),
+                            Dependencies.SqlExpressionFactory.Constant(1) },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true, true },
+                        typeof(byte[])) },
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true, true, true },
-                    typeof(byte[])),
-                resultType)
-            : QueryCompilationContext.NotTranslatedExpression;
+                    argumentsPropagateNullability: new[] { true },
+                    typeof(int))
+
+                : QueryCompilationContext.NotTranslatedExpression;
     }
 
     private static string? GetProviderType(SqlExpression expression)

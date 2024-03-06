@@ -67,14 +67,17 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
         if (method is { IsGenericMethod: true, Name: nameof(Enumerable.First) } && method.GetParameters().Length == 1
             && arguments[0].Type == typeof(byte[]))
         {
-            return _sqlExpressionFactory.Convert(
-                _sqlExpressionFactory.Function(
+            return _sqlExpressionFactory.Function(
+                "ASCB",
+                new[] { _sqlExpressionFactory.Function(
                     "MIDB",
                     new[] { arguments[0], _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1) },
                     nullable: true,
                     argumentsPropagateNullability: new[] { true, true, true },
-                    typeof(byte[])),
-                method.ReturnType);
+                    typeof(byte[])) },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true },
+                typeof(int));
         }
 
         return null;

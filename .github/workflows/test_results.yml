@@ -35,53 +35,16 @@ jobs:
 
           which node
           node --version
-      - name: 'Debug'
-        shell: pwsh
-        env:
-          WORKFLOWRUN_CONTEXT: ${{ toJson(github.event.workflow_run) }}
-        run: |
-          echo $env:WORKFLOWRUN_CONTEXT
       - name: Checkout
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_branch }}
-          # token: ${{ secrets.GH_PUBLIC_REPOSITORIES_TOKEN }}
-          fetch-depth: 2
-#      - name: 'Check Artifact'
-#        id: CheckArtifact
-#        uses: actions/github-script@v7
-#        with:
-#          script: |
-#            var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
-#               owner: context.repo.owner,
-#               repo: context.repo.repo,
-#               run_id: ${{ github.event.workflow_run.id }},
-#            });
-#            
-#            var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
-#              return artifact.name == "test-results";
-#            });
-#            
-#            if (artifacts.length > 0) {
-#              core.setOutput('testResultsArtifactAvailable', 'true');
-#              console.log('Test results artifact found.');
-#            }
+          fetch-depth: 1
       # The dorny/test-reporter@v1 action doesn't support actions/upload-artifact@v4 yet.
       # We therefore download the artifact manually and feed it to dorny/test-reporter@v1 as local files.
-#      - name: 'Download Artifact'
-#        id: DownloadArtifact
-#        if: steps.CheckArtifact.outputs.testResultsArtifactAvailable == 'true'
-#        uses: actions/download-artifact@v4
-#        continue-on-error: true
-#        with:
-#          # name: test-results
-#          path: test-results
-#          merge-multiple: true
-#          # run-id: ${{ github.event.workflow_run.id }}
       - name: 'Download Test Results'
         id: DownloadTestResults
-#        if: steps.DownloadArtifact.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
@@ -93,8 +56,6 @@ jobs:
             
             console.log('context.repo.owner = ' + context.repo.owner);
             console.log('context.repo.repo = ' + context.repo.repo);
-            console.log('github.repository_owner = ${{ github.repository_owner }}');
-            console.log('github.repository = ${{ github.repository }}');
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "test-results";
@@ -135,7 +96,7 @@ jobs:
           name: 'All Tests'
           # artifact: test-results
           # use '**/*.trx' for artifact and 'test-results/**/*.trx' for local files
-          path: '**/*.trx'
+          path: 'test-results/**/*.trx'
           reporter: dotnet-trx
           only-summary: 'true'
           fail-on-error: 'false'

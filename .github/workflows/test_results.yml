@@ -35,13 +35,19 @@ jobs:
 
           which node
           node --version
+      - name: 'Debug'
+        shell: pwsh
+        env:
+          WORKFLOWRUN_CONTEXT: ${{ toJson(github.event.workflow_run) }}
+        run: |
+          echo $env:WORKFLOWRUN_CONTEXT
       - name: Checkout
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_branch }}
-          token: ${{ secrets.GH_PUBLIC_REPOSITORIES_TOKEN }}
-          fetch-depth: 1
+          # token: ${{ secrets.GH_PUBLIC_REPOSITORIES_TOKEN }}
+          fetch-depth: 2
 #      - name: 'Check Artifact'
 #        id: CheckArtifact
 #        uses: actions/github-script@v7
@@ -82,7 +88,7 @@ jobs:
             var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
-               run_id: ${{ github.event.workflow_run.id }},
+               run_id: context.payload.workflow_run.id,
             });
             
             console.log('context.repo.owner = ' + context.repo.owner);
@@ -129,7 +135,8 @@ jobs:
           name: 'All Tests'
           # artifact: test-results
           # use '**/*.trx' for artifact and 'test-results/**/*.trx' for local files
-          path: 'test-results/**/*.trx'
+          path: '**/*.trx'
           reporter: dotnet-trx
           only-summary: 'true'
           fail-on-error: 'false'
+          fail-on-empty: 'true'

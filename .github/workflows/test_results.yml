@@ -35,6 +35,13 @@ jobs:
 
           which node
           node --version
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{ secrets.GH_PUBLIC_REPOSITORIES_TOKEN }}
+          fetch-depth: 1
 #      - name: 'Check Artifact'
 #        id: CheckArtifact
 #        uses: actions/github-script@v7
@@ -80,6 +87,8 @@ jobs:
             
             console.log('context.repo.owner = ' + context.repo.owner);
             console.log('context.repo.repo = ' + context.repo.repo);
+            console.log('github.repository_owner = ${{ github.repository_owner }}');
+            console.log('github.repository = ${{ github.repository }}');
             
             var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "test-results";

@@ -35,27 +35,54 @@ jobs:
 
           which node
           node --version
-      - name: 'Check Artifact'
-        id: CheckArtifact
-        uses: actions/github-script@v6
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 1
+      # The dorny/test-reporter@v1 action doesn't support actions/upload-artifact@v4 yet.
+      # We therefore download the artifact manually and feed it to dorny/test-reporter@v1 as local files.
+      - name: 'Download Test Results'
+        id: DownloadTestResults
+        uses: actions/github-script@v7
         with:
           script: |
             var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
-               run_id: ${{ github.event.workflow_run.id }},
+               run_id: context.payload.workflow_run.id,
             });
             
-            var testResultsArtifacts = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "test-results"
+            console.log('context.repo.owner = ' + context.repo.owner);
+            console.log('context.repo.repo = ' + context.repo.repo);
+            
+            var artifacts = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "test-results";
             });
             
-            if (testResultsArtifacts.length > 0) {
-              core.setOutput('testResultsArtifactAvailable', 'true');
-              console.log('Test results artifact found.')
+            if (artifacts.length > 0) {
+              var download = await github.rest.actions.downloadArtifact({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 artifact_id: artifacts[0].id,
+                 archive_format: 'zip',
+              });
+            
+              var fs = require('fs');
+              fs.writeFileSync('${{ github.workspace }}/test-results.zip', Buffer.from(download.data));
+            
+              core.setOutput('hasTestResultsArtifact', 'true');
             }
+      - name: 'Extract Artifact'
+        id: ExtractArtifact
+        if: steps.DownloadTestResults.outputs.hasTestResultsArtifact == 'true'
+        shell: pwsh
+        run: |
+          Expand-Archive test-results.zip -DestinationPath './test-results' -Force
+          dir -Recurse | Select-Object -ExpandProperty FullName
       - name: 'Publish Test Report'
-        if: steps.CheckArtifact.outputs.testResultsArtifactAvailable == 'true'
+        if: steps.ExtractArtifact.conclusion == 'success'
         uses: dorny/test-reporter@v1
         env:
           #
@@ -67,8 +94,10 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
         with:
           name: 'All Tests'
-          artifact: test-results
-          path: '**/*.trx'
+          # artifact: test-results
+          # use '**/*.trx' for artifact and 'test-results/**/*.trx' for local files
+          path: 'test-results/**/*.trx'
           reporter: dotnet-trx
           only-summary: 'true'
           fail-on-error: 'false'
+          fail-on-empty: 'true'

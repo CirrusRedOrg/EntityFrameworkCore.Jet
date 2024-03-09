@@ -7256,10 +7256,10 @@ WHERE IIF(`f`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`f`.`Name` = 'Locust
             await base.Byte_array_contains_literal(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CHARINDEX(0x01, `s`.`Banner`) > 0
+WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), 0x01, 0) > 0
 """);
         }
 
@@ -7271,7 +7271,7 @@ WHERE CHARINDEX(0x01, `s`.`Banner`) > 0
                 """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE LENB(`s`.`Banner`) = 2
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = 2
 """);
         }
 
@@ -7285,7 +7285,7 @@ WHERE LENB(`s`.`Banner`) = 2
 
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE LENB(`s`.`Banner`) = @__p_0
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = @__p_0
 """);
         }
 
@@ -7297,10 +7297,17 @@ WHERE LENB(`s`.`Banner`) = @__p_0
                 """
 @__byteArrayParam='0x2A80' (Size = 510)
 @__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
 
 SELECT COUNT(*)
 FROM `Squads` AS `s`
-WHERE LENB(`s`.`Banner`) = IIF(LENB(@__byteArrayParam) IS NULL, NULL, CLNG(LENB(@__byteArrayParam)))
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = IIF(IIF(ASCB(RIGHTB(@__byteArrayParam, 1)) = 0, LENB(@__byteArrayParam) - 1, LENB(@__byteArrayParam)) IS NULL, NULL, CLNG(IIF(ASCB(RIGHTB(@__byteArrayParam, 1)) = 0, LENB(@__byteArrayParam) - 1, LENB(@__byteArrayParam)))) OR (IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) IS NULL AND IIF(ASCB(RIGHTB(@__byteArrayParam, 1)) = 0, LENB(@__byteArrayParam) - 1, LENB(@__byteArrayParam)) IS NULL)
 """);
         }
 
@@ -7309,12 +7316,12 @@ WHERE LENB(`s`.`Banner`) = IIF(LENB(@__byteArrayParam) IS NULL, NULL, CLNG(LENB(
             await base.Byte_array_contains_parameter(async);
 
             AssertSql(
-    """
+                """
 @__someByte_0='1' (Size = 1)
 
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CHARINDEX(CAST(@__someByte_0 AS varbinary(max)), `s`.`Banner`) > 0
+WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), CHR(@__someByte_0), 0) > 0
 """);
         }
 
@@ -7323,10 +7330,10 @@ WHERE CHARINDEX(CAST(@__someByte_0 AS varbinary(max)), `s`.`Banner`) > 0
             await base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE DATALENGTH(`s`.`Banner5`) = 5
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner5`, 1)) = 0, LENB(`s`.`Banner5`) - 1, LENB(`s`.`Banner5`)) = 5
 """);
         }
 
@@ -7651,11 +7658,11 @@ WHERE EXISTS (
             await base.Contains_on_byte_array_property_using_byte_column(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `l`.`Name`, `l`.`Discriminator`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`
-FROM `Squads` AS `s`
-CROSS JOIN `LocustLeaders` AS `l`
-WHERE CHARINDEX(CAST(`l`.`ThreatLevelByte` AS varbinary(max)), `s`.`Banner`) > 0
+FROM `Squads` AS `s`,
+`LocustLeaders` AS `l`
+WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), CHR(`l`.`ThreatLevelByte`), 0) > 0
 """);
         }
 

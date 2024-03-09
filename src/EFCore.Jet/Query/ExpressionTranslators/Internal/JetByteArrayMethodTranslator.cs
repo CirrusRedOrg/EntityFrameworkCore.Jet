@@ -52,12 +52,30 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
 
             var value = arguments[1] is SqlConstantExpression constantValue
                 ? (SqlExpression)_sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, sourceTypeMapping)
-                : _sqlExpressionFactory.Convert(arguments[1], typeof(byte[]), sourceTypeMapping);
+                : _sqlExpressionFactory.Function(
+                    "CHR",
+                    new SqlExpression[] { arguments[1] },
+                    nullable: true,
+                    argumentsPropagateNullability: new[] { true },
+                    typeof(string));
+
+            
 
             return _sqlExpressionFactory.GreaterThan(
                 _sqlExpressionFactory.Function(
-                    "INSTRB",
-                    new[] { _sqlExpressionFactory.Constant(1), source, value, _sqlExpressionFactory.Constant(0) },
+                    "INSTR",
+                    new[]
+                    {
+                        _sqlExpressionFactory.Constant(1),
+                        _sqlExpressionFactory.Function(
+                            "STRCONV",
+                            new [] { source, _sqlExpressionFactory.Constant(64) },
+                            nullable: true,
+                            argumentsPropagateNullability: new[] { true, false },
+                            typeof(string)),
+                        value,
+                        _sqlExpressionFactory.Constant(0)
+                    },
                     nullable: true,
                     argumentsPropagateNullability: new[] { true, true },
                     typeof(int)),

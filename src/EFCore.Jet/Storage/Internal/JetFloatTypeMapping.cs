@@ -2,6 +2,8 @@
 
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Globalization;
+using System;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -25,5 +27,15 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
         }
+
+        /// <summary>
+        ///     Generates the SQL representation of a literal value.
+        /// </summary>
+        /// <param name="value">The literal value.</param>
+        /// <returns>
+        ///     The generated string.
+        /// </returns>
+        protected override string GenerateNonNullSqlLiteral(object value)
+            => Convert.ToSingle(value).ToString("G7", CultureInfo.InvariantCulture);
     }
 }

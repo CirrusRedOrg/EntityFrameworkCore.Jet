@@ -2803,12 +2803,12 @@ WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__p_0")})");
 
             AssertSql(
                 $"""
-@__NewLine_0_rewritten='%
+@__NewLine_0_contains='%
 %' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__NewLine_0_rewritten")}
+WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__NewLine_0_contains")}
 """);
         }
 
@@ -4373,11 +4373,11 @@ FROM (
 
             AssertSql(
                 $"""
-@__prefix_0_rewritten='A%' (Size = 5)
+@__prefix_0_startswith='A%' (Size = 5)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__prefix_0_rewritten")}
+WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__prefix_0_startswith")}
 """);
         }
 
@@ -6811,43 +6811,23 @@ WHERE (
 
         public override async Task Parameter_collection_Contains_with_projection_and_ordering(bool async)
         {
-#if DEBUG
-            // GroupBy debug assert. Issue #26104.
-            Assert.StartsWith(
-                "Missing alias in the list",
-                (await Assert.ThrowsAsync<InvalidOperationException>(
-                    () => base.Parameter_collection_Contains_with_projection_and_ordering(async))).Message);
-#else
-        await base.Parameter_collection_Contains_with_projection_and_ordering(async);
+            await base.Parameter_collection_Contains_with_projection_and_ordering(async);
 
-        AssertSql(
-            """
-@__ids_0='[10248,10249]' (Size = 4000)
-
-SELECT [o].[Quantity] AS [Key], (
-    SELECT MAX([o3].[OrderDate])
-    FROM [Order Details] AS [o2]
-    INNER JOIN [Orders] AS [o3] ON [o2].[OrderID] = [o3].[OrderID]
-    WHERE [o2].[OrderID] IN (
-        SELECT [i1].[value]
-        FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i1]
-    ) AND [o].[Quantity] = [o2].[Quantity]) AS [MaxTimestamp]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] IN (
-    SELECT [i].[value]
-    FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i]
-)
-GROUP BY [o].[Quantity]
-ORDER BY (
-    SELECT MAX([o3].[OrderDate])
-    FROM [Order Details] AS [o2]
-    INNER JOIN [Orders] AS [o3] ON [o2].[OrderID] = [o3].[OrderID]
-    WHERE [o2].[OrderID] IN (
-        SELECT [i0].[value]
-        FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i0]
-    ) AND [o].[Quantity] = [o2].[Quantity])
+            AssertSql(
+                """
+SELECT `t`.`Key`, `t`.`MaxTimestamp`
+FROM (
+    SELECT `o`.`Quantity` AS `Key`, (
+        SELECT MAX(`o3`.`OrderDate`)
+        FROM `Order Details` AS `o2`
+        INNER JOIN `Orders` AS `o3` ON `o2`.`OrderID` = `o3`.`OrderID`
+        WHERE `o2`.`OrderID` IN (10248, 10249) AND `o`.`Quantity` = `o2`.`Quantity`) AS `MaxTimestamp`
+    FROM `Order Details` AS `o`
+    WHERE `o`.`OrderID` IN (10248, 10249)
+    GROUP BY `o`.`Quantity`
+) AS `t`
+ORDER BY `t`.`MaxTimestamp`
 """);
-#endif
         }
 
         private void AssertSql(params string[] expected)

@@ -18,6 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         public CustomConvertersJetTest(CustomConvertersJetFixture fixture)
             : base(fixture)
         {
+            Fixture.TestSqlLoggerFactory.Clear();
         }
 
         [ConditionalFact]
@@ -545,17 +546,142 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
                 || type == typeof(ushort)
                 || type == typeof(char);
 
+        [ConditionalFact]
+        public override void Value_conversion_is_appropriately_used_for_join_condition()
+        {
+            base.Value_conversion_is_appropriately_used_for_join_condition();
+
+            AssertSql(
+                """
+@__blogId_0='1'
+
+SELECT [b].[Url]
+FROM [Blog] AS [b]
+INNER JOIN [Post] AS [p] ON [b].[BlogId] = [p].[BlogId] AND [b].[IsVisible] = N'Y' AND [b].[BlogId] = @__blogId_0
+WHERE [b].[IsVisible] = N'Y'
+""");
+        }
+
+        [ConditionalFact]
+        public override void Value_conversion_is_appropriately_used_for_left_join_condition()
+        {
+            base.Value_conversion_is_appropriately_used_for_left_join_condition();
+
+            AssertSql(
+                """
+@__blogId_0='1'
+
+SELECT [b].[Url]
+FROM [Blog] AS [b]
+LEFT JOIN [Post] AS [p] ON [b].[BlogId] = [p].[BlogId] AND [b].[IsVisible] = N'Y' AND [b].[BlogId] = @__blogId_0
+WHERE [b].[IsVisible] = N'Y'
+""");
+        }
+
+        [ConditionalFact]
+        public override void Where_bool_gets_converted_to_equality_when_value_conversion_is_used()
+        {
+            base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used();
+
+            AssertSql(
+                """
+SELECT `b`.`BlogId`, `b`.`Discriminator`, `b`.`IndexerVisible`, `b`.`IsVisible`, `b`.`Url`, `b`.`RssUrl`
+FROM `Blog` AS `b`
+WHERE `b`.`IsVisible` = 'Y'
+""");
+        }
+
+        [ConditionalFact]
+        public override void Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used()
+        {
+            base.Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used();
+
+            AssertSql(
+                """
+SELECT `b`.`BlogId`, `b`.`Discriminator`, `b`.`IndexerVisible`, `b`.`IsVisible`, `b`.`Url`, `b`.`RssUrl`
+FROM `Blog` AS `b`
+WHERE `b`.`IsVisible` = 'N'
+""");
+        }
+
+        public override void Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_EFProperty()
+        {
+            base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_EFProperty();
+
+            AssertSql(
+                """
+SELECT `b`.`BlogId`, `b`.`Discriminator`, `b`.`IndexerVisible`, `b`.`IsVisible`, `b`.`Url`, `b`.`RssUrl`
+FROM `Blog` AS `b`
+WHERE `b`.`IsVisible` = 'Y'
+""");
+        }
+
+        public override void Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer()
+        {
+            base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer();
+
+            AssertSql(
+                """
+SELECT `b`.`BlogId`, `b`.`Discriminator`, `b`.`IndexerVisible`, `b`.`IsVisible`, `b`.`Url`, `b`.`RssUrl`
+FROM `Blog` AS `b`
+WHERE `b`.`IndexerVisible` = 'Nay'
+""");
+        }
+
+        public override void Object_to_string_conversion()
+        {
+            // Return values are not string
+        }
+
+        public override void Id_object_as_entity_key()
+        {
+            base.Id_object_as_entity_key();
+
+            AssertSql(
+                """
+SELECT `b`.`Id`, `b`.`Value`
+FROM `Book` AS `b`
+WHERE `b`.`Id` = 1
+""");
+        }
+
+        public override void Infer_type_mapping_from_in_subquery_to_item()
+        {
+            base.Infer_type_mapping_from_in_subquery_to_item();
+
+            AssertSql(
+                """
+SELECT `b`.`Id`, `b`.`Enum16`, `b`.`Enum32`, `b`.`Enum64`, `b`.`Enum8`, `b`.`EnumS8`, `b`.`EnumU16`, `b`.`EnumU32`, `b`.`EnumU64`, `b`.`PartitionId`, `b`.`TestBoolean`, `b`.`TestByte`, `b`.`TestCharacter`, `b`.`TestDateOnly`, `b`.`TestDateTime`, `b`.`TestDateTimeOffset`, `b`.`TestDecimal`, `b`.`TestDouble`, `b`.`TestInt16`, `b`.`TestInt32`, `b`.`TestInt64`, `b`.`TestSignedByte`, `b`.`TestSingle`, `b`.`TestTimeOnly`, `b`.`TestTimeSpan`, `b`.`TestUnsignedInt16`, `b`.`TestUnsignedInt32`, `b`.`TestUnsignedInt64`
+FROM `BuiltInDataTypes` AS `b`
+WHERE 'Yeps' IN (
+    SELECT `b0`.`TestBoolean`
+    FROM `BuiltInDataTypes` AS `b0`
+) AND `b`.`Id` = 13
+""");
+        }
+
+        private void AssertSql(params string[] expected)
+            => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+        public override void Value_conversion_on_enum_collection_contains()
+            => Assert.Contains(
+                CoreStrings.TranslationFailed("")[47..],
+                Assert.Throws<InvalidOperationException>(() => base.Value_conversion_on_enum_collection_contains()).Message);
+
         public class CustomConvertersJetFixture : CustomConvertersFixtureBase
         {
             public override bool StrictEquality => true;
 
-            public override bool SupportsAnsi => true;
+            public override bool SupportsAnsi => false;
 
-            public override bool SupportsUnicodeToAnsiConversion => true;
+            public override bool SupportsUnicodeToAnsiConversion => false;
 
             public override bool SupportsLargeStringComparisons => true;
 
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+
+            public TestSqlLoggerFactory TestSqlLoggerFactory
+                => (TestSqlLoggerFactory)ListLoggerFactory;
 
             public override bool SupportsBinaryKeys => true;
 

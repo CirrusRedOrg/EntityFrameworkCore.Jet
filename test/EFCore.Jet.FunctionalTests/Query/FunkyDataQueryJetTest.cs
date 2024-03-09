@@ -76,19 +76,19 @@ FROM `FunkyCustomers` AS `f`
 
             AssertSql(
                 $"""
-@__prm1_0_rewritten='%[%]B%' (Size = 255)
+@__prm1_0_contains='%[%]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_contains")}
 """,
                 //
                 $"""
-@__prm2_0_rewritten='%a[_]%' (Size = 255)
+@__prm2_0_contains='%a[_]%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_contains")}
 """,
                 //
                 """
@@ -98,35 +98,35 @@ WHERE 0 = 1
 """,
                 //
                 $"""
-@__prm4_0_rewritten='%' (Size = 255)
+@__prm4_0_contains='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_contains")}
 """,
                 //
 $"""
-@__prm5_0_rewritten='%[_]Ba[_]%' (Size = 255)
+@__prm5_0_contains='%[_]Ba[_]%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_contains")}
 """,
                 //
                 $"""
-@__prm6_0_rewritten='%[%]B[%]a[%]r%' (Size = 255)
+@__prm6_0_contains='%[%]B[%]a[%]r%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_rewritten")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_contains")} OR `f`.`FirstName` IS NULL
 """,
                 //
                 $"""
-@__prm7_0_rewritten='%' (Size = 255)
+@__prm7_0_contains='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_rewritten")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_contains")} OR `f`.`FirstName` IS NULL
 """,
                 //
                 """
@@ -220,19 +220,19 @@ FROM `FunkyCustomers` AS `f`
 
             AssertSql(
                 $"""
-@__prm1_0_rewritten='[%]B%' (Size = 255)
+@__prm1_0_startswith='[%]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_startswith")}
 """,
                 //
                 $"""
-@__prm2_0_rewritten='[_]B%' (Size = 255)
+@__prm2_0_startswith='[_]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_startswith")}
 """,
                 //
                 """
@@ -242,35 +242,35 @@ WHERE 0 = 1
 """,
                 //
                 $"""
-@__prm4_0_rewritten='%' (Size = 255)
+@__prm4_0_startswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_startswith")}
 """,
                 //
                 $"""
-@__prm5_0_rewritten='[_]Ba[_]%' (Size = 255)
+@__prm5_0_startswith='[_]Ba[_]%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_startswith")}
 """,
                 //
                 $"""
-@__prm6_0_rewritten='[%]B[%]a[%]r%' (Size = 255)
+@__prm6_0_startswith='[%]B[%]a[%]r%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_rewritten")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_startswith")} OR `f`.`FirstName` IS NULL
 """,
                 //
                 $"""
-@__prm7_0_rewritten='%' (Size = 255)
+@__prm7_0_startswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_rewritten")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_startswith")} OR `f`.`FirstName` IS NULL
 """,
                 //
                 """
@@ -303,27 +303,27 @@ WHERE `f`.`FirstName` LIKE 'B[[][[]a[^]%'
 """,
                 //
                 $"""
-@__prm1_0_rewritten='[[]%' (Size = 255)
+@__prm1_0_startswith='[[]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_startswith")}
 """,
                 //
                 $"""
-@__prm2_0_rewritten='B[[]%' (Size = 255)
+@__prm2_0_startswith='B[[]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_startswith")}
 """,
                 //
                 $"""
-@__prm3_0_rewritten='B[[][[]a[^]%' (Size = 255)
+@__prm3_0_startswith='B[[][[]a[^]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm3_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm3_0_startswith")}
 """,
                 //
                 """
@@ -418,19 +418,19 @@ FROM `FunkyCustomers` AS `f`
 
             AssertSql(
                 $"""
-@__prm1_0_rewritten='%[%]r' (Size = 255)
+@__prm1_0_endswith='%[%]r' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_endswith")}
 """,
                 //
                 $"""
-@__prm2_0_rewritten='%r[_]' (Size = 255)
+@__prm2_0_endswith='%r[_]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_endswith")}
 """,
                 //
                 """
@@ -440,35 +440,35 @@ WHERE 0 = 1
 """,
                 //
                 $"""
-@__prm4_0_rewritten='%' (Size = 255)
+@__prm4_0_endswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_endswith")}
 """,
                 //
                 $"""
-@__prm5_0_rewritten='%[_]r[_]' (Size = 255)
+@__prm5_0_endswith='%[_]r[_]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_rewritten")}
+WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_endswith")}
 """,
                 //
                 $"""
-@__prm6_0_rewritten='%a[%]r[%]' (Size = 255)
+@__prm6_0_endswith='%a[%]r[%]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_rewritten")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_endswith")} OR `f`.`FirstName` IS NULL
 """,
                 //
                 $"""
-@__prm7_0_rewritten='%' (Size = 255)
+@__prm7_0_endswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_rewritten")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_endswith")} OR `f`.`FirstName` IS NULL
 """,
                 //
                 """

@@ -250,6 +250,12 @@ namespace EntityFrameworkCore.Jet.Internal
             => string.Format(
                 GetString("QueryingIntoJsonCollectionsNotSupported"));
 
+        /// <summary>
+        ///     Jet SQL reads byte arrays into strings. As Jet uses unicode, the length returned will always be a multiple of 2. If your data is even number of bytes the result will be correct. If your data is an odd number of bytes, the last byte will be a 0. The result is calculated by checking for a 0 at the last byte and if so reducing the length by 1. If your data is meant to end in a 0 this may lead to the calculated length being 1 short. To opt in to this behaviour, use the 'EF.Functions.ByteArrayLength' method. Alternatively, rewrite your query to use the data in client side.
+        /// </summary>
+        public static string ByteArrayLength
+            => GetString("ByteArrayLength");
+
         private static string GetString(string name, params string[] formatterNames)
         {
             var value = _resourceManager.GetString(name);

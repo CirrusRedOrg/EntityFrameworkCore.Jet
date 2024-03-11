@@ -12,6 +12,8 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Text;
+using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
 /// <summary>
@@ -146,38 +148,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
             {
                 return QueryCompilationContext.NotTranslatedExpression;
             }
-
-            var isBinaryMaxDataType = GetProviderType(sqlExpression) == "varbinary(max)" || sqlExpression is SqlParameterExpression;
-            SqlExpression dataLengthSqlFunction = Dependencies.SqlExpressionFactory.Function(
-                "LENB",
-                new[] { sqlExpression },
-                nullable: true,
-                argumentsPropagateNullability: new[] { true },
-                isBinaryMaxDataType ? typeof(long) : typeof(int));
-
-            var rightval = Dependencies.SqlExpressionFactory.Function(
-                "ASCB",
-                new[]
-                {
-                    Dependencies.SqlExpressionFactory.Function(
-                        "RIGHTB",
-                        new[] { sqlExpression, Dependencies.SqlExpressionFactory.Constant(1) },
-                        nullable: true,
-                        argumentsPropagateNullability: new[] { true, true, true },
-                        typeof(byte[]))
-                },
-                nullable: true,
-                argumentsPropagateNullability: new[] { true },
-                typeof(int));
-
-            var minusOne = Dependencies.SqlExpressionFactory.Subtract(dataLengthSqlFunction, Dependencies.SqlExpressionFactory.Constant(1));
-            var whenClause = new CaseWhenClause(Dependencies.SqlExpressionFactory.Equal(rightval, Dependencies.SqlExpressionFactory.Constant(0)), minusOne);
-
-            dataLengthSqlFunction = Dependencies.SqlExpressionFactory.Case(new[] { whenClause }, dataLengthSqlFunction);
-
-            return isBinaryMaxDataType
-                ? Dependencies.SqlExpressionFactory.Convert(dataLengthSqlFunction, typeof(int))
-                : dataLengthSqlFunction;
+            throw new InvalidOperationException(JetStrings.ByteArrayLength);
         }
 
         return base.VisitUnary(unaryExpression);

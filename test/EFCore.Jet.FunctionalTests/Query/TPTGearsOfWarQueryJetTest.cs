@@ -8134,7 +8134,17 @@ WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), 0x01, 0) > 0
 
     public override async Task Byte_array_filter_by_length_literal(bool async)
     {
-        await base.Byte_array_filter_by_length_literal(async);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_literal(async));
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public async Task Byte_array_filter_by_length_literal2(bool async)
+    {
+        await AssertQuery(
+            async,
+            ss => ss.Set<Squad>().Where(w => EF.Functions.ByteArrayLength(w.Banner) == 2),
+            ss => ss.Set<Squad>().Where(w => w.Banner != null && w.Banner.Length == 2));
 
         AssertSql(
             """
@@ -8146,21 +8156,45 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
 
     public override async Task Byte_array_filter_by_length_parameter(bool async)
     {
-        await base.Byte_array_filter_by_length_parameter(async);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_parameter(async));
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public async Task Byte_array_filter_by_length_parameter2(bool async)
+    {
+        var someByteArr = new[] { (byte)42, (byte)24 };
+        await AssertQuery(
+            async,
+            ss => ss.Set<Squad>().Where(w => EF.Functions.ByteArrayLength(w.Banner) == someByteArr.Length),
+            ss => ss.Set<Squad>().Where(w => w.Banner != null && w.Banner.Length == someByteArr.Length));
 
         AssertSql(
             """
-@__p_0='2'
+@__p_1='2'
 
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = @__p_0
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = @__p_1
 """);
     }
 
     public override void Byte_array_filter_by_length_parameter_compiled()
     {
-        base.Byte_array_filter_by_length_parameter_compiled();
+        var exception = Assert.Throws<InvalidOperationException>(() => base.Byte_array_filter_by_length_parameter_compiled());
+    }
+
+    [ConditionalFact]
+    public virtual void Byte_array_filter_by_length_parameter_compiled2()
+    {
+        var query = EF.CompileQuery(
+            (GearsOfWarContext context, byte[] byteArrayParam)
+                => context.Squads.Where(w => EF.Functions.ByteArrayLength(w.Banner) == EF.Functions.ByteArrayLength(byteArrayParam)).Count());
+
+        using var context = CreateContext();
+        var byteQueryParam = new[] { (byte)42, (byte)128 };
+
+        Assert.Equal(2, query(context, byteQueryParam));
 
         AssertSql(
             """
@@ -8196,7 +8230,17 @@ WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), CHR(@__someByte_0), 0) > 0
 
     public override async Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(bool async)
     {
-        await base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async));
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public async Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n2(bool async)
+    {
+        await AssertQuery(
+            async,
+            ss => ss.Set<Squad>().Where(w => EF.Functions.ByteArrayLength(w.Banner5) == 5),
+            ss => ss.Set<Squad>().Where(w => w.Banner5 != null && w.Banner5.Length == 5));
 
         AssertSql(
             """

@@ -448,5 +448,10 @@ namespace Microsoft.EntityFrameworkCore
         public static double Random(
             [CanBeNull] this DbFunctions _)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Random)));
+
+        public static int ByteArrayLength(
+            [CanBeNull] this DbFunctions _,
+            [NotNull] byte[] expression)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ByteArrayLength)));
     }
 }

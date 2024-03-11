@@ -21,6 +21,9 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
+    private MethodInfo ByteArrayLength = typeof(JetDbFunctionsExtensions).GetRuntimeMethod(
+        nameof(JetDbFunctionsExtensions.ByteArrayLength),
+        new[] { typeof(DbFunctions), typeof(byte[]) })!;
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -44,6 +47,40 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
+        if (method == ByteArrayLength)
+        {
+            var isBinaryMaxDataType = GetProviderType(arguments[1]) == "varbinary(max)" || arguments[1] is SqlParameterExpression;
+            SqlExpression dataLengthSqlFunction = _sqlExpressionFactory.Function(
+                "LENB",
+                new[] { arguments[1] },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true },
+                isBinaryMaxDataType ? typeof(long) : typeof(int));
+
+            var rightval = _sqlExpressionFactory.Function(
+                "ASCB",
+                new[]
+                {
+                    _sqlExpressionFactory.Function(
+                        "RIGHTB",
+                        new[] { arguments[1], _sqlExpressionFactory.Constant(1) },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true, true },
+                        typeof(byte[]))
+                },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true },
+                typeof(int));
+
+            var minusOne = _sqlExpressionFactory.Subtract(dataLengthSqlFunction, _sqlExpressionFactory.Constant(1));
+            var whenClause = new CaseWhenClause(_sqlExpressionFactory.Equal(rightval, _sqlExpressionFactory.Constant(0)), minusOne);
+
+            dataLengthSqlFunction = _sqlExpressionFactory.Case(new[] { whenClause }, dataLengthSqlFunction);
+
+            return isBinaryMaxDataType
+                ? _sqlExpressionFactory.Convert(dataLengthSqlFunction, typeof(int))
+                : dataLengthSqlFunction;
+        }
         if (method is { IsGenericMethod: true, Name: nameof(Enumerable.Contains) }
             && arguments[0].Type == typeof(byte[]))
         {
@@ -100,4 +137,7 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
 
         return null;
     }
+
+    private static string? GetProviderType(SqlExpression expression)
+        => expression.TypeMapping?.StoreType;
 }

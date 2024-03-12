@@ -109,7 +109,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 var retryMessage = (TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
                     ? typeof(OleDbException)
-                    : typeof(OdbcException)).FullName + " : Bang!";;
+                    : typeof(OdbcException)).FullName + " (0xFFFFFFFE): Bang!"; ;
 
                 if (realFailure)
                 {
@@ -220,8 +220,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 await execute(new TestJetRetryingExecutionStrategy(context), context);
                 context.ChangeTracker.AcceptAllChanges();
 
-                var retryMessage =
-                    "System.Data.OleDb.OleDbException : Bang!";
+                var retryMessage = (TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+                    ? typeof(OleDbException)
+                    : typeof(OdbcException)).FullName + " (0xFFFFFFFE): Bang!";
+
                 if (realFailure)
                 {
                     var logEntry = Fixture.TestSqlLoggerFactory.Log.Single(l => l.Id == CoreEventId.ExecutionStrategyRetrying);

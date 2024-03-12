@@ -198,9 +198,9 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
         {
             public override bool StrictEquality => true;
 
-            public override bool SupportsAnsi => true;
+            public override bool SupportsAnsi => false;
 
-            public override bool SupportsUnicodeToAnsiConversion => true;
+            public override bool SupportsUnicodeToAnsiConversion => false;
 
             public override bool SupportsLargeStringComparisons => true;
 

@@ -449,9 +449,37 @@ namespace Microsoft.EntityFrameworkCore
             [CanBeNull] this DbFunctions _)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Random)));
 
+
+        /// <summary>
+        ///     Returns the length of <paramref name="byteArray"/>, or the length of <paramref name="byteArray"/> <c>-1</c> in some cases. If the actual length of <paramref name="byteArray"/> is even and the last byte is
+        ///     <c>0x00</c>, the length of <paramref name="byteArray"/> <c>-1</c> is returned. Otherwise, the actual length of <paramref name="byteArray"/> is returned.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///     Jet SQL reads byte arrays into strings. As Jet uses Unicode, the internal length will always be a multiple of 2. If your data has an odd number of bytes, Jet internally adds a <c>0x00</c> byte to
+        ///     the end of the array.
+        ///     </para>
+        ///     <para>
+        ///     This method will test if the last byte of the array is <c>0x00</c>. If it is <c>0x00</c>, it is assumed that the last byte was added by Jet to fill the array to an even number of bytes and the internal
+        ///     length <c>-1</c> is returned. In all other cases, the internal length is returned.
+        ///     </para>
+        ///     <para>
+        ///     If the actual data length is odd, this method will always return the original length, independent of the value of the last byte of the original data.
+        ///     <br/>
+        ///     If the actual data length is even and the original data does not end with a <c>0x00</c> byte, this method will return the original length.
+        ///     <br/>
+        ///     If the actual data length is even and the original data does end with a <c>0x00</c> byte, this method will return the original length <c>-1</c>.
+        ///     </para>
+        ///     <para>
+        ///     If your data will never end in <c>0x00</c> you can use this extension method safely, otherwise it is highly recommended to only use client evaluation.
+        ///     </para>
+        /// </remarks>
+        /// <param name="_">The DbFunctions instance.</param>
+        /// <param name="byteArray">The `byte[]` array.</param>
+        /// <returns>The length of <paramref name="byteArray"/>, or the length of <paramref name="byteArray"/> <c>-1</c> in some cases.</returns>
         public static int ByteArrayLength(
             [CanBeNull] this DbFunctions _,
-            [NotNull] byte[] expression)
+            [NotNull] byte[] byteArray)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ByteArrayLength)));
     }
 }

@@ -77,6 +77,7 @@ BEGIN TRANSACTION;
 CREATE TABLE `Table1` (
     `Id` integer NOT NULL,
     `Foo` integer NOT NULL,
+    `Description` varchar(255) NOT NULL,
     CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
 );
 
@@ -105,6 +106,42 @@ BEGIN TRANSACTION;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000004_Migration4', '7.0.0-test');
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+
+INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, ' ', 'Value With
+
+Empty Lines')
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000005_Migration5', '7.0.0-test');
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+
+INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, ' ', 'GO
+Value With
+
+Empty Lines')
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000006_Migration6', '7.0.0-test');
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+
+INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, ' ', 'GO
+Value With
+
+Empty Lines
+GO')
+
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000007_Migration7', '7.0.0-test');
 
 COMMIT TRANSACTION;
 

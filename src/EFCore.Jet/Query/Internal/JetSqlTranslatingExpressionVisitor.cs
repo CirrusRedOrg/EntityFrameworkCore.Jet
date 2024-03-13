@@ -12,6 +12,8 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Text;
+using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
 /// <summary>
@@ -146,18 +148,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
             {
                 return QueryCompilationContext.NotTranslatedExpression;
             }
-
-            var isBinaryMaxDataType = GetProviderType(sqlExpression) == "varbinary(max)" || sqlExpression is SqlParameterExpression;
-            var dataLengthSqlFunction = Dependencies.SqlExpressionFactory.Function(
-                "DATALENGTH",
-                new[] { sqlExpression },
-                nullable: true,
-                argumentsPropagateNullability: new[] { true },
-                isBinaryMaxDataType ? typeof(long) : typeof(int));
-
-            return isBinaryMaxDataType
-                ? Dependencies.SqlExpressionFactory.Convert(dataLengthSqlFunction, typeof(int))
-                : dataLengthSqlFunction;
+            throw new InvalidOperationException(JetStrings.ByteArrayLength);
         }
 
         return base.VisitUnary(unaryExpression);
@@ -417,23 +408,25 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
         var visitedIndex = Visit(index);
 
         return visitedArray is SqlExpression sqlArray
-               && visitedIndex is SqlExpression sqlIndex
-            ? Dependencies.SqlExpressionFactory.Convert(
-                Dependencies.SqlExpressionFactory.Function(
-                    "MID",
-                    new[]
-                    {
-                        sqlArray,
-                        Dependencies.SqlExpressionFactory.Add(
-                            Dependencies.SqlExpressionFactory.ApplyDefaultTypeMapping(sqlIndex),
-                            Dependencies.SqlExpressionFactory.Constant(1)),
-                        Dependencies.SqlExpressionFactory.Constant(1)
-                    },
+            && visitedIndex is SqlExpression sqlIndex
+                ? Dependencies.SqlExpressionFactory.Function(
+                    "ASCB",
+                    new[] { Dependencies.SqlExpressionFactory.Function(
+                        "MIDB",
+                        new[] { 
+                            sqlArray,
+                            Dependencies.SqlExpressionFactory.Add(
+                                Dependencies.SqlExpressionFactory.ApplyDefaultTypeMapping(sqlIndex),
+                                Dependencies.SqlExpressionFactory.Constant(1)),
+                            Dependencies.SqlExpressionFactory.Constant(1) },
+                        nullable: true,
+                        argumentsPropagateNullability: new[] { true, true, true },
+                        typeof(byte[])) },
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true, true, true },
-                    typeof(byte[])),
-                resultType)
-            : QueryCompilationContext.NotTranslatedExpression;
+                    argumentsPropagateNullability: new[] { true },
+                    typeof(int))
+
+                : QueryCompilationContext.NotTranslatedExpression;
     }
 
     private static string? GetProviderType(SqlExpression expression)

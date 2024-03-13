@@ -250,6 +250,12 @@ namespace EntityFrameworkCore.Jet.Internal
             => string.Format(
                 GetString("QueryingIntoJsonCollectionsNotSupported"));
 
+        /// <summary>
+        ///     Returning the exact length of a byte array is not supported by Jet. Please rewrite your query or switch to client evaluation. There is support for a 'EF.Functions.ByteArrayLength' method that will return the correct byte array length in most cases with certain exceptions. Please read its documentation carefully, before considering to use it.
+        /// </summary>
+        public static string ByteArrayLength
+            => GetString("ByteArrayLength");
+
         private static string GetString(string name, params string[] formatterNames)
         {
             var value = _resourceManager.GetString(name);

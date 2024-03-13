@@ -265,4 +265,7 @@
 	<data name="QueryingIntoJsonCollectionsNotSupported" xml:space="preserve">
     <value>MS Access/Jet does not support querying into JSON collections.</value>
   </data>
+	<data name="ByteArrayLength" xml:space="preserve">
+    <value>Returning the exact length of a byte array is not supported by Jet. Please rewrite your query or switch to client evaluation. There is support for a 'EF.Functions.ByteArrayLength' method that will return the correct byte array length in most cases with certain exceptions. Please read its documentation carefully, before considering to use it.</value>
+  </data>
 </root>

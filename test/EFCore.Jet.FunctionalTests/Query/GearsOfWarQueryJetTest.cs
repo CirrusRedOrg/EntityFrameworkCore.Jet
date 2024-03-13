@@ -9,6 +9,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using System.Linq;
 using Xunit;
+using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -7256,50 +7257,92 @@ WHERE IIF(`f`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`f`.`Name` = 'Locust
             await base.Byte_array_contains_literal(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CHARINDEX(0x01, `s`.`Banner`) > 0
+WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), 0x01, 0) > 0
 """);
         }
 
         public override async Task Byte_array_filter_by_length_literal(bool async)
         {
-            await base.Byte_array_filter_by_length_literal(async);
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_literal(async));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Byte_array_filter_by_length_literal2(bool async)
+        {
+            await AssertQuery(
+                async,
+                ss => ss.Set<Squad>().Where(w => EF.Functions.ByteArrayLength(w.Banner) == 2),
+                ss => ss.Set<Squad>().Where(w => w.Banner != null && w.Banner.Length == 2));
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CAST(DATALENGTH(`s`.`Banner`) AS int) = 1
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = 2
 """);
         }
 
         public override async Task Byte_array_filter_by_length_parameter(bool async)
         {
-            await base.Byte_array_filter_by_length_parameter(async);
+            var exception =  await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_parameter(async));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Byte_array_filter_by_length_parameter2(bool async)
+        {
+            var someByteArr = new[] { (byte)42, (byte)24 };
+            await AssertQuery(
+                async,
+                ss => ss.Set<Squad>().Where(w => EF.Functions.ByteArrayLength(w.Banner) == someByteArr.Length),
+                ss => ss.Set<Squad>().Where(w => w.Banner != null && w.Banner.Length == someByteArr.Length));
 
             AssertSql(
-    """
-@__p_0='1'
+                """
+@__p_1='2'
 
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CAST(DATALENGTH(`s`.`Banner`) AS int) = @__p_0
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = @__p_1
 """);
         }
 
         public override void Byte_array_filter_by_length_parameter_compiled()
         {
-            base.Byte_array_filter_by_length_parameter_compiled();
+            var exception = Assert.Throws<InvalidOperationException>(() => base.Byte_array_filter_by_length_parameter_compiled());
+        }
+
+        [ConditionalFact]
+        public virtual void Byte_array_filter_by_length_parameter_compiled2()
+        {
+            var query = EF.CompileQuery(
+                (GearsOfWarContext context, byte[] byteArrayParam)
+                    => context.Squads.Where(w => EF.Functions.ByteArrayLength(w.Banner) == EF.Functions.ByteArrayLength(byteArrayParam)).Count());
+
+            using var context = CreateContext();
+            var byteQueryParam = new[] { (byte)42, (byte)128 };
+
+            Assert.Equal(2, query(context, byteQueryParam));
 
             AssertSql(
-    """
-@__byteArrayParam='0x2A80' (Size = 8000)
+                """
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
+@__byteArrayParam='0x2A80' (Size = 510)
 
 SELECT COUNT(*)
 FROM `Squads` AS `s`
-WHERE CAST(DATALENGTH(`s`.`Banner`) AS int) = CAST(DATALENGTH(@__byteArrayParam) AS int)
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) = IIF(IIF(ASCB(RIGHTB(@__byteArrayParam, 1)) = 0, LENB(@__byteArrayParam) - 1, LENB(@__byteArrayParam)) IS NULL, NULL, CLNG(IIF(ASCB(RIGHTB(@__byteArrayParam, 1)) = 0, LENB(@__byteArrayParam) - 1, LENB(@__byteArrayParam)))) OR (IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`Banner`)) IS NULL AND IIF(ASCB(RIGHTB(@__byteArrayParam, 1)) = 0, LENB(@__byteArrayParam) - 1, LENB(@__byteArrayParam)) IS NULL)
 """);
         }
 
@@ -7308,24 +7351,34 @@ WHERE CAST(DATALENGTH(`s`.`Banner`) AS int) = CAST(DATALENGTH(@__byteArrayParam)
             await base.Byte_array_contains_parameter(async);
 
             AssertSql(
-    """
+                """
 @__someByte_0='1' (Size = 1)
 
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CHARINDEX(CAST(@__someByte_0 AS varbinary(max)), `s`.`Banner`) > 0
+WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), CHR(@__someByte_0), 0) > 0
 """);
         }
 
         public override async Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(bool async)
         {
-            await base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async);
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async));
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n2(bool async)
+        {
+            await AssertQuery(
+                async,
+                ss => ss.Set<Squad>().Where(w => EF.Functions.ByteArrayLength(w.Banner5) == 5),
+                ss => ss.Set<Squad>().Where(w => w.Banner5 != null && w.Banner5.Length == 5));
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE DATALENGTH(`s`.`Banner5`) = 5
+WHERE IIF(ASCB(RIGHTB(`s`.`Banner5`, 1)) = 0, LENB(`s`.`Banner5`) - 1, LENB(`s`.`Banner5`)) = 5
 """);
         }
 
@@ -7650,11 +7703,11 @@ WHERE EXISTS (
             await base.Contains_on_byte_array_property_using_byte_column(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`, `l`.`Name`, `l`.`Discriminator`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, `l`.`DefeatedByNickname`, `l`.`DefeatedBySquadId`, `l`.`HighCommandId`
-FROM `Squads` AS `s`
-CROSS JOIN `LocustLeaders` AS `l`
-WHERE CHARINDEX(CAST(`l`.`ThreatLevelByte` AS varbinary(max)), `s`.`Banner`) > 0
+FROM `Squads` AS `s`,
+`LocustLeaders` AS `l`
+WHERE INSTR(1, STRCONV(`s`.`Banner`, 64), CHR(`l`.`ThreatLevelByte`), 0) > 0
 """);
         }
 
@@ -8094,10 +8147,10 @@ WHERE `t`.`IssueDate` > IIF((
             await base.First_on_byte_array(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CAST(SUBSTRING(`s`.`Banner`, 1, 1) AS tinyint) = CAST(2 AS tinyint)
+WHERE ASCB(MIDB(`s`.`Banner`, 1, 1)) = 2
 """);
         }
 
@@ -8106,10 +8159,10 @@ WHERE CAST(SUBSTRING(`s`.`Banner`, 1, 1) AS tinyint) = CAST(2 AS tinyint)
             await base.Array_access_on_byte_array(async);
 
             AssertSql(
-    """
+                """
 SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
 FROM `Squads` AS `s`
-WHERE CAST(SUBSTRING(`s`.`Banner5`, 2 + 1, 1) AS tinyint) = CAST(6 AS tinyint)
+WHERE ASCB(MIDB(`s`.`Banner5`, 2 + 1, 1)) = 6
 """);
         }
 
@@ -9588,8 +9641,8 @@ WHERE (
 
             AssertSql(
                 """
-SELECT [s].[Id], CAST(SUBSTRING([s].[Banner], 0 + 1, 1) AS tinyint), [s].[Name]
-FROM [Squads] AS [s]
+SELECT `s`.`Id`, ASCB(MIDB(`s`.`Banner`, 0 + 1, 1)), `s`.`Name`
+FROM `Squads` AS `s`
 """);
         }
 

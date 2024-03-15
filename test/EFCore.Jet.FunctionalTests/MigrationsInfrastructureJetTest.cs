@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
@@ -285,6 +286,21 @@ COMMIT TRANSACTION;
                 Assert.True(creator.Exists());
             }
         }
+
+        public override void Can_apply_all_migrations() // Issue efcore #33331
+            => Assert.ThrowsAny<DbException>(() => base.Can_apply_all_migrations());
+
+        public override Task Can_apply_all_migrations_async() // Issue efcore #33331
+            => Assert.ThrowsAnyAsync<DbException>(() => base.Can_apply_all_migrations_async());
+
+        public override void Can_apply_range_of_migrations() // Issue efcore #33331
+            => Assert.ThrowsAny<DbException>(() => base.Can_apply_range_of_migrations());
+
+        public override void Can_revert_all_migrations() // Issue efcore #33331
+            => Assert.ThrowsAny<DbException>(() => base.Can_revert_all_migrations());
+
+        public override void Can_revert_one_migrations() // Issue efcore #33331
+            => Assert.ThrowsAny<DbException>(() => base.Can_revert_one_migrations());
 
         private class BloggingContext : DbContext
         {

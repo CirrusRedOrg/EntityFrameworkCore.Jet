@@ -795,7 +795,7 @@ WHERE MID(`c`.`City`, 1 + 1, 2) = 'ea'");
     
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE NOW() <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+    WHERE DATEADD('n', -480.0, NOW()) <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
     """);
         }
 
@@ -804,12 +804,12 @@ WHERE MID(`c`.`City`, 1 + 1, 2) = 'ea'");
             await base.Where_datetimeoffset_utcnow(async);
 
             AssertSql(
-"""
-@__myDatetimeOffset_0='2015-04-10T00:00:00.0000000-08:00'
+                """
+@__myDatetimeOffset_0='2015-04-10T08:00:00.0000000Z' (DbType = DateTime)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE CAST(SYSUTCDATETIME() AS datetimeoffset) <> @__myDatetimeOffset_0
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE DATEADD('n', -480.0, NOW()) <> @__myDatetimeOffset_0
 """);
         }
 
@@ -935,9 +935,11 @@ WHERE DATEPART(millisecond, `o`.`OrderDate`) = 88");
             await base.Where_datetimeoffset_now_component(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = SYSDATETIMEOFFSET()");
+WHERE `o`.`OrderDate` < NOW()
+""");
         }
 
         public override async Task Where_datetimeoffset_utcnow_component(bool isAsync)
@@ -945,9 +947,11 @@ WHERE `o`.`OrderDate` = SYSDATETIMEOFFSET()");
             await base.Where_datetimeoffset_utcnow_component(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = CAST(SYSUTCDATETIME() AS datetimeoffset)");
+WHERE `o`.`OrderDate` <> DATEADD('n', -480.0, NOW()) OR `o`.`OrderDate` IS NULL
+""");
         }
 
         public override async Task Where_simple_reversed(bool isAsync)

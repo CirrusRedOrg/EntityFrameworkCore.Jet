@@ -217,6 +217,10 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 return DateTimeOffset.Parse(stringValue, null, DateTimeStyles.RoundtripKind);
             }
+            else if (value is DateTime dateTimeValue && dateTimeValue == JetConfiguration.TimeSpanOffset)
+            {
+                return default;
+            }
             else if (value is DateTime dateTime)
             {
                 return new DateTimeOffset(dateTime, TimeSpan.Zero);

@@ -2526,9 +2526,11 @@ WHERE `g`.`Discriminator` IN ('Gear', 'Officer')");
             await base.Where_datetimeoffset_now(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE (`m`.`Timeline` <> SYSDATETIMEOFFSET()) OR SYSDATETIMEOFFSET() IS NULL");
+WHERE `m`.`Timeline` <> NOW()
+""");
         }
 
         public override async Task Where_datetimeoffset_utcnow(bool isAsync)
@@ -2536,9 +2538,11 @@ WHERE (`m`.`Timeline` <> SYSDATETIMEOFFSET()) OR SYSDATETIMEOFFSET() IS NULL");
             await base.Where_datetimeoffset_utcnow(isAsync);
 
             AssertSql(
-                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
+                """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE (`m`.`Timeline` <> CAST(SYSUTCDATETIME() AS datetimeoffset)) OR SYSUTCDATETIME() IS NULL");
+WHERE `m`.`Timeline` <> DATEADD('n', -480.0, NOW())
+""");
         }
 
         public override async Task Where_datetimeoffset_date_component(bool isAsync)

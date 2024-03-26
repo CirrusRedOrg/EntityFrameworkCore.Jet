@@ -4902,7 +4902,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
 
             if (entityType.FindProperty(nameof(BuiltInDataTypes.TestDateTimeOffset)) != null)
             {
-                var param7 = new DateTimeOffset(new DateTime(), TimeSpan.FromHours(-8.0));
+                var param7 = new DateTimeOffset(new DateTime(), TimeSpan.FromHours(0.0));
                 Assert.Same(
                     entity,
                     set.Where(e => e.Id == 11 && EF.Property<DateTimeOffset>(e, nameof(BuiltInDataTypes.TestDateTimeOffset)) == param7)

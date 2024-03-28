@@ -52,6 +52,9 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
         private readonly IRelationalTypeMappingSource _typeMappingSource;
+
+        private bool _ignoreMsys = false;
+        private List<string> _msysNames = new List<string>();
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -75,7 +78,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         {
             Check.NotEmpty(connectionString, nameof(connectionString));
             Check.NotNull(options, nameof(options));
-
             using var connection = new JetConnection(connectionString);
             return Create(connection, options);
         }
@@ -99,6 +101,8 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             if (!connectionStartedOpen)
             {
                 connection.Open();
+                _ignoreMsys = ((JetConnection)connection).IgnoreMsys;
+                System.Console.WriteLine(_ignoreMsys);
             }
 
             try
@@ -133,11 +137,11 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 }
 
                 var tableNames = databaseModel.Tables.Select(t => t.Name).ToList();
-                if (tableNames.Contains("MSysAccessStorage"))
+                if (tableNames.Contains("MSysAccessStorage") || _msysNames.Contains("MSysAccessStorage"))
                 {
                     JetConfiguration.DetectedDualTableName = "MSysAccessStorage";
                 }
-                else if (tableNames.Contains("MSysRelationships"))
+                else if (tableNames.Contains("MSysRelationships") || _msysNames.Contains("MSysRelationships"))
                 {
                     JetConfiguration.DetectedDualTableName = "MSysRelationships";
                 }
@@ -196,8 +200,13 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         ? new DatabaseTable() { Database = databaseModel, Name = name! }
                         : new DatabaseView() { Database = databaseModel, Name = name! };
 
+                    var isMsys = table.Name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase);
+                    if (isMsys)
+                    {
+                        _msysNames.Add(table.Name);
+                    }
                     var isValidByFilter = filter?.Invoke(table.Schema!, table.Name) ?? true;
-                    if (isValidByFilter)
+                    if (isValidByFilter && !(_ignoreMsys && isMsys))
                     {
                         tables.Add(table);
                     }

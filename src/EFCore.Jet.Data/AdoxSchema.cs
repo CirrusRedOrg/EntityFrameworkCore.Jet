@@ -13,6 +13,7 @@ namespace EntityFrameworkCore.Jet.Data
         private readonly dynamic _connection;
         private readonly dynamic _catalog;
 
+        private bool _ignoreMsys;
         public AdoxSchema(JetConnection connection, bool naturalOnly, bool readOnly)
             : this(connection, readOnly)
         {
@@ -22,7 +23,7 @@ namespace EntityFrameworkCore.Jet.Data
         public AdoxSchema(JetConnection connection, bool readOnly)
         {
             _connection = new ComObject("ADODB.Connection");
-
+            _ignoreMsys = connection.IgnoreMsys;
             try
             {
                 var connectionString = GetOleDbConnectionString(connection.ActiveConnectionString);
@@ -104,6 +105,11 @@ namespace EntityFrameworkCore.Jet.Data
                 using var properties = table.properties;
 
                 var tableName = (string)table.Name;
+
+                if (tableName.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) && _ignoreMsys)
+                {
+                    continue;
+                }
 
                 // Depending on the provider (ODBC or OLE DB) used, the Tables collection might contain VIEWs
                 // that take parameters, which makes them procedures.
@@ -202,6 +208,12 @@ namespace EntityFrameworkCore.Jet.Data
                 using var table = tables[i];
                 var tableName = (string)table.Name;
 
+                if (tableName.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) && _ignoreMsys)
+                {
+                    continue;
+                }
+
+                System.Console.WriteLine(tableName);
                 using var columns = table.Columns;
                 var columnCount = columns.Count;
 
@@ -282,6 +294,11 @@ namespace EntityFrameworkCore.Jet.Data
                 using var table = tables[i];
                 var tableName = (string)table.Name;
 
+                if (tableName.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) && _ignoreMsys)
+                {
+                    continue;
+                }
+
                 using var indexes = table.Indexes;
                 var indexCount = (int)indexes.Count;
 
@@ -337,6 +354,11 @@ namespace EntityFrameworkCore.Jet.Data
                 using var table = tables[i];
                 var tableName = (string)table.Name;
 
+                if (tableName.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) && _ignoreMsys)
+                {
+                    continue;
+                }
+
                 using var indexes = table.Indexes;
                 var indexCount = (int)indexes.Count;
 
@@ -383,6 +405,11 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 using var table = tables[i];
                 var referencingTableName = (string)table.Name;
+
+                if (table.Name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) && _ignoreMsys)
+                {
+                    continue;
+                }
 
                 using var keys = table.Keys;
                 var keyCount = (int)keys.Count;
@@ -445,6 +472,11 @@ namespace EntityFrameworkCore.Jet.Data
             for (var i = 0; i < tableCount; i++)
             {
                 using var table = tables[i];
+
+                if (table.Name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) && _ignoreMsys)
+                {
+                    continue;
+                }
 
                 using var keys = table.Keys;
                 var keyCount = (int)keys.Count;

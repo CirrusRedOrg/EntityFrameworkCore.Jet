@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Data
         internal string? FileNameOrConnectionString => ConnectionString;
 
         public const string DefaultDualTableName = "#Dual";
-
+        private bool _ignoreMSys;
         /// <summary>
         /// Initializes a new instance of the <see cref="JetConnection"/> class.
         /// </summary>
@@ -80,6 +80,8 @@ namespace EntityFrameworkCore.Jet.Data
         ///   <c>true</c> if this instance is empty; otherwise, <c>false</c>.
         /// </value>
         public bool IsEmpty { get; set; }
+
+        public bool IgnoreMsys => _ignoreMSys;
 
         /// <summary>
         /// Gets the <see cref="T:System.Data.Common.DbProviderFactory" /> for this <see cref="T:System.Data.Common.DbConnection" />.
@@ -357,6 +359,12 @@ namespace EntityFrameworkCore.Jet.Data
             // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
             var connectionStringBuilder = DataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = connectionString;
+
+            if (connectionStringBuilder.Remove("IgnoreMsys"))
+            {
+                _ignoreMSys = true;
+                connectionString = connectionStringBuilder.ToString();
+            }
 
             if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider()))
             {

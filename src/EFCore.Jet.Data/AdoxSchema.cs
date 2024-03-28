@@ -213,7 +213,6 @@ namespace EntityFrameworkCore.Jet.Data
                     continue;
                 }
 
-                System.Console.WriteLine(tableName);
                 using var columns = table.Columns;
                 var columnCount = columns.Count;
 

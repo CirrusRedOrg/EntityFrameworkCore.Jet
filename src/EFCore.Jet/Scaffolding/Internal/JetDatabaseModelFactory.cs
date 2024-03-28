@@ -102,7 +102,6 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
             {
                 connection.Open();
                 _ignoreMsys = ((JetConnection)connection).IgnoreMsys;
-                System.Console.WriteLine(_ignoreMsys);
             }
 
             try

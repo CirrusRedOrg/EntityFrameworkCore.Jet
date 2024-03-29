@@ -2951,13 +2951,14 @@ WHERE `m`.`Timeline` <> NOW()
 
     public override async Task Where_datetimeoffset_utcnow(bool async)
     {
+        var dtoffset = -1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
         await base.Where_datetimeoffset_utcnow(async);
 
         AssertSql(
-            """
+            $"""
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE `m`.`Timeline` <> DATEADD('n', -480.0, NOW())
+WHERE `m`.`Timeline` <> DATEADD('n', {dtoffset}.0, NOW())
 """);
     }
 

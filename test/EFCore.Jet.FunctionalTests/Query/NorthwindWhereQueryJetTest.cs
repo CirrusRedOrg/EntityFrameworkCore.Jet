@@ -787,6 +787,7 @@ WHERE MID(`c`.`City`, 1 + 1, 2) = 'ea'");
 
         public override async Task Where_datetime_utcnow(bool isAsync)
         {
+            var dtoffset = -1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
             await base.Where_datetime_utcnow(isAsync);
 
             AssertSql(
@@ -795,21 +796,22 @@ WHERE MID(`c`.`City`, 1 + 1, 2) = 'ea'");
     
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE DATEADD('n', -480.0, NOW()) <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
+    WHERE DATEADD('n', {dtoffset}.0, NOW()) <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
     """);
         }
 
         public override async Task Where_datetimeoffset_utcnow(bool async)
         {
+            var dtoffset = -1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
             await base.Where_datetimeoffset_utcnow(async);
 
             AssertSql(
-                """
+                $"""
 @__myDatetimeOffset_0='2015-04-10T08:00:00.0000000Z' (DbType = DateTime)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE DATEADD('n', -480.0, NOW()) <> @__myDatetimeOffset_0
+WHERE DATEADD('n', {dtoffset}.0, NOW()) <> @__myDatetimeOffset_0
 """);
         }
 
@@ -944,13 +946,14 @@ WHERE `o`.`OrderDate` < NOW()
 
         public override async Task Where_datetimeoffset_utcnow_component(bool isAsync)
         {
+            var dtoffset = -1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
             await base.Where_datetimeoffset_utcnow_component(isAsync);
 
             AssertSql(
-                """
+                $"""
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <> DATEADD('n', -480.0, NOW()) OR `o`.`OrderDate` IS NULL
+WHERE `o`.`OrderDate` <> DATEADD('n', {dtoffset}.0, NOW()) OR `o`.`OrderDate` IS NULL
 """);
         }
 

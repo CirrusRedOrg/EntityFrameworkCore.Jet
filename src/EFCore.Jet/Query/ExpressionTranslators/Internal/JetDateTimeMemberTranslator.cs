@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -77,8 +78,18 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
                         false, new[] { false }, returnType),
-                    nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
-                        false, new[] { false }, returnType),
+                    nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function(
+                    "DATEADD",
+                    new SqlExpression[]
+                    {
+                        new SqlConstantExpression(Expression.Constant("n"), null),
+                        new SqlConstantExpression(Expression.Constant(-1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes), null) ,
+                        _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                            false, new[] { false }, returnType)
+                    },
+                    true,
+                    argumentsPropagateNullability: new[] { false, false, true },
+                    returnType),
                     nameof(DateTime.Today) => _sqlExpressionFactory.Function(
                         "DATEVALUE",
                         new[]

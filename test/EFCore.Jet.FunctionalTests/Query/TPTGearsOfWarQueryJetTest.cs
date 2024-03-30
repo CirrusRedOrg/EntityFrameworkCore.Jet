@@ -2942,22 +2942,23 @@ LEFT JOIN [Weapons] AS [w] ON [w].[SynergyWithId] IS NOT NULL
         await base.Where_datetimeoffset_now(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE [m].[Timeline] <> SYSDATETIMEOFFSET()
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE `m`.`Timeline` <> NOW()
 """);
     }
 
     public override async Task Where_datetimeoffset_utcnow(bool async)
     {
+        var dtoffset = -1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
         await base.Where_datetimeoffset_utcnow(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Duration], [m].[Rating], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE [m].[Timeline] <> CAST(SYSUTCDATETIME() AS datetimeoffset)
+            $"""
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE `m`.`Timeline` <> DATEADD('n', {dtoffset}.0, NOW())
 """);
     }
 

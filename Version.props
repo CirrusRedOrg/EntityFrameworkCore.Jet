@@ -16,7 +16,7 @@
             correctly.
         -->
 		<VersionPrefix>8.0.0</VersionPrefix>
-		<PreReleaseVersionLabel>beta</PreReleaseVersionLabel>
+		<PreReleaseVersionLabel>rc</PreReleaseVersionLabel>
 		<PreReleaseVersionIteration>1</PreReleaseVersionIteration>
 
 		<!--

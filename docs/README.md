@@ -8,11 +8,11 @@
 
 ## Compatibility Matrix
 
-| EntityFrameworkCore.Jet Version | EntityFrameworkCore Version | .NET Core | Notes |
+| EntityFrameworkCore.Jet Version | EntityFrameworkCore Version | .NET (Core) | Notes |
 | ------------- | ------------- | ------------- | ------------- |
-| 8.0.x | 8.0.x | 8.0.x | Alpha 2 onwards is compatible with EF Core RTM |
-| 7.0.x | 7.0.x | 6.0.x/7.0.x |
-| 6.0.x | 6.0.x | 6.0.x |
+| 8.0.x | 8.0.x | 8.0+ | Alpha 2 onwards is compatible with EF Core RTM |
+| 7.0.x | 7.0.x | 6.0+ |
+| 6.0.x | 6.0.x | 6.0+ |
 
 The major version corresponds to the major version of EF Core (i.e. EFCore.Jet `3.x` is compatible with EF Core `3.y`).
 It runs on Windows operating systems only and can be used with either ODBC or OLE DB together with their respective Access Database driver/provider.

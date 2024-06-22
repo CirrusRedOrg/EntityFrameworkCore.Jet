@@ -128,9 +128,9 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                         selectExpression.PushdownIntoSubquery();
                     }
 
-                    for (int j = 0; j < columnsToRewrite.Count; j++)
+                    foreach (var colr in columnsToRewrite)
                     {
-                        (int? index, OrderingExpression? oexp, bool ascending, bool rewrite, bool referstocurouter) = columnsToRewrite[j];
+                        (int? index, OrderingExpression? oexp, bool ascending, bool rewrite, bool referstocurouter) = colr.Value;
                         if (index.HasValue)
                         {
                             var proj = selectExpression.Projection[index.Value];
@@ -145,20 +145,9 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                         }
                     }
 
-                    if (isscalarselect)
+                    if (isscalarselect && selectExpression.Projection.Count > 1)
                     {
-                        List<ProjectionExpression> newProjections = new List<ProjectionExpression>();
-                        for (int j = 0; j < selectExpression.Projection.Count; j++)
-                        {
-                            var proj = selectExpression.Projection[j];
-                            var item = columnsToRewrite.SingleOrDefault(c => c.Value.indexcol == j);
-                            if (item.Value.indexcol == null)
-                            {
-                                newProjections.Add(proj);
-                            }
-
-                        }
-
+                        List<ProjectionExpression> newProjections = [selectExpression.Projection[0]];
                         selectExpression = selectExpression.Update(newProjections, selectExpression.Tables, selectExpression.Predicate,
                             selectExpression.GroupBy, selectExpression.Having, selectExpression.Orderings,
                             selectExpression.Limit, selectExpression.Offset);

@@ -611,10 +611,10 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p4='0x61626364' (Nullable = false) (Size = 510)
 @p5='0x595A5B5C' (Nullable = false) (Size = 510)
 @p6='B' (Nullable = false) (Size = 1)
-@p7='C' (Nullable = false) (Size = 1)
+@p7='C' (Nullable = false) (Size = 255)
 @p8='73'
 @p9='E' (Nullable = false) (Size = 1)
-@p10='F' (Nullable = false) (Size = 1)
+@p10='F' (Nullable = false) (Size = 255)
 @p11='H' (Nullable = false) (Size = 1)
 @p12='D' (Nullable = false) (Size = 1)
 @p13='G' (Nullable = false) (Size = 1)
@@ -810,10 +810,10 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p4='0x61626364' (Size = 510)
 @p5='0x595A5B5C' (Size = 510)
 @p6='B' (Size = 1)
-@p7='C' (Size = 1)
+@p7='C' (Size = 255)
 @p8='73' (Nullable = true)
 @p9='E' (Size = 1)
-@p10='F' (Size = 1)
+@p10='F' (Size = 255)
 @p11='H' (Size = 1)
 @p12='D' (Size = 1)
 @p13='G' (Size = 1)
@@ -839,8 +839,8 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p33='And now' (Size = 255)
 @p34='strong' (Size = 255)
 @p35='this...' (Size = 255)
-@p36='help' (Size = 100)
-@p37='anyone!' (Size = 100)
+@p36='help' (Size = 255)
+@p37='anyone!' (Size = 255)
 @p38='Gumball Rules OK!' (Size = 255)
 @p39='don't' (Size = 255)
 @p40='Gumball Rules!' (Size = 255)
@@ -1002,10 +1002,10 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p4=NULL (Size = 510) (DbType = Binary)
 @p5=NULL (Size = 510) (DbType = Binary)
 @p6=NULL (Size = 1)
-@p7=NULL (Size = 1)
+@p7=NULL (Size = 255)
 @p8=NULL (DbType = Int32)
 @p9=NULL (Size = 1)
-@p10=NULL (Size = 1)
+@p10=NULL (Size = 255)
 @p11=NULL (Size = 1)
 @p12=NULL (Size = 1)
 @p13=NULL (Size = 1)
@@ -1031,8 +1031,8 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 @p33=NULL (Size = 255)
 @p34=NULL (Size = 255)
 @p35=NULL (Size = 255)
-@p36=NULL (Size = 100)
-@p37=NULL (Size = 100)
+@p36=NULL (Size = 255)
+@p37=NULL (Size = 255)
 @p38=NULL (Size = 255)
 @p39=NULL (Size = 255)
 @p40=NULL (Size = 255)
@@ -1399,14 +1399,14 @@ parameters,
             Assert.Equal(
                $@"@p0='True'
 @p1='80' (Size = 1)
-@p2='0x5D5E5F60' (Nullable = false) (Size = 510)
+@p2='0x5D5E5F60' (Nullable = false) (Size = 255)
 @p3='0x61626364' (Nullable = false) (Size = 510)
-@p4='0x595A5B5C' (Nullable = false) (Size = 510)
+@p4='0x595A5B5C' (Nullable = false) (Size = 255)
 @p5='B' (Nullable = false) (Size = 1)
-@p6='C' (Nullable = false) (Size = 1)
+@p6='C' (Nullable = false) (Size = 255)
 @p7='73'
 @p8='E' (Nullable = false) (Size = 1)
-@p9='F' (Nullable = false) (Size = 1)
+@p9='F' (Nullable = false) (Size = 255)
 @p10='H' (Nullable = false) (Size = 1)
 @p11='D' (Nullable = false) (Size = 1)
 @p12='G' (Nullable = false) (Size = 1)
@@ -1598,10 +1598,10 @@ parameters,
 @p3='0x595A5B5C' (Size = 510)
 @p4='0x5D5E5F60' (Size = 510)
 @p5='B' (Size = 1)
-@p6='C' (Size = 1)
+@p6='C' (Size = 255)
 @p7='73' (Nullable = true)
 @p8='E' (Size = 1)
-@p9='F' (Size = 1)
+@p9='F' (Size = 255)
 @p10='H' (Size = 1)
 @p11='D' (Size = 1)
 @p12='G' (Size = 1)
@@ -1790,10 +1790,10 @@ parameters,
 @p3=NULL (Size = 510) (DbType = Binary)
 @p4=NULL (Size = 510) (DbType = Binary)
 @p5=NULL (Size = 1)
-@p6=NULL (Size = 1)
+@p6=NULL (Size = 255)
 @p7=NULL (DbType = Int32)
 @p8=NULL (Size = 1)
-@p9=NULL (Size = 1)
+@p9=NULL (Size = 255)
 @p10=NULL (Size = 1)
 @p11=NULL (Size = 1)
 @p12=NULL (Size = 1)
@@ -2628,7 +2628,7 @@ MappedDataTypes.BytesAsVarbinaryMax ---> [varbinary] [MaxLength = 510]
 MappedDataTypes.CharAsAsCharVarying ---> [varchar] [MaxLength = 1]
 MappedDataTypes.CharAsCharacterVaryingMax ---> [varchar] [MaxLength = 1]
 MappedDataTypes.CharAsInt ---> [integer]
-MappedDataTypes.CharAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 1]
+MappedDataTypes.CharAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
 MappedDataTypes.CharAsNationalCharVarying ---> [varchar] [MaxLength = 1]
 MappedDataTypes.CharAsNtext ---> [longchar]
 MappedDataTypes.CharAsNvarchar ---> [varchar] [MaxLength = 1]
@@ -3221,33 +3221,33 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "time")]
             public TimeSpan TimeSpanAsTime { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public string StringAsVarcharMax { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             public string StringAsCharVaryingMax { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public string StringAsCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "nvarchar(max)")]
+            [Column(TypeName = "nvarchar(255)")]
             public string StringAsNvarcharMax { get; set; }
 
-            [Column(TypeName = "national char varying(max)")]
+            [Column(TypeName = "national char varying(255)")]
             public string StringAsNationalCharVaryingMax { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public string StringAsNationalCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             [Unicode]
             public string StringAsVarcharMaxUtf8 { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             [Unicode]
             public string StringAsCharVaryingMaxUtf8 { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             [Unicode]
             public string StringAsCharacterVaryingMaxUtf8 { get; set; }
 
@@ -3257,10 +3257,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
 
-            [Column(TypeName = "varbinary(max)")]
+            [Column(TypeName = "varbinary(510)")]
             public byte[] BytesAsVarbinaryMax { get; set; }
 
-            [Column(TypeName = "binary varying(max)")]
+            [Column(TypeName = "binary varying(510)")]
             public byte[] BytesAsBinaryVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
@@ -3296,7 +3296,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "char varying(1)")]
             public char CharAsAsCharVarying { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public char CharAsCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "nvarchar")]
@@ -3305,7 +3305,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "national char varying(1)")]
             public char CharAsNationalCharVarying { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public char CharAsNationalCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "text")]
@@ -3317,7 +3317,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "int")]
             public char CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public StringEnum16 EnumAsVarcharMax { get; set; }
 
             [Column(TypeName = "nvarchar(20)")]
@@ -3327,141 +3327,6 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             public object SqlVariantString { get; set; }
 
             [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
-        }
-
-        protected class MappedSquareDataTypes
-        {
-            [Column(TypeName = "[int]")]
-            public int Int { get; set; }
-
-            [Column(TypeName = "[bigint]")]
-            public long LongAsBigInt { get; set; }
-
-            [Column(TypeName = "[smallint]")]
-            public short ShortAsSmallint { get; set; }
-
-            [Column(TypeName = "[tinyint]")]
-            public byte ByteAsTinyint { get; set; }
-
-            [Column(TypeName = "[int]")]
-            public uint UintAsInt { get; set; }
-
-            [Column(TypeName = "[bigint]")]
-            public ulong UlongAsBigint { get; set; }
-
-            [Column(TypeName = "[smallint]")]
-            public ushort UShortAsSmallint { get; set; }
-
-            [Column(TypeName = "[tinyint]")]
-            public sbyte SByteAsTinyint { get; set; }
-
-            [Column(TypeName = "[bit]")]
-            public bool BoolAsBit { get; set; }
-
-            [Column(TypeName = "[money]")]
-            public decimal DecimalAsMoney { get; set; }
-
-            /*[Column(TypeName = "[smallmoney]")]
-            public decimal DecimalAsSmallmoney { get; set; }*/
-
-            [Column(TypeName = "[float]")]
-            public double DoubleAsFloat { get; set; }
-
-            [Column(TypeName = "[real]")]
-            public float FloatAsReal { get; set; }
-
-            [Column(TypeName = "[date]")]
-            public DateOnly DateOnlyAsDate { get; set; }
-
-            [Column(TypeName = "[date]")]
-            public DateTime DateTimeAsDate { get; set; }
-
-            /*[Column(TypeName = "[datetimeoffset]")]
-            public DateTimeOffset DateTimeOffsetAsDatetimeoffset { get; set; }
-
-            [Column(TypeName = "[datetime2]")]
-            public DateTime DateTimeAsDatetime2 { get; set; }
-
-            [Column(TypeName = "[smalldatetime]")]
-            public DateTime DateTimeAsSmalldatetime { get; set; }*/
-
-            [Column(TypeName = "[datetime]")]
-            public DateTime DateTimeAsDatetime { get; set; }
-
-            [Column(TypeName = "[time]")]
-            public TimeOnly TimeOnlyAsTime { get; set; }
-
-            [Column(TypeName = "[time]")]
-            public TimeSpan TimeSpanAsTime { get; set; }
-
-            [Column(TypeName = "[varchar](max)")]
-            public string StringAsVarcharMax { get; set; }
-
-            [Column(TypeName = "[nvarchar](max)")]
-            public string StringAsNvarcharMax { get; set; }
-
-            [Column(TypeName = "[text]")]
-            public string StringAsText { get; set; }
-
-            [Column(TypeName = "[ntext]")]
-            public string StringAsNtext { get; set; }
-
-            [Column(TypeName = "[varbinary](max)")]
-            public byte[] BytesAsVarbinaryMax { get; set; }
-
-            [Column(TypeName = "[image]")]
-            public byte[] BytesAsImage { get; set; }
-
-            [Column(TypeName = "[decimal]")]
-            public decimal Decimal { get; set; }
-
-            [Column(TypeName = "[dec]")]
-            public decimal DecimalAsDec { get; set; }
-
-            [Column(TypeName = "[numeric]")]
-            public decimal DecimalAsNumeric { get; set; }
-
-            [Column(TypeName = "[uniqueidentifier]")]
-            public Guid GuidAsUniqueidentifier { get; set; }
-
-            [Column(TypeName = "[bigint]")]
-            public uint UintAsBigint { get; set; }
-
-            [Column(TypeName = "[decimal](20,0)")]
-            public ulong UlongAsDecimal200 { get; set; }
-
-            [Column(TypeName = "[int]")]
-            public ushort UShortAsInt { get; set; }
-
-            [Column(TypeName = "[smallint]")]
-            public sbyte SByteAsSmallint { get; set; }
-
-            [Column(TypeName = "[varchar](1)")]
-            public char CharAsVarchar { get; set; }
-
-            [Column(TypeName = "[nvarchar]")]
-            public char CharAsNvarchar { get; set; }
-
-            [Column(TypeName = "[text]")]
-            public char CharAsText { get; set; }
-
-            [Column(TypeName = "[ntext]")]
-            public char CharAsNtext { get; set; }
-
-            [Column(TypeName = "[int]")]
-            public char CharAsInt { get; set; }
-
-            [Column(TypeName = "[varchar](max)")]
-            public StringEnum16 EnumAsVarcharMax { get; set; }
-
-            [Column(TypeName = "[nvarchar](20)")]
-            public StringEnumU16 EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "[sql_variant]")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "[sql_variant]")]
             public object SqlVariantInt { get; set; }*/
         }
 
@@ -3811,35 +3676,35 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "time")]
             public TimeSpan? TimeSpanAsTime { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public string StringAsVarcharMax { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             public string StringAsCharVaryingMax { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public string StringAsCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "nvarchar(max)")]
+            [Column(TypeName = "nvarchar(255)")]
             public string StringAsNvarcharMax { get; set; }
 
-            [Column(TypeName = "national char varying(max)")]
+            [Column(TypeName = "national char varying(255)")]
             [MaxLength(100)]
             public string StringAsNationalCharVaryingMax { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             [StringLength(100)]
             public string StringAsNationalCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             [Unicode]
             public string StringAsVarcharMaxUtf8 { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             [Unicode]
             public string StringAsCharVaryingMaxUtf8 { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             [Unicode]
             public string StringAsCharacterVaryingMaxUtf8 { get; set; }
 
@@ -3849,10 +3714,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
 
-            [Column(TypeName = "varbinary(max)")]
+            [Column(TypeName = "varbinary(510)")]
             public byte[] BytesAsVarbinaryMax { get; set; }
 
-            [Column(TypeName = "binary varying(max)")]
+            [Column(TypeName = "binary varying(510)")]
             public byte[] BytesAsBinaryVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
@@ -3888,7 +3753,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "char varying")]
             public char? CharAsAsCharVarying { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public char? CharAsCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "nvarchar")]
@@ -3897,7 +3762,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "national char varying(1)")]
             public char? CharAsNationalCharVarying { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public char? CharAsNationalCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "text")]
@@ -3909,7 +3774,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "int")]
             public char? CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public StringEnum16? EnumAsVarcharMax { get; set; }
 
             [Column(TypeName = "nvarchar(20)")]
@@ -3992,33 +3857,33 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "time")]
             public TimeSpan TimeSpanAsTime { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public string StringAsVarcharMax { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             public string StringAsCharVaryingMax { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public string StringAsCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "nvarchar(max)")]
+            [Column(TypeName = "nvarchar(255)")]
             public string StringAsNvarcharMax { get; set; }
 
-            [Column(TypeName = "national char varying(max)")]
+            [Column(TypeName = "national char varying(255)")]
             public string StringAsNationalCharVaryingMax { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public string StringAsNationalCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             [Unicode]
             public string StringAsVarcharMaxUtf8 { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             [Unicode]
             public string StringAsCharVaryingMaxUtf8 { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             [Unicode]
             public string StringAsCharacterVaryingMaxUtf8 { get; set; }
 
@@ -4028,10 +3893,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
 
-            [Column(TypeName = "varbinary(max)")]
+            [Column(TypeName = "varbinary(255)")]
             public byte[] BytesAsVarbinaryMax { get; set; }
 
-            [Column(TypeName = "binary varying(max)")]
+            [Column(TypeName = "binary varying(255)")]
             public byte[] BytesAsBinaryVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
@@ -4067,7 +3932,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "char varying")]
             public char CharAsAsCharVarying { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public char CharAsCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "nvarchar")]
@@ -4076,7 +3941,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "national char varying(1)")]
             public char CharAsNationalCharVarying { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public char CharAsNationalCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "text")]
@@ -4088,7 +3953,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "int")]
             public char CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public StringEnum16 EnumAsVarcharMax { get; set; }
 
             [Column(TypeName = "nvarchar(20)")]
@@ -4309,33 +4174,33 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "time")]
             public TimeSpan? TimeSpanAsTime { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public string StringAsVarcharMax { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             public string StringAsCharVaryingMax { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public string StringAsCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "nvarchar(max)")]
+            [Column(TypeName = "nvarchar(255)")]
             public string StringAsNvarcharMax { get; set; }
 
-            [Column(TypeName = "national char varying(max)")]
+            [Column(TypeName = "national char varying(255)")]
             public string StringAsNationalCharVaryingMax { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public string StringAsNationalCharacterVaryingMax { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             [Unicode]
             public string StringAsVarcharMaxUtf8 { get; set; }
 
-            [Column(TypeName = "char varying(max)")]
+            [Column(TypeName = "char varying(255)")]
             [Unicode]
             public string StringAsCharVaryingMaxUtf8 { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             [Unicode]
             public string StringAsCharacterVaryingMaxUtf8 { get; set; }
 
@@ -4345,10 +4210,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "ntext")]
             public string StringAsNtext { get; set; }
 
-            [Column(TypeName = "varbinary(max)")]
+            [Column(TypeName = "varbinary(510)")]
             public byte[] BytesAsVarbinaryMax { get; set; }
 
-            [Column(TypeName = "binary varying(max)")]
+            [Column(TypeName = "binary varying(510)")]
             public byte[] BytesAsVaryingMax { get; set; }
 
             [Column(TypeName = "image")]
@@ -4384,7 +4249,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "char varying(1)")]
             public char? CharAsAsCharVarying { get; set; }
 
-            [Column(TypeName = "character varying(max)")]
+            [Column(TypeName = "character varying(255)")]
             public char? CharAsCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "nvarchar(1)")]
@@ -4393,7 +4258,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "national char varying")]
             public char? CharAsNationalCharVarying { get; set; }
 
-            [Column(TypeName = "national character varying(max)")]
+            [Column(TypeName = "national character varying(255)")]
             public char? CharAsNationalCharacterVaryingMax { get; set; }
 
             [Column(TypeName = "text")]
@@ -4405,7 +4270,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             [Column(TypeName = "int")]
             public char? CharAsInt { get; set; }
 
-            [Column(TypeName = "varchar(max)")]
+            [Column(TypeName = "varchar(255)")]
             public StringEnum16? EnumAsVarcharMax { get; set; }
 
             [Column(TypeName = "nvarchar(20)")]

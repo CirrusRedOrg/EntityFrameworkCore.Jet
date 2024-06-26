@@ -419,6 +419,11 @@ namespace EntityFrameworkCore.Jet.Data
 
                     var relationName = (string)key.Name;
                     var principalTableName = (string)key.RelatedTable;
+                    var keyType = (KeyTypeEnum)key.Type;
+                    if (keyType != KeyTypeEnum.adKeyForeign)
+                    {
+                        continue;
+                    }
 
                     var relationType = !_naturalOnly ? "MANY" : null; // we don't know what kind of relationship this is
 

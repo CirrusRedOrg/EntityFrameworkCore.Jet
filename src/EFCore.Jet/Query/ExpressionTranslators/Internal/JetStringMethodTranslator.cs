@@ -301,29 +301,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             var argumentsPropagateNullability = Enumerable.Repeat(true, charIndexArguments.Count);
 
-            SqlExpression charIndexExpression;
-            var storeType = stringTypeMapping.StoreType;
-            if (string.Equals(storeType, "nvarchar(max)", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(storeType, "varchar(max)", StringComparison.OrdinalIgnoreCase))
-            {
-                charIndexExpression = _sqlExpressionFactory.Function(
-                    "INSTR",
-                    charIndexArguments,
-                    nullable: true,
-                    argumentsPropagateNullability,
-                    typeof(long));
-
-                charIndexExpression = _sqlExpressionFactory.Convert(charIndexExpression, typeof(int));
-            }
-            else
-            {
-                charIndexExpression = _sqlExpressionFactory.Function(
-                    "INSTR",
-                    charIndexArguments,
-                    nullable: true,
-                    argumentsPropagateNullability,
-                    method.ReturnType);
-            }
+            SqlExpression charIndexExpression = charIndexExpression = _sqlExpressionFactory.Function(
+                "INSTR",
+                charIndexArguments,
+                nullable: true,
+                argumentsPropagateNullability,
+                method.ReturnType);
 
             charIndexExpression = _sqlExpressionFactory.Subtract(charIndexExpression, _sqlExpressionFactory.Constant(1));
 

@@ -49,7 +49,7 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
     {
         if (method == ByteArrayLength)
         {
-            var isBinaryMaxDataType = GetProviderType(arguments[1]) == "varbinary(max)" || arguments[1] is SqlParameterExpression;
+            var isBinaryMaxDataType = arguments[1] is SqlParameterExpression;
             SqlExpression dataLengthSqlFunction = _sqlExpressionFactory.Function(
                 "LENB",
                 new[] { arguments[1] },

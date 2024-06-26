@@ -84,19 +84,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                         && declaringTable.Name != null)
                     {
                         property.Builder.HasValueGenerationStrategy(strategy);
-
-                        if (strategy == JetValueGenerationStrategy.Sequence)
-                        {
-                            var sequence = modelBuilder.HasSequence(
-                                property.GetJetSequenceName(declaringTable)
-                                ?? entityType.GetRootType().ShortName() + modelBuilder.Metadata.GetJetSequenceNameSuffix(),
-                                property.GetJetSequenceSchema(declaringTable)
-                                ?? modelBuilder.Metadata.GetJetSequenceSchema()).Metadata;
-
-                            property.Builder.HasDefaultValueSql(
-                                RelationalDependencies.UpdateSqlGenerator.GenerateObtainNextSequenceValueOperation(
-                                    sequence.Name, sequence.Schema));
-                        }
                     }
                 }
             }

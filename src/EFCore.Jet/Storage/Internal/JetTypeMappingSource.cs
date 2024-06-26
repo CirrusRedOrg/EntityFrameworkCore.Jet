@@ -104,7 +104,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"binary",                     new []{_fixedLengthBinary}},
 
                     {"varbinary",                  new []{_variableLengthBinary}},
-                    {"varbinary(max)",             new[] { _variableLengthMaxBinary }},
                     {"binary varying",             new[] { _variableLengthBinary }},
                     {"bit varying",                new[] { _variableLengthBinary }},
 
@@ -171,13 +170,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"character varying",          new[] { _variableLengthUnicodeString }},
                     {"national char varying",      new[] { _variableLengthUnicodeString }},
                     {"national character varying", new[] { _variableLengthUnicodeString }},
-
-                    {"varchar(max)",                    new[] { _variableLengthMaxUnicodeString }},
-                    {"string(max)",                     new[] { _variableLengthMaxUnicodeString }},
-                    {"char varying(max)",               new[] { _variableLengthMaxUnicodeString }},
-                    {"character varying(max)",          new[] { _variableLengthMaxUnicodeString }},
-                    {"national char varying(max)",      new[] { _variableLengthMaxUnicodeString }},
-                    {"national character varying(max)", new[] { _variableLengthMaxUnicodeString }},
 
                     {"longchar",                   new[] { _unboundedUnicodeString }},
                     {"longtext",                   new[] { _unboundedUnicodeString }},

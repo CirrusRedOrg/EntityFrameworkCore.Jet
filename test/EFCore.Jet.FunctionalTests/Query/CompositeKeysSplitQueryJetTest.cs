@@ -18,9 +18,6 @@ public class CompositeKeysSplitQueryJetTest : CompositeKeysSplitQueryRelationalT
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    protected override bool CanExecuteQueryString
-        => false;
-
     public override async Task Projecting_collections_multi_level(bool async)
     {
         await base.Projecting_collections_multi_level(async);

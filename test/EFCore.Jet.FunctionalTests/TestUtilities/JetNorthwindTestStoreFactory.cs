@@ -15,6 +15,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         public override TestStore GetOrCreate(string storeName)
-            => JetTestStore.GetOrCreate(Name, scriptPath: "Northwind.sql"/*, templatePath: "Northwind.accdb"*/);
+            => JetTestStore.GetOrCreateWithScriptPath(Name, scriptPath: "Northwind.sql"/*, templatePath: "Northwind.accdb"*/);
     }
 }

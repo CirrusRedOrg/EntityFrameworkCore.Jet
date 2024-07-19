@@ -7,14 +7,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
     public class JetAdventureWorksTestStoreFactory : JetTestStoreFactory
     {
-        public static new JetAdventureWorksTestStoreFactory Instance { get; } = new JetAdventureWorksTestStoreFactory();
+        public new static JetAdventureWorksTestStoreFactory Instance { get; } = new();
 
         protected JetAdventureWorksTestStoreFactory()
         {
         }
 
         public override TestStore GetOrCreate(string storeName)
-            => JetTestStore.GetOrCreate(
+            => JetTestStore.GetOrCreateWithScriptPath(
                 "adventureworks",
                 Path.Combine("SqlAzure", "adventureworks.sql"));
     }

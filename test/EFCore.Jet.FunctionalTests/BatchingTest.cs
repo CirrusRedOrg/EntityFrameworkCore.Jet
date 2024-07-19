@@ -3,16 +3,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Microsoft.Extensions.Options;
 
+#nullable disable
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -35,10 +39,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, true, false)]
         [InlineData(true, false, false)]
         [InlineData(false, false, false)]
-        public void Inserts_are_batched_correctly(bool clientPk, bool clientFk, bool clientOrder)
+        public Task Inserts_are_batched_correctly(bool clientPk, bool clientFk, bool clientOrder)
         {
             var expectedBlogs = new List<Blog>();
-            ExecuteWithStrategyInTransaction(
+            return ExecuteWithStrategyInTransactionAsync(
                 context =>
                 {
                     var owner1 = new Owner();
@@ -68,18 +72,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         expectedBlogs.Add(blog);
                     }
 
-                    context.SaveChanges();
+                    return context.SaveChangesAsync();
                 },
                 context => AssertDatabaseState(context, clientOrder, expectedBlogs));
         }
 
         [ConditionalFact]
-        public void Inserts_and_updates_are_batched_correctly()
+        public Task Inserts_and_updates_are_batched_correctly()
         {
             var expectedBlogs = new List<Blog>();
 
-            ExecuteWithStrategyInTransaction(
-                context =>
+            return ExecuteWithStrategyInTransactionAsync(
+                async context =>
                 {
                     var owner1 = new Owner { Name = "0" };
                     var owner2 = new Owner { Name = "1" };
@@ -96,7 +100,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     context.Set<Blog>().Add(blog1);
                     expectedBlogs.Add(blog1);
 
-                    context.SaveChanges();
+                    await context.SaveChangesAsync();
 
                     owner2.Name = "2";
 
@@ -121,42 +125,202 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     context.Set<Blog>().Add(blog3);
                     expectedBlogs.Add(blog3);
 
-                    context.SaveChanges();
+                    await context.SaveChangesAsync();
                 },
                 context => AssertDatabaseState(context, true, expectedBlogs));
         }
 
-        [ConditionalFact]
-        public void Inserts_when_database_type_is_different()
+        [ConditionalTheory]
+        [InlineData(1)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [InlineData(100)]
+        public Task Insertion_order_is_preserved(int maxBatchSize)
         {
-            ExecuteWithStrategyInTransaction(
+            var blogId = new Guid();
+
+            return TestHelpers.ExecuteWithStrategyInTransactionAsync(
+                () => (BloggingContext)Fixture.CreateContext(maxBatchSize: maxBatchSize),
+                UseTransaction, async context =>
+                {
+                    var owner = new Owner();
+                    var blog = new Blog { Owner = owner };
+
+                    for (var i = 0; i < 20; i++)
+                    {
+                        context.Add(new Post { Order = i, Blog = blog });
+                    }
+
+                    await context.SaveChangesAsync();
+
+                    blogId = blog.Id;
+                }, async context =>
+                {
+                    var posts = context.Set<Post>().Where(p => p.BlogId == blogId).OrderBy(p => p.Order);
+                    var lastId = 0;
+                    foreach (var post in await posts.ToListAsync())
+                    {
+                        Assert.True(post.PostId > lastId, $"Last ID: {lastId}, current ID: {post.PostId}");
+                        lastId = post.PostId;
+                    }
+                });
+        }
+
+        [ConditionalFact]
+        public async Task Deadlock_on_inserts_and_deletes_with_dependents_is_handled_correctly()
+        {
+            var blogs = new List<Blog>();
+
+            using (var context = CreateContext())
+            {
+                var owner1 = new Owner { Name = "0" };
+                var owner2 = new Owner { Name = "1" };
+                context.Owners.Add(owner1);
+                context.Owners.Add(owner2);
+
+                blogs.Add(
+                    new Blog
+                    {
+                        Id = Guid.NewGuid(),
+                        Owner = owner1,
+                        Order = 1
+                    });
+                blogs.Add(
+                    new Blog
+                    {
+                        Id = Guid.NewGuid(),
+                        Owner = owner2,
+                        Order = 2
+                    });
+                blogs.Add(
+                    new Blog
+                    {
+                        Id = Guid.NewGuid(),
+                        Owner = owner1,
+                        Order = 3
+                    });
+                blogs.Add(
+                    new Blog
+                    {
+                        Id = Guid.NewGuid(),
+                        Owner = owner2,
+                        Order = 4
+                    });
+
+                context.AddRange(blogs);
+
+                await context.SaveChangesAsync();
+            }
+
+            var tasks = new List<Task>();
+            for (var i = 0; i < 10; i++)
+            {
+                foreach (var blog in blogs)
+                {
+                    tasks.Add(RemoveAndAddPosts(blog));
+                }
+            }
+
+            Task.WaitAll(tasks.ToArray());
+
+            async Task RemoveAndAddPosts(Blog blog)
+            {
+                using var context = (BloggingContext)Fixture.CreateContext(useConnectionString: true);
+
+                context.Attach(blog);
+                blog.Posts.Clear();
+
+                blog.Posts.Add(new Post { Comments = { new Comment() } });
+                blog.Posts.Add(new Post { Comments = { new Comment() } });
+                blog.Posts.Add(new Post { Comments = { new Comment() } });
+
+                await context.SaveChangesAsync();
+            }
+
+            await Fixture.ReseedAsync();
+        }
+
+        [ConditionalFact]
+        public async Task Deadlock_on_deletes_with_dependents_is_handled_correctly()
+        {
+            var owners = new[] { new Owner { Name = "0" }, new Owner { Name = "1" } };
+            using (var context = CreateContext())
+            {
+                context.Owners.AddRange(owners);
+
+                for (var h = 0; h <= 40; h++)
+                {
+                    var owner = owners[h % 2];
+                    var blog = new Blog
+                    {
+                        Id = Guid.NewGuid(),
+                        Owner = owner,
+                        Order = h
+                    };
+
+                    for (var i = 0; i <= 40; i++)
+                    {
+                        blog.Posts.Add(new Post { Comments = { new Comment() } });
+                    }
+
+                    context.Add(blog);
+                }
+
+                await context.SaveChangesAsync();
+            }
+
+            async Task Action(Owner owner)
+            {
+                using var context = (BloggingContext)Fixture.CreateContext(useConnectionString: true);
+
+                context.RemoveRange(await context.Blogs.Where(b => b.OwnerId == owner.Id).ToListAsync());
+
+                await context.SaveChangesAsync();
+            }
+
+            var tasks = new List<Task>();
+            foreach (var owner in owners)
+            {
+                tasks.Add(Action(owner));
+            }
+
+            Task.WaitAll(tasks.ToArray());
+
+            using (var context = CreateContext())
+            {
+                Assert.Empty(await context.Blogs.ToListAsync());
+            }
+
+            await Fixture.ReseedAsync();
+        }
+
+        [ConditionalFact]
+        public Task Inserts_when_database_type_is_different()
+            => ExecuteWithStrategyInTransactionAsync(
                 context =>
                 {
                     var owner1 = new Owner { Id = "0", Name = "Zero" };
-                    var owner2 = new Owner { Id = "A", Name = string.Join("", Enumerable.Repeat('A', 255)) };
+                    var owner2 = new Owner { Id = "A", Name = string.Join("", Enumerable.Repeat('A', 900)) };
                     context.Owners.Add(owner1);
                     context.Owners.Add(owner2);
 
-                    context.SaveChanges();
-                },
-                context => Assert.Equal(2, context.Owners.Count()));
-        }
+                    return context.SaveChangesAsync();
+                }, async context => Assert.Equal(2, await context.Owners.CountAsync()));
 
         [ConditionalTheory]
         [InlineData(3)]
         [InlineData(4)]
-        public void Inserts_are_batched_only_when_necessary(int minBatchSize)
+        public Task Inserts_are_batched_only_when_necessary(int minBatchSize)
         {
             var expectedBlogs = new List<Blog>();
-            TestHelpers.ExecuteWithStrategyInTransaction(
+            return TestHelpers.ExecuteWithStrategyInTransactionAsync(
                 () => (BloggingContext)Fixture.CreateContext(minBatchSize),
-                UseTransaction,
-                context =>
+                UseTransaction, async context =>
                 {
                     var owner = new Owner();
                     context.Owners.Add(owner);
 
-                    for (var i = 1; i < 4; i++)
+                    for (var i = 1; i < 3; i++)
                     {
                         var blog = new Blog { Id = Guid.NewGuid(), Owner = owner };
 
@@ -166,7 +330,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                     Fixture.TestSqlLoggerFactory.Clear();
 
-                    context.SaveChanges();
+                    await context.SaveChangesAsync();
 
                     Assert.Contains(
                         minBatchSize == 3
@@ -176,17 +340,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                                 .GenerateMessage(3, 4),
                         Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
 
-                    Assert.Equal(minBatchSize <= 3 ? 2 : 4, Fixture.TestSqlLoggerFactory.SqlStatements.Count);
+                    Assert.Equal(minBatchSize <= 3 ? 1 : 3, Fixture.TestSqlLoggerFactory.SqlStatements.Count);
                 }, context => AssertDatabaseState(context, false, expectedBlogs));
         }
 
-        private void AssertDatabaseState(DbContext context, bool clientOrder, List<Blog> expectedBlogs)
+        private async Task AssertDatabaseState(DbContext context, bool clientOrder, List<Blog> expectedBlogs)
         {
             expectedBlogs = clientOrder
                 ? expectedBlogs.OrderBy(b => b.Order).ToList()
                 : expectedBlogs.OrderBy(b => b.Id).ToList();
             var actualBlogs = clientOrder
-                ? context.Set<Blog>().OrderBy(b => b.Order).ToList()
+                ? await context.Set<Blog>().OrderBy(b => b.Order).ToListAsync()
                 : expectedBlogs.OrderBy(b => b.Id).ToList();
             Assert.Equal(expectedBlogs.Count, actualBlogs.Count);
 
@@ -203,10 +367,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private BloggingContext CreateContext() => (BloggingContext)Fixture.CreateContext();
 
-        private void ExecuteWithStrategyInTransaction(
-            Action<BloggingContext> testOperation,
-            Action<BloggingContext> nestedTestOperation)
-            => TestHelpers.ExecuteWithStrategyInTransaction(
+        private Task ExecuteWithStrategyInTransactionAsync(
+            Func<BloggingContext, Task> testOperation,
+            Func<BloggingContext, Task> nestedTestOperation)
+            => TestHelpers.ExecuteWithStrategyInTransactionAsync(
                 CreateContext, UseTransaction, testOperation, nestedTestOperation);
 
         protected void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
@@ -248,6 +412,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public string OwnerId { get; set; }
             public Owner Owner { get; set; }
             public byte[] Version { get; set; }
+            public ICollection<Post> Posts { get; } = new HashSet<Post>();
         }
 
         private class Owner
@@ -255,6 +420,22 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public string Id { get; set; }
             public string Name { get; set; }
             public byte[] Version { get; set; }
+        }
+
+        private class Post
+        {
+            public int PostId { get; set; }
+            public int? Order { get; set; }
+            public Guid BlogId { get; set; }
+            public Blog Blog { get; set; }
+            public ICollection<Comment> Comments { get; } = new HashSet<Comment>();
+        }
+
+        private class Comment
+        {
+            public int CommentId { get; set; }
+            public int PostId { get; set; }
+            public Post Post { get; set; }
         }
 
         public class BatchingTestFixture : SharedStoreFixtureBase<PoolableDbContext>
@@ -267,19 +448,39 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             protected override bool ShouldLogCategory(string logCategory)
                 => logCategory == DbLoggerCategory.Update.Name;
 
-            protected override void Seed(PoolableDbContext context)
+            protected override async Task SeedAsync(PoolableDbContext context)
             {
-                context.Database.EnsureCreatedResiliently();
-                context.Database.ExecuteSqlRaw(
+                await context.Database.EnsureCreatedResilientlyAsync();
+                await context.Database.ExecuteSqlRawAsync(
                     @"
 ALTER TABLE Owners
     ALTER COLUMN Name nvarchar(255);");
             }
 
-            public DbContext CreateContext(int minBatchSize)
+            public DbContext CreateContext(int? minBatchSize = null,
+                int? maxBatchSize = null,
+                bool useConnectionString = false)
             {
-                var optionsBuilder = new DbContextOptionsBuilder(CreateOptions());
-                new JetDbContextOptionsBuilder(optionsBuilder).MinBatchSize(minBatchSize);
+                var options = CreateOptions();
+                var optionsBuilder = new DbContextOptionsBuilder(options);
+                if (useConnectionString)
+                {
+                    RelationalOptionsExtension extension = options.FindExtension<JetOptionsExtension>()
+                        ?? new JetOptionsExtension();
+
+                    extension = extension.WithConnection(null).WithConnectionString(((JetTestStore)TestStore).ConnectionString);
+                    ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
+                }
+
+                if (minBatchSize.HasValue)
+                {
+                    new JetDbContextOptionsBuilder(optionsBuilder).MinBatchSize(minBatchSize.Value);
+                }
+
+                if (maxBatchSize.HasValue)
+                {
+                    new JetDbContextOptionsBuilder(optionsBuilder).MinBatchSize(maxBatchSize.Value);
+                }
                 return new BloggingContext(optionsBuilder.Options);
             }
         }

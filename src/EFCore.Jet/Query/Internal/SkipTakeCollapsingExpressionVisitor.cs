@@ -64,11 +64,11 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
             if (IsZero(selectExpression.Limit))
             {
                 var result = selectExpression.Update(
-                    selectExpression.Projection,
                     selectExpression.Tables,
                     selectExpression.GroupBy.Count > 0 ? selectExpression.Predicate : _sqlExpressionFactory.Constant(false),
                     selectExpression.GroupBy,
                     selectExpression.GroupBy.Count > 0 ? _sqlExpressionFactory.Constant(false) : null,
+                    selectExpression.Projection,
                     new List<OrderingExpression>(0),
                     limit: null,
                     offset: null);

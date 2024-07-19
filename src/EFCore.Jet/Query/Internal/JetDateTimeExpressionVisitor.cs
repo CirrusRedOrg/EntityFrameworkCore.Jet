@@ -50,11 +50,11 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 .ToList();
 
             var expression = selectExpression.Update(
-                newProjections,
                 selectExpression.Tables.ToList(),
                 selectExpression.Predicate,
                 selectExpression.GroupBy.ToList(),
                 selectExpression.Having,
+                newProjections,
                 selectExpression.Orderings.ToList(),
                 selectExpression.Limit,
                 selectExpression.Offset);

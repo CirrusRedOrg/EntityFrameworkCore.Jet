@@ -5,6 +5,7 @@
 		<RootNamespace>EntityFrameworkCore.Jet.IntegrationTests</RootNamespace>
 		<GenerateProgramFile>false</GenerateProgramFile>
 		<Platforms>AnyCPU;x86;x64</Platforms>
+		<Nullable>disable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

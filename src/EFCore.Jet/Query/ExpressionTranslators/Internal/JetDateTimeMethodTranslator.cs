@@ -82,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     "DATEADD",
                     new[]
                     {
-                        new SqlConstantExpression(Expression.Constant(datePart), null),
+                        new SqlConstantExpression(datePart, null),
                         amountToAdd,
                         instance
                     },
@@ -98,7 +98,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     "DATEDIFF",
                     new[]
                     {
-                        new SqlConstantExpression(Expression.Constant(timePart), null),
+                        new SqlConstantExpression(timePart, null),
                         _sqlExpressionFactory.Constant(DateTimeOffset.UnixEpoch, instance!.TypeMapping),
                         instance
                     },

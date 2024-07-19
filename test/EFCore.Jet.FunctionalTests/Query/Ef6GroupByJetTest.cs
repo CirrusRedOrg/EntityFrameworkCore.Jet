@@ -185,10 +185,10 @@ GROUP BY `a`.`FirstName`
         // )  AS [Distinct1]";
     }
 
-    public override async Task GroupBy_is_optimized_when_filerting_and_projecting_anonymous_type_with_group_key_and_function_aggregate(
+    public override async Task GroupBy_is_optimized_when_filtering_and_projecting_anonymous_type_with_group_key_and_function_aggregate(
         bool async)
     {
-        await base.GroupBy_is_optimized_when_filerting_and_projecting_anonymous_type_with_group_key_and_function_aggregate(async);
+        await base.GroupBy_is_optimized_when_filtering_and_projecting_anonymous_type_with_group_key_and_function_aggregate(async);
 
         AssertSql(
 """
@@ -920,7 +920,7 @@ ORDER BY [t].[LastName] DESC, [t0].[Id], [t2].[LastName], [t2].[Id]
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
-    public class Ef6GroupByJetFixture : Ef6GroupByFixtureBase
+    public class Ef6GroupByJetFixture : Ef6GroupByFixtureBase, ITestSqlLoggerFactory
     {
         public TestSqlLoggerFactory TestSqlLoggerFactory
             => (TestSqlLoggerFactory)ListLoggerFactory;

@@ -14,6 +14,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
+
+#nullable disable
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -148,9 +151,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return modelBuilder;
         }
 
-        public override void ConcurrencyCheckAttribute_throws_if_value_in_database_changed()
+        public override async Task ConcurrencyCheckAttribute_throws_if_value_in_database_changed()
         {
-            base.ConcurrencyCheckAttribute_throws_if_value_in_database_changed();
+            await base.ConcurrencyCheckAttribute_throws_if_value_in_database_changed();
 
             AssertSql(
                 $@"SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
@@ -180,9 +183,9 @@ WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {Asser
 SELECT @@ROWCOUNT;");
         }
 
-        public override void DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity()
+        public override async Task DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity()
         {
-            base.DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity();
+            await base.DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity();
 
             AssertSql(
                 $@"@p0=NULL (Size = 10)
@@ -200,9 +203,9 @@ FROM `Sample`
 WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
         }
 
-        public override void MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length()
+        public override async Task MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length()
         {
-            base.MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length();
+            await base.MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='Short' (Size = 10)")}
@@ -234,9 +237,9 @@ FROM `Sample`
 WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
         }
 
-        public override void RequiredAttribute_for_navigation_throws_while_inserting_null_value()
+        public override async Task RequiredAttribute_for_navigation_throws_while_inserting_null_value()
         {
-            base.RequiredAttribute_for_navigation_throws_while_inserting_null_value();
+            await base.RequiredAttribute_for_navigation_throws_while_inserting_null_value();
 
             AssertSql(
                 $@"@p0=NULL (DbType = Int32)
@@ -258,9 +261,9 @@ FROM `BookDetails`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;");
         }
 
-        public override void RequiredAttribute_for_property_throws_while_inserting_null_value()
+        public override async Task RequiredAttribute_for_property_throws_while_inserting_null_value()
         {
-            base.RequiredAttribute_for_property_throws_while_inserting_null_value();
+            await base.RequiredAttribute_for_property_throws_while_inserting_null_value();
 
             AssertSql(
                 $@"@p0=NULL (Size = 10)
@@ -292,9 +295,9 @@ FROM `Sample`
 WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
         }
 
-        public override void StringLengthAttribute_throws_while_inserting_value_longer_than_max_length()
+        public override async Task StringLengthAttribute_throws_while_inserting_value_longer_than_max_length()
         {
-            base.StringLengthAttribute_throws_while_inserting_value_longer_than_max_length();
+            await base.StringLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@p0='ValidString' (Size = 16)")}
@@ -314,9 +317,9 @@ FROM `Two`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;");
         }
 
-        public override void TimestampAttribute_throws_if_value_in_database_changed()
+        public override async Task TimestampAttribute_throws_if_value_in_database_changed()
         {
-            base.TimestampAttribute_throws_if_value_in_database_changed();
+            await base.TimestampAttribute_throws_if_value_in_database_changed();
 
             // Not validating SQL because not significantly different from other tests and
             // row version value is not stable.

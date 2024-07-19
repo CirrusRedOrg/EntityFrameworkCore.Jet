@@ -11,8 +11,10 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using System.Linq;
+using System.Threading.Tasks;
 
 // ReSharper disable InconsistentNaming
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class EverythingIsStringsJetTest : BuiltInDataTypesTestBase<
@@ -184,15 +186,21 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
 
-        public override void Can_read_back_mapped_enum_from_collection_first_or_default()
-        {
-            // The query needs to generate TOP 1
-        }
+        public override Task Can_read_back_mapped_enum_from_collection_first_or_default()
+            // The query needs to generate TOP(1)
+            => Task.CompletedTask;
 
-        public override void Can_read_back_bool_mapped_as_int_through_navigation()
-        {
+        public override Task Can_read_back_bool_mapped_as_int_through_navigation()
             // Column is mapped as int rather than string
-        }
+            => Task.CompletedTask;
+
+        public override Task Can_compare_enum_to_constant()
+            // Column is mapped as int rather than string
+            => Task.CompletedTask;
+
+        public override Task Can_compare_enum_to_parameter()
+            // Column is mapped as int rather than string
+            => Task.CompletedTask;
 
         public class EverythingIsStringsJetFixture : BuiltInDataTypesFixtureBase
         {

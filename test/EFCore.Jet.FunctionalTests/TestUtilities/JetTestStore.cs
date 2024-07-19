@@ -9,9 +9,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
+using Microsoft.CodeAnalysis.Differencing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -23,82 +25,91 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
     {
         public const int CommandTimeout = 300;
 
-        public static JetTestStore GetNorthwindStore()
-            => (JetTestStore)JetNorthwindTestStoreFactory.Instance
-                .GetOrCreate(JetNorthwindTestStoreFactory.Name)
-                .Initialize(null, (Func<DbContext>)null);
+        private static string CurrentDirectory
+            => Environment.CurrentDirectory;
 
-        public static JetTestStore GetOrCreate(string name, string scriptPath = null, string templatePath = null)
-            => new JetTestStore(name, scriptPath: scriptPath, templatePath: templatePath);
+        public static async Task<JetTestStore> GetNorthwindStoreAsync()
+            => (JetTestStore)await JetNorthwindTestStoreFactory.Instance
+                .GetOrCreate(JetNorthwindTestStoreFactory.Name).InitializeAsync(null, (Func<DbContext>?)null);
 
-        public static JetTestStore GetOrCreateInitialized(string name)
-            => new JetTestStore(name).InitializeJet(null, (Func<DbContext>)null, null);
+        public static JetTestStore GetOrCreate(string name)
+            => new(name);
+
+        public static async Task<JetTestStore> GetOrCreateInitializedAsync(string name)
+            => await new JetTestStore(name).InitializeJetAsync(null, (Func<DbContext>?)null, null);
+
+        public static JetTestStore GetOrCreateWithInitScript(string name, string initScript)
+            => new(name, initScript: initScript);
+
+        public static JetTestStore GetOrCreateWithScriptPath(
+            string name,
+            string scriptPath,
+            bool shared = true)
+            => new(name, scriptPath: scriptPath, shared: shared);
 
         public static JetTestStore Create(string name)
-            => new JetTestStore(name, shared: false);
+            => new(name, shared: false);
 
-        public static JetTestStore CreateInitialized(string name)
-            => new JetTestStore(name, shared: false)
-                .InitializeJet(null, (Func<DbContext>)null, null);
+        public static async Task<JetTestStore> CreateInitializedAsync(
+            string name,
+            bool? multipleActiveResultSets = null)
+            => await new JetTestStore(name, shared: false)
+                .InitializeJetAsync(null, (Func<DbContext>?)null, null);
 
-        private readonly string _scriptPath;
-        private readonly string _templatePath;
+        private readonly string? _initScript;
+        private readonly string? _scriptPath;
 
         private JetTestStore(
             string name,
-            string scriptPath = null,
-            string templatePath = null,
+            string? initScript = null,
+            string? scriptPath = null,
             bool shared = true)
-            : base(name + ".accdb", shared)
+            : base(name + ".accdb", shared, CreateConnection(name))
         {
+            if (initScript != null)
+            {
+                _initScript = initScript;
+            }
+
             if (scriptPath != null)
             {
-                _scriptPath = Path.Combine(
-                    Path.GetDirectoryName(
-                        typeof(JetTestStore).GetTypeInfo()
-                            .Assembly.Location), scriptPath);
+                _scriptPath = Path.Combine(Path.GetDirectoryName(typeof(JetTestStore).Assembly.Location)!, scriptPath);
             }
-
-            if (templatePath != null)
-            {
-                _templatePath = Path.Combine(
-                    Path.GetDirectoryName(
-                        typeof(JetTestStore).GetTypeInfo()
-                            .Assembly.Location), templatePath);
-            }
-
-            ConnectionString = CreateConnectionString(Name);
-
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(ConnectionString));
-            var connection = (JetConnection)JetFactory.Instance.CreateConnection();
-            connection.ConnectionString = ConnectionString;
-            connection.DataAccessProviderFactory = dataAccessProviderFactory;
-
-            Connection = connection;
         }
 
-        public JetTestStore InitializeJet(
-            IServiceProvider serviceProvider, Func<DbContext> createContext, Action<DbContext> seed)
-            => (JetTestStore)Initialize(serviceProvider, createContext, seed);
+        public async Task<JetTestStore> InitializeJetAsync(
+            IServiceProvider? serviceProvider,
+            Func<DbContext>? createContext,
+            Func<DbContext, Task>? seed)
+            => (JetTestStore)await InitializeAsync(serviceProvider, createContext, seed);
 
-        public JetTestStore InitializeJet(
-            IServiceProvider serviceProvider, Func<JetTestStore, DbContext> createContext, Action<DbContext> seed)
-            => InitializeJet(serviceProvider, () => createContext(this), seed);
+        public async Task<JetTestStore> InitializeJetAsync(
+            IServiceProvider serviceProvider,
+            Func<JetTestStore, DbContext> createContext,
+            Func<DbContext, Task> seed)
+            => await InitializeJetAsync(serviceProvider, () => createContext(this), seed);
 
-        protected override void Initialize(Func<DbContext> createContext, Action<DbContext> seed, Action<DbContext> clean)
+        protected override async Task InitializeAsync(Func<DbContext> createContext, Func<DbContext, Task>? seed, Func<DbContext, Task>? clean)
         {
             if (CreateDatabase(clean))
             {
                 if (_scriptPath != null)
                 {
-                    ExecuteScript(_scriptPath);
+                    ExecuteScript(await File.ReadAllTextAsync(_scriptPath));
                 }
-                else if (_templatePath == null)
+                else
                 {
-                    using (var context = createContext())
+                    using var context = createContext();
+                    await context.Database.EnsureCreatedResilientlyAsync();
+
+                    if (_initScript != null)
                     {
-                        context.Database.EnsureCreatedResiliently();
-                        seed?.Invoke(context);
+                        ExecuteScript(_initScript);
+                    }
+
+                    if (seed != null)
+                    {
+                        await seed(context);
                     }
                 }
             }
@@ -107,16 +118,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
             => builder.UseJet(Connection, b => b.ApplyConfiguration().UseShortTextForSystemString()).EnableSensitiveDataLogging().EnableDetailedErrors();
 
-        private bool CreateDatabase(Action<DbContext> clean)
+        private bool CreateDatabase(Func<DbContext, Task>? clean)
         {
             var connectionString = CreateConnectionString(Name);
 
             if (JetConnection.DatabaseExists(connectionString))
             {
                 // Only reseed scripted databases during CI runs
-                if (_scriptPath != null &&
-                    _templatePath == null &&
-                    !TestEnvironment.IsCI)
+                if (_scriptPath != null && !TestEnvironment.IsCI)
                 {
                     //return false;
                 }
@@ -125,40 +134,64 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 DeleteDatabase();
             }
 
-            if (_templatePath != null)
-            {
-                File.Copy(_templatePath, Name);
-            }
-            else
-            {
-                JetConnection.CreateDatabase(connectionString);
-            }
-
+            JetConnection.CreateDatabase(connectionString);
+            WaitForExists((JetConnection)Connection);
             return true;
         }
 
-        public override void Clean(DbContext context)
-            => context.Database.EnsureClean();
-
-        public void ExecuteScript(string scriptPath)
+        public override Task CleanAsync(DbContext context)
         {
-            var script = File.ReadAllText(scriptPath);
-            var batches = new Regex(@"\s*;\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
-                .Split(script)
-                .Where(b => !string.IsNullOrEmpty(b))
-                .ToList();
+            context.Database.EnsureClean();
+            return Task.CompletedTask;
+        }
 
-            Execute(
-            Connection, command =>
-            {
-                foreach (var batch in batches)
+        public void ExecuteScript(string script)
+            => Execute(
+                Connection, command =>
                 {
-                    command.CommandText = batch;
-                    command.ExecuteNonQuery();
-                }
+                    foreach (var batch in
+                             new Regex(@"\s*;\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromMilliseconds(1000.0))
+                                 .Split(script).Where(b => !string.IsNullOrEmpty(b)))
+                    {
+                        command.CommandText = batch;
+                        command.ExecuteNonQuery();
+                    }
 
-                return 0;
-            }, "");
+                    return 0;
+                }, "");
+
+        private static void WaitForExists(JetConnection connection)
+            => new TestJetRetryingExecutionStrategy().Execute(connection, WaitForExistsImplementation);
+
+        private static void WaitForExistsImplementation(JetConnection connection)
+        {
+            var retryCount = 0;
+            while (true)
+            {
+                try
+                {
+                    if (connection.State != ConnectionState.Closed)
+                    {
+                        connection.Close();
+                    }
+
+                    JetConnection.ClearPool(connection);
+
+                    connection.Open();
+                    connection.Close();
+                    return;
+                }
+                catch (Exception /*e*/)
+                {
+                    if (++retryCount >= 30
+                        /*|| e.Number != 233 && e.Number != -2 && e.Number != 4060 && e.Number != 1832 && e.Number != 5120*/)
+                    {
+                        throw;
+                    }
+
+                    Thread.Sleep(100);
+                }
+            }
         }
 
         public void DeleteDatabase()
@@ -180,49 +213,47 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             => ExecuteScalar<T>(Connection, sql, parameters);
 
         private static T ExecuteScalar<T>(DbConnection connection, string sql, params object[] parameters)
-            => Execute(connection, command => (T)command.ExecuteScalar(), sql, false, parameters);
+            => Execute(connection, command => (T)command.ExecuteScalar()!, sql, false, parameters);
 
         public Task<T> ExecuteScalarAsync<T>(string sql, params object[] parameters)
             => ExecuteScalarAsync<T>(Connection, sql, parameters);
 
-        private static Task<T> ExecuteScalarAsync<T>(DbConnection connection, string sql, IReadOnlyList<object> parameters = null)
-            => ExecuteAsync(connection, async command => (T)await command.ExecuteScalarAsync(), sql, false, parameters);
+        private static Task<T> ExecuteScalarAsync<T>(DbConnection connection, string sql, IReadOnlyList<object>? parameters = null)
+            => ExecuteAsync(connection, async command => (T)(await command.ExecuteScalarAsync())!, sql, false, parameters);
 
         public int ExecuteNonQuery(string sql, params object[] parameters)
             => ExecuteNonQuery(Connection, sql, parameters);
 
-        private static int ExecuteNonQuery(DbConnection connection, string sql, object[] parameters = null)
+        private static int ExecuteNonQuery(DbConnection connection, string sql, object[]? parameters = null)
             => Execute(connection, command => command.ExecuteNonQuery(), sql, false, parameters);
 
         public Task<int> ExecuteNonQueryAsync(string sql, params object[] parameters)
             => ExecuteNonQueryAsync(Connection, sql, parameters);
 
-        private static Task<int> ExecuteNonQueryAsync(DbConnection connection, string sql, IReadOnlyList<object> parameters = null)
+        private static Task<int> ExecuteNonQueryAsync(DbConnection connection, string sql, IReadOnlyList<object>? parameters = null)
             => ExecuteAsync(connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
 
         public IEnumerable<T> Query<T>(string sql, params object[] parameters)
             => Query<T>(Connection, sql, parameters);
 
-        private static IEnumerable<T> Query<T>(DbConnection connection, string sql, object[] parameters = null)
+        private static IEnumerable<T> Query<T>(DbConnection connection, string sql, object[]? parameters = null)
             => Execute(
                 connection, command =>
                 {
-                    using (var dataReader = command.ExecuteReader())
+                    using var dataReader = command.ExecuteReader();
+                    var results = Enumerable.Empty<T>();
+                    while (dataReader.Read())
                     {
-                        var results = Enumerable.Empty<T>();
-                        while (dataReader.Read())
-                        {
-                            results = results.Concat(new[] { dataReader.GetFieldValue<T>(0) });
-                        }
-
-                        return results;
+                        results = results.Concat(new[] { dataReader.GetFieldValue<T>(0) });
                     }
+
+                    return results;
                 }, sql, false, parameters);
 
         public Task<IEnumerable<T>> QueryAsync<T>(string sql, params object[] parameters)
             => QueryAsync<T>(Connection, sql, parameters);
 
-        private static Task<IEnumerable<T>> QueryAsync<T>(DbConnection connection, string sql, object[] parameters = null)
+        private static Task<IEnumerable<T>> QueryAsync<T>(DbConnection connection, string sql, object[]? parameters = null)
             => ExecuteAsync(
                 connection, async command =>
                 {
@@ -240,7 +271,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         private static T Execute<T>(
             DbConnection connection, Func<DbCommand, T> execute, string sql,
-            bool useTransaction = false, object[] parameters = null)
+            bool useTransaction = false, object[]? parameters = null)
             => new TestJetRetryingExecutionStrategy().Execute(
                 new
                 {
@@ -253,7 +284,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 state => ExecuteCommand(state.connection, state.execute, state.sql, state.useTransaction, state.parameters));
 
         private static T ExecuteCommand<T>(
-            DbConnection connection, Func<DbCommand, T> execute, string sql, bool useTransaction, object[] parameters)
+            DbConnection connection, Func<DbCommand, T> execute, string sql, bool useTransaction, object[]? parameters)
         {
             if (connection.State != ConnectionState.Closed)
             {
@@ -263,21 +294,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             connection.Open();
             try
             {
-                using (var transaction = useTransaction
-                    ? connection.BeginTransaction()
-                    : null)
+                using var transaction = useTransaction ? connection.BeginTransaction() : null;
+                T result;
+                using (var command = CreateCommand(connection, sql, parameters))
                 {
-                    T result;
-                    using (var command = CreateCommand(connection, sql, parameters))
-                    {
-                        command.Transaction = transaction;
-                        result = execute(command);
-                    }
-
-                    transaction?.Commit();
-
-                    return result;
+                    command.Transaction = transaction;
+                    result = execute(command);
                 }
+
+                transaction?.Commit();
+
+                return result;
             }
             finally
             {
@@ -290,7 +317,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         private static Task<T> ExecuteAsync<T>(
             DbConnection connection, Func<DbCommand, Task<T>> executeAsync, string sql,
-            bool useTransaction = false, IReadOnlyList<object> parameters = null)
+            bool useTransaction = false, IReadOnlyList<object>? parameters = null)
             => new TestJetRetryingExecutionStrategy().ExecuteAsync(
                 new
                 {
@@ -304,7 +331,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         private static async Task<T> ExecuteCommandAsync<T>(
             DbConnection connection, Func<DbCommand, Task<T>> executeAsync, string sql, bool useTransaction,
-            IReadOnlyList<object> parameters)
+            IReadOnlyList<object>? parameters)
         {
             if (connection.State != ConnectionState.Closed)
             {
@@ -314,23 +341,19 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             await connection.OpenAsync();
             try
             {
-                using (var transaction = useTransaction
-                    ? await connection.BeginTransactionAsync()
-                    : null)
+                using var transaction = useTransaction ? await connection.BeginTransactionAsync() : null;
+                T result;
+                using (var command = CreateCommand(connection, sql, parameters))
                 {
-                    T result;
-                    using (var command = CreateCommand(connection, sql, parameters))
-                    {
-                        result = await executeAsync(command);
-                    }
-
-                    if (transaction != null)
-                    {
-                        await transaction.CommitAsync();
-                    }
-
-                    return result;
+                    result = await executeAsync(command);
                 }
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync();
+                }
+
+                return result;
             }
             finally
             {
@@ -342,7 +365,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         private static DbCommand CreateCommand(
-            DbConnection connection, string commandText = null, IReadOnlyList<object> parameters = null)
+            DbConnection connection, string commandText, IReadOnlyList<object>? parameters = null)
         {
             var command = (JetCommand)connection.CreateCommand();
 
@@ -374,13 +397,19 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             // DeleteDatabase();
         }
 
+        private static JetConnection CreateConnection(string name)
+        {
+            var connectionString = CreateConnectionString(name);
+            return new JetConnection(connectionString);
+        }
+
         public static string CreateConnectionString(string name)
         {
             var defaultConnectionString = TestEnvironment.DefaultConnection;
             var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(defaultConnectionString));
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
 
-            connectionStringBuilder.ConnectionString = defaultConnectionString;
+            connectionStringBuilder!.ConnectionString = defaultConnectionString;
             connectionStringBuilder.SetDataSource(name);
 
             return connectionStringBuilder.ToString();

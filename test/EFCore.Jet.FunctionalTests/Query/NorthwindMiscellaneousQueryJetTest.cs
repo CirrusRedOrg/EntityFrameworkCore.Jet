@@ -5552,7 +5552,7 @@ ORDER BY `c`.`CustomerID`
             => await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 async () =>
                     await Single_Predicate_Cancellation_test(Fixture.TestSqlLoggerFactory.CancelQuery()));
-
+#nullable disable
         [ConditionalFact]
         public Task Query_compiler_concurrency()
         {
@@ -5585,6 +5585,7 @@ ORDER BY `c`.`CustomerID`
 
             return Task.WhenAll(tasks);
         }
+#nullable enable
 
         [ConditionalFact]
         public Task Race_when_context_disposed_before_query_termination()

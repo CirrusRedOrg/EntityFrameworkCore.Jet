@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;
 using Xunit;
-
+#nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {

@@ -117,7 +117,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         }
 
                         var collist = cols.Where(c =>
-                            selectExpression.Tables.Contains(c.Table)).ToList();
+                            selectExpression.Tables.Select(d => d.Alias).Contains(c.TableAlias)).ToList();
                         parent.TryPeek(out var parentExpression);
                         if (selectExpression.Tables.Count > 1 && selectExpression.Tables.Any(c => c is InnerJoinExpression) && collist.Count > 0 && parentExpression is SqlUnaryExpression or SqlBinaryExpression)
                         {
@@ -266,13 +266,11 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     List<ColumnExpression> tempcolexp;
                     if (tableExpression is InnerJoinExpression expression)
                     {
-                        SqlBinaryExpression? binaryJoin = expression.JoinPredicate as SqlBinaryExpression;
-                        SqlUnaryExpression? unaryJoin = expression.JoinPredicate as SqlUnaryExpression;
-                        if (binaryJoin != null)
+                        if (expression.JoinPredicate is SqlBinaryExpression binaryJoin)
                         {
                             tempcolexp = ExtractColumnExpressions(binaryJoin!);
                         }
-                        else if (unaryJoin != null)
+                        else if (expression.JoinPredicate is SqlUnaryExpression unaryJoin)
                         {
                             tempcolexp = ExtractColumnExpressions(unaryJoin!);
                         }
@@ -284,7 +282,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         bool refrencesfirsttable = false;
                         foreach (ColumnExpression col in tempcolexp)
                         {
-                            if (col.Table == Tables[0])
+                            if (col.TableAlias == Tables[0].Alias)
                             {
                                 refrencesfirsttable = true;
                                 break;
@@ -429,7 +427,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                && selectExpression.Projection.Count == setOperation.Source1.Projection.Count
                && selectExpression.Projection.Select(
                        (pe, index) => pe.Expression is ColumnExpression column
-                                      && string.Equals(column.Table.Alias, setOperation.Alias,
+                                      && string.Equals(column.TableAlias, setOperation.Alias,
                                           StringComparison.OrdinalIgnoreCase)
                                       && string.Equals(
                                           column.Name, setOperation.Source1.Projection[index]
@@ -534,7 +532,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
+                SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
                 List<CaseWhenClause> whenclause = new List<CaseWhenClause>
                 {
@@ -651,7 +649,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 SqlFunctionExpression notnullsqlexp = new SqlFunctionExpression(function, new SqlExpression[] { convertExpression.Operand },
                   false, new[] { false }, typeMapping.ClrType, null);
 
-                SqlConstantExpression nullcons = new SqlConstantExpression(Expression.Constant(null), RelationalTypeMapping.NullMapping);
+                SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
                 List<CaseWhenClause> whenclause = new List<CaseWhenClause>
                 {

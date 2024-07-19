@@ -29,8 +29,10 @@ using Xunit.Abstractions;
 // ReSharper disable ClassNeverInstantiated.Local
 // ReSharper disable VirtualMemberCallInConstructor
 namespace EntityFrameworkCore.Jet.FunctionalTests;
-
-public class DbContextPoolingTest : IClassFixture<NorthwindQueryJetFixture<NoopModelCustomizer>>
+#nullable disable
+#pragma warning disable CS9113 // Parameter is unread.
+public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper) : IClassFixture<NorthwindQueryJetFixture<NoopModelCustomizer>>
+#pragma warning restore CS9113 // Parameter is unread.
 {
     private static DbContextOptionsBuilder<TContext> ConfigureOptions<TContext>(DbContextOptionsBuilder<TContext> optionsBuilder)
         where TContext : DbContext
@@ -2189,10 +2191,5 @@ public class DbContextPoolingTest : IClassFixture<NorthwindQueryJetFixture<NoopM
         }
     }
 
-    private readonly ITestOutputHelper _testOutputHelper;
-
-    public DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
-    {
-        _testOutputHelper = testOutputHelper;
-    }
+    private readonly ITestOutputHelper _testOutputHelper = testOutputHelper;
 }

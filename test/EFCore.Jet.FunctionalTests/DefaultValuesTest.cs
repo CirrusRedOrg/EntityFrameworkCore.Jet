@@ -3,15 +3,16 @@
 using System;
 using EntityFrameworkCore.Jet.Data;
 using System.Linq;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
-
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class DefaultValuesTest : IDisposable
+    public class DefaultValuesTest : IAsyncLifetime
     {
         private readonly IServiceProvider _serviceProvider = new ServiceCollection()
             .AddEntityFrameworkJet()
@@ -47,24 +48,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        private class ChipsContext : DbContext
+        private class ChipsContext(IServiceProvider serviceProvider, string databaseName) : DbContext
         {
-            private readonly IServiceProvider _serviceProvider;
-            private readonly string _databaseName;
-
-            public ChipsContext(IServiceProvider serviceProvider, string databaseName)
-            {
-                _serviceProvider = serviceProvider;
-                _databaseName = databaseName;
-            }
-
             public DbSet<KettleChips> Chips { get; set; }
             public DbSet<Chipper> Chippers { get; set; }
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
-                    .UseInternalServiceProvider(_serviceProvider);
+                    .UseJet(JetTestStore.CreateConnectionString(databaseName), TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                    .UseInternalServiceProvider(serviceProvider);
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
                 => modelBuilder.Entity<KettleChips>(
@@ -95,13 +87,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public string Id { get; set; }
         }
 
-        public DefaultValuesTest()
+        protected JetTestStore TestStore { get; private set; }
+
+        public async Task InitializeAsync()
+            => TestStore = await JetTestStore.CreateInitializedAsync("DefaultValuesTest");
+
+        public Task DisposeAsync()
         {
-            TestStore = JetTestStore.CreateInitialized("DefaultValuesTest");
+            TestStore.Dispose();
+            return Task.CompletedTask;
         }
-
-        protected JetTestStore TestStore { get; }
-
-        public virtual void Dispose() => TestStore.Dispose();
     }
 }

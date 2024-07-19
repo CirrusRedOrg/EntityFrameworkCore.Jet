@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
-
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
     public class NorthwindFunctionsQueryJetTest : NorthwindFunctionsQueryRelationalTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
@@ -2370,6 +2370,93 @@ WHERE `o`.`OrderDate` IS NOT NULL AND `o`.`OrderDate` = #1996-09-16#
         public override Task Datetime_subtraction_TotalDays(bool async)
             => AssertTranslationFailed(() => base.Datetime_subtraction_TotalDays(async));
 
+        public override async Task Select_ToString_IndexOf(bool async)
+        {
+            await base.Select_ToString_IndexOf(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE CHARINDEX('123', CONVERT(varchar(11), [o].[OrderID])) - 1 = -1
+""");
+        }
+
+        public override async Task Select_IndexOf_ToString(bool async)
+        {
+            await base.Select_IndexOf_ToString(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]
+WHERE CHARINDEX(CONVERT(varchar(11), [o].[OrderID]), '123') - CASE
+    WHEN CONVERT(varchar(11), [o].[OrderID]) = '' THEN 0
+    ELSE 1
+END = -1
+""");
+        }
+
+        public override async Task String_Contains_in_projection(bool async)
+        {
+            await base.String_Contains_in_projection(async);
+
+            AssertSql(
+    """
+SELECT [c].[CustomerID] AS [Id], CASE
+    WHEN [c].[ContactName] IS NOT NULL AND (CHARINDEX([c].[ContactName], [c].[CompanyName]) > 0 OR [c].[ContactName] LIKE N'') THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
+END AS [Value]
+FROM [Customers] AS [c]
+""");
+        }
+
+        public override async Task String_Contains_negated_in_predicate(bool async)
+        {
+            await base.String_Contains_negated_in_predicate(async);
+
+            AssertSql(
+    """
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE [c].[ContactName] IS NULL OR (CHARINDEX([c].[ContactName], [c].[CompanyName]) <= 0 AND [c].[ContactName] NOT LIKE N'')
+""");
+        }
+
+        public override async Task String_Contains_negated_in_projection(bool async)
+        {
+            await base.String_Contains_negated_in_projection(async);
+
+            AssertSql(
+    """
+SELECT [c].[CustomerID] AS [Id], CASE
+    WHEN [c].[ContactName] IS NULL OR (CHARINDEX([c].[ContactName], [c].[CompanyName]) <= 0 AND [c].[ContactName] NOT LIKE N'') THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
+END AS [Value]
+FROM [Customers] AS [c]
+""");
+        }
+
+        public override async Task String_Contains_with_StringComparison_Ordinal(bool async)
+        {
+            await base.String_Contains_with_StringComparison_Ordinal(async);
+
+            AssertSql();
+        }
+
+        public override async Task String_Contains_with_StringComparison_OrdinalIgnoreCase(bool async)
+        {
+            await base.String_Contains_with_StringComparison_OrdinalIgnoreCase(async);
+
+            AssertSql();
+        }
+
+        public override async Task String_Contains_with_StringComparison_unsupported(bool async)
+        {
+            await base.String_Contains_with_StringComparison_unsupported(async);
+
+            AssertSql();
+        }
         /*[ConditionalTheory`
         [MemberData(nameof(IsAsyncData))`
         public virtual async Task StandardDeviation(bool async)

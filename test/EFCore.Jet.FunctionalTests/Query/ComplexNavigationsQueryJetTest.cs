@@ -7,11 +7,12 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.ComplexNavigationsModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
-
+#nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -27,12 +28,64 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
         private bool SupportsOffset => true;
 
-        protected override bool CanExecuteQueryString
-            => false;
-
         [ConditionalFact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Distinct_skip_without_orderby(bool async)
+        {
+            await AssertQuery(
+                async,
+                ss => from l1 in ss.Set<Level1>()
+                      where l1.Id < 3
+                      select (from l3 in ss.Set<Level3>()
+                              select l3).Distinct().Skip(1).OrderBy(e => e.Id).FirstOrDefault().Name);
+
+            AssertSql(
+    """
+SELECT (
+    SELECT TOP(1) [l2].[Name]
+    FROM (
+        SELECT [l1].[Id], [l1].[Name]
+        FROM (
+            SELECT DISTINCT [l0].[Id], [l0].[Level2_Optional_Id], [l0].[Level2_Required_Id], [l0].[Name], [l0].[OneToMany_Optional_Inverse3Id], [l0].[OneToMany_Optional_Self_Inverse3Id], [l0].[OneToMany_Required_Inverse3Id], [l0].[OneToMany_Required_Self_Inverse3Id], [l0].[OneToOne_Optional_PK_Inverse3Id], [l0].[OneToOne_Optional_Self3Id]
+            FROM [LevelThree] AS [l0]
+        ) AS [l1]
+        ORDER BY (SELECT 1)
+        OFFSET 1 ROWS
+    ) AS [l2]
+    ORDER BY [l2].[Id])
+FROM [LevelOne] AS [l]
+WHERE [l].[Id] < 3
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Distinct_take_without_orderby(bool async)
+        {
+            await AssertQuery(
+                    async,
+                    ss => from l1 in ss.Set<Level1>()
+                          where l1.Id < 3
+                          select (from l3 in ss.Set<Level3>()
+                                  select l3).Distinct().Take(1).OrderBy(e => e.Id).FirstOrDefault().Name);
+
+            AssertSql(
+    """
+SELECT (
+    SELECT TOP(1) [l1].[Name]
+    FROM (
+        SELECT DISTINCT TOP(1) [l0].[Id], [l0].[Level2_Optional_Id], [l0].[Level2_Required_Id], [l0].[Name], [l0].[OneToMany_Optional_Inverse3Id], [l0].[OneToMany_Optional_Self_Inverse3Id], [l0].[OneToMany_Required_Inverse3Id], [l0].[OneToMany_Required_Self_Inverse3Id], [l0].[OneToOne_Optional_PK_Inverse3Id], [l0].[OneToOne_Optional_Self3Id]
+        FROM [LevelThree] AS [l0]
+    ) AS [l1]
+    ORDER BY [l1].[Id])
+FROM [LevelOne] AS [l]
+WHERE [l].[Id] < 3
+""");
+        }
 
         public override async Task Entity_equality_empty(bool isAsync)
         {
@@ -3661,47 +3714,6 @@ FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`
 WHERE IIF(`l0`.`Id` IS NULL, NULL, `l1`.`Name`) <> 'L' OR IIF(`l0`.`Id` IS NULL, NULL, `l1`.`Name`) IS NULL
-""");
-        }
-
-        public override async Task Distinct_skip_without_orderby(bool async)
-        {
-            await base.Distinct_skip_without_orderby(async);
-
-            AssertSql(
-                """
-SELECT (
-    SELECT TOP(1) [t0].[Name]
-    FROM (
-        SELECT [t].[Id], [t].[Level2_Optional_Id], [t].[Level2_Required_Id], [t].[Name], [t].[OneToMany_Optional_Inverse3Id], [t].[OneToMany_Optional_Self_Inverse3Id], [t].[OneToMany_Required_Inverse3Id], [t].[OneToMany_Required_Self_Inverse3Id], [t].[OneToOne_Optional_PK_Inverse3Id], [t].[OneToOne_Optional_Self3Id]
-        FROM (
-            SELECT DISTINCT [l0].[Id], [l0].[Level2_Optional_Id], [l0].[Level2_Required_Id], [l0].[Name], [l0].[OneToMany_Optional_Inverse3Id], [l0].[OneToMany_Optional_Self_Inverse3Id], [l0].[OneToMany_Required_Inverse3Id], [l0].[OneToMany_Required_Self_Inverse3Id], [l0].[OneToOne_Optional_PK_Inverse3Id], [l0].[OneToOne_Optional_Self3Id]
-            FROM [LevelThree] AS [l0]
-        ) AS [t]
-        ORDER BY (SELECT 1)
-        OFFSET 1 ROWS
-    ) AS [t0]
-    ORDER BY [t0].[Id])
-FROM [LevelOne] AS [l]
-WHERE [l].[Id] < 3
-""");
-        }
-
-        public override async Task Distinct_take_without_orderby(bool async)
-        {
-            await base.Distinct_take_without_orderby(async);
-
-            AssertSql(
-"""
-SELECT (
-    SELECT TOP 1 `t`.`Name`
-    FROM (
-        SELECT DISTINCT TOP 1 `l0`.`Id`, `l0`.`Level2_Optional_Id`, `l0`.`Level2_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse3Id`, `l0`.`OneToMany_Optional_Self_Inverse3Id`, `l0`.`OneToMany_Required_Inverse3Id`, `l0`.`OneToMany_Required_Self_Inverse3Id`, `l0`.`OneToOne_Optional_PK_Inverse3Id`, `l0`.`OneToOne_Optional_Self3Id`
-        FROM `LevelThree` AS `l0`
-    ) AS `t`
-    ORDER BY `t`.`Id`)
-FROM `LevelOne` AS `l`
-WHERE `l`.`Id` < 3
 """);
         }
 

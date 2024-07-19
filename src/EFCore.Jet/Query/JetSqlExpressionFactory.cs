@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Query
                 ExpressionType.Coalesce,
                 sqlExpression,
                 Constant(
-                    null,
+                    null,typeof(string),
                     RelationalTypeMapping.NullMapping),
                 typeMapping);
 
@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Query
                     new CaseWhenClause(
                         IsNull(checkSqlExpression),
                         Constant(
-                            null,
+                            null,typeof(string),
                             RelationalTypeMapping.NullMapping))
                 },
                 notNullSqlExpression);

@@ -43,7 +43,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             => new JetQueryTranslationPostprocessor(
                 _dependencies,
                 _relationalDependencies,
-                queryCompilationContext,
+                (RelationalQueryCompilationContext)queryCompilationContext,
                 _relationalTypeMappingSource,
                 _options);
     }

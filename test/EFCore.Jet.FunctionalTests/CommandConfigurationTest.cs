@@ -11,6 +11,9 @@ using Xunit;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 // ReSharper disable InconsistentNaming
+
+#nullable disable
+
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class CommandConfigurationTest : IClassFixture<CommandConfigurationTest.CommandConfigurationFixture>

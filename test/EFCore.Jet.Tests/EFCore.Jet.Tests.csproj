@@ -14,7 +14,18 @@
 		<None Include="..\xunit.runner.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<None Include="ContextBase.cs" />
+		<None Include="JetDateTimeTest.cs" />
+		<None Include="JetMigrationTest.cs" />
+		<None Include="TestBase.cs" />
 		<None Remove="TestResults\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="ContextBase.cs" />
+	  <Compile Remove="JetDateTimeTest.cs" />
+	  <Compile Remove="JetMigrationTest.cs" />
+	  <Compile Remove="TestBase.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -25,8 +36,6 @@
 	<ItemGroup>
 		<PackageReference Include="xunit.core" />
 		<PackageReference Include="xunit.assert" />
-		<PackageReference Include="xunit.runner.visualstudio" />
-		<PackageReference Include="xunit.runner.console" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
 		<PackageReference Include="Microsoft.Extensions.DependencyModel" />
 		<PackageReference Include="Moq" />
@@ -38,7 +47,7 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.0-preview.3.24172.4" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

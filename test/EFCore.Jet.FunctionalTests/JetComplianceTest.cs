@@ -22,7 +22,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             typeof(NonSharedPrimitiveCollectionsQueryRelationalTestBase),
             //No Json query support in Jet
             typeof(JsonQueryTestBase<>),
-            typeof(JsonQueryAdHocTestBase),
             typeof(JsonUpdateTestBase<>),
             //Too complex table structure for Jet/MS Access. Too many indexes on table.
             //Caused by having too many navs (foreign keys) on a single table.

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Transactions;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -18,14 +19,10 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Update;
 
-public class MismatchedKeyTypesJetTest : IClassFixture<MismatchedKeyTypesJetTest.MismatchedKeyTypesJetFixture>
+public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTypesJetFixture fixture)
+    : IClassFixture<MismatchedKeyTypesJetTest.MismatchedKeyTypesJetFixture>
 {
-    public MismatchedKeyTypesJetTest(MismatchedKeyTypesJetFixture fixture)
-    {
-        Fixture = fixture;
-    }
-
-    public MismatchedKeyTypesJetFixture Fixture { get; }
+    public MismatchedKeyTypesJetFixture Fixture { get; } = fixture;
 
     [ConditionalFact] // Issue #28392
     public virtual void Can_update_and_delete_with_bigint_FK_and_int_PK()
@@ -375,13 +372,9 @@ public class MismatchedKeyTypesJetTest : IClassFixture<MismatchedKeyTypesJetTest
             Assert.Throws<TargetInvocationException>(() => context.SaveChanges()).InnerException!.InnerException!.Message);
     }
 
-    protected class MismatchedKeyTypesContextNoFks : MismatchedKeyTypesContext
+    protected class MismatchedKeyTypesContextNoFks(MismatchedKeyTypesJetFixture fixture)
+        : MismatchedKeyTypesContext(fixture)
     {
-        public MismatchedKeyTypesContextNoFks(MismatchedKeyTypesJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<PrincipalIntLong>(
@@ -460,14 +453,9 @@ public class MismatchedKeyTypesJetTest : IClassFixture<MismatchedKeyTypesJetTest
         }
     }
 
-    protected class MismatchedKeyTypesContext : DbContext
+    protected class MismatchedKeyTypesContext(MismatchedKeyTypesJetFixture fixture) : DbContext
     {
-        public MismatchedKeyTypesContext(MismatchedKeyTypesJetFixture fixture)
-        {
-            Fixture = fixture;
-        }
-
-        public MismatchedKeyTypesJetFixture Fixture { get; }
+        public MismatchedKeyTypesJetFixture Fixture { get; } = fixture;
 
         public DbSet<PrincipalIntLong> IntLongs
             => Set<PrincipalIntLong>();
@@ -760,21 +748,9 @@ public class MismatchedKeyTypesJetTest : IClassFixture<MismatchedKeyTypesJetTest
         public int? PrincipalId3 { get; set; }
     }
 
-    public class MismatchedKeyTypesJetFixture : IDisposable
+    public class MismatchedKeyTypesJetFixture : IAsyncLifetime
     {
-        public MismatchedKeyTypesJetFixture()
-        {
-            Store = JetTestStore.CreateInitialized("MismatchedKeyTypes");
-
-            using (var context = new MismatchedKeyTypesContextNoFks(this))
-            {
-                context.Database.EnsureClean();
-            }
-
-            Seed();
-        }
-
-        public void Seed()
+        public async Task SeedAsync()
         {
             using var context = new MismatchedKeyTypesContext(this);
 
@@ -820,13 +796,28 @@ public class MismatchedKeyTypesJetTest : IClassFixture<MismatchedKeyTypesJetTest
                     Id3 = -1
                 });
 
-            context.SaveChanges();
+            await context.SaveChangesAsync();
         }
 
-        public JetTestStore Store { get; set; }
+        public JetTestStore Store { get; set; } = null!;
 
-        public void Dispose()
-            => Store.Dispose();
+        public async Task InitializeAsync()
+        {
+            Store = await JetTestStore.CreateInitializedAsync("MismatchedKeyTypes");
+
+            using (var context = new MismatchedKeyTypesContextNoFks(this))
+            {
+                context.Database.EnsureClean();
+            }
+
+            await SeedAsync();
+        }
+
+        public Task DisposeAsync()
+        {
+            Store.Dispose();
+            return Task.CompletedTask;
+        }
     }
 
     private class TemporaryByteValueGenerator : ValueGenerator<int>

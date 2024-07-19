@@ -1,10 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#nullable enable
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -311,11 +311,11 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
     }
 
     [ConditionalFact]
-    public virtual void Insert_update_and_delete_with_long_to_decimal_conversion()
+    public virtual Task Insert_update_and_delete_with_long_to_decimal_conversion()
     {
         var id1 = 0L;
-        ExecuteWithStrategyInTransaction(
-            context =>
+        return ExecuteWithStrategyInTransactionAsync(
+            async context =>
             {
                 var principal1 = context.Add(
                     new LongToDecimalPrincipal
@@ -326,7 +326,7 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
                         RequiredDependents = { new LongToDecimalDependentRequired(), new LongToDecimalDependentRequired() }
                     }).Entity;
 
-                context.SaveChanges();
+                await context.SaveChangesAsync();
 
                 id1 = principal1.Id;
                 Assert.NotEqual(0L, id1);
@@ -350,14 +350,13 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
                     Assert.Same(principal1, dependent.Principal);
                     Assert.Equal(id1, dependent.PrincipalId);
                 }
-            },
-            context =>
+            }, async context =>
             {
-                var principal1 = context.Set<LongToDecimalPrincipal>()
+                var principal1 = await context.Set<LongToDecimalPrincipal>()
                     .Include(e => e.Dependents)
                     .Include(e => e.OptionalDependents)
                     .Include(e => e.RequiredDependents)
-                    .Single();
+                    .SingleAsync();
 
                 Assert.Equal(principal1.Id, id1);
                 foreach (var dependent in principal1.Dependents)
@@ -382,21 +381,20 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
                 principal1.OptionalDependents.Remove(principal1.OptionalDependents.First());
                 principal1.RequiredDependents.Remove(principal1.RequiredDependents.First());
 
-                context.SaveChanges();
-            },
-            context =>
+                await context.SaveChangesAsync();
+            }, async context =>
             {
-                var dependents1 = context.Set<LongToDecimalDependentShadow>().Include(e => e.Principal).ToList();
+                var dependents1 = await context.Set<LongToDecimalDependentShadow>().Include(e => e.Principal).ToListAsync();
                 Assert.Equal(2, dependents1.Count);
                 Assert.Null(
                     context.Entry(dependents1.Single(e => e.Principal == null))
                         .Property<long?>("PrincipalId").CurrentValue);
 
-                var optionalDependents1 = context.Set<LongToDecimalDependentOptional>().Include(e => e.Principal).ToList();
+                var optionalDependents1 = await context.Set<LongToDecimalDependentOptional>().Include(e => e.Principal).ToListAsync();
                 Assert.Equal(2, optionalDependents1.Count);
                 Assert.Null(optionalDependents1.Single(e => e.Principal == null).PrincipalId);
 
-                var requiredDependents1 = context.Set<LongToDecimalDependentRequired>().Include(e => e.Principal).ToList();
+                var requiredDependents1 = await context.Set<LongToDecimalDependentRequired>().Include(e => e.Principal).ToListAsync();
                 Assert.Single(requiredDependents1);
 
                 context.Remove(dependents1.Single(e => e.Principal != null));
@@ -404,13 +402,12 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
                 context.Remove(requiredDependents1.Single());
                 context.Remove(requiredDependents1.Single().Principal);
 
-                context.SaveChanges();
-            },
-            context =>
+                await context.SaveChangesAsync();
+            }, async context =>
             {
-                Assert.Equal(1, context.Set<LongToDecimalDependentShadow>().Count());
-                Assert.Equal(1, context.Set<LongToDecimalDependentOptional>().Count());
-                Assert.Equal(0, context.Set<LongToDecimalDependentRequired>().Count());
+                Assert.Equal(1, await context.Set<LongToDecimalDependentShadow>().CountAsync());
+                Assert.Equal(1, await context.Set<LongToDecimalDependentOptional>().CountAsync());
+                Assert.Equal(0, await context.Set<LongToDecimalDependentRequired>().CountAsync());
             });
     }
 
@@ -418,7 +415,7 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
         => facade.UseTransaction(transaction.GetDbTransaction());
 
     [ConditionalFact]
-    public virtual void Exception_in_SaveChanges_causes_store_values_to_be_reverted()
+    public virtual async Task Exception_in_SaveChanges_causes_store_values_to_be_reverted()
     {
         var entities = new List<Darwin>();
         for (var i = 0; i < 100; i++)
@@ -454,8 +451,8 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
 
         for (var i = 0; i < 2; i++)
         {
-            ExecuteWithStrategyInTransaction(
-                context =>
+            await ExecuteWithStrategyInTransactionAsync(
+                async context =>
                 {
                     context.AddRange(entities);
 
@@ -487,7 +484,7 @@ public abstract class StoreGeneratedJetTestBase<TFixture> : StoreGeneratedTestBa
                     // inner exception for details.
                     // SqlException : Cannot insert explicit value for identity column in table
                     // 'Blog' when IDENTITY_INSERT is set to OFF.
-                    var updateException = Assert.Throws<DbUpdateException>(() => context.SaveChanges());
+                    var updateException = await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
                     Assert.Single(updateException.Entries);
 
                     foreach (var entity in entities.Take(100))

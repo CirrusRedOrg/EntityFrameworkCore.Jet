@@ -6,14 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
-
-public class TwoDatabasesJetTest : TwoDatabasesTestBase, IClassFixture<JetFixture>
+#nullable disable
+public class TwoDatabasesJetTest(JetFixture fixture) : TwoDatabasesTestBase(fixture), IClassFixture<JetFixture>
 {
-    public TwoDatabasesJetTest(JetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     protected new JetFixture Fixture
         => (JetFixture)base.Fixture;
 

@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Update;
 using Xunit;
-
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Update;
 
 public class NonSharedModelUpdatesJetTest : NonSharedModelUpdatesTestBase

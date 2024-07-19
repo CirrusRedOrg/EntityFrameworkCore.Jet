@@ -86,7 +86,7 @@ public class JetLocateScalarSubqueryVisitor : SqlExpressionVisitor
 
     protected override Expression VisitDelete(DeleteExpression deleteExpression)
     {
-        return deleteExpression.Update((SelectExpression)Visit(deleteExpression.SelectExpression));
+        return deleteExpression.Update(deleteExpression.Table,(SelectExpression)Visit(deleteExpression.SelectExpression));
     }
 
     protected override Expression VisitDistinct(DistinctExpression distinctExpression)
@@ -290,7 +290,7 @@ public class JetLocateScalarSubqueryVisitor : SqlExpressionVisitor
 
         return changed
             ? selectExpression.Update(
-                projections, tables, predicate, groupBy, havingExpression, orderings, limit, offset)
+                tables, predicate, groupBy, havingExpression, projections, orderings, limit, offset)
             : selectExpression;
     }
 

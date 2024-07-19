@@ -4,6 +4,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -11,6 +12,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+
+#nullable disable
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
@@ -183,7 +186,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
 
-        public override void Can_insert_and_read_back_all_non_nullable_data_types()
+        public override async Task Can_insert_and_read_back_all_non_nullable_data_types()
         {
             using (var context = CreateContext())
             {
@@ -220,7 +223,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -261,7 +264,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_non_null()
+        public override async Task Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_non_null()
         {
             using (var context = CreateContext())
             {
@@ -300,7 +303,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -341,7 +344,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_insert_and_read_back_object_backed_data_types()
+        public override async Task Can_insert_and_read_back_object_backed_data_types()
         {
             using (var context = CreateContext())
             {
@@ -380,7 +383,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -421,7 +424,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_insert_and_read_back_nullable_backed_data_types()
+        public override async Task Can_insert_and_read_back_nullable_backed_data_types()
         {
             using (var context = CreateContext())
             {
@@ -458,7 +461,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -497,7 +500,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_insert_and_read_back_non_nullable_backed_data_types()
+        public override async Task Can_insert_and_read_back_non_nullable_backed_data_types()
         {
             using (var context = CreateContext())
             {
@@ -534,7 +537,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -574,22 +577,22 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_query_using_any_data_type()
+        public override async Task Can_query_using_any_data_type()
         {
             using var context = CreateContext();
             var source = AddTestBuiltInDataTypes(context.Set<BuiltInDataTypes>());
 
-            Assert.Equal(1, context.SaveChanges());
-
+            Assert.Equal(1, await context.SaveChangesAsync());
+            
             QueryBuiltInDataTypesTest(source);
         }
 
-        public override void Can_query_using_any_data_type_shadow()
+        public override async Task Can_query_using_any_data_type_shadow()
         {
             using var context = CreateContext();
             var source = AddTestBuiltInDataTypes(context.Set<BuiltInDataTypesShadow>());
 
-            Assert.Equal(1, context.SaveChanges());
+            Assert.Equal(1, await context.SaveChangesAsync());
 
             QueryBuiltInDataTypesTest(source);
         }
@@ -932,22 +935,22 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
             return entityEntry;
         }
 
-        public override void Can_query_using_any_nullable_data_type()
+        public override async Task Can_query_using_any_nullable_data_type()
         {
             using var context = CreateContext();
             var source = AddTestBuiltInNullableDataTypes(context.Set<BuiltInNullableDataTypes>());
 
-            Assert.Equal(1, context.SaveChanges());
+            Assert.Equal(1, await context.SaveChangesAsync());
 
             QueryBuiltInNullableDataTypesTest(source);
         }
 
-        public override void Can_query_using_any_data_type_nullable_shadow()
+        public override async Task Can_query_using_any_data_type_nullable_shadow()
         {
             using var context = CreateContext();
             var source = AddTestBuiltInNullableDataTypes(context.Set<BuiltInNullableDataTypesShadow>());
 
-            Assert.Equal(1, context.SaveChanges());
+            Assert.Equal(1, await context.SaveChangesAsync());
 
             QueryBuiltInNullableDataTypesTest(source);
         }

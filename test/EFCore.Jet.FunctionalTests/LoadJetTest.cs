@@ -1592,7 +1592,7 @@ WHERE 0 = 1");
         private const string FileNewLine = @"
 ";
 
-        private void AssertSql(string expected = null)
+        private void AssertSql(string? expected = null)
         {
             var sql = Sql ?? "";
             expected ??= "";
@@ -1636,7 +1636,7 @@ WHERE 0 = 1");
             }
         }
 
-        private string Sql { get; set; }
+        private string? Sql { get; set; }
 
         public class LoadJetFixture : LoadFixtureBase
         {

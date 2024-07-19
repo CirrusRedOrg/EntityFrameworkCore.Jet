@@ -634,8 +634,9 @@ namespace EntityFrameworkCore.Jet.Data
             return File.Exists(fileName);
         }
 
-        public static DataAccessProviderType GetDataAccessProviderType(string connectionString)
+        public static DataAccessProviderType GetDataAccessProviderType(string? connectionString)
         {
+            if (string.IsNullOrEmpty(connectionString)) return DataAccessProviderType.Unconfgiured;
             var isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Provider\s*=\s*\w+", RegexOptions.IgnoreCase);
             var isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase);
 
@@ -796,10 +797,10 @@ namespace EntityFrameworkCore.Jet.Data
             return providers.ToArray();
         }, true);
 
-        public static bool IsConnectionString(string fileNameOrConnectionString)
+        public static bool IsConnectionString(string? fileNameOrConnectionString)
             => JetStoreDatabaseHandling.IsConnectionString(fileNameOrConnectionString);
 
-        public static bool IsFileName(string fileNameOrConnectionString)
+        public static bool IsFileName(string? fileNameOrConnectionString)
             => JetStoreDatabaseHandling.IsFileName(fileNameOrConnectionString);
     }
 }

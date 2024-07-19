@@ -1688,7 +1688,37 @@ WHERE `e`.`IntA` > {AssertSqlHelper.Parameter("@__i_0")}
             await base.Negated_order_comparison_on_nullable_arguments_doesnt_get_optimized(async);
 
             AssertSql(
-                @"");
+                """
+@__i_0='1' (Nullable = true)
+
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableIntA` > @__i_0, FALSE, TRUE) = TRUE
+""",
+                //
+                """
+@__i_0='1' (Nullable = true)
+
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableIntA` >= @__i_0, FALSE, TRUE) = TRUE
+""",
+                //
+                """
+@__i_0='1' (Nullable = true)
+
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableIntA` < @__i_0, FALSE, TRUE) = TRUE
+""",
+                //
+                """
+@__i_0='1' (Nullable = true)
+
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableIntA` <= @__i_0, FALSE, TRUE) = TRUE
+""");
         }
 
         public override async Task Nullable_column_info_propagates_inside_binary_AndAlso(bool async)
@@ -2119,21 +2149,21 @@ WHERE {AssertSqlHelper.Parameter("@__prm_0")} <> IIF(`e`.`NullableBoolA` IS NOT 
             await base.Bool_logical_operation_with_nullable_bool_HasValue(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
 WHERE 0 = 1
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE (`e`.`BoolB` BOR IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)) = TRUE
+WHERE `e`.`BoolB` = TRUE OR `e`.`NullableBoolA` IS NOT NULL
 """);
         }
 

@@ -10,11 +10,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
-
+#nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class SequentialGuidEndToEndTest : IDisposable
+    public class SequentialGuidEndToEndTest : IAsyncLifetime
     {
         [ConditionalFact]
         public async Task Can_use_sequential_GUID_end_to_end_async()
@@ -87,23 +87,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        private class BronieContext : DbContext
+        private class BronieContext(IServiceProvider serviceProvider, string databaseName) : DbContext
         {
-            private readonly IServiceProvider _serviceProvider;
-            private readonly string _databaseName;
-
-            public BronieContext(IServiceProvider serviceProvider, string databaseName)
-            {
-                _serviceProvider = serviceProvider;
-                _databaseName = databaseName;
-            }
-
             public DbSet<Pegasus> Pegasuses { get; set; }
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
-                    .UseJet(JetTestStore.CreateConnectionString(_databaseName), TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
-                    .UseInternalServiceProvider(_serviceProvider);
+                    .UseJet(JetTestStore.CreateConnectionString(databaseName),
+                        TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                    .UseInternalServiceProvider(serviceProvider);
         }
 
         private class Pegasus
@@ -113,13 +105,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public int Index { get; set; }
         }
 
-        public SequentialGuidEndToEndTest()
+        protected JetTestStore TestStore { get; private set; }
+
+        public async Task InitializeAsync()
+            => TestStore = await JetTestStore.CreateInitializedAsync("SequentialGuidEndToEndTest");
+
+        public Task DisposeAsync()
         {
-            TestStore = JetTestStore.CreateInitialized("SequentialGuidEndToEndTest");
+            TestStore.Dispose();
+            return Task.CompletedTask;
         }
-
-        protected JetTestStore TestStore { get; }
-
-        public virtual void Dispose() => TestStore.Dispose();
     }
 }

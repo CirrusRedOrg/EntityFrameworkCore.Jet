@@ -57,6 +57,11 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return null;
             }
 
+            if (instance.TypeMapping?.ClrType == typeof(string))
+            {
+                return instance;
+            }
+
             if (instance.Type == typeof(bool))
             {
                 if (instance is ColumnExpression columnExpression && columnExpression.IsNullable)
@@ -71,7 +76,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 _sqlExpressionFactory.Equal(instance, _sqlExpressionFactory.Constant(true)),
                                 _sqlExpressionFactory.Constant(true.ToString()))
                         },
-                        _sqlExpressionFactory.Constant(null));
+                        _sqlExpressionFactory.Constant(null, typeof(string)));
                 }
 
                 return _sqlExpressionFactory.Case(

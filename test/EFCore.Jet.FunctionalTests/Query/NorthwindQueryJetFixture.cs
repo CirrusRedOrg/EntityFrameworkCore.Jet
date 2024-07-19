@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
     public class NorthwindQueryJetFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>
-        where TModelCustomizer : IModelCustomizer, new()
+        where TModelCustomizer : ITestModelCustomizer, new()
     {
         protected override ITestStoreFactory TestStoreFactory => JetNorthwindTestStoreFactory.Instance;
 

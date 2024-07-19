@@ -4,6 +4,7 @@
 		<TargetFramework>$(JetTestWindowsOnlyTargetFramework)</TargetFramework>
 		<Platforms>AnyCPU;x86;x64</Platforms>
 		<RootNamespace>EntityFrameworkCore.Jet.Data.Tests</RootNamespace>
+		<Nullable>disable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

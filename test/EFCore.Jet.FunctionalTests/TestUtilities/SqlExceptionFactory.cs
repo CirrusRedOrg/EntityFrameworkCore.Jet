@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 .DeclaredConstructors;
 
             return (OleDbException)exceptionCtors.First(c => c.GetParameters().Length == 3)
-                .Invoke(new object[] { "Bang!", number, null });
+                .Invoke(["Bang!", number, null]);
         }
     }
 
@@ -30,7 +30,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 .DeclaredConstructors;
 
             return (OdbcException)exceptionCtors.First(c => c.GetParameters().Length == 3)
-                .Invoke(new object[] { "Bang!", number, null });
+                .Invoke(["Bang!", number, null]);
         }
     }
 }

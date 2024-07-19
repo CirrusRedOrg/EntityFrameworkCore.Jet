@@ -15,9 +15,9 @@
             Bump-up to the next iteration immediately after a release, so that subsequent daily builds are named
             correctly.
         -->
-		<VersionPrefix>8.0.0</VersionPrefix>
-		<PreReleaseVersionLabel>rtm</PreReleaseVersionLabel>
-		<PreReleaseVersionIteration>0</PreReleaseVersionIteration>
+		<VersionPrefix>9.0.0</VersionPrefix>
+		<PreReleaseVersionLabel>alpha</PreReleaseVersionLabel>
+		<PreReleaseVersionIteration>1</PreReleaseVersionIteration>
 
 		<!--
             The following properties will automatically be set by CI builds when appropriate:

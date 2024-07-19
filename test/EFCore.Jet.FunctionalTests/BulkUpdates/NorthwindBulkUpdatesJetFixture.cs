@@ -13,7 +13,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestModels.Northwind;
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
 public class NorthwindBulkUpdatesJetFixture<TModelCustomizer> : NorthwindBulkUpdatesFixture<TModelCustomizer>
-    where TModelCustomizer : IModelCustomizer, new()
+    where TModelCustomizer : ITestModelCustomizer, new()
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetNorthwindTestStoreFactory.Instance;

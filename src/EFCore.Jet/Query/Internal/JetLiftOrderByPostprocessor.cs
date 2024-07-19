@@ -99,7 +99,7 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                             if (existingIndex != -1)
                             {
                                 bool referouter = sqlExpression is ColumnExpression colexp1 &&
-                                    selectExpression.Tables.Contains(colexp1.Table);
+                                    selectExpression.Tables.Select(d => d.Alias).Contains(colexp1.TableAlias);
                                 columnsToRewrite.Add(i,
                                     (existingIndex, selectExpression.Orderings[i], selectExpression.Orderings[i].IsAscending, false, referouter));
                             }
@@ -117,8 +117,8 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                     if (selectExpression.Limit != null)
                     {
                         var limit = selectExpression.Limit;
-                        selectExpression = selectExpression.Update(selectExpression.Projection, selectExpression.Tables,
-                            selectExpression.Predicate, selectExpression.GroupBy, selectExpression.Having,
+                        selectExpression = selectExpression.Update(selectExpression.Tables,
+                            selectExpression.Predicate, selectExpression.GroupBy, selectExpression.Having, selectExpression.Projection,
                             selectExpression.Orderings, null, null);
                         selectExpression.PushdownIntoSubquery();
                         selectExpression.ApplyLimit(limit);
@@ -148,8 +148,8 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                     if (isscalarselect && selectExpression.Projection.Count > 1)
                     {
                         List<ProjectionExpression> newProjections = [selectExpression.Projection[0]];
-                        selectExpression = selectExpression.Update(newProjections, selectExpression.Tables, selectExpression.Predicate,
-                            selectExpression.GroupBy, selectExpression.Having, selectExpression.Orderings,
+                        selectExpression = selectExpression.Update(selectExpression.Tables, selectExpression.Predicate,
+                            selectExpression.GroupBy, selectExpression.Having, newProjections, selectExpression.Orderings,
                             selectExpression.Limit, selectExpression.Offset);
                     }
                     var result = base.Visit(selectExpression);

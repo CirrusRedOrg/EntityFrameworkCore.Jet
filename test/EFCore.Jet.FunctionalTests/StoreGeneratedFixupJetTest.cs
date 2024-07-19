@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -10,19 +11,14 @@ using Xunit;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class StoreGeneratedFixupJetTest : StoreGeneratedFixupRelationalTestBase<
-        StoreGeneratedFixupJetTest.StoreGeneratedFixupJetFixture>
+    public class StoreGeneratedFixupJetTest(StoreGeneratedFixupJetTest.StoreGeneratedFixupJetFixture fixture)
+        : StoreGeneratedFixupRelationalTestBase<
+            StoreGeneratedFixupJetTest.StoreGeneratedFixupJetFixture>(fixture)
     {
-        public StoreGeneratedFixupJetTest(StoreGeneratedFixupJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         [ConditionalFact]
-        public void Temp_values_are_replaced_on_save()
-        {
-            ExecuteWithStrategyInTransaction(
-                context =>
+        public Task Temp_values_are_replaced_on_save()
+            => ExecuteWithStrategyInTransactionAsync(
+                async context =>
                 {
                     var entry = context.Add(new TestTemp());
 
@@ -31,12 +27,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                     var tempValue = entry.Property(e => e.Id).CurrentValue;
 
-                    context.SaveChanges();
+                    await context.SaveChangesAsync();
 
                     Assert.False(entry.Property(e => e.Id).IsTemporary);
                     Assert.NotEqual(tempValue, entry.Property(e => e.Id).CurrentValue);
                 });
-        }
 
         protected override void MarkIdsTemporary(DbContext context, object dependent, object principal)
         {

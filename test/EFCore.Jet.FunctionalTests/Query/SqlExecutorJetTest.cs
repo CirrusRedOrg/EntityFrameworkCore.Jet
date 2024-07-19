@@ -11,13 +11,13 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
-
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class SqlExecutorJetTest : SqlExecutorTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
+    public class SqlExecutorJetTest : SqlExecutorTestBase<NorthwindQueryJetFixture<SqlExecutorModelCustomizer>>
     {
         // ReSharper disable once UnusedParameter.Local
-        public SqlExecutorJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
+        public SqlExecutorJetTest(NorthwindQueryJetFixture<SqlExecutorModelCustomizer> fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
             Fixture.TestSqlLoggerFactory.Clear();

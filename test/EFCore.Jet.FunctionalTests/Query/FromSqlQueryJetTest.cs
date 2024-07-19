@@ -20,7 +20,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
-
+#nullable disable
 public class FromSqlQueryJetTest : FromSqlQueryTestBase<FromSqlQueryJetTest.FromSqlQueryJetTestFixture>
 {
     public FromSqlQueryJetTest(FromSqlQueryJetTestFixture fixture, ITestOutputHelper testOutputHelper)

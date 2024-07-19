@@ -17,9 +17,6 @@ public class ManyToManyNoTrackingQueryJetTest
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    protected override bool CanExecuteQueryString
-        => false;
-
     public override async Task Skip_navigation_all(bool async)
     {
         await base.Skip_navigation_all(async);

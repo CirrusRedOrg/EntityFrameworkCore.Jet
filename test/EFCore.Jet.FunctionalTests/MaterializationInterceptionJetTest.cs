@@ -15,21 +15,10 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class MaterializationInterceptionJetTest : MaterializationInterceptionTestBase<MaterializationInterceptionJetTest.JetLibraryContext>,
-    IClassFixture<MaterializationInterceptionJetTest.MaterializationInterceptionJetFixture>
+public class MaterializationInterceptionJetTest : MaterializationInterceptionTestBase<MaterializationInterceptionJetTest.JetLibraryContext>
 {
-    public MaterializationInterceptionJetTest(MaterializationInterceptionJetFixture fixture)
-        : base(fixture)
+    public class JetLibraryContext(DbContextOptions options) : LibraryContext(options)
     {
-    }
-
-    public class JetLibraryContext : LibraryContext
-    {
-        public JetLibraryContext(DbContextOptions options)
-            : base(options)
-        {
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -38,27 +27,6 @@ public class MaterializationInterceptionJetTest : MaterializationInterceptionTes
         }
     }
 
-    public override LibraryContext CreateContext(IEnumerable<ISingletonInterceptor> interceptors, bool inject)
-        => new JetLibraryContext(Fixture.CreateOptions(interceptors, inject));
-
-    public class MaterializationInterceptionJetFixture : SingletonInterceptorsFixtureBase
-    {
-        protected override string StoreName
-            => "MaterializationInterception";
-
-        protected override ITestStoreFactory TestStoreFactory
-            => JetTestStoreFactory.Instance;
-
-        protected override IServiceCollection InjectInterceptors(
-            IServiceCollection serviceCollection,
-            IEnumerable<ISingletonInterceptor> injectedInterceptors)
-            => base.InjectInterceptors(serviceCollection.AddEntityFrameworkJet(), injectedInterceptors);
-
-        public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-        {
-            new JetDbContextOptionsBuilder(base.AddOptions(builder))
-                .ExecutionStrategy(d => new JetExecutionStrategy(d));
-            return builder;
-        }
-    }
+    protected override ITestStoreFactory TestStoreFactory
+        => JetTestStoreFactory.Instance;
 }

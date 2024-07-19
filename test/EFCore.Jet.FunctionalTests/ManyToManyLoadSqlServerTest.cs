@@ -13,7 +13,7 @@ using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
-
+#nullable disable
 public class ManyToManyLoadJetTest : ManyToManyLoadTestBase<ManyToManyLoadJetTest.ManyToManyLoadJetFixture>
 {
     public ManyToManyLoadJetTest(ManyToManyLoadJetFixture fixture, ITestOutputHelper testOutputHelper)
@@ -273,7 +273,7 @@ ORDER BY `e`.`Id`, `t`.`OneSkipSharedId`, `t`.`TwoSkipSharedId`, `t`.`Id`, `t0`.
 
     private string Sql { get; set; }
 
-    public class ManyToManyLoadJetFixture : ManyToManyLoadFixtureBase
+    public class ManyToManyLoadJetFixture : ManyToManyLoadFixtureBase, ITestSqlLoggerFactory
     {
         public TestSqlLoggerFactory TestSqlLoggerFactory
             => (TestSqlLoggerFactory)ListLoggerFactory;

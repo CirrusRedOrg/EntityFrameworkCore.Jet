@@ -18,43 +18,13 @@ namespace Microsoft.EntityFrameworkCore
     /// </summary>
     public static class JetDbContextOptionsBuilderExtensions
     {
-        #region Connection String
-
-        /// <summary>
-        ///     Configures the context to connect to a Microsoft Jet database.
-        /// </summary>
-        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.
-        /// If just a file name is supplied, the default data access provider type as defined by
-        /// `JetConfiguration.DefaultDataAccessProviderType` is being used. If a connection string is supplied, the
-        /// underlying data access provider (ODBC or OLE DB) will be inferred from the style of the connection string.
-        /// In case the connection string does not specify an Access driver (ODBC) or ACE/Jet provider (OLE DB), the
-        /// highest version of all compatible installed ones is being used. </param>
-        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
-        /// <returns> The options builder so that further configuration can be chained. </returns>
-        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
-            where TContext : DbContext
-        {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-
-            return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, jetOptionsAction);
-        }
-
         public static DbContextOptionsBuilder UseJet(
             this DbContextOptionsBuilder optionsBuilder,
             Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(GetOrCreateExtension(optionsBuilder));
 
-            ConfigureWarnings(optionsBuilder);
-
-            jetOptionsAction?.Invoke(new JetDbContextOptionsBuilder(optionsBuilder));
-
-            return optionsBuilder;
+            return ApplyConfiguration(optionsBuilder, jetOptionsAction);
         }
 
         /// <summary>
@@ -70,13 +40,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            string? fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-
             return UseJetCore(optionsBuilder, fileNameOrConnectionString, null, null, jetOptionsAction);
         }
 
@@ -90,16 +57,12 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [NotNull] DbProviderFactory dataAccessProviderFactory,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string? fileNameOrConnectionString,
+            DbProviderFactory dataAccessProviderFactory,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-            Check.NotNull(dataAccessProviderFactory, nameof(dataAccessProviderFactory));
-
             return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, dataAccessProviderFactory, jetOptionsAction);
         }
 
@@ -113,138 +76,14 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [NotNull] DbProviderFactory dataAccessProviderFactory,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            string? fileNameOrConnectionString,
+            DbProviderFactory dataAccessProviderFactory,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-            Check.NotNull(dataAccessProviderFactory, nameof(dataAccessProviderFactory));
-
             return UseJetCore(optionsBuilder, fileNameOrConnectionString, dataAccessProviderFactory, null, jetOptionsAction);
         }
 
-        /// <summary>
-        ///     Configures the context to connect to a Microsoft Jet database.
-        /// </summary>
-        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
-        /// <param name="dataAccessProviderType">The type of the data access provider (`Odbc` or `OleDb`) to be used for all
-        /// data access operations by the Jet connection.</param>
-        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
-        /// <returns> The options builder so that further configuration can be chained. </returns>
-        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            DataAccessProviderType dataAccessProviderType,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
-            where TContext : DbContext
-        {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-
-            return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, dataAccessProviderType, jetOptionsAction);
-        }
-
-        /// <summary>
-        ///     Configures the context to connect to a Microsoft Jet database.
-        /// </summary>
-        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
-        /// <param name="dataAccessProviderType">The type of the data access provider (`Odbc` or `OleDb`) to be used for all
-        /// data access operations by the Jet connection.</param>
-        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
-        /// <returns> The options builder so that further configuration can be chained. </returns>
-        public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            DataAccessProviderType dataAccessProviderType,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
-        {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-
-            return UseJetCore(optionsBuilder, fileNameOrConnectionString, null, dataAccessProviderType, jetOptionsAction);
-        }
-
-        internal static DbContextOptionsBuilder UseJetWithoutPredefinedDataAccessProvider(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
-            => UseJetCore(optionsBuilder, fileNameOrConnectionString, null, null, jetOptionsAction);
-
-        private static DbContextOptionsBuilder UseJetCore(
-            [NotNull] DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] DbProviderFactory? dataAccessProviderFactory,
-            [CanBeNull] DataAccessProviderType? dataAccessProviderType,
-            Action<JetDbContextOptionsBuilder>? jetOptionsAction)
-        {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotEmpty(fileNameOrConnectionString, nameof(fileNameOrConnectionString));
-
-            if (dataAccessProviderFactory == null && dataAccessProviderType == null)
-            {
-                if (JetConnection.IsConnectionString(fileNameOrConnectionString))
-                {
-                    dataAccessProviderType = JetConnection.GetDataAccessProviderType(fileNameOrConnectionString);
-                }
-                else if (JetConnection.IsFileName(fileNameOrConnectionString))
-                {
-                    dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
-                }
-                else
-                {
-                    throw new ArgumentException($"Either {nameof(dataAccessProviderFactory)} or {nameof(dataAccessProviderType)} must not be null, or a file name must be specified for {nameof(fileNameOrConnectionString)}.");
-                }
-            }
-
-            var extension = (JetOptionsExtension)GetOrCreateExtension(optionsBuilder)
-                .WithConnectionString(fileNameOrConnectionString);
-
-            extension = extension.WithDataAccessProviderFactory(
-                dataAccessProviderFactory ?? JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType!.Value));
-
-            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
-
-            ConfigureWarnings(optionsBuilder);
-
-            jetOptionsAction?.Invoke(new JetDbContextOptionsBuilder(optionsBuilder));
-
-            return optionsBuilder;
-        }
-
-        #endregion
-
-        #region Connection
-
-        // Note: Decision made to use DbConnection not SqlConnection: Issue #772
-        /// <summary>
-        ///     Configures the context to connect to a Microsoft Jet database.
-        /// </summary>
-        /// <typeparam name="TContext"> The type of context to be configured. </typeparam>
-        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
-        /// <param name="connection">
-        ///     An existing <see cref="DbConnection" /> to be used to connect to the database. If the connection is
-        ///     in the open state then EF will not open or close the connection. If the connection is in the closed
-        ///     state then EF will open and close the connection as needed.
-        /// </param>
-        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
-        /// <returns> The options builder so that further configuration can be chained. </returns>
-        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] DbConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
-            where TContext : DbContext
-        {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
-            Check.NotNull(connection, nameof(connection));
-
-            return (DbContextOptionsBuilder<TContext>)UseJet(
-                (DbContextOptionsBuilder)optionsBuilder, connection, jetOptionsAction);
-        }
-
         // Note: Decision made to use DbConnection not SqlConnection: Issue #772
         /// <summary>
         ///     Configures the context to connect to a Microsoft Jet database.
@@ -258,11 +97,34 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJet(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] DbConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            DbConnection connection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            => UseJet(optionsBuilder, connection, false, jetOptionsAction);
+
+        // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+        /// <summary>
+        ///     Configures the context to connect to a Jet database.
+        /// </summary>
+        /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+        /// <param name="connection">
+        ///     An existing <see cref="DbConnection" /> to be used to connect to the database. If the connection is
+        ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+        ///     state then EF will open and close the connection as needed.
+        /// </param>
+        /// <param name="contextOwnsConnection">
+        ///     If <see langword="true" />, then EF will take ownership of the connection and will
+        ///     dispose it in the same way it would dispose a connection created by EF. If <see langword="false" />, then the caller still
+        ///     owns the connection and is responsible for its disposal.
+        /// </param>
+        /// <param name="jetOptionsAction">An optional action to allow additional SQL Server specific configuration.</param>
+        /// <returns>The options builder so that further configuration can be chained.</returns>
+        public static DbContextOptionsBuilder UseJet(
+            this DbContextOptionsBuilder optionsBuilder,
+            DbConnection connection,
+            bool contextOwnsConnection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
-            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotNull(connection, nameof(connection));
 
             var jetConnection = connection as JetConnection;
@@ -294,17 +156,191 @@ namespace Microsoft.EntityFrameworkCore
             }
 
             var extension = (JetOptionsExtension)GetOrCreateExtension(optionsBuilder)
-                .WithConnection(connection);
-
+                .WithConnection(connection, contextOwnsConnection);
             extension = extension.WithDataAccessProviderFactory(jetConnection.DataAccessProviderFactory);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
+
+            return ApplyConfiguration(optionsBuilder, jetOptionsAction);
+        }
+
+        /// <summary>
+        ///     Configures the context to connect to a Jet database, but without initially setting any
+        ///     <see cref="DbConnection" /> or connection string.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         The connection or connection string must be set before the <see cref="DbContext" /> is used to connect
+        ///         to a database. Set a connection using <see cref="RelationalDatabaseFacadeExtensions.SetDbConnection" />.
+        ///         Set a connection string using <see cref="RelationalDatabaseFacadeExtensions.SetConnectionString" />.
+        ///     </para>
+        ///     <para>
+        ///         See <see href="https://aka.ms/efcore-docs-dbcontext-options">Using DbContextOptions</see>
+        ///     </para>
+        /// </remarks>
+        /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional SQL Server specific configuration.</param>
+        /// <returns>The options builder so that further configuration can be chained.</returns>
+        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            where TContext : DbContext
+            => (DbContextOptionsBuilder<TContext>)UseJet(
+                (DbContextOptionsBuilder)optionsBuilder, jetOptionsAction);
+
+        /// <summary>
+        ///     Configures the context to connect to a Microsoft Jet database.
+        /// </summary>
+        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.
+        /// If just a file name is supplied, the default data access provider type as defined by
+        /// `JetConfiguration.DefaultDataAccessProviderType` is being used. If a connection string is supplied, the
+        /// underlying data access provider (ODBC or OLE DB) will be inferred from the style of the connection string.
+        /// In case the connection string does not specify an Access driver (ODBC) or ACE/Jet provider (OLE DB), the
+        /// highest version of all compatible installed ones is being used. </param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
+        /// <returns> The options builder so that further configuration can be chained. </returns>
+        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string? fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            where TContext : DbContext =>
+            (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, jetOptionsAction);
+
+        // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+        /// <summary>
+        ///     Configures the context to connect to a Microsoft Jet database.
+        /// </summary>
+        /// <typeparam name="TContext"> The type of context to be configured. </typeparam>
+        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
+        /// <param name="connection">
+        ///     An existing <see cref="DbConnection" /> to be used to connect to the database. If the connection is
+        ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+        ///     state then EF will open and close the connection as needed.
+        /// </param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
+        /// <returns> The options builder so that further configuration can be chained. </returns>
+        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            DbConnection connection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            where TContext : DbContext
+        {
+            Check.NotNull(optionsBuilder, nameof(optionsBuilder));
+            Check.NotNull(connection, nameof(connection));
+
+            return (DbContextOptionsBuilder<TContext>)UseJet(
+                (DbContextOptionsBuilder)optionsBuilder, connection, jetOptionsAction);
+        }
+
+        // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+        /// <summary>
+        ///     Configures the context to connect to a Microsoft SJET database.
+        /// </summary>
+        /// <remarks>
+        ///     See <see href="https://aka.ms/efcore-docs-dbcontext-options">Using DbContextOptions</see>, and
+        ///     <see href="https://aka.ms/efcore-docs-sqlserver">Accessing SQL Server and Azure SQL databases with EF Core</see>
+        ///     for more information and examples.
+        /// </remarks>
+        /// <typeparam name="TContext">The type of context to be configured.</typeparam>
+        /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+        /// <param name="connection">
+        ///     An existing <see cref="DbConnection" /> to be used to connect to the database. If the connection is
+        ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+        ///     state then EF will open and close the connection as needed.
+        /// </param>
+        /// <param name="contextOwnsConnection">
+        ///     If <see langword="true" />, then EF will take ownership of the connection and will
+        ///     dispose it in the same way it would dispose a connection created by EF. If <see langword="false" />, then the caller still
+        ///     owns the connection and is responsible for its disposal.
+        /// </param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
+        /// <returns>The options builder so that further configuration can be chained.</returns>
+        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            DbConnection connection,
+            bool contextOwnsConnection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            where TContext : DbContext
+            => (DbContextOptionsBuilder<TContext>)UseJet(
+                (DbContextOptionsBuilder)optionsBuilder, connection, contextOwnsConnection, jetOptionsAction);
+
+        #region Connection String
+
+        /// <summary>
+        ///     Configures the context to connect to a Microsoft Jet database.
+        /// </summary>
+        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
+        /// <param name="dataAccessProviderType">The type of the data access provider (`Odbc` or `OleDb`) to be used for all
+        /// data access operations by the Jet connection.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
+        /// <returns> The options builder so that further configuration can be chained. </returns>
+        public static DbContextOptionsBuilder<TContext> UseJet<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string? fileNameOrConnectionString,
+            DataAccessProviderType dataAccessProviderType,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            where TContext : DbContext
+        {
+            return (DbContextOptionsBuilder<TContext>)UseJet((DbContextOptionsBuilder)optionsBuilder, fileNameOrConnectionString, dataAccessProviderType, jetOptionsAction);
+        }
+
+        /// <summary>
+        ///     Configures the context to connect to a Microsoft Jet database.
+        /// </summary>
+        /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
+        /// <param name="fileNameOrConnectionString"> The file name or connection string of the database to connect to.</param>
+        /// <param name="dataAccessProviderType">The type of the data access provider (`Odbc` or `OleDb`) to be used for all
+        /// data access operations by the Jet connection.</param>
+        /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
+        /// <returns> The options builder so that further configuration can be chained. </returns>
+        public static DbContextOptionsBuilder UseJet(
+            this DbContextOptionsBuilder optionsBuilder,
+            string? fileNameOrConnectionString,
+            DataAccessProviderType dataAccessProviderType,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+        {
+            return UseJetCore(optionsBuilder, fileNameOrConnectionString, null, dataAccessProviderType, jetOptionsAction);
+        }
+
+        internal static DbContextOptionsBuilder UseJetWithoutPredefinedDataAccessProvider(
+            this DbContextOptionsBuilder optionsBuilder,
+            string? fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            => UseJetCore(optionsBuilder, fileNameOrConnectionString, null, null, jetOptionsAction);
+
+        private static DbContextOptionsBuilder UseJetCore(
+            DbContextOptionsBuilder optionsBuilder,
+            string? fileNameOrConnectionString,
+            DbProviderFactory? dataAccessProviderFactory,
+            DataAccessProviderType? dataAccessProviderType,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction)
+        {
+            if (dataAccessProviderFactory == null && dataAccessProviderType == null)
+            {
+                if (JetConnection.IsConnectionString(fileNameOrConnectionString))
+                {
+                    dataAccessProviderType = JetConnection.GetDataAccessProviderType(fileNameOrConnectionString);
+                }
+                else if (JetConnection.IsFileName(fileNameOrConnectionString))
+                {
+                    dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
+                }
+                else
+                {
+                    throw new ArgumentException($"Either {nameof(dataAccessProviderFactory)} or {nameof(dataAccessProviderType)} must not be null, or a file name must be specified for {nameof(fileNameOrConnectionString)}.");
+                }
+            }
+
+            var extension = (JetOptionsExtension)GetOrCreateExtension(optionsBuilder)
+                .WithConnectionString(fileNameOrConnectionString);
+
+            extension = extension.WithDataAccessProviderFactory(
+                dataAccessProviderFactory ?? JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType!.Value));
 
             ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
-            ConfigureWarnings(optionsBuilder);
-
-            jetOptionsAction?.Invoke(new JetDbContextOptionsBuilder(optionsBuilder));
-
-            return optionsBuilder;
+            return ApplyConfiguration(optionsBuilder, jetOptionsAction);
         }
 
         #endregion
@@ -312,6 +348,20 @@ namespace Microsoft.EntityFrameworkCore
         private static JetOptionsExtension GetOrCreateExtension(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.Options.FindExtension<JetOptionsExtension>()
                ?? new JetOptionsExtension();
+
+        private static DbContextOptionsBuilder ApplyConfiguration(
+            DbContextOptionsBuilder optionsBuilder,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction)
+        {
+            ConfigureWarnings(optionsBuilder);
+
+            jetOptionsAction?.Invoke(new JetDbContextOptionsBuilder(optionsBuilder));
+
+            var extension = (JetOptionsExtension)GetOrCreateExtension(optionsBuilder);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
+
+            return optionsBuilder;
+        }
 
         private static void ConfigureWarnings(DbContextOptionsBuilder optionsBuilder)
         {

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
-
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class SqlQueryJetTest : SqlQueryTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>

@@ -2,9 +2,9 @@
   <Import Project="..\Directory.Build.props" />
 
   <PropertyGroup>
-    <NoWarn>$(NoWarn);EF1001;xUnit1003;xUnit1013</NoWarn>
-    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    
+    <NoWarn>$(NoWarn);CA1707;1591;xUnit1000;xUnit1003;xUnit1004;xUnit1010;xUnit1013;xUnit1026;xUnit2013;xUnit1024;NU1903;EF1001</NoWarn>
+	  <LangVersion>preview</LangVersion>
+    <DefaultNetCoreTargetFramework>net9.0</DefaultNetCoreTargetFramework>
     <!-- TODO: Change to "'$(FixedTestOrder)' != 'true'" once test suite is stable. -->
     <DefineConstants Condition="'$(FixedTestOrder)' != 'false'">$(DefineConstants);FIXED_TEST_ORDER</DefineConstants>
   </PropertyGroup>

@@ -25,9 +25,6 @@ public class TPTGearsOfWarQueryJetTest : TPTGearsOfWarQueryRelationalTestBase<TP
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    protected override bool CanExecuteQueryString
-        => false;
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
@@ -4309,18 +4306,6 @@ LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
     FROM `Gears` AS `g`
 ) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
-""");
-    }
-
-    public override async Task Enum_ToString_is_client_eval(bool async)
-    {
-        await base.Enum_ToString_is_client_eval(async);
-
-        AssertSql(
-"""
-SELECT `g`.`Rank`
-FROM `Gears` AS `g`
-ORDER BY `g`.`SquadId`, `g`.`Nickname`
 """);
     }
 

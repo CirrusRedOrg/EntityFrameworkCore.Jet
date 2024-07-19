@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             {
                 var dataAccessProviderType = JetConnection.GetDataAccessProviderType(DefaultConnection);
                 var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
-                var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+                var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder()!;
                 connectionStringBuilder.ConnectionString = DefaultConnection;
                 
                 return !string.IsNullOrEmpty(connectionStringBuilder.GetDataSource());

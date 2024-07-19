@@ -21,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseCreator;
 
+#nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
@@ -101,31 +102,28 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Returns_true_when_database_exists_test(bool async, bool ambientTransaction, bool useCanConnect)
         {
-            using (var testDatabase = JetTestStore.CreateInitialized("ExistingBloggingFile"))
-            {
-                using (var context = new BloggingContext(testDatabase))
+            using var testDatabase =
+                await JetTestStore.CreateInitializedAsync("ExistingBloggingFile");
+            using var context = new BloggingContext(testDatabase);
+            var creator = GetDatabaseCreator(context);
+
+            await context.Database.CreateExecutionStrategy().ExecuteAsync(
+                async () =>
                 {
-                    var creator = GetDatabaseCreator(context);
-
-                    await context.Database.CreateExecutionStrategy().ExecuteAsync(
-                        async () =>
+                    using (CreateTransactionScope(ambientTransaction))
+                    {
+                        if (useCanConnect)
                         {
-                            using (CreateTransactionScope(ambientTransaction))
-                            {
-                                if (useCanConnect)
-                                {
-                                    Assert.True(async ? await creator.CanConnectAsync() : creator.CanConnect());
-                                }
-                                else
-                                {
-                                    Assert.True(async ? await creator.ExistsAsync() : creator.Exists());
-                                }
-                            }
-                        });
+                            Assert.True(async ? await creator.CanConnectAsync() : creator.CanConnect());
+                        }
+                        else
+                        {
+                            Assert.True(async ? await creator.ExistsAsync() : creator.Exists());
+                        }
+                    }
+                });
 
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-                }
-            }
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
     }
 
@@ -154,42 +152,38 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Delete_database_test(bool async, bool open, bool ambientTransaction)
         {
-            using (var testDatabase = JetTestStore.CreateInitialized("EnsureDeleteBloggingFile"))
+            using var testDatabase = await JetTestStore.CreateInitializedAsync("EnsureDeleteBloggingFile");
+            if (!open)
             {
-                if (!open)
-                {
-                    testDatabase.CloseConnection();
-                }
-
-                using (var context = new BloggingContext(testDatabase))
-                {
-                    var creator = GetDatabaseCreator(context);
-
-                    Assert.True(async ? await creator.ExistsAsync() : creator.Exists());
-
-                    await GetExecutionStrategy(testDatabase).ExecuteAsync(
-                        async () =>
-                        {
-                            using (CreateTransactionScope(ambientTransaction))
-                            {
-                                if (async)
-                                {
-                                    Assert.True(await context.Database.EnsureDeletedAsync());
-                                }
-                                else
-                                {
-                                    Assert.True(context.Database.EnsureDeleted());
-                                }
-                            }
-                        });
-
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-
-                    Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
-
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-                }
+                testDatabase.CloseConnection();
             }
+
+            using var context = new BloggingContext(testDatabase);
+            var creator = GetDatabaseCreator(context);
+
+            Assert.True(async ? await creator.ExistsAsync() : creator.Exists());
+
+            await GetExecutionStrategy(testDatabase).ExecuteAsync(
+                async () =>
+                {
+                    using (CreateTransactionScope(ambientTransaction))
+                    {
+                        if (async)
+                        {
+                            Assert.True(await context.Database.EnsureDeletedAsync());
+                        }
+                        else
+                        {
+                            Assert.True(context.Database.EnsureDeleted());
+                        }
+                    }
+                });
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+
+            Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
         [ConditionalTheory]
@@ -210,30 +204,26 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Noop_when_database_does_not_exist_test(bool async)
         {
-            using (var testDatabase = JetTestStore.Create("NonExisting"))
+            using var testDatabase = JetTestStore.Create("NonExisting");
+            using var context = new BloggingContext(testDatabase);
+            var creator = GetDatabaseCreator(context);
+
+            Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
+
+            if (async)
             {
-                using (var context = new BloggingContext(testDatabase))
-                {
-                    var creator = GetDatabaseCreator(context);
-
-                    Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
-
-                    if (async)
-                    {
-                        Assert.False(await creator.EnsureDeletedAsync());
-                    }
-                    else
-                    {
-                        Assert.False(creator.EnsureDeleted());
-                    }
-
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-
-                    Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
-
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-                }
+                Assert.False(await creator.EnsureDeletedAsync());
             }
+            else
+            {
+                Assert.False(creator.EnsureDeleted());
+            }
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+
+            Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
     }
 
@@ -286,53 +276,51 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             (bool CreateDatabase, bool Async, bool ambientTransaction) options)
         {
             var (createDatabase, async, ambientTransaction) = options;
-            using (var testDatabase = JetTestStore.Create("EnsureCreatedTestFile"))
+            using var testDatabase = JetTestStore.Create("EnsureCreatedTestFile");
+            using var context = new BloggingContext(testDatabase);
+            if (createDatabase)
             {
-                using (var context = new BloggingContext(testDatabase))
+                await testDatabase.InitializeAsync(null, (Func<DbContext>)null);
+            }
+            else
+            {
+                testDatabase.DeleteDatabase();
+            }
+
+            var creator = GetDatabaseCreator(context);
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+
+            using (CreateTransactionScope(ambientTransaction))
+            {
+                if (async)
                 {
-                    if (createDatabase)
-                    {
-                        testDatabase.Initialize(null, (Func<DbContext>)null);
-                    }
-                    else
-                    {
-                        testDatabase.DeleteDatabase();
-                    }
+                    Assert.True(await creator.EnsureCreatedAsync());
+                }
+                else
+                {
+                    Assert.True(creator.EnsureCreated());
+                }
+            }
 
-                    var creator = GetDatabaseCreator(context);
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
 
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+            if (testDatabase.ConnectionState != ConnectionState.Open)
+            {
+                await testDatabase.OpenConnectionAsync();
+            }
 
-                    using (CreateTransactionScope(ambientTransaction))
-                    {
-                        if (async)
-                        {
-                            Assert.True(await creator.EnsureCreatedAsync());
-                        }
-                        else
-                        {
-                            Assert.True(creator.EnsureCreated());
-                        }
-                    }
+            var tables = testDatabase.Query<string>(
+                "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'").ToList();
+            Assert.Single(tables);
+            Assert.Equal("Blogs", tables.Single());
 
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-
-                    if (testDatabase.ConnectionState != ConnectionState.Open)
-                    {
-                        await testDatabase.OpenConnectionAsync();
-                    }
-
-                    var tables = testDatabase.Query<string>(
-                        "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'").ToList();
-                    Assert.Single(tables);
-                    Assert.Equal("Blogs", tables.Single());
-
-                    /*var dcolumns = testDatabase.ExecuteScalar<>()<DataTable>(
+            /*var dcolumns = testDatabase.ExecuteScalar<>()<DataTable>(
                             "SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` WHERE TABLE_NAME = 'Blogs' ORDER BY TABLE_NAME, COLUMN_NAME")
                         .ToArray();*/
-                    //Assert.Single(dcolumns);
-                    //TABLE_NAME + '.' + COLUMN_NAME + ' (' + DATA_TYPE + ')'
-                    /*dcolumns.Select( f => f.)
+            //Assert.Single(dcolumns);
+            //TABLE_NAME + '.' + COLUMN_NAME + ' (' + DATA_TYPE + ')'
+            /*dcolumns.Select( f => f.)
                     Assert.Equal(14, columns.Length);
 
                     Assert.Equal(
@@ -354,8 +342,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                             "Blogs.WayRound (bigint)"
                         },
                         columns);*/
-                }
-            }
         }
 
         [ConditionalTheory]
@@ -376,24 +362,20 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Noop_when_database_exists_and_has_schema_test(bool async)
         {
-            using (var testDatabase = JetTestStore.CreateInitialized("InitializedBloggingFile"))
+            using var testDatabase = await JetTestStore.CreateInitializedAsync("InitializedBloggingFile");
+            using var context = new BloggingContext(testDatabase);
+            context.Database.EnsureCreatedResiliently();
+
+            if (async)
             {
-                using (var context = new BloggingContext(testDatabase))
-                {
-                    context.Database.EnsureCreatedResiliently();
-
-                    if (async)
-                    {
-                        Assert.False(await context.Database.EnsureCreatedResilientlyAsync());
-                    }
-                    else
-                    {
-                        Assert.False(context.Database.EnsureCreatedResiliently());
-                    }
-
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-                }
+                Assert.False(await context.Database.EnsureCreatedResilientlyAsync());
             }
+            else
+            {
+                Assert.False(context.Database.EnsureCreatedResiliently());
+            }
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
     }
 
@@ -405,20 +387,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_when_database_does_not_exist(bool async)
         {
-            using (var testDatabase = JetTestStore.GetOrCreate("NonExisting"))
-            {
-                var databaseCreator = GetDatabaseCreator(testDatabase);
-                await databaseCreator.ExecutionStrategy.ExecuteAsync(
-                    databaseCreator,
-                    async creator =>
-                    {
-                        var errorNumber = async
-                            ? (await Assert.ThrowsAnyAsync<DbException>(() => creator.HasTablesAsyncBase())).ErrorCode
-                            : Assert.ThrowsAny<DbException>(() => creator.HasTablesBase()).ErrorCode;
+            using var testDatabase = JetTestStore.GetOrCreate("NonExisting");
+            var databaseCreator = GetDatabaseCreator(testDatabase);
+            await databaseCreator.ExecutionStrategy.ExecuteAsync(
+                databaseCreator,
+                async creator =>
+                {
+                    var errorNumber = async
+                        ? (await Assert.ThrowsAnyAsync<DbException>(() => creator.HasTablesAsyncBase())).ErrorCode
+                        : Assert.ThrowsAny<DbException>(() => creator.HasTablesBase()).ErrorCode;
 
-                        Assert.NotEqual(errorNumber, 0);
-                    });
-            }
+                    Assert.NotEqual(errorNumber, 0);
+                });
         }
 
         [ConditionalTheory]
@@ -428,19 +408,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public async Task Returns_false_when_database_exists_but_has_no_tables(bool async, bool ambientTransaction)
         {
-            using (var testDatabase = JetTestStore.GetOrCreateInitialized("Empty"))
-            {
-                var creator = GetDatabaseCreator(testDatabase);
+            using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("Empty");
+            var creator = GetDatabaseCreator(testDatabase);
 
-                await GetExecutionStrategy(testDatabase).ExecuteAsync(
-                    async () =>
+            await GetExecutionStrategy(testDatabase).ExecuteAsync(
+                async () =>
+                {
+                    using (CreateTransactionScope(ambientTransaction))
                     {
-                        using (CreateTransactionScope(ambientTransaction))
-                        {
-                            Assert.False(async ? await creator.HasTablesAsyncBase() : creator.HasTablesBase());
-                        }
-                    });
-            }
+                        Assert.False(async ? await creator.HasTablesAsyncBase() : creator.HasTablesBase());
+                    }
+                });
         }
 
         [ConditionalTheory]
@@ -450,20 +428,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public async Task Returns_true_when_database_exists_and_has_any_tables(bool async, bool ambientTransaction)
         {
-            using (var testDatabase = JetTestStore.GetOrCreate("ExistingTables")
-                .InitializeJet(null, t => new BloggingContext(t), null))
-            {
-                var creator = GetDatabaseCreator(testDatabase);
+            using var testDatabase = await JetTestStore.GetOrCreate("ExistingTables")
+                .InitializeJetAsync(null, t => new BloggingContext(t), null);
+            var creator = GetDatabaseCreator(testDatabase);
 
-                await GetExecutionStrategy(testDatabase).ExecuteAsync(
-                    async () =>
+            await GetExecutionStrategy(testDatabase).ExecuteAsync(
+                async () =>
+                {
+                    using (CreateTransactionScope(ambientTransaction))
                     {
-                        using (CreateTransactionScope(ambientTransaction))
-                        {
-                            Assert.True(async ? await creator.HasTablesAsyncBase() : creator.HasTablesBase());
-                        }
-                    });
-            }
+                        Assert.True(async ? await creator.HasTablesAsyncBase() : creator.HasTablesBase());
+                    }
+                });
         }
     }
 
@@ -475,28 +451,26 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public static async Task Deletes_database(bool async, bool ambientTransaction)
         {
-            using (var testDatabase = JetTestStore.CreateInitialized("DeleteBlogging"))
+            using var testDatabase = await JetTestStore.CreateInitializedAsync("DeleteBlogging");
+            testDatabase.CloseConnection();
+
+            var creator = GetDatabaseCreator(testDatabase);
+
+            Assert.True(async ? await creator.ExistsAsync() : creator.Exists());
+
+            using (CreateTransactionScope(ambientTransaction))
             {
-                testDatabase.CloseConnection();
-
-                var creator = GetDatabaseCreator(testDatabase);
-
-                Assert.True(async ? await creator.ExistsAsync() : creator.Exists());
-
-                using (CreateTransactionScope(ambientTransaction))
+                if (async)
                 {
-                    if (async)
-                    {
-                        await creator.DeleteAsync();
-                    }
-                    else
-                    {
-                        creator.Delete();
-                    }
+                    await creator.DeleteAsync();
                 }
-
-                Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
+                else
+                {
+                    creator.Delete();
+                }
             }
+
+            Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
         }
 
         [ConditionalTheory]
@@ -504,18 +478,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_when_database_does_not_exist(bool async)
         {
-            using (var testDatabase = JetTestStore.GetOrCreate("NonExistingBlogging"))
-            {
-                var creator = GetDatabaseCreator(testDatabase);
+            using var testDatabase = JetTestStore.GetOrCreate("NonExistingBlogging");
+            var creator = GetDatabaseCreator(testDatabase);
 
-                if (async)
-                {
-                    await Assert.ThrowsAnyAsync<DbException>(() => creator.DeleteAsync());
-                }
-                else
-                {
-                    Assert.ThrowsAny<DbException>(() => creator.Delete());
-                }
+            if (async)
+            {
+                await Assert.ThrowsAnyAsync<DbException>(() => creator.DeleteAsync());
+            }
+            else
+            {
+                Assert.ThrowsAny<DbException>(() => creator.Delete());
             }
         }
     }
@@ -528,53 +500,49 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public async Task Creates_schema_in_existing_database_test(bool async, bool ambientTransaction)
         {
-            using (var testDatabase = JetTestStore.GetOrCreateInitialized("ExistingBlogging" + (async ? "Async" : "")))
+            using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("ExistingBlogging" + (async ? "Async" : ""));
+            using var context = new BloggingContext(testDatabase);
+            var creator = GetDatabaseCreator(context);
+
+            using (CreateTransactionScope(ambientTransaction))
             {
-                using (var context = new BloggingContext(testDatabase))
+                if (async)
                 {
-                    var creator = GetDatabaseCreator(context);
-
-                    using (CreateTransactionScope(ambientTransaction))
-                    {
-                        if (async)
-                        {
-                            await creator.CreateTablesAsync();
-                        }
-                        else
-                        {
-                            creator.CreateTables();
-                        }
-                    }
-
-                    if (testDatabase.ConnectionState != ConnectionState.Open)
-                    {
-                        await testDatabase.OpenConnectionAsync();
-                    }
-
-                    var tables = (await testDatabase.QueryAsync<string>(
-                        "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'")).ToList();
-                    Assert.Single(tables);
-                    Assert.Equal("Blogs", tables.Single());
-
-                    var columns = (await testDatabase.QueryAsync<string>(
-                        "SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` WHERE TABLE_NAME = 'Blogs'")).ToList();
-                    Assert.Equal(14, columns.Count);
-                    Assert.Contains(columns, c => c == "Blogs.Key1");
-                    Assert.Contains(columns, c => c == "Blogs.Key2");
-                    Assert.Contains(columns, c => c == "Blogs.Cheese");
-                    Assert.Contains(columns, c => c == "Blogs.ErMilan");
-                    Assert.Contains(columns, c => c == "Blogs.George");
-                    Assert.Contains(columns, c => c == "Blogs.TheGu");
-                    Assert.Contains(columns, c => c == "Blogs.NotFigTime");
-                    Assert.Contains(columns, c => c == "Blogs.ToEat");
-                    Assert.Contains(columns, c => c == "Blogs.OrNothing");
-                    Assert.Contains(columns, c => c == "Blogs.Fuse");
-                    Assert.Contains(columns, c => c == "Blogs.WayRound");
-                    Assert.Contains(columns, c => c == "Blogs.On");
-                    Assert.Contains(columns, c => c == "Blogs.AndChew");
-                    Assert.Contains(columns, c => c == "Blogs.AndRow");
+                    await creator.CreateTablesAsync();
+                }
+                else
+                {
+                    creator.CreateTables();
                 }
             }
+
+            if (testDatabase.ConnectionState != ConnectionState.Open)
+            {
+                await testDatabase.OpenConnectionAsync();
+            }
+
+            var tables = (await testDatabase.QueryAsync<string>(
+                "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'")).ToList();
+            Assert.Single(tables);
+            Assert.Equal("Blogs", tables.Single());
+
+            var columns = (await testDatabase.QueryAsync<string>(
+                "SELECT * FROM `INFORMATION_SCHEMA.COLUMNS` WHERE TABLE_NAME = 'Blogs'")).ToList();
+            Assert.Equal(14, columns.Count);
+            Assert.Contains(columns, c => c == "Blogs.Key1");
+            Assert.Contains(columns, c => c == "Blogs.Key2");
+            Assert.Contains(columns, c => c == "Blogs.Cheese");
+            Assert.Contains(columns, c => c == "Blogs.ErMilan");
+            Assert.Contains(columns, c => c == "Blogs.George");
+            Assert.Contains(columns, c => c == "Blogs.TheGu");
+            Assert.Contains(columns, c => c == "Blogs.NotFigTime");
+            Assert.Contains(columns, c => c == "Blogs.ToEat");
+            Assert.Contains(columns, c => c == "Blogs.OrNothing");
+            Assert.Contains(columns, c => c == "Blogs.Fuse");
+            Assert.Contains(columns, c => c == "Blogs.WayRound");
+            Assert.Contains(columns, c => c == "Blogs.On");
+            Assert.Contains(columns, c => c == "Blogs.AndChew");
+            Assert.Contains(columns, c => c == "Blogs.AndRow");
         }
 
         [ConditionalTheory]
@@ -662,39 +630,37 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, true)]
         public async Task Creates_physical_database_but_not_tables(bool async, bool ambientTransaction)
         {
-            using (var testDatabase = JetTestStore.GetOrCreate("CreateTest"))
-            {
-                var creator = GetDatabaseCreator(testDatabase);
+            using var testDatabase = JetTestStore.GetOrCreate("CreateTest");
+            var creator = GetDatabaseCreator(testDatabase);
 
-                creator.EnsureDeleted();
+            creator.EnsureDeleted();
 
-                await GetExecutionStrategy(testDatabase).ExecuteAsync(
-                    async () =>
-                    {
-                        using (CreateTransactionScope(ambientTransaction))
-                        {
-                            if (async)
-                            {
-                                await creator.CreateAsync();
-                            }
-                            else
-                            {
-                                creator.Create();
-                            }
-                        }
-                    });
-
-                Assert.True(creator.Exists());
-
-                if (testDatabase.ConnectionState != ConnectionState.Open)
+            await GetExecutionStrategy(testDatabase).ExecuteAsync(
+                async () =>
                 {
-                    await testDatabase.OpenConnectionAsync();
-                }
+                    using (CreateTransactionScope(ambientTransaction))
+                    {
+                        if (async)
+                        {
+                            await creator.CreateAsync();
+                        }
+                        else
+                        {
+                            creator.Create();
+                        }
+                    }
+                });
 
-                Assert.Empty(
-                    (await testDatabase.QueryAsync<string>(
-                        "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'")));
+            Assert.True(creator.Exists());
+
+            if (testDatabase.ConnectionState != ConnectionState.Open)
+            {
+                await testDatabase.OpenConnectionAsync();
             }
+
+            Assert.Empty(
+                (await testDatabase.QueryAsync<string>(
+                    "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'")));
         }
 
         [ConditionalTheory]
@@ -702,15 +668,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_if_database_already_exists(bool async)
         {
-            using (var testDatabase = JetTestStore.GetOrCreateInitialized("ExistingBlogging"))
-            {
-                var creator = GetDatabaseCreator(testDatabase);
+            using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("ExistingBlogging");
+            var creator = GetDatabaseCreator(testDatabase);
 
-                var ex = async
-                    ? await Assert.ThrowsAsync<Exception>(() => creator.CreateAsync())
-                    : Assert.Throws<Exception>(() => creator.Create());
-                //todo:check message
-            }
+            var ex = async
+                ? await Assert.ThrowsAsync<Exception>(() => creator.CreateAsync())
+                : Assert.Throws<Exception>(() => creator.Create());
+            //todo:check message
         }
     }
 
@@ -734,13 +698,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             => new BloggingContext(testStore).GetService<IExecutionStrategyFactory>().Create();
 
         // ReSharper disable once ClassNeverInstantiated.Local
-        private class TestJetExecutionStrategyFactory : JetExecutionStrategyFactory
+        private class TestJetExecutionStrategyFactory(ExecutionStrategyDependencies dependencies)
+            : JetExecutionStrategyFactory(dependencies)
         {
-            public TestJetExecutionStrategyFactory(ExecutionStrategyDependencies dependencies)
-                : base(dependencies)
-            {
-            }
-
             protected override IExecutionStrategy CreateDefaultStrategy(ExecutionStrategyDependencies dependencies)
             {
                 return new NonRetryingExecutionStrategy(dependencies);
@@ -756,24 +716,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .BuildServiceProvider();
         }
 
-        protected class BloggingContext : DbContext
+        protected class BloggingContext(string connectionString) : DbContext
         {
-            private readonly string _connectionString;
-
             public BloggingContext(JetTestStore testStore)
                 : this(testStore.ConnectionString)
             {
             }
 
-            public BloggingContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
-
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 optionsBuilder
-                    .UseJet(_connectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                    .UseJet(connectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(CreateServiceProvider());
             }
 
@@ -809,27 +762,20 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public byte[] AndRow { get; set; }
         }
 
-        public class TestDatabaseCreator : JetDatabaseCreator
+        public class TestDatabaseCreator(
+            RelationalDatabaseCreatorDependencies dependencies,
+            IJetRelationalConnection connection,
+            IRawSqlCommandBuilder rawSqlCommandBuilder)
+            : JetDatabaseCreator(dependencies, connection, rawSqlCommandBuilder)
         {
-            public TestDatabaseCreator(
-                RelationalDatabaseCreatorDependencies dependencies,
-                IJetRelationalConnection connection,
-                IRawSqlCommandBuilder rawSqlCommandBuilder)
-                : base(dependencies, connection, rawSqlCommandBuilder)
-            {
-            }
-
             public bool HasTablesBase()
-            {
-                return HasTables();
-            }
+                => HasTables();
 
             public Task<bool> HasTablesAsyncBase(CancellationToken cancellationToken = default)
-            {
-                return HasTablesAsync(cancellationToken);
-            }
+                => HasTablesAsync(cancellationToken);
 
-            public IExecutionStrategy ExecutionStrategy => Dependencies.ExecutionStrategy;
+            public IExecutionStrategy ExecutionStrategy
+                => Dependencies.ExecutionStrategy;
         }
     }
 }

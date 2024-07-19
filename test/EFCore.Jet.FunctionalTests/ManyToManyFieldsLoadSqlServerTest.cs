@@ -15,6 +15,7 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
+#nullable disable
 public class ManyToManyFieldsLoadJetTest : ManyToManyFieldsLoadTestBase<
     ManyToManyFieldsLoadJetTest.ManyToManyFieldsLoadJetFixture>
 {
@@ -295,7 +296,7 @@ ORDER BY `e`.`Id`, `t`.`OneSkipSharedId`, `t`.`TwoSkipSharedId`, `t`.`Id`, `t0`.
 
     private string Sql { get; set; }
 
-    public class ManyToManyFieldsLoadJetFixture : ManyToManyFieldsLoadFixtureBase
+    public class ManyToManyFieldsLoadJetFixture : ManyToManyFieldsLoadFixtureBase, ITestSqlLoggerFactory
     {
         public TestSqlLoggerFactory TestSqlLoggerFactory
             => (TestSqlLoggerFactory)ListLoggerFactory;

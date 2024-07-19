@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class FakeDbConnection : DbConnection
         {
+            [AllowNull]
             public override string ConnectionString { get; set; }
             public override string Database => "Database";
             public override string DataSource => "DataSource";

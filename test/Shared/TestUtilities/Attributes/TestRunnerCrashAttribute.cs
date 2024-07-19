@@ -9,18 +9,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 /// Marks a test method or class that is known to crash the test runner.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
-public class TestRunnerCrashAttribute : Attribute, ITestCondition
+public class TestRunnerCrashAttribute(params AccessProviderTypeVariation[] accessProviderTypeVariations)
+    : Attribute, ITestCondition
 {
     public const string DefaultSkipReason = "The test is known to crash the test runner.";
     
-    protected AccessProviderTypeVariation[] AccessProviderTypeVariations { get; }
-
-    public TestRunnerCrashAttribute(params AccessProviderTypeVariation[] accessProviderTypeVariations)
-    {
-        AccessProviderTypeVariations = accessProviderTypeVariations.Length > 0
-            ? accessProviderTypeVariations
-            : new[] { AccessProviderTypeVariation.All };
-    }
+    protected AccessProviderTypeVariation[] AccessProviderTypeVariations { get; } = accessProviderTypeVariations.Length > 0
+        ? accessProviderTypeVariations
+        : new[] { AccessProviderTypeVariation.All };
 
     public virtual ValueTask<bool> IsMetAsync()
     {
@@ -37,7 +33,7 @@ public class TestRunnerCrashAttribute : Attribute, ITestCondition
     }
 
     public virtual string SkipReason
-        => Skip;
+        => Skip ?? DefaultSkipReason;
 
-    public virtual string Skip { get; set; }
+    public virtual string? Skip { get; set; }
 }

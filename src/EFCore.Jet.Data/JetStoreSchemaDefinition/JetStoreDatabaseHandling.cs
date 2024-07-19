@@ -195,10 +195,10 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             return connectionString;
         }
 
-        public static bool IsConnectionString(string connectionString)
-            => _regExIsConnectionString.IsMatch(connectionString);
+        public static bool IsConnectionString(string? connectionString)
+            => !string.IsNullOrWhiteSpace(connectionString) && _regExIsConnectionString.IsMatch(connectionString);
 
-        public static bool IsFileName(string fileName)
+        public static bool IsFileName(string? fileName)
             => !string.IsNullOrWhiteSpace(fileName) &&
                !IsConnectionString(fileName) &&
                !fileName.ToCharArray()

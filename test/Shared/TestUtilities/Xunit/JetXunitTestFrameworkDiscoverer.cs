@@ -8,6 +8,7 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
+#nullable disable
 public class JetXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
 {
     public JetXunitTestFrameworkDiscoverer(

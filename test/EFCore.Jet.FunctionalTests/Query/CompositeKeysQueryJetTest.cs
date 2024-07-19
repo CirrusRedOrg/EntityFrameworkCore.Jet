@@ -18,9 +18,6 @@ public class CompositeKeysQueryJetTest : CompositeKeysQueryRelationalTestBase<Co
         //Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    protected override bool CanExecuteQueryString
-        => false;
-
     public override async Task Projecting_multiple_collections_same_level_top_level_ordering(bool async)
     {
         await base.Projecting_multiple_collections_same_level_top_level_ordering(async);

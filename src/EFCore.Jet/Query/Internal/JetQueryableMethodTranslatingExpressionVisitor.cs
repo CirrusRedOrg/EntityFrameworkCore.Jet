@@ -9,6 +9,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -36,7 +37,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     public JetQueryableMethodTranslatingExpressionVisitor(
         QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
         RelationalQueryableMethodTranslatingExpressionVisitorDependencies relationalDependencies,
-        QueryCompilationContext queryCompilationContext)
+        RelationalQueryCompilationContext queryCompilationContext)
         : base(dependencies, relationalDependencies, queryCompilationContext)
     {
     }
@@ -108,7 +109,8 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
                 var projectionBindingExpression = (ProjectionBindingExpression)shaper.ValueBufferExpression;
                 var projection = (StructuralTypeProjectionExpression)selectExpression.GetProjection(projectionBindingExpression);
                 var column = projection.BindProperty(shaper.StructuralType.GetProperties().First());
-                table = column.Table;
+                table = selectExpression.GetTable(column).UnwrapJoin();
+                //TODO: do I need the following given we now have an unwrapjoin in the above line?
                 if (table is JoinExpressionBase joinExpressionBase)
                 {
                     table = joinExpressionBase.Table;

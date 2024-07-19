@@ -7,11 +7,13 @@ using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 using EF = Microsoft.EntityFrameworkCore.EF;
 
+#nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -124,157 +126,288 @@ WHERE [c].[ContactName] = N'maria anders' COLLATE Latin1_General_CS_AS
 """);
         }
 
-        [ConditionalFact]
-        public virtual void DateDiff_Year()
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Year(bool async)
         {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders
-                    .Count(c => EF.Functions.DateDiffYear(c.OrderDate, DateTime.Now) == 0);
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffYear(c.OrderDate, DateTime.Now) == 0,
+                c => c.OrderDate.Value.Year - DateTime.Now.Year == 0);
 
-                Assert.Equal(0, count);
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(year, [o].[OrderDate], GETDATE()) = 0
+""");
+        }
 
-                AssertSql(
-                    $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE DATEDIFF('yyyy', `o`.`OrderDate`, NOW()) = 0");
-            }
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Month(bool async)
+        {
+            var now = DateTime.Now;
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffMonth(c.OrderDate, DateTime.Now) == 0,
+                c => c.OrderDate.Value.Year * 12 + c.OrderDate.Value.Month - (now.Year * 12 + now.Month) == 0);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(month, [o].[OrderDate], GETDATE()) = 0
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Day(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffDay(c.OrderDate, DateTime.Now) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(day, [o].[OrderDate], GETDATE()) = 0
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Hour(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffHour(c.OrderDate, DateTime.Now) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(hour, [o].[OrderDate], GETDATE()) = 0
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Minute(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffMinute(c.OrderDate, DateTime.Now) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(minute, [o].[OrderDate], GETDATE()) = 0
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Second(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffSecond(c.OrderDate, DateTime.Now) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(second, [o].[OrderDate], GETDATE()) = 0
+""");
+        }
+
+        /*[ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Millisecond(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffMillisecond(DateTime.Now, DateTime.Now.AddDays(1)) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(millisecond, GETDATE(), DATEADD(day, CAST(1.0E0 AS int), GETDATE())) = 0
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Microsecond(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffMicrosecond(DateTime.Now, DateTime.Now.AddSeconds(1)) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(microsecond, GETDATE(), DATEADD(second, CAST(1.0E0 AS int), GETDATE())) = 0
+""");
+        }
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task DateDiff_Nanosecond(bool async)
+        {
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.DateDiffNanosecond(DateTime.Now, DateTime.Now.AddSeconds(1)) == 0,
+                c => false);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(nanosecond, GETDATE(), DATEADD(second, CAST(1.0E0 AS int), GETDATE())) = 0
+""");
         }
 
         [ConditionalFact]
-        public virtual void DateDiff_Month()
+        public virtual void DateDiff_Week_datetime()
         {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders
-                    .Count(c => EF.Functions.DateDiffMonth(c.OrderDate, DateTime.Now) == 0);
+            using var context = CreateContext();
+            var count = context.Orders
+                .Count(
+                    c => EF.Functions.DateDiffWeek(
+                            c.OrderDate,
+                            new DateTime(1998, 5, 6, 0, 0, 0))
+                        == 5);
 
-                Assert.Equal(0, count);
-                AssertSql(
-                    $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE DATEDIFF('m', `o`.`OrderDate`, NOW()) = 0");
-            }
+            Assert.Equal(16, count);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(week, [o].[OrderDate], '1998-05-06T00:00:00.000') = 5
+""");
         }
 
         [ConditionalFact]
-        public virtual void DateDiff_Day()
+        public virtual void DateDiff_Week_datetimeoffset()
         {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders
-                    .Count(c => EF.Functions.DateDiffDay(c.OrderDate, DateTime.Now) == 0);
+            using var context = CreateContext();
+            var count = context.Orders
+                .Count(
+                    c => EF.Functions.DateDiffWeek(
+                            c.OrderDate,
+                            new DateTimeOffset(1998, 5, 6, 0, 0, 0, TimeSpan.Zero))
+                        == 5);
 
-                Assert.Equal(0, count);
-                AssertSql(
-                    $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE DATEDIFF('d', `o`.`OrderDate`, NOW()) = 0");
-            }
+            Assert.Equal(16, count);
+
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(week, CAST([o].[OrderDate] AS datetimeoffset), '1998-05-06T00:00:00.0000000+00:00') = 5
+""");
         }
 
         [ConditionalFact]
-        public virtual void DateDiff_Hour()
+        public virtual void DateDiff_Week_parameters_null()
         {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders
-                    .Count(c => EF.Functions.DateDiffHour(c.OrderDate, DateTime.Now) == 0);
+            using var context = CreateContext();
+            var count = context.Orders
+                .Count(
+                    c => EF.Functions.DateDiffWeek(
+                            null,
+                            c.OrderDate)
+                        == 5);
 
-                Assert.Equal(0, count);
-                AssertSql(
-                    $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE DATEDIFF('h', `o`.`OrderDate`, NOW()) = 0");
-            }
-        }
+            Assert.Equal(0, count);
 
-        [ConditionalFact]
-        public virtual void DateDiff_Minute()
+            AssertSql(
+                """
+SELECT COUNT(*)
+FROM [Orders] AS [o]
+WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
+""");
+        }*/
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task IsDate_not_valid(bool async)
         {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders
-                    .Count(c => EF.Functions.DateDiffMinute(c.OrderDate, DateTime.Now) == 0);
+            await AssertQueryScalar(
+                async,
+                ss => ss.Set<Order>().Where(o => !EF.Functions.IsDate(o.CustomerID)).Select(o => EF.Functions.IsDate(o.CustomerID)),
+                ss => ss.Set<Order>().Select(c => false));
 
-                Assert.Equal(0, count);
-                AssertSql(
-                    $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE DATEDIFF('n', `o`.`OrderDate`, NOW()) = 0");
-            }
-        }
-
-        [ConditionalFact]
-        public virtual void DateDiff_Second()
-        {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders
-                    .Count(c => EF.Functions.DateDiffSecond(c.OrderDate, DateTime.Now) == 0);
-
-                Assert.Equal(0, count);
-                AssertSql(
-                    $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE DATEDIFF('s', `o`.`OrderDate`, NOW()) = 0");
-            }
-        }
-
-        [ConditionalFact]
-        public virtual void IsDate_not_valid()
-        {
-            using (var context = CreateContext())
-            {
-                var actual = context
-                    .Orders
-                    .Where(c => !EF.Functions.IsDate(c.CustomerID))
-                    .Select(c => EF.Functions.IsDate(c.CustomerID))
-                    .FirstOrDefault();
-
-                Assert.False(actual);
-
-                AssertSql(
-                    $@"SELECT TOP 1 CBOOL(ISDATE(`o`.`CustomerID`))
+            AssertSql(
+                $@"SELECT TOP 1 CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
 WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE");
-            }
         }
 
         [ConditionalFact]
-        public virtual void IsDate_valid()
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task IsDate_valid(bool async)
         {
-            using (var context = CreateContext())
-            {
-                var actual = context
-                    .Orders
-                    .Where(c => EF.Functions.IsDate(c.OrderDate.Value.ToString()))
-                    .Select(c => EF.Functions.IsDate(c.OrderDate.Value.ToString()))
-                    .FirstOrDefault();
+            await AssertQueryScalar(
+                async,
+                ss => ss.Set<Order>()
+                    .Where(o => EF.Functions.IsDate(o.OrderDate.Value.ToString()))
+                    .Select(o => EF.Functions.IsDate(o.OrderDate.Value.ToString())),
+                ss => ss.Set<Order>().Select(o => true));
 
-                Assert.True(actual);
-
-                AssertSql(
-                    $@"SELECT TOP 1 CBOOL(ISDATE((`o`.`OrderDate` & '')))
+            AssertSql(
+                $@"SELECT TOP 1 CBOOL(ISDATE((`o`.`OrderDate` & '')))
 FROM `Orders` AS `o`
 WHERE CBOOL(ISDATE((`o`.`OrderDate` & ''))) = TRUE");
-            }
         }
 
-        [ConditionalFact]
-        public virtual void IsDate_join_fields()
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task IsDate_join_fields(bool async)
         {
-            using (var context = CreateContext())
-            {
-                var count = context.Orders.Count(c => EF.Functions.IsDate(c.CustomerID + c.OrderID));
+            await AssertCount(
+                async,
+                ss => ss.Set<Order>(),
+                ss => ss.Set<Order>(),
+                c => EF.Functions.IsDate(c.CustomerID + c.OrderID),
+                c => false);
 
-                Assert.Equal(0, count);
-
-                AssertSql(
-                    $@"SELECT COUNT(*)
+            AssertSql(
+                $@"SELECT COUNT(*)
 FROM `Orders` AS `o`
 WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))) = TRUE");
-            }
         }
 
         [ConditionalFact]
@@ -314,7 +447,10 @@ WHERE Rnd() >= 0.0
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
-        protected override string CaseInsensitiveCollation { get; }
-        protected override string CaseSensitiveCollation { get; }
+        protected override string CaseInsensitiveCollation
+            => "";
+
+        protected override string CaseSensitiveCollation
+            => "";
     }
 }

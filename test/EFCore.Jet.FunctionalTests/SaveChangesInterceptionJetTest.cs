@@ -17,14 +17,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
-
-public abstract class SaveChangesInterceptionJetTestBase : SaveChangesInterceptionTestBase
+#nullable disable
+public abstract class SaveChangesInterceptionJetTestBase(
+    SaveChangesInterceptionJetTestBase.InterceptionJetFixtureBase fixture)
+    : SaveChangesInterceptionTestBase(fixture)
 {
-    protected SaveChangesInterceptionJetTestBase(InterceptionJetFixtureBase fixture)
-        : base(fixture)
-    {
-    }
-
     [ConditionalTheory]
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
@@ -39,7 +36,7 @@ public abstract class SaveChangesInterceptionJetTestBase : SaveChangesIntercepti
         var saveChangesInterceptor = new RelationalConcurrencySaveChangesInterceptor();
         var commandInterceptor = new TestCommandInterceptor();
 
-        var context = CreateContext(saveChangesInterceptor, commandInterceptor);
+        var context = await CreateContextAsync(saveChangesInterceptor, commandInterceptor);
 
         using var _ = context;
 
@@ -181,14 +178,10 @@ public abstract class SaveChangesInterceptionJetTestBase : SaveChangesIntercepti
         }
     }
 
-    public class SaveChangesInterceptionJetTest
-        : SaveChangesInterceptionJetTestBase, IClassFixture<SaveChangesInterceptionJetTest.InterceptionJetFixture>
+    public class SaveChangesInterceptionJetTest(SaveChangesInterceptionJetTest.InterceptionJetFixture fixture)
+        : SaveChangesInterceptionJetTestBase(fixture),
+            IClassFixture<SaveChangesInterceptionJetTest.InterceptionJetFixture>
     {
-        public SaveChangesInterceptionJetTest(InterceptionJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class InterceptionJetFixture : InterceptionJetFixtureBase
         {
             protected override string StoreName
@@ -199,15 +192,11 @@ public abstract class SaveChangesInterceptionJetTestBase : SaveChangesIntercepti
         }
     }
 
-    public class SaveChangesInterceptionWithDiagnosticsJetTest
-        : SaveChangesInterceptionJetTestBase,
+    public class SaveChangesInterceptionWithDiagnosticsJetTest(
+        SaveChangesInterceptionWithDiagnosticsJetTest.InterceptionJetFixture fixture)
+        : SaveChangesInterceptionJetTestBase(fixture),
             IClassFixture<SaveChangesInterceptionWithDiagnosticsJetTest.InterceptionJetFixture>
     {
-        public SaveChangesInterceptionWithDiagnosticsJetTest(InterceptionJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class InterceptionJetFixture : InterceptionJetFixtureBase
         {
             protected override string StoreName
@@ -218,3 +207,4 @@ public abstract class SaveChangesInterceptionJetTestBase : SaveChangesIntercepti
         }
     }
 }
+ 

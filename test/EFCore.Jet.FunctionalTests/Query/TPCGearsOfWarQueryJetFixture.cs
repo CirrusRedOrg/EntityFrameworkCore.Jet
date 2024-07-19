@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -21,7 +22,7 @@ public class TPCGearsOfWarQueryJetFixture : TPCGearsOfWarQueryRelationalFixture
         modelBuilder.Entity<City>().Property(g => g.Location).HasColumnType("varchar(100)");
     }
 
-    protected override void Seed(GearsOfWarContext context)
+    protected override async Task SeedAsync(GearsOfWarContext context)
     {
         // Drop constraint to workaround Jet limitation regarding compound foreign keys and NULL.
         context.Database.ExecuteSql($"ALTER TABLE `Officers` DROP CONSTRAINT `FK_Officers_Officers_LeaderNickname_LeaderSquadId`");
@@ -58,11 +59,11 @@ public class TPCGearsOfWarQueryJetFixture : TPCGearsOfWarQueryRelationalFixture
         context.LocustLeaders.AddRange(locustLeaders);
         context.Factions.AddRange(factions);
         context.LocustHighCommands.AddRange(locustHighCommands);
-        context.SaveChanges();
+        await context.SaveChangesAsync();
 
         GearsOfWarData.WireUp2(locustLeaders, factions);
 
-        context.SaveChanges();
+        await context.SaveChangesAsync();
     }
 
     public override ISetSource GetExpectedData()

@@ -25,6 +25,7 @@ using DbContext = Microsoft.EntityFrameworkCore.DbContext;
 // ReSharper disable MethodSupportsCancellation
 // ReSharper disable AccessToDisposedClosure
 // ReSharper disable InconsistentNaming
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class ExecutionStrategyTest : IClassFixture<ExecutionStrategyTest.ExecutionStrategyFixture>
@@ -109,7 +110,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 var retryMessage = (TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
                     ? typeof(OleDbException)
-                    : typeof(OdbcException)).FullName + " (0xFFFFFFFE): Bang!"; ;
+                    : typeof(OdbcException)).FullName + " (0xFFFFFFFE): Bang!";
 
                 if (realFailure)
                 {

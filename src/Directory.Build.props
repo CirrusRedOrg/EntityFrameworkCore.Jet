@@ -5,7 +5,7 @@
     <!-- [CS1591] Missing XML comment for publicly visible type or member 'MySqlAnnotationCodeGenerator' -->
     <!-- [CS1587] XML comment is not placed on a valid language element -->
     <!-- [CS1574] XML comment has cref attribute 'Scoped' that could not be resolved -->
-    <NoWarn>$(NoWarn);CS1574;CS1587;CS1591;EF1001</NoWarn>
+    <NoWarn>$(NoWarn);CS1574;CS1587;CS1591;EF1001;NU1903</NoWarn>
     <!--<CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)..\rulesets\EFCore.ruleset</CodeAnalysisRuleSet>-->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>

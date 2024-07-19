@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
+#nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
@@ -227,7 +229,7 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
 
-        public override void Can_insert_and_read_back_object_backed_data_types()
+        public override async Task Can_insert_and_read_back_object_backed_data_types()
         {
             using (var context = CreateContext())
             {
@@ -266,7 +268,7 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -307,7 +309,7 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_insert_and_read_back_nullable_backed_data_types()
+        public override async Task Can_insert_and_read_back_nullable_backed_data_types()
         {
             using (var context = CreateContext())
             {
@@ -344,7 +346,7 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -383,7 +385,7 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
             }
         }
 
-        public override void Can_insert_and_read_back_non_nullable_backed_data_types()
+        public override async Task Can_insert_and_read_back_non_nullable_backed_data_types()
         {
             using (var context = CreateContext())
             {
@@ -420,7 +422,7 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
                         EnumS8 = EnumS8.SomeValue
                     });
 
-                Assert.Equal(1, context.SaveChanges());
+                Assert.Equal(1, await context.SaveChangesAsync());
             }
 
             using (var context = CreateContext())
@@ -547,9 +549,9 @@ User23059.MessageGroups ---> [nullable varchar] [MaxLength = 255]
                 || type == typeof(char);
 
         [ConditionalFact]
-        public override void Value_conversion_is_appropriately_used_for_join_condition()
+        public override async Task Value_conversion_is_appropriately_used_for_join_condition()
         {
-            base.Value_conversion_is_appropriately_used_for_join_condition();
+            await base.Value_conversion_is_appropriately_used_for_join_condition();
 
             AssertSql(
                 """
@@ -563,9 +565,9 @@ WHERE [b].[IsVisible] = N'Y'
         }
 
         [ConditionalFact]
-        public override void Value_conversion_is_appropriately_used_for_left_join_condition()
+        public override async Task Value_conversion_is_appropriately_used_for_left_join_condition()
         {
-            base.Value_conversion_is_appropriately_used_for_left_join_condition();
+            await base.Value_conversion_is_appropriately_used_for_left_join_condition();
 
             AssertSql(
                 """
@@ -579,9 +581,9 @@ WHERE [b].[IsVisible] = N'Y'
         }
 
         [ConditionalFact]
-        public override void Where_bool_gets_converted_to_equality_when_value_conversion_is_used()
+        public override async Task Where_bool_gets_converted_to_equality_when_value_conversion_is_used()
         {
-            base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used();
+            await base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used();
 
             AssertSql(
                 """
@@ -592,9 +594,9 @@ WHERE `b`.`IsVisible` = 'Y'
         }
 
         [ConditionalFact]
-        public override void Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used()
+        public override async Task Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used()
         {
-            base.Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used();
+            await base.Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used();
 
             AssertSql(
                 """
@@ -604,9 +606,9 @@ WHERE `b`.`IsVisible` = 'N'
 """);
         }
 
-        public override void Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_EFProperty()
+        public override async Task Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_EFProperty()
         {
-            base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_EFProperty();
+            await base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_EFProperty();
 
             AssertSql(
                 """
@@ -616,9 +618,9 @@ WHERE `b`.`IsVisible` = 'Y'
 """);
         }
 
-        public override void Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer()
+        public override async Task Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer()
         {
-            base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer();
+            await base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer();
 
             AssertSql(
                 """
@@ -628,14 +630,13 @@ WHERE `b`.`IndexerVisible` = 'Nay'
 """);
         }
 
-        public override void Object_to_string_conversion()
-        {
+        public override Task Object_to_string_conversion()
             // Return values are not string
-        }
+            => Task.CompletedTask;
 
-        public override void Id_object_as_entity_key()
+        public override async Task Id_object_as_entity_key()
         {
-            base.Id_object_as_entity_key();
+            await base.Id_object_as_entity_key();
 
             AssertSql(
                 """

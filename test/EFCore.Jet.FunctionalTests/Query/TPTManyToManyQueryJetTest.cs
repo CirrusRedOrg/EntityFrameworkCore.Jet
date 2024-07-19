@@ -19,9 +19,6 @@ public class TPTManyToManyQueryJetTest : TPTManyToManyQueryRelationalTestBase<TP
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    protected override bool CanExecuteQueryString
-        => false;
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());

@@ -30,8 +30,11 @@ public abstract class ManyToManyTrackingJetTestBase<TFixture> : ManyToManyTracki
         { "UnidirectionalEntityTwo.SelfSkipSharedRight", DeleteBehavior.ClientCascade },
     };
 
-    public class ManyToManyTrackingJetFixtureBase : ManyToManyTrackingRelationalFixture
+    public class ManyToManyTrackingJetFixtureBase : ManyToManyTrackingRelationalFixture, ITestSqlLoggerFactory
     {
+        public TestSqlLoggerFactory TestSqlLoggerFactory
+            => (TestSqlLoggerFactory)ListLoggerFactory;
+
         protected override ITestStoreFactory TestStoreFactory
             => JetTestStoreFactory.Instance;
 

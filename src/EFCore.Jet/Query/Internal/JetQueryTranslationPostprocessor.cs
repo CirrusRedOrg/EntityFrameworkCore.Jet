@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         public JetQueryTranslationPostprocessor(
             QueryTranslationPostprocessorDependencies dependencies,
             RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
-            QueryCompilationContext queryCompilationContext,
+            RelationalQueryCompilationContext queryCompilationContext,
             IRelationalTypeMappingSource relationalTypeMappingSource,
             IJetOptions options)
             : base(dependencies, relationalDependencies, queryCompilationContext)

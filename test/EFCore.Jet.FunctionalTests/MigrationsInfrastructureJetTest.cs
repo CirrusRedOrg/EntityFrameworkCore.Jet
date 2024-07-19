@@ -17,16 +17,15 @@ using Xunit;
 using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseCreator;
 
 // ReSharper disable InconsistentNaming
+
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     [JetCondition(JetCondition.IsNotCI)]
-    public class MigrationsInfrastructureJetTest : MigrationsInfrastructureTestBase<MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture>
+    public class MigrationsInfrastructureJetTest(
+        MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture fixture)
+        : MigrationsInfrastructureTestBase<MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture>(fixture)
     {
-        public MigrationsInfrastructureJetTest(MigrationsInfrastructureJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public override void Can_generate_migration_from_initial_database_to_initial()
         {
             base.Can_generate_migration_from_initial_database_to_initial();

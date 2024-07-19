@@ -44,5 +44,5 @@ public class JetQueryableMethodTranslatingExpressionVisitorFactory : IQueryableM
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
     public virtual QueryableMethodTranslatingExpressionVisitor Create(QueryCompilationContext queryCompilationContext)
-        => new JetQueryableMethodTranslatingExpressionVisitor(Dependencies, RelationalDependencies, queryCompilationContext);
+        => new JetQueryableMethodTranslatingExpressionVisitor(Dependencies, RelationalDependencies, (RelationalQueryCompilationContext)queryCompilationContext);
 }

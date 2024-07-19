@@ -25,9 +25,6 @@ public class TPCGearsOfWarQueryJetTest : TPCGearsOfWarQueryRelationalTestBase<TP
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    protected override bool CanExecuteQueryString
-        => false;
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
@@ -5279,24 +5276,6 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `t0` ON `t`.`GearNickName` = `t0`.`Nickname` AND `t`.`GearSquadId` = `t0`.`SquadId`
-""");
-    }
-
-    public override async Task Enum_ToString_is_client_eval(bool async)
-    {
-        await base.Enum_ToString_is_client_eval(async);
-
-        AssertSql(
-"""
-SELECT `t`.`Rank`
-FROM (
-    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`Rank`
-    FROM `Gears` AS `g`
-    UNION ALL
-    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`Rank`
-    FROM `Officers` AS `o`
-) AS `t`
-ORDER BY `t`.`SquadId`, `t`.`Nickname`
 """);
     }
 
@@ -11866,15 +11845,15 @@ WHERE `t`.`HasSoulPatch` = TRUE AND `t`.`HasSoulPatch` IN (FALSE, TRUE)
 
         AssertSql(
             """
-SELECT `t`.`Nickname`, `t`.`SquadId`, `t`.`AssignedCityName`, `t`.`CityOfBirthName`, `t`.`FullName`, `t`.`HasSoulPatch`, `t`.`LeaderNickname`, `t`.`LeaderSquadId`, `t`.`Rank`, `t`.`Discriminator`
+SELECT `u`.`Nickname`, `u`.`SquadId`, `u`.`AssignedCityName`, `u`.`CityOfBirthName`, `u`.`FullName`, `u`.`HasSoulPatch`, `u`.`LeaderNickname`, `u`.`LeaderSquadId`, `u`.`Rank`, `u`.`Discriminator`
 FROM (
     SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
     FROM `Gears` AS `g`
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
-) AS `t`
-WHERE `t`.`HasSoulPatch` = TRUE AND `t`.`HasSoulPatch` IN (FALSE, TRUE)
+) AS `u`
+WHERE `u`.`HasSoulPatch` = TRUE AND `u`.`HasSoulPatch` IN (FALSE, TRUE)
 """);
     }
 

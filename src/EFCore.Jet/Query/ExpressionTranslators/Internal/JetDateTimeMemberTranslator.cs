@@ -82,8 +82,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     "DATEADD",
                     new SqlExpression[]
                     {
-                        new SqlConstantExpression(Expression.Constant("n"), null),
-                        new SqlConstantExpression(Expression.Constant(-1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes), null) ,
+                        new SqlConstantExpression("n", null),
+                        new SqlConstantExpression(-1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes, null) ,
                         _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
                             false, new[] { false }, returnType)
                     },
@@ -135,7 +135,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new CaseWhenClause(
                         _sqlExpressionFactory.IsNull(checkSqlExpression),
                         _sqlExpressionFactory.Constant(
-                            null,
+                            null,typeof(string),
                             checkSqlExpression.TypeMapping))
                 },
                 notNullSqlExpression);

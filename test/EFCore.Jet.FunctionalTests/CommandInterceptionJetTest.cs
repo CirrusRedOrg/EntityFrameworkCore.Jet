@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
+#nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public abstract class CommandInterceptionJetTestBase : CommandInterceptionTestBase

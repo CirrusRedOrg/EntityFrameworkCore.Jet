@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -118,9 +119,15 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                     if (selectExpression.Limit != null)
                     {
                         var limit = selectExpression.Limit;
-                        selectExpression = selectExpression.Update(selectExpression.Tables,
+                        MethodInfo? dynMethod1 = selectExpression.GetType().GetMethod("set_Limit",
+                            BindingFlags.NonPublic | BindingFlags.Instance);
+                        dynMethod1?.Invoke(selectExpression, new object?[] { null });
+
+                        //This doesn't work. Update returns a new select expression but without the sql alias manager. Pushdown requires the alias manager
+                        /*selectExpression = selectExpression.Update(selectExpression.Tables,
                             selectExpression.Predicate, selectExpression.GroupBy, selectExpression.Having, selectExpression.Projection,
-                            selectExpression.Orderings, null, null);
+                            selectExpression.Orderings, null, null);*/
+
                         selectExpression.PushdownIntoSubquery();
                         selectExpression.ApplyLimit(limit);
                     }
@@ -156,6 +163,10 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                     var result = base.Visit(selectExpression);
                     return result;
                 }
+            case RelationalGroupByShaperExpression relationalGroupByShaperExpression:
+            {
+                return relationalGroupByShaperExpression;
+            }
         }
 
         return base.Visit(expression);

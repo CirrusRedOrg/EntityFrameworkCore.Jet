@@ -126,6 +126,44 @@ WHERE [c].[ContactName] = N'maria anders' COLLATE Latin1_General_CS_AS
 """);
         }
 
+        public override async Task Least(bool async)
+        {
+            await base.Least(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE LEAST([o].[OrderID], 10251) = 10251
+""");
+        }
+
+        public override async Task Greatest(bool async)
+        {
+            await base.Greatest(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE GREATEST([o].[OrderID], 10251) = 10251
+""");
+        }
+
+        public override async Task Least_with_parameter_array_is_not_supported(bool async)
+        {
+            await base.Least_with_parameter_array_is_not_supported(async);
+
+            AssertSql();
+        }
+
+        public override async Task Greatest_with_parameter_array_is_not_supported(bool async)
+        {
+            await base.Greatest_with_parameter_array_is_not_supported(async);
+
+            AssertSql();
+        }
+
         [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Year(bool async)

@@ -2966,6 +2966,20 @@ ORDER BY `l`.`Name`
 """);
     }
 
+    public override async Task Project_collection_and_nested_conditional(bool async)
+    {
+        await base.Project_collection_and_nested_conditional(async);
+
+        AssertSql(
+            """
+SELECT `l`.`Id`, `l0`.`Name`, `l0`.`Id`, IIF(`l`.`Id` = 1, '01', IIF(`l`.`Id` = 2, '02', IIF(`l`.`Id` = 3, '03', NULL)))
+FROM `LevelOne` AS `l`
+LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`
+WHERE IIF(`l`.`Id` = 1, '01', IIF(`l`.`Id` = 2, '02', IIF(`l`.`Id` = 3, '03', NULL))) = '02'
+ORDER BY `l`.`Id`, `l0`.`Id`
+""");
+    }
+
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 }

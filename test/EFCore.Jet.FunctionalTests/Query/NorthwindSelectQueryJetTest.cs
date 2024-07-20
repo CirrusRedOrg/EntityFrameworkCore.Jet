@@ -49,19 +49,19 @@ FROM `Orders` AS `o`");
 
             AssertSql(
                 """
-    SELECT CLNG(`t0`.`EmployeeID`) + CLNG(`t`.`OrderID`) AS `Add`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, 42 AS `Literal`, `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`
-    FROM (
-        SELECT TOP 10 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-        FROM `Orders` AS `o`
-        ORDER BY `o`.`OrderID`
-    ) AS `t`,
-    (
-        SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-        FROM `Employees` AS `e`
-        ORDER BY `e`.`EmployeeID`
-    ) AS `t0`
-    ORDER BY `t`.`OrderID`
-    """);
+SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`) AS `Add`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, 42 AS `Literal`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
+FROM (
+    SELECT TOP 10 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `o0`,
+(
+    SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+    FROM `Employees` AS `e`
+    ORDER BY `e`.`EmployeeID`
+) AS `e0`
+ORDER BY `o0`.`OrderID`
+""");
         }
 
         public override async Task Projection_when_null_value(bool isAsync)
@@ -282,15 +282,17 @@ WHERE `c`.`City` = 'London'");
             await base.Select_nested_collection(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `t`.`OrderID`
+                """
+SELECT `c`.`CustomerID`, `o0`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE DATEPART('yyyy', `o`.`OrderDate`) = 1997
-) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`City` = 'London'
-ORDER BY `c`.`CustomerID`, `t`.`OrderID`");
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Select_nested_collection_multi_level(bool isAsync)
@@ -1213,15 +1215,17 @@ FROM `Customers` AS `c`
             await base.Filtered_collection_projection_is_tracked(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` > 11000
-) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`");
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Filtered_collection_projection_with_to_list_is_tracked(bool isAsync)
@@ -1229,15 +1233,17 @@ ORDER BY `c`.`CustomerID`");
             await base.Filtered_collection_projection_with_to_list_is_tracked(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` > 11000
-) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`");
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task SelectMany_with_collection_being_correlated_subquery_which_references_inner_and_outer_entity(
@@ -1506,16 +1512,16 @@ ORDER BY `e`.`EmployeeID` DESC, `e`.`City`
             await base.Reverse_in_subquery_via_pushdown(async);
 
             AssertSql(
-"""
-SELECT `t0`.`EmployeeID`, `t0`.`City`
+                """
+SELECT `e1`.`EmployeeID`, `e1`.`City`
 FROM (
-    SELECT DISTINCT `t`.`EmployeeID`, `t`.`City`, `t`.`Country`, `t`.`FirstName`, `t`.`ReportsTo`, `t`.`Title`
+    SELECT DISTINCT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
     FROM (
         SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
         FROM `Employees` AS `e`
         ORDER BY `e`.`EmployeeID` DESC
-    ) AS `t`
-) AS `t0`
+    ) AS `e0`
+) AS `e1`
 """);
         }
 
@@ -1524,14 +1530,14 @@ FROM (
             await base.Reverse_after_orderBy_and_take(async);
 
             AssertSql(
-"""
-SELECT `t`.`EmployeeID`, `t`.`City`
+                """
+SELECT `e0`.`EmployeeID`, `e0`.`City`
 FROM (
     SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
-) AS `t`
-ORDER BY `t`.`EmployeeID` DESC
+) AS `e0`
+ORDER BY `e0`.`EmployeeID` DESC
 """);
         }
 
@@ -1553,15 +1559,15 @@ ORDER BY `c`.`City`, `c`.`CustomerID` DESC
             await base.Reverse_in_join_outer_with_take(async);
 
             AssertSql(
-"""
-SELECT `t`.`CustomerID`, `o`.`OrderID`
+                """
+SELECT `c0`.`CustomerID`, `o`.`OrderID`
 FROM (
     SELECT TOP 20 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
-INNER JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`
+) AS `c0`
+INNER JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
 """);
         }
 
@@ -1688,18 +1694,20 @@ ORDER BY `c`.`CustomerID`
             await base.Projection_AsEnumerable_projection(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
+                """
+SELECT `c`.`CustomerID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
     FROM `Orders` AS `o0`
     WHERE `o0`.`OrderID` < 10750
-) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 WHERE (`c`.`CustomerID` LIKE 'A%') AND (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID` AND `o`.`OrderID` < 11000) > 0
-ORDER BY `c`.`CustomerID`");
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Projection_custom_type_in_both_sides_of_ternary(bool async)
@@ -1821,11 +1829,13 @@ OFFSET @__p_0 ROWS");
             await base.Projection_Distinct_projection_preserves_columns_used_for_distinct_in_subquery(async);
 
             AssertSql(
-                @"SELECT (IIF(`t`.`FirstLetter` IS NULL, '', `t`.`FirstLetter`) & ' ') & `t`.`Foo` AS `Aggregate`
+                """
+SELECT (IIF(`c0`.`FirstLetter` IS NULL, '', `c0`.`FirstLetter`) & ' ') & `c0`.`Foo` AS `Aggregate`
 FROM (
     SELECT DISTINCT `c`.`CustomerID`, MID(`c`.`CustomerID`, 0 + 1, 1) AS `FirstLetter`, 'Foo' AS `Foo`
     FROM `Customers` AS `c`
-) AS `t`");
+) AS `c0`
+""");
         }
 
         public override async Task Projection_take_predicate_projection(bool async)
@@ -1834,15 +1844,15 @@ FROM (
 
             AssertSql(
                 """
-    SELECT (`t`.`CustomerID` & ' ') & IIF(`t`.`City` IS NULL, '', `t`.`City`) AS `Aggregate`
-    FROM (
-        SELECT TOP 10 `c`.`CustomerID`, `c`.`City`
-        FROM `Customers` AS `c`
-        ORDER BY `c`.`CustomerID`
-    ) AS `t`
-    WHERE `t`.`CustomerID` LIKE 'A%'
-    ORDER BY `t`.`CustomerID`
-    """);
+SELECT (`c0`.`CustomerID` & ' ') & IIF(`c0`.`City` IS NULL, '', `c0`.`City`) AS `Aggregate`
+FROM (
+    SELECT TOP 10 `c`.`CustomerID`, `c`.`City`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+WHERE `c0`.`CustomerID` LIKE 'A%'
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Do_not_erase_projection_mapping_when_adding_single_projection(bool async)
@@ -2137,17 +2147,19 @@ ORDER BY `t`.`CustomerID`, `t0`.`OrderDate`, `t0`.`OrderID`");
             await base.Client_projection_via_ctor_arguments(async);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `t`.`City`, `o0`.`OrderID`, `o0`.`OrderDate`, `t`.`c`
+                """
+SELECT `c0`.`CustomerID`, `c0`.`City`, `o`.`OrderID`, `o`.`OrderDate`, `c0`.`c`
 FROM (
     SELECT TOP 2 `c`.`CustomerID`, `c`.`City`, (
         SELECT COUNT(*)
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` = 'ALFKI'
-) AS `t`
-LEFT JOIN `Orders` AS `o0` ON `t`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `t`.`CustomerID`");
+) AS `c0`
+LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Client_projection_with_string_initialization_with_scalar_subquery(bool async)
@@ -2214,19 +2226,19 @@ FROM `Customers` AS `c`
             await base.Projection_when_arithmetic_mixed_subqueries(async);
 
             AssertSql(
-"""
-SELECT CLNG(`t0`.`EmployeeID`) + CLNG(`t`.`OrderID`), `t0`.`EmployeeID`, `t0`.`City`, `t0`.`Country`, `t0`.`FirstName`, `t0`.`ReportsTo`, `t0`.`Title`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID` MOD 2
+                """
+SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`), `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o0`.`OrderID` MOD 2
 FROM (
     SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-) AS `t`,
+) AS `o0`,
 (
     SELECT TOP 2 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
-) AS `t0`
-ORDER BY `t`.`OrderID`
+) AS `e0`
+ORDER BY `o0`.`OrderID`
 """);
         }
 
@@ -2418,15 +2430,17 @@ ORDER BY [t0].[CustomerID], [t0].[Complex]
             await base.List_of_list_of_anonymous_type(async);
 
             AssertSql(
-                @"SELECT `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`, `t`.`ProductID`
+                """
+SELECT `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`ProductID`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `o`.`OrderID`, `o0`.`OrderID` AS `OrderID0`, `o0`.`ProductID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`");
+ORDER BY `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`
+""");
         }
 
         public override async Task List_from_result_of_single_result(bool async)
@@ -2434,14 +2448,16 @@ ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`");
             await base.List_from_result_of_single_result(async);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `o`.`OrderID`
+                """
+SELECT `c0`.`CustomerID`, `o`.`OrderID`
 FROM (
     SELECT TOP 1 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
-LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`");
+) AS `c0`
+LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task List_from_result_of_single_result_2(bool async)
@@ -2449,14 +2465,16 @@ ORDER BY `t`.`CustomerID`");
             await base.List_from_result_of_single_result_2(async);
 
             AssertSql(
-                @"SELECT `t`.`CustomerID`, `o`.`OrderID`, `o`.`OrderDate`
+                """
+SELECT `c0`.`CustomerID`, `o`.`OrderID`, `o`.`OrderDate`
 FROM (
     SELECT TOP 1 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
-LEFT JOIN `Orders` AS `o` ON `t`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `t`.`CustomerID`");
+) AS `c0`
+LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task List_from_result_of_single_result_3(bool async)

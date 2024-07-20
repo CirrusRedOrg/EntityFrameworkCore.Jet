@@ -62,7 +62,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             instance!,
                         },
                         false,
-                        new[] { false },
+                        new[] { false, false },
                         returnType);
                     if (datePart == "w")
                     {
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 return member.Name switch
                 {
                     nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
-                        false, new[] { false }, returnType),
+                        false, [], returnType),
                     nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function(
                     "DATEADD",
                     new SqlExpression[]
@@ -85,7 +85,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         new SqlConstantExpression("n", null),
                         new SqlConstantExpression(-1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes, null) ,
                         _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
-                            false, new[] { false }, returnType)
+                            false, [], returnType)
                     },
                     true,
                     argumentsPropagateNullability: new[] { false, false, true },
@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         "DATEVALUE",
                         new[]
                         {
-                            _sqlExpressionFactory.Function("DATE", Array.Empty<SqlExpression>(), false, new[] { false },
+                            _sqlExpressionFactory.Function("DATE", Array.Empty<SqlExpression>(), false, [],
                                 returnType)
                         },
                         false,

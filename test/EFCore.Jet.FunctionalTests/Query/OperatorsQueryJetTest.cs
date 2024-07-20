@@ -26,21 +26,46 @@ public class OperatorsQueryJetTest : OperatorsQueryTestBase
     {
         await base.Bitwise_and_on_expression_with_like_and_null_check_being_compared_to_false();
 
-        AssertSql("");
+        AssertSql(
+            """
+SELECT `o`.`Value` AS `Value1`, `o0`.`Value` AS `Value2`, `o1`.`Value` AS `Value3`
+FROM `OperatorEntityString` AS `o`,
+`OperatorEntityString` AS `o0`,
+`OperatorEntityBool` AS `o1`
+WHERE (((`o0`.`Value` LIKE 'B') AND `o0`.`Value` IS NOT NULL) OR `o1`.`Value` = TRUE) AND `o`.`Value` IS NOT NULL
+ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
+""");
     }
 
     public override async Task Complex_predicate_with_bitwise_and_modulo_and_negation()
     {
         await base.Complex_predicate_with_bitwise_and_modulo_and_negation();
 
-        AssertSql("");
+        AssertSql(
+            """
+SELECT `o`.`Value` AS `Value0`, `o0`.`Value` AS `Value1`, `o1`.`Value` AS `Value2`, `o2`.`Value` AS `Value3`
+FROM `OperatorEntityLong` AS `o`,
+`OperatorEntityLong` AS `o0`,
+`OperatorEntityLong` AS `o1`,
+`OperatorEntityLong` AS `o2`
+WHERE (((`o0`.`Value` MOD 2) / `o`.`Value`) BAND (((`o2`.`Value` BOR `o1`.`Value`) - `o`.`Value`) - (`o1`.`Value` * `o1`.`Value`))) >= (((`o0`.`Value` /  (BNOT`o2`.`Value`)) MOD 2) MOD ( (BNOT`o`.`Value`) + 1))
+ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`, `o2`.`Id`
+""");
     }
 
     public override async Task Complex_predicate_with_bitwise_and_arithmetic_operations()
     {
         await base.Complex_predicate_with_bitwise_and_arithmetic_operations();
 
-        AssertSql("");
+        AssertSql(
+            """
+SELECT `o`.`Value` AS `Value0`, `o0`.`Value` AS `Value1`, `o1`.`Value` AS `Value2`
+FROM `OperatorEntityInt` AS `o`,
+`OperatorEntityInt` AS `o0`,
+`OperatorEntityBool` AS `o1`
+WHERE (((`o0`.`Value` BAND (`o`.`Value` + `o`.`Value`)) BAND `o`.`Value`) \ 1) > (`o0`.`Value` BAND 10) AND `o1`.`Value` = TRUE
+ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
+""");
     }
 
     public override async Task Projection_with_not_and_negation_on_integer()

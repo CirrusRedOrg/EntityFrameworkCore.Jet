@@ -44,14 +44,14 @@ ORDER BY `o`.`Id`, `t`.`Id`, `t0`.`ClientId`, `t0`.`Id`, `t0`.`OrderClientId`, `
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -70,15 +70,15 @@ FROM `OwnedPerson` AS `o`");
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` IN ('Branch', 'LeafA')
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -88,15 +88,15 @@ ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` IN ('Branch', 'LeafA')
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -106,15 +106,15 @@ ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` = 'LeafA'
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -123,22 +123,22 @@ ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
             await base.Query_when_subquery(isAsync);
 
             AssertSql(
-"""
-SELECT `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t1`.`ClientId`, `t1`.`Id`, `t1`.`OrderDate`, `t1`.`OrderClientId`, `t1`.`OrderId`, `t1`.`Id0`, `t1`.`Detail`, `t0`.`PersonAddress_AddressLine`, `t0`.`PersonAddress_PlaceType`, `t0`.`PersonAddress_ZipCode`, `t0`.`PersonAddress_Country_Name`, `t0`.`PersonAddress_Country_PlanetId`, `t0`.`BranchAddress_BranchName`, `t0`.`BranchAddress_PlaceType`, `t0`.`BranchAddress_Country_Name`, `t0`.`BranchAddress_Country_PlanetId`, `t0`.`LeafBAddress_LeafBType`, `t0`.`LeafBAddress_PlaceType`, `t0`.`LeafBAddress_Country_Name`, `t0`.`LeafBAddress_Country_PlanetId`, `t0`.`LeafAAddress_LeafType`, `t0`.`LeafAAddress_PlaceType`, `t0`.`LeafAAddress_Country_Name`, `t0`.`LeafAAddress_Country_PlanetId`
+                """
+SELECT `o3`.`Id`, `o3`.`Discriminator`, `o3`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o3`.`PersonAddress_AddressLine`, `o3`.`PersonAddress_PlaceType`, `o3`.`PersonAddress_ZipCode`, `o3`.`PersonAddress_Country_Name`, `o3`.`PersonAddress_Country_PlanetId`, `o3`.`BranchAddress_BranchName`, `o3`.`BranchAddress_PlaceType`, `o3`.`BranchAddress_Country_Name`, `o3`.`BranchAddress_Country_PlanetId`, `o3`.`LeafBAddress_LeafBType`, `o3`.`LeafBAddress_PlaceType`, `o3`.`LeafBAddress_Country_Name`, `o3`.`LeafBAddress_Country_PlanetId`, `o3`.`LeafAAddress_LeafType`, `o3`.`LeafAAddress_PlaceType`, `o3`.`LeafAAddress_Country_Name`, `o3`.`LeafAAddress_Country_PlanetId`
 FROM (
-    SELECT TOP 5 `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`PersonAddress_AddressLine`, `t`.`PersonAddress_PlaceType`, `t`.`PersonAddress_ZipCode`, `t`.`PersonAddress_Country_Name`, `t`.`PersonAddress_Country_PlanetId`, `t`.`BranchAddress_BranchName`, `t`.`BranchAddress_PlaceType`, `t`.`BranchAddress_Country_Name`, `t`.`BranchAddress_Country_PlanetId`, `t`.`LeafBAddress_LeafBType`, `t`.`LeafBAddress_PlaceType`, `t`.`LeafBAddress_Country_Name`, `t`.`LeafBAddress_Country_PlanetId`, `t`.`LeafAAddress_LeafType`, `t`.`LeafAAddress_PlaceType`, `t`.`LeafAAddress_Country_Name`, `t`.`LeafAAddress_Country_PlanetId`
+    SELECT TOP 5 `o0`.`Id`, `o0`.`Discriminator`, `o0`.`Name`, `o0`.`PersonAddress_AddressLine`, `o0`.`PersonAddress_PlaceType`, `o0`.`PersonAddress_ZipCode`, `o0`.`PersonAddress_Country_Name`, `o0`.`PersonAddress_Country_PlanetId`, `o0`.`BranchAddress_BranchName`, `o0`.`BranchAddress_PlaceType`, `o0`.`BranchAddress_Country_Name`, `o0`.`BranchAddress_Country_PlanetId`, `o0`.`LeafBAddress_LeafBType`, `o0`.`LeafBAddress_PlaceType`, `o0`.`LeafBAddress_Country_Name`, `o0`.`LeafBAddress_Country_PlanetId`, `o0`.`LeafAAddress_LeafType`, `o0`.`LeafAAddress_PlaceType`, `o0`.`LeafAAddress_Country_Name`, `o0`.`LeafAAddress_Country_PlanetId`
     FROM (
         SELECT DISTINCT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
         FROM `OwnedPerson` AS `o`
-    ) AS `t`
-    ORDER BY `t`.`Id`
-) AS `t0`
+    ) AS `o0`
+    ORDER BY `o0`.`Id`
+) AS `o3`
 LEFT JOIN (
-    SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
-    FROM `Order` AS `o0`
-    LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t1` ON `t0`.`Id` = `t1`.`ClientId`
-ORDER BY `t0`.`Id`, `t1`.`ClientId`, `t1`.`Id`, `t1`.`OrderClientId`, `t1`.`OrderId`
+    SELECT `o1`.`ClientId`, `o1`.`Id`, `o1`.`OrderDate`, `o2`.`OrderClientId`, `o2`.`OrderId`, `o2`.`Id` AS `Id0`, `o2`.`Detail`
+    FROM `Order` AS `o1`
+    LEFT JOIN `OrderDetail` AS `o2` ON `o1`.`ClientId` = `o2`.`OrderClientId` AND `o1`.`Id` = `o2`.`OrderId`
+) AS `s` ON `o3`.`Id` = `s`.`ClientId`
+ORDER BY `o3`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -158,15 +158,15 @@ WHERE `o`.`PersonAddress_Country_Name` = 'USA'");
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`PersonAddress_Country_Name` = 'USA'
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -176,18 +176,18 @@ ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`
+SELECT `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o1`.`ClientId`, `o1`.`Id`, `o1`.`OrderDate`, `o2`.`OrderClientId`, `o2`.`OrderId`, `o2`.`Id` AS `Id0`, `o2`.`Detail`
     FROM `Order` AS `o1`
     LEFT JOIN `OrderDetail` AS `o2` ON `o1`.`ClientId` = `o2`.`OrderClientId` AND `o1`.`Id` = `o2`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE (
     SELECT COUNT(*)
     FROM `Order` AS `o0`
     WHERE `o`.`Id` = `o0`.`ClientId`) > 0
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -252,17 +252,17 @@ LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
             await base.Filter_owned_entity_chained_with_regular_entity_followed_by_projecting_owned_collection(isAsync);
 
             AssertSql(
-"""
-SELECT `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`
+                """
+SELECT `o`.`Id`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `p`.`Id` <> 42 OR `p`.`Id` IS NULL
-ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -272,15 +272,15 @@ ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `p`.`Name`, `p`.`StarId`
+SELECT `o`.`Id`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `p`.`Name`, `p`.`StarId`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
-ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
+ORDER BY `o`.`Id`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -308,17 +308,17 @@ ORDER BY `o`.`Id`
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_filter(isAsync);
 
             AssertSql(
-"""
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+                """
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `p`.`Id` <> 7 OR `p`.`Id` IS NULL
-ORDER BY `o`.`Id`, `p`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -420,15 +420,15 @@ ORDER BY `o`.`Id`, `p`.`Id`, `s`.`Id`");
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` = 'LeafA'
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -437,28 +437,25 @@ ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
             await base.Preserve_includes_when_applying_skip_take_after_anonymous_type_select(isAsync);
 
             AssertSql(
-"""
-SELECT COUNT(*)
-FROM `OwnedPerson` AS `o`
-""",
-                //
                 """
-SELECT `t0`.`Id`, `t0`.`Discriminator`, `t0`.`Name`, `t1`.`ClientId`, `t1`.`Id`, `t1`.`OrderDate`, `t1`.`OrderClientId`, `t1`.`OrderId`, `t1`.`Id0`, `t1`.`Detail`, `t0`.`PersonAddress_AddressLine`, `t0`.`PersonAddress_PlaceType`, `t0`.`PersonAddress_ZipCode`, `t0`.`PersonAddress_Country_Name`, `t0`.`PersonAddress_Country_PlanetId`, `t0`.`BranchAddress_BranchName`, `t0`.`BranchAddress_PlaceType`, `t0`.`BranchAddress_Country_Name`, `t0`.`BranchAddress_Country_PlanetId`, `t0`.`LeafBAddress_LeafBType`, `t0`.`LeafBAddress_PlaceType`, `t0`.`LeafBAddress_Country_Name`, `t0`.`LeafBAddress_Country_PlanetId`, `t0`.`LeafAAddress_LeafType`, `t0`.`LeafAAddress_PlaceType`, `t0`.`LeafAAddress_Country_Name`, `t0`.`LeafAAddress_Country_PlanetId`
+SELECT `o4`.`Id`, `o4`.`Discriminator`, `o4`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o4`.`PersonAddress_AddressLine`, `o4`.`PersonAddress_PlaceType`, `o4`.`PersonAddress_ZipCode`, `o4`.`PersonAddress_Country_Name`, `o4`.`PersonAddress_Country_PlanetId`, `o4`.`BranchAddress_BranchName`, `o4`.`BranchAddress_PlaceType`, `o4`.`BranchAddress_Country_Name`, `o4`.`BranchAddress_Country_PlanetId`, `o4`.`LeafBAddress_LeafBType`, `o4`.`LeafBAddress_PlaceType`, `o4`.`LeafBAddress_Country_Name`, `o4`.`LeafBAddress_Country_PlanetId`, `o4`.`LeafAAddress_LeafType`, `o4`.`LeafAAddress_PlaceType`, `o4`.`LeafAAddress_Country_Name`, `o4`.`LeafAAddress_Country_PlanetId`, `o4`.`c`
 FROM (
-    SELECT TOP 100 `t`.`Id`, `t`.`Discriminator`, `t`.`Name`, `t`.`PersonAddress_AddressLine`, `t`.`PersonAddress_PlaceType`, `t`.`PersonAddress_ZipCode`, `t`.`PersonAddress_Country_Name`, `t`.`PersonAddress_Country_PlanetId`, `t`.`BranchAddress_BranchName`, `t`.`BranchAddress_PlaceType`, `t`.`BranchAddress_Country_Name`, `t`.`BranchAddress_Country_PlanetId`, `t`.`LeafBAddress_LeafBType`, `t`.`LeafBAddress_PlaceType`, `t`.`LeafBAddress_Country_Name`, `t`.`LeafBAddress_Country_PlanetId`, `t`.`LeafAAddress_LeafType`, `t`.`LeafAAddress_PlaceType`, `t`.`LeafAAddress_Country_Name`, `t`.`LeafAAddress_Country_PlanetId`
+    SELECT TOP 100 `o3`.`Id`, `o3`.`Discriminator`, `o3`.`Name`, `o3`.`PersonAddress_AddressLine`, `o3`.`PersonAddress_PlaceType`, `o3`.`PersonAddress_ZipCode`, `o3`.`PersonAddress_Country_Name`, `o3`.`PersonAddress_Country_PlanetId`, `o3`.`BranchAddress_BranchName`, `o3`.`BranchAddress_PlaceType`, `o3`.`BranchAddress_Country_Name`, `o3`.`BranchAddress_Country_PlanetId`, `o3`.`LeafBAddress_LeafBType`, `o3`.`LeafBAddress_PlaceType`, `o3`.`LeafBAddress_Country_Name`, `o3`.`LeafBAddress_Country_PlanetId`, `o3`.`LeafAAddress_LeafType`, `o3`.`LeafAAddress_PlaceType`, `o3`.`LeafAAddress_Country_Name`, `o3`.`LeafAAddress_Country_PlanetId`, `o3`.`c`
     FROM (
-        SELECT TOP 100 `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+        SELECT TOP 100 `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`, (
+            SELECT COUNT(*)
+            FROM `OwnedPerson` AS `o2`) AS `c`
         FROM `OwnedPerson` AS `o`
         ORDER BY `o`.`Id`
-    ) AS `t`
-    ORDER BY `t`.`Id` DESC
-) AS `t0`
+    ) AS `o3`
+    ORDER BY `o3`.`Id` DESC
+) AS `o4`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t1` ON `t0`.`Id` = `t1`.`ClientId`
-ORDER BY `t0`.`Id`, `t1`.`ClientId`, `t1`.`Id`, `t1`.`OrderClientId`, `t1`.`OrderId`
+) AS `s` ON `o4`.`Id` = `s`.`ClientId`
+ORDER BY `o4`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 
@@ -468,15 +465,15 @@ ORDER BY `t0`.`Id`, `t1`.`ClientId`, `t1`.`Id`, `t1`.`OrderClientId`, `t1`.`Orde
 
             AssertSql(
                 """
-SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderDate`, `t`.`OrderClientId`, `t`.`OrderId`, `t`.`Id0`, `t`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
 FROM `OwnedPerson` AS `o`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-) AS `t` ON `o`.`Id` = `t`.`ClientId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Id` = 1
-ORDER BY `o`.`Id`, `t`.`ClientId`, `t`.`Id`, `t`.`OrderClientId`, `t`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
 

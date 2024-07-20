@@ -972,19 +972,19 @@ FROM `Customers` AS `c`
             await base.Min_over_nested_subquery_is_client_eval(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT MIN((
     SELECT MIN(5 + (
         SELECT MIN(`o0`.`ProductID`)
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`))
     FROM `Orders` AS `o`
-    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
     SELECT TOP 3 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
+) AS `c0`
 """);
         }
 
@@ -993,19 +993,19 @@ FROM (
             await base.Min_over_max_subquery_is_client_eval(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT MIN((
     SELECT MIN(5 + (
         SELECT MAX(`o0`.`ProductID`)
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`))
     FROM `Orders` AS `o`
-    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
     SELECT TOP 3 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
+) AS `c0`
 """);
         }
 
@@ -1056,19 +1056,19 @@ FROM `Customers` AS `c`
             await base.Max_over_nested_subquery_is_client_eval(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT MAX((
     SELECT MAX(5 + (
         SELECT MAX(`o0`.`ProductID`)
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`))
     FROM `Orders` AS `o`
-    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
     SELECT TOP 3 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
+) AS `c0`
 """);
         }
 
@@ -1077,19 +1077,19 @@ FROM (
             await base.Max_over_sum_subquery_is_client_eval(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT MAX((
     SELECT MAX(5 + (
         SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`))
     FROM `Orders` AS `o`
-    WHERE `t`.`CustomerID` = `o`.`CustomerID`))
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
     SELECT TOP 3 `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
+) AS `c0`
 """);
         }
 
@@ -1178,12 +1178,14 @@ FROM `Customers` AS `c`");
             await base.Distinct_OrderBy(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`Country`
+                """
+SELECT `c0`.`Country`
 FROM (
     SELECT DISTINCT `c`.`Country`
     FROM `Customers` AS `c`
-) AS `t`
-ORDER BY `t`.`Country`");
+) AS `c0`
+ORDER BY `c0`.`Country`
+""");
         }
 
         public override async Task Distinct_OrderBy2(bool isAsync)
@@ -1191,12 +1193,14 @@ ORDER BY `t`.`Country`");
             await base.Distinct_OrderBy2(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+                """
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-) AS `t`
-ORDER BY `t`.`CustomerID`");
+) AS `c0`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Distinct_OrderBy3(bool isAsync)
@@ -1204,12 +1208,14 @@ ORDER BY `t`.`CustomerID`");
             await base.Distinct_OrderBy3(isAsync);
 
             AssertSql(
-                $@"SELECT `t`.`CustomerID`
+                """
+SELECT `c0`.`CustomerID`
 FROM (
     SELECT DISTINCT `c`.`CustomerID`
     FROM `Customers` AS `c`
-) AS `t`
-ORDER BY `t`.`CustomerID`");
+) AS `c0`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Distinct_Count(bool isAsync)
@@ -1217,11 +1223,13 @@ ORDER BY `t`.`CustomerID`");
             await base.Distinct_Count(isAsync);
 
             AssertSql(
-                $@"SELECT COUNT(*)
+                """
+SELECT COUNT(*)
 FROM (
     SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-) AS `t`");
+) AS `c0`
+""");
         }
 
         public override async Task Select_Select_Distinct_Count(bool isAsync)
@@ -1229,11 +1237,13 @@ FROM (
             await base.Select_Select_Distinct_Count(isAsync);
 
             AssertSql(
-                $@"SELECT COUNT(*)
+                """
+SELECT COUNT(*)
 FROM (
     SELECT DISTINCT `c`.`City`
     FROM `Customers` AS `c`
-) AS `t`");
+) AS `c0`
+""");
         }
 
         public override async Task Single_Predicate(bool isAsync)
@@ -1935,13 +1945,15 @@ WHERE `o`.`CustomerID` LIKE 'A%'
             await base.OrderBy_Take_Last_gives_correct_result(isAsync);
 
             AssertSql(
-                $@"SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+                """
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `t`
-ORDER BY `t`.`CustomerID` DESC");
+) AS `c0`
+ORDER BY `c0`.`CustomerID` DESC
+""");
         }
 
         public override async Task OrderBy_Skip_Last_gives_correct_result(bool isAsync)
@@ -2434,9 +2446,9 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT COUNT(*)
 FROM (
-    SELECT TOP 1 `o`.`OrderID`
+    SELECT TOP 1 1
     FROM `Orders` AS `o`
-) AS `t`
+) AS `o0`
 """);
         }
 
@@ -2446,7 +2458,8 @@ FROM (
 
             AssertSql(
                 """
-SELECT CAST(1 AS bit)
+SELECT TRUE
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -2456,8 +2469,8 @@ SELECT CAST(1 AS bit)
 
             AssertSql(
                 """
-SELECT [c].[CustomerID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
 """);
         }
 

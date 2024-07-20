@@ -317,15 +317,15 @@ WHERE `c`.`ContactName` LIKE '%M%'");
             await base.String_Join_over_non_nullable_column(async);
 
             AssertSql(
-"""
-SELECT `t`.`City`, `c0`.`CustomerID`
+                """
+SELECT `c1`.`City`, `c0`.`CustomerID`
 FROM (
     SELECT `c`.`City`
     FROM `Customers` AS `c`
     GROUP BY `c`.`City`
-) AS `t`
-LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
-ORDER BY `t`.`City`
+) AS `c1`
+LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -334,15 +334,15 @@ ORDER BY `t`.`City`
             await base.String_Join_over_nullable_column(async);
 
             AssertSql(
-"""
-SELECT `t`.`City`, `c0`.`Region`, `c0`.`CustomerID`
+                """
+SELECT `c1`.`City`, `c0`.`Region`, `c0`.`CustomerID`
 FROM (
     SELECT `c`.`City`
     FROM `Customers` AS `c`
     GROUP BY `c`.`City`
-) AS `t`
-LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
-ORDER BY `t`.`City`
+) AS `c1`
+LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -352,18 +352,18 @@ ORDER BY `t`.`City`
 
             AssertSql(
                 """
-SELECT `t`.`City`, `t0`.`CustomerID`
+SELECT `c1`.`City`, `c2`.`CustomerID`
 FROM (
     SELECT `c`.`City`
     FROM `Customers` AS `c`
     GROUP BY `c`.`City`
-) AS `t`
+) AS `c1`
 LEFT JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`City`
     FROM `Customers` AS `c0`
     WHERE IIF(LEN(`c0`.`ContactName`) IS NULL, NULL, CLNG(LEN(`c0`.`ContactName`))) > 10
-) AS `t0` ON `t`.`City` = `t0`.`City`
-ORDER BY `t`.`City`
+) AS `c2` ON `c1`.`City` = `c2`.`City`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -372,15 +372,15 @@ ORDER BY `t`.`City`
             await base.String_Join_with_ordering(async);
 
             AssertSql(
-"""
-SELECT `t`.`City`, `c0`.`CustomerID`
+                """
+SELECT `c1`.`City`, `c0`.`CustomerID`
 FROM (
     SELECT `c`.`City`
     FROM `Customers` AS `c`
     GROUP BY `c`.`City`
-) AS `t`
-LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
-ORDER BY `t`.`City`, `c0`.`CustomerID` DESC
+) AS `c1`
+LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
+ORDER BY `c1`.`City`, `c0`.`CustomerID` DESC
 """);
         }
 
@@ -389,15 +389,15 @@ ORDER BY `t`.`City`, `c0`.`CustomerID` DESC
             await base.String_Concat(async);
 
             AssertSql(
-"""
-SELECT `t`.`City`, `c0`.`CustomerID`
+                """
+SELECT `c1`.`City`, `c0`.`CustomerID`
 FROM (
     SELECT `c`.`City`
     FROM `Customers` AS `c`
     GROUP BY `c`.`City`
-) AS `t`
-LEFT JOIN `Customers` AS `c0` ON `t`.`City` = `c0`.`City`
-ORDER BY `t`.`City`
+) AS `c1`
+LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -1062,9 +1062,11 @@ WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND LOG(CDBL(`o`.`Discount`))
             await base.Where_math_log_new_base(isAsync);
 
             AssertSql(
-                $@"SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / LOG(7.0)) < 0.0");
+WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / LOG(7.0)) < -1.0
+""");
         }
 
         public override async Task Where_math_sqrt(bool isAsync)
@@ -1360,10 +1362,10 @@ WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND LOG(`o`.`Discount`) < 0
             await base.Where_mathf_log_new_base(async);
 
             AssertSql(
-    """
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(`o`.`Discount`) / LOG(7)) < 0
+WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(`o`.`Discount`) / LOG(7)) < -1
 """);
         }
 
@@ -2376,9 +2378,9 @@ WHERE `o`.`OrderDate` IS NOT NULL AND `o`.`OrderDate` = #1996-09-16#
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE CHARINDEX('123', CONVERT(varchar(11), [o].[OrderID])) - 1 = -1
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE (INSTR(1, (`o`.`OrderID` & ''), '123', 1) - 1) = -1
 """);
         }
 
@@ -2388,12 +2390,9 @@ WHERE CHARINDEX('123', CONVERT(varchar(11), [o].[OrderID])) - 1 = -1
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-WHERE CHARINDEX(CONVERT(varchar(11), [o].[OrderID]), '123') - CASE
-    WHEN CONVERT(varchar(11), [o].[OrderID]) = '' THEN 0
-    ELSE 1
-END = -1
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE IIF((`o`.`OrderID` & '') = '', 0, INSTR(1, '123', (`o`.`OrderID` & ''), 1) - 1) = -1
 """);
         }
 
@@ -2402,12 +2401,9 @@ END = -1
             await base.String_Contains_in_projection(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID] AS [Id], CASE
-    WHEN [c].[ContactName] IS NOT NULL AND (CHARINDEX([c].[ContactName], [c].[CompanyName]) > 0 OR [c].[ContactName] LIKE N'') THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [Value]
-FROM [Customers] AS [c]
+                """
+SELECT `c`.`CustomerID` AS `Id`, IIF(`c`.`ContactName` IS NOT NULL AND (INSTR(1, `c`.`CompanyName`, `c`.`ContactName`, 1) > 0 OR (`c`.`ContactName` LIKE '')), TRUE, FALSE) AS `Value`
+FROM `Customers` AS `c`
 """);
         }
 
@@ -2416,10 +2412,10 @@ FROM [Customers] AS [c]
             await base.String_Contains_negated_in_predicate(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[ContactName] IS NULL OR (CHARINDEX([c].[ContactName], [c].[CompanyName]) <= 0 AND [c].[ContactName] NOT LIKE N'')
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`ContactName` IS NULL OR (INSTR(1, `c`.`CompanyName`, `c`.`ContactName`, 1) <= 0 AND `c`.`ContactName` NOT LIKE '')
 """);
         }
 
@@ -2428,12 +2424,9 @@ WHERE [c].[ContactName] IS NULL OR (CHARINDEX([c].[ContactName], [c].[CompanyNam
             await base.String_Contains_negated_in_projection(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID] AS [Id], CASE
-    WHEN [c].[ContactName] IS NULL OR (CHARINDEX([c].[ContactName], [c].[CompanyName]) <= 0 AND [c].[ContactName] NOT LIKE N'') THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END AS [Value]
-FROM [Customers] AS [c]
+                """
+SELECT `c`.`CustomerID` AS `Id`, IIF(`c`.`ContactName` IS NULL OR (INSTR(1, `c`.`CompanyName`, `c`.`ContactName`, 1) <= 0 AND `c`.`ContactName` NOT LIKE ''), TRUE, FALSE) AS `Value`
+FROM `Customers` AS `c`
 """);
         }
 

@@ -140,8 +140,8 @@ WHERE [c].[ContactName] = N'maria anders' COLLATE Latin1_General_CS_AS
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(year, [o].[OrderDate], GETDATE()) = 0
+FROM `Orders` AS `o`
+WHERE DATEDIFF('yyyy', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
@@ -160,8 +160,8 @@ WHERE DATEDIFF(year, [o].[OrderDate], GETDATE()) = 0
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(month, [o].[OrderDate], GETDATE()) = 0
+FROM `Orders` AS `o`
+WHERE DATEDIFF('m', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
@@ -179,8 +179,8 @@ WHERE DATEDIFF(month, [o].[OrderDate], GETDATE()) = 0
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(day, [o].[OrderDate], GETDATE()) = 0
+FROM `Orders` AS `o`
+WHERE DATEDIFF('d', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
@@ -198,8 +198,8 @@ WHERE DATEDIFF(day, [o].[OrderDate], GETDATE()) = 0
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(hour, [o].[OrderDate], GETDATE()) = 0
+FROM `Orders` AS `o`
+WHERE DATEDIFF('h', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
@@ -217,8 +217,8 @@ WHERE DATEDIFF(hour, [o].[OrderDate], GETDATE()) = 0
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(minute, [o].[OrderDate], GETDATE()) = 0
+FROM `Orders` AS `o`
+WHERE DATEDIFF('n', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
@@ -236,8 +236,8 @@ WHERE DATEDIFF(minute, [o].[OrderDate], GETDATE()) = 0
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Orders] AS [o]
-WHERE DATEDIFF(second, [o].[OrderDate], GETDATE()) = 0
+FROM `Orders` AS `o`
+WHERE DATEDIFF('s', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
@@ -371,9 +371,11 @@ WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
                 ss => ss.Set<Order>().Select(c => false));
 
             AssertSql(
-                $@"SELECT TOP 1 CBOOL(ISDATE(`o`.`CustomerID`))
+                """
+SELECT CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE");
+WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE
+""");
         }
 
         [ConditionalFact]

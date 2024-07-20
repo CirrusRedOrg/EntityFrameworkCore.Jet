@@ -166,10 +166,8 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_conditional_expression_containing_group_key(async);
 
         AssertSql(
-$"""
-@__p_0='False'
-
-SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, CBOOL({AssertSqlHelper.Parameter("@__p_0")}) AS `logicExpression`
+            """
+SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, FALSE AS `logicExpression`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
 """);
@@ -625,14 +623,14 @@ GROUP BY `p`.`Category`
         await base.Whats_new_2021_sample_8(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*)
 FROM (
-    SELECT `f`.`Id`, `f`.`Size`
+    SELECT 1
     FROM `Person` AS `p`
     LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`
     GROUP BY `f`.`Id`, `f`.`Size`
-) AS `t`
+) AS `s`
 """);
     }
 
@@ -641,19 +639,19 @@ FROM (
         await base.Whats_new_2021_sample_12(async);
 
         AssertSql(
-"""
-SELECT `t`.`FirstName`, `t0`.`Id`, `t0`.`Age`, `t0`.`FirstName`, `t0`.`LastName`, `t0`.`MiddleInitial`, `t0`.`Id0`, `t0`.`Age0`, `t0`.`PersonId`, `t0`.`Style`
+            """
+SELECT `p1`.`FirstName`, `s0`.`Id`, `s0`.`Age`, `s0`.`FirstName`, `s0`.`LastName`, `s0`.`MiddleInitial`, `s0`.`Id0`, `s0`.`Age0`, `s0`.`PersonId`, `s0`.`Style`
 FROM (
     SELECT `p`.`FirstName`
     FROM `Person` AS `p`
     GROUP BY `p`.`FirstName`
-) AS `t`
+) AS `p1`
 LEFT JOIN (
     SELECT `p0`.`Id`, `p0`.`Age`, `p0`.`FirstName`, `p0`.`LastName`, `p0`.`MiddleInitial`, `s`.`Id` AS `Id0`, `s`.`Age` AS `Age0`, `s`.`PersonId`, `s`.`Style`
     FROM `Person` AS `p0`
     LEFT JOIN `Shoes` AS `s` ON `p0`.`Id` = `s`.`PersonId`
-) AS `t0` ON `t`.`FirstName` = `t0`.`FirstName`
-ORDER BY `t`.`FirstName`, `t0`.`Id`
+) AS `s0` ON `p1`.`FirstName` = `s0`.`FirstName`
+ORDER BY `p1`.`FirstName`, `s0`.`Id`
 """);
     }
 
@@ -662,20 +660,20 @@ ORDER BY `t`.`FirstName`, `t0`.`Id`
         await base.Whats_new_2021_sample_10(async);
 
         AssertSql(
-"""
-SELECT `t`.`Id`, `t`.`Age`, `t`.`Style`, `t0`.`Id`, `t0`.`Style`, `t0`.`Age`, `t0`.`Id0`
+            """
+SELECT `s1`.`Id`, `s1`.`Age`, `s1`.`Style`, `s2`.`Id`, `s2`.`Style`, `s2`.`Age`, `s2`.`Id0`
 FROM (
     SELECT `p`.`Id`, `s`.`Age`, `s`.`Style`
     FROM `Person` AS `p`
     INNER JOIN `Shoes` AS `s` ON `p`.`Age` = `s`.`Age`
     GROUP BY `p`.`Id`, `s`.`Style`, `s`.`Age`
-) AS `t`
+) AS `s1`
 LEFT JOIN (
     SELECT `s0`.`Id`, `s0`.`Style`, `s0`.`Age`, `p0`.`Id` AS `Id0`
     FROM `Person` AS `p0`
     INNER JOIN `Shoes` AS `s0` ON `p0`.`Age` = `s0`.`Age`
-) AS `t0` ON `t`.`Id` = `t0`.`Id0` AND (`t`.`Style` = `t0`.`Style` OR (`t`.`Style` IS NULL AND `t0`.`Style` IS NULL)) AND `t`.`Age` = `t0`.`Age`
-ORDER BY `t`.`Id`, `t`.`Style`, `t`.`Age`, `t0`.`Id0`
+) AS `s2` ON `s1`.`Id` = `s2`.`Id0` AND (`s1`.`Style` = `s2`.`Style` OR (`s1`.`Style` IS NULL AND `s2`.`Style` IS NULL)) AND `s1`.`Age` = `s2`.`Age`
+ORDER BY `s1`.`Id`, `s1`.`Style`, `s1`.`Age`, `s2`.`Id0`
 """);
     }
 
@@ -684,15 +682,15 @@ ORDER BY `t`.`Id`, `t`.`Style`, `t`.`Age`, `t0`.`Id0`
         await base.Whats_new_2021_sample_13(async);
 
         AssertSql(
-"""
-SELECT `t`.`FirstName`, `t`.`MiddleInitial`, `p0`.`Id`, `p0`.`Age`, `p0`.`FirstName`, `p0`.`LastName`, `p0`.`MiddleInitial`
+            """
+SELECT `p1`.`FirstName`, `p1`.`MiddleInitial`, `p0`.`Id`, `p0`.`Age`, `p0`.`FirstName`, `p0`.`LastName`, `p0`.`MiddleInitial`
 FROM (
     SELECT `p`.`FirstName`, `p`.`MiddleInitial`
     FROM `Person` AS `p`
     GROUP BY `p`.`FirstName`, `p`.`MiddleInitial`
-) AS `t`
-LEFT JOIN `Person` AS `p0` ON (`t`.`FirstName` = `p0`.`FirstName` OR (`t`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)) AND (`t`.`MiddleInitial` = `p0`.`MiddleInitial` OR (`t`.`MiddleInitial` IS NULL AND `p0`.`MiddleInitial` IS NULL))
-ORDER BY `t`.`FirstName`, `t`.`MiddleInitial`, `p0`.`Id`
+) AS `p1`
+LEFT JOIN `Person` AS `p0` ON (`p1`.`FirstName` = `p0`.`FirstName` OR (`p1`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)) AND (`p1`.`MiddleInitial` = `p0`.`MiddleInitial` OR (`p1`.`MiddleInitial` IS NULL AND `p0`.`MiddleInitial` IS NULL))
+ORDER BY `p1`.`FirstName`, `p1`.`MiddleInitial`, `p0`.`Id`
 """);
     }
 
@@ -701,14 +699,14 @@ ORDER BY `t`.`FirstName`, `t`.`MiddleInitial`, `p0`.`Id`
         await base.Cross_Join_with_Group_Join_from_LINQ_101(async);
 
         AssertSql(
-"""
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `t`.`Id`
+            """
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`
 FROM `CustomerForLinq` AS `c`
 INNER JOIN (
     SELECT `o`.`Id`, `c0`.`Id` AS `Id0`
     FROM `OrderForLinq` AS `o`
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
-) AS `t` ON `c`.`Id` = `t`.`Id0`
+) AS `s` ON `c`.`Id` = `s`.`Id0`
 """);
     }
 
@@ -860,16 +858,16 @@ GROUP BY `s`.`Style`
         await base.Left_Outer_Join_with_Group_Join_from_LINQ_101(async);
 
         AssertSql(
-"""
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `t`.`Id`, `t`.`Id0`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`t`.`Id` IS NULL, -1, `t`.`Id`)
+            """
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`Id0`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`s`.`Id` IS NULL, -1, `s`.`Id`)
 FROM (`CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `c0`.`Id` AS `Id0`
     FROM `OrderForLinq` AS `o`
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
-) AS `t` ON `c`.`Id` = `t`.`Id0`)
+) AS `s` ON `c`.`Id` = `s`.`Id0`)
 LEFT JOIN `OrderForLinq` AS `o0` ON `c`.`Id` = `o0`.`CustomerId`
-ORDER BY `c`.`Id`, `t`.`Id`, `t`.`Id0`
+ORDER BY `c`.`Id`, `s`.`Id`, `s`.`Id0`
 """);
     }
 

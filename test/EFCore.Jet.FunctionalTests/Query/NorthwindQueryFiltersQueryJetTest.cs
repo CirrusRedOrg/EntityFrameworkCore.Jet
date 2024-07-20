@@ -137,24 +137,24 @@ WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPre
             await base.Include_query(async);
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`CustomerID0`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`CustomerID0`
 FROM `Customers` AS `c`
 LEFT JOIN (
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`CustomerID` AS `CustomerID0`
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`CustomerID` AS `CustomerID0`
     FROM `Orders` AS `o`
     LEFT JOIN (
         SELECT `c0`.`CustomerID`, `c0`.`CompanyName`
         FROM `Customers` AS `c0`
-        WHERE `c0`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}
-    ) AS `t` ON `o`.`CustomerID` = `t`.`CustomerID`
-    WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
-) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}
-ORDER BY `c`.`CustomerID`, `t0`.`OrderID`
+        WHERE `c0`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith
+    ) AS `c1` ON `o`.`CustomerID` = `c1`.`CustomerID`
+    WHERE `c1`.`CustomerID` IS NOT NULL AND `c1`.`CompanyName` IS NOT NULL
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
+WHERE `c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith
+ORDER BY `c`.`CustomerID`, `s`.`OrderID`
 """);
         }
 
@@ -174,17 +174,17 @@ ORDER BY `c`.`CustomerID`");
             await base.Included_many_to_one_query(async);
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}
-) AS `t` ON `o`.`CustomerID` = `t`.`CustomerID`
-WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
+    WHERE `c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 """);
         }
 
@@ -193,11 +193,11 @@ WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
             await base.Project_reference_that_itself_has_query_filter_with_another_reference(async);
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_1_startswith='B%' (Size = 40)
 @__ef_filter___quantity_0='50'
 
-SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
+SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`
 FROM `Order Details` AS `o`
 INNER JOIN (
     SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
@@ -205,11 +205,11 @@ INNER JOIN (
     LEFT JOIN (
         SELECT `c`.`CustomerID`, `c`.`CompanyName`
         FROM `Customers` AS `c`
-        WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_1_startswith")}
-    ) AS `t` ON `o0`.`CustomerID` = `t`.`CustomerID`
-    WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
-) AS `t0` ON `o`.`OrderID` = `t0`.`OrderID`
-WHERE `o`.`Quantity` > {AssertSqlHelper.Parameter("@__ef_filter___quantity_0")}
+        WHERE `c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_1_startswith
+    ) AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+    WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
+) AS `s` ON `o`.`OrderID` = `s`.`OrderID`
+WHERE `o`.`Quantity` > @__ef_filter___quantity_0
 """);
         }
 
@@ -277,7 +277,7 @@ WHERE `m`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPre
             }
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 
 SELECT `m`.`OrderID`, `m`.`CustomerID`, `m`.`EmployeeID`, `m`.`OrderDate`
@@ -287,9 +287,9 @@ FROM (
 LEFT JOIN (
     SELECT `c`.`CustomerID`, `c`.`CompanyName`
     FROM `Customers` AS `c`
-    WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}
-) AS `t` ON `m`.`CustomerID` = `t`.`CustomerID`
-WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
+    WHERE `c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith
+) AS `c0` ON `m`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 """);
         }
 
@@ -322,7 +322,7 @@ WHERE (`c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPr
             await base.Entity_Equality(async);
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -330,9 +330,9 @@ FROM `Orders` AS `o`
 LEFT JOIN (
     SELECT `c`.`CustomerID`, `c`.`CompanyName`
     FROM `Customers` AS `c`
-    WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}
-) AS `t` ON `o`.`CustomerID` = `t`.`CustomerID`
-WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
+    WHERE `c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 """);
         }
 
@@ -348,17 +348,17 @@ WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
             await base.Included_many_to_one_query2(async);
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
-    WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}
-) AS `t` ON `o`.`CustomerID` = `t`.`CustomerID`
-WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
+    WHERE `c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 """);
         }
 

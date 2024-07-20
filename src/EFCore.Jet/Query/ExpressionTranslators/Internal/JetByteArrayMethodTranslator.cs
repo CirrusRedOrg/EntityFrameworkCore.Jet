@@ -65,7 +65,7 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
                         "RIGHTB",
                         new[] { arguments[1], _sqlExpressionFactory.Constant(1) },
                         nullable: true,
-                        argumentsPropagateNullability: new[] { true, true, true },
+                        argumentsPropagateNullability: new[] { true, true },
                         typeof(byte[]))
                 },
                 nullable: true,
@@ -114,7 +114,7 @@ public class JetByteArrayMethodTranslator : IMethodCallTranslator
                         _sqlExpressionFactory.Constant(0)
                     },
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true, true },
+                    argumentsPropagateNullability: new[] { false, true, true, false },
                     typeof(int)),
                 _sqlExpressionFactory.Constant(0));
         }

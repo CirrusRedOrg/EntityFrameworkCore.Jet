@@ -153,25 +153,25 @@ WHERE ([c].[Capacity] IS NOT NULL) AND ([c].[FuelType] IS NOT NULL)
     {
         await base.Can_change_dependent_instance_non_derived();
         AssertSql(
-$"""
+            """
 @p0='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 @p1='Repair' (Size = 255)
 
 INSERT INTO `LicensedOperators` (`VehicleName`, `LicenseType`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
-"""
-,
-$"""
+VALUES (@p0, @p1);
+""",
+            //
+            """
 @p0='repairman' (Size = 255)
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `Operator_Name` = {AssertSqlHelper.Parameter("@p0")}
-WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
+UPDATE `Vehicles` SET `Operator_Name` = @p0
+WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
-"""
-,
-"""
-SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, IIF(`c`.`Name` IS NOT NULL, 'CompositeVehicle', IIF(`p`.`Name` IS NOT NULL, 'PoweredVehicle', NULL)) AS `Discriminator`, `t`.`Name`, `t`.`Operator_Name`, `t`.`LicenseType`, `t`.`Discriminator`
+""",
+            //
+            """
+SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, IIF(`c`.`Name` IS NOT NULL, 'CompositeVehicle', IIF(`p`.`Name` IS NOT NULL, 'PoweredVehicle', NULL)) AS `Discriminator`, `s`.`Name`, `s`.`Operator_Name`, `s`.`LicenseType`, `s`.`Discriminator`
 FROM ((`Vehicles` AS `v`
 LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
 LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`)
@@ -179,7 +179,7 @@ LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Name`, `l`.`LicenseType`, IIF(`l`.`VehicleName` IS NOT NULL, 'LicensedOperator', NULL) AS `Discriminator`
     FROM `Vehicles` AS `v0`
     LEFT JOIN `LicensedOperators` AS `l` ON `v0`.`Name` = `l`.`VehicleName`
-) AS `t` ON `v`.`Name` = `t`.`Name`
+) AS `s` ON `v`.`Name` = `s`.`Name`
 WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
 """);
     }
@@ -189,17 +189,17 @@ WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
         await base.Can_change_principal_instance_non_derived();
 
         AssertSql(
-$"""
+            """
 @p0='2'
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}
-WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
+UPDATE `Vehicles` SET `SeatingCapacity` = @p0
+WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
-"""
-,
-"""
-SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, IIF(`c`.`Name` IS NOT NULL, 'CompositeVehicle', IIF(`p`.`Name` IS NOT NULL, 'PoweredVehicle', NULL)) AS `Discriminator`, `t`.`Name`, `t`.`Operator_Name`, `t`.`LicenseType`, `t`.`Discriminator`
+""",
+            //
+            """
+SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, IIF(`c`.`Name` IS NOT NULL, 'CompositeVehicle', IIF(`p`.`Name` IS NOT NULL, 'PoweredVehicle', NULL)) AS `Discriminator`, `s`.`Name`, `s`.`Operator_Name`, `s`.`LicenseType`, `s`.`Discriminator`
 FROM ((`Vehicles` AS `v`
 LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
 LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`)
@@ -207,7 +207,7 @@ LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Name`, `l`.`LicenseType`, IIF(`l`.`VehicleName` IS NOT NULL, 'LicensedOperator', NULL) AS `Discriminator`
     FROM `Vehicles` AS `v0`
     LEFT JOIN `LicensedOperators` AS `l` ON `v0`.`Name` = `l`.`VehicleName`
-) AS `t` ON `v`.`Name` = `t`.`Name`
+) AS `s` ON `v`.`Name` = `s`.`Name`
 WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
 """);
     }

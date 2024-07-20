@@ -111,7 +111,7 @@ COMMIT TRANSACTION;
 
 BEGIN TRANSACTION;
 
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, ' ', 'Value With
+INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, 3, 'Value With
 
 Empty Lines')
 

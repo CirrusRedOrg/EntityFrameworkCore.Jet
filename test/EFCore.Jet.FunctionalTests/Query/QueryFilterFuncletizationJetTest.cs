@@ -184,25 +184,31 @@ WHERE `c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")} 
             base.DbContext_property_based_filter_does_not_short_circuit();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='False'")}
-{AssertSqlHelper.Declaration("@__ef_filter__IsModerated_1='True' (Nullable = true)")}
+                """
+@__ef_filter__p_1='False'
+@__ef_filter__IsModerated_0='True' (Nullable = true)
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`)",
+WHERE `s`.`IsDeleted` <> TRUE AND (@__ef_filter__p_1 = TRUE OR @__ef_filter__IsModerated_0 = `s`.`IsModerated`)
+""",
                 //
-                $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='False'")}
-{AssertSqlHelper.Declaration("@__ef_filter__IsModerated_1='False' (Nullable = true)")}
+                """
+@__ef_filter__p_1='False'
+@__ef_filter__IsModerated_0='False' (Nullable = true)
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_0")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_1")} = `s`.`IsModerated`)",
+WHERE `s`.`IsDeleted` <> TRUE AND (@__ef_filter__p_1 = TRUE OR @__ef_filter__IsModerated_0 = `s`.`IsModerated`)
+""",
                 //
-                $@"{AssertSqlHelper.Declaration("@__ef_filter__p_0='True'")}
+                """
+@__ef_filter__p_1='True'
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND {AssertSqlHelper.Parameter("@__ef_filter__p_0")} = TRUE");
+WHERE `s`.`IsDeleted` <> TRUE AND @__ef_filter__p_1 = TRUE
+""");
         }
 
         public override void EntityTypeConfiguration_DbContext_field_is_parameterized()

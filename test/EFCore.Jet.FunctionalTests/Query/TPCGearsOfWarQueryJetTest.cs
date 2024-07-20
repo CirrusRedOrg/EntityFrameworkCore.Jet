@@ -731,16 +731,16 @@ WHERE (`u`.`Rank` BOR 2) > 0
         await base.Bitwise_projects_values_in_select(async);
 
         AssertSql(
-"""
-SELECT TOP 1 IIF((`t`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `BitwiseTrue`, IIF((`t`.`Rank` BAND 2) = 4, TRUE, FALSE) AS `BitwiseFalse`, `t`.`Rank` BAND 2 AS `BitwiseValue`
+            """
+SELECT TOP 1 IIF((`u`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `BitwiseTrue`, IIF((`u`.`Rank` BAND 2) = 4, TRUE, FALSE) AS `BitwiseFalse`, `u`.`Rank` BAND 2 AS `BitwiseValue`
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
     UNION ALL
     SELECT `o`.`Rank`
     FROM `Officers` AS `o`
-) AS `t`
-WHERE (`t`.`Rank` BAND 2) = 2
+) AS `u`
+WHERE (`u`.`Rank` BAND 2) = 2
 """);
     }
 
@@ -1088,16 +1088,16 @@ WHERE (`u`.`Rank` BAND @__parameter_0) = @__parameter_0
         await base.Select_enum_has_flag(async);
 
         AssertSql(
-"""
-SELECT TOP 1 IIF((`t`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `hasFlagTrue`, IIF((`t`.`Rank` BAND 4) = 4, TRUE, FALSE) AS `hasFlagFalse`
+            """
+SELECT TOP 1 IIF((`u`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `hasFlagTrue`, IIF((`u`.`Rank` BAND 4) = 4, TRUE, FALSE) AS `hasFlagFalse`
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
     UNION ALL
     SELECT `o`.`Rank`
     FROM `Officers` AS `o`
-) AS `t`
-WHERE (`t`.`Rank` BAND 2) = 2
+) AS `u`
+WHERE (`u`.`Rank` BAND 2) = 2
 """);
     }
 
@@ -4320,21 +4320,21 @@ ORDER BY `u`.`FullName`
         await base.Subquery_with_result_operator_is_not_lifted(async);
 
         AssertSql(
-"""
-SELECT `t0`.`FullName`
+            """
+SELECT `u0`.`FullName`
 FROM (
-    SELECT TOP 2 `t`.`FullName`, `t`.`Rank`
+    SELECT TOP 2 `u`.`FullName`, `u`.`Rank`
     FROM (
         SELECT `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`Rank`
         FROM `Gears` AS `g`
         UNION ALL
         SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
         FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `t`.`HasSoulPatch` <> TRUE
-    ORDER BY `t`.`FullName`
-) AS `t0`
-ORDER BY `t0`.`Rank`
+    ) AS `u`
+    WHERE `u`.`HasSoulPatch` <> TRUE
+    ORDER BY `u`.`FullName`
+) AS `u0`
+ORDER BY `u0`.`Rank`
 """);
     }
 
@@ -4417,20 +4417,20 @@ ORDER BY [t0].[Rank]
         await base.Take_without_orderby_followed_by_orderBy_is_pushed_down3(async);
 
         AssertSql(
-"""
-SELECT `t0`.`FullName`
+            """
+SELECT `u0`.`FullName`
 FROM (
-    SELECT TOP 999 `t`.`FullName`, `t`.`Rank`
+    SELECT TOP 999 `u`.`FullName`, `u`.`Rank`
     FROM (
         SELECT `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`Rank`
         FROM `Gears` AS `g`
         UNION ALL
         SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
         FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `t`.`HasSoulPatch` <> TRUE
-) AS `t0`
-ORDER BY `t0`.`FullName`, `t0`.`Rank`
+    ) AS `u`
+    WHERE `u`.`HasSoulPatch` <> TRUE
+) AS `u0`
+ORDER BY `u0`.`FullName`, `u0`.`Rank`
 """);
     }
 
@@ -7158,26 +7158,26 @@ ORDER BY `u0`.`Nickname`, `u0`.`SquadId`, `w0`.`Id`
     {
         await base.Project_one_value_type_from_empty_collection(async);
         AssertSql(
-        """
+            """
 SELECT `s`.`Name`, IIF((
-        SELECT TOP 1 `t`.`SquadId`
+        SELECT TOP 1 `u`.`SquadId`
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
-        SELECT TOP 1 `t`.`SquadId`
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        SELECT TOP 1 `u`.`SquadId`
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) AS `SquadId`
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE)) AS `SquadId`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Kilo'
 """);
@@ -7187,17 +7187,17 @@ WHERE `s`.`Name` = 'Kilo'
     {
         await base.Project_one_value_type_converted_to_nullable_from_empty_collection(async);
         AssertSql(
-        """
+            """
 SELECT `s`.`Name`, (
-    SELECT TOP 1 `t`.`SquadId`
+    SELECT TOP 1 `u`.`SquadId`
     FROM (
-        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
         FROM `Gears` AS `g`
         UNION ALL
-        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
         FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) AS `SquadId`
+    ) AS `u`
+    WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE) AS `SquadId`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Kilo'
 """);
@@ -7235,28 +7235,28 @@ WHERE [s].[Name] = N'Kilo'
         await base.Filter_on_subquery_projecting_one_value_type_from_empty_collection(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Name`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Kilo' AND IIF((
-        SELECT TOP 1 `t`.`SquadId`
+        SELECT TOP 1 `u`.`SquadId`
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
-        SELECT TOP 1 `t`.`SquadId`
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        SELECT TOP 1 `u`.`SquadId`
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) <> 0
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE)) <> 0
 """);
     }
 
@@ -7265,26 +7265,26 @@ WHERE `s`.`Name` = 'Kilo' AND IIF((
         await base.Select_subquery_projecting_single_constant_int(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Name`, IIF((
         SELECT TOP 1 42
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, 0, (
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE) IS NULL, 0, (
         SELECT TOP 1 42
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) AS `Gear`
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE)) AS `Gear`
 FROM `Squads` AS `s`
 """);
     }
@@ -7298,13 +7298,13 @@ FROM `Squads` AS `s`
 SELECT `s`.`Name`, (
     SELECT TOP 1 'Foo'
     FROM (
-        SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+        SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
         FROM `Gears` AS `g`
         UNION ALL
-        SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+        SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
         FROM `Officers` AS `o`
-    ) AS `t`
-    WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) AS `Gear`
+    ) AS `u`
+    WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE) AS `Gear`
 FROM `Squads` AS `s`
 """);
     }
@@ -7314,26 +7314,26 @@ FROM `Squads` AS `s`
         await base.Select_subquery_projecting_single_constant_bool(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Name`, IIF((
         SELECT TOP 1 TRUE
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE) IS NULL, FALSE, (
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE) IS NULL, FALSE, (
         SELECT TOP 1 TRUE
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE)) AS `Gear`
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE)) AS `Gear`
 FROM `Squads` AS `s`
 """);
     }
@@ -8603,11 +8603,11 @@ WHERE `u`.`FullName` <> 'Dom' AND EXISTS (
         await base.Query_with_complex_let_containing_ordering_and_filter_projecting_firstOrDefault_element_of_let(async);
 
         AssertSql(
-"""
-SELECT `t`.`Nickname`, (
+            """
+SELECT `u`.`Nickname`, (
     SELECT TOP 1 `w`.`Name`
     FROM `Weapons` AS `w`
-    WHERE `t`.`FullName` = `w`.`OwnerFullName` AND `w`.`IsAutomatic` = TRUE
+    WHERE `u`.`FullName` = `w`.`OwnerFullName` AND `w`.`IsAutomatic` = TRUE
     ORDER BY `w`.`AmmunitionType` DESC) AS `WeaponName`
 FROM (
     SELECT `g`.`Nickname`, `g`.`FullName`
@@ -8615,8 +8615,8 @@ FROM (
     UNION ALL
     SELECT `o`.`Nickname`, `o`.`FullName`
     FROM `Officers` AS `o`
-) AS `t`
-WHERE `t`.`Nickname` <> 'Dom'
+) AS `u`
+WHERE `u`.`Nickname` <> 'Dom'
 """);
     }
 
@@ -11051,26 +11051,26 @@ ORDER BY [t].[Nickname], [t0].[Id]
 SELECT `s`.`Name`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Delta' AND IIF((
-        SELECT TOP 1 `t`.`SquadId`
+        SELECT TOP 1 `u`.`SquadId`
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`FullName`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE
-        ORDER BY `t`.`FullName`) IS NULL, 0, (
-        SELECT TOP 1 `t`.`SquadId`
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE
+        ORDER BY `u`.`FullName`) IS NULL, 0, (
+        SELECT TOP 1 `u`.`SquadId`
         FROM (
-            SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+            SELECT `g`.`SquadId`, `g`.`FullName`, `g`.`HasSoulPatch`
             FROM `Gears` AS `g`
             UNION ALL
-            SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+            SELECT `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
-        ) AS `t`
-        WHERE `s`.`Id` = `t`.`SquadId` AND `t`.`HasSoulPatch` = TRUE
-        ORDER BY `t`.`FullName`)) <> 0
+        ) AS `u`
+        WHERE `s`.`Id` = `u`.`SquadId` AND `u`.`HasSoulPatch` = TRUE
+        ORDER BY `u`.`FullName`)) <> 0
 """);
     }
 

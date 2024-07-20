@@ -3413,15 +3413,15 @@ ORDER BY `g`.`FullName`
         await base.Subquery_with_result_operator_is_not_lifted(async);
 
         AssertSql(
-        """
-SELECT `t`.`FullName`
+            """
+SELECT `s`.`FullName`
 FROM (
     SELECT TOP 2 `g`.`FullName`, `g`.`Rank`
     FROM `Gears` AS `g`
     WHERE `g`.`HasSoulPatch` <> TRUE
     ORDER BY `g`.`FullName`
-) AS `t`
-ORDER BY `t`.`Rank`
+) AS `s`
+ORDER BY `s`.`Rank`
 """);
     }
 
@@ -3484,14 +3484,14 @@ ORDER BY `t`.`FullName`, `t`.`Rank`
         await base.Take_without_orderby_followed_by_orderBy_is_pushed_down3(async);
 
         AssertSql(
-"""
-SELECT `t`.`FullName`
+            """
+SELECT `s`.`FullName`
 FROM (
     SELECT TOP 999 `g`.`FullName`, `g`.`Rank`
     FROM `Gears` AS `g`
     WHERE `g`.`HasSoulPatch` <> TRUE
-) AS `t`
-ORDER BY `t`.`FullName`, `t`.`Rank`
+) AS `s`
+ORDER BY `s`.`FullName`, `s`.`Rank`
 """);
     }
 
@@ -5707,11 +5707,9 @@ ORDER BY `s`.`Nickname`, `s`.`SquadId`, `w0`.`Id`
 SELECT `s`.`Name`, IIF((
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) IS NULL, 0, (
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE)) AS `SquadId`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Kilo'
@@ -5723,11 +5721,10 @@ WHERE `s`.`Name` = 'Kilo'
         await base.Project_one_value_type_converted_to_nullable_from_empty_collection(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Name`, (
     SELECT TOP 1 `g`.`SquadId`
     FROM `Gears` AS `g`
-    LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
     WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) AS `SquadId`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Kilo'
@@ -5760,17 +5757,15 @@ WHERE [s].[Name] = N'Kilo'
         await base.Filter_on_subquery_projecting_one_value_type_from_empty_collection(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Name`
 FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Kilo' AND IIF((
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) IS NULL, 0, (
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE)) <> 0
 """);
     }
@@ -5784,11 +5779,9 @@ WHERE `s`.`Name` = 'Kilo' AND IIF((
 SELECT `s`.`Name`, IIF((
         SELECT TOP 1 42
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) IS NULL, 0, (
         SELECT TOP 1 42
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE)) AS `Gear`
 FROM `Squads` AS `s`
 """);
@@ -5799,11 +5792,10 @@ FROM `Squads` AS `s`
         await base.Select_subquery_projecting_single_constant_string(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Name`, (
     SELECT TOP 1 'Foo'
     FROM `Gears` AS `g`
-    LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
     WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) AS `Gear`
 FROM `Squads` AS `s`
 """);
@@ -5818,11 +5810,9 @@ FROM `Squads` AS `s`
 SELECT `s`.`Name`, IIF((
         SELECT TOP 1 TRUE
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE) IS NULL, FALSE, (
         SELECT TOP 1 TRUE
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE)) AS `Gear`
 FROM `Squads` AS `s`
 """);
@@ -8871,12 +8861,10 @@ FROM `Squads` AS `s`
 WHERE `s`.`Name` = 'Delta' AND IIF((
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE
         ORDER BY `g`.`FullName`) IS NULL, 0, (
         SELECT TOP 1 `g`.`SquadId`
         FROM `Gears` AS `g`
-        LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
         WHERE `s`.`Id` = `g`.`SquadId` AND `g`.`HasSoulPatch` = TRUE
         ORDER BY `g`.`FullName`)) <> 0
 """);

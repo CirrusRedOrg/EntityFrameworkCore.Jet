@@ -378,7 +378,7 @@ WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE
 """);
         }
 
-        [ConditionalFact]
+        [ConditionalTheory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task IsDate_valid(bool async)
         {
@@ -390,9 +390,11 @@ WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE
                 ss => ss.Set<Order>().Select(o => true));
 
             AssertSql(
-                $@"SELECT TOP 1 CBOOL(ISDATE((`o`.`OrderDate` & '')))
+                """
+SELECT CBOOL(ISDATE((`o`.`OrderDate` & '')))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE((`o`.`OrderDate` & ''))) = TRUE");
+WHERE CBOOL(ISDATE((`o`.`OrderDate` & ''))) = TRUE
+""");
         }
 
         [ConditionalTheory]

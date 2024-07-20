@@ -164,4 +164,10 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         tableExpression = null;
         return false;
     }
+
+    protected override ShapedQueryExpression? TranslateFirstOrDefault(ShapedQueryExpression source, LambdaExpression? predicate,
+        Type returnType, bool returnDefault)
+    {
+        return base.TranslateFirstOrDefault(source, predicate, returnType, returnDefault);
+    }
 }

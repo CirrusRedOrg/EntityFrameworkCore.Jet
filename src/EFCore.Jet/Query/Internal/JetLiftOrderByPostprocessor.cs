@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -150,7 +151,7 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                         List<ProjectionExpression> newProjections = [selectExpression.Projection[0]];
                         selectExpression = selectExpression.Update(selectExpression.Tables, selectExpression.Predicate,
                             selectExpression.GroupBy, selectExpression.Having, newProjections, selectExpression.Orderings,
-                            selectExpression.Limit, selectExpression.Offset);
+                            selectExpression.Offset, selectExpression.Limit);
                     }
                     var result = base.Visit(selectExpression);
                     return result;

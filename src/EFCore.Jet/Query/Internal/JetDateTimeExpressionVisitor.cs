@@ -56,8 +56,8 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 selectExpression.Having,
                 newProjections,
                 selectExpression.Orderings.ToList(),
-                selectExpression.Limit,
-                selectExpression.Offset);
+                selectExpression.Offset,
+                selectExpression.Limit);
             
             return expression;
         }

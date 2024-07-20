@@ -135,7 +135,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             }
 
             JetConnection.CreateDatabase(connectionString);
-            WaitForExists((JetConnection)Connection);
+            //WaitForExists((JetConnection)Connection);
             return true;
         }
 

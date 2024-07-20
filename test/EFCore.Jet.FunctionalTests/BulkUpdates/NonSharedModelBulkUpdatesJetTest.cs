@@ -135,17 +135,17 @@ SET `b`.`CreationTimestamp` = #2020-01-01#
 """);
     }
 
-    //see efcore 31407 for the same problem on SQL Server
-    public override Task Update_non_main_table_in_entity_with_entity_splitting(bool async)
+    public override async Task Update_non_main_table_in_entity_with_entity_splitting(bool async)
     {
-        return Assert.ThrowsAnyAsync<Exception>(
-            () => base.Update_non_main_table_in_entity_with_entity_splitting(async));
-        /*AssertSql(
+        await base.Update_non_main_table_in_entity_with_entity_splitting(async);
+
+        AssertSql(
             """
-UPDATE `BlogsPart1` AS `b0`
+UPDATE `Blogs` AS `b`
+INNER JOIN `BlogsPart1` AS `b0` ON `b`.`Id` = `b0`.`Id`
 SET `b0`.`Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`))),
     `b0`.`Title` = (`b0`.`Rating` & '')
-""");*/
+""");
     }
 
     public override async Task Delete_entity_with_auto_include(bool async)

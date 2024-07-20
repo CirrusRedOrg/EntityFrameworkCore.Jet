@@ -1278,9 +1278,11 @@ CROSS APPLY (
             await base.Select_with_complex_expression_that_can_be_funcletized(isAsync);
 
             AssertSql(
-                @"SELECT 0
+                """
+SELECT IIF(`c`.`Region` IS NOT NULL, 0, NULL)
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'");
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task Select_chained_entity_navigation_doesnt_materialize_intermittent_entities(bool isAsync)

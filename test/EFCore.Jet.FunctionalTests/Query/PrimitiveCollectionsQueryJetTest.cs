@@ -1051,7 +1051,7 @@ WHERE IIF(`p`.`Int` IN (1, 2, 3), 'one', 'two') IN ('one', 'two', 'three')
     private PrimitiveCollectionsContext CreateContext()
         => Fixture.CreateContext();
 
-    public class PrimitiveCollectionsQueryJetFixture : PrimitiveCollectionsQueryFixtureBase
+    public class PrimitiveCollectionsQueryJetFixture : PrimitiveCollectionsQueryFixtureBase, ITestSqlLoggerFactory
     {
         protected override string StoreName
             => "PrimitiveCollectionsTest";

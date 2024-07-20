@@ -328,20 +328,20 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` I
             await base.Select_Where_Navigation_Scalar_Equals_Navigation_Scalar_Projected(isAsync);
 
             AssertSql(
-"""
-SELECT `t0`.`CustomerID`, `t0`.`CustomerID0` AS `C2`
+                """
+SELECT `s`.`CustomerID`, `s`.`CustomerID0` AS `C2`
 FROM ((
-    SELECT `o`.`CustomerID`, `t`.`CustomerID` AS `CustomerID0`
+    SELECT `o`.`CustomerID`, `o1`.`CustomerID` AS `CustomerID0`
     FROM `Orders` AS `o`,
     (
         SELECT `o0`.`CustomerID`
         FROM `Orders` AS `o0`
         WHERE `o0`.`OrderID` < 10400
-    ) AS `t`
+    ) AS `o1`
     WHERE `o`.`OrderID` < 10300
-) AS `t0`
-LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
+) AS `s`
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
 """);
         }
@@ -351,16 +351,16 @@ WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
             await base.Select_Where_Navigation_Equals_Navigation(isAsync);
 
             AssertSql(
-"""
-SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`CustomerID0`, `t`.`EmployeeID0`, `t`.`OrderDate0`
+                """
+SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`OrderID0`, `s`.`CustomerID0`, `s`.`EmployeeID0`, `s`.`OrderDate0`
 FROM ((
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`, `o0`.`EmployeeID` AS `EmployeeID0`, `o0`.`OrderDate` AS `OrderDate0`
     FROM `Orders` AS `o`,
     `Orders` AS `o0`
     WHERE (`o`.`CustomerID` LIKE 'A%') AND (`o0`.`CustomerID` LIKE 'A%')
-) AS `t`
-LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Customers` AS `c0` ON `t`.`CustomerID0` = `c0`.`CustomerID`
+) AS `s`
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL)
 """);
         }
@@ -489,11 +489,13 @@ FROM `Customers` AS `c`");
             await base.Collection_select_nav_prop_predicate(isAsync);
 
             AssertSql(
-                $@"SELECT IIF((
-        SELECT COUNT(*)
+                """
+SELECT IIF(EXISTS (
+        SELECT 1
         FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 0, TRUE, FALSE)
-FROM `Customers` AS `c`");
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`), TRUE, FALSE)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Collection_where_nav_prop_any(bool isAsync)
@@ -595,15 +597,15 @@ WHERE 5 < (
 
             AssertSql(
                 """
-SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`c`
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
 FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
         SELECT COUNT(*)
-        FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
     FROM `Customers` AS `c`
-) AS `t`
-ORDER BY `t`.`c`, `t`.`CustomerID`
+) AS `c0`
+ORDER BY `c0`.`c`, `c0`.`CustomerID`
 """);
         }
 
@@ -898,22 +900,22 @@ ORDER BY `c`.`CustomerID`");
 
             AssertSql(
                 """
-SELECT `t`.`OrderID`, IIF((
-        SELECT TOP 1 `o0`.`OrderID`
-        FROM `Order Details` AS `o0`
-        WHERE `t`.`OrderID` = `o0`.`OrderID`
-        ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-        SELECT TOP 1 `o0`.`OrderID`
-        FROM `Order Details` AS `o0`
-        WHERE `t`.`OrderID` = `o0`.`OrderID`
-        ORDER BY `o0`.`OrderID`, `o0`.`ProductID`)) AS `OrderDetail`, `c`.`City`
+SELECT `o0`.`OrderID`, IIF((
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM `Order Details` AS `o1`
+        WHERE `o0`.`OrderID` = `o1`.`OrderID`
+        ORDER BY `o1`.`OrderID`, `o1`.`ProductID`) IS NULL, 0, (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM `Order Details` AS `o1`
+        WHERE `o0`.`OrderID` = `o1`.`OrderID`
+        ORDER BY `o1`.`OrderID`, `o1`.`ProductID`)) AS `OrderDetail`, `c`.`City`
 FROM (
     SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-) AS `t`
-LEFT JOIN `Customers` AS `c` ON `t`.`CustomerID` = `c`.`CustomerID`
-ORDER BY `t`.`OrderID`
+) AS `o0`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+ORDER BY `o0`.`OrderID`
 """);
         }
 
@@ -1003,19 +1005,19 @@ WHERE [o].[OrderID] IN (10643, 10692) AND (
 
             AssertSql(
                 """
-SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `t0`.`OrderID0`, `t0`.`CustomerID0`, `t0`.`EmployeeID0`, `t0`.`OrderDate0`
+SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`OrderID0`, `s`.`CustomerID0`, `s`.`EmployeeID0`, `s`.`OrderDate0`
 FROM ((
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`OrderID` AS `OrderID0`, `t`.`CustomerID` AS `CustomerID0`, `t`.`EmployeeID` AS `EmployeeID0`, `t`.`OrderDate` AS `OrderDate0`
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o1`.`OrderID` AS `OrderID0`, `o1`.`CustomerID` AS `CustomerID0`, `o1`.`EmployeeID` AS `EmployeeID0`, `o1`.`OrderDate` AS `OrderDate0`
     FROM `Orders` AS `o`,
     (
         SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         WHERE `o0`.`OrderID` < 10400
-    ) AS `t`
+    ) AS `o1`
     WHERE `o`.`OrderID` < 10300
-) AS `t0`
-LEFT JOIN `Customers` AS `c` ON `t0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Customers` AS `c0` ON `t0`.`CustomerID0` = `c0`.`CustomerID`
+) AS `s`
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
 """);
         }

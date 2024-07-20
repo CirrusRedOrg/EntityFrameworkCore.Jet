@@ -254,7 +254,7 @@ FROM (
             await base.Count_over_keyless_entity_with_pushdown(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*)
 FROM (
     SELECT TOP 10 1
@@ -262,7 +262,7 @@ FROM (
         SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
     ) AS `m`
     ORDER BY `m`.`ContactTitle`
-) AS `t`
+) AS `m0`
 """);
         }
 
@@ -271,14 +271,14 @@ FROM (
             await base.Count_over_keyless_entity_with_pushdown_empty_projection(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*)
 FROM (
     SELECT TOP 10 1
     FROM (
         SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
     ) AS `m`
-) AS `t`
+) AS `m0`
 """);
         }
 

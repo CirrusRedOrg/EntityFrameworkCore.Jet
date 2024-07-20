@@ -970,9 +970,11 @@ WHERE (IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableSt
             await base.Where_equal_with_coalesce_both_sides(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
+                """
+SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStringA`) = IIF(`e`.`StringA` IS NULL, `e`.`StringB`, `e`.`StringA`)");
+WHERE IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStringA`) = IIF(`e`.`NullableStringC` IS NULL, `e`.`StringA`, `e`.`NullableStringC`)
+""");
         }
 
         public override async Task Where_not_equal_with_coalesce_both_sides(bool async)
@@ -1446,22 +1448,27 @@ WHERE (IIF(`e`.`NullableBoolB` IS NULL, `e`.`NullableBoolC`, `e`.`NullableBoolB`
             await base.Null_semantics_conditional(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE `e`.`BoolA` = IIF(`e`.`BoolB` = TRUE, `e`.`NullableBoolB`, `e`.`NullableBoolC`)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), `e`.`BoolB`, `e`.`BoolC`) = `e`.`BoolA`
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(IIF(`e`.`BoolA` = TRUE, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE), `e`.`BoolC`) <> `e`.`BoolB`, `e`.`BoolA`, IIF((`e`.`NullableBoolB` = `e`.`NullableBoolC` AND `e`.`NullableBoolB` IS NOT NULL AND `e`.`NullableBoolC` IS NOT NULL) OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL), TRUE, FALSE)) = TRUE
+""",
+                //
+                """
+SELECT IIF(IIF(`e`.`BoolA` = TRUE, `e`.`NullableIntA`, `e`.`IntB`) > `e`.`IntC`, TRUE, FALSE)
+FROM `Entities1` AS `e`
 """);
         }
 

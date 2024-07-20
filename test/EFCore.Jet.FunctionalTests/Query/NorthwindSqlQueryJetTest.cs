@@ -40,14 +40,14 @@ SELECT `ProductID` FROM `Products`
         await base.SqlQuery_composed_Contains(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` IN (
-    SELECT `t`.`Value`
+    SELECT `s`.`Value`
     FROM (
         SELECT `ProductID` AS `Value` FROM `Products`
-    ) AS `t`
+    ) AS `s`
 )
 """);
     }
@@ -57,12 +57,12 @@ WHERE `o`.`OrderID` IN (
         await base.SqlQuery_composed_Join(async);
 
         AssertSql(
-"""
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, IIF(`t`.`Value` IS NULL, NULL, CLNG(`t`.`Value`)) AS `p`
+            """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, IIF(`s`.`Value` IS NULL, NULL, CLNG(`s`.`Value`)) AS `p`
 FROM `Orders` AS `o`
 INNER JOIN (
     SELECT `ProductID` AS `Value` FROM `Products`
-) AS `t` ON `o`.`OrderID` = IIF(`t`.`Value` IS NULL, NULL, CLNG(`t`.`Value`))
+) AS `s` ON `o`.`OrderID` = IIF(`s`.`Value` IS NULL, NULL, CLNG(`s`.`Value`))
 """);
     }
 

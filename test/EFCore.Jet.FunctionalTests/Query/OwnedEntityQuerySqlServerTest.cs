@@ -49,26 +49,26 @@ LEFT JOIN (
         await base.Multiple_owned_reference_mapped_to_own_table_containing_owned_collection_in_split_query(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `r`.`Id`, `m`.`Id`, `m`.`Enabled`, `m`.`RootId`, `m0`.`Id`, `m0`.`RootId`
-FROM (`Root24777` AS `r`
-LEFT JOIN `MiddleB24777` AS `m` ON `r`.`Id` = `m`.`RootId`)
-LEFT JOIN `ModdleA24777` AS `m0` ON `r`.`Id` = `m0`.`RootId`
+FROM (`Root` AS `r`
+LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`)
+LEFT JOIN `ModdleA` AS `m0` ON `r`.`Id` = `m0`.`RootId`
 WHERE `r`.`Id` = 3
 ORDER BY `r`.`Id`, `m`.`Id`, `m0`.`Id`
 """,
-//
-"""
-SELECT `l`.`ModdleAId`, `l`.`UnitThreshold`, `t`.`Id`, `t`.`Id0`, `t`.`Id1`
+            //
+            """
+SELECT `l0`.`ModdleAId`, `l0`.`UnitThreshold`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`
 FROM (
     SELECT TOP 1 `r`.`Id`, `m`.`Id` AS `Id0`, `m0`.`Id` AS `Id1`
-    FROM (`Root24777` AS `r`
-    LEFT JOIN `MiddleB24777` AS `m` ON `r`.`Id` = `m`.`RootId`)
-    LEFT JOIN `ModdleA24777` AS `m0` ON `r`.`Id` = `m0`.`RootId`
+    FROM (`Root` AS `r`
+    LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`)
+    LEFT JOIN `ModdleA` AS `m0` ON `r`.`Id` = `m0`.`RootId`
     WHERE `r`.`Id` = 3
-) AS `t`
-INNER JOIN `Leaf24777` AS `l` ON `t`.`Id1` = `l`.`ModdleAId`
-ORDER BY `t`.`Id`, `t`.`Id0`, `t`.`Id1`
+) AS `s`
+INNER JOIN `Leaf` AS `l0` ON `s`.`Id1` = `l0`.`ModdleAId`
+ORDER BY `s`.`Id`, `s`.`Id0`, `s`.`Id1`
 """);
     }
 
@@ -77,13 +77,13 @@ ORDER BY `t`.`Id`, `t`.`Id0`, `t`.`Id1`
         await base.Projecting_owned_collection_and_aggregate(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, (
     SELECT IIF(SUM(`p`.`CommentsCount`) IS NULL, 0, SUM(`p`.`CommentsCount`))
-    FROM `Post24133` AS `p`
+    FROM `Post` AS `p`
     WHERE `b`.`Id` = `p`.`BlogId`), `p0`.`Title`, `p0`.`CommentsCount`, `p0`.`BlogId`, `p0`.`Id`
-FROM `Blog24133` AS `b`
-LEFT JOIN `Post24133` AS `p0` ON `b`.`Id` = `p0`.`BlogId`
+FROM `Blog` AS `b`
+LEFT JOIN `Post` AS `p0` ON `b`.`Id` = `p0`.`BlogId`
 ORDER BY `b`.`Id`, `p0`.`BlogId`
 """);
     }
@@ -211,15 +211,15 @@ FROM `RotRutCases` AS `r`
         await base.Join_selects_with_duplicating_aliases_and_owned_expansion_uniquifies_correctly(async);
 
         AssertSql(
-"""
-SELECT `m`.`Id`, `m`.`Name`, `m`.`RulerOf`, `t`.`Id`, `t`.`Affiliation`, `t`.`Name`, `t`.`Magus30358Id`, `t`.`Name0`
+            """
+SELECT `m`.`Id`, `m`.`Name`, `m`.`RulerOf`, `m1`.`Id`, `m1`.`Affiliation`, `m1`.`Name`, `m1`.`MagusId`, `m1`.`Name0`
 FROM `Monarchs` AS `m`
 INNER JOIN (
-    SELECT `m0`.`Id`, `m0`.`Affiliation`, `m0`.`Name`, `m1`.`Magus30358Id`, `m1`.`Name` AS `Name0`
+    SELECT `m0`.`Id`, `m0`.`Affiliation`, `m0`.`Name`, `m2`.`MagusId`, `m2`.`Name` AS `Name0`
     FROM `Magi` AS `m0`
-    LEFT JOIN `MagicTools` AS `m1` ON `m0`.`Id` = `m1`.`Magus30358Id`
+    LEFT JOIN `MagicTools` AS `m2` ON `m0`.`Id` = `m2`.`MagusId`
     WHERE `m0`.`Name` LIKE '%Bayaz%'
-) AS `t` ON `m`.`RulerOf` = `t`.`Affiliation`
+) AS `m1` ON `m`.`RulerOf` = `m1`.`Affiliation`
 """);
     }
 }

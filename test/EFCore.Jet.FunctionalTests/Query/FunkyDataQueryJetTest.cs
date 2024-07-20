@@ -561,7 +561,7 @@ WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
-        public class FunkyDataQueryJetFixture : FunkyDataQueryFixtureBase
+        public class FunkyDataQueryJetFixture : FunkyDataQueryFixtureBase, ITestSqlLoggerFactory
         {
             public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
 

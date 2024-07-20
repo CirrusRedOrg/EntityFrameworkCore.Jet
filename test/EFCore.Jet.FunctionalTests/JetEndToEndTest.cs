@@ -730,26 +730,26 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 Assert.Equal(EntityState.Unchanged, db.Entry(toAdd).State);
                 Assert.DoesNotContain(toDelete, db.ChangeTracker.Entries().Select(e => e.Entity));
 
-                Assert.Equal(3, Fixture.TestSqlLoggerFactory.SqlStatements.Count);
+                Assert.Equal(5, Fixture.TestSqlLoggerFactory.SqlStatements.Count);
                 Assert.Contains("SELECT", Fixture.TestSqlLoggerFactory.SqlStatements[0]);
                 Assert.Contains("SELECT", Fixture.TestSqlLoggerFactory.SqlStatements[1]);
                 Assert.Contains("@p0='" + deletedId, Fixture.TestSqlLoggerFactory.SqlStatements[2]);
                 Assert.Contains("DELETE", Fixture.TestSqlLoggerFactory.SqlStatements[2]);
-                Assert.Contains("UPDATE", Fixture.TestSqlLoggerFactory.SqlStatements[2]);
-                Assert.Contains("INSERT", Fixture.TestSqlLoggerFactory.SqlStatements[2]);
+                Assert.Contains("UPDATE", Fixture.TestSqlLoggerFactory.SqlStatements[3]);
+                Assert.Contains("INSERT", Fixture.TestSqlLoggerFactory.SqlStatements[4]);
 
                 var rows = await testDatabase.ExecuteScalarAsync<int>(
-                    $"SELECT Count(*) FROM [dbo].[Blog] WHERE Id = {updatedId} AND Name = 'Blog is Updated'");
+                    $"SELECT Count(*) FROM `Blog` WHERE Id = {updatedId} AND Name = 'Blog is Updated'");
 
                 Assert.Equal(1, rows);
 
                 rows = await testDatabase.ExecuteScalarAsync<int>(
-                    $"SELECT Count(*) FROM [dbo].[Blog] WHERE Id = {deletedId}");
+                    $"SELECT Count(*) FROM `Blog` WHERE Id = {deletedId}");
 
                 Assert.Equal(0, rows);
 
                 rows = await testDatabase.ExecuteScalarAsync<int>(
-                    $"SELECT Count(*) FROM [dbo].[Blog] WHERE Id = {addedId} AND Name = 'Blog to Insert'");
+                    $"SELECT Count(*) FROM `Blog` WHERE Id = {addedId} AND Name = 'Blog to Insert'");
 
                 Assert.Equal(1, rows);
             }
@@ -1603,7 +1603,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 Assert.Equal("Blog1", blog1.Name);
                 Assert.True(blog1.George);
                 Assert.Equal(new Guid("0456AEF1-B7FC-47AA-8102-975D6BA3A9BF"), blog1.TheGu);
-                Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 33, 777), blog1.NotFigTime);
+                Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 33, 0), blog1.NotFigTime);
                 Assert.Equal(64, blog1.ToEat);
                 Assert.Equal(0.123456789, blog1.OrNothing);
                 Assert.Equal(777, blog1.Fuse);

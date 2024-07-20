@@ -1360,7 +1360,11 @@ WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> `e`.`NullableIntB` OR `
             await base.Where_IndexOf_empty(async);
 
             AssertSql(
-                @"");
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableStringA` IS NOT NULL, 0, NULL) = `e`.`NullableIntA` OR (IIF(`e`.`NullableStringA` IS NOT NULL, 0, NULL) IS NULL AND `e`.`NullableIntA` IS NULL)
+""");
         }
 
         public override async Task Select_IndexOf(bool async)

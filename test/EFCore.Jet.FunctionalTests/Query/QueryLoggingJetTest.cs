@@ -42,7 +42,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 "Compiling query expression: ",
                 Fixture.TestSqlLoggerFactory.Log[0].Message);
             Assert.StartsWith(
-                "Generated query execution expression: " + Environment.NewLine + "'queryContext => new SingleQueryingEnumerable<Customer>(",
+                "Generated query execution expression: " + Environment.NewLine + "'queryContext => SingleQueryingEnumerable.Create<Customer>(",
                 Fixture.TestSqlLoggerFactory.Log[1].Message);
         }
 
@@ -56,7 +56,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             Assert.NotNull(customers);
             Assert.StartsWith(
-                "Generated query execution expression: " + Environment.NewLine + "'queryContext => new SplitQueryingEnumerable<Customer>(",
+                "Generated query execution expression: " + Environment.NewLine + "'queryContext => SplitQueryingEnumerable.Create<Customer>(",
                 Fixture.TestSqlLoggerFactory.Log[1].Message);
         }
 

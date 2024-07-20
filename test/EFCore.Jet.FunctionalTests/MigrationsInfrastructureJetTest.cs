@@ -122,7 +122,7 @@ COMMIT TRANSACTION;
 
 BEGIN TRANSACTION;
 
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, ' ', 'GO
+INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, 4, 'GO
 Value With
 
 Empty Lines')
@@ -134,7 +134,7 @@ COMMIT TRANSACTION;
 
 BEGIN TRANSACTION;
 
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, ' ', 'GO
+INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, 5, 'GO
 Value With
 
 Empty Lines

@@ -290,7 +290,7 @@ public class JetLocateScalarSubqueryVisitor : SqlExpressionVisitor
 
         return changed
             ? selectExpression.Update(
-                tables, predicate, groupBy, havingExpression, projections, orderings, limit, offset)
+                tables, predicate, groupBy, havingExpression, projections, orderings, offset, limit)
             : selectExpression;
     }
 

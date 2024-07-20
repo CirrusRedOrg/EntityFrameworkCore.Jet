@@ -98,8 +98,8 @@ namespace EntityFrameworkCore.Jet.Data
             get => JetFactory?.InnerFactory;
             set
             {
-                if (JetFactory != null && JetFactory != value)
-                    throw new InvalidOperationException($"The {DataAccessProviderFactory} property can only be set once.");
+                if (State != ConnectionState.Closed)
+                    throw new InvalidOperationException($"The {DataAccessProviderFactory} property can only be set when the connection is closed.");
 
                 JetFactory = new JetFactory(this, value);
             }

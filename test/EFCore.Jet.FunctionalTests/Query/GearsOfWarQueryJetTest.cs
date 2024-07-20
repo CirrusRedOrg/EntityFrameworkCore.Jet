@@ -3008,15 +3008,15 @@ ORDER BY `g`.`FullName`
             await base.Subquery_with_result_operator_is_not_lifted(isAsync);
 
             AssertSql(
-"""
-SELECT `t`.`FullName`
+                """
+SELECT `g0`.`FullName`
 FROM (
     SELECT TOP 2 `g`.`FullName`, `g`.`Rank`
     FROM `Gears` AS `g`
     WHERE `g`.`HasSoulPatch` <> TRUE
     ORDER BY `g`.`FullName`
-) AS `t`
-ORDER BY `t`.`Rank`
+) AS `g0`
+ORDER BY `g0`.`Rank`
 """);
         }
 
@@ -3076,14 +3076,14 @@ ORDER BY `t`.`Rank`");
 
             AssertSql(
                 """
-    SELECT `t`.`FullName`
-    FROM (
-        SELECT TOP 999 `g`.`FullName`, `g`.`Rank`
-        FROM `Gears` AS `g`
-        WHERE `g`.`HasSoulPatch` <> TRUE
-    ) AS `t`
-    ORDER BY `t`.`FullName`, `t`.`Rank`
-    """);
+SELECT `g0`.`FullName`
+FROM (
+    SELECT TOP 999 `g`.`FullName`, `g`.`Rank`
+    FROM `Gears` AS `g`
+    WHERE `g`.`HasSoulPatch` <> TRUE
+) AS `g0`
+ORDER BY `g0`.`FullName`, `g0`.`Rank`
+""");
         }
 
         public override async Task Select_length_of_string_property(bool isAsync)

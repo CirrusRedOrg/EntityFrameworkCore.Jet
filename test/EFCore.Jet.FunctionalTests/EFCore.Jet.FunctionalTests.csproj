@@ -18,7 +18,7 @@
 		<PackageReference Include="xunit.core" />
 		<PackageReference Include="xunit.assert" />
 		<PackageReference Include="xunit.runner.visualstudio" />
-		<PackageReference Include="xunit.runner.console"/>
+		<PackageReference Include="xunit.runner.console" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
@@ -71,7 +71,6 @@
 		<None Include="GraphUpdates\GraphUpdatesJetTest.cs" />
 		<None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
 		<None Include="JetApiConsistencyTest.cs" />
-		<None Include="JsonTypesJetTest.cs" />
 		<None Include="Migrations\MigrationsJetTest.cs" />
 		<None Remove="TestResults\**" />
 	</ItemGroup>
@@ -105,7 +104,6 @@
 		<Compile Remove="GraphUpdates\GraphUpdatesJetTest.cs" />
 		<Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
 		<Compile Remove="JetApiConsistencyTest.cs" />
-		<Compile Remove="JsonTypesJetTest.cs" />
 		<Compile Remove="Migrations\MigrationsJetTest.cs" />
 		<Compile Remove="PropertyEntryJetTest.cs" />
 	</ItemGroup>

@@ -58,7 +58,7 @@ FROM `Orders` AS `o`");
         {
             protected override ITestStoreFactory TestStoreFactory => JetNorthwindTestStoreFactory.Instance;
 
-            protected override string DatabaseSchema { get; } = "";
+            protected override string DatabaseSchema { get; } = "dbo";
 
             protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             {

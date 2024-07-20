@@ -28,7 +28,28 @@ public class ManyToManyLoadJetTest : ManyToManyLoadTestBase<ManyToManyLoadJetTes
         await base.Load_collection(state, queryTrackingBehavior, async);
 
         AssertSql(
-            """
+            state == EntityState.Detached
+                ? """
+@__p_0='3'
+@__p_0='3'
+
+SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`Id`, `s0`.`Name`, `s0`.`OneId`, `s0`.`TwoId`
+FROM (`EntityOnes` AS `e`
+INNER JOIN (
+    SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
+    FROM `JoinOneToTwo` AS `j`
+    INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
+) AS `s` ON `e`.`Id` = `s`.`OneId`)
+LEFT JOIN (
+    SELECT `e1`.`Id`, `e1`.`Name`, `j0`.`OneId`, `j0`.`TwoId`
+    FROM `JoinOneToTwo` AS `j0`
+    INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
+    WHERE `e1`.`Id` = @__p_0
+) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
+WHERE `e`.`Id` = @__p_0
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s`.`Id`, `s0`.`OneId`, `s0`.`TwoId`
+"""
+                : """
 @__p_0='3'
 @__p_0='3'
 

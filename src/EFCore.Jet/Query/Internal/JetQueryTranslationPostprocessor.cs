@@ -37,6 +37,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         public override Expression Process(Expression query)
         {
             query = _skipTakePostprocessor.Process(query);
+            query = _liftOrderByPostprocessor.Process(query);
             query = base.Process(query);
 
             //query = _skipTakePostprocessor.Process(query);
@@ -46,7 +47,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             }
             //query = _skipWithoutOrderByInSplitQueryVerifier.Visit(query);
             //query = _skipTakePostprocessor.Process(query);
-            query = _liftOrderByPostprocessor.Process(query);
+            //query = _liftOrderByPostprocessor.Process(query);
 
             return query;
         }

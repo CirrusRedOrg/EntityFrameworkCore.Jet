@@ -522,16 +522,16 @@ ORDER BY CAST(LEN((
 
         AssertSql(
             """
-SELECT `t`.`c`
+SELECT `p1`.`c`
 FROM (
     SELECT (
-        SELECT TOP 1 `p1`.`LastName`
-        FROM `Person` AS `p1`
-        WHERE `p`.`FirstName` = `p1`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p1`.`FirstName` IS NULL)) AS `c`, `p`.`FirstName`
+        SELECT TOP 1 `p0`.`LastName`
+        FROM `Person` AS `p0`
+        WHERE `p`.`FirstName` = `p0`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)) AS `c`
     FROM `Person` AS `p`
     GROUP BY `p`.`FirstName`
-) AS `t`
-ORDER BY `t`.`c`
+) AS `p1`
+ORDER BY `p1`.`c`
 """);
     }
 
@@ -541,17 +541,17 @@ ORDER BY `t`.`c`
 
         AssertSql(
             """
-SELECT `t`.`c`
+SELECT `p1`.`c`
 FROM (
     SELECT (
-        SELECT TOP 1 `p1`.`MiddleInitial`
-        FROM `Person` AS `p1`
-        WHERE `p1`.`Age` = 20 AND `p`.`Id` = `p1`.`Id`) AS `c`, `p`.`Id`
+        SELECT TOP 1 `p0`.`MiddleInitial`
+        FROM `Person` AS `p0`
+        WHERE `p0`.`Age` = 20 AND `p`.`Id` = `p0`.`Id`) AS `c`
     FROM `Person` AS `p`
     WHERE `p`.`Age` = 20
     GROUP BY `p`.`Id`
-) AS `t`
-ORDER BY `t`.`c`
+) AS `p1`
+ORDER BY `p1`.`c`
 """);
     }
 

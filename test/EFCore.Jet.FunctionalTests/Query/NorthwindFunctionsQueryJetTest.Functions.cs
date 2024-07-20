@@ -148,6 +148,27 @@ WHERE `c`.`ContactName` LIKE 'M%'
 """);
         }
 
+        public override async Task String_StartsWith_with_StringComparison_Ordinal(bool async)
+        {
+            await base.String_StartsWith_with_StringComparison_Ordinal(async);
+
+            AssertSql();
+        }
+
+        public override async Task String_StartsWith_with_StringComparison_OrdinalIgnoreCase(bool async)
+        {
+            await base.String_StartsWith_with_StringComparison_OrdinalIgnoreCase(async);
+
+            AssertSql();
+        }
+
+        public override async Task String_StartsWith_with_StringComparison_unsupported(bool async)
+        {
+            await base.String_StartsWith_with_StringComparison_unsupported(async);
+
+            AssertSql();
+        }
+
         public override async Task String_EndsWith_Literal(bool isAsync)
         {
             await base.String_EndsWith_Literal(isAsync);
@@ -208,6 +229,27 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 WHERE `c`.`ContactName` LIKE '%m'
 """);
+        }
+
+        public override async Task String_EndsWith_with_StringComparison_Ordinal(bool async)
+        {
+            await base.String_EndsWith_with_StringComparison_Ordinal(async);
+
+            AssertSql();
+        }
+
+        public override async Task String_EndsWith_with_StringComparison_OrdinalIgnoreCase(bool async)
+        {
+            await base.String_EndsWith_with_StringComparison_OrdinalIgnoreCase(async);
+
+            AssertSql();
+        }
+
+        public override async Task String_EndsWith_with_StringComparison_unsupported(bool async)
+        {
+            await base.String_EndsWith_with_StringComparison_unsupported(async);
+
+            AssertSql();
         }
 
         public override async Task String_Contains_Literal(bool isAsync)
@@ -381,6 +423,20 @@ FROM (
 ) AS `c1`
 LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
 ORDER BY `c1`.`City`, `c0`.`CustomerID` DESC
+""");
+        }
+
+        public override async Task String_Join_non_aggregate(bool async)
+        {
+            await base.String_Join_non_aggregate(async);
+
+            AssertSql(
+                """
+@__foo_0='foo' (Size = 4000)
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+WHERE CONCAT_WS(N'|', [c].[CompanyName], COALESCE(@__foo_0, N''), N'', N'bar') = N'Around the Horn|foo||bar'
 """);
         }
 
@@ -1169,12 +1225,60 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
             AssertSql();
         }
 
+        public override async Task Where_math_min_nested(bool async)
+        {
+            await base.Where_math_min_nested(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND LEAST([o].[OrderID], [o].[ProductID], 99999) = [o].[ProductID]
+""");
+        }
+
+        public override async Task Where_math_min_nested_twice(bool async)
+        {
+            await base.Where_math_min_nested_twice(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND LEAST(99999, [o].[OrderID], 99998, [o].[ProductID]) = [o].[ProductID]
+""");
+        }
+
         public override async Task Where_math_max(bool async)
         {
             // Translate Math.Max.
             await AssertTranslationFailed(() => base.Where_math_max(async));
 
             AssertSql();
+        }
+
+        public override async Task Where_math_max_nested(bool async)
+        {
+            await base.Where_math_max_nested(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND GREATEST([o].[OrderID], [o].[ProductID], 1) = [o].[OrderID]
+""");
+        }
+
+        public override async Task Where_math_max_nested_twice(bool async)
+        {
+            await base.Where_math_max_nested_twice(async);
+
+            AssertSql(
+                """
+SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
+FROM [Order Details] AS [o]
+WHERE [o].[OrderID] = 11077 AND GREATEST(1, [o].[OrderID], 2, [o].[ProductID]) = [o].[OrderID]
+""");
         }
 
         public override async Task Where_math_degrees(bool async)

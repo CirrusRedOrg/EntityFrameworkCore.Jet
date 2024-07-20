@@ -1098,7 +1098,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                         builder.Property(x => x.Id)
                             .ValueGeneratedOnAdd()
-                            .HasDefaultValueSql("NEWSEQUENTIALID()");
+                            .HasDefaultValueSql("GenGUID()");
 
                         builder.Property(x => x.Title)
                             .IsRequired()
@@ -1121,7 +1121,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                         builder.Property(x => x.Id)
                             .ValueGeneratedOnAdd()
-                            .HasDefaultValueSql("NEWSEQUENTIALID()");
+                            .HasDefaultValueSql("GenGUID()");
 
                         builder.Property(x => x.LastName)
                             .IsRequired()
@@ -1144,7 +1144,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                         builder.Property(x => x.Id)
                             .ValueGeneratedOnAdd()
-                            .HasDefaultValueSql("NEWSEQUENTIALID()");
+                            .HasDefaultValueSql("GenGUID()");
 
                         builder.Property(x => x.RowVersion)
                             .IsRowVersion();

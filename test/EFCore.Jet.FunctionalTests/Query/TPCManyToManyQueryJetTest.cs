@@ -109,22 +109,22 @@ WHERE (
 
         AssertSql(
             """
-SELECT `t3`.`Id`, `t3`.`Name`, `t3`.`c`
+SELECT `e0`.`Id`, `e0`.`Name`, `e0`.`c`
 FROM (
     SELECT `e`.`Id`, `e`.`Name`, (
         SELECT COUNT(*)
-        FROM `JoinOneToBranch` AS `j0`
+        FROM `JoinOneToBranch` AS `j`
         INNER JOIN (
-            SELECT `b0`.`Id`, `b0`.`Name`, `b0`.`Number`, CVar(NULL) AS `IsGreen`, 'EntityBranch' AS `Discriminator`
-            FROM `Branches` AS `b0`
+            SELECT `b`.`Id`, `b`.`Name`
+            FROM `Branches` AS `b`
             UNION ALL
-            SELECT `l0`.`Id`, `l0`.`Name`, `l0`.`Number`, `l0`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
-            FROM `Leaves` AS `l0`
-        ) AS `t1` ON `j0`.`EntityBranchId` = `t1`.`Id`
-        WHERE `e`.`Id` = `j0`.`EntityOneId` AND (`t1`.`Name` LIKE 'L%')) AS `c`
+            SELECT `l`.`Id`, `l`.`Name`
+            FROM `Leaves` AS `l`
+        ) AS `u` ON `j`.`EntityBranchId` = `u`.`Id`
+        WHERE `e`.`Id` = `j`.`EntityOneId` AND (`u`.`Name` LIKE 'L%')) AS `c`
     FROM `EntityOnes` AS `e`
-) AS `t3`
-ORDER BY `t3`.`c`, `t3`.`Id`
+) AS `e0`
+ORDER BY `e0`.`c`, `e0`.`Id`
 """);
     }
 
@@ -2211,22 +2211,22 @@ WHERE (
 
         AssertSql(
             """
-SELECT `t3`.`Id`, `t3`.`Name`, `t3`.`c`
+SELECT `u4`.`Id`, `u4`.`Name`, `u4`.`c`
 FROM (
     SELECT `u`.`Id`, `u`.`Name`, (
         SELECT COUNT(*)
-        FROM `UnidirectionalJoinOneToBranch` AS `u3`
+        FROM `UnidirectionalJoinOneToBranch` AS `u0`
         INNER JOIN (
-            SELECT `u4`.`Id`, `u4`.`Name`, `u4`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
-            FROM `UnidirectionalBranches` AS `u4`
+            SELECT `u1`.`Id`, `u1`.`Name`
+            FROM `UnidirectionalBranches` AS `u1`
             UNION ALL
-            SELECT `u5`.`Id`, `u5`.`Name`, `u5`.`Number`, `u5`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`
-            FROM `UnidirectionalLeaves` AS `u5`
-        ) AS `t1` ON `u3`.`UnidirectionalEntityBranchId` = `t1`.`Id`
-        WHERE `u`.`Id` = `u3`.`UnidirectionalEntityOneId` AND (`t1`.`Name` LIKE 'L%')) AS `c`
+            SELECT `u2`.`Id`, `u2`.`Name`
+            FROM `UnidirectionalLeaves` AS `u2`
+        ) AS `u3` ON `u0`.`UnidirectionalEntityBranchId` = `u3`.`Id`
+        WHERE `u`.`Id` = `u0`.`UnidirectionalEntityOneId` AND (`u3`.`Name` LIKE 'L%')) AS `c`
     FROM `UnidirectionalEntityOnes` AS `u`
-) AS `t3`
-ORDER BY `t3`.`c`, `t3`.`Id`
+) AS `u4`
+ORDER BY `u4`.`c`, `u4`.`Id`
 """);
     }
 

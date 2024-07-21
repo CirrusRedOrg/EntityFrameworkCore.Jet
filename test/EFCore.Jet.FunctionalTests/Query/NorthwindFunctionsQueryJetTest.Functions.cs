@@ -2069,9 +2069,10 @@ WHERE (`o`.`CustomerID` = 'ALFKI') AND ((CHARINDEX('1997', CONVERT(nvarchar(max)
             await base.Indexof_with_emptystring(async);
 
             AssertSql(
-    """
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
+WHERE IIF(`c`.`Region` IS NOT NULL, 0, NULL) = 0
 """);
         }
 
@@ -2090,7 +2091,6 @@ WHERE (INSTR(1, `c`.`ContactName`, 'a', 1) - 1) = 1
         public override async Task Indexof_with_one_parameter_arg(bool async)
         {
             await base.Indexof_with_one_parameter_arg(async);
-
             AssertSql(
                 $"""
 @__pattern_0='a' (Size = 30)
@@ -2098,7 +2098,7 @@ WHERE (INSTR(1, `c`.`ContactName`, 'a', 1) - 1) = 1
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF({AssertSqlHelper.Parameter("@__pattern_0")} = '', 0, INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 1) - 1) = 1
+WHERE (INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 1) - IIF({AssertSqlHelper.Parameter("@__pattern_0")} = '', 0, 1)) = 1
 """);
         }
 
@@ -2496,7 +2496,7 @@ WHERE (INSTR(1, (`o`.`OrderID` & ''), '123', 1) - 1) = -1
                 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE IIF((`o`.`OrderID` & '') = '', 0, INSTR(1, '123', (`o`.`OrderID` & ''), 1) - 1) = -1
+WHERE (INSTR(1, '123', (`o`.`OrderID` & ''), 1) - IIF((`o`.`OrderID` & '') = '', 0, 1)) = -1
 """);
         }
 

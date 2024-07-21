@@ -103,20 +103,20 @@ WHERE (
 
         AssertSql(
             """
-SELECT `t1`.`Id`, `t1`.`Name`, `t1`.`c`
+SELECT `e2`.`Id`, `e2`.`Name`, `e2`.`c`
 FROM (
     SELECT `e`.`Id`, `e`.`Name`, (
         SELECT COUNT(*)
-        FROM `JoinOneToBranch` AS `j0`
+        FROM `JoinOneToBranch` AS `j`
         INNER JOIN (
-            SELECT `e1`.`Id`, `e1`.`Discriminator`, `e1`.`Name`, `e1`.`Number`, `e1`.`IsGreen`
-            FROM `EntityRoots` AS `e1`
-            WHERE `e1`.`Discriminator` IN ('EntityBranch', 'EntityLeaf')
-        ) AS `t0` ON `j0`.`EntityBranchId` = `t0`.`Id`
-        WHERE `e`.`Id` = `j0`.`EntityOneId` AND (`t0`.`Name` LIKE 'L%')) AS `c`
+            SELECT `e0`.`Id`, `e0`.`Name`
+            FROM `EntityRoots` AS `e0`
+            WHERE `e0`.`Discriminator` IN ('EntityBranch', 'EntityLeaf')
+        ) AS `e1` ON `j`.`EntityBranchId` = `e1`.`Id`
+        WHERE `e`.`Id` = `j`.`EntityOneId` AND (`e1`.`Name` LIKE 'L%')) AS `c`
     FROM `EntityOnes` AS `e`
-) AS `t1`
-ORDER BY `t1`.`c`, `t1`.`Id`
+) AS `e2`
+ORDER BY `e2`.`c`, `e2`.`Id`
 """);
     }
 

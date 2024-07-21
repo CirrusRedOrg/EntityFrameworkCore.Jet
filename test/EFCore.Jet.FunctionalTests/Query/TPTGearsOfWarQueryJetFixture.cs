@@ -44,6 +44,18 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
             {
                 mission.Timeline = mission.Timeline.AddYears(100);
             }
+            if (mission.Date.Year < 100)
+            {
+                mission.Date = mission.Date.AddYears(100);
+            }
+        }
+
+        foreach (var tag in tags)
+        {
+            if (tag.IssueDate.Year < 100)
+            {
+                tag.IssueDate = tag.IssueDate.AddYears(100);
+            }
         }
 
         GearsOfWarData.WireUp(
@@ -76,7 +88,19 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
             {
                 mission.Timeline = mission.Timeline.AddYears(100);
             }
+            if (mission.Date.Year < 100)
+            {
+                mission.Date = mission.Date.AddYears(100);
+            }
             mission.Timeline = JetTestHelpers.GetExpectedValue(mission.Timeline);
+        }
+
+        foreach (var tag in data.Tags)
+        {
+            if (tag.IssueDate.Year < 100)
+            {
+                tag.IssueDate = tag.IssueDate.AddYears(100);
+            }
         }
 
         return data;

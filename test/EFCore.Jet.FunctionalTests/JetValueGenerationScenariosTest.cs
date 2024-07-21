@@ -51,8 +51,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         protected override NeedsConverter NeedsConverterSentinel
             => new(0);
 
-        protected override GeometryCollection GeometryCollectionSentinel
-            => null;
+        /*protected override GeometryCollection GeometryCollectionSentinel
+            => null;*/
 
         protected override byte[] TimestampSentinel
             => null;

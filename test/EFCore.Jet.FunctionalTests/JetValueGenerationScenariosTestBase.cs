@@ -15,8 +15,6 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.ValueGeneration.Internal;
-using NetTopologySuite;
-using NetTopologySuite.Geometries;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
@@ -25,7 +23,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests;
 
 public abstract class JetValueGenerationScenariosTestBase
 {
-    protected static readonly GeometryFactory GeometryFactory = NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
+    //protected static readonly GeometryFactory GeometryFactory = NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
 
     protected abstract string DatabaseName { get; }
 
@@ -38,7 +36,7 @@ public abstract class JetValueGenerationScenariosTestBase
     protected abstract string StringSentinel { get; }
     protected abstract DateTime DateTimeSentinel { get; }
     protected abstract NeedsConverter NeedsConverterSentinel { get; }
-    protected abstract GeometryCollection GeometryCollectionSentinel { get; }
+    //protected abstract GeometryCollection GeometryCollectionSentinel { get; }
     protected abstract byte[] TimestampSentinel { get; }
 
     // Positive cases
@@ -588,7 +586,7 @@ public abstract class JetValueGenerationScenariosTestBase
         }
     }
 
-    [ConditionalFact]
+    /*[ConditionalFact]
     public async Task Insert_with_non_key_default_spatial_value()
     {
         using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -655,7 +653,7 @@ public abstract class JetValueGenerationScenariosTestBase
             Assert.Equal(1, point2.X);
             Assert.Equal(22, point2.Y);
         }
-    }
+    }*/
 
     public class BlogContextNonKeyDefaultValue(string databaseName, Action<ModelBuilder> modelBuilder)
         : ContextBase(databaseName, modelBuilder)
@@ -681,7 +679,7 @@ public abstract class JetValueGenerationScenariosTestBase
         }
     }
 
-    public class BlogContextNonKeyDefaultSpatialValue(string databaseName, Action<ModelBuilder> modelBuilder)
+    /*public class BlogContextNonKeyDefaultSpatialValue(string databaseName, Action<ModelBuilder> modelBuilder)
         : ContextBase(databaseName, modelBuilder)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -703,7 +701,7 @@ public abstract class JetValueGenerationScenariosTestBase
                         });
                 });
         }
-    }
+    }*/
 
     [ConditionalFact]
     public async Task Insert_with_non_key_default_value_readonly()
@@ -1472,7 +1470,7 @@ END");
         public int? OtherId { get; set; }
     }
 
-    protected BlogWithSpatial CreateBlogWithSpatial(string name)
+    /*protected BlogWithSpatial CreateBlogWithSpatial(string name)
         => new()
         {
             Id = IntSentinel,
@@ -1485,7 +1483,7 @@ END");
         public int Id { get; set; }
         public string Name { get; set; }
         public GeometryCollection GeometryCollection { get; set; }
-    }
+    }*/
 
     public class NeedsConverter(int value)
     {
@@ -1551,7 +1549,7 @@ END");
         }
 
         public DbSet<Blog> Blogs { get; set; }
-        public DbSet<BlogWithSpatial> SpatialBlogs { get; set; }
+        //public DbSet<BlogWithSpatial> SpatialBlogs { get; set; }
         public DbSet<NullableKeyBlog> NullableKeyBlogs { get; set; }
         public DbSet<FullNameBlog> FullNameBlogs { get; set; }
         public DbSet<GuidBlog> GuidBlogs { get; set; }

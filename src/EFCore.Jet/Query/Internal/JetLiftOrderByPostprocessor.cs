@@ -10,31 +10,19 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
-
+#pragma warning disable CS9113
 /// <remarks>
 ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
 ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </remarks>
-public class JetLiftOrderByPostprocessor : ExpressionVisitor
+[EntityFrameworkInternal]
+public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappingSource,
+    ISqlExpressionFactory sqlExpressionFactory,
+    SqlAliasManager sqlAliasManager)
+    : ExpressionVisitor 
 {
-    private readonly IRelationalTypeMappingSource _typeMappingSource;
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
-
-    /// <summary>
-    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-    ///     any release. You should only use it directly in your code with extreme caution and knowing that
-    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-    /// </summary>
-    public JetLiftOrderByPostprocessor(
-        IRelationalTypeMappingSource typeMappingSource,
-        ISqlExpressionFactory sqlExpressionFactory)
-    {
-        (_typeMappingSource, _sqlExpressionFactory) = (typeMappingSource, sqlExpressionFactory);
-    }
-
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -58,9 +46,11 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
         switch (expression)
         {
             case ShapedQueryExpression shapedQueryExpression:
-                shapedQueryExpression = shapedQueryExpression.UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression));
-                shapedQueryExpression = shapedQueryExpression.UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
-                return shapedQueryExpression;
+                shapedQueryExpression = shapedQueryExpression
+                    .UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression))
+                    .UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
+
+                return shapedQueryExpression.UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
             case RelationalSplitCollectionShaperExpression relationalSplitCollectionShaperExpression:
                 var newSelect = Visit(relationalSplitCollectionShaperExpression.SelectExpression);
                 var newInner = Visit(relationalSplitCollectionShaperExpression.InnerShaper);
@@ -79,7 +69,7 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                         var sqlExpression = selectExpression.Orderings[i].Expression;
                         if (sqlExpression is not ColumnExpression && sqlExpression is not SqlConstantExpression && sqlExpression is not SqlParameterExpression)
                         {
-                            var locate = new JetLocateScalarSubqueryVisitor(_typeMappingSource, _sqlExpressionFactory);
+                            var locate = new JetLocateScalarSubqueryVisitor(typeMappingSource, sqlExpressionFactory);
                             var locatedExpression = locate.Visit(sqlExpression);
                             bool containsscalar = locatedExpression is ScalarSubqueryExpression or ExistsExpression;
                             if (containsscalar)
@@ -127,12 +117,13 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                         /*selectExpression = selectExpression.Update(selectExpression.Tables,
                             selectExpression.Predicate, selectExpression.GroupBy, selectExpression.Having, selectExpression.Projection,
                             selectExpression.Orderings, null, null);*/
-
+                        selectExpression = AddAliasManager(selectExpression);
                         selectExpression.PushdownIntoSubquery();
                         selectExpression.ApplyLimit(limit);
                     }
                     else
                     {
+                        selectExpression = AddAliasManager(selectExpression);
                         selectExpression.PushdownIntoSubquery();
                     }
 
@@ -165,10 +156,35 @@ public class JetLiftOrderByPostprocessor : ExpressionVisitor
                 }
             case RelationalGroupByShaperExpression relationalGroupByShaperExpression:
             {
-                return relationalGroupByShaperExpression;
+                return base.VisitExtension(relationalGroupByShaperExpression);
             }
         }
 
         return base.Visit(expression);
+    }
+
+    private SelectExpression AddAliasManager(SelectExpression selectExpression)
+    {
+        //get private IsMutable property
+        var ismutable = selectExpression.GetType().GetProperty("IsMutable", BindingFlags.NonPublic | BindingFlags.Instance);
+        //get value
+        var ismut = (bool)ismutable?.GetValue(selectExpression)!;
+
+        //create new selectexp from selectexpression with aliasmanager
+        var newselect = new SelectExpression(selectExpression.Alias,
+            selectExpression.Tables.ToList(),
+            selectExpression.Predicate, selectExpression.GroupBy.ToList(), selectExpression.Having,
+            selectExpression.Projection.ToList(), selectExpression.IsDistinct,
+            selectExpression.Orderings.ToList(), selectExpression.Offset, selectExpression.Limit,
+            selectExpression.Tags, new Dictionary<string, IAnnotation>(), sqlAliasManager, ismut);
+
+        //do private stuff
+        //_projectionMapping = newProjectionMappings,
+        //_clientProjections = newClientProjections,
+        var clientProj = selectExpression.GetType().GetField("_clientProjections", BindingFlags.NonPublic | BindingFlags.Instance);
+        var projMap = selectExpression.GetType().GetField("_projectionMapping", BindingFlags.NonPublic | BindingFlags.Instance);
+        clientProj?.SetValue(newselect, clientProj.GetValue(selectExpression));
+        projMap?.SetValue(newselect, projMap.GetValue(selectExpression));
+        return newselect;
     }
 }

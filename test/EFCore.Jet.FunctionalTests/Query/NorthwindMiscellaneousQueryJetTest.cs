@@ -373,15 +373,15 @@ ORDER BY (
 
             AssertSql(
                 """
-SELECT `o2`.`c`, `o2`.`c0`, `o2`.`OrderID`, `o2`.`CustomerID`, `o2`.`EmployeeID`, `o2`.`OrderDate`
+SELECT `o2`.`OrderID`, `o2`.`CustomerID`, `o2`.`EmployeeID`, `o2`.`OrderDate`, `o2`.`c`, `o2`.`c0`
 FROM (
-    SELECT (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, (
         SELECT TOP 1 `o0`.`OrderID`
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `c`, (
         SELECT TOP 1 `o1`.`ProductID`
         FROM `Order Details` AS `o1`
-        WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `c0`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+        WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `c0`
     FROM `Orders` AS `o`
 ) AS `o2`
 ORDER BY `o2`.`c` DESC, `o2`.`c0` DESC
@@ -3150,15 +3150,15 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-SELECT `o1`.`c`, `o1`.`OrderId`, `o1`.`City`
+SELECT `o1`.`OrderId`, `o1`.`City`, `o1`.`c`
 FROM (
-    SELECT (
-        SELECT TOP 1 `c`.`City`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`, `o0`.`OrderID` AS `OrderId`, (
+    SELECT `o0`.`OrderID` AS `OrderId`, (
         SELECT TOP 1 `c0`.`City`
         FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`
+        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`, (
+        SELECT TOP 1 `c`.`City`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
     FROM (
         SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
         FROM `Orders` AS `o`
@@ -3175,15 +3175,15 @@ ORDER BY `o1`.`c`
 
             AssertSql(
                 """
-SELECT `o1`.`c`, `o1`.`OrderId`, `o1`.`City`
+SELECT `o1`.`OrderId`, `o1`.`City`, `o1`.`c`
 FROM (
-    SELECT (
-        SELECT TOP 1 `c`.`City`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`, `o0`.`OrderID` AS `OrderId`, (
+    SELECT `o0`.`OrderID` AS `OrderId`, (
         SELECT TOP 1 `c0`.`City`
         FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`
+        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`, (
+        SELECT TOP 1 `c`.`City`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
     FROM (
         SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
         FROM `Orders` AS `o`
@@ -3613,12 +3613,9 @@ FROM (
                 """
 SELECT DISTINCT `p0`.`ProductID`, `p0`.`Discontinued`, `p0`.`ProductName`, `p0`.`SupplierID`, `p0`.`UnitPrice`, `p0`.`UnitsInStock`
 FROM (
-    SELECT TOP 15 `p1`.`ProductID`, `p1`.`Discontinued`, `p1`.`ProductName`, `p1`.`SupplierID`, `p1`.`UnitPrice`, `p1`.`UnitsInStock`
-    FROM (
-        SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
-        FROM `Products` AS `p`
-    ) AS `p1`
-    ORDER BY `p1`.`c`
+    SELECT TOP 15 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+    FROM `Products` AS `p`
+    ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
 ) AS `p0`
 """);
         }
@@ -3904,9 +3901,12 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`)
+SELECT `c0`.`A`
+FROM (
+    SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
+    FROM `Customers` AS `c`
+) AS `c0`
+ORDER BY `c0`.`A`
 """);
         }
 
@@ -3916,17 +3916,17 @@ ORDER BY `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`)
 
             AssertSql(
                 """
-SELECT `c0`.`c`, `c0`.`A`
+SELECT `c0`.`A`, `c0`.`c`
 FROM (
     SELECT (
-        SELECT TOP 1 `o0`.`OrderDate`
-        FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-        ORDER BY `o0`.`OrderID` DESC) AS `c`, (
         SELECT TOP 1 `o1`.`OrderDate`
         FROM `Orders` AS `o1`
         WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-        ORDER BY `o1`.`OrderID` DESC) AS `A`
+        ORDER BY `o1`.`OrderID` DESC) AS `A`, (
+        SELECT TOP 1 `o0`.`OrderDate`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+        ORDER BY `o0`.`OrderID` DESC) AS `c`
     FROM `Customers` AS `c`
     WHERE (
         SELECT COUNT(*)
@@ -4036,17 +4036,17 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c0`.`c`, `c0`.`Property`
+SELECT `c0`.`Property`, `c0`.`c`
 FROM (
     SELECT (
-        SELECT TOP 1 `o0`.`OrderDate`
-        FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-        ORDER BY `o0`.`OrderID` DESC) AS `c`, (
         SELECT TOP 1 `o1`.`OrderDate`
         FROM `Orders` AS `o1`
         WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-        ORDER BY `o1`.`OrderID` DESC) AS `Property`
+        ORDER BY `o1`.`OrderID` DESC) AS `Property`, (
+        SELECT TOP 1 `o0`.`OrderDate`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+        ORDER BY `o0`.`OrderID` DESC) AS `c`
     FROM `Customers` AS `c`
     WHERE (
         SELECT COUNT(*)
@@ -5448,7 +5448,7 @@ FROM (
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
 ) AS `c0`
-ORDER BY IIF(@__searchTerm_0 = '', 0, INSTR(1, `c0`.`City`, @__searchTerm_0, 1) - 1), `c0`.`City`
+ORDER BY INSTR(1, `c0`.`City`, @__searchTerm_0, 1) - IIF(@__searchTerm_0 = '', 0, 1), `c0`.`City`
 """);
         }
 
@@ -6859,18 +6859,18 @@ WHERE (
 
             AssertSql(
                 """
-SELECT `o2`.`c`, `o2`.`Key`
+SELECT `o3`.`Key`, `o3`.`MaxTimestamp`
 FROM (
-    SELECT (
+    SELECT `o`.`Quantity` AS `Key`, (
         SELECT MAX(`o1`.`OrderDate`)
         FROM `Order Details` AS `o0`
         INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-        WHERE `o0`.`OrderID` IN (10248, 10249) AND `o`.`Quantity` = `o0`.`Quantity`) AS `c`, `o`.`Quantity` AS `Key`
+        WHERE `o0`.`OrderID` IN (10248, 10249) AND `o`.`Quantity` = `o0`.`Quantity`) AS `MaxTimestamp`
     FROM `Order Details` AS `o`
     WHERE `o`.`OrderID` IN (10248, 10249)
     GROUP BY `o`.`Quantity`
-) AS `o2`
-ORDER BY `o2`.`c`
+) AS `o3`
+ORDER BY `o3`.`MaxTimestamp`
 """);
         }
 

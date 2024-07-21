@@ -329,12 +329,12 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 // If the connection string is an actual connection string and not just a file path, then we should
                 // be able to deduct the provider from its style.
-                dataAccessProviderType ??= GetDataAccessProviderType(fileNameOrConnectionString);
+                dataAccessProviderType = GetDataAccessProviderType(fileNameOrConnectionString);
                 connectionString = fileNameOrConnectionString;
             }
             else
             {
-                dataAccessProviderType ??= JetConfiguration.DefaultDataAccessProviderType;
+                dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
 
                 if (IsFileName(fileNameOrConnectionString))
                 {
@@ -352,7 +352,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
             }
 
-            DataAccessProviderFactory ??= JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
+            DataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
 
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.

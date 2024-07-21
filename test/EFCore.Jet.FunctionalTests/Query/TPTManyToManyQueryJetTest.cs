@@ -109,21 +109,20 @@ WHERE (
 
         AssertSql(
             """
-SELECT `t1`.`Id`, `t1`.`Name`, `t1`.`c`
+SELECT `e0`.`Id`, `e0`.`Name`, `e0`.`c`
 FROM (
     SELECT `e`.`Id`, `e`.`Name`, (
         SELECT COUNT(*)
-        FROM `JoinOneToBranch` AS `j0`
+        FROM `JoinOneToBranch` AS `j`
         INNER JOIN (
-            SELECT `r0`.`Id`, `r0`.`Name`, `b0`.`Number`, `l0`.`IsGreen`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf', NULL) AS `Discriminator`
-            FROM (`Roots` AS `r0`
-            INNER JOIN `Branches` AS `b0` ON `r0`.`Id` = `b0`.`Id`)
-            LEFT JOIN `Leaves` AS `l0` ON `r0`.`Id` = `l0`.`Id`
-        ) AS `t0` ON `j0`.`EntityBranchId` = `t0`.`Id`
-        WHERE `e`.`Id` = `j0`.`EntityOneId` AND (`t0`.`Name` LIKE 'L%')) AS `c`
+            SELECT `r`.`Id`, `r`.`Name`
+            FROM `Roots` AS `r`
+            INNER JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`
+        ) AS `s` ON `j`.`EntityBranchId` = `s`.`Id`
+        WHERE `e`.`Id` = `j`.`EntityOneId` AND (`s`.`Name` LIKE 'L%')) AS `c`
     FROM `EntityOnes` AS `e`
-) AS `t1`
-ORDER BY `t1`.`c`, `t1`.`Id`
+) AS `e0`
+ORDER BY `e0`.`c`, `e0`.`Id`
 """);
     }
 
@@ -2152,21 +2151,20 @@ WHERE (
 
         AssertSql(
             """
-SELECT `t1`.`Id`, `t1`.`Name`, `t1`.`c`
+SELECT `u4`.`Id`, `u4`.`Name`, `u4`.`c`
 FROM (
     SELECT `u`.`Id`, `u`.`Name`, (
         SELECT COUNT(*)
-        FROM `UnidirectionalJoinOneToBranch` AS `u4`
+        FROM `UnidirectionalJoinOneToBranch` AS `u0`
         INNER JOIN (
-            SELECT `u5`.`Id`, `u5`.`Name`, `u6`.`Number`, `u7`.`IsGreen`, IIF(`u7`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', NULL) AS `Discriminator`
-            FROM (`UnidirectionalRoots` AS `u5`
-            INNER JOIN `UnidirectionalBranches` AS `u6` ON `u5`.`Id` = `u6`.`Id`)
-            LEFT JOIN `UnidirectionalLeaves` AS `u7` ON `u5`.`Id` = `u7`.`Id`
-        ) AS `t0` ON `u4`.`UnidirectionalEntityBranchId` = `t0`.`Id`
-        WHERE `u`.`Id` = `u4`.`UnidirectionalEntityOneId` AND (`t0`.`Name` LIKE 'L%')) AS `c`
+            SELECT `u1`.`Id`, `u1`.`Name`
+            FROM `UnidirectionalRoots` AS `u1`
+            INNER JOIN `UnidirectionalBranches` AS `u2` ON `u1`.`Id` = `u2`.`Id`
+        ) AS `s` ON `u0`.`UnidirectionalEntityBranchId` = `s`.`Id`
+        WHERE `u`.`Id` = `u0`.`UnidirectionalEntityOneId` AND (`s`.`Name` LIKE 'L%')) AS `c`
     FROM `UnidirectionalEntityOnes` AS `u`
-) AS `t1`
-ORDER BY `t1`.`c`, `t1`.`Id`
+) AS `u4`
+ORDER BY `u4`.`c`, `u4`.`Id`
 """);
     }
 

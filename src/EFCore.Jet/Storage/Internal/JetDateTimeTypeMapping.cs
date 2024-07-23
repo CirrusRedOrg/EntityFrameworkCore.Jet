@@ -148,14 +148,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private static DateTime CheckDateTimeValue(DateTime dateTime)
         {
-            if (dateTime < JetConfiguration.TimeSpanOffset)
+            if (dateTime < new DateTime(100,1,1))
             {
                 if (dateTime != default)
                 {
                     throw new InvalidOperationException($"The {nameof(DateTime)} value '{dateTime}' is smaller than the minimum supported value of '{JetConfiguration.TimeSpanOffset}'.");
                 }
 
-                dateTime = JetConfiguration.TimeSpanOffset;
+                //dateTime = JetConfiguration.TimeSpanOffset;
             }
 
             return dateTime;

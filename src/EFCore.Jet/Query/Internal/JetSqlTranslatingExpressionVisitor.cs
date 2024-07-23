@@ -14,6 +14,9 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Text;
 using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.EntityFrameworkCore.Storage;
+
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
 /// <summary>
@@ -152,6 +155,26 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
         }
 
         return base.VisitUnary(unaryExpression);
+    }
+
+    protected override Expression VisitExtension(Expression extensionExpression)
+    {
+        var result =  base.VisitExtension(extensionExpression);
+        if (extensionExpression is ShapedQueryExpression shapedQueryExpression)
+        {
+            var shaperExpression = shapedQueryExpression.ShaperExpression;
+            if (shapedQueryExpression.ResultCardinality == ResultCardinality.SingleOrDefault
+                && !shaperExpression.Type.IsNullableType() && result is SqlFunctionExpression { Name: "COALESCE"} sqlFunctionExpression)
+            {
+                if (sqlFunctionExpression.Arguments?[1] is SqlConstantExpression { Value: DateTime { Ticks: 0 } })
+                {
+                    var newconst = new SqlConstantExpression(new DateTime(100, 1, 1), sqlFunctionExpression.Arguments[1].TypeMapping);
+                    return _sqlExpressionFactory.Coalesce(sqlFunctionExpression.Arguments[0],
+                        (SqlExpression)Visit(newconst));
+                }
+            }
+        }
+        return result;
     }
 
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)

@@ -8156,7 +8156,23 @@ ORDER BY `g`.`Nickname`, `g`.`SquadId`, `c`.`Name`
 
         public override async Task FirstOrDefault_on_empty_collection_of_DateTime_in_subquery(bool async)
         {
-            await base.FirstOrDefault_on_empty_collection_of_DateTime_in_subquery(async);
+            //await base.FirstOrDefault_on_empty_collection_of_DateTime_in_subquery(async);
+            await AssertQuery(
+                async,
+                ss => from g in ss.Set<Gear>()
+                    let invalidTagIssueDate = (from t in ss.Set<CogTag>()
+                        where t.GearNickName == g.FullName
+                        orderby t.Id
+                        select t.IssueDate).FirstOrDefault()
+                    where g.Tag.IssueDate > invalidTagIssueDate
+                    select new { g.Nickname, invalidTagIssueDate },
+                ss => from g in ss.Set<Gear>()
+                    let invalidTagIssueDate = (from t in ss.Set<CogTag>()
+                        where t.GearNickName == g.FullName
+                        orderby t.Id
+                        select t.IssueDate).FirstOrDefault(new DateTime(100,1,1))
+                    where g.Tag.IssueDate > invalidTagIssueDate
+                    select new { g.Nickname, invalidTagIssueDate });
 
             AssertSql(
                 """
@@ -8164,7 +8180,7 @@ SELECT `g`.`Nickname`, IIF((
         SELECT TOP 1 `t1`.`IssueDate`
         FROM `Tags` AS `t1`
         WHERE `t1`.`GearNickName` = `g`.`FullName`
-        ORDER BY `t1`.`Id`) IS NULL, #1899-12-30#, (
+        ORDER BY `t1`.`Id`) IS NULL, #0100-01-01#, (
         SELECT TOP 1 `t1`.`IssueDate`
         FROM `Tags` AS `t1`
         WHERE `t1`.`GearNickName` = `g`.`FullName`
@@ -8175,7 +8191,7 @@ WHERE `t`.`IssueDate` > IIF((
         SELECT TOP 1 `t0`.`IssueDate`
         FROM `Tags` AS `t0`
         WHERE `t0`.`GearNickName` = `g`.`FullName`
-        ORDER BY `t0`.`Id`) IS NULL, #1899-12-30#, (
+        ORDER BY `t0`.`Id`) IS NULL, #0100-01-01#, (
         SELECT TOP 1 `t0`.`IssueDate`
         FROM `Tags` AS `t0`
         WHERE `t0`.`GearNickName` = `g`.`FullName`

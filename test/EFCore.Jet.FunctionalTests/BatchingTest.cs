@@ -300,7 +300,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context =>
                 {
                     var owner1 = new Owner { Id = "0", Name = "Zero" };
-                    var owner2 = new Owner { Id = "A", Name = string.Join("", Enumerable.Repeat('A', 900)) };
+                    var owner2 = new Owner { Id = "A", Name = string.Join("", Enumerable.Repeat('A', 255)) };
                     context.Owners.Add(owner1);
                     context.Owners.Add(owner2);
 

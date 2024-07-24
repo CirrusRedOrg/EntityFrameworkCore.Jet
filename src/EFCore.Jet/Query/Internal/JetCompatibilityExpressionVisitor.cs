@@ -93,10 +93,6 @@ public class JetCompatibilityExpressionVisitor : ExpressionVisitor
 
     protected virtual Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
     {
-        if (crossJoinExpression.Table is SelectExpression selectExpression)
-        {
-            return TranslationFailed(selectExpression);
-        }
         return base.VisitExtension(crossJoinExpression);
     }
 

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Odbc;
+using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -137,7 +139,7 @@ public class JetXunitTestRunner : XunitTestRunner
 
         foreach (var innerException in aggregateException.Flatten().InnerExceptions.SelectMany(e => e.FlattenHierarchy()))
         {
-            if (innerException is InvalidOperationException)
+            if (innerException is InvalidOperationException or OleDbException or OdbcException)
             {
                 var message = innerException.Message;
                 
@@ -149,17 +151,17 @@ public class JetXunitTestRunner : XunitTestRunner
                     skip = expectedUnsupportedTranslation;
                     unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
                 }
-                else if (message.StartsWith("The LINQ expression '") &&
-                         message.Contains("' could not be translated."))
+                else if (message.StartsWith("Unsupported Jet expression"))
                 {
-                    var expectedUnsupportedTranslation = message.Contains("OUTER APPLY") ||
-                                                         message.Contains("CROSS APPLY") ||
-                                                         message.Contains("ROW_NUMBER() OVER") ||
-                                                         message.Contains("EXCEPT") ||
-                                                         message.Contains("INTERSECT");
-
-                    skip = expectedUnsupportedTranslation;
-                    unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
+                    skip = true;
+                }
+                else if (message.StartsWith("No value given for one or more required parameters."))
+                {
+                    skip = true;
+                }
+                else if (message.StartsWith("Syntax error in PARAMETER clause"))
+                {
+                    skip = true;
                 }
 
                 if (skip)

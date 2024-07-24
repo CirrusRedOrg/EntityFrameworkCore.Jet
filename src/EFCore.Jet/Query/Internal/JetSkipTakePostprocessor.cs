@@ -74,6 +74,11 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                     {
                         SqlExpression offset = selectExpression.Offset!;
                         SqlExpression limit = selectExpression.Limit!;
+                        if (offset is ColumnExpression || limit is ColumnExpression)
+                        {
+                            throw new InvalidOperationException(
+                                "Unsupported Jet expression: Limit or offset can not reference a column");
+                        }
                         var total = new SqlBinaryExpression(ExpressionType.Add, offset, limit, typeof(int),
                             RelationalTypeMapping.NullMapping);
                         MethodInfo? dynMethodO = selectExpression.GetType().GetMethod("set_Offset",

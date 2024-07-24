@@ -67,6 +67,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             //_jetSqlExpressionFactory = jetSqlExpressionFactory;
         }
 
+        protected override bool TryGenerateWithoutWrappingSelect(SelectExpression selectExpression)
+        {
+            parent.TryPeek(out var exp);
+            if (exp is InExpression)
+            {
+                return false;
+            }
+            return base.TryGenerateWithoutWrappingSelect(selectExpression);
+        }
+
         protected override Expression VisitSelect(SelectExpression selectExpression)
         {
             // Copy & pasted from `QuerySqlGenerator` to implement Jet's non-standard JOIN syntax and DUAL table
@@ -569,8 +579,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     }
                 }
             }*/
-
+            parent.Push(inExpression);
             base.GenerateIn(inExpression, negated);
+            parent.Pop();
         }
 
         protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)

@@ -9862,26 +9862,26 @@ SELECT `s`.`Name`, (
     INNER JOIN `Squads` AS `s0` ON `g2`.`SquadId` = `s0`.`Id`)
     INNER JOIN `Cities` AS `c` ON `g2`.`CityOfBirthName` = `c`.`Name`
     WHERE 'Marcus' IN (
-        SELECT `t0`.`Nickname`
+        SELECT `u0`.`Nickname`
         FROM (
-            SELECT `g3`.`Nickname`, `g3`.`SquadId`, `g3`.`AssignedCityName`, `g3`.`CityOfBirthName`, `g3`.`Discriminator`, `g3`.`FullName`, `g3`.`HasSoulPatch`, `g3`.`LeaderNickname`, `g3`.`LeaderSquadId`, `g3`.`Rank`
+            SELECT `g3`.`Nickname`
             FROM `Gears` AS `g3`
             UNION ALL
-            SELECT `g4`.`Nickname`, `g4`.`SquadId`, `g4`.`AssignedCityName`, `g4`.`CityOfBirthName`, `g4`.`Discriminator`, `g4`.`FullName`, `g4`.`HasSoulPatch`, `g4`.`LeaderNickname`, `g4`.`LeaderSquadId`, `g4`.`Rank`
+            SELECT `g4`.`Nickname`
             FROM `Gears` AS `g4`
-        ) AS `t0`
+        ) AS `u0`
     ) AND (`s`.`Name` = `s0`.`Name` OR (`s`.`Name` IS NULL AND `s0`.`Name` IS NULL))) AS `SumOfLengths`
 FROM `Gears` AS `g`
 INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
 WHERE 'Marcus' IN (
-    SELECT `t`.`Nickname`
+    SELECT `u`.`Nickname`
     FROM (
-        SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`Discriminator`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`
+        SELECT `g0`.`Nickname`
         FROM `Gears` AS `g0`
         UNION ALL
-        SELECT `g1`.`Nickname`, `g1`.`SquadId`, `g1`.`AssignedCityName`, `g1`.`CityOfBirthName`, `g1`.`Discriminator`, `g1`.`FullName`, `g1`.`HasSoulPatch`, `g1`.`LeaderNickname`, `g1`.`LeaderSquadId`, `g1`.`Rank`
+        SELECT `g1`.`Nickname`
         FROM `Gears` AS `g1`
-    ) AS `t`
+    ) AS `u`
 )
 GROUP BY `s`.`Name`
 """);

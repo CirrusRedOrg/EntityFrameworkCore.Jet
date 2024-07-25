@@ -106,7 +106,7 @@ public class JetCompatibilityExpressionVisitor : ExpressionVisitor
         {
             containsunsupported = ContainsUnsupportCol(left) ^ containsunsupported;
         }
-        else if (binaryexp.Left is SqlConstantExpression or SqlFunctionExpression or ScalarSubqueryExpression)
+        else if (binaryexp.Left is SqlConstantExpression or ScalarSubqueryExpression)
         {
             containsunsupported = true;
         }
@@ -115,7 +115,7 @@ public class JetCompatibilityExpressionVisitor : ExpressionVisitor
         {
             containsunsupported = ContainsUnsupportCol(right) ^ containsunsupported;
         }
-        else if (binaryexp.Right is SqlConstantExpression or SqlFunctionExpression or ScalarSubqueryExpression)
+        else if (binaryexp.Right is SqlConstantExpression or ScalarSubqueryExpression)
         {
             containsunsupported = true;
         }

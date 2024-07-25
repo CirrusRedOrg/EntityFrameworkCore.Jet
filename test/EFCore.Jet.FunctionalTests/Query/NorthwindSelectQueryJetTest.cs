@@ -646,6 +646,50 @@ FROM `Customers` AS `c`
 """);
         }
 
+        public override async Task Select_conditional_drops_false(bool isAsync)
+        {
+            await base.Select_conditional_drops_false(isAsync);
+
+            AssertSql(
+                """
+SELECT IIF((`o`.`OrderID` MOD 2) = 0, `o`.`OrderID`, -`o`.`OrderID`)
+FROM `Orders` AS `o`
+""");
+        }
+
+        public override async Task Select_conditional_terminates_at_true(bool isAsync)
+        {
+            await base.Select_conditional_terminates_at_true(isAsync);
+
+            AssertSql(
+                """
+SELECT IIF((`o`.`OrderID` MOD 2) = 0, `o`.`OrderID`, 0)
+FROM `Orders` AS `o`
+""");
+        }
+
+        public override async Task Select_conditional_flatten_nested_results(bool isAsync)
+        {
+            await base.Select_conditional_flatten_nested_results(isAsync);
+
+            AssertSql(
+                """
+SELECT IIF((`o`.`OrderID` MOD 2) = 0 AND (`o`.`OrderID` MOD 5) = 0, -`o`.`OrderID`, `o`.`OrderID`)
+FROM `Orders` AS `o`
+""");
+        }
+
+        public override async Task Select_conditional_flatten_nested_tests(bool isAsync)
+        {
+            await base.Select_conditional_flatten_nested_tests(isAsync);
+
+            AssertSql(
+                """
+SELECT IIF((`o`.`OrderID` MOD 2) <> 0, `o`.`OrderID`, -`o`.`OrderID`)
+FROM `Orders` AS `o`
+""");
+        }
+
         public override async Task Projection_in_a_subquery_should_be_liftable(bool isAsync)
         {
             await base.Projection_in_a_subquery_should_be_liftable(isAsync);
@@ -2229,14 +2273,14 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`), `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o0`.`OrderID` MOD 2
+SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`) AS `Add`, `e0`.`Square`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, 42 AS `Literal`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o0`.`OrderID` MOD 2 AS `Mod`
 FROM (
     SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`,
 (
-    SELECT TOP 2 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+    SELECT TOP 2 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e`.`EmployeeID` BXOR 2 AS `Square`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
 ) AS `e0`

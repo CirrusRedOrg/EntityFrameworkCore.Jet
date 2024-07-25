@@ -1539,7 +1539,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Customers` AS `c`
-        WHERE `c`.`ContactName` IS NULL OR LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) <> `c`.`ContactName`), TRUE, FALSE)
+        WHERE `c`.`ContactName` IS NULL OR LEFT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) <> `c`.`ContactName`), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -3043,6 +3043,18 @@ WHERE (`o`.`OrderID` BAND 10248) = 10248
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE (`o`.`OrderID` BOR 10248) = 10248
+""");
+        }
+
+        public override async Task Where_bitwise_binary_xor(bool async)
+        {
+            await base.Where_bitwise_binary_xor(async);
+
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE (`o`.`OrderID` BXOR 1) = 10249
 """);
         }
 

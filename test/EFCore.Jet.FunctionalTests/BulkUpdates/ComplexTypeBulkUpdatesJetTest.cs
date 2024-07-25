@@ -31,6 +31,13 @@ WHERE `c`.`Name` = 'Monty Elias'
 """);
     }
 
+    public override async Task Delete_complex_type(bool async)
+    {
+        await base.Delete_complex_type(async);
+
+        AssertSql();
+    }
+
     public override async Task Update_property_inside_complex_type(bool async)
     {
         await base.Update_property_inside_complex_type(async);
@@ -90,6 +97,13 @@ UPDATE `Customer` AS `c`
 SET `c`.`BillingAddress_ZipCode` = 54321,
     `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`
 """);
+    }
+
+    public override async Task Update_projected_complex_type_via_OrderBy_Skip(bool async)
+    {
+        await base.Update_projected_complex_type_via_OrderBy_Skip(async);
+
+        AssertExecuteUpdateSql();
     }
 
     public override async Task Update_complex_type_to_parameter(bool async)

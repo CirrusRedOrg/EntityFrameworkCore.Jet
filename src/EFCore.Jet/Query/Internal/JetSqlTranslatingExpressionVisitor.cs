@@ -328,7 +328,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                                                         "LEN",
                                                         new[] { translatedPattern },
                                                         nullable: true,
-                                                        argumentsPropagateNullability: new[] { true },
+                                                        argumentsPropagateNullability: new[] { false },
                                                         typeof(int)),
                                                     _sqlExpressionFactory.Constant(0)
                                                     )

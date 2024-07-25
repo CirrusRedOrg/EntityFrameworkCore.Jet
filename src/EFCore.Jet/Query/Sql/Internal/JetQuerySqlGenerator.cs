@@ -750,6 +750,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 ExpressionType.Modulo => " MOD ",
                 ExpressionType.Or => " BOR ",
                 ExpressionType.Not => " BNOT ",
+                ExpressionType.ExclusiveOr => " BXOR ",
                 ExpressionType.Divide when binaryExpression.Type == typeof(Int32) => " \\ ",
                 _ => base.GetOperator(binaryExpression),
             };

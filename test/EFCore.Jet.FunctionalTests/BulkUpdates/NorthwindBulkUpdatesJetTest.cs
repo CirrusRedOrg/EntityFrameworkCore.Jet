@@ -1346,6 +1346,13 @@ WHERE [c].[CustomerID] LIKE N'F%'
 """);
     }
 
+    public override async Task Update_FromSql_set_constant(bool async)
+    {
+        await base.Update_FromSql_set_constant(async);
+
+        AssertExecuteUpdateSql();
+    }
+
     public override async Task Update_Where_SelectMany_subquery_set_null(bool async)
     {
         await base.Update_Where_SelectMany_subquery_set_null(async);

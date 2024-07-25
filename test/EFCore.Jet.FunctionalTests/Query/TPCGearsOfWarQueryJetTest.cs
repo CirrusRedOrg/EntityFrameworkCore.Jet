@@ -1166,6 +1166,17 @@ WHERE `w`.`IsAutomatic` = TRUE
 """);
     }
 
+    public override async Task Select_inverted_nullable_boolean(bool async)
+    {
+        await base.Select_inverted_nullable_boolean(async);
+
+        AssertSql(
+            """
+SELECT [l].[Id], [l].[Eradicated] ^ CAST(1 AS bit) AS [Alive]
+FROM [LocustHordes] AS [l]
+""");
+    }
+
     public override async Task Select_comparison_with_null(bool async)
     {
         await base.Select_comparison_with_null(async);
@@ -12597,6 +12608,24 @@ GROUP BY `m`.`CodeName`
 """
 SELECT IIF(`l`.`Eradicated` = FALSE, 'False', IIF(`l`.`Eradicated` = TRUE, 'True', NULL))
 FROM `LocustHordes` AS `l`
+""");
+    }
+
+    public override async Task ToString_boolean_computed_nullable(bool async)
+    {
+        await base.ToString_boolean_computed_nullable(async);
+
+        AssertSql(
+            """
+SELECT CASE CASE
+    WHEN NOT ([l].[Eradicated] = CAST(1 AS bit) OR ([l].[CommanderName] = N'Unknown' AND [l].[CommanderName] IS NOT NULL)) THEN CAST(0 AS bit)
+    WHEN [l].[Eradicated] = CAST(1 AS bit) OR ([l].[CommanderName] = N'Unknown' AND [l].[CommanderName] IS NOT NULL) THEN CAST(1 AS bit)
+END
+    WHEN CAST(0 AS bit) THEN N'False'
+    WHEN CAST(1 AS bit) THEN N'True'
+    ELSE N''
+END
+FROM [LocustHordes] AS [l]
 """);
     }
 

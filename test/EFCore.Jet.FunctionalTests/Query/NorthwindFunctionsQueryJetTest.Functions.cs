@@ -120,7 +120,7 @@ WHERE `c`.`ContactName` LIKE {AssertSqlHelper.Parameter("@__pattern_0_startswith
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) = `c`.`ContactName`
+WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
 """);
         }
 
@@ -132,7 +132,7 @@ WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, IIF(LEN(`c`.`Con
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) = `c`.`ContactName`
+WHERE `c`.`ContactName` IS NOT NULL AND LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
 """);
         }
 
@@ -203,7 +203,7 @@ WHERE `c`.`ContactName` LIKE {AssertSqlHelper.Parameter("@__pattern_0_endswith")
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) = `c`.`ContactName`
+WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
 """);
         }
 
@@ -215,7 +215,7 @@ WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, IIF(LEN(`c`.`Co
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) = `c`.`ContactName`
+WHERE `c`.`ContactName` IS NOT NULL AND RIGHT(`c`.`ContactName`, LEN(`c`.`ContactName`)) = `c`.`ContactName`
 """);
         }
 
@@ -287,7 +287,7 @@ WHERE `c`.`ContactName` IS NOT NULL AND (INSTR(1, `c`.`ContactName`, `c`.`Contac
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` IS NOT NULL AND (INSTR(1, `c`.`ContactName`, `c`.`ContactName`, 1) > 0 OR (`c`.`ContactName` LIKE ''))
+WHERE `c`.`ContactName` IS NOT NULL AND (INSTR(1, `c`.`CompanyName`, `c`.`ContactName`, 1) > 0 OR (`c`.`ContactName` LIKE ''))
 """);
         }
 
@@ -2156,7 +2156,7 @@ WHERE REPLACE(`c`.`ContactName`, `c`.`ContactName`, `c`.`CustomerID`) = `c`.`Cus
                 """
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`CustomerID`, 0 + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`.`CustomerID`))) = 'ALFKI'
+WHERE MID(`c`.`CustomerID`, 0 + 1, LEN(`c`.`CustomerID`)) = 'ALFKI'
 """);
         }
 
@@ -2168,7 +2168,7 @@ WHERE MID(`c`.`CustomerID`, 0 + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`
                 """
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`CustomerID`, 1 + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`.`CustomerID`))) = 'LFKI'
+WHERE MID(`c`.`CustomerID`, 1 + 1, LEN(`c`.`CustomerID`)) = 'LFKI'
 """);
         }
 
@@ -2177,12 +2177,12 @@ WHERE MID(`c`.`CustomerID`, 1 + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`
             await base.Substring_with_one_arg_with_closure(async);
 
             AssertSql(
-                $"""
+                """
 @__start_0='2'
 
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`CustomerID`, {AssertSqlHelper.Parameter("@__start_0")} + 1, IIF(LEN(`c`.`CustomerID`) IS NULL, 0, LEN(`c`.`CustomerID`))) = 'FKI'
+WHERE MID(`c`.`CustomerID`, @__start_0 + 1, LEN(`c`.`CustomerID`)) = 'FKI'
 """);
         }
 

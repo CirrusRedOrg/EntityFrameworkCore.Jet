@@ -4,13 +4,15 @@
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
-public class ComplexTypeBulkUpdatesJetTest : ComplexTypeBulkUpdatesTestBase<
+public class ComplexTypeBulkUpdatesJetTest : ComplexTypeBulkUpdatesRelationalTestBase<
     ComplexTypeBulkUpdatesJetTest.ComplexTypeBulkUpdatesJetFixture>
 {
     public ComplexTypeBulkUpdatesJetTest(ComplexTypeBulkUpdatesJetFixture fixture, ITestOutputHelper testOutputHelper)
@@ -27,13 +29,6 @@ public class ComplexTypeBulkUpdatesJetTest : ComplexTypeBulkUpdatesTestBase<
 DELETE FROM `Customer` AS `c`
 WHERE `c`.`Name` = 'Monty Elias'
 """);
-    }
-
-    public override async Task Delete_complex_type_throws(bool async)
-    {
-        await base.Delete_complex_type_throws(async);
-
-        AssertSql();
     }
 
     public override async Task Update_property_inside_complex_type(bool async)
@@ -95,13 +90,6 @@ UPDATE `Customer` AS `c`
 SET `c`.`BillingAddress_ZipCode` = 54321,
     `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`
 """);
-    }
-
-    public override async Task Update_projected_complex_type_via_OrderBy_Skip_throws(bool async)
-    {
-        await base.Update_projected_complex_type_via_OrderBy_Skip_throws(async);
-
-        AssertExecuteUpdateSql();
     }
 
     public override async Task Update_complex_type_to_parameter(bool async)
@@ -239,7 +227,7 @@ SET `c`.`ShippingAddress_Tags` = '["new_tag1","new_tag2"]'
     protected void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
 
-    public class ComplexTypeBulkUpdatesJetFixture : ComplexTypeBulkUpdatesFixtureBase
+    public class ComplexTypeBulkUpdatesJetFixture : ComplexTypeBulkUpdatesRelationalFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory
             => JetTestStoreFactory.Instance;

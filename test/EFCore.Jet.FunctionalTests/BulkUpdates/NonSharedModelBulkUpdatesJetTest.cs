@@ -11,7 +11,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
-public class NonSharedModelBulkUpdatesJetTest : NonSharedModelBulkUpdatesTestBase
+public class NonSharedModelBulkUpdatesJetTest : NonSharedModelBulkUpdatesRelationalTestBase
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
@@ -57,13 +57,6 @@ WHERE [o].[Id] IN (
 """
 DELETE FROM `Owner` AS `o`
 """);
-    }
-
-    public override async Task Delete_aggregate_root_when_table_sharing_with_non_owned_throws(bool async)
-    {
-        await base.Delete_aggregate_root_when_table_sharing_with_non_owned_throws(async);
-
-        AssertSql();
     }
 
     public override async Task Replace_ColumnExpression_in_column_setter(bool async)
@@ -121,30 +114,6 @@ SET `o`.`Title` = 'NewValue'
 UPDATE `Owner` AS `o`
 SET `o`.`OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`Title`))),
     `o`.`Title` = (`o`.`OwnedReference_Number` & '')
-""");
-    }
-
-    public override async Task Update_main_table_in_entity_with_entity_splitting(bool async)
-    {
-        await base.Update_main_table_in_entity_with_entity_splitting(async);
-
-        AssertSql(
-            """
-UPDATE `Blogs` AS `b`
-SET `b`.`CreationTimestamp` = #2020-01-01#
-""");
-    }
-
-    public override async Task Update_non_main_table_in_entity_with_entity_splitting(bool async)
-    {
-        await base.Update_non_main_table_in_entity_with_entity_splitting(async);
-
-        AssertSql(
-            """
-UPDATE `Blogs` AS `b`
-INNER JOIN `BlogsPart1` AS `b0` ON `b`.`Id` = `b0`.`Id`
-SET `b0`.`Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`))),
-    `b0`.`Title` = (`b0`.`Rating` & '')
 """);
     }
 

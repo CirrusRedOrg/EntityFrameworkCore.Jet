@@ -176,7 +176,7 @@ VALUES(
 '{"Name":"e1_r", "ShadowString":"Foo"}',
 '{"ShadowInt":143,"Name":"e1_r ctor"}',
 1,
-N'e1')
+'e1')
 """);
 
     protected override async Task SeedNotICollection(MyContextNotICollection ctx)

@@ -56,9 +56,9 @@ SELECT [t].[Name]
 FROM (
     SELECT [l].[Name]
     FROM [Leaders] AS [l]
-    WHERE ([l].[Name] LIKE N'Bran' + N'%' AND (LEFT([l].[Name], LEN(N'Bran')) = N'Bran')) AND (([l].[Name] <> N'Foo') OR [l].[Name] IS NULL)
+    WHERE ([l].[Name] LIKE 'Bran' + '%' AND (LEFT([l].[Name], LEN('Bran')) = 'Bran')) AND (([l].[Name] <> 'Foo') OR [l].[Name] IS NULL)
 ) AS [t]
-WHERE ([t].[Name] <> N'Bar') OR [t].[Name] IS NULL
+WHERE ([t].[Name] <> 'Bar') OR [t].[Name] IS NULL
 """);
     }
 
@@ -82,9 +82,9 @@ SELECT [t].[Name]
 FROM (
     SELECT [l].[Name]
     FROM [Leaders] AS [l]
-    WHERE ([l].[Name] LIKE N'Bran' + N'%' AND (LEFT([l].[Name], LEN(N'Bran')) = N'Bran')) AND (([l].[Name] <> N'Foo') OR [l].[Name] IS NULL)
+    WHERE ([l].[Name] LIKE 'Bran' + '%' AND (LEFT([l].[Name], LEN('Bran')) = 'Bran')) AND (([l].[Name] <> 'Foo') OR [l].[Name] IS NULL)
 ) AS [t]
-WHERE ([t].[Name] <> N'Bar') OR [t].[Name] IS NULL
+WHERE ([t].[Name] <> 'Bar') OR [t].[Name] IS NULL
 """);
         }
 

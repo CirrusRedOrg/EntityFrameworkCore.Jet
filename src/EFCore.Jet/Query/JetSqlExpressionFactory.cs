@@ -5,19 +5,15 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query
 {
-    public class JetSqlExpressionFactory : SqlExpressionFactory
+    public class JetSqlExpressionFactory(SqlExpressionFactoryDependencies dependencies) : SqlExpressionFactory(dependencies)
     {
-        public JetSqlExpressionFactory(SqlExpressionFactoryDependencies dependencies)
-            : base(dependencies)
-        {
-        }
 
         #region Expression factory methods
 
         public SqlBinaryExpression? NullChecked(
             SqlExpression sqlExpression,
             RelationalTypeMapping? typeMapping = null)
-            => MakeBinary(
+            => (SqlBinaryExpression?)MakeBinary(
                 ExpressionType.Coalesce,
                 sqlExpression,
                 Constant(
@@ -28,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Query
         public CaseExpression NullChecked(
             SqlExpression checkSqlExpression,
             SqlExpression notNullSqlExpression)
-            => Case(
+            => (CaseExpression)Case(
                 new[]
                 {
                     new CaseWhenClause(

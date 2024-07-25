@@ -3317,11 +3317,11 @@ FROM (
             await base.Include_with_all_method_include_gets_ignored(isAsnc);
 
             AssertSql(
-"""
+                """
 SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `LevelOne` AS `l`
-        WHERE `l`.`Name` = 'Foo' AND `l`.`Name` IS NOT NULL), TRUE, FALSE)
+        WHERE `l`.`Name` = 'Foo'), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }

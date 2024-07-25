@@ -10,15 +10,12 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
-public class NorthwindBulkUpdatesJetTest : NorthwindBulkUpdatesTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>
+public class NorthwindBulkUpdatesJetTest(
+    NorthwindBulkUpdatesJetFixture<NoopModelCustomizer> fixture,
+    ITestOutputHelper testOutputHelper)
+    : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>(fixture,
+        testOutputHelper)
 {
-    public NorthwindBulkUpdatesJetTest(
-        NorthwindBulkUpdatesJetFixture<NoopModelCustomizer> fixture,
-        ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
@@ -474,24 +471,6 @@ WHERE EXISTS (
         await base.Delete_non_entity_projection_3(async);
 
         AssertSql();
-    }
-
-    public override async Task Delete_FromSql_converted_to_subquery(bool async)
-    {
-        await base.Delete_FromSql_converted_to_subquery(async);
-
-        AssertSql(
-            """
-DELETE FROM `Order Details` AS `o`
-WHERE EXISTS (
-    SELECT 1
-    FROM (
-        SELECT `OrderID`, `ProductID`, `UnitPrice`, `Quantity`, `Discount`
-        FROM `Order Details`
-        WHERE `OrderID` < 10300
-    ) AS `m`
-    WHERE `m`.`OrderID` = `o`.`OrderID` AND `m`.`ProductID` = `o`.`ProductID`)
-""");
     }
 
     public override async Task Delete_Where_optional_navigation_predicate(bool async)
@@ -1365,13 +1344,6 @@ OUTER APPLY (
 ) AS [t0]
 WHERE [c].[CustomerID] LIKE N'F%'
 """);
-    }
-
-    public override async Task Update_FromSql_set_constant(bool async)
-    {
-        await base.Update_FromSql_set_constant(async);
-
-        AssertExecuteUpdateSql();
     }
 
     public override async Task Update_Where_SelectMany_subquery_set_null(bool async)

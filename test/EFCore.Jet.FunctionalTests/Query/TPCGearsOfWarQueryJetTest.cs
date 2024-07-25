@@ -1648,7 +1648,7 @@ LEFT JOIN `Cities` AS `c` ON `u`.`AssignedCityName` = `c`.`Name`
 
         AssertSql(
             """
-SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, IIF(IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE) IS NULL, FALSE, IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE)), NULL)
+SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE), NULL)
 FROM (
     SELECT `g`.`Nickname`, `g`.`LeaderNickname`
     FROM `Gears` AS `g`
@@ -4078,7 +4078,7 @@ SELECT IIF(NOT EXISTS (
             FROM `Officers` AS `o`
         ) AS `u`
         LEFT JOIN `Tags` AS `t` ON `u`.`Nickname` = `t`.`GearNickName` AND `u`.`SquadId` = `t`.`GearSquadId`
-        WHERE `t`.`Note` = 'Foo' AND `t`.`Note` IS NOT NULL), TRUE, FALSE)
+        WHERE `t`.`Note` = 'Foo'), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -5317,7 +5317,7 @@ LEFT JOIN (
 
         AssertSql(
             """
-SELECT IIF(`u`.`Rank` = 0, 'None', IIF(`u`.`Rank` = 1, 'Private', IIF(`u`.`Rank` = 2, 'Corporal', IIF(`u`.`Rank` = 4, 'Sergeant', IIF(`u`.`Rank` = 8, 'Lieutenant', IIF(`u`.`Rank` = 16, 'Captain', IIF(`u`.`Rank` = 32, 'Major', IIF(`u`.`Rank` = 64, 'Colonel', IIF(`u`.`Rank` = 128, 'General', IIF((`u`.`Rank` & '') IS NULL, '', (`u`.`Rank` & '')))))))))))
+SELECT IIF(`u`.`Rank` = 0, 'None', IIF(`u`.`Rank` = 1, 'Private', IIF(`u`.`Rank` = 2, 'Corporal', IIF(`u`.`Rank` = 4, 'Sergeant', IIF(`u`.`Rank` = 8, 'Lieutenant', IIF(`u`.`Rank` = 16, 'Captain', IIF(`u`.`Rank` = 32, 'Major', IIF(`u`.`Rank` = 64, 'Colonel', IIF(`u`.`Rank` = 128, 'General', (`u`.`Rank` & ''))))))))))
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
@@ -6738,7 +6738,7 @@ INNER JOIN (
     FROM `LocustHordes` AS `l1`
     WHERE `l1`.`Name` = 'Swarm'
 ) AS `l2` ON `u`.`Name` = `l2`.`CommanderName`
-WHERE `l2`.`Eradicated` <> TRUE OR `l2`.`Eradicated` IS NULL
+WHERE `l2`.`Eradicated` = FALSE OR `l2`.`Eradicated` IS NULL
 """);
     }
 
@@ -6761,7 +6761,7 @@ LEFT JOIN (
     FROM `LocustHordes` AS `l1`
     WHERE `l1`.`Name` = 'Swarm'
 ) AS `l2` ON `u`.`Name` = `l2`.`CommanderName`
-WHERE `l2`.`Eradicated` <> TRUE OR `l2`.`Eradicated` IS NULL
+WHERE `l2`.`Eradicated` = FALSE OR `l2`.`Eradicated` IS NULL
 """);
     }
 
@@ -7807,7 +7807,7 @@ SELECT IIF((
         SELECT TOP 1 `w`.`Id`
         FROM `Weapons` AS `w`
         WHERE `u`.`FullName` = `w`.`OwnerFullName`
-        ORDER BY `w`.`Id`) IS NULL, IIF(0 IS NULL, 42, 0), (
+        ORDER BY `w`.`Id`) IS NULL, 0, (
         SELECT TOP 1 `w`.`Id`
         FROM `Weapons` AS `w`
         WHERE `u`.`FullName` = `w`.`OwnerFullName`
@@ -8596,10 +8596,10 @@ WHERE IIF(`w`.`SynergyWithId` IS NULL, 0, `w`.`SynergyWithId`) = 0
         await base.GetValueOrDefault_in_filter_non_nullable_column(async);
 
         AssertSql(
-"""
+            """
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIF(`w`.`Id` IS NULL, 0, `w`.`Id`) = 0
+WHERE `w`.`Id` = 0
 """);
     }
 
@@ -9439,7 +9439,6 @@ WHERE EXISTS (
         AssertSql(
             """
 @__prm_Inner_Nickname_0='Marcus' (Size = 255)
-@__prm_Inner_Nickname_0='Marcus' (Size = 255)
 
 SELECT `u0`.`Nickname`, `u0`.`SquadId`, `u0`.`AssignedCityName`, `u0`.`CityOfBirthName`, `u0`.`FullName`, `u0`.`HasSoulPatch`, `u0`.`LeaderNickname`, `u0`.`LeaderSquadId`, `u0`.`Rank`, `u0`.`Discriminator`
 FROM (
@@ -9451,7 +9450,7 @@ FROM (
         SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
         FROM `Officers` AS `o`
     ) AS `u`
-    WHERE `u`.`Nickname` <> @__prm_Inner_Nickname_0 AND `u`.`Nickname` <> @__prm_Inner_Nickname_0
+    WHERE `u`.`Nickname` <> @__prm_Inner_Nickname_0
 ) AS `u0`
 ORDER BY `u0`.`FullName`
 """);
@@ -10093,7 +10092,7 @@ FROM (
     FROM `LocustCommanders` AS `l0`
 ) AS `u`
 INNER JOIN `LocustHordes` AS `l1` ON `u`.`Name` = `l1`.`CommanderName`
-WHERE IIF(`l1`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`l1`.`Name` = 'Locust', TRUE, NULL) IS NULL
+WHERE IIF(`l1`.`Name` = 'Locust', TRUE, NULL) = FALSE OR IIF(`l1`.`Name` = 'Locust', TRUE, NULL) IS NULL
 """);
     }
 

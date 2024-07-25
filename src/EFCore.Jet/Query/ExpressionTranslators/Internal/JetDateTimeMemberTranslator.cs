@@ -129,7 +129,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         public CaseExpression DateTimeNullChecked(
             SqlExpression checkSqlExpression,
             SqlExpression notNullSqlExpression)
-            => _sqlExpressionFactory.Case(
+            => (CaseExpression)_sqlExpressionFactory.Case(
                 new[]
                 {
                     new CaseWhenClause(

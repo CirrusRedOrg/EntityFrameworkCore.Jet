@@ -2,6 +2,8 @@
 
 using System;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -119,6 +121,16 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 .Append(stringTypeMapping.GenerateSqlLiteral(migrationId))
                 .AppendLine(";")
                 .ToString();
+        }
+
+        public override IDisposable GetDatabaseLock(TimeSpan timeout)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<IAsyncDisposable> GetDatabaseLockAsync(TimeSpan timeout, CancellationToken cancellationToken = new CancellationToken())
+        {
+            throw new NotImplementedException();
         }
 
         /// <summary>

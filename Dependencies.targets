@@ -1,32 +1,33 @@
 <Project>
 	<PropertyGroup>
 		<DotNetVersion>[9.0.0-preview.6.24327.7,9.0.999]</DotNetVersion>
-		<EFCoreVersion>[9.0.0-preview.6.24327.4,9.0.999]</EFCoreVersion>
+		<EFCoreVersion>[9.0.0-rc.1.24374.2,9.0.999]</EFCoreVersion>
+		<MSLibVersion>[9.0.0-rc.1.24374.13,9.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<!-- Common -->
-		<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(DotNetVersion)" />
-		<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="$(DotNetVersion)" />
+		<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MSLibVersion)" />
+		<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
-		<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="$(DotNetVersion)" />
+		<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="$(MSLibVersion)" />
 		<PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
 		<PackageReference Update="Microsoft.SourceLink.GitHub" Version="8.0.0" />
 
 		<!-- EFCore.Jet -->
-		<PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="$(DotNetVersion)" />
-		<PackageReference Update="Microsoft.Extensions.Configuration" Version="$(DotNetVersion)" />
-		<PackageReference Update="Microsoft.Extensions.Logging" Version="$(DotNetVersion)" />
-		<PackageReference Update="System.Collections.Immutable" Version="$(DotNetVersion)" />
+		<PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="$(MSLibVersion)" />
+		<PackageReference Update="Microsoft.Extensions.Configuration" Version="$(MSLibVersion)" />
+		<PackageReference Update="Microsoft.Extensions.Logging" Version="$(MSLibVersion)" />
+		<PackageReference Update="System.Collections.Immutable" Version="$(MSLibVersion)" />
 
 		<!-- Tests -->
-		<PackageReference Update="System.Data.Odbc" Version="$(DotNetVersion)" />
-		<PackageReference Update="System.Data.OleDb" Version="$(DotNetVersion)" />
+		<PackageReference Update="System.Data.Odbc" Version="$(MSLibVersion)" />
+		<PackageReference Update="System.Data.OleDb" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
-		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.0-preview.6.24322.2" /> <!-- Should be same as efcoreversion. preview6 was broken and published separately -->
-		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="$(DotNetVersion)" />
+		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" /> <!-- Should be same as efcoreversion. preview6 was broken and published separately -->
+		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.11.0-release-24352-06" />
 		<PackageReference Update="MSTest.TestAdapter" Version="3.5.0" />
 		<PackageReference Update="MSTest.TestFramework" Version="3.5.0" />
@@ -34,16 +35,16 @@
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.3" />
 
 		<!-- EFCore.Jet.FunctionalTests -->
-		<PackageReference Update="xunit.core" Version="2.8.1"/>
-		<PackageReference Update="xunit.assert" Version="2.8.1" />
-		<PackageReference Update="xunit.runner.visualstudio" Version="2.8.1" />
-		<PackageReference Update="xunit.runner.console" Version="2.8.1" />
-		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(DotNetVersion)" />
+		<PackageReference Update="xunit.core" Version="2.9.0"/>
+		<PackageReference Update="xunit.assert" Version="2.9.0" />
+		<PackageReference Update="xunit.runner.visualstudio" Version="2.8.2" />
+		<PackageReference Update="xunit.runner.console" Version="2.9.0" />
+		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
 		<PackageReference Update="NetTopologySuite" Version="2.5.0" />
 		<PackageReference Update="System.ComponentModel.TypeConverter" Version="4.3.0" />
 
 		<!-- EFCore.Jet.Tests -->
-		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="$(DotNetVersion)" />
+		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="$(MSLibVersion)" />
 		<PackageReference Update="Moq" Version="4.20.70" />
 	</ItemGroup>
 </Project>

@@ -1015,7 +1015,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             throw new InvalidOperationException(
-                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(RelationalQueryableExtensions.ExecuteDelete)));
+                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(EntityFrameworkQueryableExtensions.ExecuteDelete)));
         }
 
         /// <summary>
@@ -1065,7 +1065,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             throw new InvalidOperationException(
-                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(RelationalQueryableExtensions.ExecuteUpdate)));
+                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(EntityFrameworkQueryableExtensions.ExecuteUpdate)));
         }
 
         /// <inheritdoc />

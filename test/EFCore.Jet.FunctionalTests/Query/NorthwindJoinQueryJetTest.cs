@@ -174,10 +174,12 @@ WHERE `o0`.`CustomerID` = 'HANAR'
             await base.Join_composite_key(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID` AND `c`.`CustomerID` = `o`.`CustomerID`
-WHERE `c`.`CustomerID` LIKE 'F%'");
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task Join_complex_condition(bool isAsync)
@@ -286,15 +288,11 @@ INNER JOIN (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
-FROM [Customers] AS [c]
-OUTER APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-) AS [t]
-WHERE [c].[CustomerID] LIKE N'F%'
-ORDER BY [c].[CustomerID]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -304,15 +302,11 @@ ORDER BY [c].[CustomerID]
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
-FROM [Customers] AS [c]
-OUTER APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-) AS [t]
-WHERE [c].[CustomerID] LIKE N'F%' AND [c].[City] = N'Lisboa'
-ORDER BY [c].[CustomerID]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE (`c`.`CustomerID` LIKE 'F%') AND `c`.`City` = 'Lisboa'
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -322,20 +316,16 @@ ORDER BY [c].[CustomerID]
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[CustomerID], [t0].[OrderID], [t0].[CustomerID], [t0].[EmployeeID], [t0].[OrderDate], [t].[Address], [t].[City], [t].[CompanyName], [t].[ContactName], [t].[ContactTitle], [t].[Country], [t].[Fax], [t].[Phone], [t].[PostalCode], [t].[Region]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `c1`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
+FROM (`Customers` AS `c`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[City] = N'Lisboa'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
-OUTER APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-) AS [t0]
-WHERE [c].[CustomerID] LIKE N'F%'
-ORDER BY [c].[CustomerID], [t].[CustomerID]
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`City` = 'Lisboa'
+) AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`)
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
 """);
         }
 
@@ -476,10 +466,15 @@ INNER JOIN (
             await base.GroupJoin_SelectMany_subquery_with_filter_orderby(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                """
+SELECT `c`.`ContactName`, `o0`.`OrderID`
 FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`");
+INNER JOIN (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` > 5
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+""");
         }
 
         public override async Task GroupJoin_SelectMany_subquery_with_filter_and_DefaultIfEmpty(bool isAsync)
@@ -504,10 +499,16 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             await base.GroupJoin_SelectMany_subquery_with_filter_orderby_and_DefaultIfEmpty(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+                """
+SELECT `c`.`ContactName`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`");
+LEFT JOIN (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` > 5
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task GroupJoin_Subquery_with_Take_Then_SelectMany_Where(bool isAsync)

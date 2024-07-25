@@ -1539,7 +1539,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Customers` AS `c`
-        WHERE `c`.`ContactName` IS NULL OR LEFT(`c`.`ContactName`, IIF(LEN(`c`.`ContactName`) IS NULL, 0, LEN(`c`.`ContactName`))) <> `c`.`ContactName`), TRUE, FALSE)
+        WHERE `c`.`ContactName` IS NULL OR LEFT(`c`.`ContactName`, LEN(`c`.`ContactName`)) <> `c`.`ContactName`), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -4867,12 +4867,14 @@ WHERE (
             await base.Inner_parameter_in_nested_lambdas_gets_preserved(isAsync);
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `c`.`CustomerID` = `o`.`CustomerID`) > 0");
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 0
+""");
         }
 
         public override async Task Convert_to_nullable_on_nullable_value_is_ignored(bool isAsync)

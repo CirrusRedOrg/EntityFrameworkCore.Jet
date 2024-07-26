@@ -2945,10 +2945,10 @@ WHERE `m`.`Timeline` <> NOW()
         await base.Where_datetimeoffset_utcnow(async);
 
         AssertSql(
-            """
+            $"""
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE `m`.`Timeline` <> DATEADD('n', -480.0, NOW())
+WHERE `m`.`Timeline` <> DATEADD('n', {dtoffset}.0, NOW())
 """);
     }
 
@@ -10172,8 +10172,8 @@ GROUP BY `m`.`CodeName`
         await base.ToString_boolean_property_nullable(async);
 
         AssertSql(
-        """
-SELECT IIF(`l`.`Eradicated` = FALSE, 'False', IIF(`l`.`Eradicated` = TRUE, 'True', NULL))
+            """
+SELECT IIF(`l`.`Eradicated` = FALSE, 'False', IIF(`l`.`Eradicated` = TRUE, 'True', ''))
 FROM `Factions` AS `f`
 INNER JOIN `LocustHordes` AS `l` ON `f`.`Id` = `l`.`Id`
 """);

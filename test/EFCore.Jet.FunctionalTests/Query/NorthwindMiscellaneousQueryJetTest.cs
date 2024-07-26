@@ -3211,10 +3211,10 @@ ORDER BY `o1`.`c`
             await base.Query_expression_with_to_string_and_contains(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`CustomerID`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` IS NOT NULL AND ((`o`.`EmployeeID` & '') LIKE '%7%')
+WHERE `o`.`OrderDate` IS NOT NULL AND (IIF((`o`.`EmployeeID` & '') IS NULL, '', (`o`.`EmployeeID` & '')) LIKE '%7%')
 """);
         }
 
@@ -3261,9 +3261,11 @@ WHERE `o`.`OrderDate` IS NOT NULL
             await base.Select_expression_other_to_string(isAsync);
 
             AssertSql(
-                $@"SELECT (`o`.`OrderDate` & '') AS `ShipName`
+                """
+SELECT IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')) AS `ShipName`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` IS NOT NULL");
+WHERE `o`.`OrderDate` IS NOT NULL
+""");
         }
 
         public override async Task Select_expression_date_add_year(bool isAsync)

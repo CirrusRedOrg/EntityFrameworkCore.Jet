@@ -453,9 +453,9 @@ WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE
 
             AssertSql(
                 """
-SELECT CBOOL(ISDATE((`o`.`OrderDate` & '')))
+SELECT CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE((`o`.`OrderDate` & ''))) = TRUE
+WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))) = TRUE
 """);
         }
 

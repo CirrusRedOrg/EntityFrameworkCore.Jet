@@ -13,8 +13,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 public class NorthwindBulkUpdatesJetTest(
     NorthwindBulkUpdatesJetFixture<NoopModelCustomizer> fixture,
     ITestOutputHelper testOutputHelper)
-    : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>(fixture,
-        testOutputHelper)
+    : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>(fixture, testOutputHelper)
 {
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
@@ -471,6 +470,24 @@ WHERE EXISTS (
         await base.Delete_non_entity_projection_3(async);
 
         AssertSql();
+    }
+
+    public override async Task Delete_FromSql_converted_to_subquery(bool async)
+    {
+        await base.Delete_FromSql_converted_to_subquery(async);
+
+        AssertSql(
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM (
+        SELECT `OrderID`, `ProductID`, `UnitPrice`, `Quantity`, `Discount`
+        FROM `Order Details`
+        WHERE `OrderID` < 10300
+    ) AS `m`
+    WHERE `m`.`OrderID` = `o`.`OrderID` AND `m`.`ProductID` = `o`.`ProductID`)
+""");
     }
 
     public override async Task Delete_Where_optional_navigation_predicate(bool async)

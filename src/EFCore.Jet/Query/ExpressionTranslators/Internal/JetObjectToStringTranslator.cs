@@ -64,7 +64,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             if (instance.Type == typeof(bool))
             {
-                if (instance is ColumnExpression columnExpression && columnExpression.IsNullable)
+                if (instance is not ColumnExpression { IsNullable: false })
                 {
                     return _sqlExpressionFactory.Case(
                         new[]
@@ -76,7 +76,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 _sqlExpressionFactory.Equal(instance, _sqlExpressionFactory.Constant(true)),
                                 _sqlExpressionFactory.Constant(true.ToString()))
                         },
-                        _sqlExpressionFactory.Constant(null, typeof(string)));
+                        _sqlExpressionFactory.Constant(string.Empty));
                 }
 
                 return _sqlExpressionFactory.Case(
@@ -90,7 +90,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             }
 
             return TypeMapping.TryGetValue(instance.Type, out var storeType)
-                ? _sqlExpressionFactory.Convert(instance, typeof(string))
+                ? _sqlExpressionFactory.Coalesce(_sqlExpressionFactory.Convert(instance, typeof(string)), _sqlExpressionFactory.Constant(string.Empty))
                 : null;
         }
     }

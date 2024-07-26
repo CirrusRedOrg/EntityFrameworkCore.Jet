@@ -120,7 +120,7 @@ SET `o`.`Title` = 'NewValue'
             """
 UPDATE `Owner` AS `o`
 SET `o`.`OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`Title`))),
-    `o`.`Title` = (`o`.`OwnedReference_Number` & '')
+    `o`.`Title` = IIF((`o`.`OwnedReference_Number` & '') IS NULL, '', (`o`.`OwnedReference_Number` & ''))
 """);
     }
 

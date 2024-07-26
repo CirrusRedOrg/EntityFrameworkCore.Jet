@@ -2555,10 +2555,10 @@ WHERE `m`.`Timeline` <> NOW()
             await base.Where_datetimeoffset_utcnow(isAsync);
 
             AssertSql(
-                """
+                $"""
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE `m`.`Timeline` <> DATEADD('n', -480.0, NOW())
+WHERE `m`.`Timeline` <> DATEADD('n', {dtoffset}.0, NOW())
 """);
         }
 
@@ -3839,7 +3839,7 @@ FROM `Weapons` AS `w`
 
             AssertSql(
                 """
-SELECT IIF(`f`.`Eradicated` = FALSE, 'False', IIF(`f`.`Eradicated` = TRUE, 'True', NULL))
+SELECT IIF(`f`.`Eradicated` = FALSE, 'False', IIF(`f`.`Eradicated` = TRUE, 'True', ''))
 FROM `Factions` AS `f`
 """);
         }

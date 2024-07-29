@@ -12,8 +12,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
 public class NorthwindBulkUpdatesJetTest(
     NorthwindBulkUpdatesJetFixture<NoopModelCustomizer> fixture,
-    ITestOutputHelper testOutputHelper)
-    : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>(fixture, testOutputHelper)
+    ITestOutputHelper testOutputHelper) : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>(fixture, testOutputHelper)
 {
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()

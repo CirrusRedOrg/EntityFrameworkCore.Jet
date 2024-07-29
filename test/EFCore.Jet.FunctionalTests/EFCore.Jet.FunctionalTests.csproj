@@ -5,6 +5,7 @@
 		<RootNamespace>EntityFrameworkCore.Jet.FunctionalTests</RootNamespace>
 		<AssemblyName>EntityFrameworkCore.Jet.FunctionalTests</AssemblyName>
 		<Platforms>AnyCPU;x86;x64</Platforms>
+		<PreserveCompilationContext>true</PreserveCompilationContext>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -71,7 +72,6 @@
 		<None Include="GraphUpdates\GraphUpdatesJetTest.cs" />
 		<None Include="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
 		<None Include="JetApiConsistencyTest.cs" />
-		<None Include="Migrations\MigrationsJetTest.cs" />
 		<None Remove="TestResults\**" />
 	</ItemGroup>
 
@@ -104,7 +104,6 @@
 		<Compile Remove="GraphUpdates\GraphUpdatesJetTest.cs" />
 		<Compile Remove="GraphUpdates\ProxyGraphUpdatesJetTest.cs" />
 		<Compile Remove="JetApiConsistencyTest.cs" />
-		<Compile Remove="Migrations\MigrationsJetTest.cs" />
 		<Compile Remove="PropertyEntryJetTest.cs" />
 	</ItemGroup>
 

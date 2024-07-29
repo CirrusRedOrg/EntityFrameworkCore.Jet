@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Linq;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -24,8 +25,16 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The identity seed. </returns>
-        public static int? GetJetIdentitySeed([NotNull] this IReadOnlyProperty property)
-            => (int?)property[JetAnnotationNames.IdentitySeed];
+        public static int? GetJetIdentitySeed(this IReadOnlyProperty property)
+        {
+            if (property is RuntimeProperty)
+            {
+                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
+            }
+
+            var annotation = property.FindAnnotation(JetAnnotationNames.IdentitySeed);
+            return (int?)annotation?.Value;
+        }
 
         /// <summary>
         ///     Returns the identity seed.
@@ -33,26 +42,47 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The identity seed. </returns>
-        public static int? GetJetIdentitySeed([NotNull] this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+        public static int? GetJetIdentitySeed(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
+            if (property is RuntimeProperty)
+            {
+                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
+            }
+
+            var @override = property.FindOverrides(storeObject)?.FindAnnotation(JetAnnotationNames.IdentitySeed);
+            if (@override != null)
+            {
+                return (int?)@override.Value;
+            }
+
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentitySeed);
-            if (annotation != null)
+            if (annotation is not null)
             {
                 return (int?)annotation.Value;
             }
 
-            var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);
-            return sharedTableRootProperty != null
-                ? sharedTableRootProperty.GetJetIdentitySeed(storeObject)
-                : null;
+            var sharedProperty = property.FindSharedStoreObjectRootProperty(storeObject);
+            return sharedProperty == null
+                ? property.DeclaringType.Model.GetJetIdentitySeed()
+                : sharedProperty.GetJetIdentitySeed(storeObject);
         }
+
+        /// <summary>
+        ///     Returns the identity seed.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <returns>The identity seed.</returns>
+        public static int? GetJetIdentitySeed(this IReadOnlyRelationalPropertyOverrides overrides)
+            => overrides is RuntimeRelationalPropertyOverrides
+                ? throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData)
+                : (int?)overrides.FindAnnotation(JetAnnotationNames.IdentitySeed)?.Value;
 
         /// <summary>
         ///     Sets the identity seed.
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <param name="seed"> The value to set. </param>
-        public static void SetJetIdentitySeed([NotNull] this IMutableProperty property, int? seed)
+        public static void SetJetIdentitySeed(this IMutableProperty property, int? seed)
             => property.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentitySeed,
                 seed);
@@ -65,17 +95,63 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> The configured value. </returns>
         public static int? SetJetIdentitySeed(
-            [NotNull] this IConventionProperty property,
+            this IConventionProperty property,
             int? seed,
             bool fromDataAnnotation = false)
-        {
-            property.SetOrRemoveAnnotation(
+            => (int?)property.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentitySeed,
                 seed,
-                fromDataAnnotation);
+                fromDataAnnotation)?.Value;
 
-            return seed;
-        }
+        /// <summary>
+        ///     Sets the identity seed for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="seed">The value to set.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        public static void SetJetIdentitySeed(
+            this IMutableProperty property,
+            int? seed,
+            in StoreObjectIdentifier storeObject)
+            => property.GetOrCreateOverrides(storeObject)
+                .SetJetIdentitySeed(seed);
+
+        /// <summary>
+        ///     Sets the identity seed for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="seed">The value to set.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static int? SetJetIdentitySeed(
+            this IConventionProperty property,
+            int? seed,
+            in StoreObjectIdentifier storeObject,
+            bool fromDataAnnotation = false)
+            => property.GetOrCreateOverrides(storeObject, fromDataAnnotation)
+                .SetJetIdentitySeed(seed, fromDataAnnotation);
+
+        /// <summary>
+        ///     Sets the identity seed for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <param name="seed">The value to set.</param>
+        public static void SetJetIdentitySeed(this IMutableRelationalPropertyOverrides overrides, int? seed)
+            => overrides.SetOrRemoveAnnotation(JetAnnotationNames.IdentitySeed, seed);
+
+        /// <summary>
+        ///     Sets the identity seed for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <param name="seed">The value to set.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static int? SetJetIdentitySeed(
+            this IConventionRelationalPropertyOverrides overrides,
+            int? seed,
+            bool fromDataAnnotation = false)
+            => (int?)overrides.SetOrRemoveAnnotation(JetAnnotationNames.IdentitySeed, seed, fromDataAnnotation)?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the identity seed.
@@ -86,12 +162,35 @@ namespace Microsoft.EntityFrameworkCore
             => property.FindAnnotation(JetAnnotationNames.IdentitySeed)?.GetConfigurationSource();
 
         /// <summary>
+        ///     Returns the <see cref="ConfigurationSource" /> for the identity seed for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        /// <returns>The <see cref="ConfigurationSource" /> for the identity seed.</returns>
+        public static ConfigurationSource? GetJetIdentitySeedConfigurationSource(
+            this IConventionProperty property,
+            in StoreObjectIdentifier storeObject)
+            => property.FindOverrides(storeObject)?.GetJetIdentitySeedConfigurationSource();
+
+        /// <summary>
+        ///     Returns the <see cref="ConfigurationSource" /> for the identity seed for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <returns>The <see cref="ConfigurationSource" /> for the identity seed.</returns>
+        public static ConfigurationSource? GetJetIdentitySeedConfigurationSource(
+            this IConventionRelationalPropertyOverrides overrides)
+            => overrides.FindAnnotation(JetAnnotationNames.IdentitySeed)?.GetConfigurationSource();
+
+        /// <summary>
         ///     Returns the identity increment.
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The identity increment. </returns>
-        public static int? GetJetIdentityIncrement([NotNull] this IReadOnlyProperty property)
-            => (int?)property[JetAnnotationNames.IdentityIncrement];
+        public static int? GetJetIdentityIncrement(this IReadOnlyProperty property)
+            => (property is RuntimeProperty)
+                ? throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData)
+                : (int?)property[JetAnnotationNames.IdentityIncrement]
+                ?? property.DeclaringType.Model.GetJetIdentityIncrement();
 
         /// <summary>
         ///     Returns the identity increment.
@@ -99,26 +198,47 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="storeObject"> The identifier of the store object. </param>
         /// <returns> The identity increment. </returns>
-        public static int? GetJetIdentityIncrement([NotNull] this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
+        public static int? GetJetIdentityIncrement(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
+            if (property is RuntimeProperty)
+            {
+                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
+            }
+
+            var @override = property.FindOverrides(storeObject)?.FindAnnotation(JetAnnotationNames.IdentityIncrement);
+            if (@override != null)
+            {
+                return (int?)@override.Value;
+            }
+
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentityIncrement);
             if (annotation != null)
             {
                 return (int?)annotation.Value;
             }
 
-            var sharedTableRootProperty = property.FindSharedStoreObjectRootProperty(storeObject);
-            return sharedTableRootProperty != null
-                ? sharedTableRootProperty.GetJetIdentityIncrement(storeObject)
-                : null;
+            var sharedProperty = property.FindSharedStoreObjectRootProperty(storeObject);
+            return sharedProperty == null
+                ? property.DeclaringType.Model.GetJetIdentityIncrement()
+                : sharedProperty.GetJetIdentityIncrement(storeObject);
         }
+
+        /// <summary>
+        ///     Returns the identity increment.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <returns>The identity increment.</returns>
+        public static int? GetJetIdentityIncrement(this IReadOnlyRelationalPropertyOverrides overrides)
+            => overrides is RuntimeRelationalPropertyOverrides
+                ? throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData)
+                : (int?)overrides.FindAnnotation(JetAnnotationNames.IdentityIncrement)?.Value;
 
         /// <summary>
         ///     Sets the identity increment.
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <param name="increment"> The value to set. </param>
-        public static void SetJetIdentityIncrement([NotNull] this IMutableProperty property, int? increment)
+        public static void SetJetIdentityIncrement(this IMutableProperty property, int? increment)
             => property.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment);
@@ -134,14 +254,61 @@ namespace Microsoft.EntityFrameworkCore
             [NotNull] this IConventionProperty property,
             int? increment,
             bool fromDataAnnotation = false)
-        {
-            property.SetOrRemoveAnnotation(
+            => (int?)property.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment,
-                fromDataAnnotation);
+                fromDataAnnotation)?.Value;
 
-            return increment;
-        }
+        /// <summary>
+        ///     Sets the identity increment for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="increment">The value to set.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        public static void SetJetIdentityIncrement(
+            this IMutableProperty property,
+            int? increment,
+            in StoreObjectIdentifier storeObject)
+            => property.GetOrCreateOverrides(storeObject)
+                .SetJetIdentityIncrement(increment);
+
+        /// <summary>
+        ///     Sets the identity increment for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="increment">The value to set.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static int? SetJetIdentityIncrement(
+            this IConventionProperty property,
+            int? increment,
+            in StoreObjectIdentifier storeObject,
+            bool fromDataAnnotation = false)
+            => property.GetOrCreateOverrides(storeObject, fromDataAnnotation)
+                .SetJetIdentityIncrement(increment, fromDataAnnotation);
+
+        /// <summary>
+        ///     Sets the identity increment for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <param name="increment">The value to set.</param>
+        public static void SetJetIdentityIncrement(this IMutableRelationalPropertyOverrides overrides, int? increment)
+            => overrides.SetOrRemoveAnnotation(JetAnnotationNames.IdentityIncrement, increment);
+
+        /// <summary>
+        ///     Sets the identity increment for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <param name="increment">The value to set.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static int? SetJetIdentityIncrement(
+            this IConventionRelationalPropertyOverrides overrides,
+            int? increment,
+            bool fromDataAnnotation = false)
+            => (int?)overrides.SetOrRemoveAnnotation(JetAnnotationNames.IdentityIncrement, increment, fromDataAnnotation)
+                ?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the identity increment.
@@ -290,12 +457,8 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <param name="value"> The strategy to use. </param>
         public static void SetValueGenerationStrategy(
-            [NotNull] this IMutableProperty property, JetValueGenerationStrategy? value)
-        {
-            CheckValueGenerationStrategy(property, value);
-
-            property.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value);
-        }
+            this IMutableProperty property, JetValueGenerationStrategy? value)
+            => property.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value);
 
         /// <summary>
         ///     Sets the <see cref="JetValueGenerationStrategy" /> to use for the property.
@@ -305,32 +468,64 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> The configured value. </returns>
         public static JetValueGenerationStrategy? SetValueGenerationStrategy(
-            [NotNull] this IConventionProperty property,
+            this IConventionProperty property,
             JetValueGenerationStrategy? value,
             bool fromDataAnnotation = false)
-        {
-            CheckValueGenerationStrategy(property, value);
+            => (JetValueGenerationStrategy?)property.SetOrRemoveAnnotation(
+                JetAnnotationNames.ValueGenerationStrategy, value, fromDataAnnotation)?.Value;
 
-            property.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value, fromDataAnnotation);
+        /// <summary>
+        ///     Sets the <see cref="JetValueGenerationStrategy" /> to use for the property for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="value">The strategy to use.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        public static void SetValueGenerationStrategy(
+            this IMutableProperty property,
+            JetValueGenerationStrategy? value,
+            in StoreObjectIdentifier storeObject)
+            => property.GetOrCreateOverrides(storeObject)
+                .SetValueGenerationStrategy(value);
 
-            return value;
-        }
+        /// <summary>
+        ///     Sets the <see cref="JetValueGenerationStrategy" /> to use for the property for a particular table.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="value">The strategy to use.</param>
+        /// <param name="storeObject">The identifier of the table containing the column.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static JetValueGenerationStrategy? SetValueGenerationStrategy(
+            this IConventionProperty property,
+            JetValueGenerationStrategy? value,
+            in StoreObjectIdentifier storeObject,
+            bool fromDataAnnotation = false)
+            => property.GetOrCreateOverrides(storeObject, fromDataAnnotation)
+                .SetValueGenerationStrategy(value, fromDataAnnotation);
 
-        private static void CheckValueGenerationStrategy(IReadOnlyProperty property, JetValueGenerationStrategy? value)
-        {
-            if (value != null)
-            {
-                var propertyType = property.ClrType;
+        /// <summary>
+        ///     Sets the <see cref="JetValueGenerationStrategy" /> to use for the property for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <param name="value">The strategy to use.</param>
+        public static void SetValueGenerationStrategy(
+            this IMutableRelationalPropertyOverrides overrides,
+            JetValueGenerationStrategy? value)
+            => overrides.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value);
 
-                if (value == JetValueGenerationStrategy.IdentityColumn
-                    && !IsCompatibleWithValueGeneration(property))
-                {
-                    throw new ArgumentException(
-                        JetStrings.IdentityBadType(
-                            property.Name, property.DeclaringType.DisplayName(), propertyType.ShortDisplayName()));
-                }
-            }
-        }
+        /// <summary>
+        ///     Sets the <see cref="JetValueGenerationStrategy" /> to use for the property for a particular table.
+        /// </summary>
+        /// <param name="overrides">The property overrides.</param>
+        /// <param name="value">The strategy to use.</param>
+        /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+        /// <returns>The configured value.</returns>
+        public static JetValueGenerationStrategy? SetValueGenerationStrategy(
+            this IConventionRelationalPropertyOverrides overrides,
+            JetValueGenerationStrategy? value,
+            bool fromDataAnnotation = false)
+            => (JetValueGenerationStrategy?)overrides.SetOrRemoveAnnotation(
+                JetAnnotationNames.ValueGenerationStrategy, value, fromDataAnnotation)?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the <see cref="JetValueGenerationStrategy" />.

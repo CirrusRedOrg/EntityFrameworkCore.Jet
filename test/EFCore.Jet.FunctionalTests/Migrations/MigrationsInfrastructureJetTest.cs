@@ -19,7 +19,7 @@ using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseC
 // ReSharper disable InconsistentNaming
 
 #nullable disable
-namespace EntityFrameworkCore.Jet.FunctionalTests
+namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
 {
     [JetCondition(JetCondition.IsNotCI)]
     public class MigrationsInfrastructureJetTest(
@@ -269,7 +269,7 @@ COMMIT TRANSACTION;
 
             Assert.Equal("EntityFrameworkCore.Jet", ActiveProvider);
         }
-        
+
         [ConditionalFact]
         public async Task Empty_Migration_Creates_Database()
         {

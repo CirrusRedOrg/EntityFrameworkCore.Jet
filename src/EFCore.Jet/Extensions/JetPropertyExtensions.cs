@@ -27,11 +27,6 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> The identity seed. </returns>
         public static int? GetJetIdentitySeed(this IReadOnlyProperty property)
         {
-            if (property is RuntimeProperty)
-            {
-                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
-            }
-
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentitySeed);
             return (int?)annotation?.Value;
         }
@@ -44,11 +39,6 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> The identity seed. </returns>
         public static int? GetJetIdentitySeed(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
-            if (property is RuntimeProperty)
-            {
-                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
-            }
-
             var @override = property.FindOverrides(storeObject)?.FindAnnotation(JetAnnotationNames.IdentitySeed);
             if (@override != null)
             {
@@ -187,9 +177,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <returns> The identity increment. </returns>
         public static int? GetJetIdentityIncrement(this IReadOnlyProperty property)
-            => (property is RuntimeProperty)
-                ? throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData)
-                : (int?)property[JetAnnotationNames.IdentityIncrement]
+            => (int?)property[JetAnnotationNames.IdentityIncrement]
                 ?? property.DeclaringType.Model.GetJetIdentityIncrement();
 
         /// <summary>
@@ -200,11 +188,6 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> The identity increment. </returns>
         public static int? GetJetIdentityIncrement(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
-            if (property is RuntimeProperty)
-            {
-                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
-            }
-
             var @override = property.FindOverrides(storeObject)?.FindAnnotation(JetAnnotationNames.IdentityIncrement);
             if (@override != null)
             {

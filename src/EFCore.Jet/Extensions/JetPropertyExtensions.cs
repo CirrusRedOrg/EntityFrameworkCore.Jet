@@ -39,6 +39,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> The identity seed. </returns>
         public static int? GetJetIdentitySeed(this IReadOnlyProperty property, in StoreObjectIdentifier storeObject)
         {
+            if (property is RuntimeProperty)
+            {
+                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
+            }
             var @override = property.FindOverrides(storeObject)?.FindAnnotation(JetAnnotationNames.IdentitySeed);
             if (@override != null)
             {

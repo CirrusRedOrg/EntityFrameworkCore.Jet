@@ -7,6 +7,7 @@
 		<AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
 		<Platforms>AnyCPU;x86;x64</Platforms>
 		<Nullable>enable</Nullable>
+		<NoWarn>$(NoWarn);EF9100</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -153,10 +153,6 @@ namespace Microsoft.EntityFrameworkCore
             {
                 return null;
             }
-
-            // TODO: Remove
-            Debug.WriteLine("DELAY: " + (int)baseDelay.GetValueOrDefault().TotalMilliseconds);
-
             return baseDelay;
         }
     }

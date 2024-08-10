@@ -367,7 +367,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
         }
     }
 
-    private static string? ConstructLikePatternParameter(
+    public static string? ConstructLikePatternParameter(
         QueryContext queryContext,
         string baseParameterName,
         StartsEndsWithContains methodType)
@@ -390,7 +390,7 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
             _ => throw new UnreachableException()
         };
 
-    private enum StartsEndsWithContains
+    public enum StartsEndsWithContains
     {
         StartsWith,
         EndsWith,

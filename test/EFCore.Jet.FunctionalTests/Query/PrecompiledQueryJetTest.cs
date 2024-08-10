@@ -34,9 +34,9 @@ public class PrecompiledQueryJetTest(
             """
 @__id_0='3'
 
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > @__id_0
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` > @__id_0
 """);
     }
 
@@ -46,11 +46,8 @@ WHERE [b].[Id] > @__id_0
 
         AssertSql(
             """
-SELECT CASE
-    WHEN [b].[Id] = 2 THEN N'yes'
-    ELSE N'no'
-END
-FROM [Blogs] AS [b]
+SELECT IIF(`b`.`Id` = 2, 'yes', 'no')
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -60,13 +57,10 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-@__yes_0='yes' (Size = 4000)
+@__yes_0='yes' (Size = 255)
 
-SELECT CASE
-    WHEN [b].[Id] = 2 THEN @__yes_0
-    ELSE N'no'
-END
-FROM [Blogs] AS [b]
+SELECT IIF(`b`.`Id` = 2, @__yes_0, 'no')
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -83,8 +77,8 @@ FROM [Blogs] AS [b]
 
          AssertSql(
              """
-SELECT [b].[Id], [b].[Id] + 1
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Id` + 1
+FROM `Blogs` AS `b`
 """);
      }
 
@@ -94,8 +88,8 @@ FROM [Blogs] AS [b]
 
          AssertSql(
              """
-SELECT [b].[Id]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`
+FROM `Blogs` AS `b`
 """);
      }
 
@@ -105,8 +99,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -116,9 +110,9 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] IN (7, 8)
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` IN (7, 8)
 """);
     }
 
@@ -128,9 +122,9 @@ WHERE [b].[Id] IN (7, 8)
 
          AssertSql(
              """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] IS NOT NULL AND LEFT([b].[Name], LEN([b].[Name])) = [b].[Name]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, IIF(LEN(`b`.`Name`) IS NULL, 0, LEN(`b`.`Name`))) = `b`.`Name`
 """);
      }
 
@@ -140,11 +134,11 @@ WHERE [b].[Name] IS NOT NULL AND LEFT([b].[Name], LEN([b].[Name])) = [b].[Name]
 
         AssertSql(
             """
-@__pattern_0_startswith='foo%' (Size = 4000)
+@__pattern_0_startswith='foo%' (Size = 255)
 
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] LIKE @__pattern_0_startswith ESCAPE N'\'
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Name` LIKE @__pattern_0_startswith
 """);
     }
 
@@ -154,9 +148,9 @@ WHERE [b].[Name] LIKE @__pattern_0_startswith ESCAPE N'\'
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] LIKE N'foo%'
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Name` LIKE 'foo%'
 """);
     }
 
@@ -166,8 +160,8 @@ WHERE [b].[Name] LIKE N'foo%'
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -177,9 +171,9 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 0
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 0
 """);
     }
 
@@ -196,8 +190,8 @@ WHERE [b].[Id] = 0
 
         AssertSql(
             """
-SELECT [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -207,8 +201,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -220,8 +214,8 @@ FROM [Blogs] AS [b]
             """
 @__id_0='8'
 
-SELECT @__id_0 AS [Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT CLNG(@__id_0) AS `Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -231,8 +225,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT 1 AS [Id], N'foo' AS [Name]
-FROM [Blogs] AS [b]
+SELECT 1 AS `Id`, 'foo' AS `Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -255,8 +249,8 @@ FROM `Blogs` AS `b`
             """
 @__i_0='8'
 
-SELECT [b].[Id], [b].[Id] + @__i_0
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Id` + @__i_0
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -266,9 +260,9 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE CAST([b].[Id] AS smallint) = CAST(8 AS smallint)
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE CINT(`b`.`Id`) = 8
 """);
     }
 
@@ -289,8 +283,8 @@ WHERE CAST([b].[Id] AS smallint) = CAST(8 AS smallint)
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -300,8 +294,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -311,9 +305,9 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` > 8
 """);
     }
 
@@ -323,9 +317,9 @@ WHERE [b].[Id] > 8
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` > 8
 """);
     }
 
@@ -335,8 +329,8 @@ WHERE [b].[Id] > 8
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -346,8 +340,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -357,8 +351,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -368,8 +362,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -379,8 +373,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -390,8 +384,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -401,8 +395,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -412,8 +406,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -423,8 +417,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -434,8 +428,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -445,8 +439,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -474,23 +468,19 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT CASE
-    WHEN NOT EXISTS (
+SELECT IIF(NOT EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] <= 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` <= 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN NOT EXISTS (
+SELECT IIF(NOT EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] <= 8) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` <= 8), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -500,23 +490,19 @@ END
 
         AssertSql(
             """
-SELECT CASE
-    WHEN NOT EXISTS (
+SELECT IIF(NOT EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] <= 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` <= 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN NOT EXISTS (
+SELECT IIF(NOT EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] <= 8) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` <= 8), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -526,43 +512,35 @@ END
 
         AssertSql(
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] > 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` > 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] < 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` < 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] > 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` > 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] < 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` < 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -572,43 +550,35 @@ END
 
         AssertSql(
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] > 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` > 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] < 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` < 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] > 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` > 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT CASE
-    WHEN EXISTS (
+SELECT IIF(EXISTS (
         SELECT 1
-        FROM [Blogs] AS [b]
-        WHERE [b].[Id] < 7) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM `Blogs` AS `b`
+        WHERE `b`.`Id` < 7), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -618,13 +588,13 @@ END
 
         AssertSql(
             """
-SELECT AVG(CAST([b].[Id] AS float))
-FROM [Blogs] AS [b]
+SELECT AVG(CDBL(`b`.`Id`))
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT AVG(CAST([b].[Id] AS float))
-FROM [Blogs] AS [b]
+SELECT AVG(CDBL(`b`.`Id`))
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -634,13 +604,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT AVG(CAST([b].[Id] AS float))
-FROM [Blogs] AS [b]
+SELECT AVG(CDBL(`b`.`Id`))
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT AVG(CAST([b].[Id] AS float))
-FROM [Blogs] AS [b]
+SELECT AVG(CDBL(`b`.`Id`))
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -652,25 +622,21 @@ FROM [Blogs] AS [b]
             """
 @__p_0='8'
 
-SELECT CASE
-    WHEN @__p_0 IN (
-        SELECT [b].[Id]
-        FROM [Blogs] AS [b]
-    ) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+SELECT IIF(@__p_0 IN (
+        SELECT `b`.`Id`
+        FROM `Blogs` AS `b`
+    ), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
 @__p_0='7'
 
-SELECT CASE
-    WHEN @__p_0 IN (
-        SELECT [b].[Id]
-        FROM [Blogs] AS [b]
-    ) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+SELECT IIF(@__p_0 IN (
+        SELECT `b`.`Id`
+        FROM `Blogs` AS `b`
+    ), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -682,25 +648,21 @@ END
             """
 @__p_0='8'
 
-SELECT CASE
-    WHEN @__p_0 IN (
-        SELECT [b].[Id]
-        FROM [Blogs] AS [b]
-    ) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+SELECT IIF(@__p_0 IN (
+        SELECT `b`.`Id`
+        FROM `Blogs` AS `b`
+    ), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
 @__p_0='7'
 
-SELECT CASE
-    WHEN @__p_0 IN (
-        SELECT [b].[Id]
-        FROM [Blogs] AS [b]
-    ) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+SELECT IIF(@__p_0 IN (
+        SELECT `b`.`Id`
+        FROM `Blogs` AS `b`
+    ), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -711,13 +673,13 @@ END
         AssertSql(
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
+FROM `Blogs` AS `b`
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` > 8
 """);
     }
 
@@ -728,13 +690,13 @@ WHERE [b].[Id] > 8
         AssertSql(
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
+FROM `Blogs` AS `b`
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` > 8
 """);
     }
 
@@ -840,27 +802,27 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -870,27 +832,27 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -900,27 +862,27 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -930,27 +892,27 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -960,9 +922,9 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """);
     }
 
@@ -972,30 +934,30 @@ WHERE [b].[Id] = 8
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """);
     }
 
@@ -1005,30 +967,30 @@ ORDER BY [b].[Id] DESC
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """);
     }
 
@@ -1038,30 +1000,30 @@ ORDER BY [b].[Id] DESC
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """);
     }
 
@@ -1071,30 +1033,30 @@ ORDER BY [b].[Id] DESC
 
         AssertSql(
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
+ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP(1) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
-ORDER BY [b].[Id] DESC
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
+ORDER BY `b`.`Id` DESC
 """);
     }
 
@@ -1104,14 +1066,14 @@ ORDER BY [b].[Id] DESC
 
         AssertSql(
             """
-SELECT COUNT_BIG(*)
-FROM [Blogs] AS [b]
+SELECT COUNT(*)
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT COUNT_BIG(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT COUNT(*)
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """);
     }
 
@@ -1121,14 +1083,14 @@ WHERE [b].[Id] = 8
 
         AssertSql(
             """
-SELECT COUNT_BIG(*)
-FROM [Blogs] AS [b]
+SELECT COUNT(*)
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT COUNT_BIG(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT COUNT(*)
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """);
     }
 
@@ -1138,13 +1100,13 @@ WHERE [b].[Id] = 8
 
         AssertSql(
             """
-SELECT MAX([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MAX(`b`.`Id`)
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT MAX([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MAX(`b`.`Id`)
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1154,13 +1116,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT MAX([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MAX(`b`.`Id`)
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT MAX([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MAX(`b`.`Id`)
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1170,13 +1132,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT MIN([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MIN(`b`.`Id`)
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT MIN([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MIN(`b`.`Id`)
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1186,13 +1148,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT MIN([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MIN(`b`.`Id`)
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT MIN([b].[Id])
-FROM [Blogs] AS [b]
+SELECT MIN(`b`.`Id`)
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1202,27 +1164,27 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -1232,27 +1194,27 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -1262,27 +1224,27 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -1292,27 +1254,27 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 8
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 7
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -1322,13 +1284,13 @@ WHERE [b].[Id] = 7
 
         AssertSql(
             """
-SELECT COALESCE(SUM([b].[Id]), 0)
-FROM [Blogs] AS [b]
+SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT COALESCE(SUM([b].[Id]), 0)
-FROM [Blogs] AS [b]
+SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1338,13 +1300,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT COALESCE(SUM([b].[Id]), 0)
-FROM [Blogs] AS [b]
+SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT COALESCE(SUM([b].[Id]), 0)
-FROM [Blogs] AS [b]
+SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1354,14 +1316,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-DELETE FROM [b]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+DELETE FROM `Blogs` AS `b`
+WHERE `b`.`Id` > 8
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1371,14 +1332,13 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-DELETE FROM [b]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+DELETE FROM `Blogs` AS `b`
+WHERE `b`.`Id` > 8
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1388,18 +1348,17 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-@__suffix_0='Suffix' (Size = 4000)
+@__suffix_0='Suffix' (Size = 255)
 
-UPDATE [b]
-SET [b].[Name] = COALESCE([b].[Name], N'') + @__suffix_0
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+UPDATE `Blogs` AS `b`
+SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @__suffix_0
+WHERE `b`.`Id` > 8
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 9 AND [b].[Name] = N'Blog2Suffix'
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
 """);
     }
 
@@ -1409,18 +1368,17 @@ WHERE [b].[Id] = 9 AND [b].[Name] = N'Blog2Suffix'
 
         AssertSql(
             """
-@__suffix_0='Suffix' (Size = 4000)
+@__suffix_0='Suffix' (Size = 255)
 
-UPDATE [b]
-SET [b].[Name] = COALESCE([b].[Name], N'') + @__suffix_0
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+UPDATE `Blogs` AS `b`
+SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @__suffix_0
+WHERE `b`.`Id` > 8
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 9 AND [b].[Name] = N'Blog2Suffix'
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
 """);
     }
 
@@ -1434,17 +1392,17 @@ WHERE [b].[Id] = 9 AND [b].[Name] = N'Blog2Suffix'
 
         AssertSql(
             """
-SELECT [u].[Id], [u].[Name]
+SELECT `u`.`Id`, `u`.`Name`
 FROM (
-    SELECT [b].[Id], [b].[Name]
-    FROM [Blogs] AS [b]
-    WHERE [b].[Id] > 7
+    SELECT `b`.`Id`, `b`.`Name`
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` > 7
     UNION
-    SELECT [b0].[Id], [b0].[Name]
-    FROM [Blogs] AS [b0]
-    WHERE [b0].[Id] < 10
-) AS [u]
-ORDER BY [u].[Id]
+    SELECT `b0`.`Id`, `b0`.`Name`
+    FROM `Blogs` AS `b0`
+    WHERE `b0`.`Id` < 10
+) AS `u`
+ORDER BY `u`.`Id`
 """);
     }
 
@@ -1454,17 +1412,17 @@ ORDER BY [u].[Id]
 
         AssertSql(
             """
-SELECT [u].[Id], [u].[Name]
+SELECT `u`.`Id`, `u`.`Name`
 FROM (
-    SELECT [b].[Id], [b].[Name]
-    FROM [Blogs] AS [b]
-    WHERE [b].[Id] > 7
+    SELECT `b`.`Id`, `b`.`Name`
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` > 7
     UNION ALL
-    SELECT [b0].[Id], [b0].[Name]
-    FROM [Blogs] AS [b0]
-    WHERE [b0].[Id] < 10
-) AS [u]
-ORDER BY [u].[Id]
+    SELECT `b0`.`Id`, `b0`.`Name`
+    FROM `Blogs` AS `b0`
+    WHERE `b0`.`Id` < 10
+) AS `u`
+ORDER BY `u`.`Id`
 """);
     }
 
@@ -1529,14 +1487,9 @@ WHERE (
 
         AssertSql(
             """
-@__ids_0='[1,2,3]' (Size = 4000)
-
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] IN (
-    SELECT [i].[value]
-    FROM OPENJSON(@__ids_0) WITH ([value] int '$') AS [i]
-)
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` IN (1, 2, 3)
 """);
     }
 
@@ -1546,11 +1499,11 @@ WHERE [b].[Id] IN (
 
         AssertSql(
             """
-SELECT [m].[Id], [m].[Name]
+SELECT `m`.`Id`, `m`.`Name`
 FROM (
-    SELECT * FROM "Blogs" WHERE "Id" > 8
-) AS [m]
-ORDER BY [m].[Id]
+    SELECT * FROM `Blogs` WHERE `Id` > 8
+) AS `m`
+ORDER BY `m`.`Id`
 """);
     }
 
@@ -1563,11 +1516,11 @@ ORDER BY [m].[Id]
 p0='8'
 p1='9'
 
-SELECT [m].[Id], [m].[Name]
+SELECT `m`.`Id`, `m`.`Name`
 FROM (
-    SELECT * FROM "Blogs" WHERE "Id" > @p0 AND "Id" < @p1
-) AS [m]
-ORDER BY [m].[Id]
+    SELECT * FROM `Blogs` WHERE `Id` > @p0 AND `Id` < @p1
+) AS `m`
+ORDER BY `m`.`Id`
 """);
     }
 
@@ -1667,8 +1620,8 @@ ORDER BY [m].[Id]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1678,8 +1631,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1689,8 +1642,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1700,8 +1653,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1711,8 +1664,8 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1754,9 +1707,9 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] = N'Blog2'
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Name` = 'Blog2'
 """);
     }
 
@@ -1782,8 +1735,8 @@ WHERE [b].[Name] = N'Blog2'
 
         AssertSql(
             """
-SELECT [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1793,9 +1746,9 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`
 """);
     }
 
@@ -1820,11 +1773,9 @@ OFFSET @__p_0 ROWS
 
         AssertSql(
             """
-@__p_0='1'
-
-SELECT TOP(@__p_0) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
+SELECT TOP 1 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`
 """);
     }
 
@@ -1834,8 +1785,8 @@ ORDER BY [b].[Name]
 
         AssertSql(
             """
-SELECT COALESCE([b].[Name], N'') + N'Foo' AS [Foo]
-FROM [Blogs] AS [b]
+SELECT IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & 'Foo' AS `Foo`
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1845,14 +1796,11 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-@__yes_0='yes' (Size = 4000)
-@__no_1='no' (Size = 4000)
+@__yes_0='yes' (Size = 255)
+@__no_1='no' (Size = 255)
 
-SELECT CASE
-    WHEN [b].[Id] = 3 THEN @__yes_0
-    ELSE @__no_1
-END
-FROM [Blogs] AS [b]
+SELECT IIF(`b`.`Id` = 3, @__yes_0, @__no_1)
+FROM `Blogs` AS `b`
 """);
     }
 
@@ -1862,12 +1810,12 @@ FROM [Blogs] AS [b]
 
         AssertSql(
             """
-@__starts_0_startswith='blog%' (Size = 4000)
-@__ends_1_endswith='%2' (Size = 4000)
+@__starts_0_startswith='blog%' (Size = 255)
+@__ends_1_endswith='%2' (Size = 255)
 
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] LIKE @__starts_0_startswith ESCAPE N'\' AND [b].[Name] LIKE @__ends_1_endswith ESCAPE N'\'
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE (`b`.`Name` LIKE @__starts_0_startswith) AND (`b`.`Name` LIKE @__ends_1_endswith)
 """);
     }
 
@@ -1877,12 +1825,12 @@ WHERE [b].[Name] LIKE @__starts_0_startswith ESCAPE N'\' AND [b].[Name] LIKE @__
 
         AssertSql(
             """
-@__foo_0_startswith='X%' (Size = 4000)
-@__foo_0_endswith='%X' (Size = 4000)
+@__foo_0_startswith='X%' (Size = 255)
+@__foo_0_endswith='%X' (Size = 255)
 
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] LIKE @__foo_0_startswith ESCAPE N'\' AND [b].[Name] LIKE @__foo_0_endswith ESCAPE N'\'
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswith)
 """);
     }
 
@@ -1892,12 +1840,12 @@ WHERE [b].[Name] LIKE @__foo_0_startswith ESCAPE N'\' AND [b].[Name] LIKE @__foo
 
         AssertSql(
             """
-@__foo_0_startswith='X%' (Size = 4000)
-@__foo_0_endswith='%X' (Size = 4000)
+@__foo_0_startswith='X%' (Size = 255)
+@__foo_0_endswith='%X' (Size = 255)
 
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Name] LIKE @__foo_0_startswith ESCAPE N'\' AND [b].[Name] LIKE @__foo_0_endswith ESCAPE N'\'
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswith)
 """);
     }
 
@@ -1907,11 +1855,11 @@ WHERE [b].[Name] LIKE @__foo_0_startswith ESCAPE N'\' AND [b].[Name] LIKE @__foo
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name], [p].[Id], [p].[BlogId], [p].[Title]
-FROM [Blogs] AS [b]
-LEFT JOIN [Posts] AS [p] ON [b].[Id] = [p].[BlogId]
-WHERE [b].[Id] > 8
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+FROM `Blogs` AS `b`
+LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
+WHERE `b`.`Id` > 8
+ORDER BY `b`.`Id`
 """);
     }
 
@@ -1921,16 +1869,16 @@ ORDER BY [b].[Id]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 """,
             //
             """
-SELECT [p].[Id], [p].[BlogId], [p].[Title], [b].[Id]
-FROM [Blogs] AS [b]
-INNER JOIN [Posts] AS [p] ON [b].[Id] = [p].[BlogId]
-ORDER BY [b].[Id]
+SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`, `b`.`Id`
+FROM `Blogs` AS `b`
+INNER JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
+ORDER BY `b`.`Id`
 """);
     }
 
@@ -1940,9 +1888,9 @@ ORDER BY [b].[Id]
 
         AssertSql(
             """
-SELECT [b].[Name], [b].[Id]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
+SELECT `b`.`Name`, `b`.`Id`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`
 """);
     }
 
@@ -1955,17 +1903,17 @@ ORDER BY [b].[Name]
 @__id1_0='8'
 @__id2_1='9'
 
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = @__id1_0 OR [b].[Id] = @__id2_1
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = @__id1_0 OR `b`.`Id` = @__id2_1
 """,
             //
             """
 @__id1_0='8'
 
-SELECT TOP(2) [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = @__id1_0
+SELECT TOP 2 `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = @__id1_0
 """);
     }
 
@@ -1975,13 +1923,13 @@ WHERE [b].[Id] = @__id1_0
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
 """);
     }
 

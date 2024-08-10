@@ -30,7 +30,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                             TestStore.ConnectionString,
                             TestEnvironment.DataAccessProviderFactory,
                             b => b.ApplyConfiguration().UseShortTextForSystemString().ExecutionStrategy(c => new JetExecutionStrategy(c))))
-                .UseInternalServiceProvider(Fixture.ServiceProvider).EnableDetailedErrors();
+                .UseInternalServiceProvider(Fixture.ServiceProvider);
 
             return new DbContext(options.Options);
         }

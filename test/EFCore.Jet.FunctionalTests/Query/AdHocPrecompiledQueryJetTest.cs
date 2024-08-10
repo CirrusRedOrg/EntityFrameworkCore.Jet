@@ -61,22 +61,22 @@ WHERE JSON_VALUE([j].[JsonThing], '$.StringProperty') = N'foo'
         await base.Materialize_non_public();
 
         AssertSql(
-            """
+            """"
 @p0='10' (Nullable = true)
 @p1='9' (Nullable = true)
 @p2='8' (Nullable = true)
 
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-INSERT INTO [NonPublicEntities] ([PrivateAutoProperty], [PrivateProperty], [_privateField])
-OUTPUT INSERTED.[Id]
+INSERT INTO `NonPublicEntities` (`PrivateAutoProperty`, `PrivateProperty`, `_privateField`)
 VALUES (@p0, @p1, @p2);
-""",
-            //
-            """
-SELECT TOP(2) [n].[Id], [n].[PrivateAutoProperty], [n].[PrivateProperty], [n].[_privateField]
-FROM [NonPublicEntities] AS [n]
-""");
+SELECT `Id`
+FROM `NonPublicEntities`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+"""",
+//
+""""
+SELECT TOP 2 `n`.`Id`, `n`.`PrivateAutoProperty`, `n`.`PrivateProperty`, `n`.`_privateField`
+FROM `NonPublicEntities` AS `n`
+"""");
     }
 
     [ConditionalFact]

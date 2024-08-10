@@ -77,10 +77,10 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
         {
             //Need to do this in both design and runtime
-            /*if (!designTime)
+            if (!designTime)
             {
                 yield break;
-            }*/
+            }
 
             var table = StoreObjectIdentifier.Table(column.Table.Name, column.Table.Schema);
             var property = column.PropertyMappings

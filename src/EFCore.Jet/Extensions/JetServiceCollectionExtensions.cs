@@ -56,6 +56,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<ICompiledQueryCacheKeyGenerator, JetCompiledQueryCacheKeyGenerator>()
                 .TryAdd<IExecutionStrategyFactory, JetExecutionStrategyFactory>()
                 .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetRequiredService<IJetOptions>())
+                .TryAdd<IQueryCompilationContextFactory, JetQueryCompilationContextFactory>()
                 .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
                 .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()

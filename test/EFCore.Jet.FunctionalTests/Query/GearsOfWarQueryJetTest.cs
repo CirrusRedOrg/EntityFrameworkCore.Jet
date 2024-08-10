@@ -5951,11 +5951,9 @@ ORDER BY `g`.`Nickname`, `m`.`Id`
             await base.Time_of_day_datetimeoffset(isAsync);
 
             AssertSql(
-"""
-SELECT ('HasSoulPatch ' & (`g`.`HasSoulPatch` & '')) & ' HasSoulPatch', ('Rank ' & (`g`.`Rank` & '')) & ' Rank', ('SquadId ' & (`g`.`SquadId` & '')) & ' SquadId', ('Rating ' & IIF((`m`.`Rating` & '') IS NULL, '', (`m`.`Rating` & ''))) & ' Rating', `m`.`Id`, `m`.`CodeName`, `m`.`Rating`
-FROM `Gears` AS `g`,
-`Missions` AS `m`
-ORDER BY `g`.`Nickname`, `m`.`Id`
+                """
+SELECT TIMEVALUE(`m`.`Timeline`)
+FROM `Missions` AS `m`
 """);
         }
 
@@ -7515,7 +7513,7 @@ ORDER BY NOT (`w0`.`IsAutomatic`)
 
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
-WHERE DATEVALUE(`m`.`Timeline`) >= @__dateTimeOffset_Date_0
+WHERE DATEVALUE(`m`.`Timeline`) >= CDATE(@__dateTimeOffset_Date_0)
 """);
         }
 

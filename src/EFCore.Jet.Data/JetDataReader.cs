@@ -197,17 +197,32 @@ namespace EntityFrameworkCore.Jet.Data
 
         public TimeOnly GetTimeOnly(int ordinal)
         {
-            var value = GetDateTime(ordinal);
-            return TimeOnly.FromDateTime(value);
+            var value = _wrappedDataReader.GetValue(ordinal);
+
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+                return default;
+
+            if (value is DateTime dateTime)
+            {
+                return TimeOnly.FromDateTime(dateTime);
+            }
+            return (TimeOnly)value;
         }
 
         public virtual TimeSpan GetTimeSpan(int ordinal)
         {
-            var dateTime = GetDateTime(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   dateTime == default
-                ? default
-                : dateTime - JetConfiguration.TimeSpanOffset;
+            var value = _wrappedDataReader.GetValue(ordinal);
+
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+                return default;
+
+            if (value is DateTime dateTime)
+            {
+                return TimeSpan.FromTicks(dateTime.Ticks - JetConfiguration.TimeSpanOffset.Ticks);
+            }
+            return (TimeSpan)value;
         }
 
         public virtual DateTimeOffset GetDateTimeOffset(int ordinal)

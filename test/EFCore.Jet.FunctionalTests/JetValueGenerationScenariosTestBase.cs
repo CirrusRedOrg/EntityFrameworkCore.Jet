@@ -665,7 +665,7 @@ public abstract class JetValueGenerationScenariosTestBase
             modelBuilder.Entity<Blog>(
                 b =>
                 {
-                    b.Property(e => e.CreatedOn).HasDefaultValueSql("getdate()");
+                    b.Property(e => e.CreatedOn).HasDefaultValueSql("NOW()");
 
                     b.HasData(
                         new Blog
@@ -774,7 +774,7 @@ public abstract class JetValueGenerationScenariosTestBase
                 {
                     b.Property(e => e.Id).HasSentinel(_intSentinel);
 
-                    var property = b.Property(e => e.CreatedOn).HasDefaultValueSql("getdate()").HasSentinel(_dateTimeSentinel);
+                    var property = b.Property(e => e.CreatedOn).HasDefaultValueSql("NOW()").HasSentinel(_dateTimeSentinel);
                     property.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Throw);
                 });
         }

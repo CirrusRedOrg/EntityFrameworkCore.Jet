@@ -43,7 +43,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetFloatTypeMapping _single = new JetFloatTypeMapping("single");
         private readonly JetDoubleTypeMapping _double = new JetDoubleTypeMapping("double");
 
-        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal(18, 2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetDecimalTypeMapping _decimal = new JetDecimalTypeMapping("decimal(18,2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         private readonly JetDecimalTypeMapping _decimal18_0 = new JetDecimalTypeMapping("decimal", DbType.Decimal, precision: 18, scale: 0);
         private readonly JetDecimalTypeMapping _currency = new JetDecimalTypeMapping("currency", DbType.Currency, storeTypePostfix:StoreTypePostfix.None);
 

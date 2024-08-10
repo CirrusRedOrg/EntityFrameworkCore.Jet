@@ -47,10 +47,10 @@ public class MigrationsJetTest : MigrationsTestBase<MigrationsJetTest.Migrations
 
         AssertSql(
             """
-CREATE TABLE [People] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    CONSTRAINT [PK_People] PRIMARY KEY ([Id])
+CREATE TABLE `People` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    CONSTRAINT `PK_People` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -92,8 +92,8 @@ CREATE INDEX [IX_People_EmployerId] ON [dbo2].[People] ([EmployerId]);
 
         AssertSql(
             """
-CREATE TABLE [Anonymous] (
-    [SomeColumn] int NOT NULL
+CREATE TABLE `Anonymous` (
+    `SomeColumn` integer NOT NULL
 );
 """);
     }
@@ -104,18 +104,11 @@ CREATE TABLE [Anonymous] (
 
         AssertSql(
             """
-CREATE TABLE [People] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    CONSTRAINT [PK_People] PRIMARY KEY ([Id])
+CREATE TABLE `People` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    CONSTRAINT `PK_People` PRIMARY KEY (`Id`)
 );
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = N'Table comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-SET @description = N'Column comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Name';
 """);
     }
 
@@ -125,18 +118,11 @@ EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSc
 
         AssertSql(
             """
-CREATE TABLE [People] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    CONSTRAINT [PK_People] PRIMARY KEY ([Id])
+CREATE TABLE `People` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    CONSTRAINT `PK_People` PRIMARY KEY (`Id`)
 );
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = CONCAT(N'This is a multi-line', NCHAR(13), NCHAR(10), N'table comment.', NCHAR(13), NCHAR(10), N'More information can', NCHAR(13), NCHAR(10), N'be found in the docs.');
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-SET @description = CONCAT(N'This is a multi-line', NCHAR(10), N'column comment.', NCHAR(10), N'More information can', NCHAR(10), N'be found in the docs.');
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Name';
 """);
     }
 
@@ -164,13 +150,13 @@ CREATE TABLE [People] (
 
         AssertSql(
             """
-CREATE TABLE [Entity] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    [OwnedCollection] nvarchar(max) NULL,
-    [OwnedReference] nvarchar(max) NULL,
-    [OwnedRequiredReference] nvarchar(max) NOT NULL,
-    CONSTRAINT [PK_Entity] PRIMARY KEY ([Id])
+CREATE TABLE `Entity` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    `OwnedCollection` longchar NULL,
+    `OwnedReference` longchar NULL,
+    `OwnedRequiredReference` longchar NOT NULL,
+    CONSTRAINT `PK_Entity` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -181,12 +167,12 @@ CREATE TABLE [Entity] (
 
         AssertSql(
             """
-CREATE TABLE [Entity] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    [json_collection] nvarchar(max) NULL,
-    [json_reference] nvarchar(max) NULL,
-    CONSTRAINT [PK_Entity] PRIMARY KEY ([Id])
+CREATE TABLE `Entity` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    `json_collection` longchar NULL,
+    `json_reference` longchar NULL,
+    CONSTRAINT `PK_Entity` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -207,8 +193,8 @@ CREATE TABLE [Entity] (
 
         AssertSql(
             """
-CREATE TABLE [People] (
-    [IdentityColumn] smallint NOT NULL IDENTITY
+CREATE TABLE `People` (
+    `IdentityColumn` counter NOT NULL
 );
 """);
     }
@@ -219,7 +205,7 @@ CREATE TABLE [People] (
 
         AssertSql(
             """
-DROP TABLE [People];
+DROP TABLE `People`;
 """);
     }
 
@@ -228,13 +214,7 @@ DROP TABLE [People];
         await base.Alter_table_add_comment();
 
         AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = N'Table comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-""");
+);
     }
 
     public override async Task Alter_table_add_comment_non_default_schema()
@@ -242,11 +222,7 @@ EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSc
         await base.Alter_table_add_comment_non_default_schema();
 
         AssertSql(
-            """
-DECLARE @description AS sql_variant;
-SET @description = N'Table comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', N'SomeOtherSchema', 'TABLE', N'People';
-""");
+);
     }
 
     public override async Task Alter_table_change_comment()
@@ -254,14 +230,7 @@ EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', N'SomeOthe
         await base.Alter_table_change_comment();
 
         AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-SET @description = N'Table comment2';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-""");
+);
     }
 
     public override async Task Alter_table_remove_comment()
@@ -351,13 +320,9 @@ ALTER SCHEMA [TestTableSchema] TRANSFER [TestTable];
 
         AssertSql(
             """
-IF SCHEMA_ID(N'SomeOtherSchema') IS NULL EXEC(N'CREATE SCHEMA [SomeOtherSchema];');
-""",
-            //
-            """
-CREATE TABLE [SomeOtherSchema].[People] (
-    [Id] int NOT NULL IDENTITY,
-    CONSTRAINT [PK_People] PRIMARY KEY ([Id])
+CREATE TABLE `People` (
+    `Id` counter NOT NULL,
+    CONSTRAINT `PK_People` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -370,7 +335,7 @@ CREATE TABLE [SomeOtherSchema].[People] (
             builder => builder.Entity("People")
                 .ToTable("People", "dbo")
                 .Property<int>("Id"),
-            model => Assert.Equal("dbo", Assert.Single(model.Tables).Schema));
+            model => Assert.Equal(null, Assert.Single(model.Tables).Schema));
 
         AssertSql(
             """
@@ -387,7 +352,7 @@ CREATE TABLE [dbo].[People] (
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Name] nvarchar(max) NOT NULL DEFAULT N'John Doe';
+ALTER TABLE `People` ADD `Name` varchar(255) NOT NULL DEFAULT 'John Doe';
 """);
     }
 
@@ -397,7 +362,7 @@ ALTER TABLE [People] ADD [Name] nvarchar(max) NOT NULL DEFAULT N'John Doe';
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Birthday] datetime2 NOT NULL DEFAULT '2015-04-12T17:05:00.0000000';
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:00';
 """);
     }
 
@@ -428,7 +393,7 @@ ALTER TABLE [People] ADD [Birthday] datetime2 NOT NULL DEFAULT '2015-04-12T17:05
 
         AssertSql(
             $"""
-ALTER TABLE [People] ADD [Birthday] datetime2({precision}) NOT NULL DEFAULT '2015-04-12T17:05:00{fractionalSeconds}';
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:00';
 """);
     }
 
@@ -462,7 +427,7 @@ ALTER TABLE [People] ADD [Birthday] datetime2({precision}) NOT NULL DEFAULT '201
 
         AssertSql(
             $"""
-ALTER TABLE [People] ADD [Birthday] datetimeoffset({precision}) NOT NULL DEFAULT '2015-04-12T17:05:00{fractionalSeconds}+10:00';
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT CDATE('2015-04-12 07:05:00');
 """);
     }
 
@@ -493,8 +458,8 @@ ALTER TABLE [People] ADD [Birthday] datetimeoffset({precision}) NOT NULL DEFAULT
             });
 
         AssertSql(
-            $"""
-ALTER TABLE [People] ADD [Age] time({precision}) NOT NULL DEFAULT '12:34:56{fractionalSeconds}';
+            """
+ALTER TABLE `People` ADD `Age` datetime NOT NULL DEFAULT TIMEVALUE('12:34:56');
 """);
     }
 
@@ -516,29 +481,7 @@ ALTER TABLE [People] ADD [Age] time({precision}) NOT NULL DEFAULT '12:34:56{frac
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Birthday] datetime NOT NULL DEFAULT '2019-01-01T00:00:00.000';
-""");
-    }
-
-    [ConditionalFact]
-    public virtual async Task Add_column_with_defaultValue_smalldatetime_store_type()
-    {
-        await Test(
-            builder => builder.Entity("People").Property<string>("Id"),
-            builder => { },
-            builder => builder.Entity("People").Property<DateTime>("Birthday")
-                .HasColumnType("smalldatetime")
-                .HasDefaultValue(new DateTime(2019, 1, 1)),
-            model =>
-            {
-                var table = Assert.Single(model.Tables);
-                var column = Assert.Single(table.Columns, c => c.Name == "Birthday");
-                Assert.Contains("2019", column.DefaultValueSql);
-            });
-
-        AssertSql(
-            """
-ALTER TABLE [People] ADD [Birthday] smalldatetime NOT NULL DEFAULT '2019-01-01T00:00:00';
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2019-01-01';
 """);
     }
 
@@ -602,15 +545,15 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL DEFAULT (1 + 2);
 
         AssertSql(
             """
-ALTER TABLE [Entity] ADD [OwnedCollection] nvarchar(max) NULL;
+ALTER TABLE `Entity` ADD `OwnedCollection` longchar NULL;
 """,
             //
             """
-ALTER TABLE [Entity] ADD [OwnedReference] nvarchar(max) NULL;
+ALTER TABLE `Entity` ADD `OwnedReference` longchar NULL;
 """,
             //
             """
-ALTER TABLE [Entity] ADD [OwnedRequiredReference] nvarchar(max) NOT NULL DEFAULT N'{}';
+ALTER TABLE `Entity` ADD `OwnedRequiredReference` longchar NOT NULL DEFAULT '{}';
 """);
     }
 
@@ -654,7 +597,7 @@ EXEC(N'ALTER TABLE [People] ADD [IdPlusOne] AS [Id] + 1');
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Name] nvarchar(max) NOT NULL DEFAULT N'';
+ALTER TABLE `People` ADD `Name` varchar(255) NOT NULL DEFAULT '';
 """);
     }
 
@@ -664,7 +607,7 @@ ALTER TABLE [People] ADD [Name] nvarchar(max) NOT NULL DEFAULT N'';
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Name] varchar(max) NULL;
+ALTER TABLE `People` ADD `Name` varchar(255) NULL;
 """);
     }
 
@@ -674,7 +617,7 @@ ALTER TABLE [People] ADD [Name] varchar(max) NULL;
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Name] nvarchar(30) NULL;
+ALTER TABLE `People` ADD `Name` varchar(30) NULL;
 """);
     }
 
@@ -691,7 +634,7 @@ ALTER TABLE [People] ADD [Name] nvarchar(30) NULL;
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Name] nchar(100) NULL;
+ALTER TABLE `People` ADD `Name` char(100) NULL;
 """);
     }
 
@@ -701,12 +644,7 @@ ALTER TABLE [People] ADD [Name] nchar(100) NULL;
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [FullName] nvarchar(max) NULL;
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = N'My comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'FullName';
+ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
 """);
     }
 
@@ -743,11 +681,11 @@ ALTER TABLE [People] ADD [Name] nvarchar(max) COLLATE German_PhoneBook_CI_AS NUL
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [DriverLicense] int NOT NULL DEFAULT 0;
+ALTER TABLE `People` ADD `DriverLicense` integer NOT NULL DEFAULT 0;
 """,
             //
             """
-ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 0);
+ALTER TABLE `People` ADD CONSTRAINT `CK_People_Foo` CHECK (`DriverLicense` > 0);
 """);
     }
 
@@ -767,7 +705,7 @@ ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 0);
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [IdentityColumn] int NOT NULL IDENTITY;
+ALTER TABLE `People` ADD `IdentityColumn` counter NOT NULL;
 """);
     }
 
@@ -790,7 +728,7 @@ ALTER TABLE [People] ADD [IdentityColumn] int NOT NULL IDENTITY;
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [IdentityColumn] int NOT NULL IDENTITY(100, 5);
+ALTER TABLE `People` ADD `IdentityColumn` counter(100, 5) NOT NULL;
 """);
     }
 
@@ -844,15 +782,15 @@ ALTER TABLE [People] ADD [IdentityColumn] int NOT NULL IDENTITY(100, 5);
 
         AssertSql(
             """
-ALTER TABLE [Dogs] ADD [IdentityColumn] int NOT NULL IDENTITY(2, 2);
+ALTER TABLE `Dogs` ADD `IdentityColumn` counter(2, 2) NOT NULL;
 """,
             //
             """
-ALTER TABLE [Cats] ADD [IdentityColumn] int NOT NULL IDENTITY(1, 2);
+ALTER TABLE `Cats` ADD `IdentityColumn` counter(1, 2) NOT NULL;
 """,
             //
             """
-ALTER TABLE [Animal] ADD [IdentityColumn] int NOT NULL DEFAULT 0;
+ALTER TABLE `Animal` ADD `IdentityColumn` integer NOT NULL DEFAULT 0;
 """);
     }
 
@@ -862,13 +800,8 @@ ALTER TABLE [Animal] ADD [IdentityColumn] int NOT NULL DEFAULT 0;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeColumn');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [SomeColumn] bigint NOT NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` decimal(20,0) NOT NULL;
 """);
     }
 
@@ -1049,11 +982,8 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
 
         AssertSql(
             """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = N'Some comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Id';
+ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
 """);
     }
 
@@ -1064,11 +994,9 @@ EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSc
 
         AssertSql(
             """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = N'Some comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'SomeColumn';
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `SomeColumn`;
+ALTER TABLE `People` ADD `SomeColumn` integer NOT NULL DEFAULT 42;
 """);
     }
 
@@ -1079,12 +1007,8 @@ EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSc
 
         AssertSql(
             """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Id';
-SET @description = N'Some comment2';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Id';
+ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
 """);
     }
 
@@ -1385,7 +1309,7 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
             {
                 var table = Assert.Single(model.Tables);
                 var column = Assert.Single(table.Columns, c => c.Name == "IdentityColumn");
-                Assert.Equal("bigint", column.StoreType);
+                Assert.Equal("decimal(20,0)", column.StoreType);
                 Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
             });
 
@@ -1477,13 +1401,8 @@ EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSc
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeColumn');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [SomeColumn];
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `SomeColumn`;
 """);
     }
 
@@ -1565,7 +1484,7 @@ ALTER TABLE [Entity] DROP COLUMN [OwnedReference];
 
         AssertSql(
             """
-EXEC sp_rename N'[People].[SomeColumn]', N'SomeOtherColumn', 'COLUMN';
+ALTER TABLE `People` RENAME COLUMN `SomeColumn` TO `SomeOtherColumn`;
 """);
     }
 
@@ -1575,11 +1494,11 @@ EXEC sp_rename N'[People].[SomeColumn]', N'SomeOtherColumn', 'COLUMN';
 
         AssertSql(
             """
-EXEC sp_rename N'[Entity].[json_reference]', N'new_json_reference', 'COLUMN';
+ALTER TABLE `Entity` RENAME COLUMN `json_reference` TO `new_json_reference`;
 """,
             //
             """
-EXEC sp_rename N'[Entity].[json_collection]', N'new_json_collection', 'COLUMN';
+ALTER TABLE `Entity` RENAME COLUMN `json_collection` TO `new_json_collection`;
 """);
     }
 
@@ -1764,7 +1683,7 @@ CREATE UNIQUE INDEX [IX_People_Name] ON [People] ([Name]) WHERE [Name] IS NOT NU
 
         AssertSql(
             """
-DROP INDEX [IX_People_SomeField] ON [People];
+DROP INDEX `IX_People_SomeField` ON `People`;
 """);
     }
 
@@ -1791,17 +1710,7 @@ EXEC sp_rename N'[People].[Foo]', N'foo', 'INDEX';
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeField');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [SomeField] nvarchar(450) NOT NULL;
-""",
-            //
-            """
-ALTER TABLE [People] ADD CONSTRAINT [PK_People] PRIMARY KEY ([SomeField]);
+ALTER TABLE `People` ADD CONSTRAINT `PK_People` PRIMARY KEY (`SomeField`);
 """);
     }
 
@@ -1833,7 +1742,7 @@ ALTER TABLE [People] ADD CONSTRAINT [PK_Foo] PRIMARY KEY ([SomeField]);
 
         AssertSql(
             """
-ALTER TABLE [People] ADD CONSTRAINT [PK_Foo] PRIMARY KEY ([SomeField1], [SomeField2]);
+ALTER TABLE `People` ADD CONSTRAINT `PK_Foo` PRIMARY KEY (`SomeField1`, `SomeField2`);
 """);
     }
 
@@ -1850,17 +1759,7 @@ ALTER TABLE [People] ADD CONSTRAINT [PK_Foo] PRIMARY KEY ([SomeField1], [SomeFie
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [PK_People];
-""",
-            //
-            """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeField');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [SomeField] nvarchar(max) NOT NULL;
+ALTER TABLE `People` DROP CONSTRAINT `PK_People`;
 """);
     }
 
@@ -1870,11 +1769,11 @@ ALTER TABLE [People] ALTER COLUMN [SomeField] nvarchar(max) NOT NULL;
 
         AssertSql(
             """
-CREATE INDEX [IX_Orders_CustomerId] ON [Orders] ([CustomerId]);
+CREATE INDEX `IX_Orders_CustomerId` ON `Orders` (`CustomerId`);
 """,
             //
             """
-ALTER TABLE [Orders] ADD CONSTRAINT [FK_Orders_Customers_CustomerId] FOREIGN KEY ([CustomerId]) REFERENCES [Customers] ([Id]) ON DELETE CASCADE;
+ALTER TABLE `Orders` ADD CONSTRAINT `FK_Orders_Customers_CustomerId` FOREIGN KEY (`CustomerId`) REFERENCES `Customers` (`Id`) ON DELETE CASCADE;
 """);
     }
 
@@ -1889,11 +1788,11 @@ ALTER TABLE [Orders] ADD CONSTRAINT [FK_Orders_Customers_CustomerId] FOREIGN KEY
 
         AssertSql(
             """
-CREATE INDEX [IX_Orders_CustomerId] ON [Orders] ([CustomerId]);
+CREATE INDEX `IX_Orders_CustomerId` ON `Orders` (`CustomerId`);
 """,
             //
             """
-ALTER TABLE [Orders] ADD CONSTRAINT [FK_Foo] FOREIGN KEY ([CustomerId]) REFERENCES [Customers] ([Id]) ON DELETE CASCADE;
+ALTER TABLE `Orders` ADD CONSTRAINT `FK_Foo` FOREIGN KEY (`CustomerId`) REFERENCES `Customers` (`Id`) ON DELETE CASCADE;
 """);
     }
 
@@ -1903,11 +1802,11 @@ ALTER TABLE [Orders] ADD CONSTRAINT [FK_Foo] FOREIGN KEY ([CustomerId]) REFERENC
 
         AssertSql(
             """
-ALTER TABLE [Orders] DROP CONSTRAINT [FK_Orders_Customers_CustomerId];
+ALTER TABLE `Orders` DROP CONSTRAINT `FK_Orders_Customers_CustomerId`;
 """,
             //
             """
-DROP INDEX [IX_Orders_CustomerId] ON [Orders];
+DROP INDEX `IX_Orders_CustomerId` ON `Orders`;
 """);
     }
 
@@ -1917,7 +1816,7 @@ DROP INDEX [IX_Orders_CustomerId] ON [Orders];
 
         AssertSql(
             """
-ALTER TABLE [People] ADD CONSTRAINT [AK_People_AlternateKeyColumn] UNIQUE ([AlternateKeyColumn]);
+ALTER TABLE `People` ADD CONSTRAINT `AK_People_AlternateKeyColumn` UNIQUE (`AlternateKeyColumn`);
 """);
     }
 
@@ -1927,7 +1826,7 @@ ALTER TABLE [People] ADD CONSTRAINT [AK_People_AlternateKeyColumn] UNIQUE ([Alte
 
         AssertSql(
             """
-ALTER TABLE [People] ADD CONSTRAINT [AK_Foo] UNIQUE ([AlternateKeyColumn1], [AlternateKeyColumn2]);
+ALTER TABLE `People` ADD CONSTRAINT `AK_Foo` UNIQUE (`AlternateKeyColumn1`, `AlternateKeyColumn2`);
 """);
     }
 
@@ -1937,7 +1836,7 @@ ALTER TABLE [People] ADD CONSTRAINT [AK_Foo] UNIQUE ([AlternateKeyColumn1], [Alt
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [AK_People_AlternateKeyColumn];
+ALTER TABLE `People` DROP CONSTRAINT `AK_People_AlternateKeyColumn`;
 """);
     }
 
@@ -1947,7 +1846,7 @@ ALTER TABLE [People] DROP CONSTRAINT [AK_People_AlternateKeyColumn];
 
         AssertSql(
             """
-ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 0);
+ALTER TABLE `People` ADD CONSTRAINT `CK_People_Foo` CHECK (`DriverLicense` > 0);
 """);
     }
 
@@ -1971,7 +1870,7 @@ ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 0);
 
         AssertSql(
             """
-EXEC(N'ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 0)');
+ALTER TABLE `People` ADD CONSTRAINT `CK_People_Foo` CHECK ([DriverLicense] > 0);
 """);
     }
 
@@ -1981,11 +1880,11 @@ EXEC(N'ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [CK_People_Foo];
+ALTER TABLE `People` DROP CONSTRAINT `CK_People_Foo`;
 """,
             //
             """
-ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 1);
+ALTER TABLE `People` ADD CONSTRAINT `CK_People_Foo` CHECK (`DriverLicense` > 1);
 """);
     }
 
@@ -1995,7 +1894,7 @@ ALTER TABLE [People] ADD CONSTRAINT [CK_People_Foo] CHECK ([DriverLicense] > 1);
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [CK_People_Foo];
+ALTER TABLE `People` DROP CONSTRAINT `CK_People_Foo`;
 """);
     }
 
@@ -2211,8 +2110,8 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Name
         // TODO remove rowcount
         AssertSql(
             """
-DELETE FROM [Person]
-WHERE [Id] = 2;
+DELETE FROM `Person`
+WHERE `Id` = 2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -2224,8 +2123,8 @@ SELECT @@ROWCOUNT;
         // TODO remove rowcount
         AssertSql(
             """
-DELETE FROM [Person]
-WHERE [AnotherId] = 12 AND [Id] = 2;
+DELETE FROM `Person`
+WHERE `AnotherId` = 12 AND `Id` = 2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -2237,8 +2136,8 @@ SELECT @@ROWCOUNT;
         // TODO remove rowcount
         AssertSql(
             """
-UPDATE [Person] SET [Name] = N'Another John Snow'
-WHERE [Id] = 2;
+UPDATE `Person` SET `Name` = 'Another John Snow'
+WHERE `Id` = 2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -2250,8 +2149,8 @@ SELECT @@ROWCOUNT;
         // TODO remove rowcount
         AssertSql(
             """
-UPDATE [Person] SET [Name] = N'Another John Snow'
-WHERE [AnotherId] = 11 AND [Id] = 2;
+UPDATE `Person` SET `Name` = 'Another John Snow'
+WHERE `AnotherId` = 11 AND `Id` = 2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -2263,8 +2162,8 @@ SELECT @@ROWCOUNT;
         // TODO remove rowcount
         AssertSql(
             """
-UPDATE [Person] SET [Age] = 21, [Name] = N'Another John Snow'
-WHERE [Id] = 2;
+UPDATE `Person` SET `Age` = 21, `Name` = 'Another John Snow'
+WHERE `Id` = 2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -2362,8 +2261,8 @@ SELECT @@ROWCOUNT');
         await base.Add_required_primitive_collection_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'[]';
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[]';
 """);
     }
 
@@ -2373,19 +2272,19 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'[]';
         await base.Add_required_primitive_collection_with_custom_default_value_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'[1,2,3]';
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[1,2,3]';
 """);
     }
 
     [ConditionalFact]
     public override async Task Add_required_primitive_collection_with_custom_default_value_sql_to_existing_table()
     {
-        await base.Add_required_primitive_collection_with_custom_default_value_sql_to_existing_table_core("N'[3, 2, 1]'");
+        await base.Add_required_primitive_collection_with_custom_default_value_sql_to_existing_table_core("'[3, 2, 1]'");
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT (N'[3, 2, 1]');
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[3, 2, 1]';
 """);
     }
 
@@ -2406,8 +2305,8 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'nothing';
         await base.Add_required_primitive_collection_with_custom_converter_and_custom_default_value_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'some numbers';
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT 'some numbers';
 """);
     }
 
@@ -2417,8 +2316,8 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'some numb
         await base.Add_optional_primitive_collection_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NULL;
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NULL;
 """);
     }
 
@@ -2428,12 +2327,12 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NULL;
         await base.Create_table_with_required_primitive_collection();
 
         AssertSql(
-"""
-CREATE TABLE [Customers] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    [Numbers] nvarchar(max) NOT NULL,
-    CONSTRAINT [PK_Customers] PRIMARY KEY ([Id])
+            """
+CREATE TABLE `Customers` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    `Numbers` varchar(255) NOT NULL,
+    CONSTRAINT `PK_Customers` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -2444,12 +2343,12 @@ CREATE TABLE [Customers] (
         await base.Create_table_with_optional_primitive_collection();
 
         AssertSql(
-"""
-CREATE TABLE [Customers] (
-    [Id] int NOT NULL IDENTITY,
-    [Name] nvarchar(max) NULL,
-    [Numbers] nvarchar(max) NULL,
-    CONSTRAINT [PK_Customers] PRIMARY KEY ([Id])
+            """
+CREATE TABLE `Customers` (
+    `Id` counter NOT NULL,
+    `Name` varchar(255) NULL,
+    `Numbers` varchar(255) NULL,
+    CONSTRAINT `PK_Customers` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -2460,16 +2359,16 @@ CREATE TABLE [Customers] (
         await base.Create_table_with_complex_type_with_required_properties_on_derived_entity_in_TPH();
 
         AssertSql(
-"""
-CREATE TABLE [Contacts] (
-    [Id] int NOT NULL IDENTITY,
-    [Discriminator] nvarchar(8) NOT NULL,
-    [Name] nvarchar(max) NULL,
-    [Number] int NULL,
-    [MyComplex_Prop] nvarchar(max) NULL,
-    [MyComplex_MyNestedComplex_Bar] datetime2 NULL,
-    [MyComplex_MyNestedComplex_Foo] int NULL,
-    CONSTRAINT [PK_Contacts] PRIMARY KEY ([Id])
+            """
+CREATE TABLE `Contacts` (
+    `Id` counter NOT NULL,
+    `Discriminator` varchar(8) NOT NULL,
+    `Name` varchar(255) NULL,
+    `Number` integer NULL,
+    `MyComplex_Prop` varchar(255) NULL,
+    `MyComplex_MyNestedComplex_Bar` datetime NULL,
+    `MyComplex_MyNestedComplex_Foo` integer NULL,
+    CONSTRAINT `PK_Contacts` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -2480,8 +2379,8 @@ CREATE TABLE [Contacts] (
         await base.Add_required_primitve_collection_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'[]';
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[]';
 """);
     }
 
@@ -2491,19 +2390,19 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'[]';
         await base.Add_required_primitve_collection_with_custom_default_value_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'[1,2,3]';
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[1,2,3]';
 """);
     }
 
     [ConditionalFact]
     public override async Task Add_required_primitve_collection_with_custom_default_value_sql_to_existing_table()
     {
-        await base.Add_required_primitve_collection_with_custom_default_value_sql_to_existing_table_core("N'[3, 2, 1]'");
+        await base.Add_required_primitve_collection_with_custom_default_value_sql_to_existing_table_core("'[3, 2, 1]'");
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT (N'[3, 2, 1]');
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[3, 2, 1]';
 """);
     }
 
@@ -2524,8 +2423,8 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'nothing';
         await base.Add_required_primitve_collection_with_custom_converter_and_custom_default_value_to_existing_table();
 
         AssertSql(
-"""
-ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'some numbers';
+            """
+ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT 'some numbers';
 """);
     }
 
@@ -2551,6 +2450,9 @@ WHERE name = '{connection.Database}';";
             ? collation
             : null;
     }
+
+    protected override bool AssertComments => false;
+    protected override bool AssertSchemaNames => false;
 
     public class MigrationsJetFixture : MigrationsFixtureBase
     {

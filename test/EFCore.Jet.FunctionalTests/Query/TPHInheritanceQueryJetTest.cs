@@ -620,7 +620,7 @@ WHERE 'Kiwi' = `a`.`Discriminator`
         await base.Setting_foreign_key_to_a_different_type_throws();
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'

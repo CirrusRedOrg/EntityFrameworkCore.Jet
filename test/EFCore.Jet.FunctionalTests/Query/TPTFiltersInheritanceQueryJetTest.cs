@@ -179,7 +179,7 @@ WHERE `a`.`CountryId` = 1
         await base.Can_use_IgnoreQueryFilters_and_GetDatabaseValues(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)

@@ -796,7 +796,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             var storeType = operation.ColumnType;
 
             if (IsIdentity(operation) &&
-                (storeType == null || Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping))
+                (storeType == null || Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping or ShortTypeMapping))
             {
                 // This column represents the actual identity.
                 storeType = "counter";

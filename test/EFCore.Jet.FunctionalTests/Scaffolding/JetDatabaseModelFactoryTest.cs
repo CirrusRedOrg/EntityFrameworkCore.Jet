@@ -421,13 +421,13 @@ CREATE TABLE NumericColumns (
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("decimal(18, 0)", columns.Single(c => c.Name == "decimalColumn").StoreType);
-                    Assert.Equal("decimal(10, 5)", columns.Single(c => c.Name == "decimal105Column").StoreType);
-                    Assert.Equal("decimal(18, 2)", columns.Single(c => c.Name == "decimalDefaultColumn").StoreType);
-                    Assert.Equal("decimal(18, 0)", columns.Single(c => c.Name == "numericColumn").StoreType);
-                    Assert.Equal("decimal(15, 2)", columns.Single(c => c.Name == "numeric152Column").StoreType);
-                    Assert.Equal("decimal(18, 2)", columns.Single(c => c.Name == "numericDefaultColumn").StoreType);
-                    Assert.Equal("decimal(28, 5)",
+                    Assert.Equal("decimal(18,0)", columns.Single(c => c.Name == "decimalColumn").StoreType);
+                    Assert.Equal("decimal(10,5)", columns.Single(c => c.Name == "decimal105Column").StoreType);
+                    Assert.Equal("decimal(18,2)", columns.Single(c => c.Name == "decimalDefaultColumn").StoreType);
+                    Assert.Equal("decimal(18,0)", columns.Single(c => c.Name == "numericColumn").StoreType);
+                    Assert.Equal("decimal(15,2)", columns.Single(c => c.Name == "numeric152Column").StoreType);
+                    Assert.Equal("decimal(18,2)", columns.Single(c => c.Name == "numericDefaultColumn").StoreType);
+                    Assert.Equal("decimal(28,5)",
                         columns.Single(c => c.Name == "numericDefaultPrecisionColumn").StoreType);
                 },
                 "DROP TABLE NumericColumns;");

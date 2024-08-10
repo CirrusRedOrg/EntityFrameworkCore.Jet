@@ -36,7 +36,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             var entityType = modelBuilder.Model.FindEntityType(typeof(Customer))!;
             var index = entityType.GetIndexes().Single();
-            Assert.Equal("[Name] IS NOT NULL", index.GetFilter());
+            Assert.Equal("IGNORE NULL", index.GetFilter());
 
             indexBuilder.IsUnique(false);
 
@@ -363,7 +363,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             var index = modelBuilder.Model.FindEntityType(typeof(CustomerDetails))!.GetIndexes().Single();
 
-            Assert.Equal("[CustomerId] IS NOT NULL", index.GetFilter());
+            Assert.Equal("IGNORE NULL", index.GetFilter());
         }
 
         [ConditionalFact]
@@ -379,7 +379,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             var index = modelBuilder.Model.FindEntityType(typeof(CustomerDetails))!.GetIndexes().Single();
 
-            Assert.Equal("[CustomerId] IS NOT NULL", index.GetFilter());
+            Assert.Equal("IGNORE NULL", index.GetFilter());
 
             modelBuilder.Ignore<DetailsBase>();
 

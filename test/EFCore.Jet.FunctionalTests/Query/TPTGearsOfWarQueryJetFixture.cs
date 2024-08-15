@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -93,6 +94,7 @@ public class TPTGearsOfWarQueryJetFixture : TPTGearsOfWarQueryRelationalFixture
                 mission.Date = mission.Date.AddYears(100);
             }
             mission.Timeline = JetTestHelpers.GetExpectedValue(mission.Timeline);
+            mission.Duration = new TimeSpan(mission.Duration.Days, mission.Duration.Hours, mission.Duration.Minutes, mission.Duration.Seconds);
         }
 
         foreach (var tag in data.Tags)

@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -91,6 +92,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                     mission.Date = mission.Date.AddYears(100);
                 }
                 mission.Timeline = JetTestHelpers.GetExpectedValue(mission.Timeline);
+                mission.Duration = new TimeSpan(mission.Duration.Days, mission.Duration.Hours, mission.Duration.Minutes, mission.Duration.Seconds);
             }
 
             foreach (var tag in data.Tags)

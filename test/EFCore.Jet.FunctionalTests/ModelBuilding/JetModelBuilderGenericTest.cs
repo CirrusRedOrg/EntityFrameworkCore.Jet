@@ -3,10 +3,10 @@
 
 // ReSharper disable InconsistentNaming
 
-using EntityFrameworkCore.Jet.FunctionalTests.ModelBuilding;
 using System;
+using Microsoft.EntityFrameworkCore;
 
-namespace Microsoft.EntityFrameworkCore.ModelBuilding;
+namespace EntityFrameworkCore.Jet.FunctionalTests.ModelBuilding;
 
 public class JetModelBuilderGenericTest : JetModelBuilderTestBase
 {

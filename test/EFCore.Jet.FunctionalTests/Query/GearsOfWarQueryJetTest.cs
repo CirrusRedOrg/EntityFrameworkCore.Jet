@@ -10140,10 +10140,9 @@ WHERE IIF(`w`.`AmmunitionType` = 1, @__key_1, @__key_1) IN ('{0a47bcb7-a1cb-4345
 
             AssertSql(
                 """
-SELECT [m].[Duration]
-FROM [Missions] AS [m]
-"""
-            );
+SELECT `m`.`Duration`
+FROM `Missions` AS `m`
+""");
         }
 
         private void AssertSql(params string[] expected)

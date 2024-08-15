@@ -35,8 +35,8 @@ public class TPCGearsOfWarQueryJetTest : TPCGearsOfWarQueryRelationalTestBase<TP
 
         AssertSql(
             """
-SELECT [m].[Duration]
-FROM [Missions] AS [m]
+SELECT `m`.`Duration`
+FROM `Missions` AS `m`
 """);
     }
 

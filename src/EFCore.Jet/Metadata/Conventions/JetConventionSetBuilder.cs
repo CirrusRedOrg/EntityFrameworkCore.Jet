@@ -36,6 +36,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                 new JetStoreGenerationConvention(Dependencies, RelationalDependencies));
             conventionSet.Replace<ValueGenerationConvention>(
                 new JetValueGenerationConvention(Dependencies, RelationalDependencies));
+            conventionSet.Replace<SharedTableConvention>(
+                new JetSharedTableConvention(Dependencies, RelationalDependencies));
 
             return conventionSet;
         }

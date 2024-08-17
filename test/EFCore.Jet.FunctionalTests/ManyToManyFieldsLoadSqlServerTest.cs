@@ -31,7 +31,7 @@ public class ManyToManyFieldsLoadJetTest : ManyToManyFieldsLoadTestBase<
         await base.Load_collection(state, queryTrackingBehavior, async);
 
         AssertSql(
-            """
+            $"""
 @__p_0='3'
 @__p_0='3'
 
@@ -46,9 +46,9 @@ LEFT JOIN (
     SELECT `j0`.`OneId`, `j0`.`TwoId`, `e1`.`Id`, `e1`.`Name`
     FROM `JoinOneToTwo` AS `j0`
     INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
-    WHERE `e1`.`Id` = @__p_0
+    WHERE `e1`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
-WHERE `e`.`Id` = @__p_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s`.`Id`, `s0`.`OneId`, `s0`.`TwoId`
 """);
     }
@@ -58,7 +58,7 @@ ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s`.`Id`, `s0`.`OneId`, `s0`.`TwoId
         await base.Load_collection_using_Query_with_Include_for_inverse(async);
 
         AssertSql(
-            """
+            $"""
 @__p_0='3'
 @__p_0='3'
 
@@ -73,9 +73,9 @@ LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`
     FROM `EntityOneEntityTwo` AS `e2`
     INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`
-    WHERE `e3`.`Id` = @__p_0
+    WHERE `e3`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`
-WHERE `e`.`Id` = @__p_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`
 """);
     }
@@ -85,7 +85,7 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s0`.
         await base.Load_collection_using_Query_with_Include_for_same_collection(async);
 
         AssertSql(
-            """
+            $"""
 @__p_0='3'
 @__p_0='3'
 
@@ -105,9 +105,9 @@ LEFT JOIN (
         FROM `EntityOneEntityTwo` AS `e4`
         INNER JOIN `EntityTwos` AS `e5` ON `e4`.`TwoSkipSharedId` = `e5`.`Id`
     ) AS `s0` ON `e3`.`Id` = `s0`.`OneSkipSharedId`
-    WHERE `e3`.`Id` = @__p_0
+    WHERE `e3`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoSkipSharedId`
-WHERE `e`.`Id` = @__p_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s1`.`OneSkipSharedId`, `s1`.`TwoSkipSharedId`, `s1`.`Id`, `s1`.`OneSkipSharedId0`, `s1`.`TwoSkipSharedId0`
 """);
     }
@@ -117,7 +117,7 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s1`.
         await base.Load_collection_using_Query_with_Include(async);
 
         AssertSql(
-            """
+            $"""
 @__p_0='3'
 @__p_0='3'
 
@@ -132,14 +132,14 @@ LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`
     FROM `EntityOneEntityTwo` AS `e2`
     INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`
-    WHERE `e3`.`Id` = @__p_0
+    WHERE `e3`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`)
 LEFT JOIN (
     SELECT `j`.`ThreeId`, `j`.`TwoId`, `e4`.`Id`, `e4`.`CollectionInverseId`, `e4`.`Name`, `e4`.`ReferenceInverseId`
     FROM `JoinTwoToThree` AS `j`
     INNER JOIN `EntityThrees` AS `e4` ON `j`.`ThreeId` = `e4`.`Id`
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoId`
-WHERE `e`.`Id` = @__p_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s0`.`Id`, `s1`.`ThreeId`, `s1`.`TwoId`
 """);
     }
@@ -149,7 +149,7 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s0`.
         await base.Load_collection_using_Query_with_filtered_Include(async);
 
         AssertSql(
-            """
+            $"""
 @__p_0='3'
 @__p_0='3'
 
@@ -164,7 +164,7 @@ LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`
     FROM `EntityOneEntityTwo` AS `e2`
     INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`
-    WHERE `e3`.`Id` = @__p_0
+    WHERE `e3`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`)
 LEFT JOIN (
     SELECT `j`.`ThreeId`, `j`.`TwoId`, `e4`.`Id`, `e4`.`CollectionInverseId`, `e4`.`Name`, `e4`.`ReferenceInverseId`
@@ -172,7 +172,7 @@ LEFT JOIN (
     INNER JOIN `EntityThrees` AS `e4` ON `j`.`ThreeId` = `e4`.`Id`
     WHERE `e4`.`Id` IN (13, 11)
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoId`
-WHERE `e`.`Id` = @__p_0
+WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s0`.`Id`, `s1`.`ThreeId`, `s1`.`TwoId`
 """);
     }
@@ -210,7 +210,7 @@ ORDER BY [t].[Id]
         await base.Load_collection_using_Query_with_join(async);
 
         AssertSql(
-            """
+            $"""
 @__p_0='3'
 @__p_0='3'
 
@@ -234,9 +234,9 @@ LEFT JOIN (
     SELECT `e5`.`OneSkipSharedId`, `e5`.`TwoSkipSharedId`, `e6`.`Id`, `e6`.`Name`
     FROM `EntityOneEntityTwo` AS `e5`
     INNER JOIN `EntityOnes` AS `e6` ON `e5`.`OneSkipSharedId` = `e6`.`Id`
-    WHERE `e6`.`Id` = @__p_0
+    WHERE `e6`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `s2` ON `s`.`Id` = `s2`.`TwoSkipSharedId`
-WHERE (`e`.`Id` = @__p_0) AND (`s`.`Id` IS NOT NULL AND `s1`.`Id0` IS NOT NULL)
+WHERE (`e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}) AND (`s`.`Id` IS NOT NULL AND `s1`.`Id0` IS NOT NULL)
 ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s1`.`Id`, `s1`.`OneSkipSharedId`, `s1`.`TwoSkipSharedId`, `s1`.`Id0`, `s2`.`OneSkipSharedId`, `s2`.`TwoSkipSharedId`
 """);
     }

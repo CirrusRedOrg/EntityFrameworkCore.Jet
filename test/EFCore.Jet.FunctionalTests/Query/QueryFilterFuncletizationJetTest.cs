@@ -184,30 +184,30 @@ WHERE `c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")} 
             base.DbContext_property_based_filter_does_not_short_circuit();
 
             AssertSql(
-                """
+                $"""
 @__ef_filter__p_1='False'
 @__ef_filter__IsModerated_0='True' (Nullable = true)
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND (@__ef_filter__p_1 = TRUE OR @__ef_filter__IsModerated_0 = `s`.`IsModerated`)
+WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_0")} = `s`.`IsModerated`)
 """,
                 //
-                """
+                $"""
 @__ef_filter__p_1='False'
 @__ef_filter__IsModerated_0='False' (Nullable = true)
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND (@__ef_filter__p_1 = TRUE OR @__ef_filter__IsModerated_0 = `s`.`IsModerated`)
+WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_0")} = `s`.`IsModerated`)
 """,
                 //
-                """
+                $"""
 @__ef_filter__p_1='True'
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND @__ef_filter__p_1 = TRUE
+WHERE `s`.`IsDeleted` <> TRUE AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE
 """);
         }
 

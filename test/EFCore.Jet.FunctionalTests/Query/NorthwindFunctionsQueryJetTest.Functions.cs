@@ -2177,12 +2177,12 @@ WHERE MID(`c`.`CustomerID`, 1 + 1, LEN(`c`.`CustomerID`)) = 'LFKI'
             await base.Substring_with_one_arg_with_closure(async);
 
             AssertSql(
-                """
+                $"""
 @__start_0='2'
 
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
-WHERE MID(`c`.`CustomerID`, @__start_0 + 1, LEN(`c`.`CustomerID`)) = 'FKI'
+WHERE MID(`c`.`CustomerID`, {AssertSqlHelper.Parameter("@__start_0")} + 1, LEN(`c`.`CustomerID`)) = 'FKI'
 """);
         }
 

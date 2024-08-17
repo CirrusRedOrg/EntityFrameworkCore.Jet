@@ -208,7 +208,7 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__entity_equality_local_0_
             await base.Join_with_entity_equality_local_on_both_sources(isAsync);
 
             AssertSql(
-                """
+                $"""
 @__entity_equality_local_0_CustomerID='ANATR' (Size = 5)
 @__entity_equality_local_0_CustomerID='ANATR' (Size = 5)
 
@@ -217,9 +217,9 @@ FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
-    WHERE `c0`.`CustomerID` = @__entity_equality_local_0_CustomerID
+    WHERE `c0`.`CustomerID` = {AssertSqlHelper.Parameter("@__entity_equality_local_0_CustomerID")}
 ) AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`
-WHERE `c`.`CustomerID` = @__entity_equality_local_0_CustomerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__entity_equality_local_0_CustomerID")}
 """);
         }
 
@@ -5263,12 +5263,12 @@ FROM `Order Details` AS `o`
             await base.Entity_equality_with_null_coalesce_client_side(async);
 
             AssertSql(
-                """
+                $"""
 @__entity_equality_a_0_CustomerID='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = @__entity_equality_a_0_CustomerID
+WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__entity_equality_a_0_CustomerID")}
 """);
         }
 
@@ -5454,7 +5454,7 @@ ORDER BY `c`.`CustomerID`
             await base.Distinct_followed_by_ordering_on_condition(async);
 
             AssertSql(
-                """
+                $"""
 @__searchTerm_0='c' (Size = 15)
 @__searchTerm_0='c' (Size = 15)
 
@@ -5464,7 +5464,7 @@ FROM (
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` NOT IN ('VAFFE', 'DRACD')
 ) AS `c0`
-ORDER BY INSTR(1, `c0`.`City`, @__searchTerm_0, 1) - IIF(@__searchTerm_0 = '', 0, 1), `c0`.`City`
+ORDER BY INSTR(1, `c0`.`City`, {AssertSqlHelper.Parameter("@__searchTerm_0")}, 1) - IIF({AssertSqlHelper.Parameter("@__searchTerm_0")} = '', 0, 1), `c0`.`City`
 """);
         }
 
@@ -5816,17 +5816,17 @@ ORDER BY `c`.`CustomerID`
             await base.SelectMany_primitive_select_subquery(async);
 
             AssertSql(
-                """
+                $"""
 SELECT IIF(EXISTS (
         SELECT 1
         FROM `Employees` AS `e`), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
                 //
-                """
+                $"""
 @__Any_0='True'
 
-SELECT CBOOL(@__Any_0)
+SELECT CBOOL({AssertSqlHelper.Parameter("@__Any_0")})
 FROM `Employees` AS `e`,
 `Employees` AS `e0`
 """);
@@ -6258,22 +6258,22 @@ SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 """,
                 //
-                """
+                $"""
 @__firstOrder_OrderID_0='10248'
 
 SELECT IIF(EXISTS (
         SELECT 1
         FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` = @__firstOrder_OrderID_0), TRUE, FALSE)
+        WHERE `o`.`OrderID` = {AssertSqlHelper.Parameter("@__firstOrder_OrderID_0")}), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
                 //
-                """
+                $"""
 @__Any_0='True'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE @__Any_0 = TRUE
+WHERE {AssertSqlHelper.Parameter("@__Any_0")} = TRUE
 """);
         }
 

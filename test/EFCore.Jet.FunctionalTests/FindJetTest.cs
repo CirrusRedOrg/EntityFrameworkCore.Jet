@@ -58,14 +58,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Find_int_key_from_store();
 
             AssertSql(
-                """
+                $"""
 @__p_0='77'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = @__p_0
+    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`
@@ -113,14 +113,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_int_key_from_store();
 
             AssertSql(
-                """
+                $"""
 @__p_0='77'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = @__p_0
+    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`
@@ -137,14 +137,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_int_key_not_in_store();
 
             AssertSql(
-                """
+                $"""
 @__p_0='99'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = @__p_0
+    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`

@@ -165,7 +165,7 @@ VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
 @p0='repairman' (Size = 255)
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `Operator_Name` = @p0
+UPDATE `Vehicles` SET `Operator_Name` = {AssertSqlHelper.Parameter("@p0")}
 WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
 SELECT @@ROWCOUNT;
 """,

@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Data.Common;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.Jet.Migrations.Internal
 {
@@ -31,6 +33,8 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
     /// </summary>
     public class JetHistoryRepository : HistoryRepository
     {
+        private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(1);
+
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -43,24 +47,25 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         }
 
         /// <summary>
+        ///     The name of the table that will serve as a database-wide lock for migrations.
+        /// </summary>
+        protected virtual string LockTableName { get; } = "__EFMigrationsLock";
+
+        /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        protected override string ExistsSql
+        protected override string ExistsSql => CreateExistsSql(TableName);
+
+        private string CreateExistsSql(string tableName)
         {
-            get
-            {
-                var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
+            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
 
-                var builder = new StringBuilder();
-                builder
-                    .Append("SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = ")
-                    .Append(stringTypeMapping.GenerateSqlLiteral(TableName));
-
-                return builder.ToString();
-            }
+            return $"""
+SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMapping.GenerateSqlLiteral(tableName)};
+""";
         }
 
         /// <summary>
@@ -125,13 +130,170 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
 
         public override IDisposable GetDatabaseLock(TimeSpan timeout)
         {
-            throw new NotImplementedException();
+            if (!InterpretExistsResult(Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
+                    .ExecuteScalar(CreateRelationalCommandParameters())))
+            {
+                try
+                {
+                    CreateLockTableCommand().ExecuteNonQuery(CreateRelationalCommandParameters());
+                }
+                catch (DbException)
+                {
+                    //if (!e.Message.Contains("already exists")) throw;
+                }
+            }
+
+            var retryDelay = _retryDelay;
+            var startTime = DateTimeOffset.UtcNow;
+            while (DateTimeOffset.UtcNow - startTime < timeout)
+            {
+                var dbLock = CreateMigrationDatabaseLock();
+                int? insertCount = 0;
+                //No CREATE TABLE IF EXISTS in Jet. We try a normal CREATE TABLE and catch the exception if it already exists
+                try
+                {
+                    insertCount = (int?)CreateInsertLockCommand(DateTimeOffset.UtcNow)
+                    .ExecuteScalar(CreateRelationalCommandParameters());
+                }
+                catch (DbException)
+                {
+                    //if (!e.Message.Contains("duplicate")) throw;
+                }
+                if ((int)insertCount! == 1)
+                {
+                    return dbLock;
+                }
+
+                using var reader = CreateGetLockCommand().ExecuteReader(CreateRelationalCommandParameters());
+                if (reader.Read())
+                {
+                    var timestamp = reader.DbDataReader.GetFieldValue<DateTimeOffset>(1);
+                    if (DateTimeOffset.UtcNow - timestamp > timeout)
+                    {
+                        var id = reader.DbDataReader.GetFieldValue<int>(0);
+                        CreateDeleteLockCommand(id).ExecuteNonQuery(CreateRelationalCommandParameters());
+                    }
+                }
+
+                Thread.Sleep(retryDelay);
+                if (retryDelay < TimeSpan.FromMinutes(1))
+                {
+                    retryDelay = retryDelay.Add(retryDelay);
+                }
+            }
+
+            throw new TimeoutException();
         }
 
-        public override Task<IAsyncDisposable> GetDatabaseLockAsync(TimeSpan timeout, CancellationToken cancellationToken = new CancellationToken())
+        public override async Task<IAsyncDisposable> GetDatabaseLockAsync(TimeSpan timeout, CancellationToken cancellationToken = new CancellationToken())
         {
-            throw new NotImplementedException();
+            if (!InterpretExistsResult(await Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
+                    .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken).ConfigureAwait(false)))
+            {
+                //No CREATE TABLE IF EXISTS in Jet. We try a normal CREATE TABLE and catch the exception if it already exists
+                try
+                {
+                    await CreateLockTableCommand()
+                        .ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (DbException)
+                {
+                    //if (!e.Message.Contains("already exists")) throw;
+                }
+            }
+
+            var retryDelay = _retryDelay;
+            var startTime = DateTimeOffset.UtcNow;
+            while (DateTimeOffset.UtcNow - startTime < timeout)
+            {
+                var dbLock = CreateMigrationDatabaseLock();
+                int? insertCount = 0;
+                try
+                {
+                    insertCount = (int?)await CreateInsertLockCommand(DateTimeOffset.UtcNow)
+                    .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken)
+                    .ConfigureAwait(false);
+
+                }
+                catch (DbException)
+                {
+                    //if (!e.Message.Contains("duplicate")) throw;
+                }
+                if ((int)insertCount! == 1)
+                {
+                    return dbLock;
+                }
+
+                using var reader = await CreateGetLockCommand().ExecuteReaderAsync(CreateRelationalCommandParameters(), cancellationToken)
+                    .ConfigureAwait(false);
+                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    var timestamp = await reader.DbDataReader.GetFieldValueAsync<DateTimeOffset>(1).ConfigureAwait(false);
+                    if (DateTimeOffset.UtcNow - timestamp > timeout)
+                    {
+                        var id = await reader.DbDataReader.GetFieldValueAsync<int>(0).ConfigureAwait(false);
+                        await CreateDeleteLockCommand(id).ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+
+                await Task.Delay(_retryDelay, cancellationToken).ConfigureAwait(true);
+                if (retryDelay < TimeSpan.FromMinutes(1))
+                {
+                    retryDelay = retryDelay.Add(retryDelay);
+                }
+            }
+
+            throw new TimeoutException();
         }
+
+        private IRelationalCommand CreateLockTableCommand()
+            => Dependencies.RawSqlCommandBuilder.Build($"""
+CREATE TABLE `{LockTableName}` (
+    `Id` INTEGER NOT NULL CONSTRAINT `PK_{LockTableName}` PRIMARY KEY,
+    `Timestamp` TEXT NOT NULL
+);
+""");
+
+        private IRelationalCommand CreateInsertLockCommand(DateTimeOffset timestamp)
+        {
+            var timestampLiteral = Dependencies.TypeMappingSource.GetMapping(typeof(DateTimeOffset)).GenerateSqlLiteral(timestamp);
+
+            return Dependencies.RawSqlCommandBuilder.Build($"""
+INSERT INTO `{LockTableName}` (`Id`, `Timestamp`) VALUES(1, {timestampLiteral});
+SELECT 1 FROM `{LockTableName}` WHERE `Id` = 1;
+""");
+        }
+
+        private IRelationalCommand CreateGetLockCommand()
+            => Dependencies.RawSqlCommandBuilder.Build($"""
+SELECT TOP 1 `Id`, `Timestamp` FROM `{LockTableName}`;
+""");
+
+        private IRelationalCommand CreateDeleteLockCommand(int? id = null)
+        {
+            var sql = $"""
+DELETE FROM `{LockTableName}`
+""";
+            if (id != null)
+            {
+                sql += $""" WHERE `Id` = {id}""";
+            }
+            sql += ";";
+            return Dependencies.RawSqlCommandBuilder.Build(sql);
+        }
+
+        private JetMigrationDatabaseLock CreateMigrationDatabaseLock()
+            => new(CreateDeleteLockCommand(), CreateRelationalCommandParameters());
+
+        private RelationalCommandParameterObject CreateRelationalCommandParameters()
+            => new(
+                Dependencies.Connection,
+                null,
+                null,
+                Dependencies.CurrentContext.Context,
+                Dependencies.CommandLogger, CommandSource.Migrations);
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

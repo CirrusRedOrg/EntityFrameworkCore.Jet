@@ -17,7 +17,10 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
         }
 
         public static bool TryGetDataReaderFromInformationSchemaCommand(JetCommand command, out DbDataReader dataReader)
-            => (dataReader = GetDbDataReaderFromSimpleStatement(command)) != null;
+        {
+            dataReader = GetDbDataReaderFromSimpleStatement(command);
+            return dataReader != null;
+        }
         
         private static DbDataReader GetDbDataReaderFromSimpleStatement(JetCommand command)
         {

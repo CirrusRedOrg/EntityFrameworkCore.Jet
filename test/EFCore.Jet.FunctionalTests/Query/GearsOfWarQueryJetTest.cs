@@ -2564,13 +2564,24 @@ WHERE `m`.`Timeline` <> DATEADD('n', {dtoffset}.0, NOW())
 
         public override async Task Where_datetimeoffset_date_component(bool isAsync)
         {
-            await base.Where_datetimeoffset_date_component(isAsync);
+            //We have to specifically use 1 JAn 100 as that is the minimum in Jet.
+            //The default 0 in DateTimeOffset is normally mapped to the OLE Automation date 30 Dec 1899
+            //Investigate if we can pick the scenario up automatically and have a new DateTimeOffset().Date go to the required value if we have a comparison
+            //await base.Where_datetimeoffset_date_component(isAsync);
+            await AssertQuery(
+                isAsync,
+                ss => from m in ss.Set<Mission>()
+                    where m.Timeline.Date > new DateTimeOffset(100,1,1,0,0,0,new TimeSpan()).Date
+                    select m);
 
-            // issue #16057
-            //            AssertSql(
-            //                $@"SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Rating`, `m`.`Timeline`
-            //FROM `Missions` AS `m`
-            //WHERE CONVERT(date, `m`.`Timeline`) > '0001-01-01T00:00:00.0000000-08:00'");
+            AssertSql(
+                """
+@__Date_0='0100-01-01T00:00:00.0000000' (DbType = DateTime)
+
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE DATEVALUE(`m`.`Timeline`) > CDATE(@__Date_0)
+""");
         }
 
         public override async Task Where_datetimeoffset_year_component(bool isAsync)

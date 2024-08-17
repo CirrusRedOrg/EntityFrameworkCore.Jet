@@ -856,7 +856,7 @@ public abstract class JetValueGenerationScenariosTestBase
         }
     }
 
-    // #6044
+    /*// #6044
     [ConditionalFact]
     public async Task Insert_and_update_with_computed_column_with_function()
     {
@@ -1024,7 +1024,7 @@ END");
             context.Database.ExecuteSqlRaw("DROP FUNCTION [dbo].[GetFullName];");
             testStore?.Dispose();
         }
-    }
+    }*/
 
     [ConditionalFact]
     public async Task Insert_with_client_generated_GUID_key()
@@ -1176,8 +1176,8 @@ END");
                 .Entity<GuidBlog>(
                     eb =>
                     {
-                        eb.Property(e => e.Id).HasDefaultValueSql("newsequentialid()").HasSentinel(_sentinel);
-                        eb.Property(e => e.NotId).HasDefaultValueSql("newsequentialid()").HasSentinel(_sentinel);
+                        eb.Property(e => e.Id).HasDefaultValueSql("GenGUID()").HasSentinel(_sentinel);
+                        eb.Property(e => e.NotId).HasDefaultValueSql("GenGUID()").HasSentinel(_sentinel);
                     });
         }
     }

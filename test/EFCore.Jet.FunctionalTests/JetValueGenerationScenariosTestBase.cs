@@ -1316,7 +1316,7 @@ END");
             {
                 Id = IntSentinel,
                 Name = "Two Unicorns",
-                CreatedOn = new DateTime(1969, 8, 3, 0, 10, 0)
+                CreatedOn = new DateTime(1973, 8, 3, 0, 10, 0)
             });
 
         // The property 'CreatedOn' on entity type 'Blog' is defined to be read-only before it is

@@ -4367,7 +4367,7 @@ WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
             await base.GroupJoin_SelectMany_DefaultIfEmpty_with_predicate_using_closure(async);
 
             AssertSql(
-                """
+                $"""
 @__prm_0='10'
 
 SELECT `l`.`Id` AS `Id1`, `l1`.`Id` AS `Id2`
@@ -4375,7 +4375,7 @@ FROM `LevelOne` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`Level1_Optional_Id`
     FROM `LevelTwo` AS `l0`
-    WHERE `l0`.`Id` <> @__prm_0
+    WHERE `l0`.`Id` <> {AssertSqlHelper.Parameter("@__prm_0")}
 ) AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`
 """);
         }
@@ -4385,7 +4385,7 @@ LEFT JOIN (
             await base.GroupJoin_SelectMany_with_predicate_using_closure(async);
 
             AssertSql(
-                """
+                $"""
 @__prm_0='10'
 
 SELECT `l`.`Id` AS `Id1`, `l1`.`Id` AS `Id2`
@@ -4393,7 +4393,7 @@ FROM `LevelOne` AS `l`
 INNER JOIN (
     SELECT `l0`.`Id`, `l0`.`Level1_Optional_Id`
     FROM `LevelTwo` AS `l0`
-    WHERE `l0`.`Id` <> @__prm_0
+    WHERE `l0`.`Id` <> {AssertSqlHelper.Parameter("@__prm_0")}
 ) AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`
 """);
         }
@@ -4403,7 +4403,7 @@ INNER JOIN (
             await base.GroupJoin_SelectMany_DefaultIfEmpty_with_predicate_using_closure_nested(async);
 
             AssertSql(
-                """
+                $"""
 @__prm1_0='10'
 @__prm2_1='20'
 
@@ -4412,12 +4412,12 @@ FROM (`LevelOne` AS `l`
 LEFT JOIN (
     SELECT `l0`.`Id`, `l0`.`Level1_Optional_Id`
     FROM `LevelTwo` AS `l0`
-    WHERE `l0`.`Id` <> @__prm1_0
+    WHERE `l0`.`Id` <> {AssertSqlHelper.Parameter("@__prm1_0")}
 ) AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`)
 LEFT JOIN (
     SELECT `l2`.`Id`, `l2`.`Level2_Optional_Id`
     FROM `LevelThree` AS `l2`
-    WHERE `l2`.`Id` <> @__prm2_1
+    WHERE `l2`.`Id` <> {AssertSqlHelper.Parameter("@__prm2_1")}
 ) AS `l3` ON `l1`.`Id` = `l3`.`Level2_Optional_Id`
 """);
         }
@@ -4427,7 +4427,7 @@ LEFT JOIN (
             await base.GroupJoin_SelectMany_with_predicate_using_closure_nested(async);
 
             AssertSql(
-                """
+                $"""
 @__prm1_0='10'
 @__prm2_1='20'
 
@@ -4436,12 +4436,12 @@ FROM (`LevelOne` AS `l`
 INNER JOIN (
     SELECT `l0`.`Id`, `l0`.`Level1_Optional_Id`
     FROM `LevelTwo` AS `l0`
-    WHERE `l0`.`Id` <> @__prm1_0
+    WHERE `l0`.`Id` <> {AssertSqlHelper.Parameter("@__prm1_0")}
 ) AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`)
 LEFT JOIN (
     SELECT `l2`.`Id`, `l2`.`Level2_Optional_Id`
     FROM `LevelThree` AS `l2`
-    WHERE `l2`.`Id` <> @__prm2_1
+    WHERE `l2`.`Id` <> {AssertSqlHelper.Parameter("@__prm2_1")}
 ) AS `l3` ON `l1`.`Id` = `l3`.`Level2_Optional_Id`
 WHERE `l1`.`Id` IS NOT NULL AND `l3`.`Level2_Optional_Id` IS NOT NULL
 """);

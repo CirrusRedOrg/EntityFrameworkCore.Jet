@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 #nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
@@ -29,7 +31,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
                 for (var i = 0; i < 50; i++)
                 {
-                    context.Add(
+                    await context.AddAsync(
                         new Pegasus { Name = "Rainbow Dash " + i });
                 }
 

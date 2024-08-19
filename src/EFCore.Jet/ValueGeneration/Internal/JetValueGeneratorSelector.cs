@@ -42,7 +42,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
             => property.ClrType.UnwrapNullableType() == typeof(Guid)
                 ? property.ValueGenerated == ValueGenerated.Never || property.GetDefaultValueSql() != null
                     ? new TemporaryGuidValueGenerator()
-                    : new SequentialGuidValueGenerator()
+                    : new JetSequentialGuidValueGenerator()
                 : base.FindForType(property, typeBase, clrType);
     }
 }

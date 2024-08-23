@@ -19114,6 +19114,7 @@ EntityFrameworkCore.Jet.FunctionalTests.SeedingJetTest.Seeding_does_not_leave_co
 EntityFrameworkCore.Jet.FunctionalTests.SeedingJetTest.Seeding_keyless_entity_throws_exception(async: False)
 EntityFrameworkCore.Jet.FunctionalTests.SeedingJetTest.Seeding_keyless_entity_throws_exception(async: True)
 EntityFrameworkCore.Jet.FunctionalTests.SequentialGuidEndToEndTest.Can_use_explicit_values
+EntityFrameworkCore.Jet.FunctionalTests.SequentialGuidEndToEndTest.Can_use_sequential_GUID_end_to_end_async
 EntityFrameworkCore.Jet.FunctionalTests.SerializationJetTest.Can_round_trip_through_JSON(useNewtonsoft: False, ignoreLoops: False, writeIndented: False)
 EntityFrameworkCore.Jet.FunctionalTests.SerializationJetTest.Can_round_trip_through_JSON(useNewtonsoft: False, ignoreLoops: False, writeIndented: True)
 EntityFrameworkCore.Jet.FunctionalTests.SerializationJetTest.Can_round_trip_through_JSON(useNewtonsoft: True, ignoreLoops: False, writeIndented: False)

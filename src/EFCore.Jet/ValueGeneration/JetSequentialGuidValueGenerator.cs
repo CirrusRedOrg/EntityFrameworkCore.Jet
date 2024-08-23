@@ -28,9 +28,7 @@ public class JetSequentialGuidValueGenerator : ValueGenerator<Guid>
     {
         Span<byte> guidBytes = stackalloc byte[16];
         var succeeded = Guid.NewGuid().TryWriteBytes(guidBytes);
-        Check.DebugAssert(succeeded, "Could not write Guid to Span");
         var incrementedCounter = Interlocked.Increment(ref _counter);
-        var unixms = new DateTimeOffset(new DateTime(_counter), new TimeSpan()).ToUnixTimeMilliseconds();
         Span<byte> counterBytes = stackalloc byte[sizeof(long)];
         MemoryMarshal.Write(counterBytes, in incrementedCounter);
 
@@ -41,17 +39,16 @@ public class JetSequentialGuidValueGenerator : ValueGenerator<Guid>
 
         //unix ts ms - 48 bits (6 bytes)
 
-        guidBytes[00] = counterBytes[0];
-        guidBytes[01] = counterBytes[1];
-        guidBytes[02] = counterBytes[2];
-        guidBytes[03] = counterBytes[3];
-        guidBytes[04] = counterBytes[4];
-        guidBytes[05] = counterBytes[5];
+        guidBytes[00] = counterBytes[2];
+        guidBytes[01] = counterBytes[3];
+        guidBytes[02] = counterBytes[4];
+        guidBytes[03] = counterBytes[5];
+        guidBytes[04] = counterBytes[0];
+        guidBytes[05] = counterBytes[1];
 
         //UIDv7 version - first 4 bits (1/2 byte) of the next 16 bits (2 bytes)
         var _c = BitConverter.ToInt16(guidBytes.Slice(6, 2));
         _c = (short)((_c & ~VersionMask) | Version7Value);
-        //(guidBytes[07], guidBytes[06]) = (guidBytes[06], guidBytes[07]);
         BitConverter.TryWriteBytes(guidBytes.Slice(6, 2), _c);
 
         //2 bit variant

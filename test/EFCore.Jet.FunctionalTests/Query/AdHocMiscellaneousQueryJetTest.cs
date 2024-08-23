@@ -1247,7 +1247,7 @@ WHERE `e`.`Id` = 1
 
         AssertSql(
             """
-SELECT IIF(`c0`.`Id` IS NOT NULL, IIF(`c0`.`Processed` <> TRUE, TRUE, FALSE), NULL) AS `Processing`
+SELECT IIF(`c0`.`Id` IS NOT NULL, `c0`.`Processed` BXOR TRUE, NULL) AS `Processing`
 FROM `Carts` AS `c`
 LEFT JOIN `Configuration` AS `c0` ON `c`.`ConfigurationId` = `c0`.`Id`
 """);

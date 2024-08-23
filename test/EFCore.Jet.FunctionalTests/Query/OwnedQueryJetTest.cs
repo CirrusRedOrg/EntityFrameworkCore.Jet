@@ -196,17 +196,19 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
             await base.Navigation_rewrite_on_owned_collection_with_composition(isAsync);
 
             AssertSql(
-                @"SELECT IIF((
-        SELECT TOP 1 IIF(`o0`.`Id` <> 42, TRUE, FALSE)
+                """
+SELECT IIF((
+        SELECT TOP 1 CBOOL(`o0`.`Id` BXOR 42)
         FROM `Order` AS `o0`
         WHERE `o`.`Id` = `o0`.`ClientId`
         ORDER BY `o0`.`Id`) IS NULL, FALSE, (
-        SELECT TOP 1 IIF(`o0`.`Id` <> 42, TRUE, FALSE)
+        SELECT TOP 1 CBOOL(`o0`.`Id` BXOR 42)
         FROM `Order` AS `o0`
         WHERE `o`.`Id` = `o0`.`ClientId`
         ORDER BY `o0`.`Id`))
 FROM `OwnedPerson` AS `o`
-ORDER BY `o`.`Id`");
+ORDER BY `o`.`Id`
+""");
         }
 
         public override async Task Navigation_rewrite_on_owned_collection_with_composition_complex(bool isAsync)

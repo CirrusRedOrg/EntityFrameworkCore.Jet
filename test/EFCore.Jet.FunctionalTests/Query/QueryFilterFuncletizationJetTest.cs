@@ -190,7 +190,7 @@ WHERE `c`.`IsEnabled` = {AssertSqlHelper.Parameter("@__ef_filter__Property_0")} 
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_0")} = `s`.`IsModerated`)
+WHERE `s`.`IsDeleted` = FALSE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_0")} = `s`.`IsModerated`)
 """,
                 //
                 $"""
@@ -199,7 +199,7 @@ WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_0")} = `s`.`IsModerated`)
+WHERE `s`.`IsDeleted` = FALSE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE OR {AssertSqlHelper.Parameter("@__ef_filter__IsModerated_0")} = `s`.`IsModerated`)
 """,
                 //
                 $"""
@@ -207,7 +207,7 @@ WHERE `s`.`IsDeleted` <> TRUE AND ({AssertSqlHelper.Parameter("@__ef_filter__p_1
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` <> TRUE AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE
+WHERE `s`.`IsDeleted` = FALSE AND {AssertSqlHelper.Parameter("@__ef_filter__p_1")} = TRUE
 """);
         }
 

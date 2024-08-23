@@ -743,7 +743,7 @@ WHERE (`u`.`Rank` BOR 2) > 0
 
         AssertSql(
             """
-SELECT TOP 1 IIF((`u`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `BitwiseTrue`, IIF((`u`.`Rank` BAND 2) = 4, TRUE, FALSE) AS `BitwiseFalse`, `u`.`Rank` BAND 2 AS `BitwiseValue`
+SELECT TOP 1 CBOOL((`u`.`Rank` BAND 2) BXOR 2) BXOR TRUE AS `BitwiseTrue`, CBOOL((`u`.`Rank` BAND 2) BXOR 4) BXOR TRUE AS `BitwiseFalse`, `u`.`Rank` BAND 2 AS `BitwiseValue`
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
@@ -1100,7 +1100,7 @@ WHERE (`u`.`Rank` BAND @__parameter_0) = @__parameter_0
 
         AssertSql(
             """
-SELECT TOP 1 IIF((`u`.`Rank` BAND 2) = 2, TRUE, FALSE) AS `hasFlagTrue`, IIF((`u`.`Rank` BAND 4) = 4, TRUE, FALSE) AS `hasFlagFalse`
+SELECT TOP 1 CBOOL((`u`.`Rank` BAND 2) BXOR 2) BXOR TRUE AS `hasFlagTrue`, CBOOL((`u`.`Rank` BAND 4) BXOR 4) BXOR TRUE AS `hasFlagFalse`
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
@@ -1159,8 +1159,8 @@ WHERE EXISTS (
         await base.Select_inverted_boolean(async);
 
         AssertSql(
-"""
-SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` <> TRUE, TRUE, FALSE) AS `Manual`
+            """
+SELECT `w`.`Id`, `w`.`IsAutomatic` BXOR TRUE AS `Manual`
 FROM `Weapons` AS `w`
 WHERE `w`.`IsAutomatic` = TRUE
 """);
@@ -1172,8 +1172,8 @@ WHERE `w`.`IsAutomatic` = TRUE
 
         AssertSql(
             """
-SELECT [l].[Id], [l].[Eradicated] ^ CAST(1 AS bit) AS [Alive]
-FROM [LocustHordes] AS [l]
+SELECT `l`.`Id`, `l`.`Eradicated` BXOR TRUE AS `Alive`
+FROM `LocustHordes` AS `l`
 """);
     }
 
@@ -1244,8 +1244,8 @@ FROM `Weapons` AS `w`
         await base.Select_ternary_operation_with_inverted_boolean(async);
 
         AssertSql(
-"""
-SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` <> TRUE, 1, 0) AS `Num`
+            """
+SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` = FALSE, 1, 0) AS `Num`
 FROM `Weapons` AS `w`
 """);
     }
@@ -1278,8 +1278,8 @@ FROM `Weapons` AS `w`
         await base.Select_ternary_operation_multiple_conditions_2(async);
 
         AssertSql(
-"""
-SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` <> TRUE AND `w`.`SynergyWithId` = 1, 'Yes', 'No') AS `IsCartridge`
+            """
+SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` = FALSE AND `w`.`SynergyWithId` = 1, 'Yes', 'No') AS `IsCartridge`
 FROM `Weapons` AS `w`
 """);
     }
@@ -1289,8 +1289,8 @@ FROM `Weapons` AS `w`
         await base.Select_multiple_conditions(async);
 
         AssertSql(
-"""
-SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` <> TRUE AND `w`.`SynergyWithId` = 1 AND `w`.`SynergyWithId` IS NOT NULL, TRUE, FALSE) AS `IsCartridge`
+            """
+SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` = FALSE AND `w`.`SynergyWithId` = 1 AND `w`.`SynergyWithId` IS NOT NULL, TRUE, FALSE) AS `IsCartridge`
 FROM `Weapons` AS `w`
 """);
     }
@@ -1300,8 +1300,8 @@ FROM `Weapons` AS `w`
         await base.Select_nested_ternary_operations(async);
 
         AssertSql(
-"""
-SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` <> TRUE, IIF(`w`.`AmmunitionType` = 1, 'ManualCartridge', 'Manual'), 'Auto') AS `IsManualCartridge`
+            """
+SELECT `w`.`Id`, IIF(`w`.`IsAutomatic` = FALSE, IIF(`w`.`AmmunitionType` = 1, 'ManualCartridge', 'Manual'), 'Auto') AS `IsManualCartridge`
 FROM `Weapons` AS `w`
 """);
     }
@@ -1477,7 +1477,7 @@ FROM (
 
         AssertSql(
             """
-SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE), NULL)
+SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, CBOOL(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) BXOR 5) BXOR TRUE, NULL)
 FROM (
     SELECT `g`.`Nickname`, `g`.`LeaderNickname`
     FROM `Gears` AS `g`
@@ -1659,7 +1659,7 @@ LEFT JOIN `Cities` AS `c` ON `u`.`AssignedCityName` = `c`.`Name`
 
         AssertSql(
             """
-SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE), NULL)
+SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, CBOOL(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) BXOR 5) BXOR TRUE, NULL)
 FROM (
     SELECT `g`.`Nickname`, `g`.`LeaderNickname`
     FROM `Gears` AS `g`
@@ -3252,7 +3252,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE `u`.`HasSoulPatch` <> TRUE
+WHERE `u`.`HasSoulPatch` = FALSE
 """);
     }
 
@@ -3271,7 +3271,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE IIF(`u`.`HasSoulPatch` = TRUE, TRUE, `u`.`HasSoulPatch`) <> TRUE
+WHERE IIF(`u`.`HasSoulPatch` = TRUE, TRUE, `u`.`HasSoulPatch`) = FALSE
 """);
     }
 
@@ -3290,7 +3290,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE IIF(`u`.`HasSoulPatch` <> TRUE, FALSE, `u`.`HasSoulPatch`) <> TRUE
+WHERE IIF(`u`.`HasSoulPatch` = FALSE, FALSE, `u`.`HasSoulPatch`) = FALSE
 """);
     }
 
@@ -3482,7 +3482,7 @@ SELECT IIF(NOT EXISTS (
             SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
             FROM `Officers` AS `o`
         ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-        WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `u`.`HasSoulPatch` <> TRUE), TRUE, FALSE)
+        WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `u`.`HasSoulPatch` = FALSE), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -3502,7 +3502,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `u`.`HasSoulPatch` <> TRUE
+WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `u`.`HasSoulPatch` = FALSE
 """);
     }
 
@@ -3979,7 +3979,7 @@ LEFT JOIN (
     SELECT `o`.`FullName`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u` ON `w`.`OwnerFullName` = `u`.`FullName`
-WHERE `w`.`Id` <> 50 AND `u`.`HasSoulPatch` <> TRUE
+WHERE `w`.`Id` <> 50 AND `u`.`HasSoulPatch` = FALSE
 """);
     }
 
@@ -4147,7 +4147,7 @@ FROM (
     SELECT `o`.`FullName`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u`
-WHERE `u`.`HasSoulPatch` <> TRUE
+WHERE `u`.`HasSoulPatch` = FALSE
 ORDER BY `u`.`FullName`
 """);
     }
@@ -4166,7 +4166,7 @@ FROM (
     SELECT `o`.`FullName`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u`
-WHERE `u`.`HasSoulPatch` <> TRUE
+WHERE `u`.`HasSoulPatch` = FALSE
 ORDER BY `u`.`FullName`
 """);
     }
@@ -4186,7 +4186,7 @@ FROM (
     FROM `Officers` AS `o`
 ) AS `u`
 LEFT JOIN `Tags` AS `t` ON `u`.`Nickname` = `t`.`GearNickName` AND `u`.`SquadId` = `t`.`GearSquadId`
-WHERE `u`.`FullName` <> 'Augustus Cole' AND `u`.`HasSoulPatch` <> TRUE
+WHERE `u`.`FullName` <> 'Augustus Cole' AND `u`.`HasSoulPatch` = FALSE
 ORDER BY `u`.`FullName`
 """);
     }
@@ -4212,7 +4212,7 @@ FROM (
     SELECT `o0`.`FullName`, `o0`.`HasSoulPatch`
     FROM `Officers` AS `o0`
 ) AS `u0`
-WHERE `u`.`HasSoulPatch` = TRUE AND `u0`.`HasSoulPatch` <> TRUE
+WHERE `u`.`HasSoulPatch` = TRUE AND `u0`.`HasSoulPatch` = FALSE
 ORDER BY `u`.`FullName`
 """);
     }
@@ -4314,7 +4314,7 @@ INNER JOIN `Cities` AS `c` ON `u`.`CityOfBirthName` = `c`.`Name`
 WHERE EXISTS (
     SELECT 1
     FROM `Weapons` AS `w`
-    WHERE `u`.`FullName` = `w`.`OwnerFullName`) AND `u`.`HasSoulPatch` <> TRUE
+    WHERE `u`.`FullName` = `w`.`OwnerFullName`) AND `u`.`HasSoulPatch` = FALSE
 ORDER BY `u`.`Nickname`
 """);
     }
@@ -4340,7 +4340,7 @@ FROM (
     SELECT `o0`.`FullName`, `o0`.`HasSoulPatch`
     FROM `Officers` AS `o0`
 ) AS `u0`
-WHERE `u`.`HasSoulPatch` = TRUE AND `u0`.`HasSoulPatch` <> TRUE
+WHERE `u`.`HasSoulPatch` = TRUE AND `u0`.`HasSoulPatch` = FALSE
 ORDER BY `u`.`FullName`
 """);
     }
@@ -4361,7 +4361,7 @@ FROM (
         SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
         FROM `Officers` AS `o`
     ) AS `u`
-    WHERE `u`.`HasSoulPatch` <> TRUE
+    WHERE `u`.`HasSoulPatch` = FALSE
     ORDER BY `u`.`FullName`
 ) AS `u0`
 ORDER BY `u0`.`Rank`
@@ -4458,7 +4458,7 @@ FROM (
         SELECT `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`Rank`
         FROM `Officers` AS `o`
     ) AS `u`
-    WHERE `u`.`HasSoulPatch` <> TRUE
+    WHERE `u`.`HasSoulPatch` = FALSE
 ) AS `u0`
 ORDER BY `u0`.`FullName`, `u0`.`Rank`
 """);
@@ -5560,7 +5560,7 @@ LEFT JOIN (
         SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`
         FROM `Officers` AS `o0`
     ) AS `u0`
-    WHERE `u0`.`HasSoulPatch` <> TRUE
+    WHERE `u0`.`HasSoulPatch` = FALSE
 ) AS `u1` ON `u`.`Nickname` = `u1`.`LeaderNickname` AND `u`.`SquadId` = `u1`.`LeaderSquadId`
 WHERE `u`.`Nickname` <> 'Foo'
 ORDER BY `u`.`Nickname`, `u`.`SquadId`, `u1`.`Nickname`
@@ -5834,7 +5834,7 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
     FROM `Weapons` AS `w0`
-    WHERE `w0`.`IsAutomatic` <> TRUE
+    WHERE `w0`.`IsAutomatic` = FALSE
 ) AS `w2` ON `u`.`FullName` = `w2`.`OwnerFullName`
 ORDER BY `u`.`Rank`, `u`.`Nickname`, `u`.`SquadId`, `w1`.`OwnerFullName`, `w1`.`Id`, NOT (`w2`.`IsAutomatic`)
 """);
@@ -6371,7 +6371,7 @@ LEFT JOIN (
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname`)
 LEFT JOIN `Weapons` AS `w` ON `u`.`FullName` = `w`.`OwnerFullName`
-WHERE `u`.`HasSoulPatch` <> TRUE
+WHERE `u`.`HasSoulPatch` = FALSE
 ORDER BY `t`.`Id`, `u`.`Nickname`, `u`.`SquadId`
 """);
     }
@@ -6483,7 +6483,7 @@ LEFT JOIN (
     LEFT JOIN (
         SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
         FROM `Weapons` AS `w0`
-        WHERE `w0`.`IsAutomatic` <> TRUE
+        WHERE `w0`.`IsAutomatic` = FALSE
     ) AS `w1` ON `u0`.`FullName` = `w1`.`OwnerFullName`
 ) AS `s0` ON `s`.`Id` = `s0`.`SquadId`
 ORDER BY `w`.`Name`, `w`.`Id`, `u`.`Nickname`, `u`.`SquadId`, `s`.`Id`, `s0`.`FullName` DESC, `s0`.`Nickname`, `s0`.`SquadId`, `s0`.`Id`
@@ -6954,7 +6954,7 @@ ORDER BY [t].[Nickname], [t].[SquadId], [t1].[Id], [t1].[Nickname]
 
         AssertSql(
             """
-SELECT IIF(IIF(`u`.`HasSoulPatch` = TRUE, TRUE, IIF(`u`.`HasSoulPatch` IS NULL, TRUE, `u`.`HasSoulPatch`)) <> TRUE, TRUE, FALSE) AS `c`
+SELECT IIF(`u`.`HasSoulPatch` = TRUE, TRUE, IIF(`u`.`HasSoulPatch` IS NULL, TRUE, `u`.`HasSoulPatch`)) BXOR TRUE AS `c`
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`HasSoulPatch`
@@ -7230,7 +7230,7 @@ FROM (
 LEFT JOIN (
     SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
     FROM `Weapons` AS `w`
-    WHERE `w`.`IsAutomatic` <> TRUE
+    WHERE `w`.`IsAutomatic` = FALSE
 ) AS `w0` ON `u0`.`FullName` = `w0`.`OwnerFullName`
 ORDER BY `u0`.`Nickname`, `u0`.`SquadId`, `w0`.`Id`
 """);
@@ -7677,7 +7677,7 @@ FROM (
             SELECT `o0`.`Nickname`, `o0`.`SquadId`, `o0`.`AssignedCityName`, `o0`.`CityOfBirthName`, `o0`.`FullName`, `o0`.`HasSoulPatch`, `o0`.`LeaderNickname`, `o0`.`LeaderSquadId`, `o0`.`Rank`, 'Officer' AS `Discriminator`
             FROM `Officers` AS `o0`
         ) AS `u0`
-        WHERE `u0`.`HasSoulPatch` <> TRUE
+        WHERE `u0`.`HasSoulPatch` = FALSE
     ) AS `u1` ON `u`.`Nickname` = `u1`.`LeaderNickname` AND `u`.`SquadId` = `u1`.`LeaderSquadId`
 ) AS `s`
 ORDER BY `s`.`c`, `s`.`Nickname`, `s`.`SquadId`, `s`.`Nickname0`
@@ -7727,7 +7727,7 @@ FROM (
             SELECT `o1`.`Nickname`, `o1`.`SquadId`, `o1`.`AssignedCityName`, `o1`.`CityOfBirthName`, `o1`.`FullName`, `o1`.`HasSoulPatch`, `o1`.`LeaderNickname`, `o1`.`LeaderSquadId`, `o1`.`Rank`, 'Officer' AS `Discriminator`
             FROM `Officers` AS `o1`
         ) AS `u1`
-        WHERE `u1`.`HasSoulPatch` <> TRUE
+        WHERE `u1`.`HasSoulPatch` = FALSE
     ) AS `u2` ON `u`.`Nickname` = `u2`.`LeaderNickname` AND `u`.`SquadId` = `u2`.`LeaderSquadId`
 ) AS `s`
 ORDER BY `s`.`c`, `s`.`Nickname`, `s`.`SquadId`, `s`.`Nickname0`
@@ -8575,7 +8575,7 @@ ORDER BY `s`.`Id`, `s0`.`Nickname`, `s0`.`SquadId`
 
         AssertSql(
             """
-SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE), NULL)
+SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, CBOOL(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) BXOR 5) BXOR TRUE, NULL)
 FROM (
     SELECT `g`.`Nickname`, `g`.`LeaderNickname`
     FROM `Gears` AS `g`
@@ -8583,7 +8583,7 @@ FROM (
     SELECT `o`.`Nickname`, `o`.`LeaderNickname`
     FROM `Officers` AS `o`
 ) AS `u`
-ORDER BY NOT (IIF(IIF(`u`.`LeaderNickname` IS NOT NULL, IIF(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) = 5, TRUE, FALSE), NULL) IS NOT NULL, TRUE, FALSE))
+ORDER BY NOT (IIF(IIF(`u`.`LeaderNickname` IS NOT NULL, CBOOL(IIF(LEN(`u`.`Nickname`) IS NULL, NULL, CLNG(LEN(`u`.`Nickname`))) BXOR 5) BXOR TRUE, NULL) IS NOT NULL, TRUE, FALSE))
 """);
     }
 
@@ -9979,7 +9979,7 @@ WHERE (`u`.`Rank` BAND @__ranks_0) <> 0
 @__ranks_0='134'
 @__ranks_0='134'
 
-SELECT IIF((`u`.`Rank` BOR @__ranks_0) = @__ranks_0, TRUE, FALSE)
+SELECT CBOOL((`u`.`Rank` BOR @__ranks_0) BXOR @__ranks_0) BXOR TRUE
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
@@ -9994,7 +9994,7 @@ FROM (
 @__ranks_0='134'
 @__ranks_0='134'
 
-SELECT IIF((`u`.`Rank` BOR (`u`.`Rank` BOR (@__ranks_0 BOR (`u`.`Rank` BOR @__ranks_0)))) = @__ranks_0, TRUE, FALSE)
+SELECT CBOOL((`u`.`Rank` BOR (`u`.`Rank` BOR (@__ranks_0 BOR (`u`.`Rank` BOR @__ranks_0)))) BXOR @__ranks_0) BXOR TRUE
 FROM (
     SELECT `g`.`Rank`
     FROM `Gears` AS `g`
@@ -10279,13 +10279,13 @@ FROM (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
 ) AS `u`
-WHERE IIF(`u`.`HasSoulPatch` = @__prm_0, IIF((
-            SELECT TOP 1 `w`.`Name`
-            FROM `Weapons` AS `w`
-            WHERE `w`.`Id` = `u`.`SquadId`) = @__prm2_1 AND (
-            SELECT TOP 1 `w`.`Name`
-            FROM `Weapons` AS `w`
-            WHERE `w`.`Id` = `u`.`SquadId`) IS NOT NULL, TRUE, FALSE), FALSE) = TRUE
+WHERE IIF(`u`.`HasSoulPatch` = @__prm_0 AND (
+        SELECT TOP 1 `w`.`Name`
+        FROM `Weapons` AS `w`
+        WHERE `w`.`Id` = `u`.`SquadId`) = @__prm2_1 AND (
+        SELECT TOP 1 `w`.`Name`
+        FROM `Weapons` AS `w`
+        WHERE `w`.`Id` = `u`.`SquadId`) IS NOT NULL, TRUE, FALSE) = TRUE
 """);
     }
 
@@ -11582,7 +11582,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`HasSoulPatch`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE IIF(`t`.`GearNickName` IS NOT NULL, `u`.`Nickname`, NULL) IS NOT NULL AND IIF(`t`.`GearNickName` IS NOT NULL, `u`.`HasSoulPatch`, NULL) <> TRUE
+WHERE IIF(`t`.`GearNickName` IS NOT NULL, `u`.`Nickname`, NULL) IS NOT NULL AND IIF(`t`.`GearNickName` IS NOT NULL, `u`.`HasSoulPatch`, NULL) = FALSE
 ORDER BY `t`.`Note`
 """);
     }
@@ -12687,7 +12687,7 @@ FROM `Weapons` AS `w`
         await base.ToString_boolean_property_non_nullable(async);
         AssertSql(
             """
-SELECT IIF(`w`.`IsAutomatic` <> TRUE, 'False', 'True')
+SELECT IIF(`w`.`IsAutomatic` = FALSE, 'False', 'True')
 FROM `Weapons` AS `w`
 """);
     }

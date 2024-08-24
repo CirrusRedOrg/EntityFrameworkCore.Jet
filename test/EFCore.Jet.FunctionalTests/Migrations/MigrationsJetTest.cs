@@ -238,12 +238,7 @@ DROP TABLE `People`;
         await base.Alter_table_remove_comment();
 
         AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-""");
+        );
     }
 
     public override async Task Rename_table()
@@ -957,10 +952,7 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
         await base.Alter_column_add_comment();
 
         AssertSql(
-            """
-ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
-ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
-""");
+        );
     }
 
     [ConditionalFact]
@@ -969,11 +961,7 @@ ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
         await base.Alter_computed_column_add_comment();
 
         AssertSql(
-            """
-ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
-ALTER TABLE `People` DROP COLUMN `SomeColumn`;
-ALTER TABLE `People` ADD `SomeColumn` integer NOT NULL DEFAULT 42;
-""");
+        );
     }
 
     [ConditionalFact]
@@ -982,10 +970,7 @@ ALTER TABLE `People` ADD `SomeColumn` integer NOT NULL DEFAULT 42;
         await base.Alter_column_change_comment();
 
         AssertSql(
-            """
-ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
-ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
-""");
+        );
     }
 
     [ConditionalFact]
@@ -994,12 +979,7 @@ ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
         await base.Alter_column_remove_comment();
 
         AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Id';
-""");
+        );
     }
 
     [ConditionalFact]

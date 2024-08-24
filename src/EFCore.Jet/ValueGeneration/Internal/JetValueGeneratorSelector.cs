@@ -40,7 +40,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration.Internal
 
         protected override ValueGenerator? FindForType(IProperty property, ITypeBase typeBase, Type clrType)
             => property.ClrType.UnwrapNullableType() == typeof(Guid)
-                ? property.ValueGenerated == ValueGenerated.Never || property.GetDefaultValueSql() != null
+                ? property.ValueGenerated == ValueGenerated.Never || (property.GetDefaultValueSql() != null && !property.IsPrimaryKey())
                     ? new TemporaryGuidValueGenerator()
                     : new JetSequentialGuidValueGenerator()
                 : base.FindForType(property, typeBase, clrType);

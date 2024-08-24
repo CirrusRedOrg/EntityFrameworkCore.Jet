@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Operations
         /// <summary>
         ///     The name of the database.
         /// </summary>
-        public virtual string? Name { get; set; } = null!;
+        public virtual string Name { get; set; } = null!;
         public virtual string? Password { get; [param: CanBeNull] set; }
     }
 }

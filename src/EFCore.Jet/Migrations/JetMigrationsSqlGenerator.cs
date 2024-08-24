@@ -19,6 +19,8 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 using EntityFrameworkCore.Jet.Update.Internal;
 using Microsoft.EntityFrameworkCore.Update;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Migrations
@@ -36,29 +38,18 @@ namespace Microsoft.EntityFrameworkCore.Migrations
     /// </summary>
     public class JetMigrationsSqlGenerator : MigrationsSqlGenerator
     {
-        private readonly IMigrationsAnnotationProvider _migrationsAnnotations;
-        private readonly IJetOptions _options;
-
         private IReadOnlyList<MigrationOperation> _operations = null!;
-        private RelationalTypeMapping _stringTypeMapping;
         private readonly ICommandBatchPreparer _commandBatchPreparer;
         /// <summary>
         ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
         /// </summary>
         /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
-        /// <param name="migrationsAnnotations"> Provider-specific Migrations annotations to use. </param>
-        /// <param name="options"> Provider-specific options. </param>
         /// <param name="commandBatchPreparer">The command batch preparer.</param>
         public JetMigrationsSqlGenerator(
-            [NotNull] MigrationsSqlGeneratorDependencies dependencies,
-            [NotNull] IMigrationsAnnotationProvider migrationsAnnotations,
-            [NotNull] IJetOptions options,
+            MigrationsSqlGeneratorDependencies dependencies,
             ICommandBatchPreparer commandBatchPreparer)
             : base(dependencies)
         {
-            _migrationsAnnotations = migrationsAnnotations;
-            _options = options;
-            _stringTypeMapping = dependencies.TypeMappingSource.FindMapping(typeof(string))!;
             _commandBatchPreparer = commandBatchPreparer;
         }
 
@@ -102,9 +93,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected override void Generate(MigrationOperation operation, IModel? model, MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             switch (operation)
             {
                 case JetCreateDatabaseOperation createDatabaseOperation:
@@ -151,6 +139,54 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         /// <summary>
+        ///     Builds commands for the given <see cref="AddForeignKeyOperation" /> by making calls on the given
+        ///     <see cref="MigrationCommandListBuilder" />.
+        /// </summary>
+        /// <param name="operation">The operation.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to build the commands.</param>
+        /// <param name="terminate">Indicates whether or not to terminate the command after generating SQL for the operation.</param>
+        protected override void Generate(
+            AddForeignKeyOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
+            bool terminate = true)
+        {
+            base.Generate(operation, model, builder, terminate: false);
+
+            if (terminate)
+            {
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
+            }
+        }
+
+        /// <summary>
+        ///     Builds commands for the given <see cref="AddPrimaryKeyOperation" /> by making calls on the given
+        ///     <see cref="MigrationCommandListBuilder" />.
+        /// </summary>
+        /// <param name="operation">The operation.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to build the commands.</param>
+        /// <param name="terminate">Indicates whether or not to terminate the command after generating SQL for the operation.</param>
+        protected override void Generate(
+            AddPrimaryKeyOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
+            bool terminate = true)
+        {
+            base.Generate(operation, model, builder, terminate: false);
+
+            if (terminate)
+            {
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
+            }
+        }
+
+        /// <summary>
         ///     Builds commands for the given <see cref="AlterColumnOperation" />
         ///     by making calls on the given <see cref="MigrationCommandListBuilder" />.
         /// </summary>
@@ -162,14 +198,16 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
+            if (operation[RelationalAnnotationNames.ColumnOrder] != operation.OldColumn[RelationalAnnotationNames.ColumnOrder])
+            {
+                Dependencies.MigrationsLogger.ColumnOrderIgnoredWarning(operation);
+            }
 
             IEnumerable<ITableIndex>? indexesToRebuild = null;
             var column = model?.GetRelationalModel().FindTable(operation.Table, operation.Schema)
                 ?.Columns.FirstOrDefault(c => c.Name == operation.Name);
 
-            if (operation.ComputedColumnSql != null)
+            if (operation.ComputedColumnSql != operation.OldColumn.ComputedColumnSql)
             {
                 var dropColumnOperation = new DropColumnOperation
                 {
@@ -190,13 +228,18 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                     ClrType = operation.ClrType,
                     ColumnType = operation.ColumnType,
                     IsUnicode = operation.IsUnicode,
+                    IsFixedLength = operation.IsFixedLength,
                     MaxLength = operation.MaxLength,
+                    Precision = operation.Precision,
+                    Scale = operation.Scale,
                     IsRowVersion = operation.IsRowVersion,
                     IsNullable = operation.IsNullable,
                     DefaultValue = operation.DefaultValue,
                     DefaultValueSql = operation.DefaultValueSql,
                     ComputedColumnSql = operation.ComputedColumnSql,
-                    IsFixedLength = operation.IsFixedLength
+                    IsStored = operation.IsStored,
+                    Comment = operation.Comment,
+                    Collation = operation.Collation
                 };
                 addColumnOperation.AddAnnotations(operation.GetAnnotations());
 
@@ -205,124 +248,169 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 DropIndexes(indexesToRebuild, builder);
                 Generate(dropColumnOperation, model, builder, terminate: false);
                 builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-                Generate(addColumnOperation, model, builder, terminate: false);
-                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+                Generate(addColumnOperation, model, builder);
                 CreateIndexes(indexesToRebuild, builder);
                 builder.EndCommand();
 
                 return;
             }
 
+            var columnType = operation.ColumnType
+                ?? GetColumnType(
+                    operation.Schema,
+                    operation.Table,
+                    operation.Name,
+                    operation,
+                    model);
+
             var narrowed = false;
-            if (IsOldColumnSupported(model))
+            var oldColumnSupported = IsOldColumnSupported(model);
+
+            if (oldColumnSupported)
             {
                 if (IsIdentity(operation) != IsIdentity(operation.OldColumn))
                 {
                     throw new InvalidOperationException(JetStrings.AlterIdentityColumn);
                 }
 
-                var type = operation.ColumnType
-                           ?? GetColumnType(
-                               operation.Schema,
-                               operation.Table,
-                               operation.Name,
-                               operation,
-                               model);
                 var oldType = operation.OldColumn.ColumnType
-                              ?? GetColumnType(
-                                  operation.Schema,
-                                  operation.Table,
-                                  operation.Name,
-                                  operation.OldColumn,
-                                  model);
-                narrowed = type != oldType || !operation.IsNullable && operation.OldColumn.IsNullable;
+                    ?? GetColumnType(
+                        operation.Schema,
+                        operation.Table,
+                        operation.Name,
+                        operation.OldColumn,
+                        model);
+                narrowed = columnType != oldType
+                    || operation.Collation != operation.OldColumn.Collation
+                    || operation is { IsNullable: false, OldColumn.IsNullable: true };
             }
 
             if (narrowed)
             {
-                indexesToRebuild = GetIndexesToRebuild(column, operation)
-                    .ToList();
+                indexesToRebuild = GetIndexesToRebuild(column, operation).ToList();
                 DropIndexes(indexesToRebuild, builder);
             }
 
-            DropDefaultConstraint(operation.Table, operation.Name, builder);
+            var newAnnotations = operation.GetAnnotations().Where(a => a.Name != JetAnnotationNames.Identity);
+            var oldAnnotations = operation.OldColumn.GetAnnotations().Where(a => a.Name != JetAnnotationNames.Identity);
 
-            builder
-                .Append("ALTER TABLE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                .Append(" ALTER COLUMN ");
+            var alterStatementNeeded = narrowed
+                || !oldColumnSupported
+                || operation.ClrType != operation.OldColumn.ClrType
+                || columnType != operation.OldColumn.ColumnType
+                || operation.IsUnicode != operation.OldColumn.IsUnicode
+                || operation.IsFixedLength != operation.OldColumn.IsFixedLength
+                || operation.MaxLength != operation.OldColumn.MaxLength
+                || operation.Precision != operation.OldColumn.Precision
+                || operation.Scale != operation.OldColumn.Scale
+                || operation.IsRowVersion != operation.OldColumn.IsRowVersion
+                || operation.IsNullable != operation.OldColumn.IsNullable
+                || operation.Collation != operation.OldColumn.Collation
+                || operation.DefaultValue != operation.OldColumn.DefaultValue
+                || HasDifferences(newAnnotations, oldAnnotations);
 
-            // NB: DefaultValue, DefaultValueSql, and identity are handled elsewhere. Don't copy them here.
-            var definitionOperation = new AlterColumnOperation
+            var (oldDefaultValue, oldDefaultValueSql) = (operation.OldColumn.DefaultValue, operation.OldColumn.DefaultValueSql);
+
+            if (alterStatementNeeded
+                || !Equals(operation.DefaultValue, oldDefaultValue)
+                || operation.DefaultValueSql != oldDefaultValueSql)
             {
-                Schema = operation.Schema,
-                Table = operation.Table,
-                Name = operation.Name,
-                ClrType = operation.ClrType,
-                ColumnType = operation.ColumnType,
-                IsUnicode = operation.IsUnicode,
-                IsFixedLength = operation.IsFixedLength,
-                MaxLength = operation.MaxLength,
-                IsRowVersion = operation.IsRowVersion,
-                IsNullable = operation.IsNullable,
-                ComputedColumnSql = operation.ComputedColumnSql,
-                OldColumn = operation.OldColumn
-            };
-            definitionOperation.AddAnnotations(
-                operation.GetAnnotations()
-                    .Where(
-                        a => a.Name != JetAnnotationNames.ValueGenerationStrategy
-                             && a.Name != JetAnnotationNames.Identity));
+                DropDefaultConstraint(operation.Table, operation.Name, builder);
+                (oldDefaultValue, oldDefaultValueSql) = (null, null);
+            }
 
-            ColumnDefinition(
-                operation.Schema,
-                operation.Table,
-                operation.Name,
-                definitionOperation,
-                model,
-                builder);
+            // The column is being made non-nullable. Generate an update statement before doing that, to convert any existing null values to
+            // the default value
+            if (operation is { IsNullable: false, OldColumn.IsNullable: true }
+                && (operation.DefaultValueSql is not null || operation.DefaultValue is not null))
+            {
+                string defaultValueSql;
+                if (operation.DefaultValueSql is not null)
+                {
+                    defaultValueSql = operation.DefaultValueSql;
+                }
+                else
+                {
+                    Check.DebugAssert(operation.DefaultValue is not null, "operation.DefaultValue is not null");
 
-            builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+                    var typeMapping = (columnType != null
+                            ? Dependencies.TypeMappingSource.FindMapping(operation.DefaultValue.GetType(), columnType)
+                            : null)
+                        ?? Dependencies.TypeMappingSource.GetMappingForValue(operation.DefaultValue);
 
-            if (operation.DefaultValue != null
-                || operation.DefaultValueSql != null)
+                    defaultValueSql = typeMapping.GenerateSqlLiteral(operation.DefaultValue);
+                }
+
+                var updateBuilder = new StringBuilder()
+                    .Append("UPDATE ")
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
+                    .Append(" SET ")
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
+                    .Append(" = ")
+                    .Append(defaultValueSql)
+                    .Append(" WHERE ")
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
+                    .Append(" IS NULL");
+
+                if (Options.HasFlag(MigrationsSqlGenerationOptions.Idempotent))
+                {
+                    builder
+                        .Append("EXEC(N'")
+                        .Append(updateBuilder.ToString().TrimEnd('\n', '\r', ';').Replace("'", "''"))
+                        .Append("')");
+                }
+                else
+                {
+                    builder.Append(updateBuilder.ToString());
+                }
+
+                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+            }
+
+            if (alterStatementNeeded)
             {
                 builder
                     .Append("ALTER TABLE ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                    .Append(" ADD");
-                DefaultValue(operation.DefaultValue, operation.DefaultValueSql, operation.ColumnType, builder);
-                builder
-                    .Append(" FOR ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-            }
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema))
+                    .Append(" ALTER COLUMN ");
 
-            // TODO: Implement comment/description support. (ADOX/DAO)
-            /*
-            if (operation.OldColumn.Comment != operation.Comment)
-            {
-                var dropDescription = operation.OldColumn.Comment != null;
-                if (dropDescription)
+                // NB: ComputedColumnSql, IsStored, DefaultValueSql, Comment, ValueGenerationStrategy, and Identity are
+                //     handled elsewhere. Don't copy them here.
+                //JET: DefaultValue is part of the ALTER COLUMN. Not a separate ALTER
+                var definitionOperation = new AlterColumnOperation
                 {
-                    DropDescription(
-                        builder,
-                        operation.Schema,
-                        operation.Table,
-                        operation.Name);
-                }
+                    Schema = operation.Schema,
+                    Table = operation.Table,
+                    Name = operation.Name,
+                    ClrType = operation.ClrType,
+                    ColumnType = operation.ColumnType,
+                    IsUnicode = operation.IsUnicode,
+                    IsFixedLength = operation.IsFixedLength,
+                    MaxLength = operation.MaxLength,
+                    Precision = operation.Precision,
+                    Scale = operation.Scale,
+                    IsRowVersion = operation.IsRowVersion,
+                    IsNullable = operation.IsNullable,
+                    Collation = operation.Collation,
+                    OldColumn = operation.OldColumn,
+                    DefaultValue = operation.DefaultValue,
+                    DefaultValueSql = operation.DefaultValueSql
+                };
+                definitionOperation.AddAnnotations(
+                    operation.GetAnnotations().Where(
+                        a => a.Name != JetAnnotationNames.ValueGenerationStrategy
+                            && a.Name != JetAnnotationNames.Identity));
 
-                if (operation.Comment != null)
-                {
-                    AddDescription(
-                        builder, operation.Comment,
-                        operation.Schema,
-                        operation.Table,
-                        operation.Name,
-                        omitSchemaVariable: dropDescription);
-                }
+                ColumnDefinition(
+                    operation.Schema,
+                    operation.Table,
+                    operation.Name,
+                    definitionOperation,
+                    model,
+                    builder);
+
+                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
             }
-            */
 
             if (narrowed)
             {
@@ -344,9 +432,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             if (string.IsNullOrEmpty(operation.Table))
             {
                 throw new InvalidOperationException(JetStrings.IndexTableRequired);
@@ -363,6 +448,29 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         /// <summary>
+        ///     Builds commands for the given <see cref="CreateTableOperation" /> by making calls on the given
+        ///     <see cref="MigrationCommandListBuilder" />.
+        /// </summary>
+        /// <param name="operation">The operation.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to build the commands.</param>
+        /// <param name="terminate">Indicates whether or not to terminate the command after generating SQL for the operation.</param>
+        protected override void Generate(
+            CreateTableOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
+            bool terminate = true)
+        {
+            base.Generate(operation, model, builder, terminate: false);
+            if (terminate)
+            {
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
+            }
+        }
+
+        /// <summary>
         ///     Builds commands for the given <see cref="RenameTableOperation" />
         ///     by making calls on the given <see cref="MigrationCommandListBuilder" />.
         /// </summary>
@@ -374,9 +482,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             // CHECK: Rename table operations require extensions like ADOX or DAO.
             //       A native way to do this would be to:
             //           1. CREATE TABLE `destination table`
@@ -389,6 +494,30 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.NewName!))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand();
+        }
+
+        /// <summary>
+        ///     Builds commands for the given <see cref="DropTableOperation" /> by making calls on the given
+        ///     <see cref="MigrationCommandListBuilder" />.
+        /// </summary>
+        /// <param name="operation">The operation.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to build the commands.</param>
+        /// <param name="terminate">Indicates whether or not to terminate the command after generating SQL for the operation.</param>
+        protected override void Generate(
+            DropTableOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
+            bool terminate = true)
+        {
+            base.Generate(operation, model, builder, terminate: false);
+
+            if (terminate)
+            {
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
+            }
         }
 
         /// <summary>
@@ -405,41 +534,52 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             MigrationCommandListBuilder builder,
             bool terminate = true)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
-            builder.Append("CREATE ");
-
-            if (operation.IsUnique)
+            base.Generate(operation, model, builder, terminate: false);
+            if (terminate)
             {
-                builder.Append("UNIQUE ");
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
             }
+        }
 
-            IndexTraits(operation, model, builder);
+        /// <summary>
+        ///     Builds commands for the given <see cref="DropPrimaryKeyOperation" /> by making calls on the given
+        ///     <see cref="MigrationCommandListBuilder" />.
+        /// </summary>
+        /// <param name="operation">The operation.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to build the commands.</param>
+        /// <param name="terminate">Indicates whether or not to terminate the command after generating SQL for the operation.</param>
+        protected override void Generate(
+            DropPrimaryKeyOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
+            bool terminate = true)
+        {
+            base.Generate(operation, model, builder, terminate: false);
+            if (terminate)
+            {
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
+            }
+        }
 
-            builder
-                .Append("INDEX ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                .Append(" ON ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                .Append(" (")
-                .Append(ColumnList(operation.Columns))
-                .Append(")");
-
-            if (!string.IsNullOrEmpty(operation.Filter))
+        /// <summary>
+        ///     Generates a SQL fragment for extras (filter, included columns, options) of an index from a <see cref="CreateIndexOperation" />.
+        /// </summary>
+        /// <param name="operation">The operation.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to add the SQL fragment.</param>
+        protected override void IndexOptions(MigrationOperation operation, IModel? model, MigrationCommandListBuilder builder)
+        {
+            if (operation is CreateIndexOperation createIndexOperation
+                && !string.IsNullOrEmpty(createIndexOperation.Filter))
             {
                 builder
                     .Append(" WITH ")
-                    .Append(operation.Filter);
-            }
-
-            if (terminate)
-            {
-                builder.AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
-                EndStatement(builder);
+                    .Append(createIndexOperation.Filter);
             }
         }
 
@@ -451,22 +591,20 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="model"> The target model which may be <c>null</c> if the operations exist without a model. </param>
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected virtual void Generate(
-            [NotNull] JetCreateDatabaseOperation operation,
-            [CanBeNull] IModel? model,
-            [NotNull] MigrationCommandListBuilder builder)
+            JetCreateDatabaseOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
+            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
             builder
                 .Append("CREATE DATABASE ")
-                .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Name));
+                .Append(stringTypeMapping.GenerateSqlLiteral(operation.Name));
 
             if (!string.IsNullOrEmpty(operation.Password))
             {
                 builder
                     .Append(" PASSWORD ")
-                    .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Password));
+                    .Append(stringTypeMapping.GenerateSqlLiteral(operation.Password));
             }
 
             builder
@@ -504,17 +642,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="model"> The target model which may be <c>null</c> if the operations exist without a model. </param>
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected virtual void Generate(
-            [NotNull] JetDropDatabaseOperation operation,
-            [CanBeNull] IModel? model,
-            [NotNull] MigrationCommandListBuilder builder)
+            JetDropDatabaseOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
+            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
             builder
                 .Append("DROP DATABASE ")
                 //.Append(ExpandFileName(operation.Name))
-                .Append(_stringTypeMapping.GenerateSqlLiteral(operation.Name))
+                .Append(stringTypeMapping.GenerateSqlLiteral(operation.Name))
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand(suppressTransaction: true);
         }
@@ -531,8 +667,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
         }
 
         /// <summary>
@@ -549,18 +683,14 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             MigrationCommandListBuilder builder,
             bool terminate = true)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
+            base.Generate(operation, model, builder, terminate: false);
 
-            builder
-                .Append("ALTER TABLE ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                .Append(" DROP CONSTRAINT ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name));
-
-            builder
-                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                .EndCommand();
+            if (terminate)
+            {
+                builder
+                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                    .EndCommand();
+            }
         }
 
         /// <summary>
@@ -572,14 +702,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="builder"> The command builder to use to build the commands. </param>
         /// <param name="terminate"> Indicates whether or not to terminate the command after generating SQL for the operation. </param>
         protected override void Generate(
-            [NotNull] DropIndexOperation operation,
-            [CanBeNull] IModel? model,
-            [NotNull] MigrationCommandListBuilder builder,
+            DropIndexOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder,
             bool terminate = true)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
+            if (string.IsNullOrEmpty(operation.Table))
+            {
+                throw new InvalidOperationException(JetStrings.IndexTableRequired);
+            }
             builder
                 .Append("DROP INDEX ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
@@ -608,9 +739,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             MigrationCommandListBuilder builder,
             bool terminate = true)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             DropDefaultConstraint(operation.Table, operation.Name, builder);
             base.Generate(operation, model, builder, terminate: false);
 
@@ -634,9 +762,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             builder.Append("ALTER TABLE ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
                 .Append(" RENAME COLUMN ")
@@ -656,9 +781,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected override void Generate(SqlOperation operation, IModel? model, MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             // TODO: Jet does not support batches and should never generate a "GO" in the first place.
             //       So this code should do nothing.
 
@@ -753,10 +875,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
-            Check.NotEmpty(name, nameof(name));
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
             if (operation.ComputedColumnSql != null)
             {
                 if (decimal.TryParse(operation.ComputedColumnSql, out decimal result))
@@ -787,11 +905,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         protected override string? GetColumnType(
-            [CanBeNull] string? schema,
-            [NotNull] string table,
-            [NotNull] string name,
-            [NotNull] ColumnOperation operation,
-            [CanBeNull] IModel? model)
+            string? schema,
+            string table,
+            string name,
+            ColumnOperation operation,
+            IModel? model)
         {
             var storeType = operation.ColumnType;
 
@@ -834,8 +952,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="builder"> The command builder to use to add the SQL fragment. </param>
         protected override void ForeignKeyAction(ReferentialAction referentialAction, MigrationCommandListBuilder builder)
         {
-            Check.NotNull(builder, nameof(builder));
-
             if (referentialAction == ReferentialAction.Restrict)
             {
                 builder.Append("NO ACTION");
@@ -854,13 +970,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="columnType"> Store/database type of the column. </param>
         /// <param name="builder"> The command builder to use to add the SQL fragment. </param>
         protected override void DefaultValue(
-            [CanBeNull] object? defaultValue,
-            [CanBeNull] string? defaultValueSql,
-            [CanBeNull] string? columnType,
-            [NotNull] MigrationCommandListBuilder builder)
+            object? defaultValue,
+            string? defaultValueSql,
+            string? columnType,
+            MigrationCommandListBuilder builder)
         {
-            Check.NotNull(builder, nameof(builder));
-
             if (defaultValueSql != null)
             {
                 builder
@@ -886,69 +1000,16 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         /// <summary>
-        ///     Generates a SQL fragment for a foreign key constraint of an <see cref="AddForeignKeyOperation" />.
-        /// </summary>
-        /// <param name="operation"> The operation. </param>
-        /// <param name="model"> The target model which may be <c>null</c> if the operations exist without a model. </param>
-        /// <param name="builder"> The command builder to use to add the SQL fragment. </param>
-        protected override void ForeignKeyConstraint(
-            AddForeignKeyOperation operation,
-            IModel? model,
-            MigrationCommandListBuilder builder)
-        {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
-
-            if (operation.Name != null)
-            {
-                builder
-                    .Append("CONSTRAINT ")
-                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
-                    .Append(" ");
-            }
-
-            builder
-                .Append("FOREIGN KEY (")
-                .Append(ColumnList(operation.Columns))
-                .Append(") REFERENCES ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.PrincipalTable));
-
-            if (operation.PrincipalColumns != null)
-            {
-                builder
-                    .Append(" (")
-                    .Append(ColumnList(operation.PrincipalColumns))
-                    .Append(")");
-            }
-
-            if (operation.OnUpdate != ReferentialAction.NoAction)
-            {
-                builder.Append(" ON UPDATE ");
-                ForeignKeyAction(operation.OnUpdate, builder);
-            }
-
-            if (operation.OnDelete != ReferentialAction.NoAction)
-            {
-                builder.Append(" ON DELETE ");
-                ForeignKeyAction(operation.OnDelete, builder);
-            }
-        }
-
-        /// <summary>
         ///     Generates a SQL fragment to drop default constraints for a column.
         /// </summary>
         /// <param name="tableName"> The table that contains the column.</param>
         /// <param name="columnName"> The column. </param>
         /// <param name="builder"> The command builder to use to add the SQL fragment. </param>
         protected virtual void DropDefaultConstraint(
-            [NotNull] string tableName,
-            [NotNull] string columnName,
-            [NotNull] MigrationCommandListBuilder builder)
+            string tableName,
+            string columnName,
+            MigrationCommandListBuilder builder)
         {
-            Check.NotEmpty(tableName, nameof(tableName));
-            Check.NotEmpty(columnName, nameof(columnName));
-            Check.NotNull(builder, nameof(builder));
-
             builder
                 .Append("ALTER TABLE ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(tableName))
@@ -965,11 +1026,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="currentOperation"> The operation which may require a rebuild. </param>
         /// <returns> The list of indexes affected. </returns>
         protected virtual IEnumerable<ITableIndex> GetIndexesToRebuild(
-            [CanBeNull] IColumn? column,
-            [NotNull] MigrationOperation currentOperation)
+            IColumn? column,
+            MigrationOperation currentOperation)
         {
-            Check.NotNull(currentOperation, nameof(currentOperation));
-
             if (column == null)
             {
                 yield break;
@@ -1006,12 +1065,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="indexes"> The indexes to drop. </param>
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected virtual void DropIndexes(
-            [NotNull] IEnumerable<ITableIndex> indexes,
-            [NotNull] MigrationCommandListBuilder builder)
+            IEnumerable<ITableIndex> indexes,
+            MigrationCommandListBuilder builder)
         {
-            Check.NotNull(indexes, nameof(indexes));
-            Check.NotNull(builder, nameof(builder));
-
             foreach (var index in indexes)
             {
                 var table = index.Table;
@@ -1034,12 +1090,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="indexes"> The indexes to create. </param>
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected virtual void CreateIndexes(
-            [NotNull] IEnumerable<ITableIndex> indexes,
-            [NotNull] MigrationCommandListBuilder builder)
+            IEnumerable<ITableIndex> indexes,
+            MigrationCommandListBuilder builder)
         {
-            Check.NotNull(indexes, nameof(indexes));
-            Check.NotNull(builder, nameof(builder));
-
             foreach (var index in indexes)
             {
                 Generate(CreateIndexOperation.CreateFrom(index), index.Table.Model.Model, builder, terminate: false);
@@ -1057,18 +1110,33 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                string.Equals("identity", columnType, StringComparison.OrdinalIgnoreCase) ||
                string.Equals("autoincrement", columnType, StringComparison.OrdinalIgnoreCase);
 
+        private static bool HasDifferences(IEnumerable<IAnnotation> source, IEnumerable<IAnnotation> target)
+        {
+            var targetAnnotations = target.ToDictionary(a => a.Name);
+
+            var count = 0;
+            foreach (var sourceAnnotation in source)
+            {
+                if (!targetAnnotations.TryGetValue(sourceAnnotation.Name, out var targetAnnotation)
+                    || !Equals(sourceAnnotation.Value, targetAnnotation.Value))
+                {
+                    return true;
+                }
+
+                count++;
+            }
+
+            return count != targetAnnotations.Count;
+        }
+
         #region Schemas not supported
 
         protected override void Generate(EnsureSchemaOperation operation, IModel? model, MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
         }
 
         protected override void Generate(DropSchemaOperation operation, IModel? model, MigrationCommandListBuilder builder)
         {
-            Check.NotNull(operation, nameof(operation));
-            Check.NotNull(builder, nameof(builder));
         }
 
         #endregion

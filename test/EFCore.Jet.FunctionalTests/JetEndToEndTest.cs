@@ -989,10 +989,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         Assert.Equal(course.Id, e.CourseId);
                         Assert.Equal(context.Entry(student).Property(e => e.Id).CurrentValue, entry.Property(e => e.StudentId).CurrentValue);
                         Assert.Equal(context.Entry(course).Property(e => e.Id).CurrentValue, entry.Property(e => e.CourseId).CurrentValue);
-                        Assert.True(entry.Property(e => e.StudentId).IsTemporary);
-                        Assert.True(entry.Property(e => e.CourseId).IsTemporary);
-                        Assert.True(context.Entry(student).Property(e => e.Id).IsTemporary);
-                        Assert.True(context.Entry(course).Property(e => e.Id).IsTemporary);
+                        //We generate Guid's client side
+                        Assert.False(entry.Property(e => e.StudentId).IsTemporary);
+                        Assert.False(entry.Property(e => e.CourseId).IsTemporary);
+                        Assert.False(context.Entry(student).Property(e => e.Id).IsTemporary);
+                        Assert.False(context.Entry(course).Property(e => e.Id).IsTemporary);
                     });
 
                 context.SaveChanges();

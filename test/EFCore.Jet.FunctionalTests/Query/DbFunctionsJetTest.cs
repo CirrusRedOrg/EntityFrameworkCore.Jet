@@ -436,7 +436,7 @@ WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
                 """
 SELECT CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(`o`.`CustomerID`)) <> TRUE
+WHERE CBOOL(ISDATE(`o`.`CustomerID`)) = FALSE
 """);
         }
 

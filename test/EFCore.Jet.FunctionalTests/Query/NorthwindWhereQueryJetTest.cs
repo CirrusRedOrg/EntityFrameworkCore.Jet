@@ -1145,9 +1145,11 @@ WHERE `p`.`Discontinued` = TRUE");
             await base.Where_bool_member_false(isAsync);
 
             AssertSql(
-                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> TRUE");
+WHERE `p`.`Discontinued` = FALSE
+""");
         }
 
         public override async Task Where_bool_member_negated_twice(bool isAsync)
@@ -1175,9 +1177,11 @@ WHERE `p`.`Discontinued` = TRUE");
             await base.Where_bool_member_false_shadow(isAsync);
 
             AssertSql(
-                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> TRUE");
+WHERE `p`.`Discontinued` = FALSE
+""");
         }
 
         public override async Task Where_bool_member_equals_constant(bool isAsync)
@@ -1277,12 +1281,12 @@ WHERE `p`.`Discontinued` <> IIF(`p`.`ProductID` > 50, TRUE, FALSE)
 
             AssertSql(
                 $"""
-    @__prm_0='True'
-    
-    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-    FROM `Products` AS `p`
-    WHERE `p`.`Discontinued` = IIF(IIF(`p`.`ProductID` > 50, TRUE, FALSE) <> {AssertSqlHelper.Parameter("@__prm_0")}, TRUE, FALSE)
-    """);
+@__prm_0='True'
+
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`Discontinued` = (IIF(`p`.`ProductID` > 50, TRUE, FALSE) BXOR {AssertSqlHelper.Parameter("@__prm_0")})
+""");
         }
 
         public override async Task Where_de_morgan_or_optimized(bool isAsync)
@@ -1290,9 +1294,11 @@ WHERE `p`.`Discontinued` <> IIF(`p`.`ProductID` > 50, TRUE, FALSE)
             await base.Where_de_morgan_or_optimized(isAsync);
 
             AssertSql(
-                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> TRUE AND `p`.`ProductID` >= 20");
+WHERE `p`.`Discontinued` = FALSE AND `p`.`ProductID` >= 20
+""");
         }
 
         public override async Task Where_de_morgan_and_optimized(bool isAsync)
@@ -1300,9 +1306,11 @@ WHERE `p`.`Discontinued` <> TRUE AND `p`.`ProductID` >= 20");
             await base.Where_de_morgan_and_optimized(isAsync);
 
             AssertSql(
-                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> TRUE OR `p`.`ProductID` >= 20");
+WHERE `p`.`Discontinued` = FALSE OR `p`.`ProductID` >= 20
+""");
         }
 
         public override async Task Where_complex_negated_expression_optimized(bool isAsync)
@@ -1310,9 +1318,11 @@ WHERE `p`.`Discontinued` <> TRUE OR `p`.`ProductID` >= 20");
             await base.Where_complex_negated_expression_optimized(isAsync);
 
             AssertSql(
-                $@"SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` <> TRUE AND `p`.`ProductID` < 60 AND `p`.`ProductID` > 30");
+WHERE `p`.`Discontinued` = FALSE AND `p`.`ProductID` < 60 AND `p`.`ProductID` > 30
+""");
         }
 
         public override async Task Where_short_member_comparison(bool isAsync)
@@ -2076,7 +2086,7 @@ WHERE IIF(IIF('ALFKI' IN (
             SELECT `o`.`CustomerID`
             FROM `Orders` AS `o`
             WHERE `o`.`CustomerID` = `c`.`CustomerID`
-        ), TRUE, FALSE)) <> TRUE
+        ), TRUE, FALSE)) = FALSE
 ORDER BY `c`.`CustomerID`
 """);
         }

@@ -626,19 +626,19 @@ WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL
             await base.Compare_complex_equal_equal_equal(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` = `e`.`BoolB`, TRUE, FALSE) = IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)
+WHERE ((`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE) = (CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` = `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) = IIF(`e`.`IntA` = `e`.`NullableIntB` AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) = IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND `e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)
@@ -650,19 +650,19 @@ WHERE IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS 
             await base.Compare_complex_equal_not_equal_equal(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` = `e`.`BoolB`, TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)
+WHERE ((`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE) <> (CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` = `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`NullableIntB` AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) <> IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND `e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)
@@ -674,19 +674,19 @@ WHERE IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS 
             await base.Compare_complex_not_equal_equal_equal(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) = IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)
+WHERE (`e`.`BoolA` BXOR `e`.`BoolB`) = (CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) = IIF(`e`.`IntA` = `e`.`NullableIntB` AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) = IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND `e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)
@@ -698,19 +698,19 @@ WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS 
             await base.Compare_complex_not_equal_not_equal_equal(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE)
+WHERE (`e`.`BoolA` BXOR `e`.`BoolB`) <> (CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) <> IIF(`e`.`IntA` = `e`.`NullableIntB` AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) <> IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND `e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE)
@@ -722,19 +722,19 @@ WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS 
             await base.Compare_complex_not_equal_equal_not_equal(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) = IIF(`e`.`IntA` <> `e`.`IntB`, TRUE, FALSE)
+WHERE (`e`.`BoolA` BXOR `e`.`BoolB`) = CBOOL(`e`.`IntA` BXOR `e`.`IntB`)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) = IIF(`e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) = IIF((`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL), TRUE, FALSE)
@@ -746,19 +746,19 @@ WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS 
             await base.Compare_complex_not_equal_not_equal_not_equal(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA` <> `e`.`BoolB`, TRUE, FALSE) <> IIF(`e`.`IntA` <> `e`.`IntB`, TRUE, FALSE)
+WHERE (`e`.`BoolA` BXOR `e`.`BoolB`) <> CBOOL(`e`.`IntA` BXOR `e`.`IntB`)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) <> IIF(`e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) <> IIF((`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL), TRUE, FALSE)
@@ -2183,16 +2183,16 @@ WHERE `e`.`BoolB` = TRUE OR `e`.`NullableBoolA` IS NOT NULL
             await base.Comparison_compared_to_null_check_on_bool(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`IntA` = `e`.`IntB`, TRUE, FALSE) <> IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
+WHERE (CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE) <> IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`IntA` <> `e`.`IntB`, TRUE, FALSE) = IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
+WHERE CBOOL(`e`.`IntA` BXOR `e`.`IntB`) = IIF(`e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE)
 """);
         }
 
@@ -2301,10 +2301,10 @@ WHERE `e`.`NullableBoolA` IS NULL OR IIF(`e`.`NullableBoolB` IS NULL, IIF(`e`.`N
 
             // issue #25977
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`BoolA` = `e`.`BoolB`, TRUE, FALSE), IIF(`e`.`NullableBoolC` IS NULL, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolC` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolC` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL), TRUE, FALSE), IIF((`e`.`NullableBoolC` <> `e`.`NullableBoolA` OR `e`.`NullableBoolC` IS NULL OR `e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolC` IS NOT NULL OR `e`.`NullableBoolA` IS NOT NULL), TRUE, FALSE))) = TRUE
+WHERE IIF(`e`.`NullableBoolA` IS NULL, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE, IIF(`e`.`NullableBoolC` IS NULL, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolC` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolC` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL), TRUE, FALSE), IIF((`e`.`NullableBoolC` <> `e`.`NullableBoolA` OR `e`.`NullableBoolC` IS NULL OR `e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolC` IS NOT NULL OR `e`.`NullableBoolA` IS NOT NULL), TRUE, FALSE))) = TRUE
 """);
         }
 

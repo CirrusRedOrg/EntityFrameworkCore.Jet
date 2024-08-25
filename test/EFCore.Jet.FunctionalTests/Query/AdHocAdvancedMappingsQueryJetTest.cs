@@ -73,7 +73,7 @@ LEFT JOIN `Categories` AS `c` ON `p`.`CategoryId` = `c`.`Id`
             """
 SELECT `r`.`Id`, `r`.`IsRemoved`, `r`.`Removed`, `r`.`RemovedByUser`, `r`.`OwnedEntity_Exists`, `r`.`OwnedEntity_OwnedValue`
 FROM `RemovableEntities` AS `r`
-WHERE `r`.`IsRemoved` <> TRUE
+WHERE `r`.`IsRemoved` = FALSE
 """,
             //
             """

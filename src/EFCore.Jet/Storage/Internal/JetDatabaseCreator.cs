@@ -120,7 +120,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 {
                     new JetCreateDatabaseOperation
                     {
-                        Name = dataSource,
+                        Name = dataSource!,
                         Password = databasePassword
                     }
                 });

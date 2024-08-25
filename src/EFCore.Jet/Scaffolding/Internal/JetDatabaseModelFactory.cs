@@ -8,7 +8,6 @@ using EntityFrameworkCore.Jet.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal;
 using JetBrains.Annotations;
@@ -21,6 +20,7 @@ using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.Reflection;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -500,11 +500,22 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                     continue;
                                 }
 
+                                string? filter = null;
+                                if (!nullable)
+                                {
+                                    filter = "DISALLOW NULL";
+                                }
+
+                                if (ignoresNulls)
+                                {
+                                    filter = "IGNORE NULLS";
+                                }
                                 var index = new DatabaseIndex
                                 {
                                     Table = table,
                                     Name = indexName,
                                     IsUnique = isUnique,
+                                    Filter = filter
                                 };
 
                                 _logger.IndexFound(indexName!, tableName!, index.IsUnique);
@@ -535,6 +546,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
                                     case DatabaseIndex index:
                                         index.Columns.Add(column);
+                                        index.IsDescending.Add(descending);
                                         break;
                                 }
                             }

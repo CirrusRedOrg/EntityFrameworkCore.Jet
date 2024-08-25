@@ -238,12 +238,7 @@ DROP TABLE `People`;
         await base.Alter_table_remove_comment();
 
         AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', @defaultSchema, 'TABLE', N'People';
-""");
+        );
     }
 
     public override async Task Rename_table()
@@ -339,9 +334,9 @@ CREATE TABLE `People` (
 
         AssertSql(
             """
-CREATE TABLE [dbo].[People] (
-    [Id] int NOT NULL IDENTITY,
-    CONSTRAINT [PK_People] PRIMARY KEY ([Id])
+CREATE TABLE `People` (
+    `Id` counter NOT NULL,
+    CONSTRAINT `PK_People` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -811,15 +806,9 @@ ALTER TABLE `People` ALTER COLUMN `SomeColumn` decimal(20,0) NOT NULL;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeColumn');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-UPDATE [People] SET [SomeColumn] = N'' WHERE [SomeColumn] IS NULL;
-ALTER TABLE [People] ALTER COLUMN [SomeColumn] nvarchar(max) NOT NULL;
-ALTER TABLE [People] ADD DEFAULT N'' FOR [SomeColumn];
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
+UPDATE `People` SET `SomeColumn` = '' WHERE `SomeColumn` IS NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` varchar(255) NOT NULL DEFAULT '';
 """);
     }
 
@@ -829,15 +818,9 @@ ALTER TABLE [People] ADD DEFAULT N'' FOR [SomeColumn];
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeColumn');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-UPDATE [People] SET [SomeColumn] = N'' WHERE [SomeColumn] IS NULL;
-ALTER TABLE [People] ALTER COLUMN [SomeColumn] nvarchar(max) NOT NULL;
-ALTER TABLE [People] ADD DEFAULT N'' FOR [SomeColumn];
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
+UPDATE `People` SET `SomeColumn` = '' WHERE `SomeColumn` IS NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` varchar(255) NOT NULL DEFAULT '';
 """);
     }
 
@@ -848,17 +831,11 @@ ALTER TABLE [People] ADD DEFAULT N'' FOR [SomeColumn];
 
         AssertSql(
             """
-DROP INDEX [IX_People_SomeColumn] ON [People];
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeColumn');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-UPDATE [People] SET [SomeColumn] = N'' WHERE [SomeColumn] IS NULL;
-ALTER TABLE [People] ALTER COLUMN [SomeColumn] nvarchar(450) NOT NULL;
-ALTER TABLE [People] ADD DEFAULT N'' FOR [SomeColumn];
-CREATE INDEX [IX_People_SomeColumn] ON [People] ([SomeColumn]);
+DROP INDEX `IX_People_SomeColumn` ON `People`;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
+UPDATE `People` SET `SomeColumn` = '' WHERE `SomeColumn` IS NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` varchar(255) NOT NULL DEFAULT '';
+CREATE INDEX `IX_People_SomeColumn` ON `People` (`SomeColumn`);
 """);
     }
 
@@ -869,17 +846,11 @@ CREATE INDEX [IX_People_SomeColumn] ON [People] ([SomeColumn]);
 
         AssertSql(
             """
-DROP INDEX [IX_People_FirstName_LastName] ON [People];
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'FirstName');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-UPDATE [People] SET [FirstName] = N'' WHERE [FirstName] IS NULL;
-ALTER TABLE [People] ALTER COLUMN [FirstName] nvarchar(450) NOT NULL;
-ALTER TABLE [People] ADD DEFAULT N'' FOR [FirstName];
-CREATE INDEX [IX_People_FirstName_LastName] ON [People] ([FirstName], [LastName]);
+DROP INDEX `IX_People_FirstName_LastName` ON `People`;
+ALTER TABLE `People` ALTER COLUMN `FirstName` DROP DEFAULT;
+UPDATE `People` SET `FirstName` = '' WHERE `FirstName` IS NULL;
+ALTER TABLE `People` ALTER COLUMN `FirstName` varchar(255) NOT NULL DEFAULT '';
+CREATE INDEX `IX_People_FirstName_LastName` ON `People` (`FirstName`, `LastName`);
 """);
     }
 
@@ -981,10 +952,7 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
         await base.Alter_column_add_comment();
 
         AssertSql(
-            """
-ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
-ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
-""");
+        );
     }
 
     [ConditionalFact]
@@ -993,11 +961,7 @@ ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
         await base.Alter_computed_column_add_comment();
 
         AssertSql(
-            """
-ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
-ALTER TABLE `People` DROP COLUMN `SomeColumn`;
-ALTER TABLE `People` ADD `SomeColumn` integer NOT NULL DEFAULT 42;
-""");
+        );
     }
 
     [ConditionalFact]
@@ -1006,10 +970,7 @@ ALTER TABLE `People` ADD `SomeColumn` integer NOT NULL DEFAULT 42;
         await base.Alter_column_change_comment();
 
         AssertSql(
-            """
-ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
-ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
-""");
+        );
     }
 
     [ConditionalFact]
@@ -1018,12 +979,7 @@ ALTER TABLE `People` ALTER COLUMN `Id` integer NOT NULL;
         await base.Alter_column_remove_comment();
 
         AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Id';
-""");
+        );
     }
 
     [ConditionalFact]
@@ -1099,62 +1055,52 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(max) NULL;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'OwnedCollection');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Entity] DROP COLUMN [OwnedCollection];
+ALTER TABLE `Entity` ALTER COLUMN `OwnedCollection` DROP DEFAULT;
+ALTER TABLE `Entity` DROP COLUMN `OwnedCollection`;
 """,
             //
             """
-DECLARE @var1 sysname;
-SELECT @var1 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'OwnedReference');
-IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var1 + '];');
-ALTER TABLE [Entity] DROP COLUMN [OwnedReference];
+ALTER TABLE `Entity` ALTER COLUMN `OwnedReference` DROP DEFAULT;
+ALTER TABLE `Entity` DROP COLUMN `OwnedReference`;
 """,
             //
             """
-ALTER TABLE [Entity] ADD [OwnedReference_Date] datetime2 NULL;
+ALTER TABLE `Entity` ADD `OwnedReference_Date` datetime NULL;
 """,
             //
             """
-ALTER TABLE [Entity] ADD [OwnedReference_NestedReference_Number] int NULL;
+ALTER TABLE `Entity` ADD `OwnedReference_NestedReference_Number` integer NULL;
 """,
             //
             """
-CREATE TABLE [Entity_NestedCollection] (
-    [OwnedEntityId] int NOT NULL,
-    [Id] int NOT NULL IDENTITY,
-    [Number2] int NOT NULL,
-    CONSTRAINT [PK_Entity_NestedCollection] PRIMARY KEY ([OwnedEntityId], [Id]),
-    CONSTRAINT [FK_Entity_NestedCollection_Entity_OwnedEntityId] FOREIGN KEY ([OwnedEntityId]) REFERENCES [Entity] ([Id]) ON DELETE CASCADE
+CREATE TABLE `Entity_NestedCollection` (
+    `OwnedEntityId` integer NOT NULL,
+    `Id` counter NOT NULL,
+    `Number2` integer NOT NULL,
+    CONSTRAINT `PK_Entity_NestedCollection` PRIMARY KEY (`OwnedEntityId`, `Id`),
+    CONSTRAINT `FK_Entity_NestedCollection_Entity_OwnedEntityId` FOREIGN KEY (`OwnedEntityId`) REFERENCES `Entity` (`Id`) ON DELETE CASCADE
 );
 """,
             //
             """
-CREATE TABLE [Entity_OwnedCollection] (
-    [EntityId] int NOT NULL,
-    [Id] int NOT NULL IDENTITY,
-    [Date2] datetime2 NOT NULL,
-    [NestedReference2_Number3] int NULL,
-    CONSTRAINT [PK_Entity_OwnedCollection] PRIMARY KEY ([EntityId], [Id]),
-    CONSTRAINT [FK_Entity_OwnedCollection_Entity_EntityId] FOREIGN KEY ([EntityId]) REFERENCES [Entity] ([Id]) ON DELETE CASCADE
+CREATE TABLE `Entity_OwnedCollection` (
+    `EntityId` integer NOT NULL,
+    `Id` counter NOT NULL,
+    `Date2` datetime NOT NULL,
+    `NestedReference2_Number3` integer NULL,
+    CONSTRAINT `PK_Entity_OwnedCollection` PRIMARY KEY (`EntityId`, `Id`),
+    CONSTRAINT `FK_Entity_OwnedCollection_Entity_EntityId` FOREIGN KEY (`EntityId`) REFERENCES `Entity` (`Id`) ON DELETE CASCADE
 );
 """,
             //
             """
-CREATE TABLE [Entity_OwnedCollection_NestedCollection2] (
-    [Owned2EntityId] int NOT NULL,
-    [Owned2Id] int NOT NULL,
-    [Id] int NOT NULL IDENTITY,
-    [Number4] int NOT NULL,
-    CONSTRAINT [PK_Entity_OwnedCollection_NestedCollection2] PRIMARY KEY ([Owned2EntityId], [Owned2Id], [Id]),
-    CONSTRAINT [FK_Entity_OwnedCollection_NestedCollection2_Entity_OwnedCollection_Owned2EntityId_Owned2Id] FOREIGN KEY ([Owned2EntityId], [Owned2Id]) REFERENCES [Entity_OwnedCollection] ([EntityId], [Id]) ON DELETE CASCADE
+CREATE TABLE `Entity_OwnedCollection_NestedCollection2` (
+    `Owned2EntityId` integer NOT NULL,
+    `Owned2Id` integer NOT NULL,
+    `Id` counter NOT NULL,
+    `Number4` integer NOT NULL,
+    CONSTRAINT `PK_Entity_OwnedCollection_NestedCollection2` PRIMARY KEY (`Owned2EntityId`, `Owned2Id`, `Id`),
+    CONSTRAINT `FK_Entity_OwnedCollection_NestedCollection2_Entity_OwnedCollect~` FOREIGN KEY (`Owned2EntityId`, `Owned2Id`) REFERENCES `Entity_OwnedCollection` (`EntityId`, `Id`) ON DELETE CASCADE
 );
 """);
     }
@@ -1165,43 +1111,33 @@ CREATE TABLE [Entity_OwnedCollection_NestedCollection2] (
 
         AssertSql(
             """
-DROP TABLE [Entity_NestedCollection];
+DROP TABLE `Entity_NestedCollection`;
 """,
             //
             """
-DROP TABLE [Entity_OwnedCollection_NestedCollection2];
+DROP TABLE `Entity_OwnedCollection_NestedCollection2`;
 """,
             //
             """
-DROP TABLE [Entity_OwnedCollection];
+DROP TABLE `Entity_OwnedCollection`;
 """,
             //
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'OwnedReference_Date');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Entity] DROP COLUMN [OwnedReference_Date];
+ALTER TABLE `Entity` ALTER COLUMN `OwnedReference_Date` DROP DEFAULT;
+ALTER TABLE `Entity` DROP COLUMN `OwnedReference_Date`;
 """,
             //
             """
-DECLARE @var1 sysname;
-SELECT @var1 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'OwnedReference_NestedReference_Number');
-IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var1 + '];');
-ALTER TABLE [Entity] DROP COLUMN [OwnedReference_NestedReference_Number];
+ALTER TABLE `Entity` ALTER COLUMN `OwnedReference_NestedReference_Number` DROP DEFAULT;
+ALTER TABLE `Entity` DROP COLUMN `OwnedReference_NestedReference_Number`;
 """,
             //
             """
-ALTER TABLE [Entity] ADD [OwnedCollection] nvarchar(max) NULL;
+ALTER TABLE `Entity` ADD `OwnedCollection` longchar NULL;
 """,
             //
             """
-ALTER TABLE [Entity] ADD [OwnedReference] nvarchar(max) NULL;
+ALTER TABLE `Entity` ADD `OwnedReference` longchar NULL;
 """);
     }
 
@@ -1218,15 +1154,9 @@ ALTER TABLE [Entity] ADD [OwnedReference] nvarchar(max) NULL;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var0 + '];');
-UPDATE [Entity] SET [Name] = N'{}' WHERE [Name] IS NULL;
-ALTER TABLE [Entity] ALTER COLUMN [Name] nvarchar(max) NOT NULL;
-ALTER TABLE [Entity] ADD DEFAULT N'{}' FOR [Name];
+ALTER TABLE `Entity` ALTER COLUMN `Name` DROP DEFAULT;
+UPDATE `Entity` SET `Name` = '{}' WHERE `Name` IS NULL;
+ALTER TABLE `Entity` ALTER COLUMN `Name` longchar NOT NULL DEFAULT '{}';
 """);
     }
 
@@ -1355,18 +1285,13 @@ DBCC CHECKIDENT(N'[People]', RESEED, 100);
             model =>
             {
                 var nameColumn = Assert.Single(Assert.Single(model.Tables).Columns);
-                Assert.Equal("(N'Doe')", nameColumn.DefaultValueSql);
+                Assert.Equal("Doe", nameColumn.DefaultValue);
             });
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ADD DEFAULT N'Doe' FOR [Name];
+ALTER TABLE `People` ALTER COLUMN `Name` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `Name` varchar(255) NULL DEFAULT 'Doe';
 """);
     }
 
@@ -1381,7 +1306,7 @@ ALTER TABLE [People] ADD DEFAULT N'Doe' FOR [Name];
             model =>
             {
                 var nameColumn = Assert.Single(Assert.Single(model.Tables).Columns);
-                Assert.Equal("(N'Doe')", nameColumn.DefaultValueSql);
+                Assert.Equal("'Doe'", nameColumn.DefaultValueSql);
                 Assert.Equal("Some comment", nameColumn.Comment);
             });
 
@@ -1412,17 +1337,12 @@ ALTER TABLE `People` DROP COLUMN `SomeColumn`;
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [PK_People];
+ALTER TABLE `People` DROP CONSTRAINT `PK_People`;
 """,
             //
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Id');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Id];
+ALTER TABLE `People` ALTER COLUMN `Id` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `Id`;
 """);
     }
 
@@ -1458,23 +1378,13 @@ ALTER TABLE [People] DROP COLUMN [X];
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'OwnedCollection');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [Entity] DROP COLUMN [OwnedCollection];
+ALTER TABLE `Entity` ALTER COLUMN `OwnedCollection` DROP DEFAULT;
+ALTER TABLE `Entity` DROP COLUMN `OwnedCollection`;
 """,
             //
             """
-DECLARE @var1 sysname;
-SELECT @var1 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Entity]') AND [c].[name] = N'OwnedReference');
-IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [Entity] DROP CONSTRAINT [' + @var1 + '];');
-ALTER TABLE [Entity] DROP COLUMN [OwnedReference];
+ALTER TABLE `Entity` ALTER COLUMN `OwnedReference` DROP DEFAULT;
+ALTER TABLE `Entity` DROP COLUMN `OwnedReference`;
 """);
     }
 
@@ -1508,17 +1418,7 @@ ALTER TABLE `Entity` RENAME COLUMN `json_collection` TO `new_json_collection`;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'FirstName');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [FirstName] nvarchar(450) NULL;
-""",
-            //
-            """
-CREATE INDEX [IX_People_FirstName] ON [People] ([FirstName]);
+CREATE INDEX `IX_People_FirstName` ON `People` (`FirstName`);
 """);
     }
 
@@ -1558,7 +1458,7 @@ CREATE UNIQUE INDEX [IX_People_FirstName_LastName] ON [People] ([FirstName], [La
 
         AssertSql(
             """
-CREATE INDEX [IX_People_X] ON [People] ([X] DESC);
+CREATE INDEX `IX_People_X` ON `People` (`X` DESC);
 """);
     }
 
@@ -1568,7 +1468,7 @@ CREATE INDEX [IX_People_X] ON [People] ([X] DESC);
 
         AssertSql(
             """
-CREATE INDEX [IX_People_X_Y_Z] ON [People] ([X], [Y] DESC, [Z]);
+CREATE INDEX `IX_People_X_Y_Z` ON `People` (`X`, `Y` DESC, `Z`);
 """);
     }
 
@@ -1592,11 +1492,11 @@ CREATE UNIQUE INDEX [IX_People_X] ON [People] ([X]);
 
         AssertSql(
             """
-DROP INDEX [IX_People_X_Y_Z] ON [People];
+DROP INDEX `IX_People_X_Y_Z` ON `People`;
 """,
             //
             """
-CREATE INDEX [IX_People_X_Y_Z] ON [People] ([X], [Y] DESC, [Z]);
+CREATE INDEX `IX_People_X_Y_Z` ON `People` (`X`, `Y` DESC, `Z`);
 """);
     }
 
@@ -1720,19 +1620,13 @@ ALTER TABLE `People` ADD CONSTRAINT `PK_People` PRIMARY KEY (`SomeField`);
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'SomeField');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-UPDATE [People] SET [SomeField] = N'' WHERE [SomeField] IS NULL;
-ALTER TABLE [People] ALTER COLUMN [SomeField] nvarchar(450) NOT NULL;
-ALTER TABLE [People] ADD DEFAULT N'' FOR [SomeField];
+ALTER TABLE `People` ALTER COLUMN `SomeField` DROP DEFAULT;
+UPDATE `People` SET `SomeField` = '' WHERE `SomeField` IS NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeField` varchar(255) NOT NULL DEFAULT '';
 """,
             //
             """
-ALTER TABLE [People] ADD CONSTRAINT [PK_Foo] PRIMARY KEY ([SomeField]);
+ALTER TABLE `People` ADD CONSTRAINT `PK_Foo` PRIMARY KEY (`SomeField`);
 """);
     }
 
@@ -2090,16 +1984,16 @@ DROP SEQUENCE [TestSequence];
 
         AssertSql(
             """
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Name') AND [object_id] = OBJECT_ID(N'[Person]'))
-    SET IDENTITY_INSERT [Person] ON;
-INSERT INTO [Person] ([Id], [Name])
-VALUES (1, N'Daenerys Targaryen'),
-(2, N'John Snow'),
-(3, N'Arya Stark'),
-(4, N'Harry Strickland'),
-(5, NULL);
-IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Name') AND [object_id] = OBJECT_ID(N'[Person]'))
-    SET IDENTITY_INSERT [Person] OFF;
+INSERT INTO `Person` (`Id`, `Name`)
+VALUES (1, 'Daenerys Targaryen');
+INSERT INTO `Person` (`Id`, `Name`)
+VALUES (2, 'John Snow');
+INSERT INTO `Person` (`Id`, `Name`)
+VALUES (3, 'Arya Stark');
+INSERT INTO `Person` (`Id`, `Name`)
+VALUES (4, 'Harry Strickland');
+INSERT INTO `Person` (`Id`, `Name`)
+VALUES (5, NULL);
 """);
     }
 

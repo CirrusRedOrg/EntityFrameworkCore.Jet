@@ -26,6 +26,11 @@ public class JetTimeOnlyMethodTranslator : IMethodCallTranslator
         nameof(TimeOnly.AddMinutes), new[] { typeof(double) })!;
     private static readonly MethodInfo IsBetweenMethod = typeof(TimeOnly).GetRuntimeMethod(
         nameof(TimeOnly.IsBetween), new[] { typeof(TimeOnly), typeof(TimeOnly) })!;
+    private static readonly MethodInfo FromDateTime = typeof(TimeOnly).GetRuntimeMethod(
+        nameof(TimeOnly.FromDateTime), [typeof(DateTime)])!;
+
+    private static readonly MethodInfo FromTimeSpan = typeof(TimeOnly).GetRuntimeMethod(
+        nameof(TimeOnly.FromTimeSpan), [typeof(TimeSpan)])!;
 
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
@@ -52,7 +57,19 @@ public class JetTimeOnlyMethodTranslator : IMethodCallTranslator
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        if (method.DeclaringType != typeof(TimeOnly) || instance is null)
+        if (method.DeclaringType != typeof(TimeOnly))
+        {
+            return null;
+        }
+
+        if ((method == FromDateTime || method == FromTimeSpan)
+            && instance is null
+            && arguments.Count == 1)
+        {
+            return _sqlExpressionFactory.Convert(arguments[0], typeof(TimeOnly));
+        }
+
+        if (instance is null)
         {
             return null;
         }

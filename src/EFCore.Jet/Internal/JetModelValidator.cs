@@ -211,19 +211,13 @@ namespace EntityFrameworkCore.Jet.Internal
 
             foreach (var property in mappedTypes.SelectMany(et => et.GetDeclaredProperties()))
             {
-                var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
-                if (declaringTable.Name == null)
+                var columnName = property.GetColumnName(storeObject);
+                if (columnName == null)
                 {
-                    declaringTable = storeObject;
+                    continue;
                 }
-                if (property.GetValueGenerationStrategy(declaringTable) == JetValueGenerationStrategy.IdentityColumn)
+                if (property.GetValueGenerationStrategy(storeObject) == JetValueGenerationStrategy.IdentityColumn)
                 {
-                    var columnName = property.GetColumnName(declaringTable);
-                    if (columnName == null)
-                    {
-                        continue;
-                    }
-
                     identityColumns[columnName] = property;
                 }
             }

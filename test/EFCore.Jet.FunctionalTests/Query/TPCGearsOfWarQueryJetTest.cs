@@ -11821,11 +11821,11 @@ WHERE (IIF(`m`.`Time` >= TIMEVALUE('10:00:00'), TRUE, FALSE) BAND IIF(`m`.`Time`
         await base.Where_TimeOnly_FromDateTime_compared_to_property(async);
 
         AssertSql(
-"""
-SELECT [t].[Id] AS [TagId], [m].[Id] AS [MissionId]
-FROM [Tags] AS [t]
-CROSS JOIN [Missions] AS [m]
-WHERE CAST([t].[IssueDate] AS time) = [m].[Time]
+            """
+SELECT `t`.`Id` AS `TagId`, `m`.`Id` AS `MissionId`
+FROM `Tags` AS `t`,
+`Missions` AS `m`
+WHERE TIMEVALUE(`t`.`IssueDate`) = `m`.`Time`
 """);
     }
 
@@ -11855,10 +11855,10 @@ WHERE [u].[Nickname] IS NOT NULL AND [u].[SquadId] IS NOT NULL AND CAST(DATEADD(
         await base.Where_TimeOnly_FromDateTime_compared_to_constant(async);
 
         AssertSql(
-"""
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
-WHERE CAST(DATEADD(hour, CAST(CAST(CAST(LEN([t].[Note]) AS int) AS float) AS int), [t].[IssueDate]) AS time) > '09:00:00'
+            """
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
+WHERE IIF(DATEADD('h', CDBL(IIF(LEN(`t`.`Note`) IS NULL, NULL, CLNG(LEN(`t`.`Note`)))), `t`.`IssueDate`) IS NULL, NULL, TIMEVALUE(DATEADD('h', CDBL(IIF(LEN(`t`.`Note`) IS NULL, NULL, CLNG(LEN(`t`.`Note`)))), `t`.`IssueDate`))) > TIMEVALUE('09:00:00')
 """);
     }
 
@@ -11867,10 +11867,10 @@ WHERE CAST(DATEADD(hour, CAST(CAST(CAST(LEN([t].[Note]) AS int) AS float) AS int
         await base.Where_TimeOnly_FromTimeSpan_compared_to_property(async);
 
         AssertSql(
-"""
-SELECT [m].[Id], [m].[CodeName], [m].[Date], [m].[Difficulty], [m].[Duration], [m].[Rating], [m].[Time], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE CAST([m].[Duration] AS time) < [m].[Time]
+            """
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE TIMEVALUE(`m`.`Duration`) < `m`.`Time`
 """);
     }
 
@@ -11879,12 +11879,12 @@ WHERE CAST([m].[Duration] AS time) < [m].[Time]
         await base.Where_TimeOnly_FromTimeSpan_compared_to_parameter(async);
 
         AssertSql(
-"""
-@__time_0='01:02' (DbType = Time)
+            """
+@__time_0='01:02:03'
 
-SELECT [m].[Id], [m].[CodeName], [m].[Date], [m].[Difficulty], [m].[Duration], [m].[Rating], [m].[Time], [m].[Timeline]
-FROM [Missions] AS [m]
-WHERE CAST([m].[Duration] AS time) = @__time_0
+SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
+FROM `Missions` AS `m`
+WHERE TIMEVALUE(`m`.`Duration`) = TIMEVALUE(@__time_0)
 """);
     }
 

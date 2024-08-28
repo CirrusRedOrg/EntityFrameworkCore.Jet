@@ -38,6 +38,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             { nameof(Double), "CDBL" },
             { nameof(Decimal), "CDEC" },
             { nameof(DateTime), "CDATE" },
+            { nameof(TimeOnly), "TIMEVALUE" },
         };
 
         private readonly ITypeMappingSource _typeMappingSource;
@@ -510,6 +511,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Sql.Append(")");
                 return sqlParameterExpression;
             }
+            if (sqlParameterExpression.Type == typeof(TimeOnly) && sqlParameterExpression.TypeMapping is JetTimeOnlyTypeMapping)
+            {
+                Sql.Append("TIMEVALUE(");
+                base.VisitSqlParameter(sqlParameterExpression);
+                Sql.Append(")");
+                return sqlParameterExpression;
+            }
+
 
             //GroupBy_param_Select_Sum_Min_Key_Max_Avg
             //Subquery has parameter as a projection with alias
@@ -742,7 +751,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return convertExpression;
         }
 
-        protected override string GetOperator([JetBrains.Annotations.NotNull] SqlBinaryExpression binaryExpression)
+        protected override string GetOperator(SqlBinaryExpression binaryExpression)
             => binaryExpression.OperatorType switch
             {
                 ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",

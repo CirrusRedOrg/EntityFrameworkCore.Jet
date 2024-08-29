@@ -9,17 +9,9 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class WithConstructorsJetTest : WithConstructorsTestBase<WithConstructorsJetTest.WithConstructorsJetFixture>
+    public class WithConstructorsJetTest(WithConstructorsJetTest.WithConstructorsJetFixture fixture)
+        : WithConstructorsTestBase<WithConstructorsJetTest.WithConstructorsJetFixture>(fixture)
     {
-        public WithConstructorsJetTest(WithConstructorsJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
-        [ConditionalFact(Skip = "Issue #16323")]
-        public override void Query_with_keyless_type()
-            => base.Query_with_keyless_type();
-
         protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
             => facade.UseTransaction(transaction.GetDbTransaction());
 

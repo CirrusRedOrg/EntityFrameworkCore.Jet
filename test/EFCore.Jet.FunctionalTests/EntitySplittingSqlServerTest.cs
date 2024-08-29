@@ -12,13 +12,9 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class EntitySplittingSqlServerTest : EntitySplittingTestBase
+public class EntitySplittingSqlServerTest(ITestOutputHelper testOutputHelper)
+    : EntitySplittingTestBase(testOutputHelper)
 {
-    public EntitySplittingSqlServerTest(ITestOutputHelper testOutputHelper)
-        : base(testOutputHelper)
-    {
-    }
-
     public override async Task Can_roundtrip()
     {
         await base.Can_roundtrip();

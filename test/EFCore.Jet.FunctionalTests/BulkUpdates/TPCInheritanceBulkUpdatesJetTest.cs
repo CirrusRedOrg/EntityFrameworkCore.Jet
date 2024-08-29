@@ -9,15 +9,11 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
-public class TPCInheritanceBulkUpdatesJetTest : TPCInheritanceBulkUpdatesTestBase<TPCInheritanceBulkUpdatesJetFixture>
+public class TPCInheritanceBulkUpdatesJetTest(
+    TPCInheritanceBulkUpdatesJetFixture fixture,
+    ITestOutputHelper testOutputHelper)
+    : TPCInheritanceBulkUpdatesTestBase<TPCInheritanceBulkUpdatesJetFixture>(fixture, testOutputHelper)
 {
-    public TPCInheritanceBulkUpdatesJetTest(
-        TPCInheritanceBulkUpdatesJetFixture fixture,
-        ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());

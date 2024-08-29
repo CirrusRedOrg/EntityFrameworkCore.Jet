@@ -15,9 +15,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetObjectToStringTranslator : IMethodCallTranslator
+    public class JetObjectToStringTranslator(SqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         private const int DefaultLength = 100;
 
@@ -42,9 +42,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 { typeof(Guid), "varchar(36)" },
                 { typeof(byte[]), $"varchar({DefaultLength})" }
             };
-
-        public JetObjectToStringTranslator(SqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         public virtual SqlExpression? Translate(
             SqlExpression? instance,

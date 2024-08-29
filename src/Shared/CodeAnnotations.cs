@@ -35,26 +35,21 @@ namespace JetBrains.Annotations
     }
 
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-    internal sealed class ContractAnnotationAttribute : Attribute
+    internal sealed class ContractAnnotationAttribute([NotNull] string contract, bool forceFullStates) : Attribute
     {
-        public string Contract { get; }
+        public string Contract { get; } = contract;
 
-        public bool ForceFullStates { get; }
+        public bool ForceFullStates { get; } = forceFullStates;
 
         public ContractAnnotationAttribute([NotNull] string contract)
             : this(contract, false)
         {
         }
-
-        public ContractAnnotationAttribute([NotNull] string contract, bool forceFullStates)
-        {
-            Contract = contract;
-            ForceFullStates = forceFullStates;
-        }
     }
 
     [AttributeUsage(AttributeTargets.All)]
-    internal sealed class UsedImplicitlyAttribute : Attribute
+    internal sealed class UsedImplicitlyAttribute(ImplicitUseKindFlags useKindFlags, ImplicitUseTargetFlags targetFlags)
+        : Attribute
     {
         public UsedImplicitlyAttribute()
             : this(ImplicitUseKindFlags.Default, ImplicitUseTargetFlags.Default)
@@ -71,25 +66,15 @@ namespace JetBrains.Annotations
         {
         }
 
-        public UsedImplicitlyAttribute(
-            ImplicitUseKindFlags useKindFlags, ImplicitUseTargetFlags targetFlags)
-        {
-            UseKindFlags = useKindFlags;
-            TargetFlags = targetFlags;
-        }
-
-        public ImplicitUseKindFlags UseKindFlags { get; }
-        public ImplicitUseTargetFlags TargetFlags { get; }
+        public ImplicitUseKindFlags UseKindFlags { get; } = useKindFlags;
+        public ImplicitUseTargetFlags TargetFlags { get; } = targetFlags;
     }
 
     [AttributeUsage(AttributeTargets.Constructor | AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Delegate)]
-    internal sealed class StringFormatMethodAttribute : Attribute
+    internal sealed class StringFormatMethodAttribute([NotNull] string formatParameterName) : Attribute
     {
-        public StringFormatMethodAttribute([NotNull] string formatParameterName)
-            => FormatParameterName = formatParameterName;
-
         [NotNull]
-        public string FormatParameterName { get; }
+        public string FormatParameterName { get; } = formatParameterName;
     }
 
     [Flags]

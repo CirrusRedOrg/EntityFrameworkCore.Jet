@@ -12,32 +12,22 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
-    public class TestRelationalCommandBuilderFactory : IRelationalCommandBuilderFactory
+    public class TestRelationalCommandBuilderFactory(RelationalCommandBuilderDependencies dependencies)
+        : IRelationalCommandBuilderFactory
     {
-        public TestRelationalCommandBuilderFactory(
-            RelationalCommandBuilderDependencies dependencies)
-        {
-            Dependencies = dependencies;
-        }
-
-        public RelationalCommandBuilderDependencies Dependencies { get; }
+        public RelationalCommandBuilderDependencies Dependencies { get; } = dependencies;
 
         public virtual IRelationalCommandBuilder Create()
             => new TestRelationalCommandBuilder(Dependencies);
 
-        private class TestRelationalCommandBuilder : IRelationalCommandBuilder
+        private class TestRelationalCommandBuilder(RelationalCommandBuilderDependencies dependencies)
+            : IRelationalCommandBuilder
         {
             private readonly List<IRelationalParameter> _parameters = new List<IRelationalParameter>();
 
-            public TestRelationalCommandBuilder(
-                RelationalCommandBuilderDependencies dependencies)
-            {
-                Dependencies = dependencies;
-            }
-
             public IndentedStringBuilder Instance { get; } = new IndentedStringBuilder();
 
-            public RelationalCommandBuilderDependencies Dependencies { get; }
+            public RelationalCommandBuilderDependencies Dependencies { get; } = dependencies;
 
             public IReadOnlyList<IRelationalParameter> Parameters => _parameters;
 

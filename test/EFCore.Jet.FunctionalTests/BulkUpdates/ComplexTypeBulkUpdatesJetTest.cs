@@ -12,14 +12,12 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
-public class ComplexTypeBulkUpdatesJetTest : ComplexTypeBulkUpdatesRelationalTestBase<
-    ComplexTypeBulkUpdatesJetTest.ComplexTypeBulkUpdatesJetFixture>
+public class ComplexTypeBulkUpdatesJetTest(
+    ComplexTypeBulkUpdatesJetTest.ComplexTypeBulkUpdatesJetFixture fixture,
+    ITestOutputHelper testOutputHelper)
+    : ComplexTypeBulkUpdatesRelationalTestBase<
+        ComplexTypeBulkUpdatesJetTest.ComplexTypeBulkUpdatesJetFixture>(fixture, testOutputHelper)
 {
-    public ComplexTypeBulkUpdatesJetTest(ComplexTypeBulkUpdatesJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     public override async Task Delete_entity_type_with_complex_type(bool async)
     {
         await base.Delete_entity_type_with_complex_type(async);

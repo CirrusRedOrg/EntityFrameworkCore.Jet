@@ -3,11 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model08
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-        public Context(DbContextOptions options) : base (options)
-        { }
-
         public DbSet<File> Files { get; set; }
         public DbSet<GalleryImage> GalleryImages { get; set; }
         public DbSet<PageImage> PageImages { get; set; }

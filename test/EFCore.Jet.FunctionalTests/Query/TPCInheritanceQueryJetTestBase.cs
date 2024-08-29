@@ -9,14 +9,10 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public abstract class TPCInheritanceQueryJetTestBase<TFixture> : TPCInheritanceQueryTestBase<TFixture>
+public abstract class TPCInheritanceQueryJetTestBase<TFixture>(TFixture fixture, ITestOutputHelper testOutputHelper)
+    : TPCInheritanceQueryTestBase<TFixture>(fixture, testOutputHelper)
     where TFixture : TPCInheritanceQueryJetFixtureBase, new()
 {
-    protected TPCInheritanceQueryJetTestBase(TFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType().BaseType!);

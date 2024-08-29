@@ -7,14 +7,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
 {
-    public class GearsOfWarContext : DbContext
+    public class GearsOfWarContext(DbContextOptions<GearsOfWarContext> options) : DbContext(options)
     {
         public static readonly string StoreName = "GearsOfWar";
-
-        public GearsOfWarContext(DbContextOptions<GearsOfWarContext> options)
-            : base(options)
-        {
-        }
 
         public DbSet<Gear> Gears { get; set; }
         public DbSet<Squad> Squads { get; set; }

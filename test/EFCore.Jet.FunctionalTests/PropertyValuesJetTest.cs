@@ -6,13 +6,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class PropertyValuesJetTest : PropertyValuesTestBase<PropertyValuesJetTest.PropertyValuesJetFixture>
+    public class PropertyValuesJetTest(PropertyValuesJetTest.PropertyValuesJetFixture fixture)
+        : PropertyValuesTestBase<PropertyValuesJetTest.PropertyValuesJetFixture>(fixture)
     {
-        public PropertyValuesJetTest(PropertyValuesJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class PropertyValuesJetFixture : PropertyValuesFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;

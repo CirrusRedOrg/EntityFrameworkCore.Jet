@@ -9,13 +9,8 @@ using Microsoft.EntityFrameworkCore.TestModels.TransportationModel;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class TableSplittingJetTest : TableSplittingTestBase
+    public class TableSplittingJetTest(ITestOutputHelper testOutputHelper) : TableSplittingTestBase(testOutputHelper)
     {
-        public TableSplittingJetTest(ITestOutputHelper testOutputHelper)
-            : base(testOutputHelper)
-        {
-        }
-
         protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 
         public override async Task Can_use_with_redundant_relationships()

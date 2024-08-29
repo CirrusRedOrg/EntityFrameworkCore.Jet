@@ -9,15 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class ManyToManyTrackingProxyGeneratedKeysJetTest
+public class ManyToManyTrackingProxyGeneratedKeysJetTest(
+    ManyToManyTrackingProxyGeneratedKeysJetTest.ManyToManyTrackingProxyGeneratedKeysJetFixture fixture)
     : ManyToManyTrackingJetTestBase<
-        ManyToManyTrackingProxyGeneratedKeysJetTest.ManyToManyTrackingProxyGeneratedKeysJetFixture>
+        ManyToManyTrackingProxyGeneratedKeysJetTest.ManyToManyTrackingProxyGeneratedKeysJetFixture>(fixture)
 {
-    public ManyToManyTrackingProxyGeneratedKeysJetTest(ManyToManyTrackingProxyGeneratedKeysJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     public override Task Can_insert_many_to_many_shared_with_payload(bool async)
         // Mutable properties aren't proxyable on Dictionary
         => Task.CompletedTask;

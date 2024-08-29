@@ -3,19 +3,12 @@ using System.Data.Common;
 
 namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 {
-    class ConnectionSet : IDisposable
+    class ConnectionSet(string connectionString) : IDisposable
     {
-        public ConnectionSet(string connectionString)
-        {
-            ConnectionString = connectionString;
-            _connections = new DbConnection[10];
-            ConnectionCount = 0;
-        }
+        public string ConnectionString { get; } = connectionString;
 
-        public string ConnectionString { get; }
-
-        private DbConnection[] _connections;
-        public int ConnectionCount { get; private set; }
+        private DbConnection[] _connections = new DbConnection[10];
+        public int ConnectionCount { get; private set; } = 0;
 
         public void AddConnection(DbConnection connection)
         {

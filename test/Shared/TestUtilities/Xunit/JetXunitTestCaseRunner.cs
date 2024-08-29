@@ -9,7 +9,23 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
-public class JetXunitTestCaseRunner : XunitTestCaseRunner
+public class JetXunitTestCaseRunner(
+    IXunitTestCase testCase,
+    string displayName,
+    string skipReason,
+    object[] constructorArguments,
+    object[] testMethodArguments,
+    IMessageBus messageBus,
+    ExceptionAggregator aggregator,
+    CancellationTokenSource cancellationTokenSource)
+    : XunitTestCaseRunner(testCase,
+        displayName,
+        skipReason,
+        constructorArguments,
+        testMethodArguments,
+        messageBus,
+        aggregator,
+        cancellationTokenSource)
 {
     public const string TestRunnerCrashCacheDirectory = "TestRunnerCrashCache";
     public const string AutoSkipPrefix = "[AutoSkip]";
@@ -17,26 +33,6 @@ public class JetXunitTestCaseRunner : XunitTestCaseRunner
 
     public virtual bool EnableAutoSkipTestsKnownToCrashTestRunner
         => (Environment.GetEnvironmentVariable(AutoSkipTestRunnerCrashingTestsEnvironmentVariableName)?.ToLowerInvariant() ?? "true") != "false";
-
-    public JetXunitTestCaseRunner(IXunitTestCase testCase,
-        string displayName,
-        string skipReason,
-        object[] constructorArguments,
-        object[] testMethodArguments,
-        IMessageBus messageBus,
-        ExceptionAggregator aggregator,
-        CancellationTokenSource cancellationTokenSource)
-        : base(
-            testCase,
-            displayName,
-            skipReason,
-            constructorArguments,
-            testMethodArguments,
-            messageBus,
-            aggregator,
-            cancellationTokenSource)
-    {
-    }
 
     protected override XunitTestRunner CreateTestRunner(ITest test,
         IMessageBus messageBus,

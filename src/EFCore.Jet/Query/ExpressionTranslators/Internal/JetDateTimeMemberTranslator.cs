@@ -16,7 +16,10 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetDateTimeMemberTranslator : IMemberTranslator
+    public class JetDateTimeMemberTranslator(
+        ISqlExpressionFactory sqlExpressionFactory,
+        IRelationalTypeMappingSource typeMappingSource)
+        : IMemberTranslator
     {
         private static readonly Dictionary<string, string> DatePartMapping
             = new()
@@ -32,16 +35,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 //{ nameof(DateTime.Millisecond), "millisecond" }
             };
 
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
-        private readonly IRelationalTypeMappingSource _typeMappingSource;
-
-        public JetDateTimeMemberTranslator(
-            ISqlExpressionFactory sqlExpressionFactory,
-            IRelationalTypeMappingSource typeMappingSource)
-        {
-            _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
-            _typeMappingSource = typeMappingSource;
-        }
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+        private readonly IRelationalTypeMappingSource _typeMappingSource = typeMappingSource;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

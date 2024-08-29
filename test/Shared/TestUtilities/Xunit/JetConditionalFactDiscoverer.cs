@@ -4,13 +4,8 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
-public class JetConditionalFactDiscoverer : ConditionalFactDiscoverer
+public class JetConditionalFactDiscoverer(IMessageSink messageSink) : ConditionalFactDiscoverer(messageSink)
 {
-    public JetConditionalFactDiscoverer(IMessageSink messageSink)
-        : base(messageSink)
-    {
-    }
-
     protected override IXunitTestCase CreateTestCase(
         ITestFrameworkDiscoveryOptions discoveryOptions,
         ITestMethod testMethod,

@@ -3,13 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model72_TableSplitting
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-
-        public Context(DbContextOptions options) : base (options)
-        {
-        }
-
         public DbSet<Product> M1s { get; set; }
         public DbSet<ProductDetails> M2s { get; set; }
 

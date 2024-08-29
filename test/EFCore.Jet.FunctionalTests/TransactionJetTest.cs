@@ -10,13 +10,9 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class TransactionJetTest : TransactionTestBase<TransactionJetTest.TransactionJetFixture>
+    public class TransactionJetTest(TransactionJetTest.TransactionJetFixture fixture)
+        : TransactionTestBase<TransactionJetTest.TransactionJetFixture>(fixture)
     {
-        public TransactionJetTest(TransactionJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         protected override bool SnapshotSupported => false;
         protected override bool AmbientTransactionsSupported => false;
         protected override bool DirtyReadsOccur => false;

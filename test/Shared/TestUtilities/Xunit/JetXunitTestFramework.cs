@@ -5,17 +5,13 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
-public class JetXunitTestFramework : XunitTestFramework
+public class JetXunitTestFramework(IMessageSink messageSink) : XunitTestFramework(messageSink)
 {
     public const string TestsKnownToCrashTestRunnerFilePath = "./../../../TestsKnownToCrashTestRunner.txt";
     public const string DetectCrashesOfPreviousRunsEnvironmentVariableName = "EFCoreJet_DetectCrashesOfPreviousRuns";
 
     public virtual bool EnableDetectCrashesOfPreviousRuns
         => Environment.GetEnvironmentVariable(DetectCrashesOfPreviousRunsEnvironmentVariableName)?.ToLowerInvariant() == "true";
-
-    public JetXunitTestFramework(IMessageSink messageSink) : base(messageSink)
-    {
-    }
 
     protected override ITestFrameworkDiscoverer CreateDiscoverer(IAssemblyInfo assemblyInfo)
     {

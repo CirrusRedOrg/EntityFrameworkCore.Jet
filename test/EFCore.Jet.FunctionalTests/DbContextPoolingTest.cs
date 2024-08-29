@@ -137,13 +137,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
     {
     }
 
-    private class DefaultOptionsPooledContext : DbContext
-    {
-        public DefaultOptionsPooledContext(DbContextOptions options)
-            : base(options)
-        {
-        }
-    }
+    private class DefaultOptionsPooledContext(DbContextOptions options) : DbContext(options);
 
     private class PooledContext : DbContext, IPooledContext
     {
@@ -200,13 +194,8 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         }
     }
 
-    private class PooledContextWithOverrides : DbContext, IPooledContext
+    private class PooledContextWithOverrides(DbContextOptions options) : DbContext(options), IPooledContext
     {
-        public PooledContextWithOverrides(DbContextOptions options)
-            : base(options)
-        {
-        }
-
         public DbSet<Customer> Customers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -236,14 +225,9 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
     {
     }
 
-    private class SecondContext : DbContext, ISecondContext
+    private class SecondContext(DbContextOptions options) : DbContext(options), ISecondContext
     {
         public DbSet<Blog> Blogs { get; set; }
-
-        public SecondContext(DbContextOptions options)
-            : base(options)
-        {
-        }
 
         public class Blog
         {
@@ -479,15 +463,9 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetService<TwoParameterConstructorContext>());
     }
 
-    private class TwoParameterConstructorContext : DbContext
+    private class TwoParameterConstructorContext(DbContextOptions options, string x) : DbContext(options)
     {
-        public string StringParameter { get; }
-
-        public TwoParameterConstructorContext(DbContextOptions options, string x)
-            : base(options)
-        {
-            StringParameter = x;
-        }
+        public string StringParameter { get; } = x;
     }
 
     [ConditionalFact]
@@ -502,13 +480,8 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetService<WrongParameterConstructorContext>());
     }
 
-    private class WrongParameterConstructorContext : DbContext
-    {
-        public WrongParameterConstructorContext(string x)
-            : base(new DbContextOptions<WrongParameterConstructorContext>())
-        {
-        }
-    }
+    private class WrongParameterConstructorContext(string x)
+        : DbContext(new DbContextOptions<WrongParameterConstructorContext>());
 
     [ConditionalFact]
     public void Throws_when_pooled_context_constructor_has_scoped_service()

@@ -7,29 +7,19 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model74_ComplexTypeContained_
     [Table("Friend74")]
     public class Friend
     {
-        public Friend()
-        {
-            Address = new FullAddress();
-        }
-
         public int Id { get; set; }
         public string Name { get; set; }
 
-        public FullAddress Address { get; set; }
+        public FullAddress Address { get; set; } = new();
     }
 
     [Table("LessThanFriend74")]
     public class LessThanFriend
     {
-        public LessThanFriend()
-        {
-            Address = new CityAddress();
-        }
-
         public int Id { get; set; }
         public string Name { get; set; }
 
-        public CityAddress Address { get; set; }
+        public CityAddress Address { get; set; } = new();
     }
 
 
@@ -42,14 +32,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model74_ComplexTypeContained_
 
     public class FullAddress
     {
-        public FullAddress()
-        {
-            CityAddress1 = new CityAddress();
-            CityAddress2 = new CityAddress();
-        }
-
         public string Street { get; set; }
-        public CityAddress CityAddress1 { get; set; }
-        public CityAddress CityAddress2 { get; set; }
+        public CityAddress CityAddress1 { get; set; } = new();
+        public CityAddress CityAddress2 { get; set; } = new();
     }
 }

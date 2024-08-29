@@ -3,12 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model18_CompositeKeys
 {
-    public class TestContext : DbContext
+    public class TestContext(DbContextOptions options) : DbContext(options)
     {
-        public TestContext(DbContextOptions options)
-            : base(options)
-        {}
-
         public DbSet<Product> Products { get; set; }
         public DbSet<GoodsIssueProcess> Processes { get; set; }
 

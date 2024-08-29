@@ -20,13 +20,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         protected override TestStore TestStore => JetTestStore.Create("SeedingTest");
 
-        protected class SeedingJetContext : SeedingContext
+        protected class SeedingJetContext(string testId) : SeedingContext(testId)
         {
-            public SeedingJetContext(string testId)
-                : base(testId)
-            {
-            }
-
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder.UseJet(JetTestStore.CreateConnectionString($"Seeds{TestId}"), TestEnvironment.DataAccessProviderFactory);
         }

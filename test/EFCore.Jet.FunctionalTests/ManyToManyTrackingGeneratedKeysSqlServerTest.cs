@@ -6,14 +6,11 @@ using Microsoft.EntityFrameworkCore.TestModels.ManyToManyModel;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class ManyToManyTrackingGeneratedKeysJetTest
-    : ManyToManyTrackingJetTestBase<ManyToManyTrackingGeneratedKeysJetTest.ManyToManyTrackingGeneratedKeysJetFixture>
+public class ManyToManyTrackingGeneratedKeysJetTest(
+    ManyToManyTrackingGeneratedKeysJetTest.ManyToManyTrackingGeneratedKeysJetFixture fixture)
+    : ManyToManyTrackingJetTestBase<ManyToManyTrackingGeneratedKeysJetTest.ManyToManyTrackingGeneratedKeysJetFixture>(
+        fixture)
 {
-    public ManyToManyTrackingGeneratedKeysJetTest(ManyToManyTrackingGeneratedKeysJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     public class ManyToManyTrackingGeneratedKeysJetFixture : ManyToManyTrackingJetFixtureBase
     {
         protected override string StoreName

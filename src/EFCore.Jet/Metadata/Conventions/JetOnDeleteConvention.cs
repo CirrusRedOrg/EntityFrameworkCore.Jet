@@ -12,22 +12,17 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions;
 ///     A convention that configures the OnDelete behavior for foreign keys on the join entity type for
 ///     self-referencing skip navigations
 /// </summary>
-public class JetOnDeleteConvention : CascadeDeleteConvention,
-    ISkipNavigationForeignKeyChangedConvention,
-    IEntityTypeAnnotationChangedConvention
+public class JetOnDeleteConvention(
+    ProviderConventionSetBuilderDependencies dependencies,
+    RelationalConventionSetBuilderDependencies relationalDependencies)
+    : CascadeDeleteConvention(dependencies),
+        ISkipNavigationForeignKeyChangedConvention,
+        IEntityTypeAnnotationChangedConvention
 {
-    public JetOnDeleteConvention(
-        ProviderConventionSetBuilderDependencies dependencies,
-        RelationalConventionSetBuilderDependencies relationalDependencies)
-        : base(dependencies)
-    {
-        RelationalDependencies = relationalDependencies;
-    }
-
     /// <summary>
     ///     Relational provider-specific dependencies for this service.
     /// </summary>
-    protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; }
+    protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; } = relationalDependencies;
 
     /// <inheritdoc />
     public virtual void ProcessSkipNavigationForeignKeyChanged(

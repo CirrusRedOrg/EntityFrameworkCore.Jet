@@ -64,23 +64,6 @@ WHERE `m`.`TimeSpanAsTime` = TIMEVALUE('00:01:02')");
             }
         }
 
-        [ConditionalFact(Skip = "Issue#13487")]
-        public void Translate_array_length()
-        {
-            using (var db = CreateContext())
-            {
-                db.Set<MappedDataTypesWithIdentity>()
-                    .Where(p => p.BytesAsImage.Length == 0)
-                    .Select(p => p.BytesAsImage.Length)
-                    .FirstOrDefault();
-
-                AssertSql(
-                    $@"SELECT TOP 1 CAST(DATALENGTH(`p`.`BytesAsImage`) AS int)
-FROM `MappedDataTypesWithIdentity` AS `p`
-WHERE CAST(DATALENGTH(`p`.`BytesAsImage`) AS int) = 0");
-            }
-        }
-
         [ConditionalFact]
         public void Sql_translation_uses_type_mapper_when_parameter()
         {

@@ -17,14 +17,10 @@ using System.Threading.Tasks;
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class EverythingIsStringsJetTest : BuiltInDataTypesTestBase<
-        EverythingIsStringsJetTest.EverythingIsStringsJetFixture>
+    public class EverythingIsStringsJetTest(EverythingIsStringsJetTest.EverythingIsStringsJetFixture fixture)
+        : BuiltInDataTypesTestBase<
+            EverythingIsStringsJetTest.EverythingIsStringsJetFixture>(fixture)
     {
-        public EverythingIsStringsJetTest(EverythingIsStringsJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         [ConditionalFact]
         public virtual void Columns_have_expected_data_types()
         {

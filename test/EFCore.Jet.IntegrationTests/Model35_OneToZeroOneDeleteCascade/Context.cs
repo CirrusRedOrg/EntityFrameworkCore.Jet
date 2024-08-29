@@ -5,12 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model35_OneToZeroOneDeleteCascade
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-        public Context(DbContextOptions options) : base(options)
-        {
-        }
-
         public DbSet<Principal> Principals { get; set; }
         public DbSet<Dependent> Dependents { get; set; }
 

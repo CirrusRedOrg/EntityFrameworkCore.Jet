@@ -13,13 +13,9 @@ using Xunit.Abstractions;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class TPHInheritanceQueryJetTest : TPHInheritanceQueryTestBase<TPHInheritanceQueryJetFixture>
+public class TPHInheritanceQueryJetTest(TPHInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+    : TPHInheritanceQueryTestBase<TPHInheritanceQueryJetFixture>(fixture, testOutputHelper)
 {
-    public TPHInheritanceQueryJetTest(TPHInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());

@@ -3,11 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model04
 {
-    public class CarsContext : DbContext
+    public class CarsContext(DbContextOptions options) : DbContext(options)
     {
-        public CarsContext(DbContextOptions options) : base (options)
-        {}
-
         public DbSet<Car> Cars { get; set; }
         public DbSet<Person> Persons { get; set; }
     }

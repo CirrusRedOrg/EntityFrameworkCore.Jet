@@ -9,14 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class ManyToManyTrackingProxyJetTest
-    : ManyToManyTrackingJetTestBase<ManyToManyTrackingProxyJetTest.ManyToManyTrackingProxyJetFixture>
+public class ManyToManyTrackingProxyJetTest(ManyToManyTrackingProxyJetTest.ManyToManyTrackingProxyJetFixture fixture)
+    : ManyToManyTrackingJetTestBase<ManyToManyTrackingProxyJetTest.ManyToManyTrackingProxyJetFixture>(fixture)
 {
-    public ManyToManyTrackingProxyJetTest(ManyToManyTrackingProxyJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     protected override Dictionary<string, DeleteBehavior> CustomDeleteBehaviors { get; } = new()
     {
         { "EntityBranch.RootSkipShared", DeleteBehavior.ClientCascade },

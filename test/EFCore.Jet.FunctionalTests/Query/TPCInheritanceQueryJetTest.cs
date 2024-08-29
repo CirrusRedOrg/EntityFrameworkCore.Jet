@@ -8,10 +8,5 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class TPCInheritanceQueryJetTest : TPCInheritanceQueryJetTestBase<TPCInheritanceQueryJetFixture>
-{
-    public TPCInheritanceQueryJetTest(TPCInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-}
+public class TPCInheritanceQueryJetTest(TPCInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+    : TPCInheritanceQueryJetTestBase<TPCInheritanceQueryJetFixture>(fixture, testOutputHelper);

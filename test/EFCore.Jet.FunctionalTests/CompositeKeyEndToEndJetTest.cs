@@ -6,14 +6,10 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class CompositeKeyEndToEndJetTest : CompositeKeyEndToEndTestBase<
-        CompositeKeyEndToEndJetTest.CompositeKeyEndToEndJetFixture>
+    public class CompositeKeyEndToEndJetTest(CompositeKeyEndToEndJetTest.CompositeKeyEndToEndJetFixture fixture)
+        : CompositeKeyEndToEndTestBase<
+            CompositeKeyEndToEndJetTest.CompositeKeyEndToEndJetFixture>(fixture)
     {
-        public CompositeKeyEndToEndJetTest(CompositeKeyEndToEndJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class CompositeKeyEndToEndJetFixture : CompositeKeyEndToEndFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;

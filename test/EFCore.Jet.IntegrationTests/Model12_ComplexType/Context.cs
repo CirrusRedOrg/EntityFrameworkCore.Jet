@@ -4,10 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model12_ComplexType
 {
-    public class TestContext : DbContext
+    public class TestContext(DbContextOptions options) : DbContext(options)
     {
-        public TestContext(DbContextOptions options) : base(options) { }
-
         public DbSet<Friend> Friends { get; set; }
         public DbSet<LessThanFriend> LessThanFriends { get; set; }
 

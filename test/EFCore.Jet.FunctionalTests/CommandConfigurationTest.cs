@@ -54,13 +54,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return matchQuery.Count();
         }
 
-        private class ChipsContext : PoolableDbContext
+        private class ChipsContext(DbContextOptions options) : PoolableDbContext(options)
         {
-            public ChipsContext(DbContextOptions options)
-                : base(options)
-            {
-            }
-
             public DbSet<KettleChips> Chips { get; set; }
         }
 

@@ -3,11 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model05_WithIndex
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-        public Context(DbContextOptions options) : base (options)
-        {}
-
         public DbSet<Foo> Foos { get; set; }
         public DbSet<Bar> Bars { get; set; }
 

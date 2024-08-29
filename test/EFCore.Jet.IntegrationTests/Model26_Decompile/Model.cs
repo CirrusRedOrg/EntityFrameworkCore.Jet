@@ -45,12 +45,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model26_Decompile
         public virtual ParentEntity Parent { get; set; }
     }
 
-    public class ParentChildModel : DbContext
+    public class ParentChildModel(DbContextOptions options) : DbContext(options)
     {
-        public ParentChildModel(DbContextOptions options) : base(options)
-        {
-        }
-
         public virtual DbSet<ParentEntity> Parents { get; set; }
         public virtual DbSet<ChildEntity> Children { get; set; }
     }

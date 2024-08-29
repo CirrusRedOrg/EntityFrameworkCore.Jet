@@ -2,10 +2,8 @@
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model74_ComplexTypeContained_Github9536
 {
-    public class TestContext : DbContext
+    public class TestContext(DbContextOptions options) : DbContext(options)
     {
-        public TestContext(DbContextOptions options) : base(options) { }
-
         public DbSet<Friend> Friends { get; set; }
         public DbSet<LessThanFriend> LessThanFriends { get; set; }
 

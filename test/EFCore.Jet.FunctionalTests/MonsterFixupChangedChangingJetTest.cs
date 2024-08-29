@@ -6,14 +6,11 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class MonsterFixupChangedChangingJetTest :
-        MonsterFixupTestBase<MonsterFixupChangedChangingJetTest.MonsterFixupChangedChangingJetFixture>
+    public class MonsterFixupChangedChangingJetTest(
+        MonsterFixupChangedChangingJetTest.MonsterFixupChangedChangingJetFixture fixture)
+        :
+            MonsterFixupTestBase<MonsterFixupChangedChangingJetTest.MonsterFixupChangedChangingJetFixture>(fixture)
     {
-        public MonsterFixupChangedChangingJetTest(MonsterFixupChangedChangingJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class MonsterFixupChangedChangingJetFixture : MonsterFixupChangedChangingFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;

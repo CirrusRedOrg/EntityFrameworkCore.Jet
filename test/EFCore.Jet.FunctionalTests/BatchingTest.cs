@@ -21,14 +21,10 @@ using Microsoft.Extensions.Options;
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class BatchingTest : IClassFixture<BatchingTest.BatchingTestFixture>
+    public class BatchingTest(BatchingTest.BatchingTestFixture fixture)
+        : IClassFixture<BatchingTest.BatchingTestFixture>
     {
-        public BatchingTest(BatchingTestFixture fixture)
-        {
-            Fixture = fixture;
-        }
-
-        protected BatchingTestFixture Fixture { get; }
+        protected BatchingTestFixture Fixture { get; } = fixture;
 
         [ConditionalTheory]
         [InlineData(true, true, true)]
@@ -376,13 +372,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         protected void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
             => facade.UseTransaction(transaction.GetDbTransaction());
 
-        private class BloggingContext : PoolableDbContext
+        private class BloggingContext(DbContextOptions options) : PoolableDbContext(options)
         {
-            public BloggingContext(DbContextOptions options)
-                : base(options)
-            {
-            }
-
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
                 modelBuilder.Entity<Owner>(

@@ -28,14 +28,9 @@ namespace EntityFrameworkCore.Jet.Update.Internal
     ///         This service cannot depend on services registered as <see cref="ServiceLifetime.Scoped" />.
     ///     </para>
     /// </summary>
-    public class JetUpdateSqlGenerator : UpdateAndSelectSqlGenerator, IJetUpdateSqlGenerator
+    public class JetUpdateSqlGenerator([NotNull] UpdateSqlGeneratorDependencies dependencies)
+        : UpdateAndSelectSqlGenerator(dependencies), IJetUpdateSqlGenerator
     {
-        public JetUpdateSqlGenerator(
-            [NotNull] UpdateSqlGeneratorDependencies dependencies)
-            : base(dependencies)
-        {
-        }
-
         public override ResultSetMapping AppendInsertOperation(StringBuilder commandStringBuilder, IReadOnlyModificationCommand command,
             int commandPosition, out bool requiresTransaction)
         {

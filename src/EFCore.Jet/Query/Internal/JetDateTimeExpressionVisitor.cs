@@ -7,18 +7,12 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
 {
-    public class JetDateTimeExpressionVisitor : ExpressionVisitor
+    public class JetDateTimeExpressionVisitor(
+        ISqlExpressionFactory sqlExpressionFactory,
+        IRelationalTypeMappingSource relationalTypeMappingSource)
+        : ExpressionVisitor
     {
-        private readonly ISqlExpressionFactory _sqlExpressionFactory;
-        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
-        
-        public JetDateTimeExpressionVisitor(
-            ISqlExpressionFactory sqlExpressionFactory,
-            IRelationalTypeMappingSource relationalTypeMappingSource)
-        {
-            _sqlExpressionFactory = sqlExpressionFactory;
-            _relationalTypeMappingSource = relationalTypeMappingSource;
-        }
+        private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;
 
         protected override Expression VisitExtension(Expression extensionExpression)
             => extensionExpression switch
@@ -45,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                                 ExpressionType.Convert,
                                 projection.Expression,
                                 typeof(double),
-                                _relationalTypeMappingSource.FindMapping(projection.Expression.TypeMapping.ClrType)))
+                                relationalTypeMappingSource.FindMapping(projection.Expression.TypeMapping.ClrType)))
                         : projection)
                 .ToList();
 

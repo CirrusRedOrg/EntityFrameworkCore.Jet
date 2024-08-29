@@ -16,9 +16,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetMathTranslator : IMethodCallTranslator
+    public class JetMathTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         private static readonly Dictionary<MethodInfo, string> _supportedMethodTranslationsDirect = new Dictionary<MethodInfo, string>
         {
@@ -95,9 +95,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             typeof(MathF).GetRuntimeMethod(nameof(MathF.Round), new[] { typeof(float) })!,
             typeof(MathF).GetRuntimeMethod(nameof(MathF.Round), new[] { typeof(float), typeof(int) })!
         };
-
-        public JetMathTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {

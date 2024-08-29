@@ -10,14 +10,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-    public sealed class JetConditionAttribute : Attribute, ITestCondition
+    public sealed class JetConditionAttribute(JetCondition conditions) : Attribute, ITestCondition
     {
-        public JetCondition Conditions { get; set; }
-
-        public JetConditionAttribute(JetCondition conditions)
-        {
-            Conditions = conditions;
-        }
+        public JetCondition Conditions { get; set; } = conditions;
 
         public ValueTask<bool> IsMetAsync()
         {

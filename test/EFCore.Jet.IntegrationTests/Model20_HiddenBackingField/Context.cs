@@ -2,11 +2,8 @@
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model20_HiddenBackingField
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-        public Context(DbContextOptions options) : base (options)
-        { }
-
         public DbSet<Company> Companies { get; set; }
         public DbSet<Employee> Employees { get; set; }
 

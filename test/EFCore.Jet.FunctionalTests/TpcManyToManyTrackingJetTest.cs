@@ -7,14 +7,9 @@ using Microsoft.EntityFrameworkCore.TestModels.ManyToManyModel;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class TpcManyToManyTrackingJetTest
-    : ManyToManyTrackingJetTestBase<TpcManyToManyTrackingJetTest.TpcManyToManyTrackingJetFixture>
+public class TpcManyToManyTrackingJetTest(TpcManyToManyTrackingJetTest.TpcManyToManyTrackingJetFixture fixture)
+    : ManyToManyTrackingJetTestBase<TpcManyToManyTrackingJetTest.TpcManyToManyTrackingJetFixture>(fixture)
 {
-    public TpcManyToManyTrackingJetTest(TpcManyToManyTrackingJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     public class TpcManyToManyTrackingJetFixture : ManyToManyTrackingJetFixtureBase
     {
         protected override string StoreName

@@ -16,33 +16,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             fixture.TestSqlLoggerFactory.Clear();
         }
 
-        public class FindJetTestSet : FindJetTest
+        public class FindJetTestSet(FindJetFixture fixture) : FindJetTest(fixture)
         {
-            public FindJetTestSet(FindJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             protected override TestFinder Finder { get; } = new FindViaSetFinder();
         }
 
-        public class FindJetTestContext : FindJetTest
+        public class FindJetTestContext(FindJetFixture fixture) : FindJetTest(fixture)
         {
-            public FindJetTestContext(FindJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             protected override TestFinder Finder { get; } = new FindViaContextFinder();
         }
 
-        public class FindJetTestNonGeneric : FindJetTest
+        public class FindJetTestNonGeneric(FindJetFixture fixture) : FindJetTest(fixture)
         {
-            public FindJetTestNonGeneric(FindJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             protected override TestFinder Finder { get; } = new FindViaNonGenericContextFinder();
         }
 

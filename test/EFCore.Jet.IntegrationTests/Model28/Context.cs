@@ -3,13 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model28
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-
-        public Context(DbContextOptions options) : base (options)
-        {
-        }
-
         public DbSet<Advertisement> Advertisements { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<AdImage> AdImages { get; set; }

@@ -7,29 +7,24 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
-public class JetXunitTheoryTestCaseRunner : XunitTheoryTestCaseRunner
+public class JetXunitTheoryTestCaseRunner(
+    IXunitTestCase testCase,
+    string displayName,
+    string skipReason,
+    object[] constructorArguments,
+    IMessageSink diagnosticMessageSink,
+    IMessageBus messageBus,
+    ExceptionAggregator aggregator,
+    CancellationTokenSource cancellationTokenSource)
+    : XunitTheoryTestCaseRunner(testCase,
+        displayName,
+        skipReason,
+        constructorArguments,
+        diagnosticMessageSink,
+        messageBus,
+        aggregator,
+        cancellationTokenSource)
 {
-    public JetXunitTheoryTestCaseRunner(
-        IXunitTestCase testCase,
-        string displayName,
-        string skipReason,
-        object[] constructorArguments,
-        IMessageSink diagnosticMessageSink,
-        IMessageBus messageBus,
-        ExceptionAggregator aggregator,
-        CancellationTokenSource cancellationTokenSource)
-        : base(
-            testCase,
-            displayName,
-            skipReason,
-            constructorArguments,
-            diagnosticMessageSink,
-            messageBus,
-            aggregator,
-            cancellationTokenSource)
-    {
-    }
-
     protected override XunitTestRunner CreateTestRunner(
         ITest test,
         IMessageBus messageBus,

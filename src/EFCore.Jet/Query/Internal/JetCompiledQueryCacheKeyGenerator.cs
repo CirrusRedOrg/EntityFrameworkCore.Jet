@@ -47,15 +47,9 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                            GenerateCacheKeyCore(query, async));
         }
 
-        private struct JetCompiledQueryCacheKey
+        private struct JetCompiledQueryCacheKey(RelationalCompiledQueryCacheKey relationalCompiledQueryCacheKey)
         {
-            private readonly RelationalCompiledQueryCacheKey _relationalCompiledQueryCacheKey;
-
-            public JetCompiledQueryCacheKey(
-                RelationalCompiledQueryCacheKey relationalCompiledQueryCacheKey)
-            {
-                _relationalCompiledQueryCacheKey = relationalCompiledQueryCacheKey;
-            }
+            private readonly RelationalCompiledQueryCacheKey _relationalCompiledQueryCacheKey = relationalCompiledQueryCacheKey;
 
             public override bool Equals(object? obj)
                 => !(obj is null)

@@ -10,13 +10,11 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
-public class TPTInheritanceBulkUpdatesJetTest : TPTInheritanceBulkUpdatesTestBase<TPTInheritanceBulkUpdatesJetFixture>
+public class TPTInheritanceBulkUpdatesJetTest(
+    TPTInheritanceBulkUpdatesJetFixture fixture,
+    ITestOutputHelper testOutputHelper)
+    : TPTInheritanceBulkUpdatesTestBase<TPTInheritanceBulkUpdatesJetFixture>(fixture, testOutputHelper)
 {
-    public TPTInheritanceBulkUpdatesJetTest(TPTInheritanceBulkUpdatesJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());

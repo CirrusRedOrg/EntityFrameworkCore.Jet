@@ -7,14 +7,10 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class KeysWithConvertersJetTest : KeysWithConvertersTestBase<
-    KeysWithConvertersJetTest.KeysWithConvertersJetFixture>
+public class KeysWithConvertersJetTest(KeysWithConvertersJetTest.KeysWithConvertersJetFixture fixture)
+    : KeysWithConvertersTestBase<
+        KeysWithConvertersJetTest.KeysWithConvertersJetFixture>(fixture)
 {
-    public KeysWithConvertersJetTest(KeysWithConvertersJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     public class KeysWithConvertersJetFixture : KeysWithConvertersFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory

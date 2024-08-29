@@ -3,13 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model45_InheritTPHWithSameRelationship
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-
-        public Context(DbContextOptions options) : base (options)
-        {
-        }
-
         // For TPH
         public DbSet<Base> Bases { get; set; }
 

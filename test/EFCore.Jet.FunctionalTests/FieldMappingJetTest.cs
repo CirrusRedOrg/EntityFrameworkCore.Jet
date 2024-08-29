@@ -8,13 +8,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class FieldMappingJetTest : FieldMappingTestBase<FieldMappingJetTest.FieldMappingJetFixture>
+    public class FieldMappingJetTest(FieldMappingJetTest.FieldMappingJetFixture fixture)
+        : FieldMappingTestBase<FieldMappingJetTest.FieldMappingJetFixture>(fixture)
     {
-        public FieldMappingJetTest(FieldMappingJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
             => facade.UseTransaction(transaction.GetDbTransaction());
 

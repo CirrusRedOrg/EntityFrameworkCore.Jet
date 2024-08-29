@@ -4,11 +4,5 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class DataBindingJetTest : DataBindingTestBase<F1JetFixture>
-    {
-        public DataBindingJetTest(F1JetFixture fixture)
-            : base(fixture)
-        {
-        }
-    }
+    public class DataBindingJetTest(F1JetFixture fixture) : DataBindingTestBase<F1JetFixture>(fixture);
 }

@@ -9,21 +9,16 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
-    public class JetIsDateFunctionTranslator : IMethodCallTranslator
+    public class JetIsDateFunctionTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
-        private readonly ISqlExpressionFactory _sqlExpressionFactory;
-
         private static readonly MethodInfo _methodInfo = typeof(JetDbFunctionsExtensions)
             .GetRuntimeMethod(nameof(JetDbFunctionsExtensions.IsDate), new[] { typeof(DbFunctions), typeof(string) })!;
-
-        public JetIsDateFunctionTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = sqlExpressionFactory;
 
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             return _methodInfo.Equals(method)
-                ? _sqlExpressionFactory.Convert(
-                    _sqlExpressionFactory.Function(
+                ? sqlExpressionFactory.Convert(
+                    sqlExpressionFactory.Function(
                         "ISDATE",
                         new[] { arguments[1] },
                         false,

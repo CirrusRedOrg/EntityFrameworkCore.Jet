@@ -13,13 +13,10 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public abstract class QueryExpressionInterceptionJetTestBase : QueryExpressionInterceptionTestBase
+public abstract class QueryExpressionInterceptionJetTestBase(
+    QueryExpressionInterceptionJetTestBase.InterceptionJetFixtureBase fixture)
+    : QueryExpressionInterceptionTestBase(fixture)
 {
-    protected QueryExpressionInterceptionJetTestBase(InterceptionJetFixtureBase fixture)
-        : base(fixture)
-    {
-    }
-
     public abstract class InterceptionJetFixtureBase : InterceptionFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory
@@ -38,14 +35,10 @@ public abstract class QueryExpressionInterceptionJetTestBase : QueryExpressionIn
         }
     }
 
-    public class QueryExpressionInterceptionJetTest
-        : QueryExpressionInterceptionJetTestBase, IClassFixture<QueryExpressionInterceptionJetTest.InterceptionJetFixture>
+    public class QueryExpressionInterceptionJetTest(QueryExpressionInterceptionJetTest.InterceptionJetFixture fixture)
+        : QueryExpressionInterceptionJetTestBase(fixture),
+            IClassFixture<QueryExpressionInterceptionJetTest.InterceptionJetFixture>
     {
-        public QueryExpressionInterceptionJetTest(InterceptionJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class InterceptionJetFixture : InterceptionJetFixtureBase
         {
             protected override string StoreName
@@ -56,15 +49,11 @@ public abstract class QueryExpressionInterceptionJetTestBase : QueryExpressionIn
         }
     }
 
-    public class QueryExpressionInterceptionWithDiagnosticsJetTest
-        : QueryExpressionInterceptionJetTestBase,
+    public class QueryExpressionInterceptionWithDiagnosticsJetTest(
+        QueryExpressionInterceptionWithDiagnosticsJetTest.InterceptionJetFixture fixture)
+        : QueryExpressionInterceptionJetTestBase(fixture),
             IClassFixture<QueryExpressionInterceptionWithDiagnosticsJetTest.InterceptionJetFixture>
     {
-        public QueryExpressionInterceptionWithDiagnosticsJetTest(InterceptionJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class InterceptionJetFixture : InterceptionJetFixtureBase
         {
             protected override string StoreName

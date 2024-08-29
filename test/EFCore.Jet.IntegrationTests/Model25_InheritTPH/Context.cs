@@ -3,13 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model25_InheritTPH
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-
-        public Context(DbContextOptions options) : base (options)
-        {
-        }
-
         public DbSet<Derived1Model> M1s { get; set; }
         public DbSet<Derived2Model> M2s { get; set; }
         public DbSet<Derived3Model> M3s { get; set; }

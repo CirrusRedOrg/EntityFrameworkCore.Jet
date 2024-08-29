@@ -198,15 +198,10 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         public override void ApplyServices(IServiceCollection services)
             => services.AddEntityFrameworkJet();
 
-        private sealed class ExtensionInfo : RelationalExtensionInfo
+        private sealed class ExtensionInfo(IDbContextOptionsExtension extension) : RelationalExtensionInfo(extension)
         {
             private int? _serviceProviderHash;
             private string? _logFragment;
-
-            public ExtensionInfo(IDbContextOptionsExtension extension)
-                : base(extension)
-            {
-            }
 
             private new JetOptionsExtension Extension
                 => (JetOptionsExtension)base.Extension;

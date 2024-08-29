@@ -5,11 +5,6 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class WarningsJetTest : WarningsTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>
-    {
-        public WarningsJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture)
-            : base(fixture)
-        {
-        }
-    }
+    public class WarningsJetTest(NorthwindQueryJetFixture<NoopModelCustomizer> fixture)
+        : WarningsTestBase<NorthwindQueryJetFixture<NoopModelCustomizer>>(fixture);
 }

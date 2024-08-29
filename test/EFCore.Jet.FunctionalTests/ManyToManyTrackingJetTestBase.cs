@@ -9,14 +9,10 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public abstract class ManyToManyTrackingJetTestBase<TFixture> : ManyToManyTrackingRelationalTestBase<TFixture>
+public abstract class ManyToManyTrackingJetTestBase<TFixture>(TFixture fixture)
+    : ManyToManyTrackingRelationalTestBase<TFixture>(fixture)
     where TFixture : ManyToManyTrackingJetTestBase<TFixture>.ManyToManyTrackingJetFixtureBase
 {
-    protected ManyToManyTrackingJetTestBase(TFixture fixture)
-        : base(fixture)
-    {
-    }
-
     protected override Dictionary<string, DeleteBehavior> CustomDeleteBehaviors { get; } = new()
     {
         { "EntityBranch.RootSkipShared", DeleteBehavior.ClientCascade },

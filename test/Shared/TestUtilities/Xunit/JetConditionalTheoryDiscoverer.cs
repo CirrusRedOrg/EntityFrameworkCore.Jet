@@ -5,13 +5,8 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
-public class JetConditionalTheoryDiscoverer : ConditionalTheoryDiscoverer
+public class JetConditionalTheoryDiscoverer(IMessageSink messageSink) : ConditionalTheoryDiscoverer(messageSink)
 {
-    public JetConditionalTheoryDiscoverer(IMessageSink messageSink)
-        : base(messageSink)
-    {
-    }
-
     protected override IEnumerable<IXunitTestCase> CreateTestCasesForTheory(
         ITestFrameworkDiscoveryOptions discoveryOptions,
         ITestMethod testMethod,

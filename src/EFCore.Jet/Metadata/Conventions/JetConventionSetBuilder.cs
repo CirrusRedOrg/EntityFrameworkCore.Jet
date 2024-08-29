@@ -10,25 +10,19 @@ using Microsoft.Extensions.DependencyInjection;
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 {
-    public class JetConventionSetBuilder : RelationalConventionSetBuilder
+    public class JetConventionSetBuilder(
+        [NotNull] ProviderConventionSetBuilderDependencies dependencies,
+        [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies,
+        ISqlGenerationHelper sqlGenerationHelper)
+        : RelationalConventionSetBuilder(dependencies, relationalDependencies)
     {
-        private readonly ISqlGenerationHelper _sqlGenerationHelper;
-        public JetConventionSetBuilder(
-            [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies,
-            ISqlGenerationHelper sqlGenerationHelper)
-            : base(dependencies, relationalDependencies)
-        {
-            _sqlGenerationHelper = sqlGenerationHelper;
-        }
-
         public override ConventionSet CreateConventionSet()
         {
             var conventionSet = base.CreateConventionSet();
 
             conventionSet.Add(new JetValueGenerationStrategyConvention(Dependencies, RelationalDependencies));
             conventionSet.Add(new RelationalMaxIdentifierLengthConvention(64, Dependencies, RelationalDependencies));
-            conventionSet.Add(new JetIndexConvention(Dependencies, RelationalDependencies, _sqlGenerationHelper));
+            conventionSet.Add(new JetIndexConvention(Dependencies, RelationalDependencies, sqlGenerationHelper));
 
             conventionSet.Replace<CascadeDeleteConvention>(
                 new JetOnDeleteConvention(Dependencies, RelationalDependencies));

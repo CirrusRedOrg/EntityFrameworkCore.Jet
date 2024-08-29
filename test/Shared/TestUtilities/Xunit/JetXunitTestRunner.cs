@@ -13,33 +13,28 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 
-public class JetXunitTestRunner : XunitTestRunner
+public class JetXunitTestRunner(
+    ITest test,
+    IMessageBus messageBus,
+    Type testClass,
+    object[] constructorArguments,
+    MethodInfo testMethod,
+    object[] testMethodArguments,
+    string skipReason,
+    IReadOnlyList<BeforeAfterTestAttribute> beforeAfterAttributes,
+    ExceptionAggregator aggregator,
+    CancellationTokenSource cancellationTokenSource)
+    : XunitTestRunner(test,
+        messageBus,
+        testClass,
+        constructorArguments,
+        testMethod,
+        testMethodArguments,
+        skipReason,
+        beforeAfterAttributes,
+        aggregator,
+        cancellationTokenSource)
 {
-    public JetXunitTestRunner(
-        ITest test,
-        IMessageBus messageBus,
-        Type testClass,
-        object[] constructorArguments,
-        MethodInfo testMethod,
-        object[] testMethodArguments,
-        string skipReason,
-        IReadOnlyList<BeforeAfterTestAttribute> beforeAfterAttributes,
-        ExceptionAggregator aggregator,
-        CancellationTokenSource cancellationTokenSource)
-        : base(
-            test,
-            messageBus,
-            testClass,
-            constructorArguments,
-            testMethod,
-            testMethodArguments,
-            skipReason,
-            beforeAfterAttributes,
-            aggregator,
-            cancellationTokenSource)
-    {
-    }
-
     public new async Task<RunSummary> RunAsync()
     {
         var runSummary = new RunSummary { Total = 1 };

@@ -15,13 +15,10 @@ using Xunit;
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public abstract class CommandInterceptionJetTestBase : CommandInterceptionTestBase
+    public abstract class CommandInterceptionJetTestBase(
+        CommandInterceptionJetTestBase.InterceptionJetFixtureBase fixture)
+        : CommandInterceptionTestBase(fixture)
     {
-        protected CommandInterceptionJetTestBase(InterceptionJetFixtureBase fixture)
-            : base(fixture)
-        {
-        }
-
         public override async Task<string> Intercept_query_passively(bool async, bool inject)
         {
             AssertSql(
@@ -60,14 +57,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 => base.InjectInterceptors(serviceCollection.AddEntityFrameworkJet(), injectedInterceptors);
         }
 
-        public class CommandInterceptionJetTest
-            : CommandInterceptionJetTestBase, IClassFixture<CommandInterceptionJetTest.InterceptionJetFixture>
+        public class CommandInterceptionJetTest(CommandInterceptionJetTest.InterceptionJetFixture fixture)
+            : CommandInterceptionJetTestBase(fixture), IClassFixture<CommandInterceptionJetTest.InterceptionJetFixture>
         {
-            public CommandInterceptionJetTest(InterceptionJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             public class InterceptionJetFixture : InterceptionJetFixtureBase
             {
                 protected override bool ShouldSubscribeToDiagnosticListener => false;
@@ -81,15 +73,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        public class CommandInterceptionWithDiagnosticsJetTest
-            : CommandInterceptionJetTestBase,
+        public class CommandInterceptionWithDiagnosticsJetTest(
+            CommandInterceptionWithDiagnosticsJetTest.InterceptionJetFixture fixture)
+            : CommandInterceptionJetTestBase(fixture),
                 IClassFixture<CommandInterceptionWithDiagnosticsJetTest.InterceptionJetFixture>
         {
-            public CommandInterceptionWithDiagnosticsJetTest(InterceptionJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             public class InterceptionJetFixture : InterceptionJetFixtureBase
             {
                 protected override bool ShouldSubscribeToDiagnosticListener => true;

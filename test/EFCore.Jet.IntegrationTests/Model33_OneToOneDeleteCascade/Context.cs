@@ -3,13 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model33_OneToOneDeleteCascade
 {
-    public class TestContext : DbContext
+    public class TestContext(DbContextOptions options) : DbContext(options)
     {
-        public TestContext(DbContextOptions options) :
-            base(options)
-        {
-        }
-
         public DbSet<Person> Adresses { get; set; }
         public DbSet<Address> Visits { get; set; }
 

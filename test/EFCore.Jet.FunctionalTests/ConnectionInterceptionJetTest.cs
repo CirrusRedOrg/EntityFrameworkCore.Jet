@@ -15,13 +15,10 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public abstract class ConnectionInterceptionJetTestBase : ConnectionInterceptionTestBase
+    public abstract class ConnectionInterceptionJetTestBase(
+        ConnectionInterceptionJetTestBase.InterceptionJetFixtureBase fixture)
+        : ConnectionInterceptionTestBase(fixture)
     {
-        protected ConnectionInterceptionJetTestBase(InterceptionJetFixtureBase fixture)
-            : base(fixture)
-        {
-        }
-
         public abstract class InterceptionJetFixtureBase : InterceptionFixtureBase
         {
             protected override string StoreName => "ConnectionInterception";
@@ -53,29 +50,21 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             protected override DbCommand CreateDbCommand() => throw new NotImplementedException();
         }
 
-        public class ConnectionInterceptionJetTest
-            : ConnectionInterceptionJetTestBase, IClassFixture<ConnectionInterceptionJetTest.InterceptionJetFixture>
+        public class ConnectionInterceptionJetTest(ConnectionInterceptionJetTest.InterceptionJetFixture fixture)
+            : ConnectionInterceptionJetTestBase(fixture),
+                IClassFixture<ConnectionInterceptionJetTest.InterceptionJetFixture>
         {
-            public ConnectionInterceptionJetTest(InterceptionJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             public class InterceptionJetFixture : InterceptionJetFixtureBase
             {
                 protected override bool ShouldSubscribeToDiagnosticListener => false;
             }
         }
 
-        public class ConnectionInterceptionWithDiagnosticsJetTest
-            : ConnectionInterceptionJetTestBase,
+        public class ConnectionInterceptionWithDiagnosticsJetTest(
+            ConnectionInterceptionWithDiagnosticsJetTest.InterceptionJetFixture fixture)
+            : ConnectionInterceptionJetTestBase(fixture),
                 IClassFixture<ConnectionInterceptionWithDiagnosticsJetTest.InterceptionJetFixture>
         {
-            public ConnectionInterceptionWithDiagnosticsJetTest(InterceptionJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             public class InterceptionJetFixture : InterceptionJetFixtureBase
             {
                 protected override bool ShouldSubscribeToDiagnosticListener => true;

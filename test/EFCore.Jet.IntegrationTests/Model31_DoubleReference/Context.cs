@@ -2,13 +2,8 @@
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model31_DoubleReference
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-
-        public Context(DbContextOptions options) : base (options)
-        {
-        }
-
         public DbSet<Person> People { get; set; }
         public DbSet<PhoneNumber> PhoneNumbers { get; set; }
 

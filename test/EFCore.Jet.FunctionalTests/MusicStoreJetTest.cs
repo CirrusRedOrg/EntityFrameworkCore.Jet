@@ -6,13 +6,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class MusicStoreJetTest : MusicStoreTestBase<MusicStoreJetTest.MusicStoreJetFixture>
+    public class MusicStoreJetTest(MusicStoreJetTest.MusicStoreJetFixture fixture)
+        : MusicStoreTestBase<MusicStoreJetTest.MusicStoreJetFixture>(fixture)
     {
-        public MusicStoreJetTest(MusicStoreJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class MusicStoreJetFixture : MusicStoreFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;

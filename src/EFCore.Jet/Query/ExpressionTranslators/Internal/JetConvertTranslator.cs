@@ -15,9 +15,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetConvertTranslator : IMethodCallTranslator
+    public class JetConvertTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         // The value here is actually never used.
         private static readonly Dictionary<string, string> _functionName = new Dictionary<string, string>
@@ -60,9 +60,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                          .First()
                                          .ParameterType)))
                 .ToList();
-
-        public JetConvertTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
 
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)

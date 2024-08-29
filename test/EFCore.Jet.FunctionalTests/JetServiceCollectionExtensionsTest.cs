@@ -6,11 +6,6 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class JetServiceCollectionExtensionsTest : RelationalServiceCollectionExtensionsTestBase
-    {
-        public JetServiceCollectionExtensionsTest()
-            : base(JetTestHelpers.Instance)
-        {
-        }
-    }
+    public class JetServiceCollectionExtensionsTest()
+        : RelationalServiceCollectionExtensionsTestBase(JetTestHelpers.Instance);
 }

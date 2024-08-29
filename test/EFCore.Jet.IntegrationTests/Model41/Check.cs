@@ -49,14 +49,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model41
         }
     }
 
-    public class DemoContext : DbContext
+    public class DemoContext(DbContextOptions options) : DbContext(options)
     {
-
-        public DemoContext(DbContextOptions options) : base(options)
-        {
-        }
-
-
         public DbSet<Applicant> Applicants { get; set; }
 
         public DbSet<Applicant_Address> Applicant_Addresses { get; set; }

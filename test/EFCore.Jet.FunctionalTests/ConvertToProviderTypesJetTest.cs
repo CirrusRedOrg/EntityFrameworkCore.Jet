@@ -17,14 +17,10 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class ConvertToProviderTypesJetTest : ConvertToProviderTypesTestBase<
-        ConvertToProviderTypesJetTest.ConvertToProviderTypesJetFixture>
+    public class ConvertToProviderTypesJetTest(ConvertToProviderTypesJetTest.ConvertToProviderTypesJetFixture fixture)
+        : ConvertToProviderTypesTestBase<
+            ConvertToProviderTypesJetTest.ConvertToProviderTypesJetFixture>(fixture)
     {
-        public ConvertToProviderTypesJetTest(ConvertToProviderTypesJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         [ConditionalFact]
         public virtual void Columns_have_expected_data_types()
         {

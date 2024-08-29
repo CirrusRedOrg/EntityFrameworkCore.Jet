@@ -292,13 +292,8 @@ COMMIT TRANSACTION;
         public override Task Can_apply_all_migrations_async() // Issue efcore #33331
             => Assert.ThrowsAnyAsync<DbException>(() => base.Can_apply_all_migrations_async());
 
-        private class BloggingContext : DbContext
+        private class BloggingContext(DbContextOptions options) : DbContext(options)
         {
-            public BloggingContext(DbContextOptions options)
-                : base(options)
-            {
-            }
-
             // ReSharper disable once UnusedMember.Local
             public DbSet<Blog> Blogs { get; set; }
 

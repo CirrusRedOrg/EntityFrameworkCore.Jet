@@ -9,13 +9,8 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class TPTTableSplittingJetTest : TPTTableSplittingTestBase
+public class TPTTableSplittingJetTest(ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(testOutputHelper)
 {
-    public TPTTableSplittingJetTest(ITestOutputHelper testOutputHelper)
-        : base(testOutputHelper)
-    {
-    }
-
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
 

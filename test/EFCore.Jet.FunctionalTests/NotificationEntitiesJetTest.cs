@@ -6,14 +6,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class NotificationEntitiesJetTest
-        : NotificationEntitiesTestBase<NotificationEntitiesJetTest.NotificationEntitiesJetFixture>
+    public class NotificationEntitiesJetTest(NotificationEntitiesJetTest.NotificationEntitiesJetFixture fixture)
+        : NotificationEntitiesTestBase<NotificationEntitiesJetTest.NotificationEntitiesJetFixture>(fixture)
     {
-        public NotificationEntitiesJetTest(NotificationEntitiesJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class NotificationEntitiesJetFixture : NotificationEntitiesFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;

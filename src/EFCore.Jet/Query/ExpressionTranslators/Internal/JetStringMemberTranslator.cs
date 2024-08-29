@@ -14,12 +14,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetStringMemberTranslator : IMemberTranslator
+    public class JetStringMemberTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMemberTranslator
     {
-        private readonly JetSqlExpressionFactory _sqlExpressionFactory;
-
-        public JetStringMemberTranslator(ISqlExpressionFactory sqlExpressionFactory)
-            => _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
+        private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

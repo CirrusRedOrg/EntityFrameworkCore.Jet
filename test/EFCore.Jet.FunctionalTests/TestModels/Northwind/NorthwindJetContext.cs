@@ -8,13 +8,8 @@ using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestModels.Northwind
 {
-    public class NorthwindJetContext : NorthwindRelationalContext
+    public class NorthwindJetContext(DbContextOptions options) : NorthwindRelationalContext(options)
     {
-        public NorthwindJetContext(DbContextOptions options)
-            : base(options)
-        {
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

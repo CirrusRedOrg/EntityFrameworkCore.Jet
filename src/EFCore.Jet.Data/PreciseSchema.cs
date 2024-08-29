@@ -3,16 +3,10 @@ using System.Data;
 
 namespace EntityFrameworkCore.Jet.Data
 {
-    public class PreciseSchema : SchemaProvider
+    public class PreciseSchema(JetConnection connection, bool readOnly) : SchemaProvider
     {
-        private readonly Lazy<AdoxSchema> _adoxSchema;
-        private readonly Lazy<DaoSchema> _daoSchema;
-
-        public PreciseSchema(JetConnection connection, bool readOnly)
-        {
-            _adoxSchema = new Lazy<AdoxSchema>(() => new AdoxSchema(connection, true, readOnly), false);
-            _daoSchema = new Lazy<DaoSchema>(() => new DaoSchema(connection, true, readOnly), false);
-        }
+        private readonly Lazy<AdoxSchema> _adoxSchema = new(() => new AdoxSchema(connection, true, readOnly), false);
+        private readonly Lazy<DaoSchema> _daoSchema = new(() => new DaoSchema(connection, true, readOnly), false);
 
         public override void EnsureDualTable()
             => _adoxSchema.Value.EnsureDualTable(); // prefer ADOX, but DAO works too (but less precise)

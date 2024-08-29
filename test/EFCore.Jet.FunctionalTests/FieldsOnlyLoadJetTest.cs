@@ -7,13 +7,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class FieldsOnlyLoadJetTest : FieldsOnlyLoadTestBase<FieldsOnlyLoadJetTest.FieldsOnlyLoadJetFixture>
+public class FieldsOnlyLoadJetTest(FieldsOnlyLoadJetTest.FieldsOnlyLoadJetFixture fixture)
+    : FieldsOnlyLoadTestBase<FieldsOnlyLoadJetTest.FieldsOnlyLoadJetFixture>(fixture)
 {
-    public FieldsOnlyLoadJetTest(FieldsOnlyLoadJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     public class FieldsOnlyLoadJetFixture : FieldsOnlyLoadFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory

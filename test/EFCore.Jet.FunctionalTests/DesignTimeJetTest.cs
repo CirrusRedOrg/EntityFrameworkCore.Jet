@@ -10,13 +10,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class DesignTimeJetTest : DesignTimeTestBase<DesignTimeJetTest.DesignTimeJetFixture>
+public class DesignTimeJetTest(DesignTimeJetTest.DesignTimeJetFixture fixture)
+    : DesignTimeTestBase<DesignTimeJetTest.DesignTimeJetFixture>(fixture)
 {
-    public DesignTimeJetTest(DesignTimeJetFixture fixture)
-        : base(fixture)
-    {
-    }
-
     protected override Assembly ProviderAssembly
         => typeof(JetDesignTimeServices).Assembly;
 

@@ -8,14 +8,10 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class ConferencePlannerJetTest : ConferencePlannerTestBase<ConferencePlannerJetTest.ConferencePlannerJetFixture
-    >
+    public class ConferencePlannerJetTest(ConferencePlannerJetTest.ConferencePlannerJetFixture fixture)
+        : ConferencePlannerTestBase<ConferencePlannerJetTest.ConferencePlannerJetFixture
+        >(fixture)
     {
-        public ConferencePlannerJetTest(ConferencePlannerJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
             => facade.UseTransaction(transaction.GetDbTransaction());
 

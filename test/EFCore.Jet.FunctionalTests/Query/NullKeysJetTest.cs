@@ -6,13 +6,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
-    public class NullKeysJetTest : NullKeysTestBase<NullKeysJetTest.NullKeysJetFixture>
+    public class NullKeysJetTest(NullKeysJetTest.NullKeysJetFixture fixture)
+        : NullKeysTestBase<NullKeysJetTest.NullKeysJetFixture>(fixture)
     {
-        public NullKeysJetTest(NullKeysJetFixture fixture)
-            : base(fixture)
-        {
-        }
-
         public class NullKeysJetFixture : NullKeysFixtureBase
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;

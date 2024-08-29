@@ -19,20 +19,14 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetDatabaseCreator : RelationalDatabaseCreator
+    public class JetDatabaseCreator(
+        [NotNull] RelationalDatabaseCreatorDependencies dependencies,
+        [NotNull] IJetRelationalConnection relationalConnection,
+        [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder)
+        : RelationalDatabaseCreator(dependencies)
     {
-        private readonly IJetRelationalConnection _relationalConnection;
-        private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
-
-        public JetDatabaseCreator(
-            [NotNull] RelationalDatabaseCreatorDependencies dependencies,
-            [NotNull] IJetRelationalConnection relationalConnection,
-            [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder)
-            : base(dependencies)
-        {
-            _relationalConnection = relationalConnection;
-            _rawSqlCommandBuilder = rawSqlCommandBuilder;
-        }
+        private readonly IJetRelationalConnection _relationalConnection = relationalConnection;
+        private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder = rawSqlCommandBuilder;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

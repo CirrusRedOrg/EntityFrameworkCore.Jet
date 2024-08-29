@@ -12,13 +12,9 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class TPTInheritanceQueryJetTest : TPTInheritanceQueryTestBase<TPTInheritanceQueryJetFixture>
+public class TPTInheritanceQueryJetTest(TPTInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
+    : TPTInheritanceQueryTestBase<TPTInheritanceQueryJetFixture>(fixture, testOutputHelper)
 {
-    public TPTInheritanceQueryJetTest(TPTInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture, testOutputHelper)
-    {
-    }
-
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());

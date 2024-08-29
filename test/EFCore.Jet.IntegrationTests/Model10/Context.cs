@@ -5,10 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model10
 {
-    public class TestContext : DbContext
+    public class TestContext(DbConnection connection)
+        : DbContext(new DbContextOptionsBuilder<TestContext>().UseJet(connection).Options)
     {
-        public TestContext(DbConnection connection) : base(new DbContextOptionsBuilder<TestContext>().UseJet(connection).Options){}
-
         public DbSet<SomeClass> SomeClasses { get; set; }
         public DbSet<Behavior> Behaviors { get; set; }
 

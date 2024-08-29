@@ -5,12 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model46_InnerClasses
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-        public Context(DbContextOptions options) : base(options)
-        {
-        }
-
         public DbSet<ClassA> ClassAs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

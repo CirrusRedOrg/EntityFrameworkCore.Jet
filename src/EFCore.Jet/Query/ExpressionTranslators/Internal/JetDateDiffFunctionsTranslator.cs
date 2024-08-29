@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
-    public class JetDateDiffFunctionsTranslator : IMethodCallTranslator
+    public class JetDateDiffFunctionsTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
         private readonly Dictionary<MethodInfo, string> _methodInfoDateDiffMapping
             = new Dictionary<MethodInfo, string>
@@ -197,14 +197,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 },
             };
 
-        private readonly ISqlExpressionFactory _sqlExpressionFactory;
-
-        public JetDateDiffFunctionsTranslator(
-            ISqlExpressionFactory sqlExpressionFactory)
-        {
-            _sqlExpressionFactory = sqlExpressionFactory;
-        }
-
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
             if (_methodInfoDateDiffMapping.TryGetValue(method, out var datePart))
@@ -213,12 +205,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 var endDate = arguments[2];
                 var typeMapping = ExpressionExtensions.InferTypeMapping(startDate, endDate);
 
-                startDate = _sqlExpressionFactory.ApplyTypeMapping(startDate, typeMapping);
-                endDate = _sqlExpressionFactory.ApplyTypeMapping(endDate, typeMapping);
+                startDate = sqlExpressionFactory.ApplyTypeMapping(startDate, typeMapping);
+                endDate = sqlExpressionFactory.ApplyTypeMapping(endDate, typeMapping);
 
-                return _sqlExpressionFactory.Function(
+                return sqlExpressionFactory.Function(
                     "DATEDIFF",
-                    new[] { _sqlExpressionFactory.Constant(datePart), startDate, endDate },
+                    new[] { sqlExpressionFactory.Constant(datePart), startDate, endDate },
                     false,
                     new[] {false, false, false}, 
                     typeof(int));

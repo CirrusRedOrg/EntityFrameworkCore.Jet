@@ -20,31 +20,19 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     ///         This service cannot depend on services registered as <see cref="ServiceLifetime.Scoped" />.
     ///     </para>
     /// </summary>
-    public class JetQueryTranslationPostprocessorFactory : IQueryTranslationPostprocessorFactory
+    public class JetQueryTranslationPostprocessorFactory(
+        QueryTranslationPostprocessorDependencies dependencies,
+        RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
+        IRelationalTypeMappingSource relationalTypeMappingSource,
+        IJetOptions options)
+        : IQueryTranslationPostprocessorFactory
     {
-        private readonly QueryTranslationPostprocessorDependencies _dependencies;
-        private readonly RelationalQueryTranslationPostprocessorDependencies _relationalDependencies;
-        private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
-        private readonly IJetOptions _options;
-
-        public JetQueryTranslationPostprocessorFactory(
-            QueryTranslationPostprocessorDependencies dependencies,
-            RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
-            IRelationalTypeMappingSource relationalTypeMappingSource,
-            IJetOptions options)
-        {
-            _dependencies = dependencies;
-            _relationalDependencies = relationalDependencies;
-            _relationalTypeMappingSource = relationalTypeMappingSource;
-            _options = options;
-        }
-
         public virtual QueryTranslationPostprocessor Create(QueryCompilationContext queryCompilationContext)
             => new JetQueryTranslationPostprocessor(
-                _dependencies,
-                _relationalDependencies,
+                dependencies,
+                relationalDependencies,
                 (RelationalQueryCompilationContext)queryCompilationContext,
-                _relationalTypeMappingSource,
-                _options);
+                relationalTypeMappingSource,
+                options);
     }
 }

@@ -42,12 +42,8 @@ namespace EntityFramework.Jet.FunctionalTests
         }
     }
 
-    public class ChipsContext : DbContext
+    public class ChipsContext(DbContextOptions options) : DbContext(options)
     {
-        public ChipsContext(DbContextOptions options) : base(options)
-        {
-        }
-
         public DbSet<KettleChips> Chips { get; set; }
         public DbSet<Chipper> Chippers { get; set; }
 

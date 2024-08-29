@@ -21,7 +21,12 @@ using Assert = Xunit.Assert;
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     //Idempotent is ignored
-    public class JetMigrationsSqlGeneratorTest : MigrationsSqlGeneratorTestBase
+    public class JetMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(JetTestHelpers.Instance,
+        new ServiceCollection(),
+        JetTestHelpers.Instance.AddProviderOptions(
+            ((IRelationalDbContextOptionsBuilderInfrastructure)
+                new JetDbContextOptionsBuilder(new DbContextOptionsBuilder()))
+            .OptionsBuilder).Options)
     {
         [ConditionalFact]
         public virtual void AddColumnOperation_identity_legacy()
@@ -971,15 +976,7 @@ SELECT @@ROWCOUNT;
 ");
         }
 
-        public JetMigrationsSqlGeneratorTest()
-            : base(
-                JetTestHelpers.Instance,
-                new ServiceCollection()/*.AddEntityFrameworkJetNetTopologySuite()*/,
-                JetTestHelpers.Instance.AddProviderOptions(
-                    ((IRelationalDbContextOptionsBuilderInfrastructure)
-                        new JetDbContextOptionsBuilder(new DbContextOptionsBuilder())/*.UseNetTopologySuite()*/)
-                    .OptionsBuilder).Options)
-        {
-        }
+        /*.AddEntityFrameworkJetNetTopologySuite()*/
+        /*.UseNetTopologySuite()*/
     }
 }

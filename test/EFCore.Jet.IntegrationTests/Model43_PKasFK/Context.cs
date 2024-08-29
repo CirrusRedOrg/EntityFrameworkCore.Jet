@@ -5,12 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model43_PKasFK
 {
-    public class Context : DbContext
+    public class Context(DbContextOptions options) : DbContext(options)
     {
-        public Context(DbContextOptions options) : base(options)
-        {
-        }
-
         public DbSet<Parent> Parents { get; set; }
         public DbSet<Child> Children { get; set; }
 

@@ -11,13 +11,10 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public abstract class TransactionInterceptionJetTestBase : TransactionInterceptionTestBase
+    public abstract class TransactionInterceptionJetTestBase(
+        TransactionInterceptionJetTestBase.InterceptionJetFixtureBase fixture)
+        : TransactionInterceptionTestBase(fixture)
     {
-        protected TransactionInterceptionJetTestBase(InterceptionJetFixtureBase fixture)
-            : base(fixture)
-        {
-        }
-
         [ConditionalTheory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
@@ -51,29 +48,21 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 => base.InjectInterceptors(serviceCollection.AddEntityFrameworkJet(), injectedInterceptors);
         }
 
-        public class TransactionInterceptionJetTest
-            : TransactionInterceptionJetTestBase, IClassFixture<TransactionInterceptionJetTest.InterceptionJetFixture>
+        public class TransactionInterceptionJetTest(TransactionInterceptionJetTest.InterceptionJetFixture fixture)
+            : TransactionInterceptionJetTestBase(fixture),
+                IClassFixture<TransactionInterceptionJetTest.InterceptionJetFixture>
         {
-            public TransactionInterceptionJetTest(InterceptionJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             public class InterceptionJetFixture : InterceptionJetFixtureBase
             {
                 protected override bool ShouldSubscribeToDiagnosticListener => false;
             }
         }
 
-        public class TransactionInterceptionWithDiagnosticsJetTest
-            : TransactionInterceptionJetTestBase,
+        public class TransactionInterceptionWithDiagnosticsJetTest(
+            TransactionInterceptionWithDiagnosticsJetTest.InterceptionJetFixture fixture)
+            : TransactionInterceptionJetTestBase(fixture),
                 IClassFixture<TransactionInterceptionWithDiagnosticsJetTest.InterceptionJetFixture>
         {
-            public TransactionInterceptionWithDiagnosticsJetTest(InterceptionJetFixture fixture)
-                : base(fixture)
-            {
-            }
-
             public class InterceptionJetFixture : InterceptionJetFixtureBase
             {
                 protected override bool ShouldSubscribeToDiagnosticListener => true;

@@ -608,6 +608,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Sql.Append(")");
                 return sqlConstantExpression;
             }
+
+            if (sqlConstantExpression.TypeMapping is BoolTypeMapping and not JetBoolTypeMapping)
+            {
+                Sql.Append((bool)sqlConstantExpression.Value! ? "TRUE" : "FALSE");
+                return sqlConstantExpression;
+            }
             return base.VisitSqlConstant(sqlConstantExpression);
         }
 

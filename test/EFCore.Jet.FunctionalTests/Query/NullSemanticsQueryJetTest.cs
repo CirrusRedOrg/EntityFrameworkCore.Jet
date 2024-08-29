@@ -21,6 +21,898 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
+        public override async Task Rewrite_compare_int_with_int(bool async)
+        {
+            await base.Rewrite_compare_int_with_int(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`, CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` = `e`.`IntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableIntA` = `e`.`IntB` AND `e`.`NullableIntA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` = `e`.`IntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`IntA` = `e`.`NullableIntB` AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` = `e`.`NullableIntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND `e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` = `e`.`NullableIntB` OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, CBOOL(`e`.`IntA` BXOR `e`.`IntB`) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` <> `e`.`IntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableIntA` <> `e`.`IntB` OR `e`.`NullableIntA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` <> `e`.`IntB` OR `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, CBOOL(`e`.`IntA` BXOR `e`.`IntB`) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` <> `e`.`IntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableIntA` <> `e`.`IntB` OR `e`.`NullableIntA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` <> `e`.`IntB` OR `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, CBOOL(`e`.`IntA` BXOR `e`.`IntB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` = `e`.`IntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableIntA` = `e`.`IntB` AND `e`.`NullableIntA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` = `e`.`IntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`IntA` = `e`.`NullableIntB` AND `e`.`NullableIntB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` = `e`.`NullableIntB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableIntA` = `e`.`NullableIntB` AND `e`.`NullableIntA` IS NOT NULL AND `e`.`NullableIntB` IS NOT NULL) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` = `e`.`NullableIntB` OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL)
+""");
+        }
+
+        public override async Task Rewrite_compare_bool_with_bool(bool async)
+        {
+            await base.Rewrite_compare_bool_with_bool(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` = `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB` OR `e`.`NullableBoolA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, `e`.`BoolA` BXOR `e`.`BoolB` AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` <> `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, (`e`.`BoolA` BXOR `e`.`BoolB`) BXOR TRUE AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`BoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolB` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = `e`.`NullableBoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` <> `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` = `e`.`BoolB` AND `e`.`NullableBoolA` IS NOT NULL, TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`BoolB`
+""",
+                //
+                """
+SELECT `e`.`Id`, IIF((`e`.`NullableBoolA` = `e`.`NullableBoolB` AND `e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL), TRUE, FALSE) AS `X`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB` OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL)
+""");
+        }
+
         public override async Task Compare_bool_with_bool_equal(bool async)
         {
             await base.Compare_bool_with_bool_equal(async);
@@ -797,6 +1689,18 @@ FROM `Entities1` AS `e`
 INNER JOIN `Entities2` AS `e0` ON `e`.`NullableIntA` = `e0`.`NullableIntB`");
         }
 
+        public override async Task Join_uses_csharp_semantics_for_anon_objects(bool async)
+        {
+            await base.Join_uses_csharp_semantics_for_anon_objects(async);
+
+            AssertSql(
+                """
+SELECT [e].[Id] AS [Id1], [e0].[Id] AS [Id2], [e].[NullableIntA], [e0].[NullableIntB]
+FROM [Entities1] AS [e]
+INNER JOIN [Entities2] AS [e0] ON [e].[NullableIntA] = [e0].[NullableIntB] OR ([e].[NullableIntA] IS NULL AND [e0].[NullableIntB] IS NULL)
+""");
+        }
+
         public override async Task Contains_with_local_array_closure_with_null(bool async)
         {
             await base.Contains_with_local_array_closure_with_null(async);
@@ -918,6 +1822,30 @@ WHERE `e`.`NullableStringB` IS NOT NULL AND (`e`.`NullableStringA` <> 'Foo' OR `
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE IIF(`e`.`NullableBoolA` IS NULL, TRUE, `e`.`NullableBoolA`) = TRUE
+""");
+        }
+
+        public override async Task Where_coalesce_shortcircuit(bool async)
+        {
+            await base.Where_coalesce_shortcircuit(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`BoolA` = TRUE OR `e`.`BoolB` = TRUE
+""");
+        }
+
+        public override async Task Where_coalesce_shortcircuit_many(bool async)
+        {
+            await base.Where_coalesce_shortcircuit_many(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`BoolA` = TRUE OR `e`.`BoolB` = TRUE, TRUE, FALSE), `e`.`NullableBoolA`) = TRUE
 """);
         }
 
@@ -1106,6 +2034,42 @@ FROM `Entities1` AS `e`");
                 $@"SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
+        }
+
+        public override void Where_contains_on_parameter_array_with_relational_null_semantics()
+        {
+            base.Where_contains_on_parameter_array_with_relational_null_semantics();
+
+            AssertSql(
+                """
+SELECT `e`.`NullableStringA`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableStringA` IN ('Foo', 'Bar')
+""");
+        }
+
+        public override void Where_contains_on_parameter_empty_array_with_relational_null_semantics()
+        {
+            base.Where_contains_on_parameter_empty_array_with_relational_null_semantics();
+
+            AssertSql(
+                """
+SELECT `e`.`NullableStringA`
+FROM `Entities1` AS `e`
+WHERE 0 = 1
+""");
+        }
+
+        public override void Where_contains_on_parameter_array_with_just_null_with_relational_null_semantics()
+        {
+            base.Where_contains_on_parameter_array_with_just_null_with_relational_null_semantics();
+
+            AssertSql(
+                """
+SELECT `e`.`NullableStringA`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableStringA` = NULL
+""");
         }
 
         public override async Task Where_nullable_bool(bool async)
@@ -1554,6 +2518,441 @@ WHERE `e`.`NullableIntA` NOT IN (1, 2) AND `e`.`NullableIntA` IS NOT NULL
 """);
         }
 
+        public override async Task Null_semantics_contains_array_with_no_values(bool async)
+        {
+            await base.Null_semantics_contains_array_with_no_values(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE 0 = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IS NOT NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE 0 = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IS NOT NULL
+""");
+        }
+
+        public override async Task Null_semantics_contains_non_nullable_item_with_non_nullable_subquery(bool async)
+        {
+            await base.Null_semantics_contains_non_nullable_item_with_non_nullable_subquery(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`StringA` IN (
+    SELECT `e0`.`StringA`
+    FROM `Entities2` AS `e0`
+)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`StringA` NOT IN (
+    SELECT `e0`.`StringA`
+    FROM `Entities2` AS `e0`
+)
+""");
+        }
+
+        public override async Task Null_semantics_contains_nullable_item_with_non_nullable_subquery(bool async)
+        {
+            await base.Null_semantics_contains_nullable_item_with_non_nullable_subquery(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableStringA` IN (
+    SELECT `e0`.`StringA`
+    FROM `Entities2` AS `e0`
+)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableStringA` NOT IN (
+    SELECT `e0`.`StringA`
+    FROM `Entities2` AS `e0`
+) OR `e`.`NullableStringA` IS NULL
+""");
+        }
+
+        public override async Task Null_semantics_contains_non_nullable_item_with_nullable_subquery(bool async)
+        {
+            await base.Null_semantics_contains_non_nullable_item_with_nullable_subquery(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`StringA` IN (
+    SELECT `e0`.`NullableStringA`
+    FROM `Entities2` AS `e0`
+)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(IIF(`e`.`StringA` IN (
+            SELECT `e0`.`NullableStringA`
+            FROM `Entities2` AS `e0`
+        ), TRUE, FALSE) IS NULL, FALSE, IIF(`e`.`StringA` IN (
+            SELECT `e0`.`NullableStringA`
+            FROM `Entities2` AS `e0`
+        ), TRUE, FALSE)) = FALSE
+""");
+        }
+
+        public override async Task Null_semantics_contains_nullable_item_with_nullable_subquery(bool async)
+        {
+            await base.Null_semantics_contains_nullable_item_with_nullable_subquery(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Entities2` AS `e0`
+    WHERE `e0`.`NullableStringA` = `e`.`NullableStringB` OR (`e0`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL))
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM `Entities2` AS `e0`
+    WHERE `e0`.`NullableStringA` = `e`.`NullableStringB` OR (`e0`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL))
+""");
+        }
+
+
+        #region Contains with inline collection
+
+        public override async Task Null_semantics_contains_with_non_nullable_item_and_inline_non_nullable_values(bool async)
+        {
+            await base.Null_semantics_contains_with_non_nullable_item_and_inline_non_nullable_values(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` NOT IN (1, 2)
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_non_nullable_item_and_inline_values_with_null(bool async)
+        {
+            await base.Null_semantics_contains_with_non_nullable_item_and_inline_values_with_null(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` NOT IN (1, 2)
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_non_nullable_item_and_inline_values_with_nullable_column(bool async)
+        {
+            await base.Null_semantics_contains_with_non_nullable_item_and_inline_values_with_nullable_column(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` IN (1, 2, `e`.`NullableIntB`)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` NOT IN (1, 2) AND (`e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL)
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_non_nullable_item_and_inline_values_with_nullable_column_and_null(bool async)
+        {
+            await base.Null_semantics_contains_with_non_nullable_item_and_inline_values_with_nullable_column_and_null(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` IN (1, 2, `e`.`NullableIntB`)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` NOT IN (1, 2) AND (`e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL)
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_nullable_item_and_inline_non_nullable_values(bool async)
+        {
+            await base.Null_semantics_contains_with_nullable_item_and_inline_non_nullable_values(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) OR `e`.`NullableIntA` IS NULL
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_nullable_item_and_inline_values_with_null(bool async)
+        {
+            await base.Null_semantics_contains_with_nullable_item_and_inline_values_with_null(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2) OR `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) AND `e`.`NullableIntA` IS NOT NULL
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_nullable_item_and_inline_values_with_nullable_column(bool async)
+        {
+            await base.Null_semantics_contains_with_nullable_item_and_inline_values_with_nullable_column(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableIntA` IN (1, 2) AND `e`.`NullableIntA` IS NOT NULL) OR `e`.`NullableIntA` = `e`.`NullableIntB` OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableIntA` NOT IN (1, 2) OR `e`.`NullableIntA` IS NULL) AND (`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_nullable_item_and_values_with_nullable_column_and_null(bool async)
+        {
+            await base.Null_semantics_contains_with_nullable_item_and_values_with_nullable_column_and_null(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IN (1, 2) OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntA` = `e`.`NullableIntB` OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` NOT IN (1, 2) AND `e`.`NullableIntA` IS NOT NULL AND (`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_non_nullable_item_and_one_value(bool async)
+        {
+            await base.Null_semantics_contains_with_non_nullable_item_and_one_value(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` <> 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE 0 = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` = `e`.`NullableIntB`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` <> `e`.`NullableIntB` OR `e`.`NullableIntB` IS NULL
+""");
+        }
+
+        public override async Task Null_semantics_contains_with_nullable_item_and_one_value(bool async)
+        {
+            await base.Null_semantics_contains_with_nullable_item_and_one_value(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` <> 1 OR `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` IS NOT NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`NullableIntA` = `e`.`NullableIntB` OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableIntA` <> `e`.`NullableIntB` OR `e`.`NullableIntA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
+""");
+        }
+
+        #endregion Contains with inline collection
+        
+        public override async Task Null_semantics_contains_non_nullable_item_with_values(bool async)
+        {
+            await base.Null_semantics_contains_non_nullable_item_with_values(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` NOT IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE `e`.`IntA` NOT IN (1, 2)
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE 0 = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE 0 = 1
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+""");
+        }
+
         public override async Task Null_semantics_with_null_check_simple(bool async)
         {
             await base.Null_semantics_with_null_check_simple(async);
@@ -1611,6 +3010,24 @@ WHERE `e`.`NullableIntA` IS NOT NULL AND (`e`.`NullableIntC` <> `e`.`NullableInt
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL) AND (`e`.`NullableIntA` = `e`.`NullableIntC` OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntC` IS NULL))
+""");
+        }
+
+        public override async Task Null_semantics_with_null_check_complex2(bool async)
+        {
+            await base.Null_semantics_with_null_check_complex2(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL AND (`e`.`NullableBoolB` <> `e`.`NullableBoolA` OR `e`.`NullableBoolC` IS NOT NULL) AND (`e`.`NullableBoolC` <> `e`.`NullableBoolB` OR `e`.`NullableBoolC` IS NULL)) OR `e`.`NullableBoolC` <> `e`.`BoolB` OR `e`.`NullableBoolC` IS NULL
+""",
+                //
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (`e`.`NullableBoolA` IS NOT NULL AND `e`.`NullableBoolB` IS NOT NULL AND (`e`.`NullableBoolB` <> `e`.`NullableBoolA` OR `e`.`NullableBoolC` IS NOT NULL) AND (`e`.`NullableBoolC` <> `e`.`NullableBoolB` OR `e`.`NullableBoolC` IS NULL)) OR `e`.`NullableBoolB` <> `e`.`BoolB` OR `e`.`NullableBoolB` IS NULL
 """);
         }
 
@@ -1925,6 +3342,78 @@ WHERE (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` I
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
 WHERE `e`.`NullableStringA` IS NULL
+""");
+        }
+
+        public override async Task CaseWhen_equal_to_second_filter(bool async)
+        {
+            await base.CaseWhen_equal_to_second_filter(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 2
+""");
+        }
+
+        public override async Task CaseWhen_equal_to_first_or_third_filter(bool async)
+        {
+            await base.CaseWhen_equal_to_first_or_third_filter(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 3
+""");
+        }
+
+        public override async Task CaseWhen_equal_to_second_select(bool async)
+        {
+            await base.CaseWhen_equal_to_second_select(async);
+
+            AssertSql(
+                """
+SELECT IIF(IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 2 AND IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) IS NOT NULL, TRUE, FALSE)
+FROM `Entities1` AS `e`
+ORDER BY `e`.`Id`
+""");
+        }
+
+        public override async Task CaseWhen_equal_to_first_or_third_select(bool async)
+        {
+            await base.CaseWhen_equal_to_first_or_third_select(async);
+
+            AssertSql(
+                """
+SELECT IIF(IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 3 AND IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) IS NOT NULL, TRUE, FALSE)
+FROM `Entities1` AS `e`
+ORDER BY `e`.`Id`
+""");
+        }
+
+        public override async Task CaseOpWhen_projection(bool async)
+        {
+            await base.CaseOpWhen_projection(async);
+
+            AssertSql(
+                """
+SELECT IIF(IIF(`e`.`StringA` = 'Foo', TRUE, FALSE) = TRUE, 3, IIF(IIF(`e`.`StringA` = 'Foo', TRUE, FALSE) = FALSE, 2, NULL))
+FROM `Entities1` AS `e`
+ORDER BY `e`.`Id`
+""");
+        }
+
+        public override async Task CaseOpWhen_predicate(bool async)
+        {
+            await base.CaseOpWhen_predicate(async);
+
+            AssertSql(
+                """
+SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
+FROM `Entities1` AS `e`
+WHERE IIF(IIF(`e`.`StringA` = 'Foo', TRUE, FALSE) = TRUE, 3, IIF(IIF(`e`.`StringA` = 'Foo', TRUE, FALSE) = FALSE, 2, NULL)) = 2
 """);
         }
 

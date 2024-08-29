@@ -480,8 +480,9 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetService<WrongParameterConstructorContext>());
     }
 
-    private class WrongParameterConstructorContext(string x)
-        : DbContext(new DbContextOptions<WrongParameterConstructorContext>());
+#pragma warning disable CS9113 // Parameter 'x' is unread
+    private class WrongParameterConstructorContext(string x) : DbContext(new DbContextOptions<WrongParameterConstructorContext>());
+#pragma warning restore CS9113
 
     [ConditionalFact]
     public void Throws_when_pooled_context_constructor_has_scoped_service()

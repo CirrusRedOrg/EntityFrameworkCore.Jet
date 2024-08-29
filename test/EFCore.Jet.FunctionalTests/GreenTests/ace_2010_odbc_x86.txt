@@ -16660,6 +16660,8 @@ EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.Bool_not
 EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.Bool_not_equal_nullable_int_HasValue(async: True)
 EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseOpWhen_predicate(async: False)
 EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseOpWhen_predicate(async: True)
+EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseOpWhen_projection(async: False)
+EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseOpWhen_projection(async: True)
 EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseWhen_equal_to_first_or_third_filter(async: False)
 EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseWhen_equal_to_first_or_third_filter(async: True)
 EntityFrameworkCore.Jet.FunctionalTests.Query.NullSemanticsQueryJetTest.CaseWhen_equal_to_first_or_third_select(async: False)

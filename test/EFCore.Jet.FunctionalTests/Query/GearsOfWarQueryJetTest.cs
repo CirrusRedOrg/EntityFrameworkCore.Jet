@@ -7483,7 +7483,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner5`, 1)) = 0, LENB(`s`.`Banner5`) - 1, LENB(`s`.
             await base.Conditional_expression_with_test_being_simplified_to_constant_complex(isAsync);
 
             AssertSql(
-                """
+"""
 @__prm_0='True'
 @__prm2_1='Marcus' Lancer' (Size = 255)
 
@@ -7492,10 +7492,7 @@ FROM `Gears` AS `g`
 WHERE IIF(`g`.`HasSoulPatch` = @__prm_0 AND (
         SELECT TOP 1 `w`.`Name`
         FROM `Weapons` AS `w`
-        WHERE `w`.`Id` = `g`.`SquadId`) = @__prm2_1 AND (
-        SELECT TOP 1 `w`.`Name`
-        FROM `Weapons` AS `w`
-        WHERE `w`.`Id` = `g`.`SquadId`) IS NOT NULL, TRUE, FALSE) = TRUE
+        WHERE `w`.`Id` = `g`.`SquadId`) = @__prm2_1, TRUE, FALSE) = TRUE
 """);
         }
 

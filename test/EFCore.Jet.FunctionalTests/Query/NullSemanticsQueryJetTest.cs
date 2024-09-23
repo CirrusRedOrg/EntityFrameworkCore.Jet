@@ -2416,7 +2416,7 @@ WHERE (IIF(`e`.`NullableBoolB` IS NULL, `e`.`NullableBoolC`, `e`.`NullableBoolB`
             await base.Null_semantics_conditional(async);
 
             AssertSql(
-                """
+"""
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE `e`.`BoolA` = IIF(`e`.`BoolB` = TRUE, `e`.`NullableBoolB`, `e`.`NullableBoolC`)
@@ -2431,7 +2431,7 @@ WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS 
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(IIF(`e`.`BoolA` = TRUE, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE), `e`.`BoolC`) <> `e`.`BoolB`, `e`.`BoolA`, IIF((`e`.`NullableBoolB` = `e`.`NullableBoolC` AND `e`.`NullableBoolB` IS NOT NULL AND `e`.`NullableBoolC` IS NOT NULL) OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL), TRUE, FALSE)) = TRUE
+WHERE IIF(IIF(`e`.`BoolA` = TRUE, IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), TRUE, FALSE), `e`.`BoolC`) <> `e`.`BoolB`, `e`.`BoolA`, IIF(`e`.`NullableBoolB` = `e`.`NullableBoolC` OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL), TRUE, FALSE)) = TRUE
 """,
                 //
                 """
@@ -3750,12 +3750,11 @@ WHERE IIF(`e`.`NullableStringA` IS NULL, IIF((`e`.`NullableStringA` <> `e`.`Null
         {
             await base.Is_null_on_column_followed_by_OrElse_optimizes_nullability_conditional_multiple(async);
 
-            // issue #25977
             AssertSql(
 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL, IIF((`e`.`NullableStringA` = `e`.`NullableStringB` AND `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), TRUE, FALSE), IIF((`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL), TRUE, FALSE)) = TRUE
+WHERE IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL, IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), TRUE, FALSE), IIF((`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL), TRUE, FALSE)) = TRUE
 """);
         }
 
@@ -3767,7 +3766,7 @@ WHERE IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL, IIF((`
 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND `e`.`NullableBoolC` IS NULL, IIF((`e`.`NullableStringA` = `e`.`NullableStringB` AND `e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), TRUE, FALSE), IIF((`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL), TRUE, FALSE)) = TRUE
+WHERE IIF((`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND `e`.`NullableBoolC` IS NULL, IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), TRUE, FALSE), IIF((`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL), TRUE, FALSE)) = TRUE
 """);
         }
 

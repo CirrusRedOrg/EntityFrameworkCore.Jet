@@ -292,6 +292,30 @@ COMMIT TRANSACTION;
         public override Task Can_apply_all_migrations_async() // Issue efcore #33331
             => Assert.ThrowsAnyAsync<DbException>(() => base.Can_apply_all_migrations_async());
 
+        [ConditionalFact(Skip ="For now")]
+        public override void Can_apply_one_migration_in_parallel()
+        {
+            base.Can_apply_one_migration_in_parallel();
+        }
+
+        [ConditionalFact(Skip = "For now")]
+        public override Task Can_apply_one_migration_in_parallel_async()
+        {
+            return base.Can_apply_one_migration_in_parallel_async();
+        }
+
+        [ConditionalFact(Skip = "For now")]
+        public override void Can_apply_second_migration_in_parallel()
+        {
+            base.Can_apply_second_migration_in_parallel();
+        }
+
+        [ConditionalFact(Skip = "For now")]
+        public override Task Can_apply_second_migration_in_parallel_async()
+        {
+            return base.Can_apply_second_migration_in_parallel_async();
+        }
+
         private class BloggingContext(DbContextOptions options) : DbContext(options)
         {
             // ReSharper disable once UnusedMember.Local

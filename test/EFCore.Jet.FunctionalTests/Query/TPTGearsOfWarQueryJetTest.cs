@@ -1037,7 +1037,7 @@ WHERE `g`.`LeaderNickname` = 'Marcus'
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
 FROM `Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
-WHERE IIF(`g`.`LeaderNickname` IS NULL, NULL, IIF((`g`.`LeaderNickname` LIKE '%us') AND `g`.`LeaderNickname` IS NOT NULL, TRUE, FALSE)) = TRUE
+WHERE IIF(`g`.`LeaderNickname` IS NULL, NULL, IIF(`g`.`LeaderNickname` LIKE '%us', TRUE, FALSE)) = TRUE
 """);
     }
 
@@ -8265,7 +8265,7 @@ WHERE IIF(`g`.`HasSoulPatch` = @__prm_0, TRUE, FALSE) = TRUE
         await base.Conditional_expression_with_test_being_simplified_to_constant_complex(isAsync);
 
         AssertSql(
-            """
+"""
 @__prm_0='True'
 @__prm2_1='Marcus' Lancer' (Size = 255)
 
@@ -8275,10 +8275,7 @@ LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId`
 WHERE IIF(`g`.`HasSoulPatch` = @__prm_0 AND (
         SELECT TOP 1 `w`.`Name`
         FROM `Weapons` AS `w`
-        WHERE `w`.`Id` = `g`.`SquadId`) = @__prm2_1 AND (
-        SELECT TOP 1 `w`.`Name`
-        FROM `Weapons` AS `w`
-        WHERE `w`.`Id` = `g`.`SquadId`) IS NOT NULL, TRUE, FALSE) = TRUE
+        WHERE `w`.`Id` = `g`.`SquadId`) = @__prm2_1, TRUE, FALSE) = TRUE
 """);
     }
 

@@ -22,8 +22,8 @@ public class JetSqlNullabilityProcessor : SqlNullabilityProcessor
     /// </summary>
     public JetSqlNullabilityProcessor(
         RelationalParameterBasedSqlProcessorDependencies dependencies,
-        bool useRelationalNulls)
-        : base(dependencies, useRelationalNulls)
+        RelationalParameterBasedSqlProcessorParameters parameters)
+        : base(dependencies, parameters)
     {
     }
 

@@ -34,7 +34,7 @@ public class PrecompiledQueryJetTest(
             """
 @__id_0='3'
 
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` > @__id_0
 """);
@@ -110,7 +110,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` IN (7, 8)
 """);
@@ -122,7 +122,7 @@ WHERE `b`.`Id` IN (7, 8)
 
          AssertSql(
              """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, IIF(LEN(`b`.`Name`) IS NULL, 0, LEN(`b`.`Name`))) = `b`.`Name`
 """);
@@ -136,7 +136,7 @@ WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, IIF(LEN(`b`.`Name`) IS NULL, 0
             """
 @__pattern_0_startswith='foo%' (Size = 255)
 
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Name` LIKE @__pattern_0_startswith
 """);
@@ -148,7 +148,7 @@ WHERE `b`.`Name` LIKE @__pattern_0_startswith
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Name` LIKE 'foo%'
 """);
@@ -160,7 +160,7 @@ WHERE `b`.`Name` LIKE 'foo%'
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -171,7 +171,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 0
 """);
@@ -260,7 +260,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE CINT(`b`.`Id`) = 8
 """);
@@ -283,7 +283,7 @@ WHERE CINT(`b`.`Id`) = 8
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -294,7 +294,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -305,7 +305,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` > 8
 """);
@@ -317,7 +317,7 @@ WHERE `b`.`Id` > 8
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` > 8
 """);
@@ -328,8 +328,8 @@ WHERE `b`.`Id` > 8
         await base.Terminating_ToArray();
 
         AssertSql(
-            """
-SELECT `b`.`Id`, `b`.`Name`
+"""
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -340,7 +340,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -351,7 +351,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -362,7 +362,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -395,7 +395,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -406,7 +406,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -417,7 +417,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -428,7 +428,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -439,7 +439,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -802,25 +802,25 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -832,25 +832,25 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -862,25 +862,25 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -892,25 +892,25 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -922,7 +922,7 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """);
@@ -934,27 +934,27 @@ WHERE `b`.`Id` = 8
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
@@ -967,27 +967,27 @@ ORDER BY `b`.`Id` DESC
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
@@ -1000,27 +1000,27 @@ ORDER BY `b`.`Id` DESC
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
@@ -1033,27 +1033,27 @@ ORDER BY `b`.`Id` DESC
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 ORDER BY `b`.`Id` DESC
 """,
             //
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 ORDER BY `b`.`Id` DESC
@@ -1164,25 +1164,25 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -1194,25 +1194,25 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -1224,25 +1224,25 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -1254,25 +1254,25 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
             //
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
 """);
@@ -1392,17 +1392,37 @@ WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
 
         AssertSql(
             """
-SELECT `u`.`Id`, `u`.`Name`
+SELECT `u`.`Id`, `u`.`BlogId`, `u`.`Title`
 FROM (
-    SELECT `b`.`Id`, `b`.`Name`
-    FROM `Blogs` AS `b`
-    WHERE `b`.`Id` > 7
+    SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+    FROM `Posts` AS `p`
+    WHERE `p`.`Id` > 11
     UNION
-    SELECT `b0`.`Id`, `b0`.`Name`
-    FROM `Blogs` AS `b0`
-    WHERE `b0`.`Id` < 10
+    SELECT `p0`.`Id`, `p0`.`BlogId`, `p0`.`Title`
+    FROM `Posts` AS `p0`
+    WHERE `p0`.`Id` < 21
 ) AS `u`
 ORDER BY `u`.`Id`
+""");
+    }
+
+    public override async Task UnionOnEntitiesWithJson()
+    {
+        await base.UnionOnEntitiesWithJson();
+
+        AssertSql(
+            """
+SELECT [u].[Id], [u].[Name], [u].[Json]
+FROM (
+    SELECT [b].[Id], [b].[Name], [b].[Json]
+    FROM [Blogs] AS [b]
+    WHERE [b].[Id] > 7
+    UNION
+    SELECT [b0].[Id], [b0].[Name], [b0].[Json]
+    FROM [Blogs] AS [b0]
+    WHERE [b0].[Id] < 10
+) AS [u]
+ORDER BY [u].[Id]
 """);
     }
 
@@ -1412,17 +1432,37 @@ ORDER BY `u`.`Id`
 
         AssertSql(
             """
-SELECT `u`.`Id`, `u`.`Name`
+SELECT `u`.`Id`, `u`.`BlogId`, `u`.`Title`
 FROM (
-    SELECT `b`.`Id`, `b`.`Name`
-    FROM `Blogs` AS `b`
-    WHERE `b`.`Id` > 7
+    SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+    FROM `Posts` AS `p`
+    WHERE `p`.`Id` > 11
     UNION ALL
-    SELECT `b0`.`Id`, `b0`.`Name`
-    FROM `Blogs` AS `b0`
-    WHERE `b0`.`Id` < 10
+    SELECT `p0`.`Id`, `p0`.`BlogId`, `p0`.`Title`
+    FROM `Posts` AS `p0`
+    WHERE `p0`.`Id` < 21
 ) AS `u`
 ORDER BY `u`.`Id`
+""");
+    }
+
+    public override async Task ConcatOnEntitiesWithJson()
+    {
+        await base.ConcatOnEntitiesWithJson();
+
+        AssertSql(
+            """
+SELECT [u].[Id], [u].[Name], [u].[Json]
+FROM (
+    SELECT [b].[Id], [b].[Name], [b].[Json]
+    FROM [Blogs] AS [b]
+    WHERE [b].[Id] > 7
+    UNION ALL
+    SELECT [b0].[Id], [b0].[Name], [b0].[Json]
+    FROM [Blogs] AS [b0]
+    WHERE [b0].[Id] < 10
+) AS [u]
+ORDER BY [u].[Id]
 """);
     }
 
@@ -1446,6 +1486,26 @@ ORDER BY [i].[Id]
 """);
     }
 
+    public override async Task IntersectOnEntitiesWithJson()
+    {
+        await base.IntersectOnEntitiesWithJson();
+
+        AssertSql(
+            """
+SELECT [i].[Id], [i].[Name], [i].[Json]
+FROM (
+    SELECT [b].[Id], [b].[Name], [b].[Json]
+    FROM [Blogs] AS [b]
+    WHERE [b].[Id] > 7
+    INTERSECT
+    SELECT [b0].[Id], [b0].[Name], [b0].[Json]
+    FROM [Blogs] AS [b0]
+    WHERE [b0].[Id] > 8
+) AS [i]
+ORDER BY [i].[Id]
+""");
+    }
+
     public override async Task Except()
     {
         await base.Except();
@@ -1459,6 +1519,26 @@ FROM (
     WHERE [b].[Id] > 7
     EXCEPT
     SELECT [b0].[Id], [b0].[Name]
+    FROM [Blogs] AS [b0]
+    WHERE [b0].[Id] > 8
+) AS [e]
+ORDER BY [e].[Id]
+""");
+    }
+
+    public override async Task ExceptOnEntitiesWithJson()
+    {
+        await base.ExceptOnEntitiesWithJson();
+
+        AssertSql(
+            """
+SELECT [e].[Id], [e].[Name], [e].[Json]
+FROM (
+    SELECT [b].[Id], [b].[Name], [b].[Json]
+    FROM [Blogs] AS [b]
+    WHERE [b].[Id] > 7
+    EXCEPT
+    SELECT [b0].[Id], [b0].[Name], [b0].[Json]
     FROM [Blogs] AS [b0]
     WHERE [b0].[Id] > 8
 ) AS [e]
@@ -1487,7 +1567,7 @@ WHERE (
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` IN (1, 2, 3)
 """);
@@ -1499,7 +1579,7 @@ WHERE `b`.`Id` IN (1, 2, 3)
 
         AssertSql(
             """
-SELECT `m`.`Id`, `m`.`Name`
+SELECT `m`.`Id`, `m`.`Name`, `m`.`Json`
 FROM (
     SELECT * FROM `Blogs` WHERE `Id` > 8
 ) AS `m`
@@ -1516,7 +1596,7 @@ ORDER BY `m`.`Id`
 p0='8'
 p1='9'
 
-SELECT `m`.`Id`, `m`.`Name`
+SELECT `m`.`Id`, `m`.`Name`, `m`.`Json`
 FROM (
     SELECT * FROM `Blogs` WHERE `Id` > @p0 AND `Id` < @p1
 ) AS `m`
@@ -1620,7 +1700,7 @@ ORDER BY `m`.`Id`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -1631,7 +1711,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -1642,7 +1722,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -1653,7 +1733,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -1664,7 +1744,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }
@@ -1707,7 +1787,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Name` = 'Blog2'
 """);
@@ -1746,7 +1826,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Name`
 """);
@@ -1773,7 +1853,7 @@ OFFSET @__p_0 ROWS
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Name`
 """);
@@ -1813,7 +1893,7 @@ FROM `Blogs` AS `b`
 @__starts_0_startswith='blog%' (Size = 255)
 @__ends_1_endswith='%2' (Size = 255)
 
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE (`b`.`Name` LIKE @__starts_0_startswith) AND (`b`.`Name` LIKE @__ends_1_endswith)
 """);
@@ -1828,7 +1908,7 @@ WHERE (`b`.`Name` LIKE @__starts_0_startswith) AND (`b`.`Name` LIKE @__ends_1_en
 @__foo_0_startswith='X%' (Size = 255)
 @__foo_0_endswith='%X' (Size = 255)
 
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswith)
 """);
@@ -1843,7 +1923,7 @@ WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswi
 @__foo_0_startswith='X%' (Size = 255)
 @__foo_0_endswith='%X' (Size = 255)
 
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswith)
 """);
@@ -1855,7 +1935,7 @@ WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswi
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
 FROM `Blogs` AS `b`
 LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
 WHERE `b`.`Id` > 8
@@ -1869,7 +1949,7 @@ ORDER BY `b`.`Id`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Id`
 """,
@@ -1888,7 +1968,7 @@ ORDER BY `b`.`Id`
 
         AssertSql(
             """
-SELECT `b`.`Name`, `b`.`Id`
+SELECT `b`.`Name`, `b`.`Id`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Name`
 """);
@@ -1903,7 +1983,7 @@ ORDER BY `b`.`Name`
 @__id1_0='8'
 @__id2_1='9'
 
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = @__id1_0 OR `b`.`Id` = @__id2_1
 """,
@@ -1911,7 +1991,7 @@ WHERE `b`.`Id` = @__id1_0 OR `b`.`Id` = @__id2_1
             """
 @__id1_0='8'
 
-SELECT TOP 2 `b`.`Id`, `b`.`Name`
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = @__id1_0
 """);
@@ -1923,12 +2003,12 @@ WHERE `b`.`Id` = @__id1_0
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT `b`.`Id`, `b`.`Name`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
     }

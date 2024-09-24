@@ -767,16 +767,16 @@ FROM `Customers` AS `c`
         {
             await base.Sum_over_scalar_returning_subquery(async);
 
-            // #34256: rewrite query to avoid "Cannot perform an aggregate function on an expression containing an aggregate or a subquery"
             AssertSql(
                 """
-SELECT COALESCE(SUM([s].[OrderID]), 0)
-FROM [Customers] AS [c]
-OUTER APPLY (
-    SELECT TOP(1) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-) AS [s]
+SELECT IIF(SUM((
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+FROM `Customers` AS `c`
 """);
         }
 
@@ -784,23 +784,22 @@ OUTER APPLY (
         {
             await base.Sum_over_Any_subquery(async);
 
-            // #34256: rewrite query to avoid "Cannot perform an aggregate function on an expression containing an aggregate or a subquery"
             AssertSql(
                 """
-SELECT COALESCE(SUM([s].[value]), 0)
-FROM [Customers] AS [c]
-OUTER APPLY (
-    SELECT CASE
-        WHEN EXISTS (
+SELECT IIF(SUM(IIF(EXISTS (
             SELECT 1
-            FROM [Orders] AS [o]
-            WHERE [c].[CustomerID] = [o].[CustomerID]) THEN (
-            SELECT TOP(1) [o0].[OrderID]
-            FROM [Orders] AS [o0]
-            WHERE [c].[CustomerID] = [o0].[CustomerID])
-        ELSE 0
-    END AS [value]
-) AS [s]
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`), (
+            SELECT TOP 1 `o0`.`OrderID`
+            FROM `Orders` AS `o0`
+            WHERE `c`.`CustomerID` = `o0`.`CustomerID`), 0)) IS NULL, 0, SUM(IIF(EXISTS (
+            SELECT 1
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`), (
+            SELECT TOP 1 `o0`.`OrderID`
+            FROM `Orders` AS `o0`
+            WHERE `c`.`CustomerID` = `o0`.`CustomerID`), 0)))
+FROM `Customers` AS `c`
 """);
         }
 
@@ -808,16 +807,16 @@ OUTER APPLY (
         {
             await base.Sum_over_uncorrelated_subquery(async);
 
-            // #34256: rewrite query to avoid "Cannot perform an aggregate function on an expression containing an aggregate or a subquery"
             AssertSql(
                 """
-SELECT COALESCE(SUM([s].[value]), 0)
-FROM [Customers] AS [c]
-CROSS JOIN (
-    SELECT COUNT(*) AS [value]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] > 10300
-) AS [s]
+SELECT IIF(SUM((
+        SELECT COUNT(*)
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 10300)) IS NULL, 0, SUM((
+        SELECT COUNT(*)
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 10300)))
+FROM `Customers` AS `c`
 """);
         }
 

@@ -133,8 +133,8 @@ WHERE [c].[ContactName] = N'maria anders' COLLATE Latin1_General_CS_AS
             AssertSql(
                 """
 SELECT COUNT(*)
-FROM [Customers] AS [c]
-WHERE [c].[Region] IS NULL
+FROM `Customers` AS `c`
+WHERE `c`.`Region` IS NULL
 """);
         }
 

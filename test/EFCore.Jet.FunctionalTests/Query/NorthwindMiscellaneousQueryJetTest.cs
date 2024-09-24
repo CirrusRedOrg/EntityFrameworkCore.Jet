@@ -1522,12 +1522,12 @@ WHERE `c`.`City` = 'London' AND EXISTS (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 WHERE EXISTS (
     SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID] AND ([o].[EmployeeID] <> 1 OR [o].[EmployeeID] IS NULL))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`EmployeeID` <> 1 OR `o`.`EmployeeID` IS NULL))
 """);
         }
 
@@ -1537,12 +1537,12 @@ WHERE EXISTS (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 WHERE 1 IN (
-    SELECT [o].[EmployeeID]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
+    SELECT `o`.`EmployeeID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
 )
 """);
         }
@@ -1553,12 +1553,17 @@ WHERE 1 IN (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID] AND [o].[EmployeeID] = 1)
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE IIF(IIF(1 IN (
+            SELECT `o`.`EmployeeID`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ), TRUE, FALSE) IS NULL, FALSE, IIF(1 IN (
+            SELECT `o`.`EmployeeID`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ), TRUE, FALSE)) = FALSE
 """);
         }
 
@@ -7029,9 +7034,9 @@ WHERE `c`.`CustomerID` = @__p_0
 
             AssertSql(
                 """
-SELECT [c].[CustomerID]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -7041,9 +7046,9 @@ ORDER BY [c].[CustomerID]
 
             AssertSql(
                 """
-SELECT [c].[CustomerID]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID] DESC
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID` DESC
 """);
         }
 
@@ -7053,13 +7058,13 @@ ORDER BY [c].[CustomerID] DESC
 
             AssertSql(
                 """
-SELECT [c].[CustomerID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
 WHERE (
-    SELECT TOP(1) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderID]) = 10248
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`) = 10248
 """);
         }
 

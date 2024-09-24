@@ -1372,13 +1372,13 @@ WHERE [c0].[ContactTitle] = N'Owner'
 
             AssertSql(
                 """
-SELECT [c].[CompanyName]
-FROM [Customers] AS [c]
-WHERE [c].[City] = N'México D.F.'
+SELECT `c`.`CompanyName`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'México D.F.'
 UNION
-SELECT [c0].[CompanyName]
-FROM [Customers] AS [c0]
-WHERE [c0].[ContactTitle] = N'Owner'
+SELECT `c0`.`CompanyName`
+FROM `Customers` AS `c0`
+WHERE `c0`.`ContactTitle` = 'Owner'
 """);
         }
 

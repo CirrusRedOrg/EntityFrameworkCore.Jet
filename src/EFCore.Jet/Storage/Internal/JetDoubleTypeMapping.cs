@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             //-1.23456789 can have multiple 9s at the end
             //Base uses format of G17
             var doubleValue = Convert.ToDouble(value);
-            var literal = doubleValue.ToString("G17", CultureInfo.InvariantCulture);
+            var literal = doubleValue.ToString("G15", CultureInfo.InvariantCulture);
 
             return !literal.Contains('E')
                    && !literal.Contains('e')

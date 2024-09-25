@@ -8,6 +8,8 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
 using Identity30.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -271,19 +273,54 @@ COMMIT TRANSACTION;
         }
 
         [ConditionalFact]
+        public void Throws_for_pending_model_changes()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.PendingModelChangesWarning.ToString(),
+                    RelationalResources.LogPendingModelChanges(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext)),
+                    "RelationalEventId.PendingModelChangesWarning"),
+                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+        }
+
+        [ConditionalFact]
+        public async Task Throws_for_pending_model_changes_async()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.PendingModelChangesWarning.ToString(),
+                    RelationalResources.LogPendingModelChanges(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext)),
+                    "RelationalEventId.PendingModelChangesWarning"),
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
+        }
+
+        [ConditionalFact]
         public async Task Empty_Migration_Creates_Database()
         {
-            using (var context = new BloggingContext(
+            using var context = new BloggingContext(
                 Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options))
-            {
-                var creator = (JetDatabaseCreator)context.GetService<IRelationalDatabaseCreator>();
-                // creator.RetryTimeout = TimeSpan.FromMinutes(10);
+                        new DbContextOptionsBuilder().EnableServiceProviderCaching(false))
+                    .ConfigureWarnings(e => e.Log(RelationalEventId.PendingModelChangesWarning)).Options);
 
-                await context.Database.MigrateAsync();
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
 
-                Assert.True(creator.Exists());
-            }
+            var creator = (JetDatabaseCreator)context.GetService<IRelationalDatabaseCreator>();
+            //creator.RetryTimeout = TimeSpan.FromMinutes(10);
+
+            await context.Database.MigrateAsync("Empty");
+
+            Assert.True(creator.Exists());
         }
 
         public override void Can_apply_all_migrations() // Issue efcore #33331

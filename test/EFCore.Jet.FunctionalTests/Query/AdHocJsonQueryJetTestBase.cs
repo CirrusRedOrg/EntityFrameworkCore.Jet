@@ -21,7 +21,7 @@ public abstract class AdHocJsonQueryJetTestBase : AdHocJsonQueryTestBase
     {
         base.ConfigureWarnings(builder);
 
-        //builder.Log(CoreEventId.StringEnumValueInJson, JetEventId.JsonTypeExperimental);
+        builder.Log(CoreEventId.StringEnumValueInJson);
     }
 
     protected override async Task Seed29219(DbContext ctx)

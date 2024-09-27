@@ -1936,12 +1936,12 @@ WHERE 1 IN (
             await base.Contains_with_subquery_optional_navigation_scalar_distinct_and_constant_item(async);
 
             AssertSql(
-                """
+"""
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 WHERE 5 IN (
-    SELECT DISTINCT IIF(LEN(`l1`.`Name`) IS NULL, NULL, CLNG(LEN(`l1`.`Name`)))
+    SELECT IIF(LEN(`l1`.`Name`) IS NULL, NULL, CLNG(LEN(`l1`.`Name`)))
     FROM `LevelThree` AS `l1`
     WHERE `l0`.`Id` IS NOT NULL AND `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 )

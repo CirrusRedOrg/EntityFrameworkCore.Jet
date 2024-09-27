@@ -403,11 +403,22 @@ public class JetLocateScalarSubqueryVisitor : SqlExpressionVisitor
 
     protected override Expression VisitValues(ValuesExpression valuesExpression)
     {
-        var rowValues = new RowValueExpression[valuesExpression.RowValues.Count];
-        for (var i = 0; i < rowValues.Length; i++)
+        switch (valuesExpression)
         {
-            rowValues[i] = (RowValueExpression)Visit(valuesExpression.RowValues[i]);
+            case { RowValues: not null }:
+                var rowValues = new RowValueExpression[valuesExpression.RowValues!.Count];
+                for (var i = 0; i < rowValues.Length; i++)
+                {
+                    rowValues[i] = (RowValueExpression)Visit(valuesExpression.RowValues[i]);
+                }
+                return valuesExpression.Update(rowValues);
+
+            case { ValuesParameter: not null }:
+                var valuesParameter = (SqlParameterExpression)Visit(valuesExpression.ValuesParameter);
+                return valuesExpression.Update(valuesParameter);
+
+            default:
+                throw new UnreachableException();
         }
-        return valuesExpression.Update(rowValues);
     }
 }

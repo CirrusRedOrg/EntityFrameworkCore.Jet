@@ -24,8 +24,8 @@ public class JetParameterBasedSqlProcessor : RelationalParameterBasedSqlProcesso
     /// </summary>
     public JetParameterBasedSqlProcessor(
         RelationalParameterBasedSqlProcessorDependencies dependencies,
-        bool useRelationalNulls)
-        : base(dependencies, useRelationalNulls)
+        RelationalParameterBasedSqlProcessorParameters parameters)
+        : base(dependencies, parameters)
     {
     }
 
@@ -64,7 +64,7 @@ public class JetParameterBasedSqlProcessor : RelationalParameterBasedSqlProcesso
         Check.NotNull(selectExpression, nameof(selectExpression));
         Check.NotNull(parametersValues, nameof(parametersValues));
 
-        return new JetSqlNullabilityProcessor(Dependencies, UseRelationalNulls).Process(
+        return new JetSqlNullabilityProcessor(Dependencies, Parameters).Process(
             selectExpression, parametersValues, out canCache);
     }
 }

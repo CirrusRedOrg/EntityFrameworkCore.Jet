@@ -690,9 +690,9 @@ FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
 
-        public override async Task Sum_over_subquery_is_client_eval(bool isAsync)
+        public override async Task Sum_over_subquery(bool isAsync)
         {
-            await base.Sum_over_subquery_is_client_eval(isAsync);
+            await base.Sum_over_subquery(isAsync);
 
             AssertSql(
 """
@@ -707,9 +707,9 @@ FROM `Customers` AS `c`
 """);
         }
 
-        public override async Task Sum_over_nested_subquery_is_client_eval(bool isAsync)
+        public override async Task Sum_over_nested_subquery(bool isAsync)
         {
-            await base.Sum_over_nested_subquery_is_client_eval(isAsync);
+            await base.Sum_over_nested_subquery(isAsync);
             AssertSql(
 """
 SELECT IIF(SUM((
@@ -735,9 +735,9 @@ FROM `Customers` AS `c`
 """);
         }
 
-        public override async Task Sum_over_min_subquery_is_client_eval(bool isAsync)
+        public override async Task Sum_over_min_subquery(bool isAsync)
         {
-            await base.Sum_over_min_subquery_is_client_eval(isAsync);
+            await base.Sum_over_min_subquery(isAsync);
             AssertSql(
 """
 SELECT IIF(SUM((
@@ -759,6 +759,63 @@ SELECT IIF(SUM((
                 WHERE `o`.`OrderID` = `o0`.`OrderID`)))
         FROM `Orders` AS `o`
         WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task Sum_over_scalar_returning_subquery(bool async)
+        {
+            await base.Sum_over_scalar_returning_subquery(async);
+
+            AssertSql(
+                """
+SELECT IIF(SUM((
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task Sum_over_Any_subquery(bool async)
+        {
+            await base.Sum_over_Any_subquery(async);
+
+            AssertSql(
+                """
+SELECT IIF(SUM(IIF(EXISTS (
+            SELECT 1
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`), (
+            SELECT TOP 1 `o0`.`OrderID`
+            FROM `Orders` AS `o0`
+            WHERE `c`.`CustomerID` = `o0`.`CustomerID`), 0)) IS NULL, 0, SUM(IIF(EXISTS (
+            SELECT 1
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`), (
+            SELECT TOP 1 `o0`.`OrderID`
+            FROM `Orders` AS `o0`
+            WHERE `c`.`CustomerID` = `o0`.`CustomerID`), 0)))
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task Sum_over_uncorrelated_subquery(bool async)
+        {
+            await base.Sum_over_uncorrelated_subquery(async);
+
+            AssertSql(
+                """
+SELECT IIF(SUM((
+        SELECT COUNT(*)
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 10300)) IS NULL, 0, SUM((
+        SELECT COUNT(*)
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 10300)))
 FROM `Customers` AS `c`
 """);
         }
@@ -850,9 +907,9 @@ FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
 
-        public override async Task Average_over_subquery_is_client_eval(bool isAsync)
+        public override async Task Average_over_subquery(bool isAsync)
         {
-            await base.Average_over_subquery_is_client_eval(isAsync);
+            await base.Average_over_subquery(isAsync);
 
             AssertSql(
                 """
@@ -867,9 +924,9 @@ WHERE `p`.`ProductID` < 40");
     """);
         }
 
-        public override async Task Average_over_nested_subquery_is_client_eval(bool isAsync)
+        public override async Task Average_over_nested_subquery(bool isAsync)
         {
-            await base.Average_over_nested_subquery_is_client_eval(isAsync);
+            await base.Average_over_nested_subquery(isAsync);
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
@@ -878,9 +935,9 @@ FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`");
         }
 
-        public override async Task Average_over_max_subquery_is_client_eval(bool isAsync)
+        public override async Task Average_over_max_subquery(bool isAsync)
         {
-            await base.Average_over_max_subquery_is_client_eval(isAsync);
+            await base.Average_over_max_subquery(isAsync);
             AssertSql(
                 $@"{AssertSqlHelper.Declaration("@__p_0='3'")}
 
@@ -953,9 +1010,9 @@ FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
 
-        public override async Task Min_over_subquery_is_client_eval(bool isAsync)
+        public override async Task Min_over_subquery(bool isAsync)
         {
-            await base.Min_over_subquery_is_client_eval(isAsync);
+            await base.Min_over_subquery(isAsync);
 
             AssertSql(
 """
@@ -967,9 +1024,9 @@ FROM `Customers` AS `c`
 """);
         }
 
-        public override async Task Min_over_nested_subquery_is_client_eval(bool isAsync)
+        public override async Task Min_over_nested_subquery(bool isAsync)
         {
-            await base.Min_over_nested_subquery_is_client_eval(isAsync);
+            await base.Min_over_nested_subquery(isAsync);
 
             AssertSql(
                 """
@@ -988,9 +1045,9 @@ FROM (
 """);
         }
 
-        public override async Task Min_over_max_subquery_is_client_eval(bool isAsync)
+        public override async Task Min_over_max_subquery(bool isAsync)
         {
-            await base.Min_over_max_subquery_is_client_eval(isAsync);
+            await base.Min_over_max_subquery(isAsync);
 
             AssertSql(
                 """
@@ -1037,9 +1094,9 @@ FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40");
         }
 
-        public override async Task Max_over_subquery_is_client_eval(bool isAsync)
+        public override async Task Max_over_subquery(bool isAsync)
         {
-            await base.Max_over_subquery_is_client_eval(isAsync);
+            await base.Max_over_subquery(isAsync);
 
             AssertSql(
 """
@@ -1051,9 +1108,9 @@ FROM `Customers` AS `c`
 """);
         }
 
-        public override async Task Max_over_nested_subquery_is_client_eval(bool isAsync)
+        public override async Task Max_over_nested_subquery(bool isAsync)
         {
-            await base.Max_over_nested_subquery_is_client_eval(isAsync);
+            await base.Max_over_nested_subquery(isAsync);
 
             AssertSql(
                 """
@@ -1072,9 +1129,9 @@ FROM (
 """);
         }
 
-        public override async Task Max_over_sum_subquery_is_client_eval(bool isAsync)
+        public override async Task Max_over_sum_subquery(bool isAsync)
         {
-            await base.Max_over_sum_subquery_is_client_eval(isAsync);
+            await base.Max_over_sum_subquery(isAsync);
 
             AssertSql(
                 """

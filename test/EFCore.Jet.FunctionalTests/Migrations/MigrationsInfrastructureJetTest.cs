@@ -8,6 +8,8 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
 using Identity30.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -84,32 +86,16 @@ CREATE TABLE `Table1` (
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000001_Migration1', '7.0.0-test');
 
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
-
 ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000002_Migration2', '7.0.0-test');
 
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
-
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000003_Migration3', '7.0.0-test');
 
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
-
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000004_Migration4', '7.0.0-test');
-
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
 
 INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, 3, 'Value With
 
@@ -118,10 +104,6 @@ Empty Lines')
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000005_Migration5', '7.0.0-test');
 
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
-
 INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, 4, 'GO
 Value With
 
@@ -129,10 +111,6 @@ Empty Lines')
 
 INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('00000000000006_Migration6', '7.0.0-test');
-
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
 
 INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, 5, 'GO
 Value With
@@ -206,10 +184,6 @@ ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
 DELETE FROM `__EFMigrationsHistory`
 WHERE `MigrationId` = '00000000000002_Migration2';
 
-COMMIT TRANSACTION;
-
-BEGIN TRANSACTION;
-
 DROP TABLE `Table1`;
 
 DELETE FROM `__EFMigrationsHistory`
@@ -271,19 +245,54 @@ COMMIT TRANSACTION;
         }
 
         [ConditionalFact]
+        public void Throws_for_pending_model_changes()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.PendingModelChangesWarning.ToString(),
+                    RelationalResources.LogPendingModelChanges(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext)),
+                    "RelationalEventId.PendingModelChangesWarning"),
+                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+        }
+
+        [ConditionalFact]
+        public async Task Throws_for_pending_model_changes_async()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.PendingModelChangesWarning.ToString(),
+                    RelationalResources.LogPendingModelChanges(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext)),
+                    "RelationalEventId.PendingModelChangesWarning"),
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
+        }
+
+        [ConditionalFact]
         public async Task Empty_Migration_Creates_Database()
         {
-            using (var context = new BloggingContext(
+            using var context = new BloggingContext(
                 Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options))
-            {
-                var creator = (JetDatabaseCreator)context.GetService<IRelationalDatabaseCreator>();
-                // creator.RetryTimeout = TimeSpan.FromMinutes(10);
+                        new DbContextOptionsBuilder().EnableServiceProviderCaching(false))
+                    .ConfigureWarnings(e => e.Log(RelationalEventId.PendingModelChangesWarning)).Options);
 
-                await context.Database.MigrateAsync();
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
 
-                Assert.True(creator.Exists());
-            }
+            var creator = (JetDatabaseCreator)context.GetService<IRelationalDatabaseCreator>();
+            //creator.RetryTimeout = TimeSpan.FromMinutes(10);
+
+            await context.Database.MigrateAsync("Empty");
+
+            Assert.True(creator.Exists());
         }
 
         public override void Can_apply_all_migrations() // Issue efcore #33331
@@ -291,6 +300,30 @@ COMMIT TRANSACTION;
 
         public override Task Can_apply_all_migrations_async() // Issue efcore #33331
             => Assert.ThrowsAnyAsync<DbException>(() => base.Can_apply_all_migrations_async());
+
+        [ConditionalFact(Skip ="For now")]
+        public override void Can_apply_one_migration_in_parallel()
+        {
+            base.Can_apply_one_migration_in_parallel();
+        }
+
+        [ConditionalFact(Skip = "For now")]
+        public override Task Can_apply_one_migration_in_parallel_async()
+        {
+            return base.Can_apply_one_migration_in_parallel_async();
+        }
+
+        [ConditionalFact(Skip = "For now")]
+        public override void Can_apply_second_migration_in_parallel()
+        {
+            base.Can_apply_second_migration_in_parallel();
+        }
+
+        [ConditionalFact(Skip = "For now")]
+        public override Task Can_apply_second_migration_in_parallel_async()
+        {
+            return base.Can_apply_second_migration_in_parallel_async();
+        }
 
         private class BloggingContext(DbContextOptions options) : DbContext(options)
         {

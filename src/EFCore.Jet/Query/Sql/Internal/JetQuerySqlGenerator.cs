@@ -816,7 +816,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         protected override void GenerateValues(ValuesExpression valuesExpression)
         {
-            if (valuesExpression.RowValues.Count == 0)
+            if (valuesExpression.RowValues is null || valuesExpression.RowValues.Count == 0)
             {
                 throw new InvalidOperationException(RelationalStrings.EmptyCollectionNotSupportedAsInlineQueryRoot);
             }

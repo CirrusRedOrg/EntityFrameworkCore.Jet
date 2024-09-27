@@ -1516,6 +1516,57 @@ WHERE `c`.`City` = 'London' AND EXISTS (
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`EmployeeID` = 1)");
         }
 
+        public override async Task Any_on_distinct(bool async)
+        {
+            await base.Any_on_distinct(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`EmployeeID` <> 1 OR `o`.`EmployeeID` IS NULL))
+""");
+        }
+
+        public override async Task Contains_on_distinct(bool async)
+        {
+            await base.Contains_on_distinct(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE 1 IN (
+    SELECT `o`.`EmployeeID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+)
+""");
+        }
+
+        public override async Task All_on_distinct(bool async)
+        {
+            await base.All_on_distinct(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE IIF(IIF(1 IN (
+            SELECT `o`.`EmployeeID`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ), TRUE, FALSE) IS NULL, FALSE, IIF(1 IN (
+            SELECT `o`.`EmployeeID`
+            FROM `Orders` AS `o`
+            WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ), TRUE, FALSE)) = FALSE
+""");
+        }
+
         public override async Task All_top_level(bool isAsync)
         {
             await base.All_top_level(isAsync);
@@ -3808,7 +3859,7 @@ WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
             await base.Complex_query_with_repeated_nested_query_model_compiles_correctly(isAsync);
 
             AssertSql(
-                """
+"""
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
@@ -3818,7 +3869,7 @@ WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
         SELECT 1
         FROM `Customers` AS `c1`
         WHERE EXISTS (
-            SELECT DISTINCT 1
+            SELECT 1
             FROM (
                 SELECT TOP 10 1
                 FROM `Customers` AS `c2`
@@ -6974,6 +7025,46 @@ WHERE @__Contains_0 = TRUE
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = @__p_0
+""");
+        }
+
+        public override async Task Select_Order(bool async)
+        {
+            await base.Select_Order(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
+        }
+
+        public override async Task Select_OrderDescending(bool async)
+        {
+            await base.Select_OrderDescending(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID` DESC
+""");
+        }
+
+        public override async Task Where_Order_First(bool async)
+        {
+            await base.Where_Order_First(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`) = 10248
 """);
         }
 

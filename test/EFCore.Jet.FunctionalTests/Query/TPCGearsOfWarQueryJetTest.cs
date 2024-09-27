@@ -1330,7 +1330,7 @@ WHERE `u`.`LeaderNickname` = 'Marcus'
 
         // issue #16050
         AssertSql(
-            """
+"""
 SELECT `u`.`Nickname`, `u`.`SquadId`, `u`.`AssignedCityName`, `u`.`CityOfBirthName`, `u`.`FullName`, `u`.`HasSoulPatch`, `u`.`LeaderNickname`, `u`.`LeaderSquadId`, `u`.`Rank`, `u`.`Discriminator`
 FROM (
     SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
@@ -1339,7 +1339,7 @@ FROM (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
 ) AS `u`
-WHERE IIF(`u`.`LeaderNickname` IS NULL, NULL, IIF((`u`.`LeaderNickname` LIKE '%us') AND `u`.`LeaderNickname` IS NOT NULL, TRUE, FALSE)) = TRUE
+WHERE IIF(`u`.`LeaderNickname` IS NULL, NULL, IIF(`u`.`LeaderNickname` LIKE '%us', TRUE, FALSE)) = TRUE
 """);
     }
 
@@ -10267,7 +10267,7 @@ WHERE IIF(`u`.`HasSoulPatch` = @__prm_0, TRUE, FALSE) = TRUE
         await base.Conditional_expression_with_test_being_simplified_to_constant_complex(isAsync);
 
         AssertSql(
-            """
+"""
 @__prm_0='True'
 @__prm2_1='Marcus' Lancer' (Size = 255)
 
@@ -10282,10 +10282,7 @@ FROM (
 WHERE IIF(`u`.`HasSoulPatch` = @__prm_0 AND (
         SELECT TOP 1 `w`.`Name`
         FROM `Weapons` AS `w`
-        WHERE `w`.`Id` = `u`.`SquadId`) = @__prm2_1 AND (
-        SELECT TOP 1 `w`.`Name`
-        FROM `Weapons` AS `w`
-        WHERE `w`.`Id` = `u`.`SquadId`) IS NOT NULL, TRUE, FALSE) = TRUE
+        WHERE `w`.`Id` = `u`.`SquadId`) = @__prm2_1, TRUE, FALSE) = TRUE
 """);
     }
 

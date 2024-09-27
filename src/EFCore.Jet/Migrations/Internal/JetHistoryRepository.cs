@@ -128,7 +128,7 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                 .ToString();
         }
 
-        public override IDisposable GetDatabaseLock(TimeSpan timeout)
+        public override IDisposable GetDatabaseLock()
         {
             if (!InterpretExistsResult(Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
                     .ExecuteScalar(CreateRelationalCommandParameters())))
@@ -144,8 +144,7 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
             }
 
             var retryDelay = _retryDelay;
-            var startTime = DateTimeOffset.UtcNow;
-            while (DateTimeOffset.UtcNow - startTime < timeout)
+            while (true)
             {
                 var dbLock = CreateMigrationDatabaseLock();
                 int? insertCount = 0;
@@ -164,17 +163,6 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                     return dbLock;
                 }
 
-                using var reader = CreateGetLockCommand().ExecuteReader(CreateRelationalCommandParameters());
-                if (reader.Read())
-                {
-                    var timestamp = reader.DbDataReader.GetFieldValue<DateTimeOffset>(1);
-                    if (DateTimeOffset.UtcNow - timestamp > timeout)
-                    {
-                        var id = reader.DbDataReader.GetFieldValue<int>(0);
-                        CreateDeleteLockCommand(id).ExecuteNonQuery(CreateRelationalCommandParameters());
-                    }
-                }
-
                 Thread.Sleep(retryDelay);
                 if (retryDelay < TimeSpan.FromMinutes(1))
                 {
@@ -185,7 +173,7 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
             throw new TimeoutException();
         }
 
-        public override async Task<IAsyncDisposable> GetDatabaseLockAsync(TimeSpan timeout, CancellationToken cancellationToken = new CancellationToken())
+        public override async Task<IAsyncDisposable> GetDatabaseLockAsync(CancellationToken cancellationToken = new CancellationToken())
         {
             if (!InterpretExistsResult(await Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
                     .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken).ConfigureAwait(false)))
@@ -204,8 +192,7 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
             }
 
             var retryDelay = _retryDelay;
-            var startTime = DateTimeOffset.UtcNow;
-            while (DateTimeOffset.UtcNow - startTime < timeout)
+            while (true)
             {
                 var dbLock = CreateMigrationDatabaseLock();
                 int? insertCount = 0;
@@ -223,19 +210,6 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                 if ((int)insertCount! == 1)
                 {
                     return dbLock;
-                }
-
-                using var reader = await CreateGetLockCommand().ExecuteReaderAsync(CreateRelationalCommandParameters(), cancellationToken)
-                    .ConfigureAwait(false);
-                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    var timestamp = await reader.DbDataReader.GetFieldValueAsync<DateTimeOffset>(1).ConfigureAwait(false);
-                    if (DateTimeOffset.UtcNow - timestamp > timeout)
-                    {
-                        var id = await reader.DbDataReader.GetFieldValueAsync<int>(0).ConfigureAwait(false);
-                        await CreateDeleteLockCommand(id).ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
-                            .ConfigureAwait(false);
-                    }
                 }
 
                 await Task.Delay(_retryDelay, cancellationToken).ConfigureAwait(true);
@@ -265,11 +239,6 @@ INSERT INTO `{LockTableName}` (`Id`, `Timestamp`) VALUES(1, {timestampLiteral});
 SELECT 1 FROM `{LockTableName}` WHERE `Id` = 1;
 """);
         }
-
-        private IRelationalCommand CreateGetLockCommand()
-            => Dependencies.RawSqlCommandBuilder.Build($"""
-SELECT TOP 1 `Id`, `Timestamp` FROM `{LockTableName}`;
-""");
 
         private IRelationalCommand CreateDeleteLockCommand(int? id = null)
         {

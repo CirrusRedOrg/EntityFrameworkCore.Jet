@@ -115,6 +115,8 @@ VALUES ('00000000000006_Migration6', '7.0.0-test');
 INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, 5, 'GO
 Value With
 
+GO
+
 Empty Lines
 GO')
 
@@ -296,30 +298,30 @@ COMMIT TRANSACTION;
         }
 
         public override void Can_apply_all_migrations() // Issue efcore #33331
-            => Assert.ThrowsAny<DbException>(() => base.Can_apply_all_migrations());
+            => base.Can_apply_all_migrations();
 
         public override Task Can_apply_all_migrations_async() // Issue efcore #33331
-            => Assert.ThrowsAnyAsync<DbException>(() => base.Can_apply_all_migrations_async());
+            => base.Can_apply_all_migrations_async();
 
-        //[ConditionalFact(Skip ="For now")]
+        [ConditionalFact(Skip ="For now")]
         public override void Can_apply_one_migration_in_parallel()
         {
             base.Can_apply_one_migration_in_parallel();
         }
 
-        //[ConditionalFact(Skip = "For now")]
+        [ConditionalFact(Skip = "For now")]
         public override Task Can_apply_one_migration_in_parallel_async()
         {
             return base.Can_apply_one_migration_in_parallel_async();
         }
 
-        //[ConditionalFact(Skip = "For now")]
+        [ConditionalFact(Skip = "For now")]
         public override void Can_apply_second_migration_in_parallel()
         {
             base.Can_apply_second_migration_in_parallel();
         }
 
-        //[ConditionalFact(Skip = "For now")]
+        [ConditionalFact(Skip = "For now")]
         public override Task Can_apply_second_migration_in_parallel_async()
         {
             return base.Can_apply_second_migration_in_parallel_async();

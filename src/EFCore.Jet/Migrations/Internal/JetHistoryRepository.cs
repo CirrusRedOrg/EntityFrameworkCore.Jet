@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
     public class JetHistoryRepository : HistoryRepository
     {
         private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(1);
-        public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Transaction;
+        public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Explicit;
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in

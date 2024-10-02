@@ -52,6 +52,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IRelationalConnection>(p => p.GetRequiredService<IJetRelationalConnection>())
                 .TryAdd<IMigrationsSqlGenerator, JetMigrationsSqlGenerator>()
                 .TryAdd<IRelationalDatabaseCreator, JetDatabaseCreator>()
+                .TryAdd<IMigrationCommandExecutor, JetMigrationCommandExecutor>()
                 .TryAdd<IHistoryRepository, JetHistoryRepository>()
                 .TryAdd<ICompiledQueryCacheKeyGenerator, JetCompiledQueryCacheKeyGenerator>()
                 .TryAdd<IExecutionStrategyFactory, JetExecutionStrategyFactory>()

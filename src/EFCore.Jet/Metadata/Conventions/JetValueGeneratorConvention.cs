@@ -6,6 +6,7 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using System.Linq;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
@@ -61,6 +62,14 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
         /// <returns> The store value generation strategy to set for the given property. </returns>
         protected override ValueGenerated? GetValueGenerated(IConventionProperty property)
         {
+            if (property.DeclaringType.IsMappedToJson()
+#pragma warning disable EF1001 // Internal EF Core API usage.
+                && property.IsOrdinalKeyProperty()
+#pragma warning restore EF1001 // Internal EF Core API usage.
+                && (property.DeclaringType as IReadOnlyEntityType)?.FindOwnership()!.IsUnique == false)
+            {
+                return ValueGenerated.OnAdd;
+            }
             var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
             if (declaringTable.Name == null)
             {

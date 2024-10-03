@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
     public class JetHistoryRepository : HistoryRepository
     {
         private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(1);
-
+        public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Explicit;
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -128,18 +128,21 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                 .ToString();
         }
 
-        public override IDisposable GetDatabaseLock()
+        public override IMigrationsDatabaseLock AcquireDatabaseLock()
         {
-            if (!InterpretExistsResult(Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
-                    .ExecuteScalar(CreateRelationalCommandParameters())))
+            Dependencies.MigrationsLogger.AcquiringMigrationLock();
+
+            if (!InterpretExistsResult(
+                    Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
+                        .ExecuteScalar(CreateRelationalCommandParameters())))
             {
                 try
                 {
                     CreateLockTableCommand().ExecuteNonQuery(CreateRelationalCommandParameters());
                 }
-                catch (DbException)
+                catch (DbException e)
                 {
-                    //if (!e.Message.Contains("already exists")) throw;
+                    if (!e.Message.Contains("already exists")) throw;
                 }
             }
 
@@ -152,11 +155,11 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                 try
                 {
                     insertCount = (int?)CreateInsertLockCommand(DateTimeOffset.UtcNow)
-                    .ExecuteScalar(CreateRelationalCommandParameters());
+                        .ExecuteScalar(CreateRelationalCommandParameters());
                 }
-                catch (DbException)
+                catch (DbException e)
                 {
-                    //if (!e.Message.Contains("duplicate")) throw;
+                    if (!e.Message.Contains("duplicate")) throw;
                 }
                 if ((int)insertCount! == 1)
                 {
@@ -169,44 +172,28 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                     retryDelay = retryDelay.Add(retryDelay);
                 }
             }
-
-            throw new TimeoutException();
         }
 
-        public override async Task<IAsyncDisposable> GetDatabaseLockAsync(CancellationToken cancellationToken = new CancellationToken())
+        public override async Task<IMigrationsDatabaseLock> AcquireDatabaseLockAsync(
+            CancellationToken cancellationToken = default)
         {
-            if (!InterpretExistsResult(await Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
-                    .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken).ConfigureAwait(false)))
+            Dependencies.MigrationsLogger.AcquiringMigrationLock();
+
+            if (!InterpretExistsResult(
+                    await Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
+                        .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken).ConfigureAwait(false)))
             {
-                //No CREATE TABLE IF EXISTS in Jet. We try a normal CREATE TABLE and catch the exception if it already exists
-                try
-                {
-                    await CreateLockTableCommand()
-                        .ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (DbException)
-                {
-                    //if (!e.Message.Contains("already exists")) throw;
-                }
+                await CreateLockTableCommand().ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             var retryDelay = _retryDelay;
             while (true)
             {
                 var dbLock = CreateMigrationDatabaseLock();
-                int? insertCount = 0;
-                try
-                {
-                    insertCount = (int?)await CreateInsertLockCommand(DateTimeOffset.UtcNow)
+                var insertCount = await CreateInsertLockCommand(DateTimeOffset.UtcNow)
                     .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken)
                     .ConfigureAwait(false);
-
-                }
-                catch (DbException)
-                {
-                    //if (!e.Message.Contains("duplicate")) throw;
-                }
                 if ((int)insertCount! == 1)
                 {
                     return dbLock;
@@ -218,8 +205,6 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                     retryDelay = retryDelay.Add(retryDelay);
                 }
             }
-
-            throw new TimeoutException();
         }
 
         private IRelationalCommand CreateLockTableCommand()
@@ -254,7 +239,7 @@ DELETE FROM `{LockTableName}`
         }
 
         private JetMigrationDatabaseLock CreateMigrationDatabaseLock()
-            => new(CreateDeleteLockCommand(), CreateRelationalCommandParameters());
+            => new(CreateDeleteLockCommand(), CreateRelationalCommandParameters(), this);
 
         private RelationalCommandParameterObject CreateRelationalCommandParameters()
             => new(

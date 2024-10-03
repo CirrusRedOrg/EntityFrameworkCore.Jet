@@ -781,55 +781,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         /// <param name="builder"> The command builder to use to build the commands. </param>
         protected override void Generate(SqlOperation operation, IModel? model, MigrationCommandListBuilder builder)
         {
-            // TODO: Jet does not support batches and should never generate a "GO" in the first place.
-            //       So this code should do nothing.
+            builder.AppendLine(operation.Sql);
 
-            var batches = Regex.Split(
-                Regex.Replace(
-                    operation.Sql,
-                    @"\\\r?\n",
-                    string.Empty,
-                    default(RegexOptions),
-                    TimeSpan.FromMilliseconds(1000.0)),
-                @"^\s*(GO[ \t]+[0-9]+|GO)(?:\s+|$)",
-                RegexOptions.IgnoreCase | RegexOptions.Multiline,
-                TimeSpan.FromMilliseconds(1000.0));
-            for (var i = 0; i < batches.Length; i++)
-            {
-                if (batches[i]
-                        .StartsWith("GO", StringComparison.OrdinalIgnoreCase)
-                    || string.IsNullOrWhiteSpace(batches[i]))
-                {
-                    continue;
-                }
-
-                var count = 1;
-                if (i != batches.Length - 1
-                    && batches[i + 1]
-                        .StartsWith("GO", StringComparison.OrdinalIgnoreCase))
-                {
-                    var match = Regex.Match(
-                        batches[i + 1], "([0-9]+)",
-                        default(RegexOptions),
-                        TimeSpan.FromMilliseconds(1000.0));
-                    if (match.Success)
-                    {
-                        count = int.Parse(match.Value);
-                    }
-                }
-
-                for (var j = 0; j < count; j++)
-                {
-                    builder.Append(batches[i]);
-
-                    if (i == batches.Length - 1)
-                    {
-                        builder.AppendLine();
-                    }
-
-                    EndStatement(builder, operation.SuppressTransaction);
-                }
-            }
+            EndStatement(builder, operation.SuppressTransaction);
         }
 
         protected override void Generate(

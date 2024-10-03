@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
 		<DotNetVersion>[9.0.100-rc.1.24452.12,9.0.999]</DotNetVersion>
-		<EFCoreVersion>[9.0.0-rc.1.24451.1,9.0.999]</EFCoreVersion>
-		<MSLibVersion>[9.0.0-rc.1.24431.7,9.0.999]</MSLibVersion>
+		<EFCoreVersion>[9.0.0-rc.2.24460.3,9.0.999]</EFCoreVersion>
+		<MSLibVersion>[9.0.0-rc.2.24456.9,9.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -26,7 +26,7 @@
 		<PackageReference Update="System.Data.Odbc" Version="$(MSLibVersion)" />
 		<PackageReference Update="System.Data.OleDb" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
-		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" /> <!-- Should be same as efcoreversion. preview6 was broken and published separately -->
+		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.11.1" />
 		<PackageReference Update="MSTest.TestAdapter" Version="3.6.0" />

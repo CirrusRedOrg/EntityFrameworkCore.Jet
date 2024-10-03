@@ -2,7 +2,7 @@
 
 namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
-    internal static class JetSchemaOperationsHandling
+    public static class JetSchemaOperationsHandling
     {
         private static readonly Regex _renameTableRegex = new Regex(
             $@"^\s*alter\s+table\s+{GetIdentifierPattern("OldTableName")}\s+rename\s+to\s+{GetIdentifierPattern("NewTableName")}\s*$",
@@ -11,6 +11,9 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
         private static readonly Regex _renameTableColumnRegex = new Regex(
             $@"^\s*alter\s+table\s+{GetIdentifierPattern("TableName")}\s+rename\s+column\s+{GetIdentifierPattern("OldColumnName")}\s+to\s+{GetIdentifierPattern("NewColumnName")}\s*$",
             RegexOptions.IgnoreCase);
+
+        public static bool IsDatabaseOperation(string commandText)
+            => _renameTableRegex.IsMatch(commandText) || _renameTableColumnRegex.IsMatch(commandText);
 
         public static bool TryDatabaseOperation(JetConnection connection, string commandText)
         {

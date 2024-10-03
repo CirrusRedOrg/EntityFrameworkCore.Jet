@@ -538,67 +538,6 @@ ALTER TABLE `Person` ALTER COLUMN `Id` decimal(20,0) NOT NULL;
 ");
         }
 
-        [ConditionalFact]
-        public virtual void SqlOperation_handles_backslash()
-        {
-            Generate(
-                new SqlOperation { Sql = @"-- Multiline \" + EOL + "comment" });
-
-            AssertSql(
-                @"-- Multiline comment
-");
-        }
-
-        [ConditionalFact]
-        public virtual void SqlOperation_ignores_sequential_gos()
-        {
-            Generate(
-                new SqlOperation { Sql = "-- Ready set" + EOL + "GO" + EOL + "GO" });
-
-            AssertSql(
-                @"-- Ready set
-");
-        }
-
-        [ConditionalFact]
-        public virtual void SqlOperation_handles_go()
-        {
-            Generate(
-                new SqlOperation { Sql = "-- I" + EOL + "go" + EOL + "-- Too" });
-
-            AssertSql(
-                @"-- I
-GO
-
--- Too
-");
-        }
-
-        [ConditionalFact]
-        public virtual void SqlOperation_handles_go_with_count()
-        {
-            Generate(
-                new SqlOperation { Sql = "-- I" + EOL + "GO 2" });
-
-            AssertSql(
-                @"-- I
-GO
-
--- I
-");
-        }
-
-        [ConditionalFact]
-        public virtual void SqlOperation_ignores_non_go()
-        {
-            Generate(
-                new SqlOperation { Sql = "-- I GO 2" });
-
-            AssertSql(
-                @"-- I GO 2
-");
-        }
-
         public override void SqlOperation()
         {
             base.SqlOperation();

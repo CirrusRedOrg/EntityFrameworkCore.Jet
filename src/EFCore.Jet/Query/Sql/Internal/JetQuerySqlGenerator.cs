@@ -46,7 +46,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         //private readonly JetSqlExpressionFactory _sqlExpressionFactory;
-        private List<string> _nullNumerics = new List<string>();
+        private List<string> _nullNumerics = [];
         private Stack<Expression> parent = new Stack<Expression>();
         private CoreTypeMapping? _boolTypeMapping;
         /// <summary>
@@ -54,18 +54,15 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetQuerySqlGenerator(
-            [JetBrains.Annotations.NotNull] QuerySqlGeneratorDependencies dependencies,
-            //ISqlExpressionFactory sqlExpressionFactory,
-            [JetBrains.Annotations.NotNull] ITypeMappingSource typeMappingSource,
+            QuerySqlGeneratorDependencies dependencies,
+            ITypeMappingSource typeMappingSource,
             IJetOptions options)
             : base(dependencies)
         {
-            //_sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
             _typeMappingSource = typeMappingSource;
             _options = options;
             _sqlGenerationHelper = dependencies.SqlGenerationHelper;
             _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool));
-            //_jetSqlExpressionFactory = jetSqlExpressionFactory;
         }
 
         protected override bool TryGenerateWithoutWrappingSelect(SelectExpression selectExpression)
@@ -117,7 +114,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     else
                     {
                         //The WHERE clause can only refer to columns in the projection
-                        List<ColumnExpression> cols = new List<ColumnExpression>();
+                        List<ColumnExpression> cols = [];
                         if (selectExpression.Predicate is SqlBinaryExpression binaryExpression)
                         {
                             cols = ExtractColumnExpressions(binaryExpression);
@@ -141,8 +138,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     }
                 }
 
-                List<ColumnExpression> colexp = new List<ColumnExpression>();
-                VisitJetTables(selectExpression.Tables, true, out colexp);
+                VisitJetTables(selectExpression.Tables, true, out var colexp);
 
                 if (selectExpression.Predicate != null || colexp.Count > 0)
                 {
@@ -224,7 +220,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private void VisitJetTables(IReadOnlyList<TableExpressionBase> Tables, bool addfromsql, out List<ColumnExpression> colexp)
         {
-            colexp = new List<ColumnExpression>();
+            colexp = [];
             // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
             // TODO: This does not properly handle all cases (especially when cross joins are involved).
             if (Tables.Any())
@@ -242,18 +238,16 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         Math.Max(
                             0,
                             Tables
-                                .Count(t => !(t is CrossJoinExpression || t is CrossApplyExpression)) -
+                                .Count(t => !(t is CrossJoinExpression or CrossApplyExpression)) -
                             maxTablesWithoutBrackets)));
 
                 for (var index = 0; index < Tables.Count; index++)
                 {
                     var tableExpression = Tables[index];
 
-                    var isApplyExpression = tableExpression is CrossApplyExpression ||
-                                            tableExpression is OuterApplyExpression;
+                    var isApplyExpression = tableExpression is CrossApplyExpression or OuterApplyExpression;
 
-                    var isCrossExpression = tableExpression is CrossJoinExpression ||
-                                            tableExpression is CrossApplyExpression;
+                    var isCrossExpression = tableExpression is CrossJoinExpression or CrossApplyExpression;
 
                     if (isApplyExpression)
                     {
@@ -287,7 +281,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         }
                         else
                         {
-                            tempcolexp = new List<ColumnExpression>();
+                            tempcolexp = [];
                         }
 
                         bool refrencesfirsttable = false;
@@ -305,26 +299,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             Visit(tableExpression);
                             continue;
                         }
-                        else
-                        {
-                            colexp.AddRange(tempcolexp);
-                        }
 
-                        /*if (expression.JoinPredicate is SqlBinaryExpression { Left: ColumnExpression left, Right: ColumnExpression right })
-                        {
-                            var lt = left.Table == selectExpression.Tables[0];
-                            var rt = right.Table == selectExpression.Tables[0];
-                            if (lt || rt)
-                            {
-                                Visit(tableExpression);
-                                continue;
-                            }
-                            else
-                            {
-                                colexp.Add(left);
-                                colexp.Add(right);
-                            }
-                        }*/
+                        colexp.AddRange(tempcolexp);
                         Sql.Append("LEFT JOIN ");
                         Visit(expression.Table);
                         Sql.Append(" ON ");
@@ -344,37 +320,40 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
         {
-            List<ColumnExpression> result = new List<ColumnExpression>();
-            if (binaryexp.Left is SqlBinaryExpression left)
+            List<ColumnExpression> result = [];
+            switch (binaryexp.Left)
             {
-                result.AddRange(ExtractColumnExpressions(left));
-            }
-            else if (binaryexp.Left is ColumnExpression colLeft)
-            {
-                result.Add(colLeft);
+                case SqlBinaryExpression left:
+                    result.AddRange(ExtractColumnExpressions(left));
+                    break;
+                case ColumnExpression colLeft:
+                    result.Add(colLeft);
+                    break;
             }
 
-            if (binaryexp.Right is SqlBinaryExpression right)
+            switch (binaryexp.Right)
             {
-                result.AddRange(ExtractColumnExpressions(right));
-            }
-            else if (binaryexp.Right is ColumnExpression colRight)
-            {
-                result.Add(colRight);
+                case SqlBinaryExpression right:
+                    result.AddRange(ExtractColumnExpressions(right));
+                    break;
+                case ColumnExpression colRight:
+                    result.Add(colRight);
+                    break;
             }
 
             return result;
         }
         private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
         {
-            List<ColumnExpression> result = new List<ColumnExpression>();
-            if (unaryexp.Operand is SqlBinaryExpression left)
+            List<ColumnExpression> result = [];
+            switch (unaryexp.Operand)
             {
-                result.AddRange(ExtractColumnExpressions(left));
-            }
-            else if (unaryexp.Operand is ColumnExpression colLeft)
-            {
-                result.Add(colLeft);
+                case SqlBinaryExpression left:
+                    result.AddRange(ExtractColumnExpressions(left));
+                    break;
+                case ColumnExpression colLeft:
+                    result.Add(colLeft);
+                    break;
             }
 
             return result;
@@ -427,23 +406,17 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         private bool IsNonComposedSetOperation(SelectExpression selectExpression)
             => selectExpression.Offset == null
-               && selectExpression.Limit == null
-               && !selectExpression.IsDistinct
-               && selectExpression.Predicate == null
-               && selectExpression.Having == null
-               && selectExpression.Orderings.Count == 0
-               && selectExpression.GroupBy.Count == 0
-               && selectExpression.Tables.Count == 1
-               && selectExpression.Tables[0] is SetOperationBase setOperation
-               && selectExpression.Projection.Count == setOperation.Source1.Projection.Count
-               && selectExpression.Projection.Select(
-                       (pe, index) => pe.Expression is ColumnExpression column
-                                      && string.Equals(column.TableAlias, setOperation.Alias,
-                                          StringComparison.OrdinalIgnoreCase)
-                                      && string.Equals(
-                                          column.Name, setOperation.Source1.Projection[index]
-                                              .Alias, StringComparison.OrdinalIgnoreCase))
-                   .All(e => e);
+                && selectExpression.Limit == null
+                && selectExpression is { IsDistinct: false, Predicate: null, Having: null, Orderings.Count: 0, GroupBy.Count: 0, Tables: [SetOperationBase setOperation] }
+                && selectExpression.Projection.Count == setOperation.Source1.Projection.Count
+                && selectExpression.Projection.Select(
+                        (pe, index) => pe.Expression is ColumnExpression column
+                            && string.Equals(column.TableAlias, setOperation.Alias,
+                                StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(
+                                column.Name, setOperation.Source1.Projection[index]
+                                    .Alias, StringComparison.OrdinalIgnoreCase))
+                    .All(e => e);
 
         protected override void GeneratePseudoFromClause()
         {
@@ -553,10 +526,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             {
                 SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
-                List<CaseWhenClause> whenclause = new List<CaseWhenClause>
-                {
-                    new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)
-                };
+                List<CaseWhenClause> whenclause = [new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)];
                 CaseExpression caseexp = new CaseExpression(whenclause, sqlBinaryExpression.Left);
                 Visit(caseexp);
                 return sqlBinaryExpression;
@@ -619,31 +589,33 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
         {
-            if (sqlUnaryExpression.OperatorType == ExpressionType.Convert)
+            switch (sqlUnaryExpression.OperatorType)
             {
-                return VisitJetConvertExpression(sqlUnaryExpression);
-            }
-            else if (sqlUnaryExpression.OperatorType == ExpressionType.Not && sqlUnaryExpression.Type != typeof(bool))
-            {
-                Sql.Append(" (BNOT");
-
-                var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
-                if (requiresBrackets)
+                case ExpressionType.Convert:
+                    return VisitJetConvertExpression(sqlUnaryExpression);
+                case ExpressionType.Not when sqlUnaryExpression.Type != typeof(bool):
                 {
-                    Sql.Append("(");
-                }
+                    Sql.Append(" (BNOT");
 
-                Visit(sqlUnaryExpression.Operand);
-                if (requiresBrackets)
-                {
+                    var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
+                    if (requiresBrackets)
+                    {
+                        Sql.Append("(");
+                    }
+
+                    Visit(sqlUnaryExpression.Operand);
+                    if (requiresBrackets)
+                    {
+                        Sql.Append(")");
+                    }
+
                     Sql.Append(")");
+
+                    return sqlUnaryExpression;
                 }
-
-                Sql.Append(")");
-
-                return sqlUnaryExpression;
+                default:
+                    return base.VisitSqlUnary(sqlUnaryExpression);
             }
-            return base.VisitSqlUnary(sqlUnaryExpression);
         }
 
 
@@ -660,82 +632,69 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
             if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
-                /*  Visit(
-                    _sqlExpressionFactory.NullChecked(
-                        convertExpression.Operand,
-                        _sqlExpressionFactory.Function(
-                            function,
-                            new[] { convertExpression.Operand },
-                            false,
-                            new[] { false },
-                            typeMapping.ClrType)));
-                */
                 SqlExpression checksqlexp = convertExpression.Operand;
 
-                SqlFunctionExpression notnullsqlexp = new SqlFunctionExpression(function, new SqlExpression[] { convertExpression.Operand },
-                  false, new[] { false }, typeMapping.ClrType, null);
-
-                SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
-                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
-                List<CaseWhenClause> whenclause = new List<CaseWhenClause>
+                SqlExpression? notnullsqlexp = null;
+                if (convertExpression.TypeMapping is ByteArrayTypeMapping)
                 {
-                    new CaseWhenClause(isnullexp, nullcons)
-                };
-                CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
-                if (checksqlexp is ColumnExpression columnExpression)
-                {
-                    if (columnExpression.IsNullable)
-                    {
-                        Visit(caseexp);
-                    }
-                    else
-                    {
-                        Visit(notnullsqlexp);
-                    }
-                }
-                else if (checksqlexp is SqlFunctionExpression functionExpression)
-                {
-                    if (functionExpression is { IsNullable: true, ArgumentsPropagateNullability: not null } && functionExpression.ArgumentsPropagateNullability.Any(d => d))
-                    {
-                        Visit(caseexp);
-                    }
-                    else
-                    {
-                        Visit(notnullsqlexp);
-                    }
-                }
-                else if (checksqlexp is SqlBinaryExpression binaryExpression)
-                {
-                    bool leftnull = false, rightnull = false;
-                    ColumnExpression? columnExpressionLeft = binaryExpression.Left as ColumnExpression;
-                    SqlFunctionExpression? functionExpressionLeft = binaryExpression.Left as SqlFunctionExpression;
-                    ColumnExpression? columnExpressionRight = binaryExpression.Right as ColumnExpression;
-                    SqlFunctionExpression? functionExpressionRight = binaryExpression.Right as SqlFunctionExpression;
-                    leftnull = columnExpressionLeft != null && columnExpressionLeft.IsNullable ||
-                               functionExpressionLeft != null && functionExpressionLeft.IsNullable;
-                    rightnull = columnExpressionRight != null && columnExpressionRight.IsNullable ||
-                                functionExpressionRight != null && functionExpressionRight.IsNullable;
-
-                    if (leftnull || rightnull)
-                    {
-                        Visit(caseexp);
-                    }
-                    else
-                    {
-                        Visit(notnullsqlexp);
-                    }
-                }
-                else if (checksqlexp is SqlUnaryExpression unaryExpression)
-                {
-                    Visit(notnullsqlexp);
-                }
-                else if (checksqlexp is SqlConstantExpression { Value: not null })
-                {
-                    Visit(notnullsqlexp);
+                    notnullsqlexp = checksqlexp;
                 }
                 else
                 {
-                    Visit(caseexp);
+                    notnullsqlexp = new SqlFunctionExpression(function, [convertExpression.Operand],
+                        false, [false], typeMapping.ClrType, null);
+                }
+
+                SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
+                List<CaseWhenClause> whenclause =
+                [
+                    new CaseWhenClause(isnullexp, nullcons)
+                ];
+                CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
+                switch (checksqlexp)
+                {
+                    case ColumnExpression { IsNullable: true }:
+                        Visit(caseexp);
+                        break;
+                    case ColumnExpression columnExpression:
+                        Visit(notnullsqlexp);
+                        break;
+                    case SqlFunctionExpression { IsNullable: true, ArgumentsPropagateNullability: not null } functionExpression when functionExpression.ArgumentsPropagateNullability.Any(d => d):
+                        Visit(caseexp);
+                        break;
+                    case SqlFunctionExpression functionExpression:
+                        Visit(notnullsqlexp);
+                        break;
+                    case SqlBinaryExpression binaryExpression:
+                    {
+                        ColumnExpression? columnExpressionLeft = binaryExpression.Left as ColumnExpression;
+                        SqlFunctionExpression? functionExpressionLeft = binaryExpression.Left as SqlFunctionExpression;
+                        ColumnExpression? columnExpressionRight = binaryExpression.Right as ColumnExpression;
+                        SqlFunctionExpression? functionExpressionRight = binaryExpression.Right as SqlFunctionExpression;
+                        var leftnull = columnExpressionLeft is { IsNullable: true } ||
+                            functionExpressionLeft is { IsNullable: true };
+                        var rightnull = columnExpressionRight is { IsNullable: true } ||
+                            functionExpressionRight is { IsNullable: true };
+
+                        if (leftnull || rightnull)
+                        {
+                            Visit(caseexp);
+                        }
+                        else
+                        {
+                            Visit(notnullsqlexp);
+                        }
+
+                        break;
+                    }
+                    case SqlUnaryExpression unaryExpression:
+                    case SqlConstantExpression { Value: not null }:
+                        Visit(notnullsqlexp);
+                        break;
+                    default:
+                        Visit(caseexp);
+                        break;
                 }
 
                 return notnullsqlexp;
@@ -766,7 +725,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 ExpressionType.Or => " BOR ",
                 ExpressionType.Not => " BNOT ",
                 ExpressionType.ExclusiveOr => " BXOR ",
-                ExpressionType.Divide when binaryExpression.Type == typeof(Int32) => " \\ ",
+                ExpressionType.Divide when binaryExpression.Type == typeof(int) => " \\ ",
                 _ => base.GetOperator(binaryExpression),
             };
 
@@ -899,17 +858,18 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null && sqlFunctionExpression.Arguments.Count > 1)
+            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments is
+                {
+                    Count: > 1
+                })
             {
                 int start = sqlFunctionExpression.Arguments.Count - 1;
                 CaseExpression? lastcaseexp = null;
                 for (int A = start; A >= 1; A--)
                 {
                     SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlFunctionExpression.Arguments[A - 1], typeof(bool), null);
-                    List<CaseWhenClause> whenclause = new List<CaseWhenClause>
-                    {
-                        new CaseWhenClause(isnullexp, lastcaseexp ?? sqlFunctionExpression.Arguments[A])
-                    };
+                    List<CaseWhenClause> whenclause =
+                        [new CaseWhenClause(isnullexp, lastcaseexp ?? sqlFunctionExpression.Arguments[A])];
                     lastcaseexp = new CaseExpression(whenclause, sqlFunctionExpression.Arguments[A - 1]);
                 }
 
@@ -918,7 +878,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             }
 
             if (sqlFunctionExpression.Name.Equals("MID", StringComparison.OrdinalIgnoreCase) &&
-                sqlFunctionExpression.Arguments != null && sqlFunctionExpression.Arguments.Count > 2)
+                sqlFunctionExpression.Arguments is { Count: > 2 })
             {
                 if (sqlFunctionExpression.Arguments[2] is ColumnExpression { IsNullable: true })
                 {
@@ -929,17 +889,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     Sql.Append(")");
                     return sqlFunctionExpression;
                 }
-                if (sqlFunctionExpression.Arguments[2] is SqlUnaryExpression { OperatorType: ExpressionType.Convert } unaryExpression)
+                if (sqlFunctionExpression.Arguments[2] is SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: ColumnExpression { IsNullable: true } or SqlFunctionExpression { IsNullable: true } } unaryExpression)
                 {
-                    if (unaryExpression.Operand is ColumnExpression { IsNullable: true } || unaryExpression.Operand is SqlFunctionExpression { IsNullable: true })
-                    {
-                        Sql.Append("IIF(");
-                        Visit(unaryExpression.Operand);
-                        Sql.Append(" IS NULL, NULL, ");
-                        base.VisitSqlFunction(sqlFunctionExpression);
-                        Sql.Append(")");
-                        return sqlFunctionExpression;
-                    }
+                    Sql.Append("IIF(");
+                    Visit(unaryExpression.Operand);
+                    Sql.Append(" IS NULL, NULL, ");
+                    base.VisitSqlFunction(sqlFunctionExpression);
+                    Sql.Append(")");
+                    return sqlFunctionExpression;
                 }
             }
             parent.Push(sqlFunctionExpression);

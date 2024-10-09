@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
-		<DotNetVersion>[9.0.100-rc.1.24452.12,9.0.999]</DotNetVersion>
-		<EFCoreVersion>[9.0.0-rc.2.24460.3,9.0.999]</EFCoreVersion>
-		<MSLibVersion>[9.0.0-rc.2.24456.9,9.0.999]</MSLibVersion>
+		<DotNetVersion>[9.0.0-rc.2.24473.5,9.0.999]</DotNetVersion>
+		<EFCoreVersion>[9.0.0-rc.2.24474.1,9.0.999]</EFCoreVersion>
+		<MSLibVersion>[9.0.0-rc.2.24473.5,9.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,16 +29,16 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-		<PackageReference Update="MSTest.TestAdapter" Version="3.6.0" />
-		<PackageReference Update="MSTest.TestFramework" Version="3.6.0" />
+		<PackageReference Update="MSTest.TestAdapter" Version="3.6.1" />
+		<PackageReference Update="MSTest.TestFramework" Version="3.6.1" />
 		<PackageReference Update="coverlet.collector" Version="6.0.2" />
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.3" />
 
 		<!-- EFCore.Jet.FunctionalTests -->
-		<PackageReference Update="xunit.core" Version="2.9.0"/>
-		<PackageReference Update="xunit.assert" Version="2.9.0" />
+		<PackageReference Update="xunit.core" Version="2.9.2"/>
+		<PackageReference Update="xunit.assert" Version="2.9.2" />
 		<PackageReference Update="xunit.runner.visualstudio" Version="2.8.2" />
-		<PackageReference Update="xunit.runner.console" Version="2.9.0" />
+		<PackageReference Update="xunit.runner.console" Version="2.9.2" />
 		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
 		<PackageReference Update="NetTopologySuite" Version="2.5.0" />
 		<PackageReference Update="System.ComponentModel.TypeConverter" Version="4.3.0" />

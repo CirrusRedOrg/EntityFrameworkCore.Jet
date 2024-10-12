@@ -1220,9 +1220,14 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
         public override async Task Where_math_min(bool async)
         {
             // Translate Math.Min.
-            await AssertTranslationFailed(() => base.Where_math_min(async));
+            await base.Where_math_min(async);
 
-            AssertSql();
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND IIF(`o`.`OrderID` < `o`.`ProductID`, `o`.`OrderID`, `o`.`ProductID`) = `o`.`ProductID`
+""");
         }
 
         public override async Task Where_math_min_nested(bool async)
@@ -1231,9 +1236,9 @@ WHERE `o`.`OrderID` = 11077 AND SGN(`o`.`Discount`) > 0");
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND LEAST([o].[OrderID], [o].[ProductID], 99999) = [o].[ProductID]
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND IIF(IIF(`o`.`OrderID` < `o`.`ProductID`, `o`.`OrderID`, `o`.`ProductID`) < 99999, IIF(`o`.`OrderID` < `o`.`ProductID`, `o`.`OrderID`, `o`.`ProductID`), 99999) = `o`.`ProductID`
 """);
         }
 
@@ -1243,18 +1248,23 @@ WHERE [o].[OrderID] = 11077 AND LEAST([o].[OrderID], [o].[ProductID], 99999) = [
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND LEAST(99999, [o].[OrderID], 99998, [o].[ProductID]) = [o].[ProductID]
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND IIF(IIF(IIF(99999 < `o`.`OrderID`, 99999, `o`.`OrderID`) < 99998, IIF(99999 < `o`.`OrderID`, 99999, `o`.`OrderID`), 99998) < `o`.`ProductID`, IIF(IIF(99999 < `o`.`OrderID`, 99999, `o`.`OrderID`) < 99998, IIF(99999 < `o`.`OrderID`, 99999, `o`.`OrderID`), 99998), `o`.`ProductID`) = `o`.`ProductID`
 """);
         }
 
         public override async Task Where_math_max(bool async)
         {
             // Translate Math.Max.
-            await AssertTranslationFailed(() => base.Where_math_max(async));
+            await base.Where_math_max(async);
 
-            AssertSql();
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND IIF(`o`.`OrderID` > `o`.`ProductID`, `o`.`OrderID`, `o`.`ProductID`) = `o`.`OrderID`
+""");
         }
 
         public override async Task Where_math_max_nested(bool async)
@@ -1263,9 +1273,9 @@ WHERE [o].[OrderID] = 11077 AND LEAST(99999, [o].[OrderID], 99998, [o].[ProductI
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND GREATEST([o].[OrderID], [o].[ProductID], 1) = [o].[OrderID]
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND IIF(IIF(`o`.`OrderID` > `o`.`ProductID`, `o`.`OrderID`, `o`.`ProductID`) > 1, IIF(`o`.`OrderID` > `o`.`ProductID`, `o`.`OrderID`, `o`.`ProductID`), 1) = `o`.`OrderID`
 """);
         }
 
@@ -1275,9 +1285,9 @@ WHERE [o].[OrderID] = 11077 AND GREATEST([o].[OrderID], [o].[ProductID], 1) = [o
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[OrderID] = 11077 AND GREATEST(1, [o].[OrderID], 2, [o].[ProductID]) = [o].[OrderID]
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND IIF(IIF(IIF(1 > `o`.`OrderID`, 1, `o`.`OrderID`) > 2, IIF(1 > `o`.`OrderID`, 1, `o`.`OrderID`), 2) > `o`.`ProductID`, IIF(IIF(1 > `o`.`OrderID`, 1, `o`.`OrderID`) > 2, IIF(1 > `o`.`OrderID`, 1, `o`.`OrderID`), 2), `o`.`ProductID`) = `o`.`OrderID`
 """);
         }
 

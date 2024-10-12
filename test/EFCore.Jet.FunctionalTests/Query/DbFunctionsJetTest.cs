@@ -138,17 +138,53 @@ WHERE `c`.`Region` IS NULL
 """);
         }
 
-        public override Task Least(bool async)
-        => AssertTranslationFailed(() => base.Least(async));
+        public override async Task Least(bool async)
+        {
+            await base.Least(async);
 
-        public override Task Greatest(bool async)
-            => AssertTranslationFailed(() => base.Greatest(async));
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE IIF(`o`.`OrderID` < 10251, `o`.`OrderID`, 10251) = 10251
+""");
+        }
 
-        public override Task Least_with_nullable_value_type(bool async)
-            => AssertTranslationFailed(() => base.Least_with_nullable_value_type(async));
+        public override async Task Greatest(bool async)
+        {
+            await base.Greatest(async);
 
-        public override Task Greatest_with_nullable_value_type(bool async)
-            => AssertTranslationFailed(() => base.Greatest_with_nullable_value_type(async));
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE IIF(`o`.`OrderID` > 10251, `o`.`OrderID`, 10251) = 10251
+""");
+        }
+
+        public override async Task Least_with_nullable_value_type(bool async)
+        {
+            await base.Least_with_nullable_value_type(async);
+
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE IIF(`o`.`OrderID` < 10251, `o`.`OrderID`, 10251) = 10251
+""");
+        }
+
+        public override async Task Greatest_with_nullable_value_type(bool async)
+        {
+            await base.Greatest_with_nullable_value_type(async);
+
+            AssertSql(
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE IIF(`o`.`OrderID` > 10251, `o`.`OrderID`, 10251) = 10251
+""");
+        }
 
         public override async Task Least_with_parameter_array_is_not_supported(bool async)
         {

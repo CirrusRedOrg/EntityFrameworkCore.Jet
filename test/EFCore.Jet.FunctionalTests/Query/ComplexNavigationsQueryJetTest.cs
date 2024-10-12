@@ -2948,10 +2948,12 @@ ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`, `i2`.`Id`, `s`.`Id`, `s`.`Id0`
             await base.Nav_rewrite_doesnt_apply_null_protection_for_function_arguments(isAsync);
 
             AssertSql(
-                $@"SELECT `l0`.`Level1_Required_Id`
+                """
+SELECT IIF(`l0`.`Level1_Required_Id` > 7, `l0`.`Level1_Required_Id`, 7)
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToOne_Optional_PK_Inverse2Id`
-WHERE `l0`.`Id` IS NOT NULL");
+WHERE `l0`.`Id` IS NOT NULL
+""");
         }
 
         public override async Task Accessing_optional_property_inside_result_operator_subquery(bool isAsync)

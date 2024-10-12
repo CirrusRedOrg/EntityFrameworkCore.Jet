@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -22,7 +23,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of year boundaries crossed between the dates.</returns>
         public static int DateDiffYear(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
@@ -36,7 +37,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of year boundaries crossed between the dates.</returns>
         public static int? DateDiffYear(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
@@ -50,7 +51,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of year boundaries crossed between the dates.</returns>
         public static int DateDiffYear(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
@@ -64,7 +65,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of year boundaries crossed between the dates.</returns>
         public static int? DateDiffYear(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffYear)));
@@ -78,7 +79,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of month boundaries crossed between the dates.</returns>
         public static int DateDiffMonth(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
@@ -92,7 +93,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of month boundaries crossed between the dates.</returns>
         public static int? DateDiffMonth(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
@@ -106,7 +107,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of month boundaries crossed between the dates.</returns>
         public static int DateDiffMonth(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
@@ -120,7 +121,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of month boundaries crossed between the dates.</returns>
         public static int? DateDiffMonth(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMonth)));
@@ -134,7 +135,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of day boundaries crossed between the dates.</returns>
         public static int DateDiffDay(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
@@ -148,7 +149,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of day boundaries crossed between the dates.</returns>
         public static int? DateDiffDay(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
@@ -162,7 +163,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of day boundaries crossed between the dates.</returns>
         public static int DateDiffDay(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
@@ -176,7 +177,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of day boundaries crossed between the dates.</returns>
         public static int? DateDiffDay(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffDay)));
@@ -190,7 +191,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of hour boundaries crossed between the dates.</returns>
         public static int DateDiffHour(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
@@ -204,7 +205,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of hour boundaries crossed between the dates.</returns>
         public static int? DateDiffHour(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
@@ -218,7 +219,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of hour boundaries crossed between the dates.</returns>
         public static int DateDiffHour(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
@@ -232,7 +233,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of hour boundaries crossed between the dates.</returns>
         public static int? DateDiffHour(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
@@ -246,7 +247,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endTimeSpan">Ending timespan for the calculation.</param>
         /// <returns>Number of hour boundaries crossed between the timespans.</returns>
         public static int DateDiffHour(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             TimeSpan startTimeSpan,
             TimeSpan endTimeSpan)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
@@ -260,7 +261,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endTimeSpan">Ending timespan for the calculation.</param>
         /// <returns>Number of hour boundaries crossed between the timespans.</returns>
         public static int? DateDiffHour(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             TimeSpan? startTimeSpan,
             TimeSpan? endTimeSpan)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffHour)));
@@ -274,7 +275,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of minute boundaries crossed between the dates.</returns>
         public static int DateDiffMinute(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
@@ -288,7 +289,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of minute boundaries crossed between the dates.</returns>
         public static int? DateDiffMinute(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
@@ -302,7 +303,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of minute boundaries crossed between the dates.</returns>
         public static int DateDiffMinute(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
@@ -316,7 +317,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of minute boundaries crossed between the dates.</returns>
         public static int? DateDiffMinute(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
@@ -330,7 +331,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endTimeSpan">Ending timespan for the calculation.</param>
         /// <returns>Number of minute boundaries crossed between the timespans.</returns>
         public static int DateDiffMinute(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             TimeSpan startTimeSpan,
             TimeSpan endTimeSpan)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
@@ -344,7 +345,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endTimeSpan">Ending timespan for the calculation.</param>
         /// <returns>Number of minute boundaries crossed between the timespans.</returns>
         public static int? DateDiffMinute(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             TimeSpan? startTimeSpan,
             TimeSpan? endTimeSpan)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffMinute)));
@@ -358,7 +359,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of second boundaries crossed between the dates.</returns>
         public static int DateDiffSecond(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime startDate,
             DateTime endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
@@ -372,7 +373,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of second boundaries crossed between the dates.</returns>
         public static int? DateDiffSecond(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTime? startDate,
             DateTime? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
@@ -386,7 +387,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of second boundaries crossed between the dates.</returns>
         public static int DateDiffSecond(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset startDate,
             DateTimeOffset endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
@@ -400,7 +401,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endDate">Ending date for the calculation.</param>
         /// <returns>Number of second boundaries crossed between the dates.</returns>
         public static int? DateDiffSecond(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
@@ -414,7 +415,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endTimeSpan">Ending timespan for the calculation.</param>
         /// <returns>Number of second boundaries crossed between the timespans.</returns>
         public static int DateDiffSecond(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             TimeSpan startTimeSpan,
             TimeSpan endTimeSpan)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
@@ -428,7 +429,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="endTimeSpan">Ending timespan for the calculation.</param>
         /// <returns>Number of second boundaries crossed between the timespans.</returns>
         public static int? DateDiffSecond(
-            [CanBeNull] this DbFunctions _,
+            this DbFunctions _,
             TimeSpan? startTimeSpan,
             TimeSpan? endTimeSpan)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DateDiffSecond)));
@@ -441,12 +442,12 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="expression">Expression to validate</param>
         /// <returns>true for valid date and false otherwise.</returns>
         public static bool IsDate(
-            [CanBeNull] this DbFunctions _,
-            [NotNull] string expression)
+            this DbFunctions _,
+            string expression)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsDate)));
 
         public static double Random(
-            [CanBeNull] this DbFunctions _)
+            this DbFunctions _)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Random)));
 
 
@@ -478,8 +479,306 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="byteArray">The `byte[]` array.</param>
         /// <returns>The length of <paramref name="byteArray"/>, or the length of <paramref name="byteArray"/> <c>-1</c> in some cases.</returns>
         public static int ByteArrayLength(
-            [CanBeNull] this DbFunctions _,
-            [NotNull] byte[] byteArray)
+            this DbFunctions _,
+            byte[] byteArray)
             => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ByteArrayLength)));
+
+
+
+        #region Sample standard deviation
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<byte> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<short> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<int> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<long> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<float> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<double> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        /// <summary>
+        ///     Returns the sample standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDev</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample standard deviation.</returns>
+        public static double? StandardDeviationSample(this DbFunctions _, IEnumerable<decimal> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationSample)));
+
+        #endregion Sample standard deviation
+
+        #region Population standard deviation
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<byte> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<short> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<int> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<long> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<float> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<double> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        /// <summary>
+        ///     Returns the population standard deviation of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>StDevP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population standard deviation.</returns>
+        public static double? StandardDeviationPopulation(this DbFunctions _, IEnumerable<decimal> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(StandardDeviationPopulation)));
+
+        #endregion Population standard deviation
+
+        #region Sample variance
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<byte> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<short> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<int> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<long> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<float> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<double> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        /// <summary>
+        ///     Returns the sample variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>Var</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed sample variance.</returns>
+        public static double? VarianceSample(this DbFunctions _, IEnumerable<decimal> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VarianceSample)));
+
+        #endregion Sample variance
+
+        #region Population variance
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<byte> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<short> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<int> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<long> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<float> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<double> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        /// <summary>
+        ///     Returns the population variance of all values in the specified expression.
+        ///     Corresponds to Jet/MS Access <c>VarP</c>.
+        /// </summary>
+        /// <param name="_">The <see cref="DbFunctions" /> instance.</param>
+        /// <param name="values">The values.</param>
+        /// <returns>The computed population variance.</returns>
+        public static double? VariancePopulation(this DbFunctions _, IEnumerable<decimal> values)
+            => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(VariancePopulation)));
+
+        #endregion Population variance
     }
 }

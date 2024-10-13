@@ -452,6 +452,44 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                 : QueryCompilationContext.NotTranslatedExpression;
     }
 
+    public override SqlExpression? GenerateGreatest(IReadOnlyList<SqlExpression> expressions, Type resultType)
+    {
+        if (expressions.Count == 0)
+        {
+            return null;
+        }
+
+        return expressions.Aggregate((current, next) =>
+            Dependencies.SqlExpressionFactory.Case(
+                new[]
+                {
+                    new CaseWhenClause(
+                        Dependencies.SqlExpressionFactory.GreaterThan(current, next),
+                        current)
+                },
+                elseResult: next));
+    }
+
+    public override SqlExpression? GenerateLeast(IReadOnlyList<SqlExpression> expressions, Type resultType)
+    {
+        if (expressions.Count == 0)
+        {
+            return null;
+        }
+
+        return expressions.Aggregate((current, next) =>
+            Dependencies.SqlExpressionFactory.Case(
+                new[]
+                {
+                    new CaseWhenClause(
+                        Dependencies.SqlExpressionFactory.LessThan(current, next),
+                        current)
+                },
+                elseResult: next));
+    }
+
+
     private static string? GetProviderType(SqlExpression expression)
         => expression.TypeMapping?.StoreType;
+
 }

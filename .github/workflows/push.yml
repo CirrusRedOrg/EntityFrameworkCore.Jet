@@ -92,13 +92,13 @@ jobs:
           
           $aceUrls = @{
             '2010' = @{
-              'x64' = 'https://web.archive.org/web/20240214170634if_/https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine_X64.exe'
-              'x86' = 'https://web.archive.org/web/20240214170634if_/https://download.microsoft.com/download/2/4/3/24375141-E08D-4803-AB0E-10F2E3A07AAA/AccessDatabaseEngine.exe'
+              'x64' = 'https://cirrusredorg.github.io/EntityFrameworkCore.Jet/AccessDatabaseEngine_2010_x64.exe'
+              'x86' = 'https://cirrusredorg.github.io/EntityFrameworkCore.Jet/AccessDatabaseEngine_2010_x86.exe'
               'silent' = '/passive /quiet /norestart REBOOT=ReallySuppress'
             }
            '2016' = @{
-              'x64' = 'https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/AccessDatabaseEngine_X64.exe'
-              'x86' = 'https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/AccessDatabaseEngine.exe'
+              'x64' = 'https://cirrusredorg.github.io/EntityFrameworkCore.Jet/AccessDatabaseEngine_2016_x64.exe'
+              'x86' = 'https://cirrusredorg.github.io/EntityFrameworkCore.Jet/AccessDatabaseEngine_2016_x86.exe'
               'silent' = '/passive /quiet /norestart REBOOT=ReallySuppress'
             }
           }

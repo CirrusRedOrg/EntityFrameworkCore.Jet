@@ -546,52 +546,52 @@ WHERE `c`.`CustomerID` >= 'AROUT'
             await base.String_compare_with_parameter(isAsync);
 
             AssertSql(
-"""
+$"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` > @__customer_CustomerID_0
+WHERE `c`.`CustomerID` > {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` < @__customer_CustomerID_0
+WHERE `c`.`CustomerID` < {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` <= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` <= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` <= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` <= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` >= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` >= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` >= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` >= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """);
         }
 
@@ -768,52 +768,52 @@ WHERE `c`.`CustomerID` >= 'AROUT'
             await base.String_compare_to_with_parameter(isAsync);
 
             AssertSql(
-"""
+$"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` > @__customer_CustomerID_0
+WHERE `c`.`CustomerID` > {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` < @__customer_CustomerID_0
+WHERE `c`.`CustomerID` < {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` <= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` <= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` <= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` <= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` >= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` >= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """,
                 //
-                """
+                $"""
 @__customer_CustomerID_0='AROUT' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` >= @__customer_CustomerID_0
+WHERE `c`.`CustomerID` >= {AssertSqlHelper.Parameter("@__customer_CustomerID_0")}
 """);
         }
 
@@ -906,52 +906,52 @@ WHERE `c`.`ContactTitle` = 'Owner' AND (`c`.`Country` <> 'USA' OR `c`.`Country` 
             await base.DateTime_Compare_to_simple_zero(isAsync, compareTo);
 
             AssertSql(
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` = CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <> CDATE(@__myDatetime_0) OR `o`.`OrderDate` IS NULL
+WHERE `o`.`OrderDate` <> CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")}) OR `o`.`OrderDate` IS NULL
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` > CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` > CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """,
                 //
-                """
+                $"""
 @__myDatetime_0='1998-05-04T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
+WHERE `o`.`OrderDate` <= CDATE({AssertSqlHelper.Parameter("@__myDatetime_0")})
 """);
         }
 
@@ -960,52 +960,52 @@ WHERE `o`.`OrderDate` <= CDATE(@__myDatetime_0)
             await base.Int_Compare_to_simple_zero(isAsync);
 
             AssertSql(
-                """
+                $"""
 @__orderId_0='10250'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` = @__orderId_0
+WHERE `o`.`OrderID` = {AssertSqlHelper.Parameter("@__orderId_0")}
 """,
                 //
-                """
+                $"""
 @__orderId_0='10250'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` <> @__orderId_0
+WHERE `o`.`OrderID` <> {AssertSqlHelper.Parameter("@__orderId_0")}
 """,
                 //
-                """
+                $"""
 @__orderId_0='10250'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` > @__orderId_0
+WHERE `o`.`OrderID` > {AssertSqlHelper.Parameter("@__orderId_0")}
 """,
                 //
-                """
+                $"""
 @__orderId_0='10250'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` <= @__orderId_0
+WHERE `o`.`OrderID` <= {AssertSqlHelper.Parameter("@__orderId_0")}
 """,
                 //
-                """
+                $"""
 @__orderId_0='10250'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` > @__orderId_0
+WHERE `o`.`OrderID` > {AssertSqlHelper.Parameter("@__orderId_0")}
 """,
                 //
-                """
+                $"""
 @__orderId_0='10250'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` <= @__orderId_0
+WHERE `o`.`OrderID` <= {AssertSqlHelper.Parameter("@__orderId_0")}
 """);
         }
 

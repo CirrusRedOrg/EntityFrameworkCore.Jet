@@ -59,6 +59,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<ISingletonOptions, IJetOptions>(p => p.GetRequiredService<IJetOptions>())
                 .TryAdd<IQueryCompilationContextFactory, JetQueryCompilationContextFactory>()
                 .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
+                .TryAdd<IAggregateMethodCallTranslatorProvider, JetAggregateMethodCallTranslatorProvider>()
                 .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()
                 .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, JetSqlTranslatingExpressionVisitorFactory>()

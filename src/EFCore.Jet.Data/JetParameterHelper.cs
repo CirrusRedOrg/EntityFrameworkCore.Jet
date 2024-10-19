@@ -32,32 +32,21 @@ namespace EntityFrameworkCore.Jet.Data
 
         private static bool IsGuid(DbParameter parameter)
         {
-            switch (parameter.DbType)
+            return parameter.DbType switch
             {
-                case DbType.Guid:
-                    return true;
-                default:
-                    return false;
-            }
+                DbType.Guid => true,
+                _ => false
+            };
         }
 
         private static bool IsNumeric(DbParameter parameter)
         {
-            switch (parameter.DbType)
+            return parameter.DbType switch
             {
-                case DbType.Byte:
-                case DbType.Int16:
-                case DbType.Int32:
-                case DbType.Int64:
-                case DbType.Object:
-                case DbType.SByte:
-                case DbType.UInt16:
-                case DbType.UInt32:
-                case DbType.UInt64:
-                    return true;
-                default:
-                    return false;
-            }
+                DbType.Byte or DbType.Int16 or DbType.Int32 or DbType.Int64 or DbType.Object or DbType.SByte
+                    or DbType.UInt16 or DbType.UInt32 or DbType.UInt64 => true,
+                _ => false
+            };
         }
 
 
@@ -71,31 +60,20 @@ namespace EntityFrameworkCore.Jet.Data
 
         internal static bool IsDateTime(DbParameter parameter)
         {
-            switch (parameter.DbType)
+            return parameter.DbType switch
             {
-                case DbType.DateTimeOffset:
-                case DbType.Date:
-                case DbType.DateTime:
-                case DbType.Time:
-                case DbType.DateTime2:
-                    return true;
-                default:
-                    return false;
-            }
+                DbType.DateTimeOffset or DbType.Date or DbType.DateTime or DbType.Time or DbType.DateTime2 => true,
+                _ => false
+            };
         }
 
         internal static bool IsString(DbParameter parameter)
         {
-            switch (parameter.DbType)
+            return parameter.DbType switch
             {
-                case DbType.AnsiString:
-                case DbType.String:
-                case DbType.AnsiStringFixedLength:
-                case DbType.StringFixedLength:
-                    return true;
-                default:
-                    return false;
-            }
+                DbType.AnsiString or DbType.String or DbType.AnsiStringFixedLength or DbType.StringFixedLength => true,
+                _ => false
+            };
         }
     }
 }

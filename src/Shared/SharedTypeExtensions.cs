@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -139,12 +138,7 @@ namespace System
 
         public static Type GetSequenceType([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] this Type type)
         {
-            var sequenceType = TryGetSequenceType(type);
-            if (sequenceType == null)
-            {
-                throw new ArgumentException($"The type {type.Name} does not represent a sequence");
-            }
-
+            var sequenceType = TryGetSequenceType(type) ?? throw new ArgumentException($"The type {type.Name} does not represent a sequence");
             return sequenceType;
         }
 
@@ -307,7 +301,7 @@ namespace System
         this Type type,
             Type[]? types)
         {
-            types ??= Array.Empty<Type>();
+            types ??= [];
 
             return type.GetTypeInfo().DeclaredConstructors
                 .SingleOrDefault(
@@ -370,8 +364,7 @@ namespace System
 
         private static readonly Dictionary<Type, object> CommonTypeDictionary = new()
     {
-#pragma warning disable IDE0034 // Simplify 'default' expression - default causes default(object)
-        { typeof(int), default(int) },
+            { typeof(int), default(int) },
         { typeof(Guid), default(Guid) },
         { typeof(DateOnly), default(DateOnly) },
         { typeof(DateTime), default(DateTime) },
@@ -388,8 +381,7 @@ namespace System
         { typeof(ushort), default(ushort) },
         { typeof(ulong), default(ulong) },
         { typeof(sbyte), default(sbyte) }
-#pragma warning restore IDE0034 // Simplify 'default' expression
-    };
+        };
 
         public static object? GetDefaultValue(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] this Type type)
@@ -605,7 +597,7 @@ namespace System
 
         public static ConstantExpression GetDefaultValueConstant(this Type type)
             => (ConstantExpression)GenerateDefaultValueConstantMethod
-                .MakeGenericMethod(type).Invoke(null, Array.Empty<object>())!;
+                .MakeGenericMethod(type).Invoke(null, [])!;
 
         private static readonly MethodInfo GenerateDefaultValueConstantMethod =
             typeof(SharedTypeExtensions).GetTypeInfo().GetDeclaredMethod(nameof(GenerateDefaultValueConstant))!;

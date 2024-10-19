@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+﻿using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -11,24 +8,18 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </summary>
-public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
+/// <remarks>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </remarks>
+public class SkipTakeCollapsingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory) : ExpressionVisitor
 {
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
+    private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;
 
-    private IReadOnlyDictionary<string, object?> _parameterValues;
+    private IReadOnlyDictionary<string, object?> _parameterValues = null!;
     private bool _canCache;
-
-    /// <summary>
-    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-    ///     any release. You should only use it directly in your code with extreme caution and knowing that
-    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-    /// </summary>
-    public SkipTakeCollapsingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
-    {
-        _sqlExpressionFactory = sqlExpressionFactory;
-        _parameterValues = null!;
-    }
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -69,7 +60,7 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
                     selectExpression.GroupBy,
                     selectExpression.GroupBy.Count > 0 ? _sqlExpressionFactory.Constant(false) : null,
                     selectExpression.Projection,
-                    new List<OrderingExpression>(0),
+                    [],
                     limit: null,
                     offset: null);
                 return base.VisitExtension(result);

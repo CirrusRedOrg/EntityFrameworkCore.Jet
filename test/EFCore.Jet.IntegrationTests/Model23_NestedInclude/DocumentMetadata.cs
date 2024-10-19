@@ -9,8 +9,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model23_NestedInclude
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public Guid Id { get; set; }
         public string Name { get; set; }
-        public ICollection<VariableMetadata> VariablesMetadata { get; set; } = new List<VariableMetadata>();
-        public ICollection<DocumentMetadataExpression> DocumentMetadataExpressions { get; set; } = new List<DocumentMetadataExpression>();
+        public ICollection<VariableMetadata> VariablesMetadata { get; set; } = [];
+        public ICollection<DocumentMetadataExpression> DocumentMetadataExpressions { get; set; } = [];
 
         public override string ToString()
         {

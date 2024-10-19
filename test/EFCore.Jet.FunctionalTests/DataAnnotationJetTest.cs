@@ -156,31 +156,39 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             await base.ConcurrencyCheckAttribute_throws_if_value_in_database_changed();
 
             AssertSql(
-                $@"SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
-FROM `Sample` AS `s`
-WHERE `s`.`Unique_No` = 1",
+                $"""
+                    SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
+                    FROM `Sample` AS `s`
+                    WHERE `s`.`Unique_No` = 1
+                    """,
                 //
-                $@"SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
-FROM `Sample` AS `s`
-WHERE `s`.`Unique_No` = 1",
+                $"""
+                    SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
+                    FROM `Sample` AS `s`
+                    WHERE `s`.`Unique_No` = 1
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@p0='ModifiedData' (Nullable = false) (Size = 255)")}
-{AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0003-000000000001'")}
-{AssertSqlHelper.Declaration("@p2='1'")}
-{AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
-
-UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
-SELECT @@ROWCOUNT;",
+                $"""
+                    {AssertSqlHelper.Declaration("@p0='ModifiedData' (Nullable = false) (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0003-000000000001'")}
+                    {AssertSqlHelper.Declaration("@p2='1'")}
+                    {AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
+                    
+                    UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
+                    WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
+                    SELECT @@ROWCOUNT;
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@p0='ChangedData' (Nullable = false) (Size = 255)")}
-{AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0002-000000000001'")}
-{AssertSqlHelper.Declaration("@p2='1'")}
-{AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
-
-UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
-SELECT @@ROWCOUNT;");
+                $"""
+                    {AssertSqlHelper.Declaration("@p0='ChangedData' (Nullable = false) (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0002-000000000001'")}
+                    {AssertSqlHelper.Declaration("@p2='1'")}
+                    {AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
+                    
+                    UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
+                    WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
+                    SELECT @@ROWCOUNT;
+                    """);
         }
 
         public override async Task DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity()
@@ -188,19 +196,21 @@ SELECT @@ROWCOUNT;");
             await base.DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity();
 
             AssertSql(
-                $@"@p0=NULL (Size = 10)
-{AssertSqlHelper.Declaration("@p1='Third' (Nullable = false) (Size = 255)")}
-{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000003'")}
-{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
-{AssertSqlHelper.Declaration("@p5='Third Name' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
-
-INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
-SELECT `Unique_No`
-FROM `Sample`
-WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
+                $"""
+                    @p0=NULL (Size = 10)
+                    {AssertSqlHelper.Declaration("@p1='Third' (Nullable = false) (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000003'")}
+                    {AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p5='Third Name' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
+                    
+                    INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
+                    SELECT `Unique_No`
+                    FROM `Sample`
+                    WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;
+                    """);
         }
 
         public override async Task MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length()
@@ -208,33 +218,37 @@ WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
             await base.MaxLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='Short' (Size = 10)")}
-{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 255)")}
-{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
-{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
-{AssertSqlHelper.Declaration("@p5='Third Name' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
-
-INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
-SELECT `Unique_No`
-FROM `Sample`
-WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;",
+                $"""
+                    {AssertSqlHelper.Declaration("@p0='Short' (Size = 10)")}
+                    {AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
+                    {AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p5='Third Name' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
+                    
+                    INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
+                    SELECT `Unique_No`
+                    FROM `Sample`
+                    WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@p0='VeryVeryVeryVeryVeryVeryLongString' (Size = -1)")}
-{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 255)")}
-{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
-{AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
-{AssertSqlHelper.Declaration("@p5='Third Name' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
-
-INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
-SELECT `Unique_No`
-FROM `Sample`
-WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
+                $"""
+                    {AssertSqlHelper.Declaration("@p0='VeryVeryVeryVeryVeryVeryLongString' (Size = -1)")}
+                    {AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
+                    {AssertSqlHelper.Declaration("@p3='Third Additional Name' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p5='Third Name' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
+                    
+                    INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
+                    SELECT `Unique_No`
+                    FROM `Sample`
+                    WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;
+                    """);
         }
 
         public override async Task RequiredAttribute_for_navigation_throws_while_inserting_null_value()
@@ -242,23 +256,27 @@ WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
             await base.RequiredAttribute_for_navigation_throws_while_inserting_null_value();
 
             AssertSql(
-                $@"@p0=NULL (DbType = Int32)
-{AssertSqlHelper.Declaration("@p1='1'")}
-
-INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
-SELECT `Id`
-FROM `BookDetails`
-WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;",
+                $"""
+                    @p0=NULL (DbType = Int32)
+                    {AssertSqlHelper.Declaration("@p1='1'")}
+                    
+                    INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
+                    SELECT `Id`
+                    FROM `BookDetails`
+                    WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+                    """,
                 //
-                $@"@p0=NULL (DbType = Int32)
-@p1=NULL (Nullable = false) (DbType = Int32)
-
-INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
-SELECT `Id`
-FROM `BookDetails`
-WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;");
+                $"""
+                    @p0=NULL (DbType = Int32)
+                    @p1=NULL (Nullable = false) (DbType = Int32)
+                    
+                    INSERT INTO `BookDetails` (`AdditionalBookDetailsId`, `AnotherBookId`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
+                    SELECT `Id`
+                    FROM `BookDetails`
+                    WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+                    """);
         }
 
         public override async Task RequiredAttribute_for_property_throws_while_inserting_null_value()
@@ -266,33 +284,37 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;");
             await base.RequiredAttribute_for_property_throws_while_inserting_null_value();
 
             AssertSql(
-                $@"@p0=NULL (Size = 10)
-{AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 255)")}
-{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
-{AssertSqlHelper.Declaration("@p3='Two' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
-{AssertSqlHelper.Declaration("@p5='One' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
-
-INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
-SELECT `Unique_No`
-FROM `Sample`
-WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;",
+                $"""
+                    @p0=NULL (Size = 10)
+                    {AssertSqlHelper.Declaration("@p1='ValidString' (Nullable = false) (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000001'")}
+                    {AssertSqlHelper.Declaration("@p3='Two' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p5='One' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
+                    
+                    INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
+                    SELECT `Unique_No`
+                    FROM `Sample`
+                    WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;
+                    """,
                 //
-                $@"@p0=NULL (Size = 10)
-@p1=NULL (Nullable = false) (Size = 255)
-{AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
-{AssertSqlHelper.Declaration("@p3='Two' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
-{AssertSqlHelper.Declaration("@p5='One' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
-
-INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
-SELECT `Unique_No`
-FROM `Sample`
-WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
+                $"""
+                    @p0=NULL (Size = 10)
+                    @p1=NULL (Nullable = false) (Size = 255)
+                    {AssertSqlHelper.Declaration("@p2='00000000-0000-0000-0000-000000000002'")}
+                    {AssertSqlHelper.Declaration("@p3='Two' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p4='0' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p5='One' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p6='0' (Nullable = true)")}
+                    
+                    INSERT INTO `Sample` (`MaxLengthProperty`, `Name`, `RowVersion`, `AdditionalDetails_Name`, `AdditionalDetails_Value`, `Details_Name`, `Details_Value`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
+                    SELECT `Unique_No`
+                    FROM `Sample`
+                    WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;
+                    """);
         }
 
         public override async Task StringLengthAttribute_throws_while_inserting_value_longer_than_max_length()
@@ -300,21 +322,25 @@ WHERE @@ROWCOUNT = 1 AND `Unique_No` = @@identity;");
             await base.StringLengthAttribute_throws_while_inserting_value_longer_than_max_length();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@p0='ValidString' (Size = 16)")}
-
-INSERT INTO `Two` (`Data`)
-VALUES ({AssertSqlHelper.Parameter("@p0")});
-SELECT `Id`, `Timestamp`
-FROM `Two`
-WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;",
+                $"""
+                    {AssertSqlHelper.Declaration("@p0='ValidString' (Size = 16)")}
+                    
+                    INSERT INTO `Two` (`Data`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")});
+                    SELECT `Id`, `Timestamp`
+                    FROM `Two`
+                    WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@p0='ValidButLongString' (Size = -1)")}
-
-INSERT INTO `Two` (`Data`)
-VALUES ({AssertSqlHelper.Parameter("@p0")});
-SELECT `Id`, `Timestamp`
-FROM `Two`
-WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;");
+                $"""
+                    {AssertSqlHelper.Declaration("@p0='ValidButLongString' (Size = -1)")}
+                    
+                    INSERT INTO `Two` (`Data`)
+                    VALUES ({AssertSqlHelper.Parameter("@p0")});
+                    SELECT `Id`, `Timestamp`
+                    FROM `Two`
+                    WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+                    """);
         }
 
         public override async Task TimestampAttribute_throws_if_value_in_database_changed()

@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
     {
         public Officer()
         {
-            Reports = new List<Gear>();
+            Reports = [];
         }
 
         // 1 - many self reference

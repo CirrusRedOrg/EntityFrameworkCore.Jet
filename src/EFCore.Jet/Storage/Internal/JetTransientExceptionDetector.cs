@@ -1,8 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using EntityFrameworkCore.Jet.Data;
-using JetBrains.Annotations;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -11,7 +9,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public static class JetTransientExceptionDetector
     {
-        public static bool ShouldRetryOn([NotNull] Exception ex)
+        public static bool ShouldRetryOn(Exception ex)
         {
             DataAccessProviderType dataAccessProviderType;
 
@@ -28,18 +26,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             foreach (var err in sqlException.Errors)
             {
                 // TODO: Check additional ACE/Jet Errors
-                switch (err.NativeError)
+                return err.NativeError switch
                 {
                     // ODBC Error Code: -1311 [HY001]
                     // [Microsoft][ODBC Microsoft Access Driver] Cannot open any more tables.
                     // If too many commands get executed in short succession, ACE/Jet can run out of table handles.
                     // This can happen despite proper disposal of OdbcCommand and OdbcDataReader objects.
                     // Waiting for a couple of milliseconds will give ACE/Jet enough time to catch up.
-                    case -1311 when dataAccessProviderType == DataAccessProviderType.Odbc:
-                        return true;
-                }
-
-                return false;
+                    -1311 when dataAccessProviderType == DataAccessProviderType.Odbc => true,
+                    _ => false
+                };
             }
 
             if (ex is TimeoutException)

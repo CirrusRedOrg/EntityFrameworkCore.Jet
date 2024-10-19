@@ -1,11 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Data;
-using System.Data.Common;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -26,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public JetStringTypeMapping(
-            [CanBeNull] string? storeType = null,
+            string? storeType = null,
             bool unicode = false,
             int? size = null,
             bool fixedLength = false,

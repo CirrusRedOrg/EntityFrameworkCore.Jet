@@ -1,6 +1,4 @@
 using System.Data;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -19,7 +17,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetCurrencyTypeMapping(
-            [NotNull] string storeType,
+            string storeType,
             DbType? dbType = System.Data.DbType.Currency)
             : base(storeType, dbType)
         {

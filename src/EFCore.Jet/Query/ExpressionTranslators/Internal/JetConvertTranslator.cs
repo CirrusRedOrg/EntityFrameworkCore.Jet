@@ -1,12 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
@@ -20,7 +13,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         // The value here is actually never used.
-        private static readonly Dictionary<string, string> _functionName = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _functionName = new()
         {
             [nameof(Convert.ToBoolean)] = "CBOOL",
             [nameof(Convert.ToByte)] = "CBYTE",
@@ -34,8 +27,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             [nameof(Convert.ToString)] = "CSTR",
         };
 
-        private static readonly List<Type> _supportedTypes = new List<Type>
-        {
+        private static readonly List<Type> _supportedTypes =
+        [
             typeof(bool),
             typeof(byte),
             typeof(decimal),
@@ -45,7 +38,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             typeof(long),
             typeof(short),
             typeof(string)
-        };
+        ];
 
         private static readonly IEnumerable<MethodInfo> _supportedMethods
             = _functionName.Keys

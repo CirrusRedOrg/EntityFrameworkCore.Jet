@@ -32,9 +32,9 @@ public abstract class AdHocJsonQueryJetTestBase : AdHocJsonQueryTestBase
             Reference = new MyJsonEntity29219 { NonNullableScalar = 10, NullableScalar = 11 },
             Collection =
             [
-                new() { NonNullableScalar = 100, NullableScalar = 101 },
-                new() { NonNullableScalar = 200, NullableScalar = 201 },
-                new() { NonNullableScalar = 300, NullableScalar = null }
+                new MyJsonEntity29219 { NonNullableScalar = 100, NullableScalar = 101 },
+                new MyJsonEntity29219 { NonNullableScalar = 200, NullableScalar = 201 },
+                new MyJsonEntity29219 { NonNullableScalar = 300, NullableScalar = null }
             ]
         };
 
@@ -42,7 +42,7 @@ public abstract class AdHocJsonQueryJetTestBase : AdHocJsonQueryTestBase
         {
             Id = 2,
             Reference = new MyJsonEntity29219 { NonNullableScalar = 20, NullableScalar = null },
-            Collection = [new() { NonNullableScalar = 1001, NullableScalar = null }]
+            Collection = [new MyJsonEntity29219 { NonNullableScalar = 1001, NullableScalar = null }]
         };
 
         ctx.AddRange(entity1, entity2);
@@ -118,8 +118,8 @@ VALUES('[{"RoundNumber":11,"SubRounds":[{"SubRoundNumber":111},{"SubRoundNumber"
             },
             Collection =
             [
-                new() { IntArray = [111, 112, 113], ListOfString = ["Foo11", "Bar11"] },
-                new() { IntArray = [211, 212, 213], ListOfString = ["Foo12", "Bar12"] }
+                new MyJsonEntityArrayOfPrimitives { IntArray = [111, 112, 113], ListOfString = ["Foo11", "Bar11"] },
+                new MyJsonEntityArrayOfPrimitives { IntArray = [211, 212, 213], ListOfString = ["Foo12", "Bar12"] }
             ]
         };
 
@@ -138,8 +138,8 @@ VALUES('[{"RoundNumber":11,"SubRounds":[{"SubRoundNumber":111},{"SubRoundNumber"
             },
             Collection =
             [
-                new() { IntArray = [110, 120, 130], ListOfString = ["A1", "Z1"] },
-                new() { IntArray = [210, 220, 230], ListOfString = ["A2", "Z2"] }
+                new MyJsonEntityArrayOfPrimitives { IntArray = [110, 120, 130], ListOfString = ["A1", "Z1"] },
+                new MyJsonEntityArrayOfPrimitives { IntArray = [210, 220, 230], ListOfString = ["A2", "Z2"] }
             ]
         };
 
@@ -210,24 +210,22 @@ VALUES(
             onConfiguring: b => b.ConfigureWarnings(ConfigureWarnings),
             seed: SeedEnumLegacyValues);
 
-        using (var context = contextFactory.CreateContext())
-        {
-            var query = context.Set<MyEntityEnumLegacyValues>().Select(
-                x => new
-                {
-                    x.Reference.IntEnum,
-                    x.Reference.ByteEnum,
-                    x.Reference.LongEnum,
-                    x.Reference.NullableEnum
-                });
+        using var context = contextFactory.CreateContext();
+        var query = context.Set<MyEntityEnumLegacyValues>().Select(
+            x => new
+            {
+                x.Reference.IntEnum,
+                x.Reference.ByteEnum,
+                x.Reference.LongEnum,
+                x.Reference.NullableEnum
+            });
 
-            var exception = async
-                ? await (Assert.ThrowsAsync<DbException>(() => query.ToListAsync()))
-                : Assert.Throws<DbException>(() => query.ToList());
+        var exception = async
+            ? await (Assert.ThrowsAsync<DbException>(() => query.ToListAsync()))
+            : Assert.Throws<DbException>(() => query.ToList());
 
-            // Conversion failed when converting the nvarchar value '...' to data type int
-            //Assert.Equal(245, exception.Number);
-        }
+        // Conversion failed when converting the nvarchar value '...' to data type int
+        //Assert.Equal(245, exception.Number);
     }
 
     [ConditionalTheory]
@@ -246,7 +244,7 @@ VALUES(
 
             var result = async
                 ? await query.ToListAsync()
-                : query.ToList();
+                : [.. query];
 
             Assert.Equal(1, result.Count);
             Assert.Equal(ByteEnumLegacyValues.Redmond, result[0].ByteEnum);
@@ -287,7 +285,7 @@ VALUES(
 
             var result = async
                 ? await query.ToListAsync()
-                : query.ToList();
+                : [.. query];
 
             Assert.Equal(1, result.Count);
             Assert.Equal(2, result[0].Count);

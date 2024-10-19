@@ -402,12 +402,14 @@ END
         Assert.Contains("(Size = 8) (Direction = InputOutput)", TestSqlLoggerFactory.Sql);
 
         Assert.Equal(
-            @"@p2='Updated' (Size = 4000)
-@p3='0' (Direction = Output)
-
-SET NOCOUNT ON;
-EXEC [Entity_Update] @p0, @p1 OUTPUT, @p2, @p3 OUTPUT;",
-            TestSqlLoggerFactory.Sql.Substring(TestSqlLoggerFactory.Sql.IndexOf("@p2", StringComparison.Ordinal)),
+            """
+                @p2='Updated' (Size = 4000)
+                @p3='0' (Direction = Output)
+                
+                SET NOCOUNT ON;
+                EXEC [Entity_Update] @p0, @p1 OUTPUT, @p2, @p3 OUTPUT;
+                """,
+            TestSqlLoggerFactory.Sql[TestSqlLoggerFactory.Sql.IndexOf("@p2", StringComparison.Ordinal)..],
             ignoreLineEndingDifferences: true);
     }
 
@@ -425,13 +427,15 @@ END
 
         // Can't assert SQL baseline as usual because the concurrency token changes
         Assert.Equal(
-            @"@p2='Updated' (Size = 4000)
-@p3=NULL (Size = 8) (Direction = Output) (DbType = Binary)
-@p4='0' (Direction = Output)
-
-SET NOCOUNT ON;
-EXEC [Entity_Update] @p0, @p1, @p2, @p3 OUTPUT, @p4 OUTPUT;",
-            TestSqlLoggerFactory.Sql.Substring(TestSqlLoggerFactory.Sql.IndexOf("@p2", StringComparison.Ordinal)),
+            """
+                @p2='Updated' (Size = 4000)
+                @p3=NULL (Size = 8) (Direction = Output) (DbType = Binary)
+                @p4='0' (Direction = Output)
+                
+                SET NOCOUNT ON;
+                EXEC [Entity_Update] @p0, @p1, @p2, @p3 OUTPUT, @p4 OUTPUT;
+                """,
+            TestSqlLoggerFactory.Sql[TestSqlLoggerFactory.Sql.IndexOf("@p2", StringComparison.Ordinal)..],
             ignoreLineEndingDifferences: true);
     }
 

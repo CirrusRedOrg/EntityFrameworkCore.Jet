@@ -1,12 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using EntityFrameworkCore.Jet.Storage.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -27,7 +21,7 @@ namespace Microsoft.EntityFrameworkCore
         ///     The default retry limit is 6, which means that the total amount of time spent before failing is about a minute.
         /// </remarks>
         public JetRetryingExecutionStrategy(
-            [NotNull] DbContext context)
+            DbContext context)
             : this(context, DefaultMaxRetryCount)
         {
         }
@@ -37,7 +31,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="dependencies"> Parameter object containing service dependencies. </param>
         public JetRetryingExecutionStrategy(
-            [NotNull] ExecutionStrategyDependencies dependencies)
+            ExecutionStrategyDependencies dependencies)
             : this(dependencies, DefaultMaxRetryCount)
         {
         }
@@ -48,7 +42,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="context"> The context on which the operations will be invoked. </param>
         /// <param name="maxRetryCount"> The maximum number of retry attempts. </param>
         public JetRetryingExecutionStrategy(
-            [NotNull] DbContext context,
+            DbContext context,
             int maxRetryCount)
             : this(context, maxRetryCount, DefaultMaxDelay, errorNumbersToAdd: null)
         {
@@ -60,7 +54,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="dependencies"> Parameter object containing service dependencies. </param>
         /// <param name="maxRetryCount"> The maximum number of retry attempts. </param>
         public JetRetryingExecutionStrategy(
-            [NotNull] ExecutionStrategyDependencies dependencies,
+            ExecutionStrategyDependencies dependencies,
             int maxRetryCount)
             : this(dependencies, maxRetryCount, DefaultMaxDelay, errorNumbersToAdd: null)
         {
@@ -74,7 +68,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="maxRetryDelay"> The maximum delay between retries. </param>
         /// <param name="errorNumbersToAdd"> Additional SQL error numbers that should be considered transient. </param>
         public JetRetryingExecutionStrategy(
-            [NotNull] DbContext context,
+            DbContext context,
             int maxRetryCount,
             TimeSpan maxRetryDelay,
             IEnumerable<int>? errorNumbersToAdd)
@@ -94,7 +88,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="maxRetryDelay"> The maximum delay between retries. </param>
         /// <param name="errorNumbersToAdd"> Additional SQL error numbers that should be considered transient. </param>
         public JetRetryingExecutionStrategy(
-            [NotNull] ExecutionStrategyDependencies dependencies,
+            ExecutionStrategyDependencies dependencies,
             int maxRetryCount,
             TimeSpan maxRetryDelay,
             IEnumerable<int>? errorNumbersToAdd)

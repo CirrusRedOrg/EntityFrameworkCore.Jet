@@ -1,17 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -20,27 +11,22 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
     public class JetDatabaseCreator(
-        [NotNull] RelationalDatabaseCreatorDependencies dependencies,
-        [NotNull] IJetRelationalConnection relationalConnection,
-        [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder)
+        RelationalDatabaseCreatorDependencies dependencies,
+        IJetRelationalConnection relationalConnection,
+        IRawSqlCommandBuilder rawSqlCommandBuilder)
         : RelationalDatabaseCreator(dependencies)
     {
-        private readonly IJetRelationalConnection _relationalConnection = relationalConnection;
-        private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder = rawSqlCommandBuilder;
-
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override void Create()
         {
-            using (var emptyConnection = _relationalConnection.CreateEmptyConnection())
-            {
-                Dependencies.MigrationCommandExecutor
-                    .ExecuteNonQuery(CreateCreateOperations(), emptyConnection);
+            using var emptyConnection = relationalConnection.CreateEmptyConnection();
+            Dependencies.MigrationCommandExecutor
+                .ExecuteNonQuery(CreateCreateOperations(), emptyConnection);
 
-                ClearPool();
-            }
+            ClearPool();
         }
 
         /// <summary>
@@ -53,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             return Dependencies.ExecutionStrategy
                 .Execute(
-                    _relationalConnection,
+                    relationalConnection,
                     connection =>
                     {
                         using var dataReader = CreateHasTablesCommand()
@@ -76,7 +62,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public override Task<bool> HasTablesAsync(CancellationToken cancellationToken = default)
             => Dependencies.ExecutionStrategy.ExecuteAsync(
-                _relationalConnection,
+                relationalConnection,
                 async (connection, ct) =>
                 {
                     await using var dataReader = await CreateHasTablesCommand()
@@ -92,32 +78,31 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 }, cancellationToken);
 
         private IRelationalCommand CreateHasTablesCommand()
-            => _rawSqlCommandBuilder.Build(@"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')");
+            => rawSqlCommandBuilder.Build(@"SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')");
 
         private IReadOnlyList<MigrationCommand> CreateCreateOperations()
         {
             // Alternative:
             // var dataSource = _relationalConnection.DbConnection.DataSource;
 
-            var connection = (JetConnection) _relationalConnection.DbConnection;
+            var connection = (JetConnection) relationalConnection.DbConnection;
             var fileNameOrConnectionString = connection.ConnectionString;
             var connectionString = JetConnection.GetConnectionString(fileNameOrConnectionString, connection.DataAccessProviderFactory);
 
-            var csb = connection.JetFactory.CreateConnectionStringBuilder();
+            var csb = (connection.JetFactory?.CreateConnectionStringBuilder()) ?? throw new InvalidOperationException("Failed to create connection string builder.");
             csb.ConnectionString = connectionString;
             
             var dataSource = csb.GetDataSource();
             var databasePassword = csb.GetDatabasePassword();
 
             return Dependencies.MigrationsSqlGenerator.Generate(
-                new[]
-                {
+                [
                     new JetCreateDatabaseOperation
                     {
                         Name = dataSource!,
                         Password = databasePassword
                     }
-                });
+                ]);
         }
 
         /// <summary>
@@ -125,7 +110,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override bool Exists()
-            => EntityFrameworkCore.Jet.Data.JetConnection.DatabaseExists(_relationalConnection.DbConnection.ConnectionString);
+            => JetConnection.DatabaseExists(relationalConnection.DbConnection.ConnectionString);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -135,17 +120,15 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         {
             ClearAllPools();
 
-            using (var emptyConnection = _relationalConnection.CreateEmptyConnection())
-            {
-                Dependencies.MigrationCommandExecutor
-                    .ExecuteNonQuery(CreateDropCommands(), emptyConnection);
-            }
+            using var emptyConnection = relationalConnection.CreateEmptyConnection();
+            Dependencies.MigrationCommandExecutor
+                .ExecuteNonQuery(CreateDropCommands(), emptyConnection);
         }
 
         // ReSharper disable once UnusedMember.Local
         private IReadOnlyList<MigrationCommand> CreateDropCommands()
         {
-            var databaseName = _relationalConnection.DbConnection.DataSource;
+            var databaseName = relationalConnection.DbConnection.DataSource;
             if (string.IsNullOrEmpty(databaseName))
             {
                 throw new InvalidOperationException(JetStrings.NoInitialCatalog);
@@ -162,11 +145,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         // Clear connection pools in case there are active connections that are pooled
         private static void ClearAllPools()
-            => EntityFrameworkCore.Jet.Data.JetConnection.ClearAllPools();
+            => JetConnection.ClearAllPools();
 
         // Clear connection pool for the database connection since after the 'create database' call, a previously
         // invalid connection may now be valid.
         private void ClearPool()
-            => EntityFrameworkCore.Jet.Data.JetConnection.ClearPool((EntityFrameworkCore.Jet.Data.JetConnection) _relationalConnection.DbConnection);
+            => JetConnection.ClearPool((JetConnection) relationalConnection.DbConnection);
     }
 }

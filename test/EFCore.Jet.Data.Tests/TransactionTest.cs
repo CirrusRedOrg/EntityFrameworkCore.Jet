@@ -14,16 +14,18 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         {
             _connection = Helpers.CreateAndOpenDatabase(StoreName);
 
-            var script = @"
-CREATE TABLE `Cookies` (
-    `CookieId` counter NOT NULL,
-    `Name` text NULL,
-    CONSTRAINT `PK_Cookies` PRIMARY KEY (`CookieId`)
-);
+            var script = """
+                
+                CREATE TABLE `Cookies` (
+                    `CookieId` counter NOT NULL,
+                    `Name` text NULL,
+                    CONSTRAINT `PK_Cookies` PRIMARY KEY (`CookieId`)
+                );
+                
+                INSERT INTO `Cookies` (`Name`) VALUES ('Basic');
+                INSERT INTO `Cookies` (`Name`) VALUES ('Chocolate Chip');
 
-INSERT INTO `Cookies` (`Name`) VALUES ('Basic');
-INSERT INTO `Cookies` (`Name`) VALUES ('Chocolate Chip');
-";
+                """;
             
             Helpers.ExecuteScript(_connection, script);
         }

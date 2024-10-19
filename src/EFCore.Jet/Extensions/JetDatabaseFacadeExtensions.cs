@@ -1,10 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Reflection;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -27,7 +23,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="database"> The facade from <see cref="DbContext.Database" />. </param>
         /// <returns> True if Jet is being used; false otherwise. </returns>
-        public static bool IsJet([NotNull] this DatabaseFacade database)
+        public static bool IsJet(this DatabaseFacade database)
             => database.ProviderName == typeof(JetOptionsExtension).Assembly.GetName().Name;
     }
 }

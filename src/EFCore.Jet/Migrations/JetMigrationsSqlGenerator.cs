@@ -1,26 +1,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
 using EntityFrameworkCore.Jet.Storage.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 using EntityFrameworkCore.Jet.Update.Internal;
-using Microsoft.EntityFrameworkCore.Update;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Migrations
@@ -36,22 +23,17 @@ namespace Microsoft.EntityFrameworkCore.Migrations
     ///         The implementation does not need to be thread-safe.
     ///     </para>
     /// </summary>
-    public class JetMigrationsSqlGenerator : MigrationsSqlGenerator
+    /// <remarks>
+    ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
+    /// </remarks>
+    /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
+    /// <param name="commandBatchPreparer">The command batch preparer.</param>
+    public class JetMigrationsSqlGenerator(
+        MigrationsSqlGeneratorDependencies dependencies,
+        ICommandBatchPreparer commandBatchPreparer) : MigrationsSqlGenerator(dependencies)
     {
         private IReadOnlyList<MigrationOperation> _operations = null!;
-        private readonly ICommandBatchPreparer _commandBatchPreparer;
-        /// <summary>
-        ///     Creates a new <see cref="JetMigrationsSqlGenerator" /> instance.
-        /// </summary>
-        /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
-        /// <param name="commandBatchPreparer">The command batch preparer.</param>
-        public JetMigrationsSqlGenerator(
-            MigrationsSqlGeneratorDependencies dependencies,
-            ICommandBatchPreparer commandBatchPreparer)
-            : base(dependencies)
-        {
-            _commandBatchPreparer = commandBatchPreparer;
-        }
+        private readonly ICommandBatchPreparer _commandBatchPreparer = commandBatchPreparer;
 
         /// <summary>
         ///     Generates commands from a list of operations.

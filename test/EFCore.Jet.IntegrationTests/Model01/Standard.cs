@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model01
     {
         public Standard()
         {
-            Students = new List<Student>();
+            Students = [];
         }
 
         // Index is supported only using fluent API

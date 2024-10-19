@@ -229,13 +229,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         {
             using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
-            using (var context = new DbFunctionContext(options))
-            {
-                var result = context.Database
-                    .SqlQueryRaw<RawResult>("SELECT Name from sys.databases")
-                    .OrderBy(d => d.Name)
-                    .ToList();
-            }
+            using var context = new DbFunctionContext(options);
+            var result = context.Database
+                .SqlQueryRaw<RawResult>("SELECT Name from sys.databases")
+                .OrderBy(d => d.Name)
+                .ToList();
         }
 
         private class DbFunctionContext(DbContextOptions options) : DbContext(options)
@@ -384,21 +382,19 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
-            using (var context = new ProjectContext(options))
+            using var context = new ProjectContext(options);
+            context.Database.EnsureCreatedResiliently();
+
+            var projectAction = new ProjectAction
             {
-                context.Database.EnsureCreatedResiliently();
+                Id = Guid.NewGuid().ToString(),
+                CreateId = "1",
+                UpdateId = "1",
+                Name = "123123123123"
+            };
+            context.ProjectActions.Add(projectAction);
 
-                var projectAction = new ProjectAction
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    CreateId = "1",
-                    UpdateId = "1",
-                    Name = "123123123123"
-                };
-                context.ProjectActions.Add(projectAction);
-
-                Assert.Throws<DbUpdateConcurrencyException>(() => context.SaveChanges());
-            }
+            Assert.Throws<DbUpdateConcurrencyException>(() => context.SaveChanges());
         }
 
         private class ProjectContext(DbContextOptions options) : DbContext(options)
@@ -528,21 +524,19 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
-            using (var context = new FileContext(options))
-            {
-                context.Database.EnsureCreatedResiliently();
+            using var context = new FileContext(options);
+            context.Database.EnsureCreatedResiliently();
 
-                var category = new Category();
-                context.Categories.Add(category);
+            var category = new Category();
+            context.Categories.Add(category);
 
-                context.SaveChanges();
+            context.SaveChanges();
 
-                var fileMetadata = new FileMetadata();
-                context.FileMetadata.Add(fileMetadata);
-                category.Picture = new FileSource { FileId = fileMetadata.Id };
+            var fileMetadata = new FileMetadata();
+            context.FileMetadata.Add(fileMetadata);
+            category.Picture = new FileSource { FileId = fileMetadata.Id };
 
-                context.SaveChanges();
-            }
+            context.SaveChanges();
         }
 
         private class FileContext(DbContextOptions options) : DbContext(options)
@@ -590,17 +584,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
-            using (var context = new CarContext(options))
-            {
-                context.Database.EnsureCreatedResiliently();
+            using var context = new CarContext(options);
+            context.Database.EnsureCreatedResiliently();
 
-                var ferrari = new Ferrari { Special = new Car() };
-                await context.AddAsync(ferrari);
+            var ferrari = new Ferrari { Special = new Car() };
+            await context.AddAsync(ferrari);
 
-                await context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
-                Assert.NotNull(ferrari.Special);
-            }
+            Assert.NotNull(ferrari.Special);
         }
 
         private class CarContext(DbContextOptions options) : DbContext(options)
@@ -1036,9 +1028,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             public int Credits { get; set; }
 
-            public virtual ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
+            public virtual ICollection<Enrollment> Enrollments { get; set; } = [];
 
-            public virtual ICollection<Student> Students { get; set; } = new List<Student>();
+            public virtual ICollection<Student> Students { get; set; } = [];
 
             public byte[] RowVersion { get; set; } = [];
         }
@@ -1053,9 +1045,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             public DateTime EnrollmentDate { get; set; }
 
-            public virtual ICollection<Enrollment> Enrollments { get; } = new List<Enrollment>();
+            public virtual ICollection<Enrollment> Enrollments { get; } = [];
 
-            public virtual ICollection<Course> Courses { get; set; } = new List<Course>();
+            public virtual ICollection<Course> Courses { get; set; } = [];
 
             public byte[] RowVersion { get; set; } = [];
         }
@@ -1175,13 +1167,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         {
             public int Id { get; set; }
             public virtual EntityA EntityA { get; set; }
-            public virtual ICollection<EntityC> EntitiesC { get; } = new List<EntityC>();
+            public virtual ICollection<EntityC> EntitiesC { get; } = [];
         }
 
         private class EntityC
         {
             public int Id { get; set; }
-            public virtual ICollection<EntityB> EntitiesB { get; } = new List<EntityB>();
+            public virtual ICollection<EntityB> EntitiesB { get; } = [];
         }
 
         private class SomeDbContext(DbContextOptions options) : DbContext(options)
@@ -1352,7 +1344,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public virtual Level Level { get; set; }
             public virtual int GameId { get; private set; }
             public virtual Game Game { get; set; }
-            public virtual ICollection<Item> Items { get; set; } = new HashSet<Item>();
+            public virtual ICollection<Item> Items { get; set; } = [];
         }
 
         public class PlayerCharacter : Actor
@@ -1389,8 +1381,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public virtual int Id { get; set; }
             public virtual int GameId { get; set; }
             public virtual Game Game { get; set; }
-            public virtual ICollection<Actor> Actors { get; set; } = new HashSet<Actor>();
-            public virtual ICollection<Item> Items { get; set; } = new HashSet<Item>();
+            public virtual ICollection<Actor> Actors { get; set; } = [];
+            public virtual ICollection<Item> Items { get; set; } = [];
         }
 
         public class Item
@@ -1404,14 +1396,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class Container : Item
         {
-            public virtual ICollection<Item> Items { get; set; } = new HashSet<Item>();
+            public virtual ICollection<Item> Items { get; set; } = [];
         }
 
         public class Game
         {
             public virtual int Id { get; set; }
-            public virtual ICollection<Actor> Actors { get; set; } = new HashSet<Actor>();
-            public virtual ICollection<Level> Levels { get; set; } = new HashSet<Level>();
+            public virtual ICollection<Actor> Actors { get; set; } = [];
+            public virtual ICollection<Level> Levels { get; set; } = [];
         }
 
         public class GameDbContext(DbContextOptions options) : DbContext(options)

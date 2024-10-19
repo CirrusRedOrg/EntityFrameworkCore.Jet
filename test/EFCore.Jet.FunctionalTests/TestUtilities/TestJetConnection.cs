@@ -12,23 +12,17 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
-    public class TestJetConnection : JetRelationalConnection
+    public class TestJetConnection(RelationalConnectionDependencies dependencies) : JetRelationalConnection(dependencies)
     {
-        private readonly Func<int, DbException> _createExceptionFunc;
-
-        public TestJetConnection(RelationalConnectionDependencies dependencies)
-            : base(dependencies)
-        {
-            _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+        private readonly Func<int, DbException> _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
                 ? number => OleDbExceptionFactory.CreateException(number)
                 : number => OdbcExceptionFactory.CreateException(number);
-        }
 
         public int ErrorNumber { get; set; } = -2;
-        public Queue<bool?> OpenFailures { get; } = new Queue<bool?>();
+        public Queue<bool?> OpenFailures { get; } = new();
         public int OpenCount { get; set; }
-        public Queue<bool?> CommitFailures { get; } = new Queue<bool?>();
-        public Queue<bool?> ExecutionFailures { get; } = new Queue<bool?>();
+        public Queue<bool?> CommitFailures { get; } = new();
+        public Queue<bool?> ExecutionFailures { get; } = new();
         public int ExecutionCount { get; set; }
 
         public override bool Open(bool errorsExpected = false)

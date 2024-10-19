@@ -1,8 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Text;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -11,17 +9,13 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetSqlGenerationHelper : RelationalSqlGenerationHelper
+    /// <remarks>
+    ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+    ///     directly from your code. This API may change or be removed in future releases.
+    /// </remarks>
+    public class JetSqlGenerationHelper(
+        RelationalSqlGenerationHelperDependencies dependencies) : RelationalSqlGenerationHelper(dependencies)
     {
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public JetSqlGenerationHelper(
-            [NotNull] RelationalSqlGenerationHelperDependencies dependencies)
-            : base(dependencies)
-        {
-        }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -90,7 +84,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             if (identifier.Length <= 64)
                 return identifier;
 
-            return identifier.Substring(0, 56) + identifier.ToLowerInvariant().GetHashCode().ToString("X8");
+            return identifier[..56] + identifier.ToLowerInvariant().GetHashCode().ToString("X8");
         }
 
         public override string GenerateCreateSavepointStatement(string name)

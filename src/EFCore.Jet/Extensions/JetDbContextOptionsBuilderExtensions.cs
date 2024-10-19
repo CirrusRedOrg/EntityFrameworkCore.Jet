@@ -1,13 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using EntityFrameworkCore.Jet.Utilities;
 
 // ReSharper disable once CheckNamespace
@@ -127,8 +122,7 @@ namespace Microsoft.EntityFrameworkCore
         {
             Check.NotNull(connection, nameof(connection));
 
-            var jetConnection = connection as JetConnection;
-            if (jetConnection == null)
+            if (connection is not JetConnection jetConnection)
             {
                 throw new ArgumentException($"The {nameof(connection)} parameter must be of type {nameof(JetConnection)}.");
             }
@@ -151,7 +145,7 @@ namespace Microsoft.EntityFrameworkCore
                     throw new ArgumentException($"The data access provider type could not be inferred from the connections {nameof(JetConnection.DataAccessProviderFactory)} or {nameof(JetConnection.ConnectionString)} property and the {nameof(JetConnection.ConnectionString)} property is not a valid file name either.");
                 }
 
-                jetConnection.DataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+                jetConnection.DataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(dataAccessProviderType);
                 jetConnection.Freeze();
             }
 
@@ -336,7 +330,7 @@ namespace Microsoft.EntityFrameworkCore
                 .WithConnectionString(fileNameOrConnectionString);
 
             extension = extension.WithDataAccessProviderFactory(
-                dataAccessProviderFactory ?? JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType!.Value));
+                dataAccessProviderFactory ?? JetFactory.GetDataAccessProviderFactory(dataAccessProviderType!.Value));
 
             ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 

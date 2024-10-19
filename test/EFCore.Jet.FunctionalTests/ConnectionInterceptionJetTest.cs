@@ -33,7 +33,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         => optionsBuilder.UseJet();
 
         protected override BadUniverseContext CreateBadUniverse(DbContextOptionsBuilder optionsBuilder)
-            => new BadUniverseContext(optionsBuilder.UseJet(new FakeDbConnection()).Options);
+            => new(optionsBuilder.UseJet(new FakeDbConnection()).Options);
 
         public class FakeDbConnection : DbConnection
         {

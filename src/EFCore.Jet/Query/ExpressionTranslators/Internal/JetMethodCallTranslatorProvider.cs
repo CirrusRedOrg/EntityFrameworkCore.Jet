@@ -1,8 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Query;
-
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
     /// <summary>
@@ -23,8 +20,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             // ReSharper disable once VirtualMemberCallInConstructor
             AddTranslators(
-                new IMethodCallTranslator[]
-                {
+                [
                     new JetByteArrayMethodTranslator(sqlExpressionFactory),
                     new JetConvertTranslator(sqlExpressionFactory),
                     new JetDateDiffFunctionsTranslator(sqlExpressionFactory),
@@ -37,7 +33,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new JetStringMethodTranslator(sqlExpressionFactory),
                     new JetRandomTranslator(sqlExpressionFactory),
                     new JetTimeOnlyMethodTranslator(sqlExpressionFactory)
-                });
+                ]);
         }
     }
 }

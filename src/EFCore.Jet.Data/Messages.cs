@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.Data
         
 
         public static string CannotCallJetProviderFactoryMethodOnSingletonInstance(string methodName)
-            => $@"The method ""{methodName}"" can not be called on a singleton instance of JetProviderFactory. This method can only be called on a JetProviderFactory object retrieved from the JetConnnection.JetProviderFactory property.";
+            => $"""The method "{methodName}" can not be called on a singleton instance of JetProviderFactory. This method can only be called on a JetProviderFactory object retrieved from the JetConnnection.JetProviderFactory property.""";
 
         
         public static string MethodUnsupportedByJet(string methodName)

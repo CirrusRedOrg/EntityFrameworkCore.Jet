@@ -13,11 +13,11 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model43_PKasFK
                 new Parent
                 {
                     Name = "Test",
-                    Children = new List<Child>
-                    {
-                            new Child {ChildName = "TestChild"},
-                            new Child {ChildName = "NewChild"}
-                    }
+                    Children =
+                    [
+                        new Child { ChildName = "TestChild" },
+                        new Child { ChildName = "NewChild" }
+                    ]
                 });
 
         }

@@ -1,8 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using EntityFrameworkCore.Jet.Data;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 {

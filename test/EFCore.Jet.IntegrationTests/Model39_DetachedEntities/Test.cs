@@ -23,12 +23,12 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model39_DetachedEntities
                     Id = 1,
                     Quantity = 50,
                     Name = "Dont care",
-                    GradeWidths = new List<GradeWidth>(new[]
-                    {
+                    GradeWidths = new List<GradeWidth>(
+                    [
                         new GradeWidth() {Width = 10},
                         new GradeWidth() {Width = 20},
                         new GradeWidth() {Width = 30}
-                    })
+                    ])
                 });
                 Context.SaveChanges();
             }
@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model39_DetachedEntities
             base.CreateContext();
 
             {
-                Grade grade = new Grade() {Id = 1, Quantity = 50, Name = "Dont care"};
+                Grade grade = new() {Id = 1, Quantity = 50, Name = "Dont care"};
                 UpdateQuantity(Context, grade);
             }
         }
@@ -73,12 +73,12 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model39_DetachedEntities
                     Id = 1, 
                     Quantity = 50, 
                     Name = "Dont care",
-                    GradeWidths = new List<GradeWidth>(new[]
-                    {
+                    GradeWidths = new List<GradeWidth>(
+                    [
                         new GradeWidth() {Width = 10},
                         new GradeWidth() {Width = 20},
                         new GradeWidth() {Width = 30}
-                    })
+                    ])
                 });
                 Context.SaveChanges();
             }

@@ -177,7 +177,7 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 using (var recordset = _connection.OpenSchema(SchemaEnum.adSchemaColumns))
                 {
-                    ordinalPositions = new Dictionary<(string TableName, string ColumnName), int>();
+                    ordinalPositions = [];
 
                     using var fields = recordset.Fields;
                     using var tableNameField = fields["TABLE_NAME"];

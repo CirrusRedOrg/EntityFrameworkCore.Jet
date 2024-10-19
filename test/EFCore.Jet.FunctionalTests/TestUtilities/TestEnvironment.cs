@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             get
             {
                 var dataAccessProviderType = JetConnection.GetDataAccessProviderType(DefaultConnection);
-                var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+                var dataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(dataAccessProviderType);
                 var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder()!;
                 connectionStringBuilder.ConnectionString = DefaultConnection;
                 
@@ -36,15 +36,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         public static DataAccessProviderType DataAccessProviderType { get; } = JetConnection.GetDataAccessProviderType(DefaultConnection);
-        public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(DefaultConnection));
+        public static DbProviderFactory DataAccessProviderFactory { get; } = JetFactory.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(DefaultConnection));
         
         public static bool IsCI { get; } = Environment.GetEnvironmentVariable("PIPELINE_WORKSPACE") != null
             || Environment.GetEnvironmentVariable("TEAMCITY_VERSION") != null;
 
         public static bool? GetFlag(string key)
-            => bool.TryParse(Config[key], out var flag) ? flag : (bool?)null;
+            => bool.TryParse(Config[key], out var flag) ? flag : null;
 
         public static int? GetInt(string key)
-            => int.TryParse(Config[key], out var value) ? value : (int?)null;
+            => int.TryParse(Config[key], out var value) ? value : null;
     }
 }

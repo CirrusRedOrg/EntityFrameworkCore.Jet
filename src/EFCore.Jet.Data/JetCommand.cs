@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.Linq;
 using System.Text;
@@ -15,19 +16,19 @@ namespace EntityFrameworkCore.Jet.Data
 #if DEBUG
         private static int _activeObjectsCount;
 #endif
-        private JetConnection? _connection;
+        private JetConnection _connection;
         private JetTransaction? _transaction;
 
         private int _outerSelectSkipEmulationViaDataReaderSkipCount;
 
-        private static readonly Regex _createProcedureExpression = new Regex(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
-        private static readonly Regex _topParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+(distinct\s+)??top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
-        private static readonly Regex _topMultiParameterRegularExpression = new Regex(@"(?<=(?:^|\s)select\s+(distinct\s+)??top\s+)(?'first'@\w+|\?)(\s)(\+)(\s+)(?'sec'@\w+|\?)", RegexOptions.IgnoreCase);
-        private static readonly Regex _topMultiArgumentRegularExpression = new Regex(@"(?<=(?:^|\s)SELECT\s+(distinct\s+)??TOP\s+)(?'first'\d+|\?)(\s)(\+)(\s+)(?'sec'\d+|\?)", RegexOptions.IgnoreCase);
-        private static readonly Regex _outerSelectTopValueRegularExpression = new Regex(@"(?<=^\s*select\s+(distinct\s+)??top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
-        private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new Regex(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
-        private static readonly Regex _selectRowCountRegularExpression = new Regex(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
-        private static readonly Regex _ifStatementRegex = new Regex(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        private static readonly Regex _createProcedureExpression = new(@"^\s*create\s*procedure\b", RegexOptions.IgnoreCase);
+        private static readonly Regex _topParameterRegularExpression = new(@"(?<=(?:^|\s)select\s+(distinct\s+)??top\s+)(?:@\w+|\?)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topMultiParameterRegularExpression = new(@"(?<=(?:^|\s)select\s+(distinct\s+)??top\s+)(?'first'@\w+|\?)(\s)(\+)(\s+)(?'sec'@\w+|\?)", RegexOptions.IgnoreCase);
+        private static readonly Regex _topMultiArgumentRegularExpression = new(@"(?<=(?:^|\s)SELECT\s+(distinct\s+)??TOP\s+)(?'first'\d+|\?)(\s)(\+)(\s+)(?'sec'\d+|\?)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectTopValueRegularExpression = new(@"(?<=^\s*select\s+(distinct\s+)??top\s+)\d+(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _outerSelectSkipValueOrParameterRegularExpression = new(@"(?<=^\s*select)\s+skip\s+(?<SkipValueOrParameter>@\w+|\?|\d+)(?=\s)", RegexOptions.IgnoreCase);
+        private static readonly Regex _selectRowCountRegularExpression = new(@"^\s*select\s*@@rowcount\s*;?\s*$", RegexOptions.IgnoreCase);
+        private static readonly Regex _ifStatementRegex = new(@"^\s*if\s*(?<not>not)?\s*exists\s*\((?<sqlCheckCommand>.+)\)\s*then\s*(?<sqlCommand>.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
         protected JetCommand(JetCommand source)
         {
@@ -78,7 +79,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         internal DbCommand InnerCommand { get; }
 
-        internal IList<JetCommand> SplitCommandList { get; set; } = new List<JetCommand>();
+        internal IList<JetCommand> SplitCommandList { get; set; } = [];
 
         /// <summary>
         /// Attempts to Cancels the command execution
@@ -92,6 +93,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <value>
         /// The command text.
         /// </value>
+        [AllowNull]
         public override string CommandText
         {
             get => InnerCommand.CommandText;
@@ -197,7 +199,7 @@ namespace EntityFrameworkCore.Jet.Data
                     .ExecuteNonQueryCore();
             }
 
-            return SplitCommandList[SplitCommandList.Count - 1]
+            return SplitCommandList[^1]
                 .ExecuteDbDataReaderCore(behavior);
         }
 
@@ -294,7 +296,7 @@ namespace EntityFrameworkCore.Jet.Data
             // For all other types of statements, the return value is -1. If a rollback occurs, the return value is also -1.
             // This is how it is stated in the docs, however, the underlying connection actually seems to be returning 0
             // for statements like CREATE TABLE/INDEX, EXEC etc.
-            var commandType = newCommandText.Trim().Substring(0, 6);
+            var commandType = newCommandText.Trim()[..6];
             if (commandType.Contains("INSERT", StringComparison.OrdinalIgnoreCase) ||
                 commandType.Contains("UPDATE", StringComparison.OrdinalIgnoreCase) ||
                 commandType.Contains("DELETE", StringComparison.OrdinalIgnoreCase))
@@ -326,7 +328,7 @@ namespace EntityFrameworkCore.Jet.Data
                     .ExecuteNonQueryCore();
             }
 
-            return SplitCommandList[SplitCommandList.Count - 1]
+            return SplitCommandList[^1]
                 .ExecuteScalarCore();
         }
 
@@ -367,7 +369,7 @@ namespace EntityFrameworkCore.Jet.Data
         protected virtual IList<JetCommand> SplitCommands()
         {
             //Remove any tag lines from the sql created by ef core. Jet doesn't like comments/tags in the SQL
-            var lines = CommandText.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            var lines = CommandText.Split([Environment.NewLine], StringSplitOptions.None);
             var filteredLines = lines.Where(line => !line.TrimStart().StartsWith("--"));
             CommandText = string.Join(Environment.NewLine, filteredLines).TrimStart();
 
@@ -407,7 +409,7 @@ namespace EntityFrameworkCore.Jet.Data
                                 }
 
                                 var parameterIndices = parser.GetStateIndices(
-                                    new[] { '@', '?' },
+                                    ['@', '?'],
                                     currentCommandStart,
                                     commandDelimiter - currentCommandStart);
 
@@ -642,7 +644,7 @@ namespace EntityFrameworkCore.Jet.Data
 
                 if (parameters.Count <= 0)
                 {
-                    throw new InvalidOperationException($@"Cannot find ""{skipValueOrParameter.Value}"" parameter for SKIP clause.");
+                    throw new InvalidOperationException($"""Cannot find "{skipValueOrParameter.Value}" parameter for SKIP clause.""");
                 }
 
                 var parameter = ExtractParameter(InnerCommand.CommandText, match.Index, parameters);
@@ -665,7 +667,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         protected virtual DbParameter ExtractParameter(string commandText, int count, List<DbParameter> parameters)
         {
-            var indices = GetParameterIndices(commandText.Substring(0, count));
+            var indices = GetParameterIndices(commandText[..count]);
             var parameter = parameters[indices.Count];
 
             parameters.RemoveAt(indices.Count);
@@ -729,11 +731,8 @@ namespace EntityFrameworkCore.Jet.Data
                 var parameter = unusedParameters
                     .FirstOrDefault(p => placeholder.Name.Equals(p.ParameterName, StringComparison.Ordinal));
 
-                if (parameter == null)
-                {
-                    parameter = unusedParameters
-                        .FirstOrDefault(p => !p.ParameterName.StartsWith('@') && placeholder.Name.Substring(1).Equals(p.ParameterName, StringComparison.Ordinal));
-                }
+                parameter ??= unusedParameters
+                        .FirstOrDefault(p => !p.ParameterName.StartsWith('@') && placeholder.Name[1..].Equals(p.ParameterName, StringComparison.Ordinal));
 
                 if (parameter != null)
                 {
@@ -751,13 +750,7 @@ namespace EntityFrameworkCore.Jet.Data
                         throw new InvalidOperationException($"Cannot find parameter with same name as parameter placeholder \"{placeholder.Name}\".");
                     }
 
-                    var newParameter = (DbParameter)(parameter as ICloneable)?.Clone();
-
-                    if (newParameter == null)
-                    {
-                        throw new InvalidOperationException($"Cannot clone parameter \"{parameter.ParameterName}\".");
-                    }
-
+                    var newParameter = (DbParameter)(parameter as ICloneable)?.Clone() ?? throw new InvalidOperationException($"Cannot clone parameter \"{parameter.ParameterName}\".");
                     placeholder.Parameter = newParameter;
                 }
             }
@@ -769,7 +762,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             foreach (var index in indices)
             {
-                var match = Regex.Match(commandText.Substring(index), @"^(?:\?|@\w+)");
+                var match = Regex.Match(commandText[index..], @"^(?:\?|@\w+)");
 
                 if (!match.Success)
                 {
@@ -784,7 +777,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         protected virtual IReadOnlyList<int> GetParameterIndices(string sqlFragment)
             => new JetCommandParser(sqlFragment)
-                .GetStateIndices(new[] { '@', '?' });
+                .GetStateIndices(['@', '?']);
 
         /// <summary>
         /// Creates a prepared (or compiled) version of the command on the data source

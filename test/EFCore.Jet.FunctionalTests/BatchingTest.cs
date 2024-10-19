@@ -343,11 +343,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         private async Task AssertDatabaseState(DbContext context, bool clientOrder, List<Blog> expectedBlogs)
         {
             expectedBlogs = clientOrder
-                ? expectedBlogs.OrderBy(b => b.Order).ToList()
-                : expectedBlogs.OrderBy(b => b.Id).ToList();
+                ? [.. expectedBlogs.OrderBy(b => b.Order)]
+                : [.. expectedBlogs.OrderBy(b => b.Id)];
             var actualBlogs = clientOrder
                 ? await context.Set<Blog>().OrderBy(b => b.Order).ToListAsync()
-                : expectedBlogs.OrderBy(b => b.Id).ToList();
+                : [.. expectedBlogs.OrderBy(b => b.Id)];
             Assert.Equal(expectedBlogs.Count, actualBlogs.Count);
 
             for (var i = 0; i < actualBlogs.Count; i++)
@@ -403,7 +403,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public string OwnerId { get; set; }
             public Owner Owner { get; set; }
             public byte[] Version { get; set; }
-            public ICollection<Post> Posts { get; } = new HashSet<Post>();
+            public ICollection<Post> Posts { get; } = [];
         }
 
         private class Owner
@@ -419,7 +419,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public int? Order { get; set; }
             public Guid BlogId { get; set; }
             public Blog Blog { get; set; }
-            public ICollection<Comment> Comments { get; } = new HashSet<Comment>();
+            public ICollection<Comment> Comments { get; } = [];
         }
 
         private class Comment
@@ -443,9 +443,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 await context.Database.EnsureCreatedResilientlyAsync();
                 await context.Database.ExecuteSqlRawAsync(
-                    @"
-ALTER TABLE Owners
-    ALTER COLUMN Name nvarchar(255);");
+                    """
+                        
+                        ALTER TABLE Owners
+                            ALTER COLUMN Name nvarchar(255);
+                        """);
             }
 
             public DbContext CreateContext(int? minBatchSize = null,

@@ -12,20 +12,18 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model77_DateTimeOffset
         [TestMethod]
         public void Model77_DateTimeOffset()
         {
-            using (DbConnection connection = GetConnection())
+            using DbConnection connection = GetConnection();
+            using (var context = new Context(connection))
             {
-                using (var context = new Context(connection))
-                {
-                    context.MyEntities.Add(new MyEntity() {DateTimeOffset = DateTime.Now});
-                    context.SaveChanges();
-                }
+                context.MyEntities.Add(new MyEntity() {DateTimeOffset = DateTime.Now});
+                context.SaveChanges();
+            }
 
-                using (var context = new Context(connection))
-                {
-                    Console.WriteLine(
-                        context.MyEntities.FirstOrDefault()
-                            .DateTimeOffset);
-                }
+            using (var context = new Context(connection))
+            {
+                Console.WriteLine(
+                    context.MyEntities.FirstOrDefault()
+                        .DateTimeOffset);
             }
         }
     }

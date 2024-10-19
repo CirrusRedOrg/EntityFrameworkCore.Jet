@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
     {
         public Blog()
         {
-            Posts = new PostCollection();
+            Posts = [];
         }
 
         public int BlogId { get; set; }

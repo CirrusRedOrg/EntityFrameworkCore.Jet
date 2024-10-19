@@ -27,11 +27,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             base.DbSet_query();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`",
+                $"""
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    """,
                 //
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`");
+                $"""
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    """);
         }
 
         public override void DbSet_query_first()
@@ -39,9 +43,11 @@ FROM `Customers` AS `c`");
             base.DbSet_query_first();
 
             AssertSql(
-                $@"SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`");
+                $"""
+                    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    ORDER BY `c`.`CustomerID`
+                    """);
         }
 
         public override void Query_ending_with_include()
@@ -69,11 +75,15 @@ ORDER BY `c`.`CustomerID`
             base.Untyped_context();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`",
+                $"""
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    """,
                 //
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`");
+                $"""
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    """);
         }
 
         public override void Query_with_single_parameter()
@@ -81,17 +91,21 @@ FROM `Customers` AS `c`");
             base.Query_with_single_parameter();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}",
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
+                    
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
+                    
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """);
         }
 
         public override void First_query_with_single_parameter()
@@ -99,17 +113,21 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
             base.First_query_with_single_parameter();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
-
-SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}",
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
+                    
+                    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
-
-SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
+                    
+                    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """);
         }
 
         public override void Query_with_two_parameters()
@@ -117,17 +135,21 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
             base.Query_with_two_parameters();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}",
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
+                    
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
+                    
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """);
         }
 
         public override void Query_with_three_parameters()
@@ -135,17 +157,21 @@ WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
             base.Query_with_three_parameters();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}",
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
+                    
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
-
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ANATR' (Size = 5)")}
+                    
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """);
         }
 
         public override void Query_with_contains()
@@ -171,13 +197,17 @@ WHERE `c`.`CustomerID` = 'ANATR'
             base.Query_with_closure();
 
             AssertSql(
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'",
+                $"""
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = 'ALFKI'
+                    """,
                 //
-                $@"SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'");
+                $"""
+                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = 'ALFKI'
+                    """);
         }
 
         public override void Compiled_query_when_does_not_end_in_query_operator()
@@ -185,11 +215,13 @@ WHERE `c`.`CustomerID` = 'ALFKI'");
             base.Compiled_query_when_does_not_end_in_query_operator();
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
-
-SELECT COUNT(*)
-FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}");
+                $"""
+                    {AssertSqlHelper.Declaration("@__customerID='ALFKI' (Size = 5)")}
+                    
+                    SELECT COUNT(*)
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+                    """);
         }
 
         public override async Task Compiled_query_with_max_parameters()

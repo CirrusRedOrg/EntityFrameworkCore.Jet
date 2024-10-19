@@ -258,7 +258,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             
             var dataAccessProviderType = JetConnection.GetDataAccessProviderType(connectionString);
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var dataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(dataAccessProviderType);
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = connectionString;
            
@@ -273,7 +273,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             var connectionString = JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory);
             
             var dataAccessProviderType = JetConnection.GetDataAccessProviderType(connectionString);
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var dataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(dataAccessProviderType);
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = connectionString;
 

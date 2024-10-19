@@ -1,16 +1,10 @@
-﻿using System;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.Json;
-using System.Data;
-using System.Data.Common;
-using System.Linq;
+﻿using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetLongTypeMapping : LongTypeMapping
     {
-        public JetLongTypeMapping([NotNull] string storeType,
+        public JetLongTypeMapping(string storeType,
             int? precision = null,
             int? scale = null,
             StoreTypePostfix storeTypePostfix = StoreTypePostfix.PrecisionAndScale)
@@ -44,11 +38,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             if (setodbctype != null)
             {
-                setodbctype.Invoke(parameter, new object?[] { 7 });
+                setodbctype.Invoke(parameter, [7]);
             }
-            else if (setoledbtype != null)
+            else
             {
-                setoledbtype.Invoke(parameter, new object?[] { 131 });
+                setoledbtype?.Invoke(parameter, [131]);
             }
         }
     }

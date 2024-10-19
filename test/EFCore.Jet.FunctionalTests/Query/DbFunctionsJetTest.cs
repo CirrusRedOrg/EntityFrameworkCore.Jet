@@ -36,9 +36,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Like_literal(async);
 
             AssertSql(
-                $@"SELECT COUNT(*)
-FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE '%M%'");
+                $"""
+                    SELECT COUNT(*)
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`ContactName` LIKE '%M%'
+                    """);
         }
 
         public override async Task Like_identity(bool async)
@@ -46,9 +48,11 @@ WHERE `c`.`ContactName` LIKE '%M%'");
             await base.Like_identity(async);
 
             AssertSql(
-                $@"SELECT COUNT(*)
-FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE `c`.`ContactName`");
+                $"""
+                    SELECT COUNT(*)
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`ContactName` LIKE `c`.`ContactName`
+                    """);
         }
 
         [ConditionalTheory(Skip = "No escape character support in Jet")]
@@ -57,9 +61,11 @@ WHERE `c`.`ContactName` LIKE `c`.`ContactName`");
             await base.Like_literal_with_escape(async);
 
             AssertSql(
-                $@"SELECT COUNT(*)
-FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE '!%' ESCAPE '!'");
+                $"""
+                    SELECT COUNT(*)
+                    FROM `Customers` AS `c`
+                    WHERE `c`.`ContactName` LIKE '!%' ESCAPE '!'
+                    """);
         }
 
         public override async Task Like_all_literals(bool async)
@@ -483,9 +489,11 @@ WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''
                 c => false);
 
             AssertSql(
-                $@"SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))) = TRUE");
+                $"""
+                    SELECT COUNT(*)
+                    FROM `Orders` AS `o`
+                    WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))) = TRUE
+                    """);
         }
 
         [ConditionalFact]

@@ -79,7 +79,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         [TestMethod]
         public void AddOnRelationAndList()
         {
-            Standard standard = new Standard() { StandardName = "Standard used in student" };
+            Standard standard = new() { StandardName = "Standard used in student" };
             Student student;
             Context.Standards.Add(standard);
             Context.SaveChanges();

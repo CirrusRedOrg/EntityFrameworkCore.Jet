@@ -1,16 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Linq.Expressions;
-using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -383,7 +371,7 @@ public class JetLocateScalarSubqueryVisitor : SqlExpressionVisitor
             }
             else if (!ReferenceEquals(newValue, columnValueSetter.Value))
             {
-                columnValueSetters = new List<ColumnValueSetter>();
+                columnValueSetters = [];
                 for (var j = 0; j < i; j++)
                 {
                     columnValueSetters.Add(updateExpression.ColumnValueSetters[j]);

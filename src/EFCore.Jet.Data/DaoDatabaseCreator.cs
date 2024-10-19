@@ -13,8 +13,7 @@ namespace EntityFrameworkCore.Jet.Data
             CollatingOrder collatingOrder = CollatingOrder.General,
             string? databasePassword = null)
         {
-            if (databasePassword != null &&
-                databasePassword.Length > 20)
+            if (databasePassword is { Length: > 20 })
             {
                 throw new ArgumentOutOfRangeException(nameof(databasePassword));
             }
@@ -92,7 +91,7 @@ namespace EntityFrameworkCore.Jet.Data
                 .Select(n => n * 10)
                 .Concat(
                     Environment.Is64BitProcess
-                        ? new int[0]
+                        ? []
                         : new[] {36}) // DAO 3.6 is only available as an x86 library
                 .Select(n => "DAO.DBEngine." + n)
                 .ToArray();

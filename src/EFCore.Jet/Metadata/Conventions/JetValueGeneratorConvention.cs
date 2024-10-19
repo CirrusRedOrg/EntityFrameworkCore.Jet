@@ -2,10 +2,6 @@
 
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using System.Linq;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 // ReSharper disable once CheckNamespace
@@ -17,19 +13,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     ///     or were configured to use a <see cref="JetValueGenerationStrategy" />.
     ///     It also configures properties as <see cref="ValueGenerated.OnAddOrUpdate" /> if they were configured as computed columns.
     /// </summary>
-    public class JetValueGenerationConvention : RelationalValueGenerationConvention
+    /// <remarks>
+    ///     Creates a new instance of <see cref="JetValueGenerationConvention" />.
+    /// </remarks>
+    /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
+    /// <param name="relationalDependencies">  Parameter object containing relational dependencies for this convention. </param>
+    public class JetValueGenerationConvention(
+        ProviderConventionSetBuilderDependencies dependencies,
+        RelationalConventionSetBuilderDependencies relationalDependencies) : RelationalValueGenerationConvention(dependencies, relationalDependencies)
     {
-        /// <summary>
-        ///     Creates a new instance of <see cref="JetValueGenerationConvention" />.
-        /// </summary>
-        /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
-        /// <param name="relationalDependencies">  Parameter object containing relational dependencies for this convention. </param>
-        public JetValueGenerationConvention(
-            [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
-            : base(dependencies, relationalDependencies)
-        {
-        }
 
         /// <summary>
         ///     Called after an annotation is changed on a property.

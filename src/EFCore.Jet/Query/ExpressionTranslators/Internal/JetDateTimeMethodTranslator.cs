@@ -1,13 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
@@ -20,22 +12,22 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     {
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        private readonly Dictionary<MethodInfo, string> _methodInfoDatePartMapping = new Dictionary<MethodInfo, string>
+        private readonly Dictionary<MethodInfo, string> _methodInfoDatePartMapping = new()
         {
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddYears), new[] {typeof(int)})!, "yyyy"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMonths), new[] {typeof(int)})!, "m"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddDays), new[] {typeof(double)})!, "d"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddHours), new[] {typeof(double)})!, "h"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMinutes), new[] {typeof(double)})!, "n"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddSeconds), new[] {typeof(double)})!, "s"},
-            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMilliseconds), new[] {typeof(double)})!, "millisecond"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddYears), new[] {typeof(int)})!, "yyyy"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMonths), new[] {typeof(int)})!, "m"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddDays), new[] {typeof(double)})!, "d"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddHours), new[] {typeof(double)})!, "h"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMinutes), new[] {typeof(double)})!, "n"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), new[] {typeof(double)})!, "s"},
-            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), new[] {typeof(double)})!, "millisecond"}
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddYears), [typeof(int)])!, "yyyy"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMonths), [typeof(int)])!, "m"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddDays), [typeof(double)])!, "d"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddHours), [typeof(double)])!, "h"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMinutes), [typeof(double)])!, "n"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddSeconds), [typeof(double)])!, "s"},
+            {typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddMilliseconds), [typeof(double)])!, "millisecond"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddYears), [typeof(int)])!, "yyyy"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMonths), [typeof(int)])!, "m"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddDays), [typeof(double)])!, "d"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddHours), [typeof(double)])!, "h"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMinutes), [typeof(double)])!, "n"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), [typeof(double)])!, "s"},
+            {typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), [typeof(double)])!, "millisecond"}
         };
 
         private static readonly Dictionary<MethodInfo, string> _methodInfoDateDiffMapping = new()
@@ -48,7 +40,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         {
             if (_methodInfoDatePartMapping.TryGetValue(method, out var datePart) && instance != null)
             {
-                var amountToAdd = arguments.First();
+                var amountToAdd = arguments[0];
 
                 if (!datePart.Equals("yyyy")
                     && !datePart.Equals("m")
@@ -77,14 +69,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
                 return _sqlExpressionFactory.Function(
                     "DATEADD",
-                    new[]
-                    {
+                    [
                         new SqlConstantExpression(datePart, null),
                         amountToAdd,
                         instance
-                    },
+                    ],
                     true,
-                    argumentsPropagateNullability: new[] { false, false, true },
+                    argumentsPropagateNullability: [false, false, true],
                     instance.Type,
                     instance.TypeMapping);
             }
@@ -93,14 +84,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 return _sqlExpressionFactory.Function(
                     "DATEDIFF",
-                    new[]
-                    {
+                    [
                         new SqlConstantExpression(timePart, null),
                         _sqlExpressionFactory.Constant(DateTimeOffset.UnixEpoch, instance!.TypeMapping),
                         instance
-                    },
+                    ],
                     nullable: true,
-                    argumentsPropagateNullability: new[] { false, true, true },
+                    argumentsPropagateNullability: [false, true, true],
                     typeof(long));
             }
 
@@ -109,7 +99,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
         {
-            List<ColumnExpression> result = new List<ColumnExpression>();
+            List<ColumnExpression> result = [];
             if (binaryexp.Left is SqlBinaryExpression left)
             {
                 result.AddRange(ExtractColumnExpressions(left));
@@ -132,7 +122,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         }
         private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
         {
-            List<ColumnExpression> result = new List<ColumnExpression>();
+            List<ColumnExpression> result = [];
             if (unaryexp.Operand is SqlBinaryExpression left)
             {
                 result.AddRange(ExtractColumnExpressions(left));

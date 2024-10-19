@@ -1,7 +1,4 @@
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query
 {
@@ -25,14 +22,13 @@ namespace EntityFrameworkCore.Jet.Query
             SqlExpression checkSqlExpression,
             SqlExpression notNullSqlExpression)
             => (CaseExpression)Case(
-                new[]
-                {
+                [
                     new CaseWhenClause(
                         IsNull(checkSqlExpression),
                         Constant(
                             null,typeof(string),
                             RelationalTypeMapping.NullMapping))
-                },
+                ],
                 notNullSqlExpression);
 
         #endregion Expression factory methods

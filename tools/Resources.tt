@@ -91,7 +91,7 @@ namespace <#= model.Namespace #>
             if (resource.Parameters.Any())
             {
 #>
-        public static string <#= resource.Name #>(<#= List("[CanBeNull] object ", resource.Parameters) #>)
+        public static string <#= resource.Name #>(<#= List("object ", resource.Parameters) #>)
             => string.Format(
                 GetString("<#= resource.Name #>", <#= List("nameof(", resource.Parameters, ")") #>),
                 <#= List(resource.Parameters) #>);
@@ -158,7 +158,7 @@ namespace <#= model.Namespace.EndsWith(".Internal") ? model.Namespace : (model.N
                 if (resource.Types.Count() > 6)
                 {
 #>
-        public static FallbackEventDefinition <#= resource.Name #>([NotNull] IDiagnosticsLogger logger)
+        public static FallbackEventDefinition <#= resource.Name #>(IDiagnosticsLogger logger)
         {
             var definition = ((<#= model.LoggingDefinitionsClass #>)logger.Definitions).<#= resource.Name #>;
             if (definition == null)
@@ -187,7 +187,7 @@ namespace <#= model.Namespace.EndsWith(".Internal") ? model.Namespace : (model.N
 <#  
                     }
 #>
-        public static EventDefinition<#= genericTypes #> <#= resource.Name #>([NotNull] IDiagnosticsLogger logger)
+        public static EventDefinition<#= genericTypes #> <#= resource.Name #>(IDiagnosticsLogger logger)
         {
             var definition = ((<#= model.LoggingDefinitionsClass #>)logger.Definitions).<#= resource.Name #>;
             if (definition == null)

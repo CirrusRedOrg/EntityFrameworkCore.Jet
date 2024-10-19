@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model04
         public void SkipTakeTest()
         {
             SeedHelper.SeedPersons(Context);
-            List<Person> persons = Context.Persons.OrderBy(p => p.Name).Skip(3).Take(5).ToList();
+            List<Person> persons = [.. Context.Persons.OrderBy(p => p.Name).Skip(3).Take(5)];
             Assert.AreEqual(5, persons.Count);
             foreach (Person person in persons)
                 Console.WriteLine(person.Name);

@@ -1,12 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
@@ -18,16 +11,14 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     public class JetRandomTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
     {
         private static readonly MethodInfo[] _methodInfo =
-        {
-            typeof(DbFunctionsExtensions).GetRuntimeMethod(nameof(DbFunctionsExtensions.Random), new[]
-            {
+        [
+            typeof(DbFunctionsExtensions).GetRuntimeMethod(nameof(DbFunctionsExtensions.Random), [
                 typeof(DbFunctions)
-            })!,
-            typeof(JetDbFunctionsExtensions).GetRuntimeMethod(nameof(JetDbFunctionsExtensions.Random), new[]
-            {
+            ])!,
+            typeof(JetDbFunctionsExtensions).GetRuntimeMethod(nameof(JetDbFunctionsExtensions.Random), [
                 typeof(DbFunctions)
-            })!
-        };
+            ])!
+        ];
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         public SqlExpression? Translate(SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
@@ -35,9 +26,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             return _methodInfo.Contains(method)
                 ? _sqlExpressionFactory.Function(
                     "Rnd",
-                    Array.Empty<SqlExpression>(),
+                    [],
                     false,
-                    Enumerable.Empty<bool>(),
+                    [],
                     method.ReturnType)
                 : null;
         }

@@ -1,6 +1,3 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -122,13 +119,13 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
     protected class WrappedIntHiLoClassPrincipal
     {
         public WrappedIntHiLoKeyClass Id { get; set; } = null!;
-        public ICollection<WrappedIntHiLoClassDependentShadow> Dependents { get; } = new List<WrappedIntHiLoClassDependentShadow>();
+        public ICollection<WrappedIntHiLoClassDependentShadow> Dependents { get; } = [];
 
         public ICollection<WrappedIntHiLoClassDependentRequired> RequiredDependents { get; } =
-            new List<WrappedIntHiLoClassDependentRequired>();
+            [];
 
         public ICollection<WrappedIntHiLoClassDependentOptional> OptionalDependents { get; } =
-            new List<WrappedIntHiLoClassDependentOptional>();
+            [];
     }
 
     protected class WrappedIntHiLoClassDependentShadow
@@ -154,13 +151,13 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
     protected class WrappedIntHiLoStructPrincipal
     {
         public WrappedIntHiLoKeyStruct Id { get; set; }
-        public ICollection<WrappedIntHiLoStructDependentShadow> Dependents { get; } = new List<WrappedIntHiLoStructDependentShadow>();
+        public ICollection<WrappedIntHiLoStructDependentShadow> Dependents { get; } = [];
 
         public ICollection<WrappedIntHiLoStructDependentOptional> OptionalDependents { get; } =
-            new List<WrappedIntHiLoStructDependentOptional>();
+            [];
 
         public ICollection<WrappedIntHiLoStructDependentRequired> RequiredDependents { get; } =
-            new List<WrappedIntHiLoStructDependentRequired>();
+            [];
     }
 
     protected class WrappedIntHiLoStructDependentShadow
@@ -186,13 +183,13 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
     protected class WrappedIntHiLoRecordPrincipal
     {
         public WrappedIntHiLoKeyRecord Id { get; set; } = null!;
-        public ICollection<WrappedIntHiLoRecordDependentShadow> Dependents { get; } = new List<WrappedIntHiLoRecordDependentShadow>();
+        public ICollection<WrappedIntHiLoRecordDependentShadow> Dependents { get; } = [];
 
         public ICollection<WrappedIntHiLoRecordDependentOptional> OptionalDependents { get; } =
-            new List<WrappedIntHiLoRecordDependentOptional>();
+            [];
 
         public ICollection<WrappedIntHiLoRecordDependentRequired> RequiredDependents { get; } =
-            new List<WrappedIntHiLoRecordDependentRequired>();
+            [];
     }
 
     protected class WrappedIntHiLoRecordDependentShadow
@@ -220,9 +217,9 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public long Id { get; set; }
 
-        public ICollection<LongToDecimalDependentShadow> Dependents { get; } = new List<LongToDecimalDependentShadow>();
-        public ICollection<LongToDecimalDependentRequired> RequiredDependents { get; } = new List<LongToDecimalDependentRequired>();
-        public ICollection<LongToDecimalDependentOptional> OptionalDependents { get; } = new List<LongToDecimalDependentOptional>();
+        public ICollection<LongToDecimalDependentShadow> Dependents { get; } = [];
+        public ICollection<LongToDecimalDependentRequired> RequiredDependents { get; } = [];
+        public ICollection<LongToDecimalDependentOptional> OptionalDependents { get; } = [];
     }
 
     protected class LongToDecimalDependentShadow
@@ -366,13 +363,13 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
                 {
                     _id = Fixture.NullableIntSentinel,
                     Species = new Species { Id = Fixture.IntSentinel, Name = "Goldfish (with legs)" },
-                    MixedMetaphors = new List<Species>
-                    {
-                        new() { Id = Fixture.IntSentinel, Name = "Large ground finch" },
-                        new() { Id = Fixture.IntSentinel, Name = "Medium ground finch" },
-                        new() { Id = Fixture.IntSentinel, Name = "Small tree finch" },
-                        new() { Id = Fixture.IntSentinel, Name = "Green warbler-finch" }
-                    }
+                    MixedMetaphors =
+                    [
+                        new Species { Id = Fixture.IntSentinel, Name = "Large ground finch" },
+                        new Species { Id = Fixture.IntSentinel, Name = "Medium ground finch" },
+                        new Species { Id = Fixture.IntSentinel, Name = "Small tree finch" },
+                        new Species { Id = Fixture.IntSentinel, Name = "Green warbler-finch" }
+                    ]
                 });
         }
 
@@ -381,13 +378,13 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
             {
                 Id = 1777,
                 Species = new Species { Id = Fixture.IntSentinel, Name = "Goldfish (with legs)" },
-                MixedMetaphors = new List<Species>
-                {
-                    new() { Id = Fixture.IntSentinel, Name = "Large ground finch" },
-                    new() { Id = Fixture.IntSentinel, Name = "Medium ground finch" },
-                    new() { Id = Fixture.IntSentinel, Name = "Small tree finch" },
-                    new() { Id = Fixture.IntSentinel, Name = "Green warbler-finch" }
-                }
+                MixedMetaphors =
+                [
+                    new Species { Id = Fixture.IntSentinel, Name = "Large ground finch" },
+                    new Species { Id = Fixture.IntSentinel, Name = "Medium ground finch" },
+                    new Species { Id = Fixture.IntSentinel, Name = "Small tree finch" },
+                    new Species { Id = Fixture.IntSentinel, Name = "Green warbler-finch" }
+                ]
             });
 
         for (var i = 0; i < 2; i++)

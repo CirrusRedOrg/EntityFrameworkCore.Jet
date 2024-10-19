@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
             JetConfiguration.ShowSqlStatements = true;
 
             DbConnection connection = Helpers.GetJetConnection();
-            Context context = new Context(TestBase<Context>.GetContextOptions(connection));
+            Context context = new(TestBase<Context>.GetContextOptions(connection));
 
 
 

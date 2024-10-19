@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model51_1_Many_RemoveChildren
         public void Run()
         {
             {
-                Blog blog = new Blog()
+                Blog blog = new()
                 {
                     Name = "MyBlog"
                 };

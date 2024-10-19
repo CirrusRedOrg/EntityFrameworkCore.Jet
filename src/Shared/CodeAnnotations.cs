@@ -35,13 +35,13 @@ namespace JetBrains.Annotations
     }
 
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-    internal sealed class ContractAnnotationAttribute([NotNull] string contract, bool forceFullStates) : Attribute
+    internal sealed class ContractAnnotationAttribute(string contract, bool forceFullStates) : Attribute
     {
         public string Contract { get; } = contract;
 
         public bool ForceFullStates { get; } = forceFullStates;
 
-        public ContractAnnotationAttribute([NotNull] string contract)
+        public ContractAnnotationAttribute(string contract)
             : this(contract, false)
         {
         }
@@ -71,7 +71,7 @@ namespace JetBrains.Annotations
     }
 
     [AttributeUsage(AttributeTargets.Constructor | AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Delegate)]
-    internal sealed class StringFormatMethodAttribute([NotNull] string formatParameterName) : Attribute
+    internal sealed class StringFormatMethodAttribute(string formatParameterName) : Attribute
     {
         [NotNull]
         public string FormatParameterName { get; } = formatParameterName;

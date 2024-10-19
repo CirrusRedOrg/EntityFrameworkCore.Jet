@@ -1,12 +1,5 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
@@ -64,25 +57,23 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 if (instance is not ColumnExpression { IsNullable: false })
                 {
                     return _sqlExpressionFactory.Case(
-                        new[]
-                        {
+                        [
                             new CaseWhenClause(
                                 _sqlExpressionFactory.Equal(instance, _sqlExpressionFactory.Constant(false)),
                                 _sqlExpressionFactory.Constant(false.ToString())),
                             new CaseWhenClause(
                                 _sqlExpressionFactory.Equal(instance, _sqlExpressionFactory.Constant(true)),
                                 _sqlExpressionFactory.Constant(true.ToString()))
-                        },
+                        ],
                         _sqlExpressionFactory.Constant(string.Empty));
                 }
 
                 return _sqlExpressionFactory.Case(
-                    new[]
-                    {
+                    [
                         new CaseWhenClause(
                             _sqlExpressionFactory.Equal(instance, _sqlExpressionFactory.Constant(false)),
                             _sqlExpressionFactory.Constant(false.ToString()))
-                    },
+                    ],
                     _sqlExpressionFactory.Constant(true.ToString()));
             }
 

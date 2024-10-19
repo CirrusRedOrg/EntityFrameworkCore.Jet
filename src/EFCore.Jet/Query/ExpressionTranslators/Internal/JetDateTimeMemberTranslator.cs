@@ -1,14 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
@@ -51,13 +43,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     var datePartFunc = _sqlExpressionFactory.Function(
                         "DATEPART",
-                        new[]
-                        {
+                        [
                             _sqlExpressionFactory.Constant(datePart),
                             instance!,
-                        },
+                        ],
                         false,
-                        new[] { false, false },
+                        [false, false],
                         returnType);
                     if (datePart == "w")
                     {
@@ -71,46 +62,44 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
                 return member.Name switch
                 {
-                    nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                    nameof(DateTime.Now) => _sqlExpressionFactory.Function("NOW", [],
                         false, [], returnType),
                     nameof(DateTime.UtcNow) => _sqlExpressionFactory.Function(
                     "DATEADD",
-                    new SqlExpression[]
-                    {
+                    [
                         new SqlConstantExpression("n", null),
                         new SqlConstantExpression(-1 * TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes, null) ,
-                        _sqlExpressionFactory.Function("NOW", Array.Empty<SqlExpression>(),
+                        _sqlExpressionFactory.Function("NOW", [],
                             false, [], returnType)
-                    },
+                    ],
                     true,
-                    argumentsPropagateNullability: new[] { false, false, true },
+                    argumentsPropagateNullability: [false, false, true],
                     returnType),
                     nameof(DateTime.Today) => _sqlExpressionFactory.Function(
                         "DATEVALUE",
-                        new[]
-                        {
-                            _sqlExpressionFactory.Function("DATE", Array.Empty<SqlExpression>(), false, [],
+                        [
+                            _sqlExpressionFactory.Function("DATE", [], false, [],
                                 returnType)
-                        },
+                        ],
                         false,
-                        new[] { false },
+                        [false],
                         returnType),
 
                     nameof(DateTime.Date) => DateTimeNullChecked(
                         instance!,
                         _sqlExpressionFactory.Function(
                             "DATEVALUE",
-                            new[] { instance! },
+                            [instance!],
                             false,
-                            new[] { false },
+                            [false],
                             returnType)),
                     nameof(DateTime.TimeOfDay) => TimeSpanNullChecked(
                         instance!,
                         _sqlExpressionFactory.Function(
                             "TIMEVALUE",
-                            new[] { instance! },
+                            [instance!],
                             false,
-                            new[] { false },
+                            [false],
                             returnType)),
 
                     nameof(DateTime.Ticks) => null,
@@ -125,28 +114,26 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             SqlExpression checkSqlExpression,
             SqlExpression notNullSqlExpression)
             => (CaseExpression)_sqlExpressionFactory.Case(
-                new[]
-                {
+                [
                     new CaseWhenClause(
                         _sqlExpressionFactory.IsNull(checkSqlExpression),
                         _sqlExpressionFactory.Constant(
                             null,typeof(DateTime),
                             notNullSqlExpression.TypeMapping))
-                },
+                ],
                 notNullSqlExpression);
 
         public CaseExpression TimeSpanNullChecked(
             SqlExpression checkSqlExpression,
             SqlExpression notNullSqlExpression)
             => (CaseExpression)_sqlExpressionFactory.Case(
-                new[]
-                {
+                [
                     new CaseWhenClause(
                         _sqlExpressionFactory.IsNull(checkSqlExpression),
                         _sqlExpressionFactory.Constant(
                             null,typeof(TimeSpan),
                             notNullSqlExpression.TypeMapping))
-                },
+                ],
                 notNullSqlExpression);
     }
 }

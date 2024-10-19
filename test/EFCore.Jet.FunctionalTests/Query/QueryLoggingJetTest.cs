@@ -63,23 +63,21 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         [ConditionalFact]
         public virtual void Queryable_with_parameter_outputs_parameter_value_logging_warning()
         {
-            using (var context = CreateContext())
-            {
-                context.GetInfrastructure().GetRequiredService<IDiagnosticsLogger<DbLoggerCategory.Query>>()
-                    .Options.IsSensitiveDataLoggingWarned = false;
-                // ReSharper disable once ConvertToConstant.Local
-                var city = "Redmond";
+            using var context = CreateContext();
+            context.GetInfrastructure().GetRequiredService<IDiagnosticsLogger<DbLoggerCategory.Query>>()
+                .Options.IsSensitiveDataLoggingWarned = false;
+            // ReSharper disable once ConvertToConstant.Local
+            var city = "Redmond";
 
-                var customers
-                    = context.Customers
-                        .Where(c => c.City == city)
-                        .ToList();
+            var customers
+                = context.Customers
+                    .Where(c => c.City == city)
+                    .ToList();
 
-                Assert.NotNull(customers);
-                Assert.Contains(
-                    CoreResources.LogSensitiveDataLoggingEnabled(new TestLogger<JetLoggingDefinitions>()).GenerateMessage(),
-                    Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
-            }
+            Assert.NotNull(customers);
+            Assert.Contains(
+                CoreResources.LogSensitiveDataLoggingEnabled(new TestLogger<JetLoggingDefinitions>()).GenerateMessage(),
+                Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
         }
 
         [ConditionalFact]

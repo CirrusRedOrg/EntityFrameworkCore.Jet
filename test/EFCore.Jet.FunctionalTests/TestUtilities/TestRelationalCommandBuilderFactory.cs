@@ -23,9 +23,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         private class TestRelationalCommandBuilder(RelationalCommandBuilderDependencies dependencies)
             : IRelationalCommandBuilder
         {
-            private readonly List<IRelationalParameter> _parameters = new List<IRelationalParameter>();
+            private readonly List<IRelationalParameter> _parameters = [];
 
-            public IndentedStringBuilder Instance { get; } = new IndentedStringBuilder();
+            public IndentedStringBuilder Instance { get; } = new();
 
             public RelationalCommandBuilderDependencies Dependencies { get; } = dependencies;
 
@@ -86,22 +86,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             public int CommandTextLength => Instance.Length;
         }
 
-        private class TestRelationalCommand : IRelationalCommand
+        private class TestRelationalCommand(
+            RelationalCommandBuilderDependencies dependencies,
+            string commandText,
+            IReadOnlyList<IRelationalParameter> parameters) : IRelationalCommand
         {
-            private readonly RelationalCommand _realRelationalCommand;
-            private readonly Func<int, DbException> _createExceptionFunc;
-
-            public TestRelationalCommand(
-                RelationalCommandBuilderDependencies dependencies,
-                string commandText,
-                IReadOnlyList<IRelationalParameter> parameters)
-            {
-                _realRelationalCommand = new RelationalCommand(dependencies, commandText, parameters);
-
-                _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
+            private readonly RelationalCommand _realRelationalCommand = new(dependencies, commandText, parameters);
+            private readonly Func<int, DbException> _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
                     ? number => OleDbExceptionFactory.CreateException(number)
                     : number => OdbcExceptionFactory.CreateException(number);
-            }
 
             public string CommandText => _realRelationalCommand.CommandText;
 
@@ -124,7 +117,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
             public Task<int> ExecuteNonQueryAsync(
                 RelationalCommandParameterObject parameterObject,
-                CancellationToken cancellationToken = new CancellationToken())
+                CancellationToken cancellationToken = new())
             {
                 var connection = parameterObject.Connection;
                 var errorNumber = PreExecution(connection);
@@ -156,7 +149,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
             public async Task<object?> ExecuteScalarAsync(
                 RelationalCommandParameterObject parameterObject,
-                CancellationToken cancellationToken = new CancellationToken())
+                CancellationToken cancellationToken = new())
             {
                 var connection = parameterObject.Connection;
                 var errorNumber = PreExecution(connection);
@@ -189,7 +182,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
             public async Task<RelationalDataReader> ExecuteReaderAsync(
                 RelationalCommandParameterObject parameterObject,
-                CancellationToken cancellationToken = new CancellationToken())
+                CancellationToken cancellationToken = new())
             {
                 var connection = parameterObject.Connection;
                 var errorNumber = PreExecution(connection);

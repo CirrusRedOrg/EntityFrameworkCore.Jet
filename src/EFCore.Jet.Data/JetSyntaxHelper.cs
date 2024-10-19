@@ -35,33 +35,21 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static string ToSqlStringSwitch(object value)
         {
-            string output;
-            switch (value)
+            string output = value switch
             {
-                case bool b:
-                    output = ToSqlString(b);
-                    break;
-                case int i:
-                    output = ToSqlString(i);
-                    break;
-                case string str:
-                    output = ToSqlString(str);
-                    break;
-                case Guid guid:
-                    output = ToSqlString(guid);
-                    break;
-                case byte[] byteArray:
-                    output = ToSqlString(byteArray);
-                    break;
-                default:
-                    throw new NotSupportedException();
-            }
+                bool b => ToSqlString(b),
+                int i => ToSqlString(i),
+                string str => ToSqlString(str),
+                Guid guid => ToSqlString(guid),
+                byte[] byteArray => ToSqlString(byteArray),
+                _ => throw new NotSupportedException()
+            };
             return output;
         }
 
         static string ByteArrayToBinaryString(byte[] binaryArray)
         {
-            StringBuilder sb = new StringBuilder(binaryArray.Length * 2);
+            StringBuilder sb = new(binaryArray.Length * 2);
 
             foreach (byte b in binaryArray)
                 sb.Append(b.ToString("X2"));
@@ -101,12 +89,12 @@ namespace EntityFrameworkCore.Jet.Data
         {
             usedEscapeChar = false;
             if (
-                !(text.Contains("*") || text.Contains("?") || text.Contains("[") || text.Contains("#"))
+                !(text.Contains('*') || text.Contains('?') || text.Contains('[') || text.Contains('#'))
             )
                 return text;
 
 
-            StringBuilder sb = new StringBuilder(text.Length);
+            StringBuilder sb = new(text.Length);
             foreach (char c in text)
             {
                 if (

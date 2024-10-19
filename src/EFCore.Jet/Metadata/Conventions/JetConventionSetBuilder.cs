@@ -1,18 +1,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Data;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
 {
     public class JetConventionSetBuilder(
-        [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-        [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies,
+        ProviderConventionSetBuilderDependencies dependencies,
+        RelationalConventionSetBuilderDependencies relationalDependencies,
         ISqlGenerationHelper sqlGenerationHelper)
         : RelationalConventionSetBuilder(dependencies, relationalDependencies)
     {

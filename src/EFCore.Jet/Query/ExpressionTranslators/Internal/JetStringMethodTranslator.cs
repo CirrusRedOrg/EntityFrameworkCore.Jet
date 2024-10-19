@@ -1,15 +1,8 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+
+using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 {
@@ -22,13 +15,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
         private static readonly MethodInfo IndexOfMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), new[] { typeof(string) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), [typeof(string)])!;
 
         private static readonly MethodInfo IndexOfMethodInfoWithStartingPosition
-            = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), new[] { typeof(string), typeof(int) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), [typeof(string), typeof(int)])!;
 
         private static readonly MethodInfo _replaceMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.Replace), new[] { typeof(string), typeof(string) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.Replace), [typeof(string), typeof(string)])!;
 
         private static readonly MethodInfo _toLowerMethodInfo
             = typeof(string).GetRuntimeMethod(nameof(string.ToLower), Type.EmptyTypes)!;
@@ -37,16 +30,16 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             = typeof(string).GetRuntimeMethod(nameof(string.ToUpper), Type.EmptyTypes)!;
 
         private static readonly MethodInfo _substringMethodInfoWithOneArg
-            = typeof(string).GetRuntimeMethod(nameof(string.Substring), new[] { typeof(int) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.Substring), [typeof(int)])!;
 
         private static readonly MethodInfo _substringMethodInfoWithTwoArgs
-            = typeof(string).GetRuntimeMethod(nameof(string.Substring), new[] { typeof(int), typeof(int) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.Substring), [typeof(int), typeof(int)])!;
 
         private static readonly MethodInfo _isNullOrEmptyMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrEmpty), new[] { typeof(string) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrEmpty), [typeof(string)])!;
 
         private static readonly MethodInfo _isNullOrWhiteSpaceMethodInfo
-            = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrWhiteSpace), new[] { typeof(string) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.IsNullOrWhiteSpace), [typeof(string)])!;
 
         // Method defined in netcoreapp2.0 only
         private static readonly MethodInfo _trimStartMethodInfoWithoutArgs
@@ -60,13 +53,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
         // Method defined in netstandard2.0
         private static readonly MethodInfo _trimStartMethodInfoWithCharArrayArg
-            = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), new[] { typeof(char[]) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.TrimStart), [typeof(char[])])!;
 
         private static readonly MethodInfo _trimEndMethodInfoWithCharArrayArg
-            = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), new[] { typeof(char[]) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.TrimEnd), [typeof(char[])])!;
 
         private static readonly MethodInfo _trimMethodInfoWithCharArrayArg
-            = typeof(string).GetRuntimeMethod(nameof(string.Trim), new[] { typeof(char[]) })!;
+            = typeof(string).GetRuntimeMethod(nameof(string.Trim), [typeof(char[])])!;
 
         private static readonly MethodInfo _firstOrDefaultMethodInfoWithoutArgs
             = typeof(Enumerable).GetRuntimeMethods().Single(
@@ -97,9 +90,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 // _trimWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
                 if (Equals(method, _trimMethodInfoWithoutArgs) ||
                     Equals(method, _trimMethodInfoWithCharArrayArg) &&
-                    ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
+                    (arguments[0] as SqlConstantExpression)?.Value is Array { Length: 0 })
                 {
-                    return _sqlExpressionFactory.Function("TRIM", new[] { instance }, true, new[] { true },
+                    return _sqlExpressionFactory.Function("TRIM", [instance], true, [true],
                         instance.Type, instance.TypeMapping);
                 }
 
@@ -107,9 +100,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 // _trimStartWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
                 if (Equals(method, _trimStartMethodInfoWithoutArgs) ||
                     Equals(method, _trimStartMethodInfoWithCharArrayArg) &&
-                    ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
+                    (arguments[0] as SqlConstantExpression)?.Value is Array { Length: 0 })
                 {
-                    return _sqlExpressionFactory.Function("LTRIM", new[] { instance }, true, new[] { true },
+                    return _sqlExpressionFactory.Function("LTRIM", [instance], true, [true],
                         instance.Type, instance.TypeMapping);
                 }
 
@@ -117,9 +110,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 // _trimEndWithNoParam is only available since .NET Core 2.0 (or .NET Standard 2.1).
                 if (Equals(method, _trimEndMethodInfoWithoutArgs) ||
                     Equals(method, _trimEndMethodInfoWithCharArrayArg) &&
-                    ((arguments[0] as SqlConstantExpression)?.Value as Array)?.Length == 0)
+                    (arguments[0] as SqlConstantExpression)?.Value is Array { Length: 0 })
                 {
-                    return _sqlExpressionFactory.Function("RTRIM", new[] { instance }, true, new[] { true },
+                    return _sqlExpressionFactory.Function("RTRIM", [instance], true, [true],
                         instance.Type, instance.TypeMapping);
                 }
 
@@ -128,9 +121,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     return _sqlExpressionFactory.Function(
                         _toLowerMethodInfo.Equals(method) ? "LCASE" : "UCASE",
-                        new[] { instance },
+                        [instance],
                         nullable: true,
-                        argumentsPropagateNullability: new[] { true },
+                        argumentsPropagateNullability: [true],
                         method.ReturnType,
                         instance.TypeMapping);
                 }
@@ -139,8 +132,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     return _sqlExpressionFactory.Function(
                         "MID",
-                        new[]
-                        {
+                        [
                             instance,
                             _sqlExpressionFactory.Add(
                                 arguments[0],
@@ -148,15 +140,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             _sqlExpressionFactory.Coalesce(
                                 _sqlExpressionFactory.Function(
                                     "LEN",
-                                    new[] { instance },
+                                    [instance],
                                     nullable: true,
-                                    argumentsPropagateNullability: new[] { true },
+                                    argumentsPropagateNullability: [true],
                                     typeof(int)),
                                 _sqlExpressionFactory.Constant(0)
                             )
-                        },
+                        ],
                         nullable: true,
-                        argumentsPropagateNullability: new[] { true, true, true },
+                        argumentsPropagateNullability: [true, true, true],
                         method.ReturnType,
                         instance.TypeMapping);
                 }
@@ -165,16 +157,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 {
                     return _sqlExpressionFactory.Function(
                         "MID",
-                        new[]
-                        {
+                        [
                             instance,
                             _sqlExpressionFactory.Add(
                                 arguments[0],
                                 _sqlExpressionFactory.Constant(1)),
                             arguments[1]
-                        },
+                        ],
                         nullable: true,
-                        argumentsPropagateNullability: new[] { true, true, true },
+                        argumentsPropagateNullability: [true, true, true],
                         method.ReturnType,
                         instance.TypeMapping);
                 }
@@ -192,9 +183,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
                     return _sqlExpressionFactory.Function(
                         "REPLACE",
-                        new[] { instance, firstArgument, secondArgument },
+                        [instance, firstArgument, secondArgument],
                         nullable: true,
-                        argumentsPropagateNullability: new[] { true, true, true },
+                        argumentsPropagateNullability: [true, true, true],
                         method.ReturnType,
                         stringTypeMapping);
                 }
@@ -227,9 +218,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 var argument = arguments[0];
                 return _sqlExpressionFactory.Function(
                     "MID",
-                    new[] { argument, _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1) },
+                    [argument, _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1)],
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true, true, true },
+                    argumentsPropagateNullability: [true, true, true],
                     method.ReturnType);
             }
 
@@ -238,33 +229,31 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 var argument = arguments[0];
                 var lenfunction = _sqlExpressionFactory.Function(
                     "LEN",
-                    new[] { argument },
+                    [argument],
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true },
+                    argumentsPropagateNullability: [true],
                     typeof(int));
                 var casefunc = _sqlExpressionFactory.Case(
-                    new[]
-                    {
+                    [
                         new CaseWhenClause(
                             _sqlExpressionFactory.Equal(
                                 lenfunction,
                                 _sqlExpressionFactory.Constant(0)),
                             _sqlExpressionFactory.Constant(1))
-                    },
+                    ],
                     lenfunction);
                 return _sqlExpressionFactory.Function(
                     "MID",
-                    new[]
-                    {
+                    [
                             argument,
                             _sqlExpressionFactory.Coalesce(
                                 casefunc,
                                 _sqlExpressionFactory.Constant(0)
                             ),
                             _sqlExpressionFactory.Constant(1)
-                    },
+                    ],
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true, true, true },
+                    argumentsPropagateNullability: [true, true, true],
                     method.ReturnType);
             }
 
@@ -310,7 +299,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             if (searchExpression is SqlConstantExpression { Value: "" })
             {
                 return _sqlExpressionFactory.Case(
-                    [new(_sqlExpressionFactory.IsNotNull(instance), _sqlExpressionFactory.Constant(0))],
+                    [new CaseWhenClause(_sqlExpressionFactory.IsNotNull(instance), _sqlExpressionFactory.Constant(0))],
                     elseResult: null
                 );
             }
@@ -318,14 +307,13 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             SqlExpression offsetExpression = searchExpression is SqlConstantExpression
                 ? _sqlExpressionFactory.Constant(1)
                 : _sqlExpressionFactory.Case(
-                    new[]
-                    {
+                    [
                         new CaseWhenClause(
                             _sqlExpressionFactory.Equal(
                                 searchExpression,
                                 _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping)),
                             _sqlExpressionFactory.Constant(0))
-                    },
+                    ],
                     _sqlExpressionFactory.Constant(1));
 
 

@@ -13,10 +13,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model28
         {
             var ad = new Advertisement
             {
-                AdImages = new List<AdImage>
-                {
-                    new AdImage {Image = "MyImage"}
-                },
+                AdImages = [new AdImage { Image = "MyImage" }],
 
                 Message = "MyMessage",
                 Title = "MyTitle",

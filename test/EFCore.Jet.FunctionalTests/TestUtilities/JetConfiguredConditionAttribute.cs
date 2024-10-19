@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
     public sealed class JetConfiguredConditionAttribute : Attribute, ITestCondition
     {
         public ValueTask<bool> IsMetAsync()
-            => new ValueTask<bool>(
+            => new(
                 TestEnvironment.IsConfigured /*&& (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || !TestEnvironment.IsLocalDb)*/);
 
         public string SkipReason => /*TestEnvironment.IsLocalDb

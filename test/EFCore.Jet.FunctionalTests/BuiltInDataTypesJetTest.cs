@@ -47,113 +47,113 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Sql_translation_uses_type_mapper_when_constant()
         {
-            using (var context = CreateContext())
-            {
-                var results
-                    = context.Set<MappedNullableDataTypes>()
-                        .Where(e => e.TimeSpanAsTime == new TimeSpan(0, 1, 2))
-                        .Select(e => e.Int)
-                        .ToList();
+            using var context = CreateContext();
+            var results
+                = context.Set<MappedNullableDataTypes>()
+                    .Where(e => e.TimeSpanAsTime == new TimeSpan(0, 1, 2))
+                    .Select(e => e.Int)
+                    .ToList();
 
-                Assert.Empty(results);
+            Assert.Empty(results);
 
-                AssertSql(
-                    $@"SELECT `m`.`Int`
-FROM `MappedNullableDataTypes` AS `m`
-WHERE `m`.`TimeSpanAsTime` = TIMEVALUE('00:01:02')");
-            }
+            AssertSql(
+                $"""
+                        SELECT `m`.`Int`
+                        FROM `MappedNullableDataTypes` AS `m`
+                        WHERE `m`.`TimeSpanAsTime` = TIMEVALUE('00:01:02')
+                        """);
         }
 
         [ConditionalFact]
         public void Sql_translation_uses_type_mapper_when_parameter()
         {
-            using (var context = CreateContext())
-            {
-                var timeSpan = new TimeSpan(2, 1, 0);
+            using var context = CreateContext();
+            var timeSpan = new TimeSpan(2, 1, 0);
 
-                var results
-                    = context.Set<MappedNullableDataTypes>()
-                        .Where(e => e.TimeSpanAsTime == timeSpan)
-                        .Select(e => e.Int)
-                        .ToList();
+            var results
+                = context.Set<MappedNullableDataTypes>()
+                    .Where(e => e.TimeSpanAsTime == timeSpan)
+                    .Select(e => e.Int)
+                    .ToList();
 
-                Assert.Empty(results);
-                AssertSql(
-                    $@"{AssertSqlHelper.Declaration("@__timeSpan_0='02:01:00' (Nullable = true)")}
-
-SELECT `m`.`Int`
-FROM `MappedNullableDataTypes` AS `m`
-WHERE `m`.`TimeSpanAsTime` = {AssertSqlHelper.Parameter("@__timeSpan_0")}");
-            }
+            Assert.Empty(results);
+            AssertSql(
+                $"""
+                        {AssertSqlHelper.Declaration("@__timeSpan_0='02:01:00' (Nullable = true)")}
+                        
+                        SELECT `m`.`Int`
+                        FROM `MappedNullableDataTypes` AS `m`
+                        WHERE `m`.`TimeSpanAsTime` = {AssertSqlHelper.Parameter("@__timeSpan_0")}
+                        """);
         }
 
         [ConditionalFact]
         public virtual void Can_query_using_DateDiffHour_using_TimeSpan()
         {
-            using (var context = CreateContext())
-            {
-                var timeSpan = new TimeSpan(2, 1, 0);
+            using var context = CreateContext();
+            var timeSpan = new TimeSpan(2, 1, 0);
 
-                var results
-                    = context.Set<MappedNullableDataTypes>()
-                        .Where(e => EF.Functions.DateDiffHour(e.TimeSpanAsTime, timeSpan) == 0)
-                        .Select(e => e.Int)
-                        .ToList();
+            var results
+                = context.Set<MappedNullableDataTypes>()
+                    .Where(e => EF.Functions.DateDiffHour(e.TimeSpanAsTime, timeSpan) == 0)
+                    .Select(e => e.Int)
+                    .ToList();
 
-                Assert.Empty(results);
-                AssertSql(
-                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
-
-SELECT `m`.`Int`
-FROM `MappedNullableDataTypes` AS `m`
-WHERE DATEDIFF('h', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
-            }
+            Assert.Empty(results);
+            AssertSql(
+                $"""
+                        {AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
+                        
+                        SELECT `m`.`Int`
+                        FROM `MappedNullableDataTypes` AS `m`
+                        WHERE DATEDIFF('h', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0
+                        """);
         }
 
         [ConditionalFact]
         public virtual void Can_query_using_DateDiffMinute_using_TimeSpan()
         {
-            using (var context = CreateContext())
-            {
-                var timeSpan = new TimeSpan(2, 1, 0);
+            using var context = CreateContext();
+            var timeSpan = new TimeSpan(2, 1, 0);
 
-                var results
-                    = context.Set<MappedNullableDataTypes>()
-                        .Where(e => EF.Functions.DateDiffMinute(e.TimeSpanAsTime, timeSpan) == 0)
-                        .Select(e => e.Int)
-                        .ToList();
+            var results
+                = context.Set<MappedNullableDataTypes>()
+                    .Where(e => EF.Functions.DateDiffMinute(e.TimeSpanAsTime, timeSpan) == 0)
+                    .Select(e => e.Int)
+                    .ToList();
 
-                Assert.Empty(results);
-                AssertSql(
-                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
-
-SELECT `m`.`Int`
-FROM `MappedNullableDataTypes` AS `m`
-WHERE DATEDIFF('n', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
-            }
+            Assert.Empty(results);
+            AssertSql(
+                $"""
+                        {AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
+                        
+                        SELECT `m`.`Int`
+                        FROM `MappedNullableDataTypes` AS `m`
+                        WHERE DATEDIFF('n', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0
+                        """);
         }
 
         [ConditionalFact]
         public virtual void Can_query_using_DateDiffSecond_using_TimeSpan()
         {
-            using (var context = CreateContext())
-            {
-                var timeSpan = new TimeSpan(2, 1, 0);
+            using var context = CreateContext();
+            var timeSpan = new TimeSpan(2, 1, 0);
 
-                var results
-                    = context.Set<MappedNullableDataTypes>()
-                        .Where(e => EF.Functions.DateDiffSecond(e.TimeSpanAsTime, timeSpan) == 0)
-                        .Select(e => e.Int)
-                        .ToList();
+            var results
+                = context.Set<MappedNullableDataTypes>()
+                    .Where(e => EF.Functions.DateDiffSecond(e.TimeSpanAsTime, timeSpan) == 0)
+                    .Select(e => e.Int)
+                    .ToList();
 
-                Assert.Empty(results);
-                AssertSql(
-                    $@"{AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
-
-SELECT `m`.`Int`
-FROM `MappedNullableDataTypes` AS `m`
-WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0");
-            }
+            Assert.Empty(results);
+            AssertSql(
+                $"""
+                        {AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
+                        
+                        SELECT `m`.`Int`
+                        FROM `MappedNullableDataTypes` AS `m`
+                        WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0
+                        """);
         }
 
         [ConditionalFact]
@@ -194,9 +194,9 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
                         StringAsNationalCharacterVaryingMax = "anyone!",
                         StringAsText = "Gumball Rules!",
                         StringAsNtext = "Gumball Rules OK!",
-                        BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
-                        BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
-                        BytesAsImage = new byte[] { 97, 98, 99, 100 },
+                        BytesAsVarbinaryMax = [89, 90, 91, 92],
+                        BytesAsBinaryVaryingMax = [93, 94, 95, 96],
+                        BytesAsImage = [97, 98, 99, 100],
                         Decimal = 101.7m,
                         DecimalAsDec = 102.8m,
                         DecimalAsNumeric = 103.9m,
@@ -591,57 +591,59 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='77'
-@p1='True'
-@p2='80' (Size = 1)
-@p3='0x5D5E5F60' (Nullable = false) (Size = 510)
-@p4='0x61626364' (Nullable = false) (Size = 510)
-@p5='0x595A5B5C' (Nullable = false) (Size = 510)
-@p6='B' (Nullable = false) (Size = 1)
-@p7='C' (Nullable = false) (Size = 255)
-@p8='73'
-@p9='E' (Nullable = false) (Size = 1)
-@p10='F' (Nullable = false) (Size = 255)
-@p11='H' (Nullable = false) (Size = 1)
-@p12='D' (Nullable = false) (Size = 1)
-@p13='G' (Nullable = false) (Size = 1)
-@p14='A' (Nullable = false) (Size = 1)
-@p15='2015-01-02T00:00:00.0000000' (DbType = Date)
-@p16='2015-01-02T00:00:00.0000000' (DbType = DateTime)
-@p17='2019-01-02T14:11:12.0000000' (DbType = DateTime)
-@p18='101' (Precision = 18)
-@p19='102' (Precision = 18)
-@p20='81.1' (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
-@p21='103' (Precision = 18)
-@p22='85.5'
-@p23='83.3'
-@p24='4'
-@p25='Value2' (Nullable = false) (Size = 255)
-@p26='84.4'
-@p27='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p28='78' (DbType = Decimal)
-@p29='-128'
-@p30='128' (Size = 1)
-@p31='79'
-@p32='Your' (Nullable = false) (Size = 255)
-@p33='And now' (Nullable = false) (Size = 255)
-@p34='strong' (Nullable = false) (Size = 255)
-@p35='this...' (Nullable = false) (Size = 255)
-@p36='help' (Nullable = false) (Size = 255)
-@p37='anyone!' (Nullable = false) (Size = 255)
-@p38='Gumball Rules OK!' (Nullable = false) (Size = 255)
-@p39='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD' (Nullable = false) (Size = 255)
-@p40='Gumball Rules!' (Nullable = false) (Size = 255)
-@p41='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' (Nullable = false) (Size = 255)
-@p42='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE' (Nullable = false) (Size = 255)
-@p43='11:15:12'
-@p44='11:15:12'
-@p45='65535'
-@p46='-1'
-@p47='4294967295' (DbType = Decimal)
-@p48='-1'
-@p49='18446744073709551615' (Precision = 20)
-@p50='18446744073709551615' (Precision = 20)",
+                $"""
+                   @p0='77'
+                   @p1='True'
+                   @p2='80' (Size = 1)
+                   @p3='0x5D5E5F60' (Nullable = false) (Size = 510)
+                   @p4='0x61626364' (Nullable = false) (Size = 510)
+                   @p5='0x595A5B5C' (Nullable = false) (Size = 510)
+                   @p6='B' (Nullable = false) (Size = 1)
+                   @p7='C' (Nullable = false) (Size = 255)
+                   @p8='73'
+                   @p9='E' (Nullable = false) (Size = 1)
+                   @p10='F' (Nullable = false) (Size = 255)
+                   @p11='H' (Nullable = false) (Size = 1)
+                   @p12='D' (Nullable = false) (Size = 1)
+                   @p13='G' (Nullable = false) (Size = 1)
+                   @p14='A' (Nullable = false) (Size = 1)
+                   @p15='2015-01-02T00:00:00.0000000' (DbType = Date)
+                   @p16='2015-01-02T00:00:00.0000000' (DbType = DateTime)
+                   @p17='2019-01-02T14:11:12.0000000' (DbType = DateTime)
+                   @p18='101' (Precision = 18)
+                   @p19='102' (Precision = 18)
+                   @p20='81.1' (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
+                   @p21='103' (Precision = 18)
+                   @p22='85.5'
+                   @p23='83.3'
+                   @p24='4'
+                   @p25='Value2' (Nullable = false) (Size = 255)
+                   @p26='84.4'
+                   @p27='a8f9f951-145f-4545-ac60-b92ff57ada47'
+                   @p28='78' (DbType = Decimal)
+                   @p29='-128'
+                   @p30='128' (Size = 1)
+                   @p31='79'
+                   @p32='Your' (Nullable = false) (Size = 255)
+                   @p33='And now' (Nullable = false) (Size = 255)
+                   @p34='strong' (Nullable = false) (Size = 255)
+                   @p35='this...' (Nullable = false) (Size = 255)
+                   @p36='help' (Nullable = false) (Size = 255)
+                   @p37='anyone!' (Nullable = false) (Size = 255)
+                   @p38='Gumball Rules OK!' (Nullable = false) (Size = 255)
+                   @p39='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD' (Nullable = false) (Size = 255)
+                   @p40='Gumball Rules!' (Nullable = false) (Size = 255)
+                   @p41='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' (Nullable = false) (Size = 255)
+                   @p42='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE' (Nullable = false) (Size = 255)
+                   @p43='11:15:12'
+                   @p44='11:15:12'
+                   @p45='65535'
+                   @p46='-1'
+                   @p47='4294967295' (DbType = Decimal)
+                   @p48='-1'
+                   @p49='18446744073709551615' (Precision = 20)
+                   @p50='18446744073709551615' (Precision = 20)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -717,7 +719,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         }
 
         private static MappedDataTypes CreateMappedDataTypes(int id)
-            => new MappedDataTypes
+            => new()
             {
                 Int = id,
                 LongAsBigInt = 78L,
@@ -752,9 +754,9 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
                 StringAsCharacterVaryingMaxUtf8 = "this...",
                 StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
-                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
-                BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
-                BytesAsImage = new byte[] { 97, 98, 99, 100 },
+                BytesAsVarbinaryMax = [89, 90, 91, 92],
+                BytesAsBinaryVaryingMax = [93, 94, 95, 96],
+                BytesAsImage = [97, 98, 99, 100],
                 Decimal = 101m,
                 DecimalAsDec = 102m,
                 DecimalAsNumeric = 103m,
@@ -790,57 +792,59 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='77'
-@p1='True' (Nullable = true)
-@p2='80' (Nullable = true) (Size = 1)
-@p3='0x5D5E5F60' (Size = 510)
-@p4='0x61626364' (Size = 510)
-@p5='0x595A5B5C' (Size = 510)
-@p6='B' (Size = 1)
-@p7='C' (Size = 255)
-@p8='73' (Nullable = true)
-@p9='E' (Size = 1)
-@p10='F' (Size = 255)
-@p11='H' (Size = 1)
-@p12='D' (Size = 1)
-@p13='G' (Size = 1)
-@p14='A' (Size = 1)
-@p15='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = Date)
-@p16='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = DateTime)
-@p17='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
-@p18='101' (Nullable = true) (Precision = 18)
-@p19='102' (Nullable = true) (Precision = 18)
-@p20='81.1' (Nullable = true) (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
-@p21='103' (Nullable = true) (Precision = 18)
-@p22='85.5' (Nullable = true)
-@p23='83.3' (Nullable = true)
-@p24='4' (Nullable = true)
-@p25='Value2' (Size = 255)
-@p26='84.4' (Nullable = true)
-@p27='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p28='78' (Nullable = true) (DbType = Decimal)
-@p29='-128' (Nullable = true)
-@p30='128' (Nullable = true) (Size = 1)
-@p31='79' (Nullable = true)
-@p32='Your' (Size = 255)
-@p33='And now' (Size = 255)
-@p34='strong' (Size = 255)
-@p35='this...' (Size = 255)
-@p36='help' (Size = 255)
-@p37='anyone!' (Size = 255)
-@p38='Gumball Rules OK!' (Size = 255)
-@p39='don't' (Size = 255)
-@p40='Gumball Rules!' (Size = 255)
-@p41='C' (Size = 255)
-@p42='short' (Size = 255)
-@p43='11:15:12' (Nullable = true)
-@p44='11:15:12' (Nullable = true)
-@p45='65535' (Nullable = true)
-@p46='-1' (Nullable = true)
-@p47='4294967295' (Nullable = true) (DbType = Decimal)
-@p48='-1' (Nullable = true)
-@p49='18446744073709551615' (Nullable = true) (Precision = 20)
-@p50='18446744073709551615' (Nullable = true) (Precision = 20)",
+                $"""
+                   @p0='77'
+                   @p1='True' (Nullable = true)
+                   @p2='80' (Nullable = true) (Size = 1)
+                   @p3='0x5D5E5F60' (Size = 510)
+                   @p4='0x61626364' (Size = 510)
+                   @p5='0x595A5B5C' (Size = 510)
+                   @p6='B' (Size = 1)
+                   @p7='C' (Size = 255)
+                   @p8='73' (Nullable = true)
+                   @p9='E' (Size = 1)
+                   @p10='F' (Size = 255)
+                   @p11='H' (Size = 1)
+                   @p12='D' (Size = 1)
+                   @p13='G' (Size = 1)
+                   @p14='A' (Size = 1)
+                   @p15='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = Date)
+                   @p16='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = DateTime)
+                   @p17='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
+                   @p18='101' (Nullable = true) (Precision = 18)
+                   @p19='102' (Nullable = true) (Precision = 18)
+                   @p20='81.1' (Nullable = true) (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
+                   @p21='103' (Nullable = true) (Precision = 18)
+                   @p22='85.5' (Nullable = true)
+                   @p23='83.3' (Nullable = true)
+                   @p24='4' (Nullable = true)
+                   @p25='Value2' (Size = 255)
+                   @p26='84.4' (Nullable = true)
+                   @p27='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
+                   @p28='78' (Nullable = true) (DbType = Decimal)
+                   @p29='-128' (Nullable = true)
+                   @p30='128' (Nullable = true) (Size = 1)
+                   @p31='79' (Nullable = true)
+                   @p32='Your' (Size = 255)
+                   @p33='And now' (Size = 255)
+                   @p34='strong' (Size = 255)
+                   @p35='this...' (Size = 255)
+                   @p36='help' (Size = 255)
+                   @p37='anyone!' (Size = 255)
+                   @p38='Gumball Rules OK!' (Size = 255)
+                   @p39='don't' (Size = 255)
+                   @p40='Gumball Rules!' (Size = 255)
+                   @p41='C' (Size = 255)
+                   @p42='short' (Size = 255)
+                   @p43='11:15:12' (Nullable = true)
+                   @p44='11:15:12' (Nullable = true)
+                   @p45='65535' (Nullable = true)
+                   @p46='-1' (Nullable = true)
+                   @p47='4294967295' (Nullable = true) (DbType = Decimal)
+                   @p48='-1' (Nullable = true)
+                   @p49='18446744073709551615' (Nullable = true) (Precision = 20)
+                   @p50='18446744073709551615' (Nullable = true) (Precision = 20)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -909,7 +913,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         }
 
         private static MappedNullableDataTypes CreateMappedNullableDataTypes(int id)
-            => new MappedNullableDataTypes
+            => new()
             {
                 Int = id,
                 LongAsBigint = 78L,
@@ -944,9 +948,9 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
                 StringAsCharacterVaryingMaxUtf8 = "this...",
                 StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
-                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
-                BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
-                BytesAsImage = new byte[] { 97, 98, 99, 100 },
+                BytesAsVarbinaryMax = [89, 90, 91, 92],
+                BytesAsBinaryVaryingMax = [93, 94, 95, 96],
+                BytesAsImage = [97, 98, 99, 100],
                 Decimal = 101m,
                 DecimalAsDec = 102m,
                 DecimalAsNumeric = 103m,
@@ -982,57 +986,59 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='78'
-@p1=NULL (DbType = Boolean)
-@p2=NULL (DbType = Byte)
-@p3=NULL (Size = 510) (DbType = Binary)
-@p4=NULL (Size = 510) (DbType = Binary)
-@p5=NULL (Size = 510) (DbType = Binary)
-@p6=NULL (Size = 1)
-@p7=NULL (Size = 255)
-@p8=NULL (DbType = Int32)
-@p9=NULL (Size = 1)
-@p10=NULL (Size = 255)
-@p11=NULL (Size = 1)
-@p12=NULL (Size = 1)
-@p13=NULL (Size = 1)
-@p14=NULL (Size = 1)
-@p15=NULL (DbType = Date)
-@p16=NULL (DbType = DateTime)
-@p17=NULL (DbType = DateTime)
-@p18=NULL (Precision = 18) (DbType = Decimal)
-@p19=NULL (Precision = 18) (DbType = Decimal)
-@p20=NULL {(isoledb ? "(DbType = Currency)" : "(DbType = Decimal)")}
-@p21=NULL (Precision = 18) (DbType = Decimal)
-@p22=NULL (DbType = Double)
-@p23=NULL (DbType = Double)
-@p24=NULL (DbType = Int32)
-@p25=NULL (Size = 255)
-@p26=NULL (DbType = Single)
-@p27=NULL (DbType = Guid)
-@p28=NULL (DbType = Decimal)
-@p29=NULL (DbType = Int16)
-@p30=NULL (DbType = Byte)
-@p31=NULL (DbType = Int16)
-@p32=NULL (Size = 255)
-@p33=NULL (Size = 255)
-@p34=NULL (Size = 255)
-@p35=NULL (Size = 255)
-@p36=NULL (Size = 255)
-@p37=NULL (Size = 255)
-@p38=NULL (Size = 255)
-@p39=NULL (Size = 255)
-@p40=NULL (Size = 255)
-@p41=NULL (Size = 255)
-@p42=NULL (Size = 255)
-@p43=NULL (DbType = Time)
-@p44=NULL (DbType = Time)
-@p45=NULL (DbType = Int32)
-@p46=NULL (DbType = Int16)
-@p47=NULL (DbType = Decimal)
-@p48=NULL (DbType = Int32)
-@p49=NULL (Precision = 20) (DbType = Decimal)
-@p50=NULL (Precision = 20) (DbType = Decimal)",
+                $"""
+                   @p0='78'
+                   @p1=NULL (DbType = Boolean)
+                   @p2=NULL (DbType = Byte)
+                   @p3=NULL (Size = 510) (DbType = Binary)
+                   @p4=NULL (Size = 510) (DbType = Binary)
+                   @p5=NULL (Size = 510) (DbType = Binary)
+                   @p6=NULL (Size = 1)
+                   @p7=NULL (Size = 255)
+                   @p8=NULL (DbType = Int32)
+                   @p9=NULL (Size = 1)
+                   @p10=NULL (Size = 255)
+                   @p11=NULL (Size = 1)
+                   @p12=NULL (Size = 1)
+                   @p13=NULL (Size = 1)
+                   @p14=NULL (Size = 1)
+                   @p15=NULL (DbType = Date)
+                   @p16=NULL (DbType = DateTime)
+                   @p17=NULL (DbType = DateTime)
+                   @p18=NULL (Precision = 18) (DbType = Decimal)
+                   @p19=NULL (Precision = 18) (DbType = Decimal)
+                   @p20=NULL {(isoledb ? "(DbType = Currency)" : "(DbType = Decimal)")}
+                   @p21=NULL (Precision = 18) (DbType = Decimal)
+                   @p22=NULL (DbType = Double)
+                   @p23=NULL (DbType = Double)
+                   @p24=NULL (DbType = Int32)
+                   @p25=NULL (Size = 255)
+                   @p26=NULL (DbType = Single)
+                   @p27=NULL (DbType = Guid)
+                   @p28=NULL (DbType = Decimal)
+                   @p29=NULL (DbType = Int16)
+                   @p30=NULL (DbType = Byte)
+                   @p31=NULL (DbType = Int16)
+                   @p32=NULL (Size = 255)
+                   @p33=NULL (Size = 255)
+                   @p34=NULL (Size = 255)
+                   @p35=NULL (Size = 255)
+                   @p36=NULL (Size = 255)
+                   @p37=NULL (Size = 255)
+                   @p38=NULL (Size = 255)
+                   @p39=NULL (Size = 255)
+                   @p40=NULL (Size = 255)
+                   @p41=NULL (Size = 255)
+                   @p42=NULL (Size = 255)
+                   @p43=NULL (DbType = Time)
+                   @p44=NULL (DbType = Time)
+                   @p45=NULL (DbType = Int32)
+                   @p46=NULL (DbType = Int16)
+                   @p47=NULL (DbType = Decimal)
+                   @p48=NULL (DbType = Int32)
+                   @p49=NULL (Precision = 20) (DbType = Decimal)
+                   @p50=NULL (Precision = 20) (DbType = Decimal)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1111,31 +1117,33 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='77'
-@p1='0x0A0B0C' (Size = 3)
-@p2='0x0C0D0E' (Size = 3)
-@p3='0x0B0C0D' (Size = 3)
-@p4='B' (Size = 3)
-@p5='C' (Size = 3)
-@p6='E' (Size = 3)
-@p7='F' (Size = 3)
-@p8='D' (Size = 3)
-@p9='A' (Size = 3)
-@p10='Wor' (Size = 3)
-@p11=NULL (Size = 3)
-@p12='Thr' (Size = 3)
-@p13=NULL (Size = 3)
-@p14='Lon' (Size = 3)
-@p15=NULL (Size = 3)
-@p16='Let' (Size = 3)
-@p17=NULL (Size = 3)
-@p18='The' (Size = 3)
-@p19='Squ' (Size = 3)
-@p20='Col' (Size = 3)
-@p21='Won' (Size = 3)
-@p22='Int' (Size = 3)
-@p23='Tha' (Size = 3)
-@p24=NULL (Size = 3)",
+                $"""
+                   @p0='77'
+                   @p1='0x0A0B0C' (Size = 3)
+                   @p2='0x0C0D0E' (Size = 3)
+                   @p3='0x0B0C0D' (Size = 3)
+                   @p4='B' (Size = 3)
+                   @p5='C' (Size = 3)
+                   @p6='E' (Size = 3)
+                   @p7='F' (Size = 3)
+                   @p8='D' (Size = 3)
+                   @p9='A' (Size = 3)
+                   @p10='Wor' (Size = 3)
+                   @p11=NULL (Size = 3)
+                   @p12='Thr' (Size = 3)
+                   @p13=NULL (Size = 3)
+                   @p14='Lon' (Size = 3)
+                   @p15=NULL (Size = 3)
+                   @p16='Let' (Size = 3)
+                   @p17=NULL (Size = 3)
+                   @p18='The' (Size = 3)
+                   @p19='Squ' (Size = 3)
+                   @p20='Col' (Size = 3)
+                   @p21='Won' (Size = 3)
+                   @p22='Int' (Size = 3)
+                   @p23='Tha' (Size = 3)
+                   @p24=NULL (Size = 3)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1170,7 +1178,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         }
 
         private static MappedSizedDataTypes CreateMappedSizedDataTypes(int id)
-            => new MappedSizedDataTypes
+            => new()
             {
                 Id = id,
                 StringAsChar3 = "Wor",
@@ -1183,9 +1191,9 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
                 StringAsNvarchar3 = "Int",
                 StringAsNationalCharVarying3 = "The",
                 StringAsNationalCharacterVarying3 = "Col",
-                BytesAsBinary3 = new byte[] { 10, 11, 12 },
-                BytesAsVarbinary3 = new byte[] { 11, 12, 13 },
-                BytesAsBinaryVarying3 = new byte[] { 12, 13, 14 },
+                BytesAsBinary3 = [10, 11, 12],
+                BytesAsVarbinary3 = [11, 12, 13],
+                BytesAsBinaryVarying3 = [12, 13, 14],
                 CharAsVarchar3 = 'A',
                 CharAsAsCharVarying3 = 'B',
                 CharAsCharacterVarying3 = 'C',
@@ -1206,31 +1214,33 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='78'
-@p1=NULL (Size = 3) (DbType = Binary)
-@p2=NULL (Size = 3) (DbType = Binary)
-@p3=NULL (Size = 3) (DbType = Binary)
-@p4=NULL (Size = 3)
-@p5=NULL (Size = 3)
-@p6=NULL (Size = 3)
-@p7=NULL (Size = 3)
-@p8=NULL (Size = 3)
-@p9=NULL (Size = 3)
-@p10=NULL (Size = 3)
-@p11=NULL (Size = 3)
-@p12=NULL (Size = 3)
-@p13=NULL (Size = 3)
-@p14=NULL (Size = 3)
-@p15=NULL (Size = 3)
-@p16=NULL (Size = 3)
-@p17=NULL (Size = 3)
-@p18=NULL (Size = 3)
-@p19=NULL (Size = 3)
-@p20=NULL (Size = 3)
-@p21=NULL (Size = 3)
-@p22=NULL (Size = 3)
-@p23=NULL (Size = 3)
-@p24=NULL (Size = 3)",
+                $"""
+                   @p0='78'
+                   @p1=NULL (Size = 3) (DbType = Binary)
+                   @p2=NULL (Size = 3) (DbType = Binary)
+                   @p3=NULL (Size = 3) (DbType = Binary)
+                   @p4=NULL (Size = 3)
+                   @p5=NULL (Size = 3)
+                   @p6=NULL (Size = 3)
+                   @p7=NULL (Size = 3)
+                   @p8=NULL (Size = 3)
+                   @p9=NULL (Size = 3)
+                   @p10=NULL (Size = 3)
+                   @p11=NULL (Size = 3)
+                   @p12=NULL (Size = 3)
+                   @p13=NULL (Size = 3)
+                   @p14=NULL (Size = 3)
+                   @p15=NULL (Size = 3)
+                   @p16=NULL (Size = 3)
+                   @p17=NULL (Size = 3)
+                   @p18=NULL (Size = 3)
+                   @p19=NULL (Size = 3)
+                   @p20=NULL (Size = 3)
+                   @p21=NULL (Size = 3)
+                   @p22=NULL (Size = 3)
+                   @p23=NULL (Size = 3)
+                   @p24=NULL (Size = 3)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1276,16 +1286,18 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='77'
-@p1='102' (Precision = 3)
-@p2='101' (Precision = 3)
-@p3='103' (Precision = 3)
-@p4='85.55'
-@p5='85.5'
-@p6='83.33000183105469'
-@p7='83.30000305175781'
-@p8='12:34:56'
-@p9='12:34:56'", parameters,
+                $"""
+                   @p0='77'
+                   @p1='102' (Precision = 3)
+                   @p2='101' (Precision = 3)
+                   @p3='103' (Precision = 3)
+                   @p4='85.55'
+                   @p5='85.5'
+                   @p6='83.33000183105469'
+                   @p7='83.30000305175781'
+                   @p8='12:34:56'
+                   @p9='12:34:56'
+                   """, parameters,
                 ignoreLineEndingDifferences: true);
 
             using (var context = CreateContext())
@@ -1312,7 +1324,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
         }
 
         private static MappedScaledDataTypes CreateMappedScaledDataTypes(int id)
-            => new MappedScaledDataTypes
+            => new()
             {
                 Id = id,
                 FloatAsFloat3 = 83.3f,
@@ -1340,10 +1352,12 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpa
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='77'
-@p1='102.2' (Precision = 5) (Scale = 2)
-@p2='101.1' (Precision = 5) (Scale = 2)
-@p3='103.3' (Precision = 5) (Scale = 2)",
+                $"""
+                   @p0='77'
+                   @p1='102.2' (Precision = 5) (Scale = 2)
+                   @p2='101.1' (Precision = 5) (Scale = 2)
+                   @p3='103.3' (Precision = 5) (Scale = 2)
+                   """,
 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1362,7 +1376,7 @@ parameters,
         }
 
         private static MappedPrecisionAndScaledDataTypes CreateMappedPrecisionAndScaledDataTypes(int id)
-            => new MappedPrecisionAndScaledDataTypes
+            => new()
             {
                 Id = id,
                 DecimalAsDecimal52 = 101.1m,
@@ -1384,57 +1398,59 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='True'
-@p1='80' (Size = 1)
-@p2='0x5D5E5F60' (Nullable = false) (Size = 255)
-@p3='0x61626364' (Nullable = false) (Size = 510)
-@p4='0x595A5B5C' (Nullable = false) (Size = 255)
-@p5='B' (Nullable = false) (Size = 1)
-@p6='C' (Nullable = false) (Size = 255)
-@p7='73'
-@p8='E' (Nullable = false) (Size = 1)
-@p9='F' (Nullable = false) (Size = 255)
-@p10='H' (Nullable = false) (Size = 1)
-@p11='D' (Nullable = false) (Size = 1)
-@p12='G' (Nullable = false) (Size = 1)
-@p13='A' (Nullable = false) (Size = 1)
-@p14='2015-01-02T00:00:00.0000000' (DbType = Date)
-@p15='2015-01-02T00:00:00.0000000' (DbType = DateTime)
-@p16='2019-01-02T14:11:12.0000000' (DbType = DateTime)
-@p17='101' (Precision = 18)
-@p18='102' (Precision = 18)
-@p19='81.1' (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
-@p20='103' (Precision = 18)
-@p21='85.5'
-@p22='83.3'
-@p23='4'
-@p24='Value2' (Nullable = false) (Size = 255)
-@p25='84.4'
-@p26='a8f9f951-145f-4545-ac60-b92ff57ada47'
-@p27='77'
-@p28='78' (DbType = Decimal)
-@p29='-128'
-@p30='128' (Size = 1)
-@p31='79'
-@p32='Your' (Nullable = false) (Size = 255)
-@p33='And now' (Nullable = false) (Size = 255)
-@p34='strong' (Nullable = false) (Size = 255)
-@p35='this...' (Nullable = false) (Size = 255)
-@p36='help' (Nullable = false) (Size = 255)
-@p37='anyone!' (Nullable = false) (Size = 255)
-@p38='Gumball Rules OK!' (Nullable = false) (Size = 255)
-@p39='don't' (Nullable = false) (Size = 255)
-@p40='Gumball Rules!' (Nullable = false) (Size = 255)
-@p41='C' (Nullable = false) (Size = 255)
-@p42='short' (Nullable = false) (Size = 255)
-@p43='11:15:12'
-@p44='11:15:12'
-@p45='65535'
-@p46='-1'
-@p47='4294967295' (DbType = Decimal)
-@p48='-1'
-@p49='18446744073709551615' (Precision = 20)
-@p50='18446744073709551615' (Precision = 20)",
+                $"""
+                   @p0='True'
+                   @p1='80' (Size = 1)
+                   @p2='0x5D5E5F60' (Nullable = false) (Size = 255)
+                   @p3='0x61626364' (Nullable = false) (Size = 510)
+                   @p4='0x595A5B5C' (Nullable = false) (Size = 255)
+                   @p5='B' (Nullable = false) (Size = 1)
+                   @p6='C' (Nullable = false) (Size = 255)
+                   @p7='73'
+                   @p8='E' (Nullable = false) (Size = 1)
+                   @p9='F' (Nullable = false) (Size = 255)
+                   @p10='H' (Nullable = false) (Size = 1)
+                   @p11='D' (Nullable = false) (Size = 1)
+                   @p12='G' (Nullable = false) (Size = 1)
+                   @p13='A' (Nullable = false) (Size = 1)
+                   @p14='2015-01-02T00:00:00.0000000' (DbType = Date)
+                   @p15='2015-01-02T00:00:00.0000000' (DbType = DateTime)
+                   @p16='2019-01-02T14:11:12.0000000' (DbType = DateTime)
+                   @p17='101' (Precision = 18)
+                   @p18='102' (Precision = 18)
+                   @p19='81.1' (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
+                   @p20='103' (Precision = 18)
+                   @p21='85.5'
+                   @p22='83.3'
+                   @p23='4'
+                   @p24='Value2' (Nullable = false) (Size = 255)
+                   @p25='84.4'
+                   @p26='a8f9f951-145f-4545-ac60-b92ff57ada47'
+                   @p27='77'
+                   @p28='78' (DbType = Decimal)
+                   @p29='-128'
+                   @p30='128' (Size = 1)
+                   @p31='79'
+                   @p32='Your' (Nullable = false) (Size = 255)
+                   @p33='And now' (Nullable = false) (Size = 255)
+                   @p34='strong' (Nullable = false) (Size = 255)
+                   @p35='this...' (Nullable = false) (Size = 255)
+                   @p36='help' (Nullable = false) (Size = 255)
+                   @p37='anyone!' (Nullable = false) (Size = 255)
+                   @p38='Gumball Rules OK!' (Nullable = false) (Size = 255)
+                   @p39='don't' (Nullable = false) (Size = 255)
+                   @p40='Gumball Rules!' (Nullable = false) (Size = 255)
+                   @p41='C' (Nullable = false) (Size = 255)
+                   @p42='short' (Nullable = false) (Size = 255)
+                   @p43='11:15:12'
+                   @p44='11:15:12'
+                   @p45='65535'
+                   @p46='-1'
+                   @p47='4294967295' (DbType = Decimal)
+                   @p48='-1'
+                   @p49='18446744073709551615' (Precision = 20)
+                   @p50='18446744073709551615' (Precision = 20)
+                   """,
 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1506,7 +1522,7 @@ parameters,
         }
 
         private static MappedDataTypesWithIdentity CreateMappedDataTypesWithIdentity(int id)
-            => new MappedDataTypesWithIdentity
+            => new()
             {
                 Int = id,
                 LongAsBigint = 78L,
@@ -1541,9 +1557,9 @@ parameters,
                 StringAsCharacterVaryingMaxUtf8 = "this...",
                 StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
-                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
-                BytesAsBinaryVaryingMax = new byte[] { 93, 94, 95, 96 },
-                BytesAsImage = new byte[] { 97, 98, 99, 100 },
+                BytesAsVarbinaryMax = [89, 90, 91, 92],
+                BytesAsBinaryVaryingMax = [93, 94, 95, 96],
+                BytesAsImage = [97, 98, 99, 100],
                 Decimal = 101m,
                 DecimalAsDec = 102m,
                 DecimalAsNumeric = 103m,
@@ -1579,57 +1595,59 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='True' (Nullable = true)
-@p1='80' (Nullable = true) (Size = 1)
-@p2='0x61626364' (Size = 510)
-@p3='0x595A5B5C' (Size = 510)
-@p4='0x5D5E5F60' (Size = 510)
-@p5='B' (Size = 1)
-@p6='C' (Size = 255)
-@p7='73' (Nullable = true)
-@p8='E' (Size = 1)
-@p9='F' (Size = 255)
-@p10='H' (Size = 1)
-@p11='D' (Size = 1)
-@p12='G' (Size = 1)
-@p13='A' (Size = 1)
-@p14='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = Date)
-@p15='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = DateTime)
-@p16='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
-@p17='101' (Nullable = true) (Precision = 18)
-@p18='102' (Nullable = true) (Precision = 18)
-@p19='81.1' (Nullable = true) (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
-@p20='103' (Nullable = true) (Precision = 18)
-@p21='85.5' (Nullable = true)
-@p22='83.3' (Nullable = true)
-@p23='4' (Nullable = true)
-@p24='Value2' (Size = 255)
-@p25='84.4' (Nullable = true)
-@p26='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-@p27='77' (Nullable = true)
-@p28='78' (Nullable = true) (DbType = Decimal)
-@p29='-128' (Nullable = true)
-@p30='128' (Nullable = true) (Size = 1)
-@p31='79' (Nullable = true)
-@p32='Your' (Size = 255)
-@p33='And now' (Size = 255)
-@p34='strong' (Size = 255)
-@p35='this...' (Size = 255)
-@p36='help' (Size = 255)
-@p37='anyone!' (Size = 255)
-@p38='Gumball Rules OK!' (Size = 255)
-@p39='don't' (Size = 255)
-@p40='Gumball Rules!' (Size = 255)
-@p41='C' (Size = 255)
-@p42='short' (Size = 255)
-@p43='11:15:12' (Nullable = true)
-@p44='11:15:12' (Nullable = true)
-@p45='65535' (Nullable = true)
-@p46='4294967295' (Nullable = true) (DbType = Decimal)
-@p47='-1' (Nullable = true)
-@p48='18446744073709551615' (Nullable = true) (Precision = 20)
-@p49='18446744073709551615' (Nullable = true) (Precision = 20)
-@p50='-1' (Nullable = true)",
+                $"""
+                   @p0='True' (Nullable = true)
+                   @p1='80' (Nullable = true) (Size = 1)
+                   @p2='0x61626364' (Size = 510)
+                   @p3='0x595A5B5C' (Size = 510)
+                   @p4='0x5D5E5F60' (Size = 510)
+                   @p5='B' (Size = 1)
+                   @p6='C' (Size = 255)
+                   @p7='73' (Nullable = true)
+                   @p8='E' (Size = 1)
+                   @p9='F' (Size = 255)
+                   @p10='H' (Size = 1)
+                   @p11='D' (Size = 1)
+                   @p12='G' (Size = 1)
+                   @p13='A' (Size = 1)
+                   @p14='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = Date)
+                   @p15='2015-01-02T00:00:00.0000000' (Nullable = true) (DbType = DateTime)
+                   @p16='2019-01-02T14:11:12.0000000' (Nullable = true) (DbType = DateTime)
+                   @p17='101' (Nullable = true) (Precision = 18)
+                   @p18='102' (Nullable = true) (Precision = 18)
+                   @p19='81.1' (Nullable = true) (Precision = 3) (Scale = 1){(isoledb ? " (DbType = Currency)" : "")}
+                   @p20='103' (Nullable = true) (Precision = 18)
+                   @p21='85.5' (Nullable = true)
+                   @p22='83.3' (Nullable = true)
+                   @p23='4' (Nullable = true)
+                   @p24='Value2' (Size = 255)
+                   @p25='84.4' (Nullable = true)
+                   @p26='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
+                   @p27='77' (Nullable = true)
+                   @p28='78' (Nullable = true) (DbType = Decimal)
+                   @p29='-128' (Nullable = true)
+                   @p30='128' (Nullable = true) (Size = 1)
+                   @p31='79' (Nullable = true)
+                   @p32='Your' (Size = 255)
+                   @p33='And now' (Size = 255)
+                   @p34='strong' (Size = 255)
+                   @p35='this...' (Size = 255)
+                   @p36='help' (Size = 255)
+                   @p37='anyone!' (Size = 255)
+                   @p38='Gumball Rules OK!' (Size = 255)
+                   @p39='don't' (Size = 255)
+                   @p40='Gumball Rules!' (Size = 255)
+                   @p41='C' (Size = 255)
+                   @p42='short' (Size = 255)
+                   @p43='11:15:12' (Nullable = true)
+                   @p44='11:15:12' (Nullable = true)
+                   @p45='65535' (Nullable = true)
+                   @p46='4294967295' (Nullable = true) (DbType = Decimal)
+                   @p47='-1' (Nullable = true)
+                   @p48='18446744073709551615' (Nullable = true) (Precision = 20)
+                   @p49='18446744073709551615' (Nullable = true) (Precision = 20)
+                   @p50='-1' (Nullable = true)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1698,7 +1716,7 @@ parameters,
         }
 
         private static MappedNullableDataTypesWithIdentity CreateMappedNullableDataTypesWithIdentity(int id)
-            => new MappedNullableDataTypesWithIdentity
+            => new()
             {
                 Int = id,
                 LongAsBigint = 78L,
@@ -1733,9 +1751,9 @@ parameters,
                 StringAsCharacterVaryingMaxUtf8 = "this...",
                 StringAsText = "Gumball Rules!",
                 StringAsNtext = "Gumball Rules OK!",
-                BytesAsVarbinaryMax = new byte[] { 89, 90, 91, 92 },
-                BytesAsVaryingMax = new byte[] { 93, 94, 95, 96 },
-                BytesAsImage = new byte[] { 97, 98, 99, 100 },
+                BytesAsVarbinaryMax = [89, 90, 91, 92],
+                BytesAsVaryingMax = [93, 94, 95, 96],
+                BytesAsImage = [97, 98, 99, 100],
                 Decimal = 101m,
                 DecimalAsDec = 102m,
                 DecimalAsNumeric = 103m,
@@ -1771,57 +1789,59 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0=NULL (DbType = Boolean)
-@p1=NULL (DbType = Byte)
-@p2=NULL (Size = 510) (DbType = Binary)
-@p3=NULL (Size = 510) (DbType = Binary)
-@p4=NULL (Size = 510) (DbType = Binary)
-@p5=NULL (Size = 1)
-@p6=NULL (Size = 255)
-@p7=NULL (DbType = Int32)
-@p8=NULL (Size = 1)
-@p9=NULL (Size = 255)
-@p10=NULL (Size = 1)
-@p11=NULL (Size = 1)
-@p12=NULL (Size = 1)
-@p13=NULL (Size = 1)
-@p14=NULL (DbType = Date)
-@p15=NULL (DbType = DateTime)
-@p16=NULL (DbType = DateTime)
-@p17=NULL (Precision = 18) (DbType = Decimal)
-@p18=NULL (Precision = 18) (DbType = Decimal)
-@p19=NULL {(isoledb ? "(DbType = Currency)" : "(DbType = Decimal)")}
-@p20=NULL (Precision = 18) (DbType = Decimal)
-@p21=NULL (DbType = Double)
-@p22=NULL (DbType = Double)
-@p23=NULL (DbType = Int32)
-@p24=NULL (Size = 255)
-@p25=NULL (DbType = Single)
-@p26=NULL (DbType = Guid)
-@p27='78' (Nullable = true)
-@p28=NULL (DbType = Decimal)
-@p29=NULL (DbType = Int16)
-@p30=NULL (DbType = Byte)
-@p31=NULL (DbType = Int16)
-@p32=NULL (Size = 255)
-@p33=NULL (Size = 255)
-@p34=NULL (Size = 255)
-@p35=NULL (Size = 255)
-@p36=NULL (Size = 255)
-@p37=NULL (Size = 255)
-@p38=NULL (Size = 255)
-@p39=NULL (Size = 255)
-@p40=NULL (Size = 255)
-@p41=NULL (Size = 255)
-@p42=NULL (Size = 255)
-@p43=NULL (DbType = Time)
-@p44=NULL (DbType = Time)
-@p45=NULL (DbType = Int32)
-@p46=NULL (DbType = Decimal)
-@p47=NULL (DbType = Int32)
-@p48=NULL (Precision = 20) (DbType = Decimal)
-@p49=NULL (Precision = 20) (DbType = Decimal)
-@p50=NULL (DbType = Int16)",
+                $"""
+                   @p0=NULL (DbType = Boolean)
+                   @p1=NULL (DbType = Byte)
+                   @p2=NULL (Size = 510) (DbType = Binary)
+                   @p3=NULL (Size = 510) (DbType = Binary)
+                   @p4=NULL (Size = 510) (DbType = Binary)
+                   @p5=NULL (Size = 1)
+                   @p6=NULL (Size = 255)
+                   @p7=NULL (DbType = Int32)
+                   @p8=NULL (Size = 1)
+                   @p9=NULL (Size = 255)
+                   @p10=NULL (Size = 1)
+                   @p11=NULL (Size = 1)
+                   @p12=NULL (Size = 1)
+                   @p13=NULL (Size = 1)
+                   @p14=NULL (DbType = Date)
+                   @p15=NULL (DbType = DateTime)
+                   @p16=NULL (DbType = DateTime)
+                   @p17=NULL (Precision = 18) (DbType = Decimal)
+                   @p18=NULL (Precision = 18) (DbType = Decimal)
+                   @p19=NULL {(isoledb ? "(DbType = Currency)" : "(DbType = Decimal)")}
+                   @p20=NULL (Precision = 18) (DbType = Decimal)
+                   @p21=NULL (DbType = Double)
+                   @p22=NULL (DbType = Double)
+                   @p23=NULL (DbType = Int32)
+                   @p24=NULL (Size = 255)
+                   @p25=NULL (DbType = Single)
+                   @p26=NULL (DbType = Guid)
+                   @p27='78' (Nullable = true)
+                   @p28=NULL (DbType = Decimal)
+                   @p29=NULL (DbType = Int16)
+                   @p30=NULL (DbType = Byte)
+                   @p31=NULL (DbType = Int16)
+                   @p32=NULL (Size = 255)
+                   @p33=NULL (Size = 255)
+                   @p34=NULL (Size = 255)
+                   @p35=NULL (Size = 255)
+                   @p36=NULL (Size = 255)
+                   @p37=NULL (Size = 255)
+                   @p38=NULL (Size = 255)
+                   @p39=NULL (Size = 255)
+                   @p40=NULL (Size = 255)
+                   @p41=NULL (Size = 255)
+                   @p42=NULL (Size = 255)
+                   @p43=NULL (DbType = Time)
+                   @p44=NULL (DbType = Time)
+                   @p45=NULL (DbType = Int32)
+                   @p46=NULL (DbType = Decimal)
+                   @p47=NULL (DbType = Int32)
+                   @p48=NULL (Precision = 20) (DbType = Decimal)
+                   @p49=NULL (Precision = 20) (DbType = Decimal)
+                   @p50=NULL (DbType = Int16)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1901,31 +1921,33 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='0x0A0B0C' (Size = 3)
-@p1='0x0C0D0E' (Size = 3)
-@p2='0x0B0C0D' (Size = 3)
-@p3='B' (Size = 3)
-@p4='C' (Size = 3)
-@p5='E' (Size = 3)
-@p6='F' (Size = 3)
-@p7='D' (Size = 3)
-@p8='A' (Size = 3)
-@p9='77'
-@p10='Wor' (Size = 3)
-@p11='Wha' (Size = 3)
-@p12='Thr' (Size = 3)
-@p13='tex' (Size = 3)
-@p14='Lon' (Size = 3)
-@p15='doe' (Size = 3)
-@p16='Let' (Size = 3)
-@p17='men' (Size = 3)
-@p18='The' (Size = 3)
-@p19='Squ' (Size = 3)
-@p20='Col' (Size = 3)
-@p21='Won' (Size = 3)
-@p22='Int' (Size = 3)
-@p23='Tha' (Size = 3)
-@p24='the' (Size = 3)",
+                $"""
+                   @p0='0x0A0B0C' (Size = 3)
+                   @p1='0x0C0D0E' (Size = 3)
+                   @p2='0x0B0C0D' (Size = 3)
+                   @p3='B' (Size = 3)
+                   @p4='C' (Size = 3)
+                   @p5='E' (Size = 3)
+                   @p6='F' (Size = 3)
+                   @p7='D' (Size = 3)
+                   @p8='A' (Size = 3)
+                   @p9='77'
+                   @p10='Wor' (Size = 3)
+                   @p11='Wha' (Size = 3)
+                   @p12='Thr' (Size = 3)
+                   @p13='tex' (Size = 3)
+                   @p14='Lon' (Size = 3)
+                   @p15='doe' (Size = 3)
+                   @p16='Let' (Size = 3)
+                   @p17='men' (Size = 3)
+                   @p18='The' (Size = 3)
+                   @p19='Squ' (Size = 3)
+                   @p20='Col' (Size = 3)
+                   @p21='Won' (Size = 3)
+                   @p22='Int' (Size = 3)
+                   @p23='Tha' (Size = 3)
+                   @p24='the' (Size = 3)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -1965,7 +1987,7 @@ parameters,
         }
 
         private static MappedSizedDataTypesWithIdentity CreateMappedSizedDataTypesWithIdentity(int id)
-            => new MappedSizedDataTypesWithIdentity
+            => new()
             {
                 Int = id,
                 StringAsChar3 = "Wor",
@@ -1983,9 +2005,9 @@ parameters,
                 StringAsVarchar3Utf8 = "the",
                 StringAsCharVarying3Utf8 = "tex",
                 StringAsCharacterVarying3Utf8 = "men",
-                BytesAsBinary3 = new byte[] { 10, 11, 12 },
-                BytesAsVarbinary3 = new byte[] { 11, 12, 13 },
-                BytesAsBinaryVarying3 = new byte[] { 12, 13, 14 },
+                BytesAsBinary3 = [10, 11, 12],
+                BytesAsVarbinary3 = [11, 12, 13],
+                BytesAsBinaryVarying3 = [12, 13, 14],
                 CharAsVarchar3 = 'A',
                 CharAsAsCharVarying3 = 'B',
                 CharAsCharacterVarying3 = 'C',
@@ -2006,31 +2028,33 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0=NULL (Size = 3) (DbType = Binary)
-@p1=NULL (Size = 3) (DbType = Binary)
-@p2=NULL (Size = 3) (DbType = Binary)
-@p3=NULL (Size = 3)
-@p4=NULL (Size = 3)
-@p5=NULL (Size = 3)
-@p6=NULL (Size = 3)
-@p7=NULL (Size = 3)
-@p8=NULL (Size = 3)
-@p9='78'
-@p10=NULL (Size = 3)
-@p11=NULL (Size = 3)
-@p12=NULL (Size = 3)
-@p13=NULL (Size = 3)
-@p14=NULL (Size = 3)
-@p15=NULL (Size = 3)
-@p16=NULL (Size = 3)
-@p17=NULL (Size = 3)
-@p18=NULL (Size = 3)
-@p19=NULL (Size = 3)
-@p20=NULL (Size = 3)
-@p21=NULL (Size = 3)
-@p22=NULL (Size = 3)
-@p23=NULL (Size = 3)
-@p24=NULL (Size = 3)",
+                $"""
+                   @p0=NULL (Size = 3) (DbType = Binary)
+                   @p1=NULL (Size = 3) (DbType = Binary)
+                   @p2=NULL (Size = 3) (DbType = Binary)
+                   @p3=NULL (Size = 3)
+                   @p4=NULL (Size = 3)
+                   @p5=NULL (Size = 3)
+                   @p6=NULL (Size = 3)
+                   @p7=NULL (Size = 3)
+                   @p8=NULL (Size = 3)
+                   @p9='78'
+                   @p10=NULL (Size = 3)
+                   @p11=NULL (Size = 3)
+                   @p12=NULL (Size = 3)
+                   @p13=NULL (Size = 3)
+                   @p14=NULL (Size = 3)
+                   @p15=NULL (Size = 3)
+                   @p16=NULL (Size = 3)
+                   @p17=NULL (Size = 3)
+                   @p18=NULL (Size = 3)
+                   @p19=NULL (Size = 3)
+                   @p20=NULL (Size = 3)
+                   @p21=NULL (Size = 3)
+                   @p22=NULL (Size = 3)
+                   @p23=NULL (Size = 3)
+                   @p24=NULL (Size = 3)
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -2081,16 +2105,18 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='102' (Precision = 3)
-@p1='101' (Precision = 3)
-@p2='103' (Precision = 3)
-@p3='85.55'
-@p4='85.5'
-@p5='83.33000183105469'
-@p6='83.30000305175781'
-@p7='77'
-@p8='12:34:56'
-@p9='12:34:56'",
+                $"""
+                   @p0='102' (Precision = 3)
+                   @p1='101' (Precision = 3)
+                   @p2='103' (Precision = 3)
+                   @p3='85.55'
+                   @p4='85.5'
+                   @p5='83.33000183105469'
+                   @p6='83.30000305175781'
+                   @p7='77'
+                   @p8='12:34:56'
+                   @p9='12:34:56'
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -2118,7 +2144,7 @@ parameters,
         }
 
         private static MappedScaledDataTypesWithIdentity CreateMappedScaledDataTypesWithIdentity(int id)
-            => new MappedScaledDataTypesWithIdentity
+            => new()
             {
                 Int = id,
                 FloatAsFloat3 = 83.3f,
@@ -2147,10 +2173,12 @@ parameters,
 
             var parameters = DumpParameters();
             Assert.Equal(
-               $@"@p0='102.2' (Precision = 5) (Scale = 2)
-@p1='101.1' (Precision = 5) (Scale = 2)
-@p2='103.3' (Precision = 5) (Scale = 2)
-@p3='77'",
+                $"""
+                   @p0='102.2' (Precision = 5) (Scale = 2)
+                   @p1='101.1' (Precision = 5) (Scale = 2)
+                   @p2='103.3' (Precision = 5) (Scale = 2)
+                   @p3='77'
+                   """,
                 parameters,
                 ignoreLineEndingDifferences: true);
 
@@ -2171,7 +2199,7 @@ parameters,
         }
 
         private static MappedPrecisionAndScaledDataTypesWithIdentity CreateMappedPrecisionAndScaledDataTypesWithIdentity(int id)
-            => new MappedPrecisionAndScaledDataTypesWithIdentity
+            => new()
             {
                 Int = id,
                 DecimalAsDecimal52 = 101.1m,
@@ -2475,443 +2503,445 @@ parameters,
                 CreateContext(),
                 nameof(ObjectBackedDataTypes), nameof(NullableBackedDataTypes), nameof(NonNullableBackedDataTypes));
 
-            const string expected = @"#Dual.ID ---> [integer]
-Animal.Id ---> [counter]
-AnimalDetails.AnimalId ---> [nullable integer]
-AnimalDetails.BoolField ---> [integer]
-AnimalDetails.Id ---> [counter]
-AnimalIdentification.AnimalId ---> [integer]
-AnimalIdentification.Id ---> [counter]
-AnimalIdentification.Method ---> [integer]
-BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable varbinary] [MaxLength = 510]
-BinaryForeignKeyDataType.Id ---> [integer]
-BinaryKeyDataType.Ex ---> [nullable varchar] [MaxLength = 255]
-BinaryKeyDataType.Id ---> [varbinary] [MaxLength = 510]
-BuiltInDataTypes.Enum16 ---> [smallint]
-BuiltInDataTypes.Enum32 ---> [integer]
-BuiltInDataTypes.Enum64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypes.Enum8 ---> [byte]
-BuiltInDataTypes.EnumS8 ---> [smallint]
-BuiltInDataTypes.EnumU16 ---> [integer]
-BuiltInDataTypes.EnumU32 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypes.EnumU64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypes.Id ---> [integer]
-BuiltInDataTypes.PartitionId ---> [integer]
-BuiltInDataTypes.TestBoolean ---> [smallint]
-BuiltInDataTypes.TestByte ---> [byte]
-BuiltInDataTypes.TestCharacter ---> [varchar] [MaxLength = 1]
-BuiltInDataTypes.TestDateOnly ---> [datetime]
-BuiltInDataTypes.TestDateTime ---> [datetime]
-BuiltInDataTypes.TestDateTimeOffset ---> [datetime]
-BuiltInDataTypes.TestDecimal ---> [decimal] [Precision = 18 Scale = 2]
-BuiltInDataTypes.TestDouble ---> [double]
-BuiltInDataTypes.TestInt16 ---> [smallint]
-BuiltInDataTypes.TestInt32 ---> [integer]
-BuiltInDataTypes.TestInt64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypes.TestSignedByte ---> [smallint]
-BuiltInDataTypes.TestSingle ---> [single]
-BuiltInDataTypes.TestTimeOnly ---> [datetime]
-BuiltInDataTypes.TestTimeSpan ---> [datetime]
-BuiltInDataTypes.TestUnsignedInt16 ---> [integer]
-BuiltInDataTypes.TestUnsignedInt32 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypes.TestUnsignedInt64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.Enum16 ---> [smallint]
-BuiltInDataTypesShadow.Enum32 ---> [integer]
-BuiltInDataTypesShadow.Enum64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.Enum8 ---> [byte]
-BuiltInDataTypesShadow.EnumS8 ---> [smallint]
-BuiltInDataTypesShadow.EnumU16 ---> [integer]
-BuiltInDataTypesShadow.EnumU32 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.EnumU64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.Id ---> [integer]
-BuiltInDataTypesShadow.PartitionId ---> [integer]
-BuiltInDataTypesShadow.TestBoolean ---> [smallint]
-BuiltInDataTypesShadow.TestByte ---> [byte]
-BuiltInDataTypesShadow.TestCharacter ---> [varchar] [MaxLength = 1]
-BuiltInDataTypesShadow.TestDateOnly ---> [datetime]
-BuiltInDataTypesShadow.TestDateTime ---> [datetime]
-BuiltInDataTypesShadow.TestDateTimeOffset ---> [datetime]
-BuiltInDataTypesShadow.TestDecimal ---> [decimal] [Precision = 18 Scale = 2]
-BuiltInDataTypesShadow.TestDouble ---> [double]
-BuiltInDataTypesShadow.TestInt16 ---> [smallint]
-BuiltInDataTypesShadow.TestInt32 ---> [integer]
-BuiltInDataTypesShadow.TestInt64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.TestSignedByte ---> [smallint]
-BuiltInDataTypesShadow.TestSingle ---> [single]
-BuiltInDataTypesShadow.TestTimeOnly ---> [datetime]
-BuiltInDataTypesShadow.TestTimeSpan ---> [datetime]
-BuiltInDataTypesShadow.TestUnsignedInt16 ---> [integer]
-BuiltInDataTypesShadow.TestUnsignedInt32 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInDataTypesShadow.TestUnsignedInt64 ---> [decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.Enum16 ---> [nullable smallint]
-BuiltInNullableDataTypes.Enum32 ---> [nullable integer]
-BuiltInNullableDataTypes.Enum64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.Enum8 ---> [nullable byte]
-BuiltInNullableDataTypes.EnumS8 ---> [nullable smallint]
-BuiltInNullableDataTypes.EnumU16 ---> [nullable integer]
-BuiltInNullableDataTypes.EnumU32 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.EnumU64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.Id ---> [integer]
-BuiltInNullableDataTypes.PartitionId ---> [integer]
-BuiltInNullableDataTypes.TestByteArray ---> [nullable longbinary]
-BuiltInNullableDataTypes.TestNullableBoolean ---> [nullable smallint]
-BuiltInNullableDataTypes.TestNullableByte ---> [nullable byte]
-BuiltInNullableDataTypes.TestNullableCharacter ---> [nullable varchar] [MaxLength = 1]
-BuiltInNullableDataTypes.TestNullableDateOnly ---> [nullable datetime]
-BuiltInNullableDataTypes.TestNullableDateTime ---> [nullable datetime]
-BuiltInNullableDataTypes.TestNullableDateTimeOffset ---> [nullable datetime]
-BuiltInNullableDataTypes.TestNullableDecimal ---> [nullable decimal] [Precision = 18 Scale = 2]
-BuiltInNullableDataTypes.TestNullableDouble ---> [nullable double]
-BuiltInNullableDataTypes.TestNullableInt16 ---> [nullable smallint]
-BuiltInNullableDataTypes.TestNullableInt32 ---> [nullable integer]
-BuiltInNullableDataTypes.TestNullableInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.TestNullableSignedByte ---> [nullable smallint]
-BuiltInNullableDataTypes.TestNullableSingle ---> [nullable single]
-BuiltInNullableDataTypes.TestNullableTimeOnly ---> [nullable datetime]
-BuiltInNullableDataTypes.TestNullableTimeSpan ---> [nullable datetime]
-BuiltInNullableDataTypes.TestNullableUnsignedInt16 ---> [nullable integer]
-BuiltInNullableDataTypes.TestNullableUnsignedInt32 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.TestNullableUnsignedInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypes.TestString ---> [nullable varchar] [MaxLength = 255]
-BuiltInNullableDataTypesShadow.Enum16 ---> [nullable smallint]
-BuiltInNullableDataTypesShadow.Enum32 ---> [nullable integer]
-BuiltInNullableDataTypesShadow.Enum64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.Enum8 ---> [nullable byte]
-BuiltInNullableDataTypesShadow.EnumS8 ---> [nullable smallint]
-BuiltInNullableDataTypesShadow.EnumU16 ---> [nullable integer]
-BuiltInNullableDataTypesShadow.EnumU32 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.EnumU64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.Id ---> [integer]
-BuiltInNullableDataTypesShadow.PartitionId ---> [integer]
-BuiltInNullableDataTypesShadow.TestByteArray ---> [nullable longbinary]
-BuiltInNullableDataTypesShadow.TestNullableBoolean ---> [nullable smallint]
-BuiltInNullableDataTypesShadow.TestNullableByte ---> [nullable byte]
-BuiltInNullableDataTypesShadow.TestNullableCharacter ---> [nullable varchar] [MaxLength = 1]
-BuiltInNullableDataTypesShadow.TestNullableDateOnly ---> [nullable datetime]
-BuiltInNullableDataTypesShadow.TestNullableDateTime ---> [nullable datetime]
-BuiltInNullableDataTypesShadow.TestNullableDateTimeOffset ---> [nullable datetime]
-BuiltInNullableDataTypesShadow.TestNullableDecimal ---> [nullable decimal] [Precision = 18 Scale = 2]
-BuiltInNullableDataTypesShadow.TestNullableDouble ---> [nullable double]
-BuiltInNullableDataTypesShadow.TestNullableInt16 ---> [nullable smallint]
-BuiltInNullableDataTypesShadow.TestNullableInt32 ---> [nullable integer]
-BuiltInNullableDataTypesShadow.TestNullableInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.TestNullableSignedByte ---> [nullable smallint]
-BuiltInNullableDataTypesShadow.TestNullableSingle ---> [nullable single]
-BuiltInNullableDataTypesShadow.TestNullableTimeOnly ---> [nullable datetime]
-BuiltInNullableDataTypesShadow.TestNullableTimeSpan ---> [nullable datetime]
-BuiltInNullableDataTypesShadow.TestNullableUnsignedInt16 ---> [nullable integer]
-BuiltInNullableDataTypesShadow.TestNullableUnsignedInt32 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.TestNullableUnsignedInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
-BuiltInNullableDataTypesShadow.TestString ---> [nullable varchar] [MaxLength = 255]
-DateTimeEnclosure.DateTimeOffset ---> [nullable datetime]
-DateTimeEnclosure.Id ---> [counter]
-EmailTemplate.Id ---> [guid]
-EmailTemplate.TemplateType ---> [integer]
-MappedDataTypes.BoolAsBit ---> [bit]
-MappedDataTypes.ByteAsTinyint ---> [byte]
-MappedDataTypes.BytesAsBinaryVaryingMax ---> [varbinary] [MaxLength = 510]
-MappedDataTypes.BytesAsImage ---> [longbinary]
-MappedDataTypes.BytesAsVarbinaryMax ---> [varbinary] [MaxLength = 510]
-MappedDataTypes.CharAsAsCharVarying ---> [varchar] [MaxLength = 1]
-MappedDataTypes.CharAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.CharAsInt ---> [integer]
-MappedDataTypes.CharAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.CharAsNationalCharVarying ---> [varchar] [MaxLength = 1]
-MappedDataTypes.CharAsNtext ---> [longchar]
-MappedDataTypes.CharAsNvarchar ---> [varchar] [MaxLength = 1]
-MappedDataTypes.CharAsText ---> [varchar] [MaxLength = 1]
-MappedDataTypes.CharAsVarchar ---> [varchar] [MaxLength = 1]
-MappedDataTypes.DateOnlyAsDate ---> [datetime]
-MappedDataTypes.DateTimeAsDate ---> [datetime]
-MappedDataTypes.DateTimeAsDatetime ---> [datetime]
-MappedDataTypes.Decimal ---> [decimal] [Precision = 18 Scale = 0]
-MappedDataTypes.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 0]
-MappedDataTypes.DecimalAsMoney ---> [currency]
-MappedDataTypes.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 0]
-MappedDataTypes.DoubleAsDoublePrecision ---> [double]
-MappedDataTypes.DoubleAsFloat ---> [double]
-MappedDataTypes.EnumAsNvarchar20 ---> [integer]
-MappedDataTypes.EnumAsVarcharMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.FloatAsReal ---> [single]
-MappedDataTypes.GuidAsUniqueidentifier ---> [guid]
-MappedDataTypes.Int ---> [integer]
-MappedDataTypes.LongAsBigInt ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypes.SByteAsSmallint ---> [smallint]
-MappedDataTypes.SByteAsTinyint ---> [byte]
-MappedDataTypes.ShortAsSmallint ---> [smallint]
-MappedDataTypes.StringAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsCharacterVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsCharVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsCharVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsNationalCharVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsNtext ---> [longchar]
-MappedDataTypes.StringAsNvarcharMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsText ---> [longchar]
-MappedDataTypes.StringAsVarcharMax ---> [varchar] [MaxLength = 255]
-MappedDataTypes.StringAsVarcharMaxUtf8 ---> [varchar] [MaxLength = 255]
-MappedDataTypes.TimeOnlyAsTime ---> [datetime]
-MappedDataTypes.TimeSpanAsTime ---> [datetime]
-MappedDataTypes.UintAsBigint ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypes.UintAsInt ---> [integer]
-MappedDataTypes.UlongAsBigint ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypes.UlongAsDecimal200 ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypes.UShortAsInt ---> [integer]
-MappedDataTypes.UShortAsSmallint ---> [smallint]
-MappedDataTypesWithIdentity.BoolAsBit ---> [bit]
-MappedDataTypesWithIdentity.ByteAsTinyint ---> [byte]
-MappedDataTypesWithIdentity.BytesAsBinaryVaryingMax ---> [varbinary] [MaxLength = 255]
-MappedDataTypesWithIdentity.BytesAsImage ---> [longbinary]
-MappedDataTypesWithIdentity.BytesAsVarbinaryMax ---> [varbinary] [MaxLength = 255]
-MappedDataTypesWithIdentity.CharAsAsCharVarying ---> [varchar] [MaxLength = 1]
-MappedDataTypesWithIdentity.CharAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.CharAsInt ---> [integer]
-MappedDataTypesWithIdentity.CharAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.CharAsNationalCharVarying ---> [varchar] [MaxLength = 1]
-MappedDataTypesWithIdentity.CharAsNtext ---> [longchar]
-MappedDataTypesWithIdentity.CharAsNvarchar ---> [varchar] [MaxLength = 1]
-MappedDataTypesWithIdentity.CharAsText ---> [varchar] [MaxLength = 1]
-MappedDataTypesWithIdentity.CharAsVarchar ---> [varchar] [MaxLength = 1]
-MappedDataTypesWithIdentity.DateOnlyAsDate ---> [datetime]
-MappedDataTypesWithIdentity.DateTimeAsDate ---> [datetime]
-MappedDataTypesWithIdentity.DateTimeAsDatetime ---> [datetime]
-MappedDataTypesWithIdentity.Decimal ---> [decimal] [Precision = 18 Scale = 0]
-MappedDataTypesWithIdentity.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 0]
-MappedDataTypesWithIdentity.DecimalAsMoney ---> [currency]
-MappedDataTypesWithIdentity.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 0]
-MappedDataTypesWithIdentity.DoubleAsDoublePrecision ---> [double]
-MappedDataTypesWithIdentity.DoubleAsFloat ---> [double]
-MappedDataTypesWithIdentity.EnumAsNvarchar20 ---> [integer]
-MappedDataTypesWithIdentity.EnumAsVarcharMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.FloatAsReal ---> [single]
-MappedDataTypesWithIdentity.GuidAsUniqueidentifier ---> [guid]
-MappedDataTypesWithIdentity.Id ---> [counter]
-MappedDataTypesWithIdentity.Int ---> [integer]
-MappedDataTypesWithIdentity.LongAsBigint ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypesWithIdentity.SByteAsSmallint ---> [smallint]
-MappedDataTypesWithIdentity.SbyteAsTinyint ---> [byte]
-MappedDataTypesWithIdentity.ShortAsSmallint ---> [smallint]
-MappedDataTypesWithIdentity.StringAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsCharacterVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsCharVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsCharVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsNationalCharVaryingMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsNtext ---> [longchar]
-MappedDataTypesWithIdentity.StringAsNvarcharMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsText ---> [longchar]
-MappedDataTypesWithIdentity.StringAsVarcharMax ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.StringAsVarcharMaxUtf8 ---> [varchar] [MaxLength = 255]
-MappedDataTypesWithIdentity.TimeOnlyAsTime ---> [datetime]
-MappedDataTypesWithIdentity.TimeSpanAsTime ---> [datetime]
-MappedDataTypesWithIdentity.UintAsBigint ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypesWithIdentity.UintAsInt ---> [integer]
-MappedDataTypesWithIdentity.UlongAsBigint ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypesWithIdentity.UlongAsDecimal200 ---> [decimal] [Precision = 20 Scale = 0]
-MappedDataTypesWithIdentity.UShortAsInt ---> [integer]
-MappedDataTypesWithIdentity.UShortAsSmallint ---> [smallint]
-MappedNullableDataTypes.BoolAsBit ---> [nullable bit]
-MappedNullableDataTypes.ByteAsTinyint ---> [nullable byte]
-MappedNullableDataTypes.BytesAsBinaryVaryingMax ---> [nullable varbinary] [MaxLength = 510]
-MappedNullableDataTypes.BytesAsImage ---> [nullable longbinary]
-MappedNullableDataTypes.BytesAsVarbinaryMax ---> [nullable varbinary] [MaxLength = 510]
-MappedNullableDataTypes.CharAsAsCharVarying ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypes.CharAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.CharAsInt ---> [nullable integer]
-MappedNullableDataTypes.CharAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.CharAsNationalCharVarying ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypes.CharAsNtext ---> [nullable longchar]
-MappedNullableDataTypes.CharAsNvarchar ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypes.CharAsText ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypes.CharAsVarchar ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypes.DateOnlyAsDate ---> [nullable datetime]
-MappedNullableDataTypes.DateTimeAsDate ---> [nullable datetime]
-MappedNullableDataTypes.DateTimeAsDatetime ---> [nullable datetime]
-MappedNullableDataTypes.Decimal ---> [nullable decimal] [Precision = 18 Scale = 0]
-MappedNullableDataTypes.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 0]
-MappedNullableDataTypes.DecimalAsMoney ---> [nullable currency]
-MappedNullableDataTypes.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 0]
-MappedNullableDataTypes.DoubleAsDoublePrecision ---> [nullable double]
-MappedNullableDataTypes.DoubleAsFloat ---> [nullable double]
-MappedNullableDataTypes.EnumAsNvarchar20 ---> [nullable integer]
-MappedNullableDataTypes.EnumAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.FloatAsReal ---> [nullable single]
-MappedNullableDataTypes.GuidAsUniqueidentifier ---> [nullable guid]
-MappedNullableDataTypes.Int ---> [integer]
-MappedNullableDataTypes.LongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypes.SByteAsSmallint ---> [nullable smallint]
-MappedNullableDataTypes.SbyteAsTinyint ---> [nullable byte]
-MappedNullableDataTypes.ShortAsSmallint ---> [nullable smallint]
-MappedNullableDataTypes.StringAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsCharacterVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsCharVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsNationalCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsNtext ---> [nullable longchar]
-MappedNullableDataTypes.StringAsNvarcharMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsText ---> [nullable longchar]
-MappedNullableDataTypes.StringAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.StringAsVarcharMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypes.TimeOnlyAsTime ---> [nullable datetime]
-MappedNullableDataTypes.TimeSpanAsTime ---> [nullable datetime]
-MappedNullableDataTypes.UintAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypes.UintAsInt ---> [nullable integer]
-MappedNullableDataTypes.UlongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypes.UlongAsDecimal200 ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypes.UShortAsInt ---> [nullable integer]
-MappedNullableDataTypes.UShortAsSmallint ---> [nullable smallint]
-MappedNullableDataTypesWithIdentity.BoolAsBit ---> [nullable bit]
-MappedNullableDataTypesWithIdentity.ByteAsTinyint ---> [nullable byte]
-MappedNullableDataTypesWithIdentity.BytesAsImage ---> [nullable longbinary]
-MappedNullableDataTypesWithIdentity.BytesAsVarbinaryMax ---> [nullable varbinary] [MaxLength = 510]
-MappedNullableDataTypesWithIdentity.BytesAsVaryingMax ---> [nullable varbinary] [MaxLength = 510]
-MappedNullableDataTypesWithIdentity.CharAsAsCharVarying ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypesWithIdentity.CharAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.CharAsInt ---> [nullable integer]
-MappedNullableDataTypesWithIdentity.CharAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.CharAsNationalCharVarying ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypesWithIdentity.CharAsNtext ---> [nullable longchar]
-MappedNullableDataTypesWithIdentity.CharAsNvarchar ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypesWithIdentity.CharAsText ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypesWithIdentity.CharAsVarchar ---> [nullable varchar] [MaxLength = 1]
-MappedNullableDataTypesWithIdentity.DateOnlyAsDate ---> [nullable datetime]
-MappedNullableDataTypesWithIdentity.DateTimeAsDate ---> [nullable datetime]
-MappedNullableDataTypesWithIdentity.DateTimeAsDatetime ---> [nullable datetime]
-MappedNullableDataTypesWithIdentity.Decimal ---> [nullable decimal] [Precision = 18 Scale = 0]
-MappedNullableDataTypesWithIdentity.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 0]
-MappedNullableDataTypesWithIdentity.DecimalAsMoney ---> [nullable currency]
-MappedNullableDataTypesWithIdentity.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 0]
-MappedNullableDataTypesWithIdentity.DoubleAsDoublePrecision ---> [nullable double]
-MappedNullableDataTypesWithIdentity.DoubleAsFloat ---> [nullable double]
-MappedNullableDataTypesWithIdentity.EnumAsNvarchar20 ---> [nullable integer]
-MappedNullableDataTypesWithIdentity.EnumAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.FloatAsReal ---> [nullable single]
-MappedNullableDataTypesWithIdentity.GuidAsUniqueidentifier ---> [nullable guid]
-MappedNullableDataTypesWithIdentity.Id ---> [counter]
-MappedNullableDataTypesWithIdentity.Int ---> [nullable integer]
-MappedNullableDataTypesWithIdentity.LongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypesWithIdentity.SByteAsSmallint ---> [nullable smallint]
-MappedNullableDataTypesWithIdentity.SbyteAsTinyint ---> [nullable byte]
-MappedNullableDataTypesWithIdentity.ShortAsSmallint ---> [nullable smallint]
-MappedNullableDataTypesWithIdentity.StringAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsCharacterVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsCharVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsNationalCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsNtext ---> [nullable longchar]
-MappedNullableDataTypesWithIdentity.StringAsNvarcharMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsText ---> [nullable longchar]
-MappedNullableDataTypesWithIdentity.StringAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.StringAsVarcharMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
-MappedNullableDataTypesWithIdentity.TimeOnlyAsTime ---> [nullable datetime]
-MappedNullableDataTypesWithIdentity.TimeSpanAsTime ---> [nullable datetime]
-MappedNullableDataTypesWithIdentity.UintAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypesWithIdentity.UintAsInt ---> [nullable integer]
-MappedNullableDataTypesWithIdentity.UlongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypesWithIdentity.UlongAsDecimal200 ---> [nullable decimal] [Precision = 20 Scale = 0]
-MappedNullableDataTypesWithIdentity.UShortAsInt ---> [nullable integer]
-MappedNullableDataTypesWithIdentity.UshortAsSmallint ---> [nullable smallint]
-MappedPrecisionAndScaledDataTypes.DecimalAsDec52 ---> [decimal] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypes.DecimalAsDecimal52 ---> [decimal] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypes.DecimalAsNumeric52 ---> [decimal] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypes.Id ---> [integer]
-MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDec52 ---> [decimal] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDecimal52 ---> [decimal] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsNumeric52 ---> [decimal] [Precision = 5 Scale = 2]
-MappedPrecisionAndScaledDataTypesWithIdentity.Id ---> [counter]
-MappedPrecisionAndScaledDataTypesWithIdentity.Int ---> [integer]
-MappedScaledDataTypes.DecimalAsDec3 ---> [decimal] [Precision = 3 Scale = 0]
-MappedScaledDataTypes.DecimalAsDecimal3 ---> [decimal] [Precision = 3 Scale = 0]
-MappedScaledDataTypes.DecimalAsNumeric3 ---> [decimal] [Precision = 3 Scale = 0]
-MappedScaledDataTypes.FloatAsDoublePrecision25 ---> [double]
-MappedScaledDataTypes.FloatAsDoublePrecision3 ---> [double]
-MappedScaledDataTypes.FloatAsFloat25 ---> [double]
-MappedScaledDataTypes.FloatAsFloat3 ---> [double]
-MappedScaledDataTypes.Id ---> [integer]
-MappedScaledDataTypes.TimeOnlyAsTime3 ---> [datetime]
-MappedScaledDataTypes.TimeSpanAsTime3 ---> [datetime]
-MappedScaledDataTypesWithIdentity.DecimalAsDec3 ---> [decimal] [Precision = 3 Scale = 0]
-MappedScaledDataTypesWithIdentity.DecimalAsDecimal3 ---> [decimal] [Precision = 3 Scale = 0]
-MappedScaledDataTypesWithIdentity.DecimalAsNumeric3 ---> [decimal] [Precision = 3 Scale = 0]
-MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision25 ---> [double]
-MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision3 ---> [double]
-MappedScaledDataTypesWithIdentity.FloatAsFloat25 ---> [double]
-MappedScaledDataTypesWithIdentity.FloatAsFloat3 ---> [double]
-MappedScaledDataTypesWithIdentity.Id ---> [counter]
-MappedScaledDataTypesWithIdentity.Int ---> [integer]
-MappedScaledDataTypesWithIdentity.TimeOnlyAsTime3 ---> [datetime]
-MappedScaledDataTypesWithIdentity.TimeSpanAsTime3 ---> [datetime]
-MappedSizedDataTypes.BytesAsBinary3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypes.BytesAsBinaryVarying3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypes.BytesAsVarbinary3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypes.CharAsAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.CharAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.Id ---> [integer]
-MappedSizedDataTypes.StringAsChar3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypes.StringAsChar3Utf8 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypes.StringAsCharacter3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypes.StringAsCharacter3Utf8 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypes.StringAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsCharacterVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsCharVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNationalCharacter3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNchar3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypes.StringAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypes.StringAsVarchar3Utf8 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.BytesAsBinary3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.BytesAsBinaryVarying3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.BytesAsVarbinary3 ---> [nullable varbinary] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.CharAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.Id ---> [counter]
-MappedSizedDataTypesWithIdentity.Int ---> [integer]
-MappedSizedDataTypesWithIdentity.StringAsChar3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsChar3Utf8 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsCharacter3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsCharacter3Utf8 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsCharacterVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsCharVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNationalCharacter3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNchar3 ---> [nullable char] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
-MappedSizedDataTypesWithIdentity.StringAsVarchar3Utf8 ---> [nullable varchar] [MaxLength = 3]
-MaxLengthDataTypes.ByteArray5 ---> [nullable varbinary] [MaxLength = 5]
-MaxLengthDataTypes.ByteArray9000 ---> [nullable varbinary] [MaxLength = 255]
-MaxLengthDataTypes.Id ---> [integer]
-MaxLengthDataTypes.String3 ---> [nullable varchar] [MaxLength = 3]
-MaxLengthDataTypes.String9000 ---> [nullable varchar] [MaxLength = 255]
-MaxLengthDataTypes.StringUnbounded ---> [nullable varchar] [MaxLength = 255]
-StringEnclosure.Id ---> [counter]
-StringEnclosure.Value ---> [nullable varchar] [MaxLength = 255]
-StringForeignKeyDataType.Id ---> [integer]
-StringForeignKeyDataType.StringKeyDataTypeId ---> [nullable varchar] [MaxLength = 255]
-StringKeyDataType.Id ---> [varchar] [MaxLength = 255]
-UnicodeDataTypes.Id ---> [integer]
-UnicodeDataTypes.StringAnsi ---> [nullable varchar] [MaxLength = 255]
-UnicodeDataTypes.StringAnsi3 ---> [nullable varchar] [MaxLength = 3]
-UnicodeDataTypes.StringAnsi9000 ---> [nullable varchar] [MaxLength = 255]
-UnicodeDataTypes.StringDefault ---> [nullable varchar] [MaxLength = 255]
-UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
-";
+            const string expected = """
+                #Dual.ID ---> [integer]
+                Animal.Id ---> [counter]
+                AnimalDetails.AnimalId ---> [nullable integer]
+                AnimalDetails.BoolField ---> [integer]
+                AnimalDetails.Id ---> [counter]
+                AnimalIdentification.AnimalId ---> [integer]
+                AnimalIdentification.Id ---> [counter]
+                AnimalIdentification.Method ---> [integer]
+                BinaryForeignKeyDataType.BinaryKeyDataTypeId ---> [nullable varbinary] [MaxLength = 510]
+                BinaryForeignKeyDataType.Id ---> [integer]
+                BinaryKeyDataType.Ex ---> [nullable varchar] [MaxLength = 255]
+                BinaryKeyDataType.Id ---> [varbinary] [MaxLength = 510]
+                BuiltInDataTypes.Enum16 ---> [smallint]
+                BuiltInDataTypes.Enum32 ---> [integer]
+                BuiltInDataTypes.Enum64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypes.Enum8 ---> [byte]
+                BuiltInDataTypes.EnumS8 ---> [smallint]
+                BuiltInDataTypes.EnumU16 ---> [integer]
+                BuiltInDataTypes.EnumU32 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypes.EnumU64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypes.Id ---> [integer]
+                BuiltInDataTypes.PartitionId ---> [integer]
+                BuiltInDataTypes.TestBoolean ---> [smallint]
+                BuiltInDataTypes.TestByte ---> [byte]
+                BuiltInDataTypes.TestCharacter ---> [varchar] [MaxLength = 1]
+                BuiltInDataTypes.TestDateOnly ---> [datetime]
+                BuiltInDataTypes.TestDateTime ---> [datetime]
+                BuiltInDataTypes.TestDateTimeOffset ---> [datetime]
+                BuiltInDataTypes.TestDecimal ---> [decimal] [Precision = 18 Scale = 2]
+                BuiltInDataTypes.TestDouble ---> [double]
+                BuiltInDataTypes.TestInt16 ---> [smallint]
+                BuiltInDataTypes.TestInt32 ---> [integer]
+                BuiltInDataTypes.TestInt64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypes.TestSignedByte ---> [smallint]
+                BuiltInDataTypes.TestSingle ---> [single]
+                BuiltInDataTypes.TestTimeOnly ---> [datetime]
+                BuiltInDataTypes.TestTimeSpan ---> [datetime]
+                BuiltInDataTypes.TestUnsignedInt16 ---> [integer]
+                BuiltInDataTypes.TestUnsignedInt32 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypes.TestUnsignedInt64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypesShadow.Enum16 ---> [smallint]
+                BuiltInDataTypesShadow.Enum32 ---> [integer]
+                BuiltInDataTypesShadow.Enum64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypesShadow.Enum8 ---> [byte]
+                BuiltInDataTypesShadow.EnumS8 ---> [smallint]
+                BuiltInDataTypesShadow.EnumU16 ---> [integer]
+                BuiltInDataTypesShadow.EnumU32 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypesShadow.EnumU64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypesShadow.Id ---> [integer]
+                BuiltInDataTypesShadow.PartitionId ---> [integer]
+                BuiltInDataTypesShadow.TestBoolean ---> [smallint]
+                BuiltInDataTypesShadow.TestByte ---> [byte]
+                BuiltInDataTypesShadow.TestCharacter ---> [varchar] [MaxLength = 1]
+                BuiltInDataTypesShadow.TestDateOnly ---> [datetime]
+                BuiltInDataTypesShadow.TestDateTime ---> [datetime]
+                BuiltInDataTypesShadow.TestDateTimeOffset ---> [datetime]
+                BuiltInDataTypesShadow.TestDecimal ---> [decimal] [Precision = 18 Scale = 2]
+                BuiltInDataTypesShadow.TestDouble ---> [double]
+                BuiltInDataTypesShadow.TestInt16 ---> [smallint]
+                BuiltInDataTypesShadow.TestInt32 ---> [integer]
+                BuiltInDataTypesShadow.TestInt64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypesShadow.TestSignedByte ---> [smallint]
+                BuiltInDataTypesShadow.TestSingle ---> [single]
+                BuiltInDataTypesShadow.TestTimeOnly ---> [datetime]
+                BuiltInDataTypesShadow.TestTimeSpan ---> [datetime]
+                BuiltInDataTypesShadow.TestUnsignedInt16 ---> [integer]
+                BuiltInDataTypesShadow.TestUnsignedInt32 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInDataTypesShadow.TestUnsignedInt64 ---> [decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.Enum16 ---> [nullable smallint]
+                BuiltInNullableDataTypes.Enum32 ---> [nullable integer]
+                BuiltInNullableDataTypes.Enum64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.Enum8 ---> [nullable byte]
+                BuiltInNullableDataTypes.EnumS8 ---> [nullable smallint]
+                BuiltInNullableDataTypes.EnumU16 ---> [nullable integer]
+                BuiltInNullableDataTypes.EnumU32 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.EnumU64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.Id ---> [integer]
+                BuiltInNullableDataTypes.PartitionId ---> [integer]
+                BuiltInNullableDataTypes.TestByteArray ---> [nullable longbinary]
+                BuiltInNullableDataTypes.TestNullableBoolean ---> [nullable smallint]
+                BuiltInNullableDataTypes.TestNullableByte ---> [nullable byte]
+                BuiltInNullableDataTypes.TestNullableCharacter ---> [nullable varchar] [MaxLength = 1]
+                BuiltInNullableDataTypes.TestNullableDateOnly ---> [nullable datetime]
+                BuiltInNullableDataTypes.TestNullableDateTime ---> [nullable datetime]
+                BuiltInNullableDataTypes.TestNullableDateTimeOffset ---> [nullable datetime]
+                BuiltInNullableDataTypes.TestNullableDecimal ---> [nullable decimal] [Precision = 18 Scale = 2]
+                BuiltInNullableDataTypes.TestNullableDouble ---> [nullable double]
+                BuiltInNullableDataTypes.TestNullableInt16 ---> [nullable smallint]
+                BuiltInNullableDataTypes.TestNullableInt32 ---> [nullable integer]
+                BuiltInNullableDataTypes.TestNullableInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.TestNullableSignedByte ---> [nullable smallint]
+                BuiltInNullableDataTypes.TestNullableSingle ---> [nullable single]
+                BuiltInNullableDataTypes.TestNullableTimeOnly ---> [nullable datetime]
+                BuiltInNullableDataTypes.TestNullableTimeSpan ---> [nullable datetime]
+                BuiltInNullableDataTypes.TestNullableUnsignedInt16 ---> [nullable integer]
+                BuiltInNullableDataTypes.TestNullableUnsignedInt32 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.TestNullableUnsignedInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypes.TestString ---> [nullable varchar] [MaxLength = 255]
+                BuiltInNullableDataTypesShadow.Enum16 ---> [nullable smallint]
+                BuiltInNullableDataTypesShadow.Enum32 ---> [nullable integer]
+                BuiltInNullableDataTypesShadow.Enum64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypesShadow.Enum8 ---> [nullable byte]
+                BuiltInNullableDataTypesShadow.EnumS8 ---> [nullable smallint]
+                BuiltInNullableDataTypesShadow.EnumU16 ---> [nullable integer]
+                BuiltInNullableDataTypesShadow.EnumU32 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypesShadow.EnumU64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypesShadow.Id ---> [integer]
+                BuiltInNullableDataTypesShadow.PartitionId ---> [integer]
+                BuiltInNullableDataTypesShadow.TestByteArray ---> [nullable longbinary]
+                BuiltInNullableDataTypesShadow.TestNullableBoolean ---> [nullable smallint]
+                BuiltInNullableDataTypesShadow.TestNullableByte ---> [nullable byte]
+                BuiltInNullableDataTypesShadow.TestNullableCharacter ---> [nullable varchar] [MaxLength = 1]
+                BuiltInNullableDataTypesShadow.TestNullableDateOnly ---> [nullable datetime]
+                BuiltInNullableDataTypesShadow.TestNullableDateTime ---> [nullable datetime]
+                BuiltInNullableDataTypesShadow.TestNullableDateTimeOffset ---> [nullable datetime]
+                BuiltInNullableDataTypesShadow.TestNullableDecimal ---> [nullable decimal] [Precision = 18 Scale = 2]
+                BuiltInNullableDataTypesShadow.TestNullableDouble ---> [nullable double]
+                BuiltInNullableDataTypesShadow.TestNullableInt16 ---> [nullable smallint]
+                BuiltInNullableDataTypesShadow.TestNullableInt32 ---> [nullable integer]
+                BuiltInNullableDataTypesShadow.TestNullableInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypesShadow.TestNullableSignedByte ---> [nullable smallint]
+                BuiltInNullableDataTypesShadow.TestNullableSingle ---> [nullable single]
+                BuiltInNullableDataTypesShadow.TestNullableTimeOnly ---> [nullable datetime]
+                BuiltInNullableDataTypesShadow.TestNullableTimeSpan ---> [nullable datetime]
+                BuiltInNullableDataTypesShadow.TestNullableUnsignedInt16 ---> [nullable integer]
+                BuiltInNullableDataTypesShadow.TestNullableUnsignedInt32 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypesShadow.TestNullableUnsignedInt64 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                BuiltInNullableDataTypesShadow.TestString ---> [nullable varchar] [MaxLength = 255]
+                DateTimeEnclosure.DateTimeOffset ---> [nullable datetime]
+                DateTimeEnclosure.Id ---> [counter]
+                EmailTemplate.Id ---> [guid]
+                EmailTemplate.TemplateType ---> [integer]
+                MappedDataTypes.BoolAsBit ---> [bit]
+                MappedDataTypes.ByteAsTinyint ---> [byte]
+                MappedDataTypes.BytesAsBinaryVaryingMax ---> [varbinary] [MaxLength = 510]
+                MappedDataTypes.BytesAsImage ---> [longbinary]
+                MappedDataTypes.BytesAsVarbinaryMax ---> [varbinary] [MaxLength = 510]
+                MappedDataTypes.CharAsAsCharVarying ---> [varchar] [MaxLength = 1]
+                MappedDataTypes.CharAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.CharAsInt ---> [integer]
+                MappedDataTypes.CharAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.CharAsNationalCharVarying ---> [varchar] [MaxLength = 1]
+                MappedDataTypes.CharAsNtext ---> [longchar]
+                MappedDataTypes.CharAsNvarchar ---> [varchar] [MaxLength = 1]
+                MappedDataTypes.CharAsText ---> [varchar] [MaxLength = 1]
+                MappedDataTypes.CharAsVarchar ---> [varchar] [MaxLength = 1]
+                MappedDataTypes.DateOnlyAsDate ---> [datetime]
+                MappedDataTypes.DateTimeAsDate ---> [datetime]
+                MappedDataTypes.DateTimeAsDatetime ---> [datetime]
+                MappedDataTypes.Decimal ---> [decimal] [Precision = 18 Scale = 0]
+                MappedDataTypes.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 0]
+                MappedDataTypes.DecimalAsMoney ---> [currency]
+                MappedDataTypes.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 0]
+                MappedDataTypes.DoubleAsDoublePrecision ---> [double]
+                MappedDataTypes.DoubleAsFloat ---> [double]
+                MappedDataTypes.EnumAsNvarchar20 ---> [integer]
+                MappedDataTypes.EnumAsVarcharMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.FloatAsReal ---> [single]
+                MappedDataTypes.GuidAsUniqueidentifier ---> [guid]
+                MappedDataTypes.Int ---> [integer]
+                MappedDataTypes.LongAsBigInt ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypes.SByteAsSmallint ---> [smallint]
+                MappedDataTypes.SByteAsTinyint ---> [byte]
+                MappedDataTypes.ShortAsSmallint ---> [smallint]
+                MappedDataTypes.StringAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsCharacterVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsCharVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsCharVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsNationalCharVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsNtext ---> [longchar]
+                MappedDataTypes.StringAsNvarcharMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsText ---> [longchar]
+                MappedDataTypes.StringAsVarcharMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.StringAsVarcharMaxUtf8 ---> [varchar] [MaxLength = 255]
+                MappedDataTypes.TimeOnlyAsTime ---> [datetime]
+                MappedDataTypes.TimeSpanAsTime ---> [datetime]
+                MappedDataTypes.UintAsBigint ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypes.UintAsInt ---> [integer]
+                MappedDataTypes.UlongAsBigint ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypes.UlongAsDecimal200 ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypes.UShortAsInt ---> [integer]
+                MappedDataTypes.UShortAsSmallint ---> [smallint]
+                MappedDataTypesWithIdentity.BoolAsBit ---> [bit]
+                MappedDataTypesWithIdentity.ByteAsTinyint ---> [byte]
+                MappedDataTypesWithIdentity.BytesAsBinaryVaryingMax ---> [varbinary] [MaxLength = 255]
+                MappedDataTypesWithIdentity.BytesAsImage ---> [longbinary]
+                MappedDataTypesWithIdentity.BytesAsVarbinaryMax ---> [varbinary] [MaxLength = 255]
+                MappedDataTypesWithIdentity.CharAsAsCharVarying ---> [varchar] [MaxLength = 1]
+                MappedDataTypesWithIdentity.CharAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.CharAsInt ---> [integer]
+                MappedDataTypesWithIdentity.CharAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.CharAsNationalCharVarying ---> [varchar] [MaxLength = 1]
+                MappedDataTypesWithIdentity.CharAsNtext ---> [longchar]
+                MappedDataTypesWithIdentity.CharAsNvarchar ---> [varchar] [MaxLength = 1]
+                MappedDataTypesWithIdentity.CharAsText ---> [varchar] [MaxLength = 1]
+                MappedDataTypesWithIdentity.CharAsVarchar ---> [varchar] [MaxLength = 1]
+                MappedDataTypesWithIdentity.DateOnlyAsDate ---> [datetime]
+                MappedDataTypesWithIdentity.DateTimeAsDate ---> [datetime]
+                MappedDataTypesWithIdentity.DateTimeAsDatetime ---> [datetime]
+                MappedDataTypesWithIdentity.Decimal ---> [decimal] [Precision = 18 Scale = 0]
+                MappedDataTypesWithIdentity.DecimalAsDec ---> [decimal] [Precision = 18 Scale = 0]
+                MappedDataTypesWithIdentity.DecimalAsMoney ---> [currency]
+                MappedDataTypesWithIdentity.DecimalAsNumeric ---> [decimal] [Precision = 18 Scale = 0]
+                MappedDataTypesWithIdentity.DoubleAsDoublePrecision ---> [double]
+                MappedDataTypesWithIdentity.DoubleAsFloat ---> [double]
+                MappedDataTypesWithIdentity.EnumAsNvarchar20 ---> [integer]
+                MappedDataTypesWithIdentity.EnumAsVarcharMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.FloatAsReal ---> [single]
+                MappedDataTypesWithIdentity.GuidAsUniqueidentifier ---> [guid]
+                MappedDataTypesWithIdentity.Id ---> [counter]
+                MappedDataTypesWithIdentity.Int ---> [integer]
+                MappedDataTypesWithIdentity.LongAsBigint ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypesWithIdentity.SByteAsSmallint ---> [smallint]
+                MappedDataTypesWithIdentity.SbyteAsTinyint ---> [byte]
+                MappedDataTypesWithIdentity.ShortAsSmallint ---> [smallint]
+                MappedDataTypesWithIdentity.StringAsCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsCharacterVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsCharVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsCharVaryingMaxUtf8 ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsNationalCharacterVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsNationalCharVaryingMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsNtext ---> [longchar]
+                MappedDataTypesWithIdentity.StringAsNvarcharMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsText ---> [longchar]
+                MappedDataTypesWithIdentity.StringAsVarcharMax ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.StringAsVarcharMaxUtf8 ---> [varchar] [MaxLength = 255]
+                MappedDataTypesWithIdentity.TimeOnlyAsTime ---> [datetime]
+                MappedDataTypesWithIdentity.TimeSpanAsTime ---> [datetime]
+                MappedDataTypesWithIdentity.UintAsBigint ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypesWithIdentity.UintAsInt ---> [integer]
+                MappedDataTypesWithIdentity.UlongAsBigint ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypesWithIdentity.UlongAsDecimal200 ---> [decimal] [Precision = 20 Scale = 0]
+                MappedDataTypesWithIdentity.UShortAsInt ---> [integer]
+                MappedDataTypesWithIdentity.UShortAsSmallint ---> [smallint]
+                MappedNullableDataTypes.BoolAsBit ---> [nullable bit]
+                MappedNullableDataTypes.ByteAsTinyint ---> [nullable byte]
+                MappedNullableDataTypes.BytesAsBinaryVaryingMax ---> [nullable varbinary] [MaxLength = 510]
+                MappedNullableDataTypes.BytesAsImage ---> [nullable longbinary]
+                MappedNullableDataTypes.BytesAsVarbinaryMax ---> [nullable varbinary] [MaxLength = 510]
+                MappedNullableDataTypes.CharAsAsCharVarying ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypes.CharAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.CharAsInt ---> [nullable integer]
+                MappedNullableDataTypes.CharAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.CharAsNationalCharVarying ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypes.CharAsNtext ---> [nullable longchar]
+                MappedNullableDataTypes.CharAsNvarchar ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypes.CharAsText ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypes.CharAsVarchar ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypes.DateOnlyAsDate ---> [nullable datetime]
+                MappedNullableDataTypes.DateTimeAsDate ---> [nullable datetime]
+                MappedNullableDataTypes.DateTimeAsDatetime ---> [nullable datetime]
+                MappedNullableDataTypes.Decimal ---> [nullable decimal] [Precision = 18 Scale = 0]
+                MappedNullableDataTypes.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 0]
+                MappedNullableDataTypes.DecimalAsMoney ---> [nullable currency]
+                MappedNullableDataTypes.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 0]
+                MappedNullableDataTypes.DoubleAsDoublePrecision ---> [nullable double]
+                MappedNullableDataTypes.DoubleAsFloat ---> [nullable double]
+                MappedNullableDataTypes.EnumAsNvarchar20 ---> [nullable integer]
+                MappedNullableDataTypes.EnumAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.FloatAsReal ---> [nullable single]
+                MappedNullableDataTypes.GuidAsUniqueidentifier ---> [nullable guid]
+                MappedNullableDataTypes.Int ---> [integer]
+                MappedNullableDataTypes.LongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypes.SByteAsSmallint ---> [nullable smallint]
+                MappedNullableDataTypes.SbyteAsTinyint ---> [nullable byte]
+                MappedNullableDataTypes.ShortAsSmallint ---> [nullable smallint]
+                MappedNullableDataTypes.StringAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsCharacterVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsCharVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsNationalCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsNtext ---> [nullable longchar]
+                MappedNullableDataTypes.StringAsNvarcharMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsText ---> [nullable longchar]
+                MappedNullableDataTypes.StringAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.StringAsVarcharMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypes.TimeOnlyAsTime ---> [nullable datetime]
+                MappedNullableDataTypes.TimeSpanAsTime ---> [nullable datetime]
+                MappedNullableDataTypes.UintAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypes.UintAsInt ---> [nullable integer]
+                MappedNullableDataTypes.UlongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypes.UlongAsDecimal200 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypes.UShortAsInt ---> [nullable integer]
+                MappedNullableDataTypes.UShortAsSmallint ---> [nullable smallint]
+                MappedNullableDataTypesWithIdentity.BoolAsBit ---> [nullable bit]
+                MappedNullableDataTypesWithIdentity.ByteAsTinyint ---> [nullable byte]
+                MappedNullableDataTypesWithIdentity.BytesAsImage ---> [nullable longbinary]
+                MappedNullableDataTypesWithIdentity.BytesAsVarbinaryMax ---> [nullable varbinary] [MaxLength = 510]
+                MappedNullableDataTypesWithIdentity.BytesAsVaryingMax ---> [nullable varbinary] [MaxLength = 510]
+                MappedNullableDataTypesWithIdentity.CharAsAsCharVarying ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypesWithIdentity.CharAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.CharAsInt ---> [nullable integer]
+                MappedNullableDataTypesWithIdentity.CharAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.CharAsNationalCharVarying ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypesWithIdentity.CharAsNtext ---> [nullable longchar]
+                MappedNullableDataTypesWithIdentity.CharAsNvarchar ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypesWithIdentity.CharAsText ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypesWithIdentity.CharAsVarchar ---> [nullable varchar] [MaxLength = 1]
+                MappedNullableDataTypesWithIdentity.DateOnlyAsDate ---> [nullable datetime]
+                MappedNullableDataTypesWithIdentity.DateTimeAsDate ---> [nullable datetime]
+                MappedNullableDataTypesWithIdentity.DateTimeAsDatetime ---> [nullable datetime]
+                MappedNullableDataTypesWithIdentity.Decimal ---> [nullable decimal] [Precision = 18 Scale = 0]
+                MappedNullableDataTypesWithIdentity.DecimalAsDec ---> [nullable decimal] [Precision = 18 Scale = 0]
+                MappedNullableDataTypesWithIdentity.DecimalAsMoney ---> [nullable currency]
+                MappedNullableDataTypesWithIdentity.DecimalAsNumeric ---> [nullable decimal] [Precision = 18 Scale = 0]
+                MappedNullableDataTypesWithIdentity.DoubleAsDoublePrecision ---> [nullable double]
+                MappedNullableDataTypesWithIdentity.DoubleAsFloat ---> [nullable double]
+                MappedNullableDataTypesWithIdentity.EnumAsNvarchar20 ---> [nullable integer]
+                MappedNullableDataTypesWithIdentity.EnumAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.FloatAsReal ---> [nullable single]
+                MappedNullableDataTypesWithIdentity.GuidAsUniqueidentifier ---> [nullable guid]
+                MappedNullableDataTypesWithIdentity.Id ---> [counter]
+                MappedNullableDataTypesWithIdentity.Int ---> [nullable integer]
+                MappedNullableDataTypesWithIdentity.LongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypesWithIdentity.SByteAsSmallint ---> [nullable smallint]
+                MappedNullableDataTypesWithIdentity.SbyteAsTinyint ---> [nullable byte]
+                MappedNullableDataTypesWithIdentity.ShortAsSmallint ---> [nullable smallint]
+                MappedNullableDataTypesWithIdentity.StringAsCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsCharacterVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsCharVaryingMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsNationalCharacterVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsNationalCharVaryingMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsNtext ---> [nullable longchar]
+                MappedNullableDataTypesWithIdentity.StringAsNvarcharMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsText ---> [nullable longchar]
+                MappedNullableDataTypesWithIdentity.StringAsVarcharMax ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.StringAsVarcharMaxUtf8 ---> [nullable varchar] [MaxLength = 255]
+                MappedNullableDataTypesWithIdentity.TimeOnlyAsTime ---> [nullable datetime]
+                MappedNullableDataTypesWithIdentity.TimeSpanAsTime ---> [nullable datetime]
+                MappedNullableDataTypesWithIdentity.UintAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypesWithIdentity.UintAsInt ---> [nullable integer]
+                MappedNullableDataTypesWithIdentity.UlongAsBigint ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypesWithIdentity.UlongAsDecimal200 ---> [nullable decimal] [Precision = 20 Scale = 0]
+                MappedNullableDataTypesWithIdentity.UShortAsInt ---> [nullable integer]
+                MappedNullableDataTypesWithIdentity.UshortAsSmallint ---> [nullable smallint]
+                MappedPrecisionAndScaledDataTypes.DecimalAsDec52 ---> [decimal] [Precision = 5 Scale = 2]
+                MappedPrecisionAndScaledDataTypes.DecimalAsDecimal52 ---> [decimal] [Precision = 5 Scale = 2]
+                MappedPrecisionAndScaledDataTypes.DecimalAsNumeric52 ---> [decimal] [Precision = 5 Scale = 2]
+                MappedPrecisionAndScaledDataTypes.Id ---> [integer]
+                MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDec52 ---> [decimal] [Precision = 5 Scale = 2]
+                MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsDecimal52 ---> [decimal] [Precision = 5 Scale = 2]
+                MappedPrecisionAndScaledDataTypesWithIdentity.DecimalAsNumeric52 ---> [decimal] [Precision = 5 Scale = 2]
+                MappedPrecisionAndScaledDataTypesWithIdentity.Id ---> [counter]
+                MappedPrecisionAndScaledDataTypesWithIdentity.Int ---> [integer]
+                MappedScaledDataTypes.DecimalAsDec3 ---> [decimal] [Precision = 3 Scale = 0]
+                MappedScaledDataTypes.DecimalAsDecimal3 ---> [decimal] [Precision = 3 Scale = 0]
+                MappedScaledDataTypes.DecimalAsNumeric3 ---> [decimal] [Precision = 3 Scale = 0]
+                MappedScaledDataTypes.FloatAsDoublePrecision25 ---> [double]
+                MappedScaledDataTypes.FloatAsDoublePrecision3 ---> [double]
+                MappedScaledDataTypes.FloatAsFloat25 ---> [double]
+                MappedScaledDataTypes.FloatAsFloat3 ---> [double]
+                MappedScaledDataTypes.Id ---> [integer]
+                MappedScaledDataTypes.TimeOnlyAsTime3 ---> [datetime]
+                MappedScaledDataTypes.TimeSpanAsTime3 ---> [datetime]
+                MappedScaledDataTypesWithIdentity.DecimalAsDec3 ---> [decimal] [Precision = 3 Scale = 0]
+                MappedScaledDataTypesWithIdentity.DecimalAsDecimal3 ---> [decimal] [Precision = 3 Scale = 0]
+                MappedScaledDataTypesWithIdentity.DecimalAsNumeric3 ---> [decimal] [Precision = 3 Scale = 0]
+                MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision25 ---> [double]
+                MappedScaledDataTypesWithIdentity.FloatAsDoublePrecision3 ---> [double]
+                MappedScaledDataTypesWithIdentity.FloatAsFloat25 ---> [double]
+                MappedScaledDataTypesWithIdentity.FloatAsFloat3 ---> [double]
+                MappedScaledDataTypesWithIdentity.Id ---> [counter]
+                MappedScaledDataTypesWithIdentity.Int ---> [integer]
+                MappedScaledDataTypesWithIdentity.TimeOnlyAsTime3 ---> [datetime]
+                MappedScaledDataTypesWithIdentity.TimeSpanAsTime3 ---> [datetime]
+                MappedSizedDataTypes.BytesAsBinary3 ---> [nullable varbinary] [MaxLength = 3]
+                MappedSizedDataTypes.BytesAsBinaryVarying3 ---> [nullable varbinary] [MaxLength = 3]
+                MappedSizedDataTypes.BytesAsVarbinary3 ---> [nullable varbinary] [MaxLength = 3]
+                MappedSizedDataTypes.CharAsAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.CharAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.CharAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.CharAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.CharAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.CharAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.Id ---> [integer]
+                MappedSizedDataTypes.StringAsChar3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsChar3Utf8 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsCharacter3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsCharacter3Utf8 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsCharacterVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsCharVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsNationalCharacter3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsNchar3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypes.StringAsVarchar3Utf8 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.BytesAsBinary3 ---> [nullable varbinary] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.BytesAsBinaryVarying3 ---> [nullable varbinary] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.BytesAsVarbinary3 ---> [nullable varbinary] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.CharAsAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.CharAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.CharAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.CharAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.CharAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.CharAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.Id ---> [counter]
+                MappedSizedDataTypesWithIdentity.Int ---> [integer]
+                MappedSizedDataTypesWithIdentity.StringAsChar3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsChar3Utf8 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsCharacter3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsCharacter3Utf8 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsCharacterVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsCharVarying3Utf8 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsNationalCharacter3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsNationalCharacterVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsNationalCharVarying3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsNchar3 ---> [nullable char] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsNvarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsVarchar3 ---> [nullable varchar] [MaxLength = 3]
+                MappedSizedDataTypesWithIdentity.StringAsVarchar3Utf8 ---> [nullable varchar] [MaxLength = 3]
+                MaxLengthDataTypes.ByteArray5 ---> [nullable varbinary] [MaxLength = 5]
+                MaxLengthDataTypes.ByteArray9000 ---> [nullable varbinary] [MaxLength = 255]
+                MaxLengthDataTypes.Id ---> [integer]
+                MaxLengthDataTypes.String3 ---> [nullable varchar] [MaxLength = 3]
+                MaxLengthDataTypes.String9000 ---> [nullable varchar] [MaxLength = 255]
+                MaxLengthDataTypes.StringUnbounded ---> [nullable varchar] [MaxLength = 255]
+                StringEnclosure.Id ---> [counter]
+                StringEnclosure.Value ---> [nullable varchar] [MaxLength = 255]
+                StringForeignKeyDataType.Id ---> [integer]
+                StringForeignKeyDataType.StringKeyDataTypeId ---> [nullable varchar] [MaxLength = 255]
+                StringKeyDataType.Id ---> [varchar] [MaxLength = 255]
+                UnicodeDataTypes.Id ---> [integer]
+                UnicodeDataTypes.StringAnsi ---> [nullable varchar] [MaxLength = 255]
+                UnicodeDataTypes.StringAnsi3 ---> [nullable varchar] [MaxLength = 3]
+                UnicodeDataTypes.StringAnsi9000 ---> [nullable varchar] [MaxLength = 255]
+                UnicodeDataTypes.StringDefault ---> [nullable varchar] [MaxLength = 255]
+                UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
+
+                """;
 
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
@@ -2919,21 +2949,19 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
         [ConditionalFact]
         public void Can_get_column_types_from_built_model()
         {
-            using (var context = CreateContext())
+            using var context = CreateContext();
+            var typeMapper = context.GetService<IRelationalTypeMappingSource>();
+
+            foreach (var property in context.Model.GetEntityTypes().SelectMany(e => e.GetDeclaredProperties()))
             {
-                var typeMapper = context.GetService<IRelationalTypeMappingSource>();
+                var columnType = property.GetColumnType();
+                Assert.NotNull(columnType);
 
-                foreach (var property in context.Model.GetEntityTypes().SelectMany(e => e.GetDeclaredProperties()))
+                if (property[RelationalAnnotationNames.ColumnType] == null)
                 {
-                    var columnType = property.GetColumnType();
-                    Assert.NotNull(columnType);
-
-                    if (property[RelationalAnnotationNames.ColumnType] == null)
-                    {
-                        Assert.Equal(
-                            columnType.ToLowerInvariant(),
-                            typeMapper.FindMapping(property).StoreType.ToLowerInvariant());
-                    }
+                    Assert.Equal(
+                        columnType.ToLowerInvariant(),
+                        typeMapper.FindMapping(property).StoreType.ToLowerInvariant());
                 }
             }
         }
@@ -2961,10 +2989,10 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                             TableName = reader.GetString(0),
                             ColumnName = reader.GetString(1),
                             DataType = reader.GetString(3),
-                            IsNullable = reader.IsDBNull(4) ? null : (bool?)(reader.GetBoolean(4)),
-                            MaxLength = reader.IsDBNull(5) ? null : (int?)reader.GetInt32(5),
-                            NumericPrecision = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                            NumericScale = reader.IsDBNull(7) ? null : (int?)reader.GetInt32(7),
+                            IsNullable = reader.IsDBNull(4) ? null : reader.GetBoolean(4),
+                            MaxLength = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                            NumericPrecision = reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                            NumericScale = reader.IsDBNull(7) ? null : reader.GetInt32(7),
                             //DateTimePrecision = reader.IsDBNull(7) ? null : (int?)reader.GetInt16(7)
                         };
 
@@ -3115,7 +3143,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
 
             public override bool SupportsBinaryKeys => true;
 
-            public override DateTime DefaultDateTime => new DateTime();
+            public override DateTime DefaultDateTime => new();
             public override bool PreservesDateTimeKind { get; }
 
             public override int LongStringLength => 255;
@@ -4370,7 +4398,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         Id = 101,
                         PartitionId = 101,
                         TestString = "TestString",
-                        TestByteArray = new byte[] { 10, 9, 8, 7, 6 },
+                        TestByteArray = [10, 9, 8, 7, 6],
                         TestNullableInt16 = -1234,
                         TestNullableInt32 = -123456789,
                         TestNullableInt64 = -1234567890123456789L,
@@ -4408,7 +4436,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
 
                 var entityType = context.Model.FindEntityType(typeof(BuiltInNullableDataTypes));
                 AssertEqualIfMapped(entityType, "TestString", () => dt.TestString);
-                AssertEqualIfMapped(entityType, new byte[] { 10, 9, 8, 7, 6 }, () => dt.TestByteArray);
+                AssertEqualIfMapped(entityType, [10, 9, 8, 7, 6], () => dt.TestByteArray);
                 AssertEqualIfMapped(entityType, (short)-1234, () => dt.TestNullableInt16);
                 AssertEqualIfMapped(entityType, -123456789, () => dt.TestNullableInt32);
                 AssertEqualIfMapped(entityType, -1234567890123456789L, () => dt.TestNullableInt64);
@@ -4450,7 +4478,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
                         Id = 101,
                         PartitionId = 101,
                         String = "TestString",
-                        Bytes = new byte[] { 10, 9, 8, 7, 6 },
+                        Bytes = [10, 9, 8, 7, 6],
                         Int16 = -1234,
                         Int32 = -123456789,
                         Int64 = -1234567890123456789L,
@@ -4488,7 +4516,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable varchar] [MaxLength = 255]
 
                 var entityType = context.Model.FindEntityType(typeof(ObjectBackedDataTypes));
                 AssertEqualIfMapped(entityType, "TestString", () => dt.String);
-                AssertEqualIfMapped(entityType, new byte[] { 10, 9, 8, 7, 6 }, () => dt.Bytes);
+                AssertEqualIfMapped(entityType, [10, 9, 8, 7, 6], () => dt.Bytes);
                 AssertEqualIfMapped(entityType, (short)-1234, () => dt.Int16);
                 AssertEqualIfMapped(entityType, -123456789, () => dt.Int32);
                 AssertEqualIfMapped(entityType, -1234567890123456789L, () => dt.Int64);

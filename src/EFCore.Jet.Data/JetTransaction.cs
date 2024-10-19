@@ -8,14 +8,10 @@ namespace EntityFrameworkCore.Jet.Data
 {
     internal class JetTransaction : DbTransaction
     {
-        private JetConnection? _connection;
+        private JetConnection _connection;
         private bool _disposed;
 
         internal virtual DbTransaction WrappedTransaction { get; }
-
-        protected JetTransaction()
-        {
-        }
 
         public JetTransaction(JetConnection connection, IsolationLevel isolationLevel)
         {
@@ -78,7 +74,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
 
-        public override Task CommitAsync(CancellationToken cancellationToken = new CancellationToken())
+        public override Task CommitAsync(CancellationToken cancellationToken = new())
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(JetTransaction));
@@ -94,7 +90,7 @@ namespace EntityFrameworkCore.Jet.Data
             return base.DisposeAsync();
         }
 
-        public override Task RollbackAsync(CancellationToken cancellationToken = new CancellationToken())
+        public override Task RollbackAsync(CancellationToken cancellationToken = new())
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(JetTransaction));

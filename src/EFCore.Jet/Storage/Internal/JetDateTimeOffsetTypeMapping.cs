@@ -1,11 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Data.Common;
 using System.Globalization;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -15,8 +11,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private const string DateTimeOffsetFormatConst = @"'{0:yyyy-MM-ddTHH:mm:ss.fffffffzzz}'";
         private const string DateTimeFormatConst = @"'{0:yyyy-MM-dd HH:mm:ss}'";
         public JetDateTimeOffsetTypeMapping(
-                [NotNull] string storeType,
-                [NotNull] IJetOptions options)
+                string storeType,
+                IJetOptions options)
             : base(
                 storeType, System.Data.DbType.DateTime)
         {

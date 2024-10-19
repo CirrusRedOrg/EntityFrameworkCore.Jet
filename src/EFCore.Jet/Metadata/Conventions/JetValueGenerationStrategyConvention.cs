@@ -1,11 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Linq;
 using EntityFrameworkCore.Jet.Metadata;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
@@ -14,24 +9,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     ///     A convention that configures the default model <see cref="JetValueGenerationStrategy" /> as
     ///     <see cref="JetValueGenerationStrategy.IdentityColumn" />.
     /// </summary>
-    public class JetValueGenerationStrategyConvention : IModelInitializedConvention, IModelFinalizingConvention
+    /// <remarks>
+    ///     Creates a new instance of <see cref="JetValueGenerationStrategyConvention" />.
+    /// </remarks>
+    /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
+    /// <param name="relationalDependencies">  Parameter object containing relational dependencies for this convention. </param>
+    public class JetValueGenerationStrategyConvention(
+        ProviderConventionSetBuilderDependencies dependencies,
+        RelationalConventionSetBuilderDependencies relationalDependencies) : IModelInitializedConvention, IModelFinalizingConvention
     {
-        /// <summary>
-        ///     Creates a new instance of <see cref="JetValueGenerationStrategyConvention" />.
-        /// </summary>
-        /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
-        /// <param name="relationalDependencies">  Parameter object containing relational dependencies for this convention. </param>
-        public JetValueGenerationStrategyConvention(
-            [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
-        {
-            Dependencies = dependencies;
-            RelationalDependencies = relationalDependencies;
-        }
+        protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; } = dependencies;
 
-        protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; }
-
-        protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; }
+        protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; } = relationalDependencies;
 
         /// <summary>
         ///     Called after a model is initialized.

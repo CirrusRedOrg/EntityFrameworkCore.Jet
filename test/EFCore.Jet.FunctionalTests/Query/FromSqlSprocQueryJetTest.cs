@@ -55,9 +55,11 @@ EXEC `Ten Most Expensive Products`
             await base.From_sql_queryable_stored_procedure_with_parameter(async);
 
             AssertSql(
-                $@"p0='ALFKI' (Size = 255)
-
-EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}");
+                $"""
+                    p0='ALFKI' (Size = 255)
+                    
+                    EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}
+                    """);
         }
 
         public override async Task From_sql_queryable_stored_procedure_re_projection_on_client(bool async)
@@ -79,9 +81,11 @@ EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}");
             await base.From_sql_queryable_stored_procedure_with_parameter_composed_on_client(async);
 
             AssertSql(
-                $@"p0='ALFKI' (Size = 255)
-
-EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}");
+                $"""
+                    p0='ALFKI' (Size = 255)
+                    
+                    EXEC `CustOrderHist` CustomerID = {AssertSqlHelper.Parameter("@p0")}
+                    """);
         }
 
         public override async Task From_sql_queryable_stored_procedure_take_on_client(bool async)

@@ -1,11 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq.Expressions;
+
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 #nullable enable
 
@@ -30,12 +25,11 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     {
         return condition
             ? sqlExpressionFactory.Case(
-                new[]
-                {
+                [
                     new CaseWhenClause(
                         SimplifyNegatedBinary(sqlExpression),
                         sqlExpressionFactory.ApplyDefaultTypeMapping(sqlExpressionFactory.Constant(true)))
-                },
+                ],
                 sqlExpressionFactory.Constant(false))
             : sqlExpression;
     }
@@ -263,17 +257,12 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     {
         var parentIsSearchCondition = _isSearchCondition;
 
-        switch (sqlBinaryExpression.OperatorType)
+        _isSearchCondition = sqlBinaryExpression.OperatorType switch
         {
             // Only logical operations need conditions on both sides
-            case ExpressionType.AndAlso:
-            case ExpressionType.OrElse:
-                _isSearchCondition = true;
-                break;
-            default:
-                _isSearchCondition = false;
-                break;
-        }
+            ExpressionType.AndAlso or ExpressionType.OrElse => true,
+            _ => false
+        };
 
         var newLeft = (SqlExpression)Visit(sqlBinaryExpression.Left);
         var newRight = (SqlExpression)Visit(sqlBinaryExpression.Right);

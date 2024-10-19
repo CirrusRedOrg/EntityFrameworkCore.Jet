@@ -1,11 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
@@ -27,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                instance?.Type == typeof(string)
                 ? _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Function(
-                        "LEN", new[] { instance }, true, new[] { true }, returnType),
+                        "LEN", [instance], true, [true], returnType),
                     typeof(int))
                 : null;
     }

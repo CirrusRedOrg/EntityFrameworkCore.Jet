@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// The time span offset (Jet does not support timespans)
         /// </summary>
-        public static DateTime TimeSpanOffset { get; set; } = new DateTime(1899, 12, 30);
+        public static DateTime TimeSpanOffset { get; set; } = new(1899, 12, 30);
 
         private static object _integerNullValue = Int32.MinValue;
 
@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Data
             set
             {
                 if (!(value is int) && value != null)
-                    throw new ArgumentOutOfRangeException("value", "IntegerNullValue should be an int or null");
+                    throw new ArgumentOutOfRangeException(nameof(value), "IntegerNullValue should be an int or null");
                 _integerNullValue = value;
             }
         }

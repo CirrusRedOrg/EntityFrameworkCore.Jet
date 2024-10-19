@@ -1,16 +1,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 using System.Globalization;
-using System;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetFloatTypeMapping : FloatTypeMapping
     {
         public JetFloatTypeMapping(
-            [NotNull] string storeType)
+            string storeType)
             : base(storeType, System.Data.DbType.Single)
         {
         }

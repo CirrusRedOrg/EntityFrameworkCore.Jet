@@ -86,7 +86,7 @@ namespace EntityFrameworkCore.Jet.Data
                         BindingFlags.GetProperty,
                         Type.DefaultBinder,
                         _instance,
-                        new object[0]
+                        []
                     ));
             return true;
         }
@@ -99,12 +99,11 @@ namespace EntityFrameworkCore.Jet.Data
                     BindingFlags.SetProperty,
                     Type.DefaultBinder,
                     _instance,
-                    new[]
-                    {
+                    [
                         value is ComObject comObject
                             ? comObject._instance
                             : value
-                    }
+                    ]
                 );
             return true;
         }

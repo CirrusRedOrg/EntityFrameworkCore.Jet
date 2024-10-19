@@ -17,19 +17,12 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model79_CantSaveDecimalValue
         [TestMethod]
         public void Model79_CantSaveDecimalValue()
         {
-
-            using (DbConnection connection = GetConnection())
-            {
-                using (var context = new Context(connection))
-                {
-                    var t = new Table();
-                    context.Table.Add(t);
-                    t.DecimalValue = 1.23M;
-                    context.SaveChanges();
-                }
-            }
-
-
+            using DbConnection connection = GetConnection();
+            using var context = new Context(connection);
+            var t = new Table();
+            context.Table.Add(t);
+            t.DecimalValue = 1.23M;
+            context.SaveChanges();
         }
     }
 }

@@ -10,8 +10,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     public class JetComplianceTest : RelationalComplianceTestBase
     {
 
-        protected override ICollection<Type> IgnoredTestBases { get; } = new HashSet<Type>
-        {
+        protected override ICollection<Type> IgnoredTestBases { get; } =
+        [
             //No spatial type support in Jet
             typeof(SpatialQueryRelationalTestBase<>),
             typeof(SpatialQueryTestBase<>),
@@ -35,7 +35,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             typeof(UpdatesRelationalTestBase<>),
             //No user defined functions in MS Access/Jet
             typeof(UdfDbFunctionTestBase<>),
-        };
+        ];
 
         protected override Assembly TargetAssembly { get; } = typeof(JetComplianceTest).Assembly;
 

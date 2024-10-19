@@ -265,8 +265,10 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s`.`Id`, `s1`.
     protected override void RecordLog()
         => Sql = Fixture.TestSqlLoggerFactory.Sql;
 
-    private const string FileNewLine = @"
-";
+    private const string FileNewLine = """
+        
+
+        """;
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

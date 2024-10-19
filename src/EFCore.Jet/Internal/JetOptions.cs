@@ -82,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             if (jetOptions.DataAccessProviderFactory == null)
             {
-                return DataAccessProviderType.Unconfgured;
+                return DataAccessProviderType.Unconfigured;
             }
 
             if (jetOptions.DataAccessProviderFactory

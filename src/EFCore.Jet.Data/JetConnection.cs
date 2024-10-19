@@ -324,7 +324,7 @@ namespace EntityFrameworkCore.Jet.Data
             var fileNameOrConnectionString = ConnectionString;
             var dataAccessProviderType = DataAccessProviderFactory != null
                 ? GetDataAccessProviderType(DataAccessProviderFactory)
-                : DataAccessProviderType.Unconfgured;
+                : DataAccessProviderType.Unconfigured;
 
             string connectionString;
 
@@ -337,7 +337,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
             else
             {
-                //dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
+                if (dataAccessProviderType == DataAccessProviderType.Unconfigured) dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
 
                 if (IsFileName(fileNameOrConnectionString))
                 {
@@ -570,7 +570,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType)
         {
-            var providerType = dataAccessProviderType == DataAccessProviderType.Unconfgured ? JetConfiguration.DefaultDataAccessProviderType : dataAccessProviderType;
+            var providerType = dataAccessProviderType == DataAccessProviderType.Unconfigured ? JetConfiguration.DefaultDataAccessProviderType : dataAccessProviderType;
             return GetConnectionString(fileNameOrConnectionString, providerType, JetFactory.GetDataAccessProviderFactory(providerType));
         }
 
@@ -631,7 +631,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static DataAccessProviderType GetDataAccessProviderType(string? connectionString)
         {
-            if (string.IsNullOrEmpty(connectionString)) return DataAccessProviderType.Unconfgured;
+            if (string.IsNullOrEmpty(connectionString)) return DataAccessProviderType.Unconfigured;
             var isOleDb = IsOleDbRegex().IsMatch(connectionString);
             var isOdbc = IsOdbcRegex().IsMatch(connectionString);
 

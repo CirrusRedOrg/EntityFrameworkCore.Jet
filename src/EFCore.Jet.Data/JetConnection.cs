@@ -575,12 +575,15 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         internal static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType, DbProviderFactory dataAccessProviderFactory)
-            => IsConnectionString(fileNameOrConnectionString)
+        {
+            var provider = GetMostRecentCompatibleProviders(dataAccessProviderType).FirstOrDefault().Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
+            return IsConnectionString(fileNameOrConnectionString)
                 ? ExpandDatabaseFilePath(fileNameOrConnectionString, dataAccessProviderFactory)
                 : GetConnectionString(
-                    GetMostRecentCompatibleProviders(dataAccessProviderType).FirstOrDefault().Key ,
+                    provider,
                     fileNameOrConnectionString,
                     dataAccessProviderType);
+        }
 
         public static string GetConnectionString(string provider, string fileName, DbProviderFactory dataAccessProviderFactory)
             => GetConnectionString(provider, fileName, GetDataAccessProviderType(dataAccessProviderFactory));
@@ -661,8 +664,10 @@ namespace EntityFrameworkCore.Jet.Data
                 : DataAccessProviderType.Odbc;
         }
 
-        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory providerFactory)
+        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory? providerFactory)
         {
+            if (providerFactory == null)
+                return DataAccessProviderType.Unconfigured;
             var isOleDb = providerFactory
                 .GetType()
                 .GetTypesInHierarchy()
@@ -685,7 +690,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw new InvalidOperationException();
 
             if (!isOdbc && !isOleDb)
-                throw new ArgumentException($"The parameter is neither of type OdbcFactory nor OleDbFactory.", nameof(providerFactory));
+                return DataAccessProviderType.Unconfigured;
 
             return isOleDb
                 ? DataAccessProviderType.OleDb

@@ -256,9 +256,9 @@ WHERE `c`.`ContactName` LIKE '%m'
         {
             await AssertQuery(
                 isAsync,
-                ss => ss.Set<Customer>().Where(c => c.ContactName.Contains('M')), // case-insensitive
+                ss => ss.Set<Customer>().Where(c => c.ContactName.Contains("M")), // case-insensitive
                 ss => ss.Set<Customer>().Where(c => c.ContactName.Contains('M') || c.ContactName.Contains('m'))); // case-sensitive
-
+            
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`

@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
     {
         public Gear()
         {
-            Weapons = new List<Weapon>();
+            Weapons = [];
         }
 
         // composite key

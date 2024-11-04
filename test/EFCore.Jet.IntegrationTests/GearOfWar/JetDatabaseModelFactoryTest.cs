@@ -22,24 +22,26 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
         public void CreateAllSystemTablesAndThrowException()
         {
             // This method is used to create all system table of this model
-            string sql = @" SELECT 
-  (show tables)
-, (show tablecolumns)
-, (show indexes)
-, (show indexcolumns)
-, (show views)
-, (show viewcolumns)
-, (show constraints)
-, (show checkconstraints)
-, (show constraintcolumns)
-, (show foreignKeyconstraints)
-, (show foreignKeys)
-, (show viewconstraints)
-, (show viewconstraintcolumns)
-, (show viewforeignkeys)
+            string sql = """
+                 SELECT 
+                  (show tables)
+                , (show tablecolumns)
+                , (show indexes)
+                , (show indexcolumns)
+                , (show views)
+                , (show viewcolumns)
+                , (show constraints)
+                , (show checkconstraints)
+                , (show constraintcolumns)
+                , (show foreignKeyconstraints)
+                , (show foreignKeys)
+                , (show viewconstraints)
+                , (show viewconstraintcolumns)
+                , (show viewforeignkeys)
+                
+                WHERE 1 = 2;
 
-WHERE 1 = 2;
-";
+                """;
             Context.Cities.FromSqlRaw(sql)
                 .Load();
         }
@@ -47,7 +49,7 @@ WHERE 1 = 2;
         [TestMethod]
         public void JetDatabaseModelFactoryTestRun()
         {
-            List<string> tableNames = new List<string>();
+            List<string> tableNames = [];
 
             using (var connection = GetConnection())
             {
@@ -63,7 +65,7 @@ WHERE 1 = 2;
 
             var logger = Context.GetService<IDiagnosticsLogger<DbLoggerCategory.Scaffolding>>();
             var typeMappingSource = Context.GetService<IRelationalTypeMappingSource>();
-            JetDatabaseModelFactory modelFactory = new JetDatabaseModelFactory(logger, typeMappingSource);
+            JetDatabaseModelFactory modelFactory = new(logger, typeMappingSource);
             using (var connection = GetConnection())
             {
                 var model = modelFactory.Create(connection, new DatabaseModelFactoryOptions(tableNames));

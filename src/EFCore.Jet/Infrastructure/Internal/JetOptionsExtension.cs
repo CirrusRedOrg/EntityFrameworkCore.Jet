@@ -1,12 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Collections.Generic;
-using System.Data.Common;
 using System.Globalization;
 using System.Text;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 {
@@ -44,7 +39,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
-        protected JetOptionsExtension([NotNull] JetOptionsExtension copyFrom)
+        protected JetOptionsExtension(JetOptionsExtension copyFrom)
             : base(copyFrom)
         {
             // _rowNumberPaging = copyFrom._rowNumberPaging;
@@ -253,15 +248,12 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
 
             public override int GetServiceProviderHashCode()
             {
-                if (_serviceProviderHash == null)
-                {
-                    _serviceProviderHash = (base.GetServiceProviderHashCode() * 397) ^
+                _serviceProviderHash ??= (base.GetServiceProviderHashCode() * 397) ^
                                            (Extension._dataAccessProviderFactory?.GetHashCode() ?? 0) ^
                                            (Extension._useOuterSelectSkipEmulationViaDataReader.GetHashCode() * 397) ^
                                            (Extension._enableMillisecondsSupport.GetHashCode() * 397) ^
                                            (Extension._useShortTextForSystemString.GetHashCode() * 397)/* ^
                                            (Extension._rowNumberPaging?.GetHashCode() ?? 0L)*/;
-                }
 
                 return _serviceProviderHash.Value;
             }

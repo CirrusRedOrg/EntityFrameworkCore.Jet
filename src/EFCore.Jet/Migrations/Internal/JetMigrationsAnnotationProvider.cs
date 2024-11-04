@@ -1,10 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace EntityFrameworkCore.Jet.Migrations.Internal
 {
     /// <summary>
@@ -20,15 +15,11 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
     ///         This service cannot depend on services registered as <see cref="ServiceLifetime.Scoped" />.
     ///     </para>
     /// </summary>
-    public class JetMigrationsAnnotationProvider : MigrationsAnnotationProvider
+    /// <remarks>
+    ///     Initializes a new instance of this class.
+    /// </remarks>
+    /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
+    public class JetMigrationsAnnotationProvider(MigrationsAnnotationProviderDependencies dependencies) : MigrationsAnnotationProvider(dependencies)
     {
-        /// <summary>
-        ///     Initializes a new instance of this class.
-        /// </summary>
-        /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
-        public JetMigrationsAnnotationProvider([NotNull] MigrationsAnnotationProviderDependencies dependencies)
-            : base(dependencies)
-        {
-        }
     }
 }

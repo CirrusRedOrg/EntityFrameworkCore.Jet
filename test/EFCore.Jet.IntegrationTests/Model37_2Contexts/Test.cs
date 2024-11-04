@@ -13,25 +13,23 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model37_2Contexts
         [TestMethod]
         public void Model37_2ContextsRun()
         {
-            using (DbConnection connection = GetConnection())
+            using DbConnection connection = GetConnection();
+            using (var Context = new Context1(connection))
             {
-                using (var Context = new Context1(connection))
-                {
-                    Context.MyEntities.Count();
-                }
+                Context.MyEntities.Count();
+            }
 
-                using (var Context = new Context2(connection))
-                {
-                    Context.MyEntities.Count();
-                    Context.MyEntities.Where(_ => _.Description2.Contains("a"))
-                        .Count();
-                }
+            using (var Context = new Context2(connection))
+            {
+                Context.MyEntities.Count();
+                Context.MyEntities.Where(_ => _.Description2.Contains('a'))
+                    .Count();
+            }
 
-                using (var Context = new Context2(connection))
-                {
-                    Context.MyEntities.Where(_ => _.Description2.Contains("a"))
-                        .Count();
-                }
+            using (var Context = new Context2(connection))
+            {
+                Context.MyEntities.Where(_ => _.Description2.Contains('a'))
+                    .Count();
             }
         }
 

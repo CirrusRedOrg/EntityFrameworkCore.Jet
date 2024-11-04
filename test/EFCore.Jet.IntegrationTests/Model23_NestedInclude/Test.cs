@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model23_NestedInclude
             for (int i = 0; i < 1; i++)
             {
 
-                DocumentMetadata documentMetadata = new DocumentMetadata()
+                DocumentMetadata documentMetadata = new()
                 {
                     Name = "My document metadata"
                 };
@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model23_NestedInclude
                 documentMetadata.VariablesMetadata.Add(
                     new VariableMetadata() { DefaultValue = "Variable default value", Name = "Variable name", Type = "The type" });
 
-                Document document = new Document()
+                Document document = new()
                 {
                     Name = "My new document",
                     DocumentMetadata = documentMetadata

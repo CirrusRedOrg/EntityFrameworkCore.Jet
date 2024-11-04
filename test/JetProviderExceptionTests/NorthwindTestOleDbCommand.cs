@@ -22,13 +22,15 @@ namespace JetProviderExceptionTests
 
                     using (var command1 = connection.CreateCommand())
                     {
-                        command1.CommandText = @"SELECT `c`.`Address`
-FROM `Customers` AS `c`
-WHERE `c`.`City` = 'Berlin'
-UNION
-SELECT `c0`.`Address`
-FROM `Customers` AS `c0`
-WHERE `c0`.`City` = 'London'";
+                        command1.CommandText = """
+                            SELECT `c`.`Address`
+                            FROM `Customers` AS `c`
+                            WHERE `c`.`City` = 'Berlin'
+                            UNION
+                            SELECT `c0`.`Address`
+                            FROM `Customers` AS `c0`
+                            WHERE `c0`.`City` = 'London'
+                            """;
 
                         using (var dataReader1 = command1.ExecuteReader())
                         {
@@ -60,8 +62,10 @@ WHERE [c].[City] = 'Madrid'";
 
                     using (var command2 = connection.CreateCommand())
                     {
-                        command2.CommandText = @"SELECT 1
-FROM `Customers` AS `c`";
+                        command2.CommandText = """
+                            SELECT 1
+                            FROM `Customers` AS `c`
+                            """;
 
                         using (var dataReader2 = command2.ExecuteReader())
                         {

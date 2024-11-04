@@ -13,15 +13,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 public class ExceptionTestCaseOrderer : ITestCaseOrderer
 {
     private readonly string[] _testCaseOrder =
-    {
+    [
         "Select_GetValueOrDefault_on_DateTime",
         "Select_byte_constant",
         "Select_DTO_with_member_init_distinct_in_subquery_translated_to_server",
         "Select_Except_reference_projection",
         "Select_Union",
         "Select_DTO_with_member_init_distinct_in_subquery_translated_to_server_2",
-        "Select_bool_closure",
-    };
+        "Select_bool_closure"
+    ];
         
     public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases)
         where TTestCase : ITestCase

@@ -13,10 +13,10 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model25_InheritTPT
         {
             var companies = new List<Company>
             {
-                new Company {Name = "X", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
-                new Company {Name = "XX", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
-                new Company {Name = "XXX", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
-                new Company {Name = "XXXX", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
+                new() {Name = "X", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
+                new() {Name = "XX", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
+                new() {Name = "XXX", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
+                new() {Name = "XXXX", CreatedOn = DateTime.Now, IsActive = true, UpdatedOn = DateTime.Now},
             };
 
             foreach (var item in companies)
@@ -26,10 +26,10 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model25_InheritTPT
 
             var suppliers = new List<Supplier>
             {
-                new Supplier {CreatedOn = DateTime.Now, Company = companies[0], IsActive = true, UpdatedOn = DateTime.Now},
-                new Supplier {CreatedOn = DateTime.Now, Company = companies[1], IsActive = true, UpdatedOn = DateTime.Now},
-                new Supplier {CreatedOn = DateTime.Now, Company = companies[2], IsActive = true, UpdatedOn = DateTime.Now},
-                new Supplier {CreatedOn = DateTime.Now, Company = companies[3], IsActive = true, UpdatedOn = DateTime.Now}
+                new() {CreatedOn = DateTime.Now, Company = companies[0], IsActive = true, UpdatedOn = DateTime.Now},
+                new() {CreatedOn = DateTime.Now, Company = companies[1], IsActive = true, UpdatedOn = DateTime.Now},
+                new() {CreatedOn = DateTime.Now, Company = companies[2], IsActive = true, UpdatedOn = DateTime.Now},
+                new() {CreatedOn = DateTime.Now, Company = companies[3], IsActive = true, UpdatedOn = DateTime.Now}
             };
 
             foreach (var item in suppliers)

@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         [TestMethod]
         public void CastToBool()
         {
-            Standard standard = new Standard() { StandardName = "Another Standard" };
+            Standard standard = new() { StandardName = "Another Standard" };
             Context.Standards.Add(standard);
             Context.SaveChanges();
 
@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         [TestMethod]
         public void InClause()
         {
-            Standard standard = new Standard() { StandardName = "Standard used in student in clause" };
+            Standard standard = new() { StandardName = "Standard used in student in clause" };
             Student student;
             Context.Standards.Add(standard);
             Context.SaveChanges();

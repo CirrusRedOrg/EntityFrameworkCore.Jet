@@ -1,9 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
 {

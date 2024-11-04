@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Data
             _dbEngine = ComObject.CreateFirstFrom(
                 Enumerable.Range(12, 6)
                     .Reverse()
-                    .Concat(new[] { 36 })
+                    .Concat([36])
                     .Select(n => "DAO.DBEngine." + (n * 10).ToString())
                     .ToArray());
 

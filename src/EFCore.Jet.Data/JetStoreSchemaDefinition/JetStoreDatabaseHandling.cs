@@ -173,7 +173,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             throw new Exception($"\"{commandText}\" is not a valid database command.");
         }
 
-        public static string ExtractFileNameFromConnectionString(string connectionString)
+        public static string ExtractFileNameFromConnectionString(string? connectionString)
         {
             if (connectionString != null)
             {
@@ -192,7 +192,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 }
             }
 
-            return connectionString;
+            return connectionString ?? "";
         }
 
         public static bool IsConnectionString(string? connectionString)
@@ -243,7 +243,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
         private static string UnescapeSingleQuotes(string value)
             => value.Replace("''", "'");
 
-        public static string ExpandFileName(string fileName)
+        public static string ExpandFileName(string? fileName)
         {
             if (fileName == null)
                 throw new ArgumentNullException(nameof(fileName));
@@ -256,7 +256,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                     dataDirectory = AppDomain.CurrentDomain.BaseDirectory;
                 }
 
-                fileName = Path.Combine(dataDirectory, fileName.Substring("|DataDirectory|".Length));
+                fileName = Path.Combine(dataDirectory, fileName["|DataDirectory|".Length..]);
             }
 
             return EnsureFileExtension(Path.GetFullPath(fileName));

@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
     {
         public const string Name = "Northwind";
         public static readonly string NorthwindConnectionString = JetTestStore.CreateConnectionString(Name);
-        public new static JetNorthwindTestStoreFactory Instance { get; } = new JetNorthwindTestStoreFactory();
+        public new static JetNorthwindTestStoreFactory Instance { get; } = new();
 
         protected JetNorthwindTestStoreFactory()
         {

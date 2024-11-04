@@ -9,16 +9,19 @@ namespace EntityFrameworkCore.Jet.Data
     /// </summary>
     public class JetFactory : DbProviderFactory
     {
-        public static readonly Version MinimumRequiredOdbcVersion = new Version(8, 0, 0);
-        public static readonly Version MinimumRequiredOleDbVersion = new Version(8, 0, 0);
+        public static readonly Version MinimumRequiredOdbcVersion = new(9, 0, 0);
+        public static readonly Version MinimumRequiredOleDbVersion = new(9, 0, 0);
 
-        public static readonly JetFactory Instance = new JetFactory(null, null);
+        public static readonly JetFactory Instance = new();
 
         public JetConnection? Connection { get; }
-
         internal DbProviderFactory? InnerFactory { get; }
 
-        internal JetFactory(JetConnection? connection, DbProviderFactory? innerFactory)
+        public JetFactory()
+        {
+
+        }
+        internal JetFactory(JetConnection connection, DbProviderFactory innerFactory)
         {
             if (innerFactory is JetFactory)
                 throw new ArgumentException("JetProviderFactory cannot use a JetProviderFactory as its underlying provider factory. Supported provider factories are OdbcFactory and OleDbFactory.");
@@ -90,7 +93,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbDataAdapter" />.
         /// </returns>
-        public override DbDataAdapter CreateDataAdapter()
+        public override DbDataAdapter? CreateDataAdapter()
             => InnerFactory == null
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateDataAdapter)))
                 : InnerFactory.CreateDataAdapter();
@@ -110,18 +113,18 @@ namespace EntityFrameworkCore.Jet.Data
         /// <returns>
         /// A new instance of <see cref="T:System.Data.Common.DbParameter" />.
         /// </returns>
-        public override DbParameter CreateParameter()
+        public override DbParameter? CreateParameter()
             => InnerFactory == null
                 ? throw new InvalidOperationException(Messages.CannotCallJetProviderFactoryMethodOnSingletonInstance(nameof(CreateDataAdapter)))
                 : InnerFactory.CreateParameter();
 
-        public virtual DbProviderFactory GetDataAccessProviderFactory(DataAccessProviderType dataAccessProviderType)
+        public static DbProviderFactory GetDataAccessProviderFactory(DataAccessProviderType dataAccessProviderType)
         {
             if (dataAccessProviderType == DataAccessProviderType.OleDb)
             {
                 try
                 {
-                    var type = Type.GetType("System.Data.OleDb.OleDbFactory, System.Data.OleDb");
+                    var type = Type.GetType("System.Data.OleDb.OleDbFactory, System.Data.OleDb") ?? throw new TypeLoadException($"To use OLE DB in conjunction with Jet, please reference the 'System.Data.OleDb' (version >= {MinimumRequiredOleDbVersion}) NuGet package.");
                     var assemblyName = type.Assembly.GetName();
                     var version = assemblyName.Version;
 
@@ -144,7 +147,7 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 try
                 {
-                    var type = Type.GetType("System.Data.Odbc.OdbcFactory, System.Data.Odbc");
+                    var type = Type.GetType("System.Data.Odbc.OdbcFactory, System.Data.Odbc") ?? throw new TypeLoadException($"To use ODBC in conjunction with Jet, please reference the 'System.Data.Odbc' (version >= {MinimumRequiredOdbcVersion}) NuGet package.");
                     var assemblyName = type.Assembly.GetName();
                     var version = assemblyName.Version;
 

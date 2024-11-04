@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
         public override void Seed()
         {
-            Standard standard = new Standard() { StandardName = THESTANDARD };
+            Standard standard = new() { StandardName = THESTANDARD };
             Student student;
             Context.Standards.Add(standard);
             Context.SaveChanges();

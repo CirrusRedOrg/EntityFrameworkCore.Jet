@@ -15,13 +15,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         // CHECK: ACE/Jet error codes using ODBC and OLE DB.
         private static readonly int[] _additionalErrorNumbers =
-        {
+        [
             -1, // Physical connection is not usable
             -2, // Timeout
             1807, // Could not obtain exclusive lock on database 'model'
             42008, // Mirroring (Only when a database is deleted and another one is created in fast succession)
             42019 // CREATE DATABASE operation failed
-        };
+        ];
 
         public TestJetRetryingExecutionStrategy()
             : base(

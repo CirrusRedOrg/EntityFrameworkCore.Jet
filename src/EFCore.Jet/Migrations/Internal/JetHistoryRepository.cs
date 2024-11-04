@@ -1,19 +1,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Data.Common;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Migrations;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.Jet.Migrations.Internal
 {
@@ -31,20 +20,16 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
     ///         The implementation does not need to be thread-safe.
     ///     </para>
     /// </summary>
-    public class JetHistoryRepository : HistoryRepository
+    /// <remarks>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </remarks>
+    public class JetHistoryRepository(HistoryRepositoryDependencies dependencies) : HistoryRepository(dependencies)
     {
         private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(1);
         public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Explicit;
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        public JetHistoryRepository([NotNull] HistoryRepositoryDependencies dependencies)
-            : base(dependencies)
-        {
-        }
 
         /// <summary>
         ///     The name of the table that will serve as a database-wide lock for migrations.

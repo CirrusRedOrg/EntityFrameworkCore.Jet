@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model46_InnerClasses
         public void Model46_InnerClassesRun()
         {
             {
-                ClassA a = new ClassA();
+                ClassA a = new();
                 a.B.b = 10;
 
 

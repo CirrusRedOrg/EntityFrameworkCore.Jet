@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
         public string ConnectionString { get; } = connectionString;
 
         private DbConnection[] _connections = new DbConnection[10];
-        public int ConnectionCount { get; private set; } = 0;
+        public int ConnectionCount { get; private set; }
 
         public void AddConnection(DbConnection connection)
         {

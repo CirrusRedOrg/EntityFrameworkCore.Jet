@@ -112,9 +112,11 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         private void CreateTable()
         {
             using var command = _connection.CreateCommand(
-                @"
-CREATE TABLE tableName (columnName int);
-CREATE INDEX indexName ON tableName (columnName);");
+                """
+                    
+                    CREATE TABLE tableName (columnName int);
+                    CREATE INDEX indexName ON tableName (columnName);
+                    """);
             command.ExecuteNonQuery();
         }
     }

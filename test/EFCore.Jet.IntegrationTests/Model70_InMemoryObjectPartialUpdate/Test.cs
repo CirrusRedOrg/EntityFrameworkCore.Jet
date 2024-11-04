@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model70_InMemoryObjectPartial
 
 
             {
-                Item item = new Item() {ColumnA = "ColumnA", ColumnB = "ColumnB"};
+                Item item = new() {ColumnA = "ColumnA", ColumnB = "ColumnB"};
                 Context.Items.Add(item);
                 Context.SaveChanges();
                 itemId = item.Id;
@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model70_InMemoryObjectPartial
             base.CreateContext();
 
             {
-                Item item = new Item() { Id = itemId, ColumnA = "ColumnAUpdated"};
+                Item item = new() { Id = itemId, ColumnA = "ColumnAUpdated"};
                 Context.Entry(item).State = EntityState.Modified;
                 Context.Entry(item).Property(_ => _.ColumnB).IsModified = false;
                 Context.SaveChanges();

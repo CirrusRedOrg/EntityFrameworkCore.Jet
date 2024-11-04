@@ -6,10 +6,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model28
     {
         public static string Truncate(this string value, int length)
         {
-            if (value.Length < length)
-                return value;
-            else
-                return value.Substring(0, length);
+            return value.Length < length ? value : value[..length];
         }
     }
 }

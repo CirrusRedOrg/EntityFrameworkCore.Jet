@@ -53,19 +53,13 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 ob =>
                 {
                     var builder = ConfigureOptions(ob);
-                    if (optionsAction != null)
-                    {
-                        optionsAction(builder);
-                    }
+                    optionsAction?.Invoke(builder);
                 })
             .AddDbContextPool<ISecondContext, SecondContext>(
                 ob =>
                 {
                     var builder = ConfigureOptions(ob);
-                    if (optionsAction != null)
-                    {
-                        optionsAction(builder);
-                    }
+                    optionsAction?.Invoke(builder);
                 })
             .BuildServiceProvider(validateScopes: true);
 
@@ -76,19 +70,13 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 ob =>
                 {
                     var builder = ConfigureOptions(ob);
-                    if (optionsAction != null)
-                    {
-                        optionsAction(builder);
-                    }
+                    optionsAction?.Invoke(builder);
                 })
             .AddDbContextPool<SecondContext>(
                 ob =>
                 {
                     var builder = ConfigureOptions(ob);
-                    if (optionsAction != null)
-                    {
-                        optionsAction(builder);
-                    }
+                    optionsAction?.Invoke(builder);
                 })
             .BuildServiceProvider(validateScopes: true);
 
@@ -210,7 +198,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         public string CustomerId { get; set; }
         public string CompanyName { get; set; }
         public ILazyLoader LazyLoader { get; set; }
-        public ObservableCollection<Order> Orders { get; } = new();
+        public ObservableCollection<Order> Orders { get; } = [];
     }
 
     public class Order

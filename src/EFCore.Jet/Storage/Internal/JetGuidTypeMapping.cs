@@ -1,6 +1,4 @@
-﻿using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
-using System.Data;
+﻿using System.Data;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {

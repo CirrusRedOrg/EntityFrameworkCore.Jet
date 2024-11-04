@@ -29,10 +29,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public void Constructed_select_query_CommandBuilder_throws_when_negative_CommandTimeout_is_used()
         {
-            using (var context = CreateContext())
-            {
-                Assert.Throws<ArgumentException>(() => context.Database.SetCommandTimeout(-5));
-            }
+            using var context = CreateContext();
+            Assert.Throws<ArgumentException>(() => context.Database.SetCommandTimeout(-5));
         }
 
         private ChipsContext CreateContext() => (ChipsContext)Fixture.CreateContext();
@@ -45,7 +43,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public int CountLinesContaining(string source, string searchTerm)
         {
-            var text = source.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+            var text = source.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries);
 
             var matchQuery = from word in text
                              where word.Contains(searchTerm)

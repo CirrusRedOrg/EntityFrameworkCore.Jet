@@ -31,6 +31,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{B7FF1850-2
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{76210BB4-A506-4838-8BBF-57DA18C8FA03}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
 		Dependencies.targets = Dependencies.targets
 		Development.props.sample = Development.props.sample
 		Directory.Build.props = Directory.Build.props
@@ -40,7 +41,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{76210BB4-A
 		NuGet.Config = NuGet.Config
 		docs\README.md = docs\README.md
 		Version.props = Version.props
-		.gitignore = .gitignore
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Tests", "test\EFCore.Jet.Tests\EFCore.Jet.Tests.csproj", "{770A076B-A448-499C-BB86-A37994C04523}"
@@ -55,6 +55,11 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.Odbc", "src\EFCore.Jet.Odbc\EFCore.Jet.Odbc.csproj", "{1E0729DA-B861-46EA-B1F1-3AE20EA1E00A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.Jet.OleDb", "src\EFCore.Jet.OleDb\EFCore.Jet.OleDb.csproj", "{FFC89A2D-F68F-47E3-BA00-47E9C0BEDB71}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{05A38BCD-0042-446F-8E89-84090230BE76}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

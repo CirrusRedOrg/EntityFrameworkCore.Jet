@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model06_Inherit
             int userId;
 
             {
-                User user = new User
+                User user = new()
                 {
                     Firstname = "Bubi",
                     Address = new Address

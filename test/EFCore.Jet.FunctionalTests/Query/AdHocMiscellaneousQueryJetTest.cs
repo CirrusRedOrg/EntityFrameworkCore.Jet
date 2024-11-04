@@ -123,7 +123,7 @@ INSERT ZeroKey VALUES (NULL)
             for (var i = 0; i < 100; i++)
             {
                 Add(
-                    new Blog { Posts = [new() { Comments = [new(), new()] }, new()], Author = new Author() });
+                    new Blog { Posts = [new Post { Comments = [new Comment(), new Comment()] }, new Post()], Author = new Author() });
             }
 
             return SaveChangesAsync();
@@ -234,18 +234,17 @@ WHERE `c`.`Id` = @__id_0
     {
         var contextFactory = await InitializeAsync<Context12482>();
 
-        using (var context = contextFactory.CreateContext())
-        {
-            context.AddRange(
-                new Context12482.BaseEntity { Value = 10.0999 },
-                new Context12482.BaseEntity { Value = -12345 },
-                new Context12482.BaseEntity { Value = "String Value" },
-                new Context12482.BaseEntity { Value = new DateTime(2020, 1, 1) });
+        using var context = contextFactory.CreateContext();
+        context.AddRange(
+            new Context12482.BaseEntity { Value = 10.0999 },
+            new Context12482.BaseEntity { Value = -12345 },
+            new Context12482.BaseEntity { Value = "String Value" },
+            new Context12482.BaseEntity { Value = new DateTime(2020, 1, 1) });
 
-            context.SaveChanges();
+        context.SaveChanges();
 
-            AssertSql(
-                """
+        AssertSql(
+            """
 @p0='10.0999' (Nullable = true) (DbType = Object)
 @p1='-12345' (Nullable = true) (DbType = Object)
 @p2='String Value' (Size = 12) (DbType = Object)
@@ -263,7 +262,6 @@ INSERT ([Value])
 VALUES (i.[Value])
 OUTPUT INSERTED.[Id], i._Position;
 """);
-        }
     }
 
     private class Context12482(DbContextOptions options) : DbContext(options)
@@ -427,7 +425,7 @@ WHERE `r`.`MyTime` = #2018-10-07#
 
         var results = async
             ? await query.ToListAsync()
-            : query.ToList();
+            : [.. query];
 
         Assert.Empty(results);
 
@@ -455,7 +453,7 @@ WHERE [d].[DateTime2_2] = GETDATE() OR [d].[DateTime2_7] = GETDATE() OR [d].[Dat
 
         var results = async
             ? await query.ToListAsync()
-            : query.ToList();
+            : [.. query];
 
         Assert.Single((IEnumerable)results);
 
@@ -490,7 +488,7 @@ WHERE [d].[DateTime2_2] <> GETDATE() AND [d].[DateTime2_7] <> GETDATE() AND [d].
 
         var results = async
             ? await query.ToListAsync()
-            : query.ToList();
+            : [.. query];
 
         Assert.Single((IEnumerable)results);
 
@@ -540,7 +538,7 @@ WHERE [d].[SmallDateTime] = '1970-09-03T12:00:00' AND [d].[DateTime] = '1971-09-
 
         var results = async
             ? await query.ToListAsync()
-            : query.ToList();
+            : [.. query];
 
         Assert.Single((IEnumerable)results);
 

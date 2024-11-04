@@ -4,7 +4,6 @@ using System;
 using EntityFrameworkCore.Jet.Data;
 using System.Data.Odbc;
 using EntityFrameworkCore.Jet.Infrastructure;
-using JetBrains.Annotations;
 using EntityFrameworkCore.Jet.Utilities;
 
 // ReSharper disable once CheckNamespace
@@ -27,9 +26,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJetOdbc<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            string fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
             => optionsBuilder.UseJet(fileNameOrConnectionString, DataAccessProviderType.Odbc, jetOptionsAction);
 
@@ -43,9 +42,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJetOdbc(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] string fileNameOrConnectionString,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            string fileNameOrConnectionString,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             => optionsBuilder.UseJet(fileNameOrConnectionString, DataAccessProviderType.Odbc, jetOptionsAction);
 
         #endregion
@@ -65,9 +64,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder<TContext> UseJetOdbc<TContext>(
-            [NotNull] this DbContextOptionsBuilder<TContext> optionsBuilder,
-            [NotNull] OdbcConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            OdbcConnection connection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
             where TContext : DbContext
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
@@ -88,9 +87,9 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="jetOptionsAction">An optional action to allow additional Jet specific configuration.</param>
         /// <returns> The options builder so that further configuration can be chained. </returns>
         public static DbContextOptionsBuilder UseJetOdbc(
-            [NotNull] this DbContextOptionsBuilder optionsBuilder,
-            [NotNull] OdbcConnection connection,
-            [CanBeNull] Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
+            this DbContextOptionsBuilder optionsBuilder,
+            OdbcConnection connection,
+            Action<JetDbContextOptionsBuilder>? jetOptionsAction = null)
         {
             Check.NotNull(optionsBuilder, nameof(optionsBuilder));
             Check.NotNull(connection, nameof(connection));

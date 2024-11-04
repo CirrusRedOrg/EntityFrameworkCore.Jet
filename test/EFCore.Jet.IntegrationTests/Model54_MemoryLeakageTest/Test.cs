@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model54_MemoryLeakageTest
                 for (int j = 0; j < 50; j++)
                 {
 
-                    Student student = new Student()
+                    Student student = new()
                     {
                         StudentName = string.Format("Student name {0}", i * 100 + j),
                         Notes = string.Format("Student notes {0}", i * 100 + j),

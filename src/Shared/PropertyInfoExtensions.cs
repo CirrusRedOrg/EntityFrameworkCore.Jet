@@ -2,8 +2,6 @@
 
 using System.Diagnostics;
 using System.Linq;
-using JetBrains.Annotations;
-using EntityFrameworkCore.Jet.Utilities;
 
 // ReSharper disable once CheckNamespace
 namespace System.Reflection

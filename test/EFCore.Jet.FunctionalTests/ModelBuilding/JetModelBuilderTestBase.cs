@@ -1094,7 +1094,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Single(owned.GetForeignKeys());
             Assert.Single(owned.GetIndexes());
             Assert.Equal(
-                new[] { nameof(Order.OrderId), nameof(Order.AnotherCustomerId), nameof(Order.CustomerId) },
+                [nameof(Order.OrderId), nameof(Order.AnotherCustomerId), nameof(Order.CustomerId)],
                 owned.GetProperties().Select(p => p.GetColumnName()));
             Assert.Equal(nameof(Order), owned.GetTableName());
             Assert.Null(owned.GetSchema());
@@ -1152,7 +1152,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Single(owned.GetIndexes());
             Assert.Null(owned.FindPrimaryKey()!.GetName());
             Assert.Equal(
-                new[] { nameof(Order.OrderId), nameof(Order.AnotherCustomerId), nameof(Order.CustomerId) },
+                [nameof(Order.OrderId), nameof(Order.AnotherCustomerId), nameof(Order.CustomerId)],
                 owned.GetProperties().Select(p => p.GetColumnName()));
             Assert.Null(owned.GetTableName());
             Assert.Null(owned.GetSchema());
@@ -1193,7 +1193,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("IX_Order_CustomerId", owned.GetIndexes().Single().GetDatabaseName());
             Assert.Equal("PK_Order", owned.FindPrimaryKey()!.GetName());
             Assert.Equal(
-                new[] { nameof(Order.OrderId), nameof(Order.AnotherCustomerId), nameof(Order.CustomerId) },
+                [nameof(Order.OrderId), nameof(Order.AnotherCustomerId), nameof(Order.CustomerId)],
                 owned.GetProperties().Select(p => p.GetColumnName()));
             Assert.Equal(nameof(Order), owned.GetTableName());
             Assert.Null(owned.GetSchema());

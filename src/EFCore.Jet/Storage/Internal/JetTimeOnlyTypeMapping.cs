@@ -1,22 +1,16 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Data;
-using System.Data.Common;
-using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetTimeOnlyTypeMapping : TimeOnlyTypeMapping
     {
-        [NotNull] private readonly IJetOptions _options;
+        private readonly IJetOptions _options;
 
         public JetTimeOnlyTypeMapping(
-                [NotNull] string storeType,
-                [NotNull] IJetOptions options)
+                string storeType,
+                IJetOptions options)
             : base(storeType)
         {
             _options = options;

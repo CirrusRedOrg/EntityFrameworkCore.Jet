@@ -13,13 +13,9 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model76_FullCreate
         [TestMethod]
         public void Model76_FullCreate()
         {
-            using (DbConnection connection = GetConnection())
-            {
-                using (var Context = new Context(connection))
-                {
-                    Context.MyEntities.Count();
-                }
-            }
+            using DbConnection connection = GetConnection();
+            using var Context = new Context(connection);
+            Context.MyEntities.Count();
         }
 
 #pragma warning disable 649

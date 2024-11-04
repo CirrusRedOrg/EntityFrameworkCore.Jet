@@ -424,7 +424,7 @@ namespace EntityFrameworkCore.Jet.Data
         public override int GetOrdinal(string name)
             => _wrappedDataReader.GetOrdinal(name);
 
-        public override DataTable GetSchemaTable()
+        public override DataTable? GetSchemaTable()
             => _wrappedDataReader.GetSchemaTable();
 
         public override string GetString(int ordinal)

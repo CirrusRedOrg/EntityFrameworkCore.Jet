@@ -1,14 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Update;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
-
 namespace EntityFrameworkCore.Jet.Update.Internal
 {
     /// <summary>
@@ -17,24 +8,18 @@ namespace EntityFrameworkCore.Jet.Update.Internal
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public class JetModificationCommandBatch : AffectedCountModificationCommandBatch
+    /// <remarks>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </remarks>
+    public class JetModificationCommandBatch(
+        ModificationCommandBatchFactoryDependencies dependencies) : AffectedCountModificationCommandBatch(dependencies, 1)
     {
         private const int MaxRowCount = 1;
         private const int MaxParameterCount = 2100 - 2;
-        private readonly List<IReadOnlyModificationCommand> _pendingBulkInsertCommands = new();
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        public JetModificationCommandBatch(
-            [NotNull] ModificationCommandBatchFactoryDependencies dependencies)
-            : base(dependencies, 1)
-        {
-            // See https://support.office.com/en-us/article/access-specifications-0cf3c66f-9cf2-4e32-9568-98c1025bb47c
-            // for Access specifications and limits.
-        }
+        private readonly List<IReadOnlyModificationCommand> _pendingBulkInsertCommands = [];
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

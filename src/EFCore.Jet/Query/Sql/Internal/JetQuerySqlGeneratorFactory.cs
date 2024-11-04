@@ -1,9 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
@@ -11,25 +8,18 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public class JetQuerySqlGeneratorFactory : IQuerySqlGeneratorFactory
+    /// <remarks>
+    ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+    ///     directly from your code. This API may change or be removed in future releases.
+    /// </remarks>
+    public class JetQuerySqlGeneratorFactory(
+        QuerySqlGeneratorDependencies dependencies,
+        ITypeMappingSource typeMappingSource,
+        IJetOptions options) : IQuerySqlGeneratorFactory
     {
-        [NotNull] private readonly QuerySqlGeneratorDependencies _dependencies;
-        [NotNull] private readonly ITypeMappingSource _typeMappingSource;
-        [NotNull] private readonly IJetOptions _options;
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        public JetQuerySqlGeneratorFactory(
-            [NotNull] QuerySqlGeneratorDependencies dependencies,
-            [NotNull] ITypeMappingSource typeMappingSource,
-            [NotNull] IJetOptions options)
-        {
-            _dependencies = dependencies;
-            _typeMappingSource = typeMappingSource;
-            _options = options;
-        }
+        private readonly QuerySqlGeneratorDependencies _dependencies = dependencies;
+        private readonly ITypeMappingSource _typeMappingSource = typeMappingSource;
+        private readonly IJetOptions _options = options;
 
         public virtual QuerySqlGenerator Create()
             => new JetQuerySqlGenerator(_dependencies, _typeMappingSource, _options);

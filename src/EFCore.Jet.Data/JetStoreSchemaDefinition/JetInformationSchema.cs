@@ -16,13 +16,13 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 RegexOptions.IgnoreCase | RegexOptions.Singleline);
         }
 
-        public static bool TryGetDataReaderFromInformationSchemaCommand(JetCommand command, out DbDataReader dataReader)
+        public static bool TryGetDataReaderFromInformationSchemaCommand(JetCommand command, out DbDataReader? dataReader)
         {
             dataReader = GetDbDataReaderFromSimpleStatement(command);
             return dataReader != null;
         }
         
-        private static DbDataReader GetDbDataReaderFromSimpleStatement(JetCommand command)
+        private static DbDataReader? GetDbDataReaderFromSimpleStatement(JetCommand command)
         {
             // Command text format is
             // SELECT * FROM `INFORMATION_SCHEMA.<what>` [WHERE <condition>] [ORDER BY <order>]
@@ -51,7 +51,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             var conditions = match.Groups["conditions"].Value;
             var orderColumns = match.Groups["orderColumns"].Value;
 
-            Func<JetConnection, DataTable> schemaMethod = dbObject.ToLower() switch
+            Func<JetConnection, DataTable>? schemaMethod = dbObject.ToLower() switch
             {
                 "tables" => GetTables,
                 "columns" => GetColumns,

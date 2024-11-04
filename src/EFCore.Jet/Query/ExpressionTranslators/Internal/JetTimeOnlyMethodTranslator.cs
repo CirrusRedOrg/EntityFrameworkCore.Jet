@@ -1,12 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
@@ -18,32 +12,27 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </summary>
-public class JetTimeOnlyMethodTranslator : IMethodCallTranslator
+/// <remarks>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </remarks>
+public class JetTimeOnlyMethodTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMethodCallTranslator
 {
     private static readonly MethodInfo AddHoursMethod = typeof(TimeOnly).GetRuntimeMethod(
-        nameof(TimeOnly.AddHours), new[] { typeof(double) })!;
+        nameof(TimeOnly.AddHours), [typeof(double)])!;
     private static readonly MethodInfo AddMinutesMethod = typeof(TimeOnly).GetRuntimeMethod(
-        nameof(TimeOnly.AddMinutes), new[] { typeof(double) })!;
+        nameof(TimeOnly.AddMinutes), [typeof(double)])!;
     private static readonly MethodInfo IsBetweenMethod = typeof(TimeOnly).GetRuntimeMethod(
-        nameof(TimeOnly.IsBetween), new[] { typeof(TimeOnly), typeof(TimeOnly) })!;
+        nameof(TimeOnly.IsBetween), [typeof(TimeOnly), typeof(TimeOnly)])!;
     private static readonly MethodInfo FromDateTime = typeof(TimeOnly).GetRuntimeMethod(
         nameof(TimeOnly.FromDateTime), [typeof(DateTime)])!;
 
     private static readonly MethodInfo FromTimeSpan = typeof(TimeOnly).GetRuntimeMethod(
         nameof(TimeOnly.FromTimeSpan), [typeof(TimeSpan)])!;
 
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
-
-    /// <summary>
-    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-    ///     any release. You should only use it directly in your code with extreme caution and knowing that
-    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-    /// </summary>
-    public JetTimeOnlyMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
-    {
-        _sqlExpressionFactory = sqlExpressionFactory;
-    }
+    private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -88,14 +77,14 @@ public class JetTimeOnlyMethodTranslator : IMethodCallTranslator
 
             var dadd = _sqlExpressionFactory.Function(
                 "DATEADD",
-                new[] { _sqlExpressionFactory.Constant(datePart), _sqlExpressionFactory.Convert(arguments[0], typeof(int)), instance },
+                [_sqlExpressionFactory.Constant(datePart), _sqlExpressionFactory.Convert(arguments[0], typeof(int)), instance],
                 nullable: true,
-                argumentsPropagateNullability: new[] { false, true, true },
+                argumentsPropagateNullability: [false, true, true],
                 instance.Type,
                 instance.TypeMapping);
 
-            return _sqlExpressionFactory.Function("TIMEVALUE", new[] { dadd }, true,
-                argumentsPropagateNullability: new[] { true }, instance.Type, instance.TypeMapping);
+            return _sqlExpressionFactory.Function("TIMEVALUE", [dadd], true,
+                argumentsPropagateNullability: [true], instance.Type, instance.TypeMapping);
         }
 
         // Translate TimeOnly.IsBetween to a >= b AND a < c.

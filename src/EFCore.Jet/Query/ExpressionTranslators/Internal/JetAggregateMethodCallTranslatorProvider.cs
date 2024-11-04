@@ -1,6 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Query;
-
-namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
+﻿namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
 
 /// <summary>
 ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

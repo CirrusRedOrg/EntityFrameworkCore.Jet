@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 {
     public class JetTestStoreFactory : RelationalTestStoreFactory
     {
-        public static JetTestStoreFactory Instance { get; } = new JetTestStoreFactory();
+        public static JetTestStoreFactory Instance { get; } = new();
 
         protected JetTestStoreFactory()
         {

@@ -1,12 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using EntityFrameworkCore.Jet.Data;
-using System.Linq;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.Jet.Internal
 {
@@ -87,7 +82,7 @@ namespace EntityFrameworkCore.Jet.Internal
         {
             if (jetOptions.DataAccessProviderFactory == null)
             {
-                return DataAccessProviderType.Unconfgiured;
+                return DataAccessProviderType.Unconfigured;
             }
 
             if (jetOptions.DataAccessProviderFactory

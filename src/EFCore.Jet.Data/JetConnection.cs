@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using System.IO;
 using System.Linq;
@@ -12,10 +13,10 @@ using Microsoft.Win32;
 
 namespace EntityFrameworkCore.Jet.Data
 {
-    public class JetConnection : DbConnection, IDisposable, ICloneable
+    public partial class JetConnection : DbConnection, IDisposable, ICloneable
     {
         private ConnectionState _state;
-        private string _connectionString;
+        private string? _connectionString;
         private bool _frozen;
 
         internal DbConnection? InnerConnection { get; private set; }
@@ -64,7 +65,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// `OdbcFactory` and `OleDbFactory`.</param>
         public JetConnection(string? fileNameOrConnectionString, DbProviderFactory? dataAccessProviderFactory)
         {
-            ConnectionString = fileNameOrConnectionString;
+            _connectionString = fileNameOrConnectionString;
 
             if (dataAccessProviderFactory != null)
                 DataAccessProviderFactory = dataAccessProviderFactory;
@@ -93,7 +94,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// access API. Jet uses this provider factory internally for all data access operations.
         /// </summary>
         /// <exception cref="InvalidOperationException">This property can only be set as long as the connection is closed.</exception>
-        public DbProviderFactory DataAccessProviderFactory
+        public DbProviderFactory? DataAccessProviderFactory
         {
             get => JetFactory?.InnerFactory;
             set
@@ -108,7 +109,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// Gets a `JetProviderFactory` object, that can be used to create Jet specific objects (e.g. `JetCommand`).
         /// </summary>
-        public JetFactory JetFactory { get; private set; }
+        public JetFactory? JetFactory { get; private set; }
 
         /// <summary>
         /// Starts a database transaction.
@@ -125,21 +126,16 @@ namespace EntityFrameworkCore.Jet.Data
             if (ActiveTransaction != null)
                 throw new InvalidOperationException(Messages.UnsupportedParallelTransactions());
 
-            switch (isolationLevel)
+            ActiveTransaction = isolationLevel switch
             {
-                case IsolationLevel.Serializable:
-                    ActiveTransaction = CreateTransaction(IsolationLevel.ReadCommitted);
-                    break;
-                default:
-                    ActiveTransaction = CreateTransaction(isolationLevel);
-                    break;
-            }
+                IsolationLevel.Serializable => CreateTransaction(IsolationLevel.ReadCommitted),
+                _ => CreateTransaction(isolationLevel)
+            };
 
             return ActiveTransaction;
         }
 
-        private JetTransaction CreateTransaction(IsolationLevel isolationLevel)
-            => new JetTransaction(this, isolationLevel);
+        private JetTransaction CreateTransaction(IsolationLevel isolationLevel) => new(this, isolationLevel);
 
         /// <summary>
         /// Changes the current database for an open connection.
@@ -183,6 +179,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// Gets or sets the string used to open the connection.
         /// </summary>
+        [AllowNull]
         public override string ConnectionString
         {
             get => _connectionString ?? "";
@@ -269,6 +266,8 @@ namespace EntityFrameworkCore.Jet.Data
         {
             if (State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
+            if (InnerConnection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
             return InnerConnection.GetSchema(collectionName);
         }
 
@@ -285,6 +284,8 @@ namespace EntityFrameworkCore.Jet.Data
         {
             if (State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
+            if (InnerConnection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
             return InnerConnection.GetSchema();
         }
 
@@ -303,6 +304,8 @@ namespace EntityFrameworkCore.Jet.Data
         {
             if (State != ConnectionState.Open)
                 throw new InvalidOperationException(Messages.CannotCallMethodInThisConnectionState("GetSchema", State));
+            if (InnerConnection == null)
+                throw new InvalidOperationException(Messages.PropertyNotInitialized("Connection"));
             return InnerConnection.GetSchema(collectionName, restrictionValues);
         }
 
@@ -320,8 +323,8 @@ namespace EntityFrameworkCore.Jet.Data
 
             var fileNameOrConnectionString = ConnectionString;
             var dataAccessProviderType = DataAccessProviderFactory != null
-                ? (DataAccessProviderType?)GetDataAccessProviderType(DataAccessProviderFactory)
-                : null;
+                ? GetDataAccessProviderType(DataAccessProviderFactory)
+                : DataAccessProviderType.Unconfigured;
 
             string connectionString;
 
@@ -334,7 +337,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
             else
             {
-                dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
+                if (dataAccessProviderType == DataAccessProviderType.Unconfigured) dataAccessProviderType = JetConfiguration.DefaultDataAccessProviderType;
 
                 if (IsFileName(fileNameOrConnectionString))
                 {
@@ -342,7 +345,7 @@ namespace EntityFrameworkCore.Jet.Data
                     // by using the default data access provider type (ODBC or OLE DB) and retrieving its most recent
                     // ACE/Jet provider.
                     var fileName = fileNameOrConnectionString;
-                    connectionString = GetConnectionString(fileName, dataAccessProviderType.Value);
+                    connectionString = GetConnectionString(fileName, dataAccessProviderType);
                 }
                 else
                 {
@@ -352,7 +355,7 @@ namespace EntityFrameworkCore.Jet.Data
                 }
             }
 
-            DataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType.Value);
+            DataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(dataAccessProviderType);
 
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.
@@ -368,13 +371,9 @@ namespace EntityFrameworkCore.Jet.Data
 
             if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider()))
             {
-                var provider = GetMostRecentCompatibleProviders(dataAccessProviderType.Value)
+                var provider = GetMostRecentCompatibleProviders(dataAccessProviderType)
                     .FirstOrDefault()
-                    .Key;
-
-                if (provider == null)
-                    throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
-
+                    .Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
                 connectionStringBuilder.SetProvider(provider);
                 connectionString = connectionStringBuilder.ToString();
             }
@@ -426,10 +425,7 @@ namespace EntityFrameworkCore.Jet.Data
         /// <summary>
         /// Gets a string that describes the state of the connection.
         /// </summary>
-        public override ConnectionState State
-        {
-            get { return _state; }
-        }
+        public override ConnectionState State => _state;
 
         void WrappedConnection_StateChange(object sender, StateChangeEventArgs e)
         {
@@ -528,8 +524,7 @@ namespace EntityFrameworkCore.Jet.Data
             SchemaProviderType schemaProviderType = SchemaProviderType.Precise,
             DataAccessProviderType? dataAccessProviderType = null)
         {
-            if (databasePassword != null &&
-                databasePassword.Length > 20)
+            if (databasePassword is { Length: > 20 })
             {
                 throw new ArgumentOutOfRangeException(nameof(databasePassword));
             }
@@ -547,7 +542,7 @@ namespace EntityFrameworkCore.Jet.Data
             DataAccessProviderType dbType = JetConfiguration.DefaultDataAccessProviderType;
 
             if (dataAccessProviderType != null) dbType = dataAccessProviderType.Value;
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(
+            var dataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(
                 IsConnectionString(fileNameOrConnectionString)
                     ? GetDataAccessProviderType(fileNameOrConnectionString)
                     : dbType);
@@ -570,22 +565,25 @@ namespace EntityFrameworkCore.Jet.Data
             schemaProvider.EnsureDualTable();
         }
 
-        public static string GetConnectionString(string fileNameOrConnectionString, DbProviderFactory dataAccessProviderFactory)
+        public static string GetConnectionString(string fileNameOrConnectionString, DbProviderFactory? dataAccessProviderFactory)
             => GetConnectionString(fileNameOrConnectionString, GetDataAccessProviderType(dataAccessProviderFactory), dataAccessProviderFactory);
 
-        public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType? dataAccessProviderType = null)
+        public static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType)
         {
-            var providerType = dataAccessProviderType ?? JetConfiguration.DefaultDataAccessProviderType;
-            return GetConnectionString(fileNameOrConnectionString, providerType, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
+            var providerType = dataAccessProviderType == DataAccessProviderType.Unconfigured ? JetConfiguration.DefaultDataAccessProviderType : dataAccessProviderType;
+            return GetConnectionString(fileNameOrConnectionString, providerType, JetFactory.GetDataAccessProviderFactory(providerType));
         }
 
         internal static string GetConnectionString(string fileNameOrConnectionString, DataAccessProviderType dataAccessProviderType, DbProviderFactory dataAccessProviderFactory)
-            => IsConnectionString(fileNameOrConnectionString)
+        {
+            var provider = GetMostRecentCompatibleProviders(dataAccessProviderType).FirstOrDefault().Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
+            return IsConnectionString(fileNameOrConnectionString)
                 ? ExpandDatabaseFilePath(fileNameOrConnectionString, dataAccessProviderFactory)
                 : GetConnectionString(
-                    GetMostRecentCompatibleProviders(dataAccessProviderType).First().Key,
+                    provider,
                     fileNameOrConnectionString,
                     dataAccessProviderType);
+        }
 
         public static string GetConnectionString(string provider, string fileName, DbProviderFactory dataAccessProviderFactory)
             => GetConnectionString(provider, fileName, GetDataAccessProviderType(dataAccessProviderFactory));
@@ -607,7 +605,7 @@ namespace EntityFrameworkCore.Jet.Data
         public void DropDatabase()
             => DropDatabase(_connectionString);
 
-        public static void DropDatabase(string fileNameOrConnectionString)
+        public static void DropDatabase(string? fileNameOrConnectionString)
         {
             var fileName = JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString);
 
@@ -622,7 +620,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public SchemaProviderType SchemaProviderType { get; set; }
 
-        public static bool DatabaseExists(string fileNameOrConnectionString)
+        public static bool DatabaseExists(string? fileNameOrConnectionString)
         {
             var fileName = JetStoreDatabaseHandling.ExpandFileName(
                 JetStoreDatabaseHandling.ExtractFileNameFromConnectionString(fileNameOrConnectionString)
@@ -636,23 +634,29 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static DataAccessProviderType GetDataAccessProviderType(string? connectionString)
         {
-            if (string.IsNullOrEmpty(connectionString)) return DataAccessProviderType.Unconfgiured;
-            var isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Provider\s*=\s*\w+", RegexOptions.IgnoreCase);
-            var isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase);
+            if (string.IsNullOrEmpty(connectionString)) return DataAccessProviderType.Unconfigured;
+            var isOleDb = IsOleDbRegex().IsMatch(connectionString);
+            var isOdbc = IsOdbcRegex().IsMatch(connectionString);
 
-            if (isOdbc && isOleDb)
-                throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
-
-            if (!isOdbc && !isOleDb)
+            switch (isOdbc)
             {
-                isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Data Source\s*=", RegexOptions.IgnoreCase);
-                isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*DBQ\s*=", RegexOptions.IgnoreCase);
-
-                if (isOdbc && isOleDb)
+                case true when isOleDb:
                     throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
+                case false when !isOleDb:
+                {
+                    isOleDb = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*Data Source\s*=", RegexOptions.IgnoreCase);
+                    isOdbc = Regex.IsMatch(connectionString, @"^(?:.*;)?\s*DBQ\s*=", RegexOptions.IgnoreCase);
 
-                if (!isOdbc && !isOleDb)
-                    throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
+                    switch (isOdbc)
+                    {
+                        case true when isOleDb:
+                            throw new InvalidOperationException("The connection string appears to be for ODBC and OLE DB. Only one distinct style is supported at a time.");
+                        case false when !isOleDb:
+                            throw new ArgumentException("The connection string appears to be neither ODBC nor OLE DB compliant.", nameof(connectionString));
+                    }
+
+                    break;
+                }
             }
 
             return isOleDb
@@ -660,8 +664,10 @@ namespace EntityFrameworkCore.Jet.Data
                 : DataAccessProviderType.Odbc;
         }
 
-        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory providerFactory)
+        public static DataAccessProviderType GetDataAccessProviderType(DbProviderFactory? providerFactory)
         {
+            if (providerFactory == null)
+                return DataAccessProviderType.Unconfigured;
             var isOleDb = providerFactory
                 .GetType()
                 .GetTypesInHierarchy()
@@ -684,7 +690,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw new InvalidOperationException();
 
             if (!isOdbc && !isOleDb)
-                throw new ArgumentException($"The parameter is neither of type OdbcFactory nor OleDbFactory.", nameof(providerFactory));
+                return DataAccessProviderType.Unconfigured;
 
             return isOleDb
                 ? DataAccessProviderType.OleDb
@@ -693,7 +699,7 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static KeyValuePair<string, Version>[] GetMostRecentCompatibleProviders(DataAccessProviderType dataAccessProviderType)
             => dataAccessProviderType == DataAccessProviderType.OleDb
-                ? _oledbProviders.Value
+                ? [.. _oledbProviders.Value
                     .Select(s => Regex.Match(s, @"Microsoft\.(?:ACE|Jet)\.OLEDB\.(?<Version>\d+\.\d+)", RegexOptions.IgnoreCase))
                     .Where(m => m.Success)
                     .Select(
@@ -701,47 +707,41 @@ namespace EntityFrameworkCore.Jet.Data
                             m.Value, new Version(
                                 m.Groups["Version"]
                                     .Value)))
-                    .OrderByDescending(kvp => kvp.Value)
-                    .ToArray()
-                : _odbcProviders.Value
+                    .OrderByDescending(kvp => kvp.Value)]
+                : [.. _odbcProviders.Value
                     .Where(
-                        kvp => kvp.Key.IndexOf("Microsoft Access Driver", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                               (kvp.Key.IndexOf("*.mdb", StringComparison.OrdinalIgnoreCase) >= 0 || kvp.Key.IndexOf("*.accdb", StringComparison.OrdinalIgnoreCase) >= 0))
+                        kvp => kvp.Key.Contains("Microsoft Access Driver", StringComparison.OrdinalIgnoreCase) &&
+                               (kvp.Key.Contains("*.mdb", StringComparison.OrdinalIgnoreCase) || kvp.Key.Contains("*.accdb", StringComparison.OrdinalIgnoreCase)))
                     .OrderByDescending(kvp => kvp.Value)
-                    .ThenByDescending(kvp => kvp.Key.IndexOf("*.accdb", StringComparison.OrdinalIgnoreCase))
-                    .ToArray();
+                    .ThenByDescending(kvp => kvp.Key.IndexOf("*.accdb", StringComparison.OrdinalIgnoreCase))];
 
-        private static readonly Lazy<Dictionary<string, Version>> _odbcProviders = new Lazy<Dictionary<string, Version>>(() =>
+        private static readonly Lazy<Dictionary<string, Version>> _odbcProviders = new(() =>
         {
             var drivers = new Dictionary<string, Version>();
 
             try
             {
-                using (var odbcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\ODBC\ODBCINST.INI"))
+                using var odbcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\ODBC\ODBCINST.INI");
+                if (odbcKey != null)
                 {
-                    if (odbcKey != null)
-                    {
-                        var driverKeyNames = odbcKey.GetSubKeyNames();
+                    var driverKeyNames = odbcKey.GetSubKeyNames();
 
-                        foreach (var driverKeyName in driverKeyNames)
+                    foreach (var driverKeyName in driverKeyNames)
+                    {
+                        try
                         {
-                            try
+                            using var driverKey = odbcKey.OpenSubKey(driverKeyName);
+                            if (driverKey?.GetValue("Driver") != null)
                             {
-                                using (var driverKey = odbcKey.OpenSubKey(driverKeyName))
+                                if (driverKey.GetValue("DriverODBCVer") is string versionString)
                                 {
-                                    if (driverKey?.GetValue("Driver") != null)
-                                    {
-                                        if (driverKey.GetValue("DriverODBCVer") is string versionString)
-                                        {
-                                            drivers.Add(driverKeyName, new Version(versionString));
-                                        }
-                                    }
+                                    drivers.Add(driverKeyName, new Version(versionString));
                                 }
                             }
-                            catch
-                            {
-                                // ignored
-                            }
+                        }
+                        catch
+                        {
+                            // ignored
                         }
                     }
                 }
@@ -754,37 +754,33 @@ namespace EntityFrameworkCore.Jet.Data
             return drivers;
         }, true);
 
-        private static readonly Lazy<string[]> _oledbProviders = new Lazy<string[]>(() =>
+        private static readonly Lazy<string[]> _oledbProviders = new(() =>
         {
             var providers = new List<string>();
 
             try
             {
-                using (var clsidKey = Registry.ClassesRoot.OpenSubKey(@"CLSID"))
+                using var clsidKey = Registry.ClassesRoot.OpenSubKey(@"CLSID");
+                if (clsidKey != null)
                 {
-                    if (clsidKey != null)
-                    {
-                        var clasidSubKeyNames = clsidKey.GetSubKeyNames();
+                    var clasidSubKeyNames = clsidKey.GetSubKeyNames();
 
-                        foreach (var clsidSubKeyName in clasidSubKeyNames)
+                    foreach (var clsidSubKeyName in clasidSubKeyNames)
+                    {
+                        try
                         {
-                            try
+                            using var clsidSubKey = clsidKey.OpenSubKey(clsidSubKeyName);
+                            if (clsidSubKey?.GetValue("OLEDB_SERVICES") != null)
                             {
-                                using (var clsidSubKey = clsidKey.OpenSubKey(clsidSubKeyName))
+                                if (clsidSubKey.GetValue(null) is string provider)
                                 {
-                                    if (clsidSubKey?.GetValue("OLEDB_SERVICES") != null)
-                                    {
-                                        if (clsidSubKey.GetValue(null) is string provider)
-                                        {
-                                            providers.Add(provider);
-                                        }
-                                    }
+                                    providers.Add(provider);
                                 }
                             }
-                            catch
-                            {
-                                // ignored
-                            }
+                        }
+                        catch
+                        {
+                            // ignored
                         }
                     }
                 }
@@ -794,7 +790,7 @@ namespace EntityFrameworkCore.Jet.Data
                 // ignored
             }
 
-            return providers.ToArray();
+            return [.. providers];
         }, true);
 
         public static bool IsConnectionString(string? fileNameOrConnectionString)
@@ -802,5 +798,10 @@ namespace EntityFrameworkCore.Jet.Data
 
         public static bool IsFileName(string? fileNameOrConnectionString)
             => JetStoreDatabaseHandling.IsFileName(fileNameOrConnectionString);
+
+        [GeneratedRegex(@"^(?:.*;)?Driver\s*=\s*\{?\w+\}?", RegexOptions.IgnoreCase, "en-AU")]
+        private static partial Regex IsOdbcRegex();
+        [GeneratedRegex(@"^(?:.*;)?\s*Provider\s*=\s*\w+", RegexOptions.IgnoreCase, "en-AU")]
+        private static partial Regex IsOleDbRegex();
     }
 }

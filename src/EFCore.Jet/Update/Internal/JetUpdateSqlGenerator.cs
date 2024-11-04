@@ -1,17 +1,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Update;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Update.Internal
 {
@@ -28,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Update.Internal
     ///         This service cannot depend on services registered as <see cref="ServiceLifetime.Scoped" />.
     ///     </para>
     /// </summary>
-    public class JetUpdateSqlGenerator([NotNull] UpdateSqlGeneratorDependencies dependencies)
+    public class JetUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies)
         : UpdateAndSelectSqlGenerator(dependencies), IJetUpdateSqlGenerator
     {
         public override ResultSetMapping AppendInsertOperation(StringBuilder commandStringBuilder, IReadOnlyModificationCommand command,

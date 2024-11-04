@@ -244,7 +244,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                     var results = Enumerable.Empty<T>();
                     while (dataReader.Read())
                     {
-                        results = results.Concat(new[] { dataReader.GetFieldValue<T>(0) });
+                        results = results.Concat([dataReader.GetFieldValue<T>(0)]);
                     }
 
                     return results;
@@ -257,16 +257,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             => ExecuteAsync(
                 connection, async command =>
                 {
-                    using (var dataReader = await command.ExecuteReaderAsync())
+                    using var dataReader = await command.ExecuteReaderAsync();
+                    var results = Enumerable.Empty<T>();
+                    while (await dataReader.ReadAsync())
                     {
-                        var results = Enumerable.Empty<T>();
-                        while (await dataReader.ReadAsync())
-                        {
-                            results = results.Concat(new[] { await dataReader.GetFieldValueAsync<T>(0) });
-                        }
-
-                        return results;
+                        results = results.Concat([await dataReader.GetFieldValueAsync<T>(0)]);
                     }
+
+                    return results;
                 }, sql, false, parameters);
 
         private static T Execute<T>(
@@ -406,7 +404,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public static string CreateConnectionString(string name)
         {
             var defaultConnectionString = TestEnvironment.DefaultConnection;
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(defaultConnectionString));
+            var dataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(JetConnection.GetDataAccessProviderType(defaultConnectionString));
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
 
             connectionStringBuilder!.ConnectionString = defaultConnectionString;

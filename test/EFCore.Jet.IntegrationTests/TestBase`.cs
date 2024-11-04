@@ -128,12 +128,9 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
             var options = GetContextOptions(Connection);
 
             ConstructorInfo constructorInfo =
-                typeof(T).GetConstructor(new Type[] {typeof(DbContextOptions<T>)}) ??
-                typeof(T).GetConstructor(new Type[] {typeof(DbContextOptions)});
-
-            if (constructorInfo == null)
-                throw new InvalidOperationException("The Context does not have the expected constructor Context(DbContextOptions)");
-            Context = (T) constructorInfo.Invoke(new object[] {options});
+                (typeof(T).GetConstructor([typeof(DbContextOptions<T>)]) ??
+                typeof(T).GetConstructor([typeof(DbContextOptions)])) ?? throw new InvalidOperationException("The Context does not have the expected constructor Context(DbContextOptions)");
+            Context = (T) constructorInfo.Invoke([options]);
         }
 
         protected virtual DbContextOptions GetContextOptions()

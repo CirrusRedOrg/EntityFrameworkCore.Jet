@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model26_Decompile
     {
         public ParentEntity()
         {
-            Children = new List<ChildEntity>();
+            Children = [];
         }
         public int Id { get; set; }
         public string Name { get; set; }

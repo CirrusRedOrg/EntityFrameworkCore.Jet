@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.Data.ConnectionPooling
 
         // TryGetValue has been added in .NET Core 2.0.
         #pragma warning disable 109
-        public new bool TryGetValue(string key, out ConnectionSet connectionSet)
+        public new bool TryGetValue(string key, out ConnectionSet? connectionSet)
         {
             try
             {

@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model54_MemoryLeakageTest
     {
         public Standard()
         {
-            Students = new List<Student>();
+            Students = [];
         }
 
         // Index supported only in fluent api

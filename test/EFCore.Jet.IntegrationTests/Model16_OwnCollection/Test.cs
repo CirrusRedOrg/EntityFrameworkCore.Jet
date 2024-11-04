@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
         {
             for (int i = 0; i < 100; i++)
             {
-                Blog blog = new Blog { Name = "MyNewBlog " + i };
+                Blog blog = new() { Name = "MyNewBlog " + i };
                 blog.Posts.Add("My1stPost", "Not really interesting post " + i * 10 + 1);
                 blog.Posts.Add("My2ndPost", "Not really interesting post " + i * 10 + 1);
                 blog.Posts.Add("My3rdPost", "Not really interesting post " + i * 10 + 1);
@@ -109,7 +109,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
             DbDataAdapter dataAdapter = new OleDbDataAdapter();
             dataAdapter.SelectCommand = (OleDbCommand)command;
 
-            DataTable dataTable = new DataTable("sd");
+            DataTable dataTable = new("sd");
 
             try
             {

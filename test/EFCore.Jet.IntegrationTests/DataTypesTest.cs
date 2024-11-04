@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         public override void Seed()
         {
 
-            TableWithSeveralFieldsType table = new TableWithSeveralFieldsType()
+            TableWithSeveralFieldsType table = new()
             {
                 MyInt = MYINT,
                 MyDouble = 12.34,

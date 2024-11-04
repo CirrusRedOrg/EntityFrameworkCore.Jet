@@ -101,7 +101,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
 
-                connection.CommitFailures.Enqueue(new bool?[] { realFailure });
+                connection.CommitFailures.Enqueue([realFailure]);
                 Fixture.TestSqlLoggerFactory.Clear();
 
                 context.Products.Add(new Product());
@@ -214,7 +214,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
 
-                connection.CommitFailures.Enqueue(new bool?[] { realFailure });
+                connection.CommitFailures.Enqueue([realFailure]);
                 Fixture.TestSqlLoggerFactory.Clear();
 
                 context.Products.Add(new Product());
@@ -251,38 +251,36 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         {
             CleanContext();
 
-            using (var context1 = CreateContext())
+            using var context1 = CreateContext();
+            var connection = (TestJetConnection)context1.GetService<IJetRelationalConnection>();
+
+            using (var context2 = CreateContext())
             {
-                var connection = (TestJetConnection)context1.GetService<IJetRelationalConnection>();
+                connection.CommitFailures.Enqueue([realFailure]);
 
-                using (var context2 = CreateContext())
-                {
-                    connection.CommitFailures.Enqueue(new bool?[] { realFailure });
+                context1.Products.Add(new Product());
+                context2.Products.Add(new Product());
 
-                    context1.Products.Add(new Product());
-                    context2.Products.Add(new Product());
+                new TestJetRetryingExecutionStrategy(context1).ExecuteInTransaction(
+                    context1,
+                    c1 =>
+                    {
+                        context2.Database.UseTransaction(null);
+                        context2.Database.UseTransaction(context1.Database.CurrentTransaction.GetDbTransaction());
 
-                    new TestJetRetryingExecutionStrategy(context1).ExecuteInTransaction(
-                        context1,
-                        c1 =>
-                        {
-                            context2.Database.UseTransaction(null);
-                            context2.Database.UseTransaction(context1.Database.CurrentTransaction.GetDbTransaction());
+                        c1.SaveChanges(false);
 
-                            c1.SaveChanges(false);
+                        return context2.SaveChanges(false);
+                    },
+                    c => c.Products.AsNoTracking().Any());
 
-                            return context2.SaveChanges(false);
-                        },
-                        c => c.Products.AsNoTracking().Any());
+                context1.ChangeTracker.AcceptAllChanges();
+                context2.ChangeTracker.AcceptAllChanges();
+            }
 
-                    context1.ChangeTracker.AcceptAllChanges();
-                    context2.ChangeTracker.AcceptAllChanges();
-                }
-
-                using (var context = CreateContext())
-                {
-                    Assert.Equal(2, context.Products.Count());
-                }
+            using (var context = CreateContext())
+            {
+                Assert.Equal(2, context.Products.Count());
             }
         }
 
@@ -297,7 +295,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
 
-                connection.ExecutionFailures.Enqueue(new bool?[] { null, realFailure });
+                connection.ExecutionFailures.Enqueue([null, realFailure]);
 
                 Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
 
@@ -406,7 +404,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
 
-                connection.ExecutionFailures.Enqueue(new bool?[] { true });
+                connection.ExecutionFailures.Enqueue([true]);
 
                 Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
 
@@ -432,7 +430,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     }
                     else
                     {
-                        list = context.Products.ToList();
+                        list = [.. context.Products];
                     }
                 }
 
@@ -462,7 +460,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
 
-                connection.ExecutionFailures.Enqueue(new bool?[] { true });
+                connection.ExecutionFailures.Enqueue([true]);
 
                 Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
 
@@ -474,14 +472,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         list = await new TestJetRetryingExecutionStrategy(context)
                             .ExecuteAsync(
                                 context, (c, ct) => c.Set<Product>().FromSqlRaw(
-                                    @"SELECT `ID`, `name`
-                              FROM `Products`").ToListAsync(ct), null);
+                                    """
+                                        SELECT `ID`, `name`
+                                                                      FROM `Products`
+                                        """).ToListAsync(ct), null);
                     }
                     else
                     {
                         list = await context.Set<Product>().FromSqlRaw(
-                            @"SELECT `ID`, `name`
-                              FROM `Products`").ToListAsync();
+                            """
+                                SELECT `ID`, `name`
+                                                              FROM `Products`
+                                """).ToListAsync();
                     }
                 }
                 else
@@ -491,14 +493,18 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         list = new TestJetRetryingExecutionStrategy(context)
                             .Execute(
                                 context, c => c.Set<Product>().FromSqlRaw(
-                                    @"SELECT `ID`, `name`
-                              FROM `Products`").ToList(), null);
+                                    """
+                                        SELECT `ID`, `name`
+                                                                      FROM `Products`
+                                        """).ToList(), null);
                     }
                     else
                     {
-                        list = context.Set<Product>().FromSqlRaw(
-                            @"SELECT `ID`, `name`
-                              FROM `Products`").ToList();
+                        list = [.. context.Set<Product>().FromSqlRaw(
+                            """
+                                SELECT `ID`, `name`
+                                                              FROM `Products`
+                                """)];
                     }
                 }
 
@@ -514,54 +520,52 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 2, MemberType = typeof(DataGenerator))]
         public async Task Retries_OpenConnection_on_execution_failure(bool externalStrategy, bool async)
         {
-            using (var context = CreateContext())
+            using var context = CreateContext();
+            var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
+
+            connection.OpenFailures.Enqueue([true]);
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+
+            if (async)
             {
-                var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
-
-                connection.OpenFailures.Enqueue(new bool?[] { true });
-
-                Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-
-                if (async)
+                if (externalStrategy)
                 {
-                    if (externalStrategy)
-                    {
-                        await new TestJetRetryingExecutionStrategy(context).ExecuteAsync(
-                            context,
-                            c => c.Database.OpenConnectionAsync());
-                    }
-                    else
-                    {
-                        await context.Database.OpenConnectionAsync();
-                    }
+                    await new TestJetRetryingExecutionStrategy(context).ExecuteAsync(
+                        context,
+                        c => c.Database.OpenConnectionAsync());
                 }
                 else
                 {
-                    if (externalStrategy)
-                    {
-                        new TestJetRetryingExecutionStrategy(context).Execute(
-                            context,
-                            c => c.Database.OpenConnection());
-                    }
-                    else
-                    {
-                        context.Database.OpenConnection();
-                    }
+                    await context.Database.OpenConnectionAsync();
                 }
-
-                Assert.Equal(2, connection.OpenCount);
-
-                if (async)
-                {
-                    context.Database.CloseConnection();
-                }
-                else
-                {
-                    await context.Database.CloseConnectionAsync();
-                }
-
-                Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
             }
+            else
+            {
+                if (externalStrategy)
+                {
+                    new TestJetRetryingExecutionStrategy(context).Execute(
+                        context,
+                        c => c.Database.OpenConnection());
+                }
+                else
+                {
+                    context.Database.OpenConnection();
+                }
+            }
+
+            Assert.Equal(2, connection.OpenCount);
+
+            if (async)
+            {
+                context.Database.CloseConnection();
+            }
+            else
+            {
+                await context.Database.CloseConnectionAsync();
+            }
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
         [ConditionalTheory]
@@ -569,35 +573,33 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(true)]
         public async Task Retries_BeginTransaction_on_execution_failure(bool async)
         {
-            using (var context = CreateContext())
+            using var context = CreateContext();
+            var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
+
+            connection.OpenFailures.Enqueue([true]);
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+
+            if (async)
             {
-                var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
+                var transaction = await new TestJetRetryingExecutionStrategy(context).ExecuteAsync(
+                    context,
+                    c => context.Database.BeginTransactionAsync());
 
-                connection.OpenFailures.Enqueue(new bool?[] { true });
-
-                Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-
-                if (async)
-                {
-                    var transaction = await new TestJetRetryingExecutionStrategy(context).ExecuteAsync(
-                        context,
-                        c => context.Database.BeginTransactionAsync());
-
-                    transaction.Dispose();
-                }
-                else
-                {
-                    var transaction = new TestJetRetryingExecutionStrategy(context).Execute(
-                        context,
-                        c => context.Database.BeginTransaction());
-
-                    transaction.Dispose();
-                }
-
-                Assert.Equal(2, connection.OpenCount);
-
-                Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+                transaction.Dispose();
             }
+            else
+            {
+                var transaction = new TestJetRetryingExecutionStrategy(context).Execute(
+                    context,
+                    c => context.Database.BeginTransaction());
+
+                transaction.Dispose();
+            }
+
+            Assert.Equal(2, connection.OpenCount);
+
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
         [ConditionalFact]
@@ -609,8 +611,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 var connection = (TestJetConnection)context.GetService<IJetRelationalConnection>();
 
-                connection.ExecutionFailures.Enqueue(new bool?[] { true, null, true, true });
-                connection.CommitFailures.Enqueue(new bool?[] { true, true, true, true });
+                connection.ExecutionFailures.Enqueue([true, null, true, true]);
+                connection.CommitFailures.Enqueue([true, true, true, true]);
 
                 context.Products.Add(new Product());
                 Assert.Throws<RetryLimitExceededException>(
@@ -648,13 +650,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private void CleanContext()
         {
-            using (var context = CreateContext())
+            using var context = CreateContext();
+            foreach (var product in context.Products.ToList())
             {
-                foreach (var product in context.Products.ToList())
-                {
-                    context.Remove(product);
-                    context.SaveChanges();
-                }
+                context.Remove(product);
+                context.SaveChanges();
             }
         }
 

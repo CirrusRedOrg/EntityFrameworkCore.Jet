@@ -4,11 +4,11 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
 {
     public static class JetSchemaOperationsHandling
     {
-        private static readonly Regex _renameTableRegex = new Regex(
+        private static readonly Regex _renameTableRegex = new(
             $@"^\s*alter\s+table\s+{GetIdentifierPattern("OldTableName")}\s+rename\s+to\s+{GetIdentifierPattern("NewTableName")}\s*$",
             RegexOptions.IgnoreCase);
 
-        private static readonly Regex _renameTableColumnRegex = new Regex(
+        private static readonly Regex _renameTableColumnRegex = new(
             $@"^\s*alter\s+table\s+{GetIdentifierPattern("TableName")}\s+rename\s+column\s+{GetIdentifierPattern("OldColumnName")}\s+to\s+{GetIdentifierPattern("NewColumnName")}\s*$",
             RegexOptions.IgnoreCase);
 

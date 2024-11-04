@@ -1,15 +1,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Data;
-using System.Data.Common;
 using System.Globalization;
-using System.Reflection.Metadata;
 using System.Text;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
@@ -18,8 +13,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly IJetOptions _options;
 
         public JetDateOnlyTypeMapping(
-            [NotNull] string storeType,
-            [NotNull] IJetOptions options,
+            string storeType,
+            IJetOptions options,
             DbType? dbType = null)
             : base(storeType)
         {

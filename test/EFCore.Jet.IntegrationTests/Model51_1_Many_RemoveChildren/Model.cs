@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model51_1_Many_RemoveChildren
     {
         public Blog()
         {
-            Posts = new List<Post>();
+            Posts = [];
         }
 
         public int Id { get; set; }

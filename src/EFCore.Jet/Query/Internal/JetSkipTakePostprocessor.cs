@@ -1,15 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
 using EntityFrameworkCore.Jet.Internal;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -23,7 +14,7 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
 {
     private readonly IRelationalTypeMappingSource _typeMappingSource;
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
-    private Stack<SelectExpression> parent = new Stack<SelectExpression>();
+    private Stack<SelectExpression> parent = new();
     private readonly QuerySplittingBehavior? _splittingBehavior;
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -57,7 +48,7 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    [return: NotNullIfNotNull("expression")]
+    [return: NotNullIfNotNull(nameof(expression))]
     public override Expression? Visit(Expression? expression)
     {
         switch (expression)
@@ -86,8 +77,8 @@ public class JetSkipTakePostprocessor : ExpressionVisitor
                         MethodInfo? dynMethod1 = selectExpression.GetType().GetMethod("set_Limit",
                             BindingFlags.NonPublic | BindingFlags.Instance);
                         SqlExpression mynullexp = null!;
-                        dynMethodO?.Invoke(selectExpression, new object[] { mynullexp });
-                        dynMethod1?.Invoke(selectExpression, new object[] { total });
+                        dynMethodO?.Invoke(selectExpression, [mynullexp]);
+                        dynMethod1?.Invoke(selectExpression, [total]);
 
                         selectExpression.ReverseOrderings();
 

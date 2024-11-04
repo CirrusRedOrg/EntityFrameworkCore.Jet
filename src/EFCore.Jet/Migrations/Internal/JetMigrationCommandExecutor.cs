@@ -1,15 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Migrations;
-using System.Transactions;
-using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
+﻿using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Migrations.Internal
 {
@@ -63,19 +53,19 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             {
                 if (JetSchemaOperationsHandling.IsDatabaseOperation(migrationCommand.CommandText))
                 {
-                    if (currentBatch.Any())
+                    if (currentBatch.Count != 0)
                     {
                         migrationBatches.Add(currentBatch);
-                        currentBatch = new List<MigrationCommand>();
+                        currentBatch = [];
                     }
-                    migrationBatches.Add(new List<MigrationCommand> { migrationCommand });
+                    migrationBatches.Add([migrationCommand]);
                 }
                 else
                 {
                     currentBatch.Add(migrationCommand);
                 }
             }
-            if (currentBatch.Any())
+            if (currentBatch.Count != 0)
             {
                 migrationBatches.Add(currentBatch);
             }

@@ -323,12 +323,16 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
         using var context = new MismatchedKeyTypesContext(Fixture);
 
         context.Database.ExecuteSqlRaw(
-            @"INSERT INTO PrincipalBadComposite (Id1, Id2, Id3)
-              VALUES (1, '833e6739-6ffb-4901-835c-b46d3f440c47', 1)");
+            """
+                INSERT INTO PrincipalBadComposite (Id1, Id2, Id3)
+                              VALUES (1, '833e6739-6ffb-4901-835c-b46d3f440c47', 1)
+                """);
 
         context.Database.ExecuteSqlRaw(
-            @"INSERT INTO OptionalSingleBadComposite (Id, PrincipalId1, PrincipalId2, PrincipalId3)
-              VALUES (1, 1, '833e6739-6ffb-4901-835c-b46d3f440c47', '4161c5b5-0b6c-4907-8534-2263737843a4')");
+            """
+                INSERT INTO OptionalSingleBadComposite (Id, PrincipalId1, PrincipalId2, PrincipalId3)
+                              VALUES (1, 1, '833e6739-6ffb-4901-835c-b46d3f440c47', '4161c5b5-0b6c-4907-8534-2263737843a4')
+                """);
 
         var principal = context.Set<PrincipalBadComposite>().Single();
         var dependent = context.Set<OptionalSingleBadComposite>().Single();
@@ -351,12 +355,16 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
         using var context = new MismatchedKeyTypesContext(Fixture);
 
         context.Database.ExecuteSqlRaw(
-            @"INSERT INTO PrincipalBad (Id)
-              VALUES (1)");
+            """
+                INSERT INTO PrincipalBad (Id)
+                              VALUES (1)
+                """);
 
         context.Database.ExecuteSqlRaw(
-            @"INSERT INTO OptionalSingleBad (Id, PrincipalId)
-              VALUES (1, '4161c5b5-0b6c-4907-8534-2263737843a4')");
+            """
+                INSERT INTO OptionalSingleBad (Id, PrincipalId)
+                              VALUES (1, '4161c5b5-0b6c-4907-8534-2263737843a4')
+                """);
 
         var principal = context.Set<PrincipalBad>().Single();
         var dependent = context.Set<OptionalSingleBad>().Single();
@@ -542,8 +550,8 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
 
         public OptionalSingleIntLong? OptionalSingle { get; set; }
         public RequiredSingleIntLong? RequiredSingle { get; set; }
-        public List<OptionalManyIntLong> OptionalMany { get; } = new();
-        public List<RequiredManyIntLong> RequiredMany { get; } = new();
+        public List<OptionalManyIntLong> OptionalMany { get; } = [];
+        public List<RequiredManyIntLong> RequiredMany { get; } = [];
     }
 
     protected class OptionalSingleIntLong
@@ -584,8 +592,8 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
 
         public OptionalSingleShortByte? OptionalSingle { get; set; }
         public RequiredSingleShortByte? RequiredSingle { get; set; }
-        public List<OptionalManyShortByte> OptionalMany { get; } = new();
-        public List<RequiredManyShortByte> RequiredMany { get; } = new();
+        public List<OptionalManyShortByte> OptionalMany { get; } = [];
+        public List<RequiredManyShortByte> RequiredMany { get; } = [];
     }
 
     protected class OptionalSingleShortByte
@@ -626,8 +634,8 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
 
         public OptionalSingleStringGuid? OptionalSingle { get; set; }
         public RequiredSingleStringGuid? RequiredSingle { get; set; }
-        public List<OptionalManyStringGuid> OptionalMany { get; } = new();
-        public List<RequiredManyStringGuid> RequiredMany { get; } = new();
+        public List<OptionalManyStringGuid> OptionalMany { get; } = [];
+        public List<RequiredManyStringGuid> RequiredMany { get; } = [];
     }
 
     protected class OptionalSingleStringGuid
@@ -670,8 +678,8 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
 
         public OptionalSingleComposite? OptionalSingle { get; set; }
         public RequiredSingleComposite? RequiredSingle { get; set; }
-        public List<OptionalManyComposite> OptionalMany { get; } = new();
-        public List<RequiredManyComposite> RequiredMany { get; } = new();
+        public List<OptionalManyComposite> OptionalMany { get; } = [];
+        public List<RequiredManyComposite> RequiredMany { get; } = [];
     }
 
     protected class OptionalSingleComposite

@@ -68,7 +68,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 DatabasePassword = "DbPwd",
             };
 
-            Assert.AreEqual(@"driver=""{Microsoft Access Driver (*.mdb, *.accdb)}"";dbq=ConnectionStringTest.accdb;uid=Admin;pwd=DbPwd;systemdb=SysDb", csb.ConnectionString);
+            Assert.AreEqual("""driver="{Microsoft Access Driver (*.mdb, *.accdb)}";dbq=ConnectionStringTest.accdb;uid=Admin;pwd=DbPwd;systemdb=SysDb""", csb.ConnectionString);
         }
 
         [TestMethod]
@@ -83,7 +83,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             csb.SystemDatabase = "SysDb";
             csb.DatabasePassword = "DbPwd";
 
-            Assert.AreEqual(@"driver=""{Microsoft Access Driver (*.mdb, *.accdb)}"";dbq=ConnectionStringTest.accdb;uid=Admin;pwd=DbPwd;systemdb=SysDb", csb.ConnectionString);
+            Assert.AreEqual("""driver="{Microsoft Access Driver (*.mdb, *.accdb)}";dbq=ConnectionStringTest.accdb;uid=Admin;pwd=DbPwd;systemdb=SysDb""", csb.ConnectionString);
         }
 
         [TestMethod]

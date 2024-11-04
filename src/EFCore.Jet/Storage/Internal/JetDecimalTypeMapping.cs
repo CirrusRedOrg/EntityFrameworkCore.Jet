@@ -1,9 +1,4 @@
 using System.Data;
-using System.Data.Common;
-using System.Linq;
-using System.Reflection.Metadata;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
@@ -23,7 +18,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public JetDecimalTypeMapping(
-            [NotNull] string storeType,
+            string storeType,
             DbType? dbType = null,
             int? precision = null,
             int? scale = null,
@@ -101,11 +96,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
                 if (setodbctype != null)
                 {
-                    setodbctype.Invoke(parameter, new object?[] { 7 });
+                    setodbctype.Invoke(parameter, [7]);
                 }
-                else if (setoledbtype != null)
+                else
                 {
-                    setoledbtype.Invoke(parameter, new object?[] { 131 });
+                    setoledbtype?.Invoke(parameter, [131]);
                 }
             }
 

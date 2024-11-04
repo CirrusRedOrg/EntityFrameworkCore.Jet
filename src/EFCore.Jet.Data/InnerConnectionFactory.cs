@@ -7,15 +7,15 @@ namespace EntityFrameworkCore.Jet.Data
 {
     class InnerConnectionFactory : IDisposable
     {
-        public static readonly InnerConnectionFactory Instance = new InnerConnectionFactory();
+        public static readonly InnerConnectionFactory Instance = new();
 
         private InnerConnectionFactory()
         {
         }
 
-        private readonly ConnectionSetCollection _pool = new ConnectionSetCollection();
+        private readonly ConnectionSetCollection _pool = [];
 
-        public DbConnection OpenConnection(string connectionString, DbProviderFactory dataAccessProviderFactory)
+        public DbConnection OpenConnection(string? connectionString, DbProviderFactory dataAccessProviderFactory)
         {
             connectionString ??= string.Empty;
 
@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
 
-        public void CloseConnection(string connectionString, DbConnection connection)
+        public void CloseConnection(string? connectionString, DbConnection connection)
         {
             if (!JetConfiguration.UseConnectionPooling)
             {

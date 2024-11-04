@@ -1,28 +1,15 @@
-﻿using System;
-using System.Data.Common;
-using System.Threading;
-using System.Threading.Tasks;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Storage;
-
-namespace EntityFrameworkCore.Jet.Storage.Internal
+﻿namespace EntityFrameworkCore.Jet.Storage.Internal
 {
-    public class JetTransaction : RelationalTransaction
+    /// <inheritdoc />
+    public class JetTransaction(
+        IRelationalConnection connection,
+        DbTransaction transaction,
+        Guid transactionId,
+        IDiagnosticsLogger<DbLoggerCategory.Database.Transaction> logger,
+        bool transactionOwned,
+        ISqlGenerationHelper sqlGenerationHelper) : RelationalTransaction(connection, transaction, transactionId, logger, transactionOwned, sqlGenerationHelper)
     {
-        /// <inheritdoc />
-        public JetTransaction(
-            [NotNull] IRelationalConnection connection,
-            [NotNull] DbTransaction transaction,
-            Guid transactionId,
-            [NotNull] IDiagnosticsLogger<DbLoggerCategory.Database.Transaction> logger,
-            bool transactionOwned, 
-            ISqlGenerationHelper sqlGenerationHelper)
-            : base(connection, transaction, transactionId, logger, transactionOwned, sqlGenerationHelper)
-        {
-        }
-        
+
         /// <inheritdoc />
         public override bool SupportsSavepoints
             => false;
@@ -32,7 +19,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => throw new NotSupportedException();
 
         /// <inheritdoc />
-        public override Task CreateSavepointAsync(string name, CancellationToken cancellationToken = new CancellationToken())
+        public override Task CreateSavepointAsync(string name, CancellationToken cancellationToken = new())
             => throw new NotSupportedException();
 
         /// <inheritdoc />
@@ -40,7 +27,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             => throw new NotSupportedException();
 
         /// <inheritdoc />
-        public override Task RollbackToSavepointAsync(string name, CancellationToken cancellationToken = new CancellationToken())
+        public override Task RollbackToSavepointAsync(string name, CancellationToken cancellationToken = new())
             => throw new NotSupportedException();
 
         /// <inheritdoc />

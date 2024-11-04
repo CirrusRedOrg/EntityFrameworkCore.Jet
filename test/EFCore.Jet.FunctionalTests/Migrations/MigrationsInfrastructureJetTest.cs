@@ -33,14 +33,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
             base.Can_generate_migration_from_initial_database_to_initial();
 
             Assert.Equal(
-                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` varchar(150) NOT NULL,
-        `ProductVersion` varchar(32) NOT NULL,
-        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-    );
-;
+                """
+                    IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+                            `MigrationId` varchar(150) NOT NULL,
+                            `ProductVersion` varchar(32) NOT NULL,
+                            CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+                        );
+                    ;
+                    
 
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -50,14 +52,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
             base.Can_generate_no_migration_script();
 
             Assert.Equal(
-                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` varchar(150) NOT NULL,
-        `ProductVersion` varchar(32) NOT NULL,
-        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-    );
-;
+                """
+                    IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+                            `MigrationId` varchar(150) NOT NULL,
+                            `ProductVersion` varchar(32) NOT NULL,
+                            CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+                        );
+                    ;
+                    
 
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -67,65 +71,67 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
             base.Can_generate_up_scripts();
 
             Assert.Equal(
-                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
-        `MigrationId` varchar(150) NOT NULL,
-        `ProductVersion` varchar(32) NOT NULL,
-        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-    );
-;
+                """
+                    IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+                            `MigrationId` varchar(150) NOT NULL,
+                            `ProductVersion` varchar(32) NOT NULL,
+                            CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+                        );
+                    ;
+                    
+                    BEGIN TRANSACTION;
+                    
+                    CREATE TABLE `Table1` (
+                        `Id` integer NOT NULL,
+                        `Foo` integer NOT NULL,
+                        `Description` varchar(255) NOT NULL,
+                        CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
+                    );
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000001_Migration1', '7.0.0-test');
+                    
+                    ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000002_Migration2', '7.0.0-test');
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000003_Migration3', '7.0.0-test');
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000004_Migration4', '7.0.0-test');
+                    
+                    INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, 3, 'Value With
+                    
+                    Empty Lines')
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000005_Migration5', '7.0.0-test');
+                    
+                    INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, 4, 'GO
+                    Value With
+                    
+                    Empty Lines')
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000006_Migration6', '7.0.0-test');
+                    
+                    INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, 5, 'GO
+                    Value With
+                    
+                    GO
+                    
+                    Empty Lines
+                    GO')
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000007_Migration7', '7.0.0-test');
+                    
+                    COMMIT TRANSACTION;
+                    
 
-BEGIN TRANSACTION;
-
-CREATE TABLE `Table1` (
-    `Id` integer NOT NULL,
-    `Foo` integer NOT NULL,
-    `Description` varchar(255) NOT NULL,
-    CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
-);
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000001_Migration1', '7.0.0-test');
-
-ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000002_Migration2', '7.0.0-test');
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000003_Migration3', '7.0.0-test');
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000004_Migration4', '7.0.0-test');
-
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, 3, 'Value With
-
-Empty Lines')
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000005_Migration5', '7.0.0-test');
-
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, 4, 'GO
-Value With
-
-Empty Lines')
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000006_Migration6', '7.0.0-test');
-
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, 5, 'GO
-Value With
-
-GO
-
-Empty Lines
-GO')
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000007_Migration7', '7.0.0-test');
-
-COMMIT TRANSACTION;
-
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -135,16 +141,18 @@ COMMIT TRANSACTION;
             base.Can_generate_one_up_script();
 
             Assert.Equal(
-                @"BEGIN TRANSACTION;
+                """
+                    BEGIN TRANSACTION;
+                    
+                    ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000002_Migration2', '7.0.0-test');
+                    
+                    COMMIT TRANSACTION;
+                    
 
-ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000002_Migration2', '7.0.0-test');
-
-COMMIT TRANSACTION;
-
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -154,16 +162,18 @@ COMMIT TRANSACTION;
             base.Can_generate_up_script_using_names();
 
             Assert.Equal(
-                @"BEGIN TRANSACTION;
+                """
+                    BEGIN TRANSACTION;
+                    
+                    ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
+                    
+                    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+                    VALUES ('00000000000002_Migration2', '7.0.0-test');
+                    
+                    COMMIT TRANSACTION;
+                    
 
-ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
-
-INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
-VALUES ('00000000000002_Migration2', '7.0.0-test');
-
-COMMIT TRANSACTION;
-
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -179,21 +189,23 @@ COMMIT TRANSACTION;
             base.Can_generate_down_scripts();
 
             Assert.Equal(
-                @"BEGIN TRANSACTION;
+                """
+                    BEGIN TRANSACTION;
+                    
+                    ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
+                    
+                    DELETE FROM `__EFMigrationsHistory`
+                    WHERE `MigrationId` = '00000000000002_Migration2';
+                    
+                    DROP TABLE `Table1`;
+                    
+                    DELETE FROM `__EFMigrationsHistory`
+                    WHERE `MigrationId` = '00000000000001_Migration1';
+                    
+                    COMMIT TRANSACTION;
+                    
 
-ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
-
-DELETE FROM `__EFMigrationsHistory`
-WHERE `MigrationId` = '00000000000002_Migration2';
-
-DROP TABLE `Table1`;
-
-DELETE FROM `__EFMigrationsHistory`
-WHERE `MigrationId` = '00000000000001_Migration1';
-
-COMMIT TRANSACTION;
-
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -206,16 +218,18 @@ COMMIT TRANSACTION;
             base.Can_generate_one_down_script();
 
             Assert.Equal(
-                @"BEGIN TRANSACTION;
+                """
+                    BEGIN TRANSACTION;
+                    
+                    ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
+                    
+                    DELETE FROM `__EFMigrationsHistory`
+                    WHERE `MigrationId` = '00000000000002_Migration2';
+                    
+                    COMMIT TRANSACTION;
+                    
 
-ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
-
-DELETE FROM `__EFMigrationsHistory`
-WHERE `MigrationId` = '00000000000002_Migration2';
-
-COMMIT TRANSACTION;
-
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -225,16 +239,18 @@ COMMIT TRANSACTION;
             base.Can_generate_down_script_using_names();
 
             Assert.Equal(
-                @"BEGIN TRANSACTION;
+                """
+                    BEGIN TRANSACTION;
+                    
+                    ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
+                    
+                    DELETE FROM `__EFMigrationsHistory`
+                    WHERE `MigrationId` = '00000000000002_Migration2';
+                    
+                    COMMIT TRANSACTION;
+                    
 
-ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
-
-DELETE FROM `__EFMigrationsHistory`
-WHERE `MigrationId` = '00000000000002_Migration2';
-
-COMMIT TRANSACTION;
-
-",
+                    """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -354,10 +370,8 @@ COMMIT TRANSACTION;
 
         public override void Can_diff_against_2_2_model()
         {
-            using (var context = new ModelSnapshot22.BloggingContext())
-            {
-                DiffSnapshot(new BloggingContextModelSnapshot22(), context);
-            }
+            using var context = new ModelSnapshot22.BloggingContext();
+            DiffSnapshot(new BloggingContextModelSnapshot22(), context);
         }
 
         public class BloggingContextModelSnapshot22 : ModelSnapshot

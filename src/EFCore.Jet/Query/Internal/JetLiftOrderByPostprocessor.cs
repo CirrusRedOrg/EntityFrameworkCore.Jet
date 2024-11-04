@@ -1,13 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 #pragma warning disable CS9113
@@ -40,7 +32,7 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    [return: NotNullIfNotNull("expression")]
+    [return: NotNullIfNotNull(nameof(expression))]
     public override Expression? Visit(Expression? expression)
     {
         switch (expression)
@@ -62,7 +54,7 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                 return nonQueryExpression;
             case SelectExpression selectExpression:
                 {
-                    Dictionary<int, (int? indexcol, OrderingExpression? orderexp, bool ascend, bool rewrite, bool referstocurouter)> columnsToRewrite = new();
+                    Dictionary<int, (int? indexcol, OrderingExpression? orderexp, bool ascend, bool rewrite, bool referstocurouter)> columnsToRewrite = [];
                     bool isscalarselect = selectExpression is { Limit: SqlConstantExpression { Value: 1 }, Projection.Count: 1 };
                     for (int i = 0; i < selectExpression.Orderings.Count; i++)
                     {
@@ -111,7 +103,7 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                         var limit = selectExpression.Limit;
                         MethodInfo? dynMethod1 = selectExpression.GetType().GetMethod("set_Limit",
                             BindingFlags.NonPublic | BindingFlags.Instance);
-                        dynMethod1?.Invoke(selectExpression, new object?[] { null });
+                        dynMethod1?.Invoke(selectExpression, [null]);
 
                         //This doesn't work. Update returns a new select expression but without the sql alias manager. Pushdown requires the alias manager
                         /*selectExpression = selectExpression.Update(selectExpression.Tables,
@@ -172,10 +164,10 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
 
         //create new selectexp from selectexpression with aliasmanager
         var newselect = new SelectExpression(selectExpression.Alias,
-            selectExpression.Tables.ToList(),
-            selectExpression.Predicate, selectExpression.GroupBy.ToList(), selectExpression.Having,
-            selectExpression.Projection.ToList(), selectExpression.IsDistinct,
-            selectExpression.Orderings.ToList(), selectExpression.Offset, selectExpression.Limit,
+            [.. selectExpression.Tables],
+            selectExpression.Predicate, [.. selectExpression.GroupBy], selectExpression.Having,
+            [.. selectExpression.Projection], selectExpression.IsDistinct,
+            [.. selectExpression.Orderings], selectExpression.Offset, selectExpression.Limit,
             selectExpression.Tags, new Dictionary<string, IAnnotation>(), sqlAliasManager, ismut);
 
         //do private stuff

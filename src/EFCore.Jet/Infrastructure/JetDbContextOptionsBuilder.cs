@@ -1,12 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Infrastructure
 {
@@ -14,17 +8,13 @@ namespace EntityFrameworkCore.Jet.Infrastructure
     /// Provides extension methods on <see cref="DbContextOptionsBuilder"/> and <see cref="DbContextOptionsBuilder{T}"/>
     /// to configure a <see cref="DbContext"/> to use with Jet/Access and EntityFrameworkCore.Jet.
     /// </summary>
-    public class JetDbContextOptionsBuilder
-        : RelationalDbContextOptionsBuilder<JetDbContextOptionsBuilder, JetOptionsExtension>
+    /// <remarks>
+    ///     Initializes a new instance of the <see cref="JetDbContextOptionsBuilder" /> class.
+    /// </remarks>
+    /// <param name="optionsBuilder"> The options builder. </param>
+    public class JetDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder)
+                : RelationalDbContextOptionsBuilder<JetDbContextOptionsBuilder, JetOptionsExtension>(optionsBuilder)
     {
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="JetDbContextOptionsBuilder" /> class.
-        /// </summary>
-        /// <param name="optionsBuilder"> The options builder. </param>
-        public JetDbContextOptionsBuilder([NotNull] DbContextOptionsBuilder optionsBuilder)
-            : base(optionsBuilder)
-        {
-        }
 
         /// <summary>
         ///     Use a ROW_NUMBER() in queries instead of OFFSET/FETCH. This method is backwards-compatible to Jet 2005.
@@ -87,7 +77,7 @@ namespace EntityFrameworkCore.Jet.Infrastructure
         public virtual JetDbContextOptionsBuilder EnableRetryOnFailure(
             int maxRetryCount,
             TimeSpan maxRetryDelay,
-            [CanBeNull] ICollection<int> errorNumbersToAdd)
+            ICollection<int> errorNumbersToAdd)
             => ExecutionStrategy(c => new JetRetryingExecutionStrategy(c, maxRetryCount, maxRetryDelay, errorNumbersToAdd));
     }
 }

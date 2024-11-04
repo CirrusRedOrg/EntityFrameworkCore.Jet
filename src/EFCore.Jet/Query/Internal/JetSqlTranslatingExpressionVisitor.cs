@@ -1,21 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Text;
 using EntityFrameworkCore.Jet.Internal;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.EntityFrameworkCore.Storage;
+using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -25,71 +16,64 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </summary>
-public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpressionVisitor
+/// <remarks>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </remarks>
+public class JetSqlTranslatingExpressionVisitor(
+    RelationalSqlTranslatingExpressionVisitorDependencies dependencies,
+    QueryCompilationContext queryCompilationContext,
+    QueryableMethodTranslatingExpressionVisitor queryableMethodTranslatingExpressionVisitor) : RelationalSqlTranslatingExpressionVisitor(dependencies, queryCompilationContext, queryableMethodTranslatingExpressionVisitor)
 {
-    private readonly QueryCompilationContext _queryCompilationContext;
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
+    private readonly QueryCompilationContext _queryCompilationContext = queryCompilationContext;
+    private readonly ISqlExpressionFactory _sqlExpressionFactory = dependencies.SqlExpressionFactory;
 
     private static readonly HashSet<string> DateTimeDataTypes
-        = new()
-        {
+        =
+        [
             "time",
             "date",
             "datetime",
             "datetime2",
             "datetimeoffset"
-        };
+        ];
 
     private static readonly HashSet<Type> DateTimeClrTypes
-        = new()
-        {
+        =
+        [
             typeof(TimeOnly),
             typeof(DateOnly),
             typeof(TimeSpan),
             typeof(DateTime),
             typeof(DateTimeOffset)
-        };
+        ];
 
     private static readonly HashSet<ExpressionType> ArithmeticOperatorTypes
-        = new()
-        {
+        =
+        [
             ExpressionType.Add,
             ExpressionType.Subtract,
             ExpressionType.Multiply,
             ExpressionType.Divide,
             ExpressionType.Modulo
-        };
+        ];
 
     private static readonly MethodInfo StringStartsWithMethodInfo
-        = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), new[] { typeof(string) })!;
+        = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), [typeof(string)])!;
 
     private static readonly MethodInfo StringEndsWithMethodInfo
-        = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), new[] { typeof(string) })!;
+        = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), [typeof(string)])!;
 
     private static readonly MethodInfo StringContainsMethodInfo
-        = typeof(string).GetRuntimeMethod(nameof(string.Contains), new[] { typeof(string) })!;
+        = typeof(string).GetRuntimeMethod(nameof(string.Contains), [typeof(string)])!;
 
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
         typeof(JetSqlTranslatingExpressionVisitor).GetTypeInfo().GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
 
     private const char LikeEscapeChar = '\\';
     private const string LikeEscapeString = "\\";
-
-    /// <summary>
-    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-    ///     any release. You should only use it directly in your code with extreme caution and knowing that
-    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-    /// </summary>
-    public JetSqlTranslatingExpressionVisitor(
-        RelationalSqlTranslatingExpressionVisitorDependencies dependencies,
-        QueryCompilationContext queryCompilationContext,
-        QueryableMethodTranslatingExpressionVisitor queryableMethodTranslatingExpressionVisitor)
-        : base(dependencies, queryCompilationContext, queryableMethodTranslatingExpressionVisitor)
-    {
-        _queryCompilationContext = queryCompilationContext;
-        _sqlExpressionFactory = dependencies.SqlExpressionFactory;
-    }
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -320,21 +304,20 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                                     _sqlExpressionFactory.Equal(
                                         _sqlExpressionFactory.Function(
                                             methodType is StartsEndsWithContains.StartsWith ? "LEFT" : "RIGHT",
-                                            new[]
-                                            {
+                                            [
                                                 translatedInstance,
                                                 _sqlExpressionFactory.Coalesce(
                                                     _sqlExpressionFactory.Function(
                                                         "LEN",
-                                                        new[] { translatedPattern },
+                                                        [translatedPattern],
                                                         nullable: true,
-                                                        argumentsPropagateNullability: new[] { false },
+                                                        argumentsPropagateNullability: [false],
                                                         typeof(int)),
                                                     _sqlExpressionFactory.Constant(0)
                                                     )
-                                            },
+                                            ],
                                             nullable: true,
-                                            argumentsPropagateNullability: new[] { true, false },
+                                            argumentsPropagateNullability: [true, false],
                                             typeof(string),
                                             stringTypeMapping),
                                         translatedPattern))),
@@ -350,9 +333,9 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
                                         _sqlExpressionFactory.GreaterThan(
                                             _sqlExpressionFactory.Function(
                                                 "INSTR",
-                                                new[] { _sqlExpressionFactory.Constant(1), translatedInstance, translatedPattern, _sqlExpressionFactory.Constant(1) },
+                                                [_sqlExpressionFactory.Constant(1), translatedInstance, translatedPattern, _sqlExpressionFactory.Constant(1)],
                                                 nullable: true,
-                                                argumentsPropagateNullability: new[] { false, true, true, false },
+                                                argumentsPropagateNullability: [false, true, true, false],
                                                 typeof(int)),
                                             _sqlExpressionFactory.Constant(0)),
                                         _sqlExpressionFactory.Like(
@@ -434,19 +417,19 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
             && visitedIndex is SqlExpression sqlIndex
                 ? Dependencies.SqlExpressionFactory.Function(
                     "ASCB",
-                    new[] { Dependencies.SqlExpressionFactory.Function(
+                    [ Dependencies.SqlExpressionFactory.Function(
                         "MIDB",
-                        new[] { 
+                        [ 
                             sqlArray,
                             Dependencies.SqlExpressionFactory.Add(
                                 Dependencies.SqlExpressionFactory.ApplyDefaultTypeMapping(sqlIndex),
                                 Dependencies.SqlExpressionFactory.Constant(1)),
-                            Dependencies.SqlExpressionFactory.Constant(1) },
+                            Dependencies.SqlExpressionFactory.Constant(1) ],
                         nullable: true,
-                        argumentsPropagateNullability: new[] { true, true, true },
-                        typeof(byte[])) },
+                        argumentsPropagateNullability: [true, true, true],
+                        typeof(byte[])) ],
                     nullable: true,
-                    argumentsPropagateNullability: new[] { true },
+                    argumentsPropagateNullability: [true],
                     typeof(int))
 
                 : QueryCompilationContext.NotTranslatedExpression;
@@ -461,12 +444,11 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
 
         return expressions.Aggregate((current, next) =>
             Dependencies.SqlExpressionFactory.Case(
-                new[]
-                {
+                [
                     new CaseWhenClause(
                         Dependencies.SqlExpressionFactory.GreaterThan(current, next),
                         current)
-                },
+                ],
                 elseResult: next));
     }
 
@@ -479,12 +461,11 @@ public class JetSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpres
 
         return expressions.Aggregate((current, next) =>
             Dependencies.SqlExpressionFactory.Case(
-                new[]
-                {
+                [
                     new CaseWhenClause(
                         Dependencies.SqlExpressionFactory.LessThan(current, next),
                         current)
-                },
+                ],
                 elseResult: next));
     }
 

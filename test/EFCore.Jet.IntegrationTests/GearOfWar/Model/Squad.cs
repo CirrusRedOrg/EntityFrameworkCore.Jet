@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.GearOfWar
     {
         public Squad()
         {
-            Members = new List<Gear>();
+            Members = [];
         }
 
         // non-auto generated key

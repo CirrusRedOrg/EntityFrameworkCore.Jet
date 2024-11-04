@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         {
         }
 
-        public static JetTestHelpers Instance { get; } = new JetTestHelpers();
+        public static JetTestHelpers Instance { get; } = new();
 
         public override IServiceCollection AddProviderServices(IServiceCollection services)
             => services.AddEntityFrameworkJet();

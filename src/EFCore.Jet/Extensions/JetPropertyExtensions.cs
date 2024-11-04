@@ -1,16 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using System.Linq;
-using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
@@ -152,7 +143,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the identity seed. </returns>
-        public static ConfigurationSource? GetJetIdentitySeedConfigurationSource([NotNull] this IConventionProperty property)
+        public static ConfigurationSource? GetJetIdentitySeedConfigurationSource(this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.IdentitySeed)?.GetConfigurationSource();
 
         /// <summary>
@@ -238,7 +229,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <returns> The configured value. </returns>
         public static int? SetJetIdentityIncrement(
-            [NotNull] this IConventionProperty property,
+            this IConventionProperty property,
             int? increment,
             bool fromDataAnnotation = false)
             => (int?)property.SetOrRemoveAnnotation(
@@ -302,7 +293,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the identity increment. </returns>
-        public static ConfigurationSource? GetJetIdentityIncrementConfigurationSource([NotNull] this IConventionProperty property)
+        public static ConfigurationSource? GetJetIdentityIncrementConfigurationSource(this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.IdentityIncrement)?.GetConfigurationSource();
 
         /// <summary>
@@ -315,7 +306,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set. </returns>
-        public static JetValueGenerationStrategy GetValueGenerationStrategy([NotNull] this IReadOnlyProperty property)
+        public static JetValueGenerationStrategy GetValueGenerationStrategy(this IReadOnlyProperty property)
         {
             var annotation = property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy);
             if (annotation != null)
@@ -520,7 +511,7 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the <see cref="JetValueGenerationStrategy" />. </returns>
         public static ConfigurationSource? GetJetValueGenerationStrategyConfigurationSource(
-            [NotNull] this IConventionProperty property)
+            this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)?.GetConfigurationSource();
 
         /// <summary>
@@ -528,7 +519,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> <c>true</c> if compatible. </returns>
-        public static bool IsCompatibleWithValueGeneration([NotNull] IReadOnlyProperty property)
+        public static bool IsCompatibleWithValueGeneration(IReadOnlyProperty property)
         {
             var valueConverter = property.GetValueConverter()
                                  ?? property.FindTypeMapping()?.Converter;

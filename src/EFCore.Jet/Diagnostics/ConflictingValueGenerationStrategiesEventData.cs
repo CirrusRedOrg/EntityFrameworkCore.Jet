@@ -1,11 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Diagnostics;
 using EntityFrameworkCore.Jet.Metadata;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Microsoft.EntityFrameworkCore.Diagnostics
 {
@@ -13,42 +9,35 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
     ///     A <see cref="DiagnosticSource" /> event payload class for events that have
     ///     a property.
     /// </summary>
-    public class ConflictingValueGenerationStrategiesEventData : EventData
+    /// <remarks>
+    ///     Constructs the event payload.
+    /// </remarks>
+    /// <param name="eventDefinition"> The event definition. </param>
+    /// <param name="messageGenerator"> A delegate that generates a log message for this event. </param>
+    /// <param name="jetValueGenerationStrategy"> The JET value generation strategy. </param>
+    /// <param name="otherValueGenerationStrategy"> The other value generation strategy. </param>
+    /// <param name="property"> The property. </param>
+    public class ConflictingValueGenerationStrategiesEventData(
+        EventDefinitionBase eventDefinition,
+        Func<EventDefinitionBase, EventData, string> messageGenerator,
+        JetValueGenerationStrategy jetValueGenerationStrategy,
+        string otherValueGenerationStrategy,
+        IProperty property) : EventData(eventDefinition, messageGenerator)
     {
-        /// <summary>
-        ///     Constructs the event payload.
-        /// </summary>
-        /// <param name="eventDefinition"> The event definition. </param>
-        /// <param name="messageGenerator"> A delegate that generates a log message for this event. </param>
-        /// <param name="jetValueGenerationStrategy"> The JET value generation strategy. </param>
-        /// <param name="otherValueGenerationStrategy"> The other value generation strategy. </param>
-        /// <param name="property"> The property. </param>
-        public ConflictingValueGenerationStrategiesEventData(
-            [NotNull] EventDefinitionBase eventDefinition,
-            [NotNull] Func<EventDefinitionBase, EventData, string> messageGenerator,
-            JetValueGenerationStrategy jetValueGenerationStrategy,
-            [NotNull] string otherValueGenerationStrategy,
-            [NotNull] IProperty property)
-            : base(eventDefinition, messageGenerator)
-        {
-            JetValueGenerationStrategy = jetValueGenerationStrategy;
-            OtherValueGenerationStrategy = otherValueGenerationStrategy;
-            Property = property;
-        }
 
         /// <summary>
         ///     The Jet value generation strategy.
         /// </summary>
-        public virtual JetValueGenerationStrategy JetValueGenerationStrategy { get; }
+        public virtual JetValueGenerationStrategy JetValueGenerationStrategy { get; } = jetValueGenerationStrategy;
 
         /// <summary>
         ///     The other value generation strategy.
         /// </summary>
-        public virtual string OtherValueGenerationStrategy { get; }
+        public virtual string OtherValueGenerationStrategy { get; } = otherValueGenerationStrategy;
 
         /// <summary>
         ///     The property.
         /// </summary>
-        public virtual IProperty Property { get; }
+        public virtual IProperty Property { get; } = property;
     }
 }

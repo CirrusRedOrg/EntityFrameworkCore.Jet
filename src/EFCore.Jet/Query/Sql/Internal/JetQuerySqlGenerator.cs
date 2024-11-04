@@ -1,20 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Data;
-using System.Linq;
-using System.Linq.Expressions;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
-using Microsoft.EntityFrameworkCore.Storage;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
 
@@ -26,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     /// </summary>
     public class JetQuerySqlGenerator : QuerySqlGenerator, IJetExpressionVisitor
     {
-        private static readonly Dictionary<string, string> _convertMappings = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> _convertMappings = new()
         {
             { nameof(Boolean), "CBOOL" },
             { nameof(Byte), "CBYTE" },
@@ -47,7 +36,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         //private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private List<string> _nullNumerics = [];
-        private Stack<Expression> parent = new Stack<Expression>();
+        private Stack<Expression> parent = new();
         private CoreTypeMapping? _boolTypeMapping;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -524,10 +513,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
-                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
+                SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlUnaryExpression isnullexp = new(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
                 List<CaseWhenClause> whenclause = [new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)];
-                CaseExpression caseexp = new CaseExpression(whenclause, sqlBinaryExpression.Left);
+                CaseExpression caseexp = new(whenclause, sqlBinaryExpression.Left);
                 Visit(caseexp);
                 return sqlBinaryExpression;
             }
@@ -621,10 +610,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
-            var typeMapping = convertExpression.TypeMapping;
-
-            if (typeMapping == null)
-                throw new InvalidOperationException(
+            var typeMapping = convertExpression.TypeMapping ?? throw new InvalidOperationException(
                     RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
             // We are explicitly converting to the target type (convertExpression.Type) and not the CLR type of the
@@ -645,13 +631,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         false, [false], typeMapping.ClrType, null);
                 }
 
-                SqlConstantExpression nullcons = new SqlConstantExpression(null,typeof(string), RelationalTypeMapping.NullMapping);
-                SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, checksqlexp, typeof(bool), null);
+                SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlUnaryExpression isnullexp = new(ExpressionType.Equal, checksqlexp, typeof(bool), null);
                 List<CaseWhenClause> whenclause =
                 [
                     new CaseWhenClause(isnullexp, nullcons)
                 ];
-                CaseExpression caseexp = new CaseExpression(whenclause, notnullsqlexp);
+                CaseExpression caseexp = new(whenclause, notnullsqlexp);
                 switch (checksqlexp)
                 {
                     case ColumnExpression { IsNullable: true }:
@@ -867,7 +853,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 CaseExpression? lastcaseexp = null;
                 for (int A = start; A >= 1; A--)
                 {
-                    SqlUnaryExpression isnullexp = new SqlUnaryExpression(ExpressionType.Equal, sqlFunctionExpression.Arguments[A - 1], typeof(bool), null);
+                    SqlUnaryExpression isnullexp = new(ExpressionType.Equal, sqlFunctionExpression.Arguments[A - 1], typeof(bool), null);
                     List<CaseWhenClause> whenclause =
                         [new CaseWhenClause(isnullexp, lastcaseexp ?? sqlFunctionExpression.Arguments[A])];
                     lastcaseexp = new CaseExpression(whenclause, sqlFunctionExpression.Arguments[A - 1]);

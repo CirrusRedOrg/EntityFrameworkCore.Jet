@@ -1662,9 +1662,11 @@ WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS 
             await base.Compare_nullable_with_null_parameter_equal(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IS NULL");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableStringA` IS NULL
+                    """);
         }
 
         public override async Task Compare_nullable_with_non_null_parameter_not_equal(bool async)
@@ -1672,11 +1674,13 @@ WHERE `e`.`NullableStringA` IS NULL");
             await base.Compare_nullable_with_non_null_parameter_not_equal(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__prm_0='Foo' (Size = 255)")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` = {AssertSqlHelper.Parameter("@__prm_0")}");
+                $"""
+                    {AssertSqlHelper.Declaration("@__prm_0='Foo' (Size = 255)")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableStringA` = {AssertSqlHelper.Parameter("@__prm_0")}
+                    """);
         }
 
         public override async Task Join_uses_database_semantics(bool async)
@@ -1684,9 +1688,11 @@ WHERE `e`.`NullableStringA` = {AssertSqlHelper.Parameter("@__prm_0")}");
             await base.Join_uses_database_semantics(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id` AS `Id1`, `e0`.`Id` AS `Id2`, `e`.`NullableIntA`, `e0`.`NullableIntB`
-FROM `Entities1` AS `e`
-INNER JOIN `Entities2` AS `e0` ON `e`.`NullableIntA` = `e0`.`NullableIntB`");
+                $"""
+                    SELECT `e`.`Id` AS `Id1`, `e0`.`Id` AS `Id2`, `e`.`NullableIntA`, `e0`.`NullableIntB`
+                    FROM `Entities1` AS `e`
+                    INNER JOIN `Entities2` AS `e0` ON `e`.`NullableIntA` = `e0`.`NullableIntB`
+                    """);
         }
 
         public override async Task Join_uses_csharp_semantics_for_anon_objects(bool async)
@@ -1854,9 +1860,11 @@ WHERE IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`BoolA` = TRUE OR `e`.`BoolB` = T
             await base.Where_equal_nullable_with_null_value_parameter(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IS NULL");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableStringA` IS NULL
+                    """);
         }
 
         public override async Task Where_not_equal_nullable_with_null_value_parameter(bool async)
@@ -1864,9 +1872,11 @@ WHERE `e`.`NullableStringA` IS NULL");
             await base.Where_not_equal_nullable_with_null_value_parameter(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IS NOT NULL");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableStringA` IS NOT NULL
+                    """);
         }
 
         public override async Task Where_equal_with_coalesce(bool async)
@@ -1992,15 +2002,17 @@ ORDER BY NOT (IIF(`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NUL
             await base.Null_comparison_in_join_key_with_relational_nulls(async);
 
             AssertSql(
-                $@"SELECT `e1`.`Id`, `e1`.`BoolA`, `e1`.`BoolB`, `e1`.`BoolC`, `e1`.`IntA`, `e1`.`IntB`, `e1`.`IntC`, `e1`.`NullableBoolA`, `e1`.`NullableBoolB`, `e1`.`NullableBoolC`, `e1`.`NullableIntA`, `e1`.`NullableIntB`, `e1`.`NullableIntC`, `e1`.`NullableStringA`, `e1`.`NullableStringB`, `e1`.`NullableStringC`, `e1`.`StringA`, `e1`.`StringB`, `e1`.`StringC`, `e2`.`Id`, `e2`.`BoolA`, `e2`.`BoolB`, `e2`.`BoolC`, `e2`.`IntA`, `e2`.`IntB`, `e2`.`IntC`, `e2`.`NullableBoolA`, `e2`.`NullableBoolB`, `e2`.`NullableBoolC`, `e2`.`NullableIntA`, `e2`.`NullableIntB`, `e2`.`NullableIntC`, `e2`.`NullableStringA`, `e2`.`NullableStringB`, `e2`.`NullableStringC`, `e2`.`StringA`, `e2`.`StringB`, `e2`.`StringC`
-FROM `Entities1` AS `e1`
-INNER JOIN `Entities2` AS `e2` ON CASE
-    WHEN `e1`.`NullableStringA` <> 'Foo'
-    THEN True ELSE False
-END = CASE
-    WHEN `e2`.`NullableBoolB` <> True
-    THEN True ELSE False
-END");
+                $"""
+                    SELECT `e1`.`Id`, `e1`.`BoolA`, `e1`.`BoolB`, `e1`.`BoolC`, `e1`.`IntA`, `e1`.`IntB`, `e1`.`IntC`, `e1`.`NullableBoolA`, `e1`.`NullableBoolB`, `e1`.`NullableBoolC`, `e1`.`NullableIntA`, `e1`.`NullableIntB`, `e1`.`NullableIntC`, `e1`.`NullableStringA`, `e1`.`NullableStringB`, `e1`.`NullableStringC`, `e1`.`StringA`, `e1`.`StringB`, `e1`.`StringC`, `e2`.`Id`, `e2`.`BoolA`, `e2`.`BoolB`, `e2`.`BoolC`, `e2`.`IntA`, `e2`.`IntB`, `e2`.`IntC`, `e2`.`NullableBoolA`, `e2`.`NullableBoolB`, `e2`.`NullableBoolC`, `e2`.`NullableIntA`, `e2`.`NullableIntB`, `e2`.`NullableIntC`, `e2`.`NullableStringA`, `e2`.`NullableStringB`, `e2`.`NullableStringC`, `e2`.`StringA`, `e2`.`StringB`, `e2`.`StringC`
+                    FROM `Entities1` AS `e1`
+                    INNER JOIN `Entities2` AS `e2` ON CASE
+                        WHEN `e1`.`NullableStringA` <> 'Foo'
+                        THEN True ELSE False
+                    END = CASE
+                        WHEN `e2`.`NullableBoolB` <> True
+                        THEN True ELSE False
+                    END
+                    """);
         }
 
         public override async Task Where_conditional_search_condition_in_result(bool async)
@@ -2008,13 +2020,17 @@ END");
             await base.Where_conditional_search_condition_in_result(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`StringA` IN ('Foo', 'Bar')",
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`StringA` IN ('Foo', 'Bar')
+                    """,
                 //
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`StringA` LIKE 'B%'");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`StringA` LIKE 'B%'
+                    """);
         }
 
         public override async Task Where_nested_conditional_search_condition_in_result(bool async)
@@ -2022,8 +2038,10 @@ WHERE `e`.`StringA` LIKE 'B%'");
             await base.Where_nested_conditional_search_condition_in_result(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    """);
         }
 
         public override void Where_equal_using_relational_null_semantics()
@@ -2031,9 +2049,11 @@ FROM `Entities1` AS `e`");
             base.Where_equal_using_relational_null_semantics();
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`
+                    """);
         }
 
         public override void Where_contains_on_parameter_array_with_relational_null_semantics()
@@ -2077,9 +2097,11 @@ WHERE `e`.`NullableStringA` = NULL
             await base.Where_nullable_bool(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = TRUE");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` = TRUE
+                    """);
         }
 
         public override async Task Where_nullable_bool_equal_with_constant(bool async)
@@ -2087,9 +2109,11 @@ WHERE `e`.`NullableBoolA` = TRUE");
             await base.Where_nullable_bool_equal_with_constant(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = TRUE");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` = TRUE
+                    """);
         }
 
         public override async Task Where_nullable_bool_with_null_check(bool async)
@@ -2121,9 +2145,11 @@ WHERE `e`.`NullableBoolA` IS NULL
             base.Where_equal_using_relational_null_semantics_complex_with_parameter();
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`
+                    """);
         }
 
         public override void Where_not_equal_using_relational_null_semantics()
@@ -2131,9 +2157,11 @@ WHERE `e`.`NullableBoolA` = `e`.`NullableBoolB`");
             base.Where_not_equal_using_relational_null_semantics();
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`
+                    """);
         }
 
         public override void Where_not_equal_using_relational_null_semantics_with_parameter()
@@ -2141,9 +2169,11 @@ WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`");
             base.Where_not_equal_using_relational_null_semantics_with_parameter();
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` IS NOT NULL");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` IS NOT NULL
+                    """);
         }
 
         public override void Where_not_equal_using_relational_null_semantics_complex_with_parameter()
@@ -2151,9 +2181,11 @@ WHERE `e`.`NullableBoolA` IS NOT NULL");
             base.Where_not_equal_using_relational_null_semantics_complex_with_parameter();
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`
+                    """);
         }
 
         public override async Task Where_comparison_null_constant_and_null_parameter(bool async)
@@ -2161,17 +2193,21 @@ WHERE `e`.`NullableBoolA` <> `e`.`NullableBoolB`");
             await base.Where_comparison_null_constant_and_null_parameter(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE",
+                $"""
+                    {AssertSqlHelper.Declaration("@__p_0='True'")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
+                $"""
+                    {AssertSqlHelper.Declaration("@__p_0='False'")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
+                    """);
         }
 
         public override async Task Where_comparison_null_constant_and_nonnull_parameter(bool async)
@@ -2179,17 +2215,21 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
             await base.Where_comparison_null_constant_and_nonnull_parameter(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE",
+                $"""
+                    {AssertSqlHelper.Declaration("@__p_0='False'")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
+                $"""
+                    {AssertSqlHelper.Declaration("@__p_0='True'")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
+                    """);
         }
 
         public override async Task Where_comparison_nonnull_constant_and_null_parameter(bool async)
@@ -2197,17 +2237,21 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
             await base.Where_comparison_nonnull_constant_and_null_parameter(async);
 
             AssertSql(
-                $@"{AssertSqlHelper.Declaration("@__p_0='False'")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE",
+                $"""
+                    {AssertSqlHelper.Declaration("@__p_0='False'")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
+                    """,
                 //
-                $@"{AssertSqlHelper.Declaration("@__p_0='True'")}
-
-SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
+                $"""
+                    {AssertSqlHelper.Declaration("@__p_0='True'")}
+                    
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE
+                    """);
         }
 
         public override async Task Where_comparison_null_semantics_optimization_works_with_complex_predicates(bool async)
@@ -2215,9 +2259,11 @@ WHERE {AssertSqlHelper.Parameter("@__p_0")} = TRUE");
             await base.Where_comparison_null_semantics_optimization_works_with_complex_predicates(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringA` IS NULL");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE `e`.`NullableStringA` IS NULL
+                    """);
         }
 
         public override void Switching_null_semantics_produces_different_cache_entry()
@@ -2279,8 +2325,10 @@ WHERE `m`.`StringA` = `m`.`StringB`
             await base.Projecting_nullable_bool_with_coalesce(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, FALSE, `e`.`NullableBoolA`) AS `Coalesce`
-FROM `Entities1` AS `e`");
+                $"""
+                    SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, FALSE, `e`.`NullableBoolA`) AS `Coalesce`
+                    FROM `Entities1` AS `e`
+                    """);
         }
 
         public override async Task Projecting_nullable_bool_with_coalesce_nested(bool async)
@@ -2288,11 +2336,15 @@ FROM `Entities1` AS `e`");
             await base.Projecting_nullable_bool_with_coalesce_nested(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
-FROM `Entities1` AS `e`",
+                $"""
+                    SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
+                    FROM `Entities1` AS `e`
+                    """,
                 //
-                $@"SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
-FROM `Entities1` AS `e`");
+                $"""
+                    SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
+                    FROM `Entities1` AS `e`
+                    """);
         }
 
         public override async Task Null_semantics_applied_when_comparing_function_with_nullable_argument_to_a_nullable_column(bool async)
@@ -2372,13 +2424,17 @@ WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> (INSTR(1, `e`.`Nullable
             await base.Null_semantics_applied_when_comparing_two_functions_with_multiple_nullable_arguments(async);
 
             AssertSql(
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) = `e`.`NullableStringA`) OR (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NULL AND `e`.`NullableStringA` IS NULL)",
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) = `e`.`NullableStringA`) OR (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NULL AND `e`.`NullableStringA` IS NULL)
+                    """,
                 //
-                $@"SELECT `e`.`Id`
-FROM `Entities1` AS `e`
-WHERE ((REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) <> `e`.`NullableStringA`) OR (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NULL OR `e`.`NullableStringA` IS NULL)) AND (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NOT NULL OR `e`.`NullableStringA` IS NOT NULL)");
+                $"""
+                    SELECT `e`.`Id`
+                    FROM `Entities1` AS `e`
+                    WHERE ((REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) <> `e`.`NullableStringA`) OR (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NULL OR `e`.`NullableStringA` IS NULL)) AND (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NOT NULL OR `e`.`NullableStringA` IS NOT NULL)
+                    """);
         }
 
         public override async Task Null_semantics_coalesce(bool async)

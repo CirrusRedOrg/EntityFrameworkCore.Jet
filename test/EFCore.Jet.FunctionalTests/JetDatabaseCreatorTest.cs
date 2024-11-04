@@ -53,31 +53,27 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         private static async Task Returns_false_when_database_does_not_exist_test(
             bool async, bool ambientTransaction, bool useCanConnect)
         {
-            using (var testDatabase = JetTestStore.Create("NonExisting"))
-            {
-                using (var context = new BloggingContext(testDatabase))
+            using var testDatabase = JetTestStore.Create("NonExisting");
+            using var context = new BloggingContext(testDatabase);
+            var creator = GetDatabaseCreator(context);
+
+            await context.Database.CreateExecutionStrategy().ExecuteAsync(
+                async () =>
                 {
-                    var creator = GetDatabaseCreator(context);
-
-                    await context.Database.CreateExecutionStrategy().ExecuteAsync(
-                        async () =>
+                    using (CreateTransactionScope(ambientTransaction))
+                    {
+                        if (useCanConnect)
                         {
-                            using (CreateTransactionScope(ambientTransaction))
-                            {
-                                if (useCanConnect)
-                                {
-                                    Assert.False(async ? await creator.CanConnectAsync() : creator.CanConnect());
-                                }
-                                else
-                                {
-                                    Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
-                                }
-                            }
-                        });
+                            Assert.False(async ? await creator.CanConnectAsync() : creator.CanConnect());
+                        }
+                        else
+                        {
+                            Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
+                        }
+                    }
+                });
 
-                    Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
-                }
-            }
+            Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
         [ConditionalTheory]
@@ -550,73 +546,69 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_if_database_does_not_exist(bool async)
         {
-            using (var testDatabase = JetTestStore.GetOrCreate("NonExisting"))
+            using var testDatabase = JetTestStore.GetOrCreate("NonExisting");
+            var creator = GetDatabaseCreator(testDatabase);
+            var exception = async
+                ? await Record.ExceptionAsync(() => creator.CreateTablesAsync())
+                : Record.Exception(() => creator.CreateTables());
+            Assert.NotNull(exception);
+            var isoledbex = exception is OleDbException;
+            var isodbcex = exception is OdbcException;
+            int errorNumber = 0;
+            if (isoledbex)
             {
-                var creator = GetDatabaseCreator(testDatabase);
-                var exception = async
-                    ? await Record.ExceptionAsync(() => creator.CreateTablesAsync())
-                    : Record.Exception(() => creator.CreateTables());
-                Assert.NotNull(exception);
-                var isoledbex = exception is OleDbException;
-                var isodbcex = exception is OdbcException;
-                int errorNumber = 0;
-                if (isoledbex)
-                {
-                    errorNumber = ((OleDbException)exception).ErrorCode;
-                }
-                if (isodbcex)
-                {
-                    errorNumber = ((OdbcException)exception).ErrorCode;
-                }
-                Assert.True(isoledbex || isodbcex);
+                errorNumber = ((OleDbException)exception).ErrorCode;
             }
+            if (isodbcex)
+            {
+                errorNumber = ((OdbcException)exception).ErrorCode;
+            }
+            Assert.True(isoledbex || isodbcex);
         }
 
         [ConditionalFact]
         public void GenerateCreateScript_works()
         {
-            using (var context = new BloggingContext("Data Source=foo"))
-            {
-                var script = context.Database.GenerateCreateScript();
-                Assert.Equal(
-                    "CREATE TABLE `Blogs` ("
-                    + _eol
-                    + "    `Key1` varchar(255) NOT NULL,"
-                    + _eol
-                    + "    `Key2` varbinary(510) NOT NULL,"
-                    + _eol
-                    + "    `Cheese` longchar NULL,"
-                    + _eol
-                    + "    `ErMilan` integer NOT NULL,"
-                    + _eol
-                    + "    `George` smallint NOT NULL,"
-                    + _eol
-                    + "    `TheGu` uniqueidentifier NOT NULL,"
-                    + _eol
-                    + "    `NotFigTime` datetime NOT NULL,"
-                    + _eol
-                    + "    `ToEat` byte NOT NULL,"
-                    + _eol
-                    + "    `OrNothing` double NOT NULL,"
-                    + _eol
-                    + "    `Fuse` smallint NOT NULL,"
-                    + _eol
-                    + "    `WayRound` decimal(20,0) NOT NULL,"
-                    + _eol
-                    + "    `On` single NOT NULL,"
-                    + _eol
-                    + "    `AndChew` longbinary NULL,"
-                    + _eol
-                    + "    `AndRow` varbinary(8) NULL,"
-                    + _eol
-                    + "    CONSTRAINT `PK_Blogs` PRIMARY KEY (`Key1`, `Key2`)"
-                    + _eol
-                    + ");"
-                    + _eol
-                    + _eol
-                    + _eol,
-                    script);
-            }
+            using var context = new BloggingContext("Data Source=foo");
+            var script = context.Database.GenerateCreateScript();
+            Assert.Equal(
+                "CREATE TABLE `Blogs` ("
+                + _eol
+                + "    `Key1` varchar(255) NOT NULL,"
+                + _eol
+                + "    `Key2` varbinary(510) NOT NULL,"
+                + _eol
+                + "    `Cheese` longchar NULL,"
+                + _eol
+                + "    `ErMilan` integer NOT NULL,"
+                + _eol
+                + "    `George` smallint NOT NULL,"
+                + _eol
+                + "    `TheGu` uniqueidentifier NOT NULL,"
+                + _eol
+                + "    `NotFigTime` datetime NOT NULL,"
+                + _eol
+                + "    `ToEat` byte NOT NULL,"
+                + _eol
+                + "    `OrNothing` double NOT NULL,"
+                + _eol
+                + "    `Fuse` smallint NOT NULL,"
+                + _eol
+                + "    `WayRound` decimal(20,0) NOT NULL,"
+                + _eol
+                + "    `On` single NOT NULL,"
+                + _eol
+                + "    `AndChew` longbinary NULL,"
+                + _eol
+                + "    `AndRow` varbinary(8) NULL,"
+                + _eol
+                + "    CONSTRAINT `PK_Blogs` PRIMARY KEY (`Key1`, `Key2`)"
+                + _eol
+                + ");"
+                + _eol
+                + _eol
+                + _eol,
+                script);
         }
 
         private static readonly string _eol = Environment.NewLine;

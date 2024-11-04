@@ -1,26 +1,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
-using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System.Reflection;
 
 namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 {
@@ -30,7 +16,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
     /// </summary>
     public class JetDatabaseModelFactory : DatabaseModelFactory
     {
-        private static string ObjectKey([NotNull] string name)
+        private static string ObjectKey(string name)
             => "`" + name + "`";
 
         private static string TableKey(DatabaseTable table)
@@ -42,24 +28,22 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
         private static string ColumnKey(DatabaseTable table, string columnName)
             => TableKey(table) + "." + ObjectKey(columnName);
 
-        private static readonly List<string> _tablePatterns = new List<string>
-        {
+        private static readonly List<string> _tablePatterns =
+        [
             @"(?<=^`).*(?=`$)",
-            @"(?<=^\[).*(?=\]$)$",
-        };
-
-        private static readonly Regex _defaultDateTimeValue = new Regex(@"\(*(?:#0?1/0?1/0?100#)|(?:#0?0:0?0:0?0#)|(?:(['""])(0?0:0?0:0?0)|0?100-0?1-0?1(?: \2)\1)\)*");
+            @"(?<=^\[).*(?=\]$)$"
+        ];
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
         private readonly IRelationalTypeMappingSource _typeMappingSource;
 
-        private bool _ignoreMsys = false;
-        private List<string> _msysNames = new List<string>();
+        private bool _ignoreMsys;
+        private List<string> _msysNames = [];
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
-        public JetDatabaseModelFactory([NotNull] IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
+        public JetDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
             IRelationalTypeMappingSource typeMappingSource)
         {
             Check.NotNull(logger, nameof(logger));
@@ -670,29 +654,19 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
         private static ReferentialAction? ConvertToReferentialAction(string onDeleteAction)
         {
-            switch (onDeleteAction.ToUpperInvariant())
+            return onDeleteAction.ToUpperInvariant() switch
             {
-                case "RESTRICT": // TODO: does not exist in Jet
-                    return ReferentialAction.Restrict;
-
-                case "CASCADE":
-                    return ReferentialAction.Cascade;
-
-                case "SET NULL":
-                    return ReferentialAction.SetNull;
-
-                case "SET DEFAULT":
-                    return ReferentialAction.SetDefault;
-
-                case "NO ACTION":
-                    return ReferentialAction.NoAction;
-
-                default:
-                    return null;
-            }
+                "RESTRICT" => // TODO: does not exist in Jet
+                    ReferentialAction.Restrict,
+                "CASCADE" => ReferentialAction.Cascade,
+                "SET NULL" => ReferentialAction.SetNull,
+                "SET DEFAULT" => ReferentialAction.SetDefault,
+                "NO ACTION" => ReferentialAction.NoAction,
+                _ => null
+            };
         }
 
         protected virtual Func<string, string, bool>? GenerateTableFilter(IReadOnlyList<string> tables)
-            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : (Func<string, string, bool>?)null;
+            => tables.Count > 0 ? (s, t) => tables.Contains(t, StringComparer.OrdinalIgnoreCase) : null;
     }
 }

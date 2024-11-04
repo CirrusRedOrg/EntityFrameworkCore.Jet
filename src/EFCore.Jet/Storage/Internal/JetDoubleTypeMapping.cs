@@ -1,16 +1,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Globalization;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetDoubleTypeMapping : DoubleTypeMapping
     {
         public JetDoubleTypeMapping(
-            [NotNull] string storeType)
+            string storeType)
             : base(storeType, System.Data.DbType.Double)
         {
         }

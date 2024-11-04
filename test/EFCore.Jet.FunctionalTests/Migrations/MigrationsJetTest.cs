@@ -2335,10 +2335,12 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT 'some number
         var connection = ctx.Database.GetDbConnection();
         using var command = connection.CreateCommand();
 
-        command.CommandText = $@"
-SELECT collation_name
-FROM sys.databases
-WHERE name = '{connection.Database}';";
+        command.CommandText = $"""
+            
+            SELECT collation_name
+            FROM sys.databases
+            WHERE name = '{connection.Database}';
+            """;
 
         return command.ExecuteScalar() is string collation
             ? collation

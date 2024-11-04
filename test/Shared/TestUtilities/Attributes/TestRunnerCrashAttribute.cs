@@ -16,7 +16,7 @@ public class TestRunnerCrashAttribute(params AccessProviderTypeVariation[] acces
     
     protected AccessProviderTypeVariation[] AccessProviderTypeVariations { get; } = accessProviderTypeVariations.Length > 0
         ? accessProviderTypeVariations
-        : new[] { AccessProviderTypeVariation.All };
+        : [AccessProviderTypeVariation.All];
 
     public virtual ValueTask<bool> IsMetAsync()
     {

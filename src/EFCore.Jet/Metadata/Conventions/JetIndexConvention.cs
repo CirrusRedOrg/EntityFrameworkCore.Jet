@@ -1,16 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using EntityFrameworkCore.Jet.Metadata.Internal;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
 
 
 // ReSharper disable once CheckNamespace
@@ -25,7 +16,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions;
 ///     <see href="https://aka.ms/efcore-docs-sqlserver">Accessing SQL Server and SQL Azure databases with EF Core</see>
 ///     for more information and examples.
 /// </remarks>
-public class JetIndexConvention :
+/// <remarks>
+///     Creates a new instance of <see cref="JetIndexConvention" />.
+/// </remarks>
+/// <param name="dependencies">Parameter object containing dependencies for this convention.</param>
+/// <param name="relationalDependencies"> Parameter object containing relational dependencies for this convention.</param>
+/// <param name="sqlGenerationHelper">SQL command generation helper service.</param>
+public class JetIndexConvention(
+    ProviderConventionSetBuilderDependencies dependencies,
+    RelationalConventionSetBuilderDependencies relationalDependencies,
+    ISqlGenerationHelper sqlGenerationHelper) :
     IEntityTypeBaseTypeChangedConvention,
     IIndexAddedConvention,
     IIndexUniquenessChangedConvention,
@@ -33,34 +33,17 @@ public class JetIndexConvention :
     IPropertyNullabilityChangedConvention,
     IPropertyAnnotationChangedConvention
 {
-    private readonly ISqlGenerationHelper _sqlGenerationHelper;
-
-    /// <summary>
-    ///     Creates a new instance of <see cref="JetIndexConvention" />.
-    /// </summary>
-    /// <param name="dependencies">Parameter object containing dependencies for this convention.</param>
-    /// <param name="relationalDependencies"> Parameter object containing relational dependencies for this convention.</param>
-    /// <param name="sqlGenerationHelper">SQL command generation helper service.</param>
-    public JetIndexConvention(
-        ProviderConventionSetBuilderDependencies dependencies,
-        RelationalConventionSetBuilderDependencies relationalDependencies,
-        ISqlGenerationHelper sqlGenerationHelper)
-    {
-        _sqlGenerationHelper = sqlGenerationHelper;
-
-        Dependencies = dependencies;
-        RelationalDependencies = relationalDependencies;
-    }
+    private readonly ISqlGenerationHelper _sqlGenerationHelper = sqlGenerationHelper;
 
     /// <summary>
     ///     Dependencies for this service.
     /// </summary>
-    protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; }
+    protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; } = dependencies;
 
     /// <summary>
     ///     Relational provider-specific dependencies for this service.
     /// </summary>
-    protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; }
+    protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; } = relationalDependencies;
 
     /// <summary>
     ///     Called after the base type of an entity type changes.

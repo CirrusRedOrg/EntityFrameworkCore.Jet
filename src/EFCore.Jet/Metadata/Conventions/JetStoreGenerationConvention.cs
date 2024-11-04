@@ -1,11 +1,5 @@
-using System;
-using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
@@ -14,19 +8,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
     ///     A convention that ensures that properties aren't configured to have a default value, as computed column
     ///     or using a <see cref="JetValueGenerationStrategy" /> at the same time.
     /// </summary>
-    public class JetStoreGenerationConvention : StoreGenerationConvention
+    /// <remarks>
+    ///     Creates a new instance of <see cref="JetStoreGenerationConvention" />.
+    /// </remarks>
+    /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
+    /// <param name="relationalDependencies">  Parameter object containing relational dependencies for this convention. </param>
+    public class JetStoreGenerationConvention(
+        ProviderConventionSetBuilderDependencies dependencies,
+        RelationalConventionSetBuilderDependencies relationalDependencies) : StoreGenerationConvention(dependencies, relationalDependencies)
     {
-        /// <summary>
-        ///     Creates a new instance of <see cref="JetStoreGenerationConvention" />.
-        /// </summary>
-        /// <param name="dependencies"> Parameter object containing dependencies for this convention. </param>
-        /// <param name="relationalDependencies">  Parameter object containing relational dependencies for this convention. </param>
-        public JetStoreGenerationConvention(
-            [NotNull] ProviderConventionSetBuilderDependencies dependencies,
-            [NotNull] RelationalConventionSetBuilderDependencies relationalDependencies)
-            : base(dependencies, relationalDependencies)
-        {
-        }
 
         /// <summary>
         ///     Called after an annotation is changed on a property.

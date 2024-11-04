@@ -27,11 +27,13 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         public void IfExists()
         {
             using var command = _connection.CreateCommand(
-                @"IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
-    `MigrationId` varchar(150) NOT NULL,
-    `ProductVersion` varchar(32) NOT NULL,
-    CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-)");
+                """
+                    IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+                        `MigrationId` varchar(150) NOT NULL,
+                        `ProductVersion` varchar(32) NOT NULL,
+                        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+                    )
+                    """);
             command.ExecuteNonQuery();
         }
     }

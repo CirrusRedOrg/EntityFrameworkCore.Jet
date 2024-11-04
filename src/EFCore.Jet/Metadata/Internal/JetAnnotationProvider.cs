@@ -1,13 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
+﻿using System.Globalization;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.Jet.Metadata.Internal
 {
@@ -24,16 +16,12 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
     ///         This service cannot depend on services registered as <see cref="ServiceLifetime.Scoped" />.
     ///     </para>
     /// </summary>
-    public class JetAnnotationProvider : RelationalAnnotationProvider
+    /// <remarks>
+    ///     Initializes a new instance of this class.
+    /// </remarks>
+    /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
+    public class JetAnnotationProvider(RelationalAnnotationProviderDependencies dependencies) : RelationalAnnotationProvider(dependencies)
     {
-        /// <summary>
-        ///     Initializes a new instance of this class.
-        /// </summary>
-        /// <param name="dependencies"> Parameter object containing dependencies for this service. </param>
-        public JetAnnotationProvider([NotNull] RelationalAnnotationProviderDependencies dependencies)
-            : base(dependencies)
-        {
-        }
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

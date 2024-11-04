@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
     {
         public Post Add(string title, string content)
         {
-            Post post = new Post
+            Post post = new()
             {
                 Title = title,
                 Content = content

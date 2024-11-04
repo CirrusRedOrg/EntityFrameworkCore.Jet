@@ -93,7 +93,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 .BuildServiceProvider(validateScopes: true);
 
             var dataAccessProviderType = JetConnection.GetDataAccessProviderType(TestEnvironment.DefaultConnection);
-            var dataAccessProviderFactory = JetFactory.Instance.GetDataAccessProviderFactory(dataAccessProviderType);
+            var dataAccessProviderFactory = JetFactory.GetDataAccessProviderFactory(dataAccessProviderType);
             var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
             connectionStringBuilder.SetDataSource("StateManagerBug.accdb");
@@ -104,6 +104,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 .Options;
         }
 
-        public virtual GoTContext CreateContext() => new GoTContext(_options);
+        public virtual GoTContext CreateContext() => new(_options);
     }
 }

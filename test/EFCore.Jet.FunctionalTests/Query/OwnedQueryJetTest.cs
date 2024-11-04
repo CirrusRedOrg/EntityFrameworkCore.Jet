@@ -22,20 +22,22 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Query_with_owned_entity_equality_operator(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`Id`, `t0`.`ClientId`, `t0`.`Id`, `t0`.`OrderDate`, `t0`.`OrderClientId`, `t0`.`OrderId`, `t0`.`Id0`, `t0`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
-FROM `OwnedPerson` AS `o`
-CROSS JOIN (
-    SELECT `o0`.`Id`
-    FROM `OwnedPerson` AS `o0`
-    WHERE `o0`.`Discriminator` = N'LeafB'
-) AS `t`
-LEFT JOIN (
-    SELECT `o1`.`ClientId`, `o1`.`Id`, `o1`.`OrderDate`, `o2`.`OrderClientId`, `o2`.`OrderId`, `o2`.`Id` AS `Id0`, `o2`.`Detail`
-    FROM `Order` AS `o1`
-    LEFT JOIN `OrderDetail` AS `o2` ON (`o1`.`ClientId` = `o2`.`OrderClientId`) AND (`o1`.`Id` = `o2`.`OrderId`)
-) AS `t0` ON `o`.`Id` = `t0`.`ClientId`
-WHERE 0 = 1
-ORDER BY `o`.`Id`, `t`.`Id`, `t0`.`ClientId`, `t0`.`Id`, `t0`.`OrderClientId`, `t0`.`OrderId`");
+                """
+                    SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `t`.`Id`, `t0`.`ClientId`, `t0`.`Id`, `t0`.`OrderDate`, `t0`.`OrderClientId`, `t0`.`OrderId`, `t0`.`Id0`, `t0`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
+                    FROM `OwnedPerson` AS `o`
+                    CROSS JOIN (
+                        SELECT `o0`.`Id`
+                        FROM `OwnedPerson` AS `o0`
+                        WHERE `o0`.`Discriminator` = N'LeafB'
+                    ) AS `t`
+                    LEFT JOIN (
+                        SELECT `o1`.`ClientId`, `o1`.`Id`, `o1`.`OrderDate`, `o2`.`OrderClientId`, `o2`.`OrderId`, `o2`.`Id` AS `Id0`, `o2`.`Detail`
+                        FROM `Order` AS `o1`
+                        LEFT JOIN `OrderDetail` AS `o2` ON (`o1`.`ClientId` = `o2`.`OrderClientId`) AND (`o1`.`Id` = `o2`.`OrderId`)
+                    ) AS `t0` ON `o`.`Id` = `t0`.`ClientId`
+                    WHERE 0 = 1
+                    ORDER BY `o`.`Id`, `t`.`Id`, `t0`.`ClientId`, `t0`.`Id`, `t0`.`OrderClientId`, `t0`.`OrderId`
+                    """);
         }
 
         public override async Task Query_for_base_type_loads_all_owned_navs(bool isAsync)
@@ -60,8 +62,10 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
             await base.No_ignored_include_warning_when_implicit_load(isAsync);
 
             AssertSql(
-                @"SELECT COUNT(*)
-FROM `OwnedPerson` AS `o`");
+                """
+                    SELECT COUNT(*)
+                    FROM `OwnedPerson` AS `o`
+                    """);
         }
 
         public override async Task Query_for_branch_type_loads_all_owned_navs(bool isAsync)
@@ -147,9 +151,11 @@ ORDER BY `o3`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
             await base.Navigation_rewrite_on_owned_reference_projecting_scalar(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`PersonAddress_Country_Name`
-FROM `OwnedPerson` AS `o`
-WHERE `o`.`PersonAddress_Country_Name` = 'USA'");
+                """
+                    SELECT `o`.`PersonAddress_Country_Name`
+                    FROM `OwnedPerson` AS `o`
+                    WHERE `o`.`PersonAddress_Country_Name` = 'USA'
+                    """);
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_projecting_entity(bool isAsync)
@@ -216,13 +222,15 @@ ORDER BY `o`.`Id`
             await base.Navigation_rewrite_on_owned_collection_with_composition_complex(isAsync);
 
             AssertSql(
-                @"SELECT (
-    SELECT TOP 1 `o1`.`PersonAddress_Country_Name`
-    FROM `Order` AS `o0`
-    LEFT JOIN `OwnedPerson` AS `o1` ON `o0`.`ClientId` = `o1`.`Id`
-    WHERE `o`.`Id` = `o0`.`ClientId`
-    ORDER BY `o0`.`Id`)
-FROM `OwnedPerson` AS `o`");
+                """
+                    SELECT (
+                        SELECT TOP 1 `o1`.`PersonAddress_Country_Name`
+                        FROM `Order` AS `o0`
+                        LEFT JOIN `OwnedPerson` AS `o1` ON `o0`.`ClientId` = `o1`.`Id`
+                        WHERE `o`.`Id` = `o0`.`ClientId`
+                        ORDER BY `o0`.`Id`)
+                    FROM `OwnedPerson` AS `o`
+                    """);
         }
 
         public override async Task SelectMany_on_owned_collection(bool isAsync)
@@ -230,11 +238,13 @@ FROM `OwnedPerson` AS `o`");
             await base.SelectMany_on_owned_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`, `o1`.`Detail`
-FROM (`OwnedPerson` AS `o`
-INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`)
-LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-ORDER BY `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`");
+                """
+                    SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`, `o1`.`Detail`
+                    FROM (`OwnedPerson` AS `o`
+                    INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`)
+                    LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
+                    ORDER BY `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`
+                    """);
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_followed_by_regular_entity(bool isAsync)
@@ -329,9 +339,11 @@ ORDER BY `o`.`Id`, `p`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_property(isAsync);
 
             AssertSql(
-                @"SELECT `p`.`Id`
-FROM `OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`");
+                """
+                    SELECT `p`.`Id`
+                    FROM `OwnedPerson` AS `o`
+                    LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
+                    """);
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_collection(bool isAsync)
@@ -339,11 +351,13 @@ LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_collection(isAsync);
 
             AssertSql(
-                @"SELECT `o`.`Id`, `p`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
-ORDER BY `o`.`Id`, `p`.`Id`");
+                """
+                    SELECT `o`.`Id`, `p`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
+                    FROM (`OwnedPerson` AS `o`
+                    LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+                    LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
+                    ORDER BY `o`.`Id`, `p`.`Id`
+                    """);
         }
 
         public override async Task SelectMany_on_owned_reference_followed_by_regular_entity_and_collection(bool isAsync)
@@ -380,12 +394,14 @@ WHERE `s`.`Id` IS NOT NULL AND `e`.`StarId` IS NOT NULL
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_another_reference(isAsync);
 
             AssertSql(
-                @"SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `p`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
-FROM ((`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
-LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
-ORDER BY `o`.`Id`, `p`.`Id`, `s`.`Id`");
+                """
+                    SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `p`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
+                    FROM ((`OwnedPerson` AS `o`
+                    LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+                    LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
+                    LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
+                    ORDER BY `o`.`Id`, `p`.`Id`, `s`.`Id`
+                    """);
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_another_reference_and_scalar(
@@ -394,10 +410,12 @@ ORDER BY `o`.`Id`, `p`.`Id`, `s`.`Id`");
             await base.Navigation_rewrite_on_owned_reference_followed_by_regular_entity_and_another_reference_and_scalar(isAsync);
 
             AssertSql(
-                @"SELECT `s`.`Name`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`");
+                """
+                    SELECT `s`.`Name`
+                    FROM (`OwnedPerson` AS `o`
+                    LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+                    LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`
+                    """);
         }
 
         public override async Task
@@ -407,13 +425,15 @@ LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`");
                 isAsync);
 
             AssertSql(
-                @"SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `p`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
-FROM ((`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
-LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
-WHERE `s`.`Name` = 'Sol'
-ORDER BY `o`.`Id`, `p`.`Id`, `s`.`Id`");
+                """
+                    SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `p`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
+                    FROM ((`OwnedPerson` AS `o`
+                    LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+                    LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
+                    LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
+                    WHERE `s`.`Name` = 'Sol'
+                    ORDER BY `o`.`Id`, `p`.`Id`, `s`.`Id`
+                    """);
         }
 
         public override async Task Query_with_OfType_eagerly_loads_correct_owned_navigations(bool isAsync)

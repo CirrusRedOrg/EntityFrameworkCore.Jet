@@ -12,18 +12,7 @@ using EntityFrameworkCore.Jet.Query.Sql.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.Jet.Update.Internal;
 using EntityFrameworkCore.Jet.ValueGeneration.Internal;
-using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Update;
 using EntityFrameworkCore.Jet.Utilities;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.EntityFrameworkCore.ValueGeneration;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection
@@ -33,7 +22,7 @@ namespace Microsoft.Extensions.DependencyInjection
     /// </summary>
     public static class JetServiceCollectionExtensions
     {
-        public static IServiceCollection AddEntityFrameworkJet([NotNull] this IServiceCollection serviceCollection)
+        public static IServiceCollection AddEntityFrameworkJet(this IServiceCollection serviceCollection)
         {
             Check.NotNull(serviceCollection, nameof(serviceCollection));
 

@@ -16,11 +16,10 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model63_Time
 
             {
                 Context.Items.AddRange(
-                    new[]
-                    {
-                        item1 = new Item() {TimeSpan = null, DateTime = new DateTime(1969, 09, 15)},
+                [
+                    item1 = new Item() {TimeSpan = null, DateTime = new DateTime(1969, 09, 15)},
                         item2 = new Item() {TimeSpan = timeSpan}
-                    });
+                ]);
                 Context.SaveChanges();
             }
 

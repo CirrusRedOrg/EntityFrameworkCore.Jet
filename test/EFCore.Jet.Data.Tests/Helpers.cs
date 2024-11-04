@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             if (!string.IsNullOrWhiteSpace(query))
                 queries.Add(query);
 
-            return queries.ToArray();
+            return [.. queries];
         }
 
         public static DbDataReader Execute(DbConnection connection, string query)
@@ -138,7 +138,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             return InternatExecute(connection, transaction, query);
         }
 
-        private static Regex _parseParameterRegex = new Regex(@"(?<name>.*)\((?<type>.*)\) = (?<value>.*)", RegexOptions.IgnoreCase);
+        private static Regex _parseParameterRegex = new(@"(?<name>.*)\((?<type>.*)\) = (?<value>.*)", RegexOptions.IgnoreCase);
 
         private static DbDataReader InternatExecute(DbConnection connection, DbTransaction transaction, string queryAndParameters)
         {
@@ -148,8 +148,8 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             if (queryAndParameters.Contains("\n-\n"))
             {
                 var i = queryAndParameters.IndexOf("\n-\n", StringComparison.Ordinal);
-                query = queryAndParameters.Substring(0, i);
-                parameterString = queryAndParameters.Substring(i + 3);
+                query = queryAndParameters[..i];
+                parameterString = queryAndParameters[(i + 3)..];
             }
             else
             {
@@ -289,7 +289,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         public static JetConnection OpenDatabase(string storeName, DataAccessProviderType providerType)
-            => OpenDatabase(storeName, JetFactory.Instance.GetDataAccessProviderFactory(providerType));
+            => OpenDatabase(storeName, JetFactory.GetDataAccessProviderFactory(providerType));
 
         public static DbProviderFactory DataAccessProviderFactory { get; set; } = OleDbFactory.Instance; //OdbcFactory.Instance;
     }

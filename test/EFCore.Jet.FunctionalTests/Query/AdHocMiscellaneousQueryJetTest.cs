@@ -293,10 +293,10 @@ OUTPUT INSERTED.[Id], i._Position;
 
         AssertSql(
             """
-SELECT TOP(1) [p].[Id], [p].[ChildId], [c].[Id], [c].[ParentId], [c].[ULongRowVersion]
-FROM [Parents] AS [p]
-LEFT JOIN [Children] AS [c] ON [p].[ChildId] = [c].[Id]
-ORDER BY [p].[Id]
+SELECT TOP 1 `p`.`Id`, `p`.`ChildId`, `c`.`Id`, `c`.`ParentId`, `c`.`ULongRowVersion`
+FROM `Parents` AS `p`
+LEFT JOIN `Children` AS `c` ON `p`.`ChildId` = `c`.`Id`
+ORDER BY `p`.`Id`
 """);
     }
 
@@ -309,10 +309,10 @@ ORDER BY [p].[Id]
 
         AssertSql(
             """
-SELECT TOP(1) [c].[ULongRowVersion]
-FROM [Parents] AS [p]
-LEFT JOIN [Children] AS [c] ON [p].[ChildId] = [c].[Id]
-ORDER BY [p].[Id]
+SELECT TOP 1 `c`.`ULongRowVersion`
+FROM `Parents` AS `p`
+LEFT JOIN `Children` AS `c` ON `p`.`ChildId` = `c`.`Id`
+ORDER BY `p`.`Id`
 """);
     }
 
@@ -331,7 +331,7 @@ ORDER BY [p].[Id]
                 .HasConversion(new NumberToBytesConverter<ulong>())
                 .IsRowVersion()
                 .IsRequired()
-                .HasColumnType("RowVersion");
+                .HasColumnType("varbinary(8)");
 
             modelBuilder.Entity<Parent12518>();
         }
@@ -862,114 +862,6 @@ CROSS JOIN (
         {
             public int Id { get; set; }
             public bool IsDeleted { get; set; }
-        }
-    }
-
-    #endregion
-
-    #region 24216
-
-    [ConditionalFact]
-    public virtual async Task Subquery_take_SelectMany_with_TVF()
-    {
-        var contextFactory = await InitializeAsync<Context24216>();
-        using var context = contextFactory.CreateContext();
-
-        context.Database.ExecuteSqlRaw(
-            """
-create function [dbo].[GetPersonStatusAsOf] (@personId bigint, @timestamp datetime2)
-returns @personStatus table
-(
-    Id bigint not null,
-    PersonId bigint not null,
-    GenderId bigint not null,
-    StatusMessage nvarchar(max)
-)
-as
-begin
-    insert into @personStatus
-    select [m].[Id], [m].[PersonId], [m].[PersonId], null
-    from [Message] as [m]
-    where [m].[PersonId] = @personId and [m].[TimeStamp] = @timestamp
-    return
-end
-""");
-
-        ClearLog();
-
-        var q = from m in context.Message
-                orderby m.Id
-                select m;
-
-        var q2 =
-            from m in q.Take(10)
-            from asof in context.GetPersonStatusAsOf(m.PersonId, m.Timestamp)
-            select new { Gender = (from g in context.Gender where g.Id == asof.GenderId select g.Description).Single() };
-
-        q2.ToList();
-
-        AssertSql(
-            """
-@__p_0='10'
-
-SELECT (
-    SELECT TOP(1) [g0].[Description]
-    FROM [Gender] AS [g0]
-    WHERE [g0].[Id] = [g].[GenderId]) AS [Gender]
-FROM (
-    SELECT TOP(@__p_0) [m].[Id], [m].[PersonId], [m].[Timestamp]
-    FROM [Message] AS [m]
-    ORDER BY [m].[Id]
-) AS [m0]
-CROSS APPLY [dbo].[GetPersonStatusAsOf]([m0].[PersonId], [m0].[Timestamp]) AS [g]
-ORDER BY [m0].[Id]
-""");
-    }
-
-    private class Gender24216
-    {
-        public long Id { get; set; }
-
-        public string Description { get; set; }
-    }
-
-    private class Message24216
-    {
-        public long Id { get; set; }
-
-        public long PersonId { get; set; }
-
-        public DateTime Timestamp { get; set; }
-    }
-
-    private class PersonStatus24216
-    {
-        public long Id { get; set; }
-
-        public long PersonId { get; set; }
-
-        public long GenderId { get; set; }
-
-        public string StatusMessage { get; set; }
-    }
-
-    private class Context24216(DbContextOptions options) : DbContext(options)
-    {
-        public DbSet<Gender24216> Gender { get; set; }
-
-        public DbSet<Message24216> Message { get; set; }
-
-        public IQueryable<PersonStatus24216> GetPersonStatusAsOf(long personId, DateTime asOf)
-            => FromExpression(() => GetPersonStatusAsOf(personId, asOf));
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-
-            modelBuilder.HasDbFunction(
-                typeof(Context24216).GetMethod(
-                    nameof(GetPersonStatusAsOf),
-                    [typeof(long), typeof(DateTime)]));
         }
     }
 

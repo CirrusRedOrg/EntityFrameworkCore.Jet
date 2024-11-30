@@ -1701,9 +1701,9 @@ WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS 
 
             AssertSql(
                 """
-SELECT [e].[Id] AS [Id1], [e0].[Id] AS [Id2], [e].[NullableIntA], [e0].[NullableIntB]
-FROM [Entities1] AS [e]
-INNER JOIN [Entities2] AS [e0] ON [e].[NullableIntA] = [e0].[NullableIntB] OR ([e].[NullableIntA] IS NULL AND [e0].[NullableIntB] IS NULL)
+SELECT `e`.`Id` AS `Id1`, `e0`.`Id` AS `Id2`, `e`.`NullableIntA`, `e0`.`NullableIntB`
+FROM `Entities1` AS `e`
+INNER JOIN `Entities2` AS `e0` ON (`e`.`NullableIntA` = `e0`.`NullableIntB`) OR (`e`.`NullableIntA` IS NULL AND `e0`.`NullableIntB` IS NULL)
 """);
         }
 
@@ -2352,19 +2352,19 @@ WHERE `m`.`StringA` = `m`.`StringB`
             await base.Null_semantics_applied_when_comparing_function_with_nullable_argument_to_a_nullable_column(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE (INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) = `e`.`NullableIntA` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableIntA` IS NULL)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE (INSTR(1, `e`.`NullableStringA`, 'ar', 1) - 1) = `e`.`NullableIntA` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableIntA` IS NULL)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> `e`.`NullableIntB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableIntB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
@@ -2400,19 +2400,19 @@ ORDER BY `e`.`Id`
             await base.Null_semantics_applied_when_comparing_two_functions_with_nullable_arguments(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE (INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) = (INSTR(1, `e`.`NullableStringB`, 'ar', 1) - 1) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> (INSTR(1, `e`.`NullableStringB`, 'ar', 1) - 1) OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)
 """,
-//
-"""
+                //
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
 WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> (INSTR(1, `e`.`NullableStringA`, 'ar', 1) - 1) OR `e`.`NullableStringA` IS NULL) AND `e`.`NullableStringA` IS NOT NULL

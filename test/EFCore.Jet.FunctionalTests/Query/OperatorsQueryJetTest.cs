@@ -73,7 +73,7 @@ ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
         await base.Projection_with_not_and_negation_on_integer();
 
         AssertSql(
-"""
+            """
 SELECT  (BNOT-(-((`o1`.`Value` + `o`.`Value`) + 2))) MOD (-(`o0`.`Value` + `o0`.`Value`) - `o`.`Value`)
 FROM `OperatorEntityLong` AS `o`,
 `OperatorEntityLong` AS `o0`,

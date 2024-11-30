@@ -187,13 +187,13 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`
             await base.Include_references_multi_level(async);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-                    WHERE (`o`.`OrderID` MOD 23) = 13
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13
+""");
         }
 
         public override async Task Include_multiple_references_multi_level(bool async)
@@ -201,14 +201,14 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`
             await base.Include_multiple_references_multi_level(async);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM ((`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-                    INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
-                    WHERE (`o`.`OrderID` MOD 23) = 13
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM ((`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+WHERE (`o`.`OrderID` MOD 23) = 13
+""");
         }
 
         public override async Task Include_multiple_references_multi_level_reverse(bool async)
@@ -216,14 +216,14 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`
             await base.Include_multiple_references_multi_level_reverse(async);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM ((`Order Details` AS `o`
-                    INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-                    WHERE (`o`.`OrderID` MOD 23) = 13
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM ((`Order Details` AS `o`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13
+""");
         }
 
         public override async Task Include_references_and_collection_multi_level(bool async)
@@ -231,15 +231,15 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`
             await base.Include_references_and_collection_multi_level(async);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
-                    FROM ((`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-                    LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-                    WHERE (`o`.`OrderID` MOD 23) = 13 AND `o`.`UnitPrice` < 10.0
-                    ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM ((`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13 AND `o`.`UnitPrice` < 10.0
+ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
+""");
         }
 
         public override async Task Include_multi_level_reference_and_collection_predicate(bool async)
@@ -840,13 +840,13 @@ ORDER BY `o1`.`OrderID`, `o1`.`ProductID`
             await base.Include_multiple_references(async);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
-                    WHERE (`o`.`OrderID` MOD 23) = 13
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+WHERE (`o`.`OrderID` MOD 23) = 13
+""");
         }
 
         public override async Task Include_reference_alias_generation(bool async)
@@ -854,12 +854,12 @@ ORDER BY `o1`.`OrderID`, `o1`.`ProductID`
             await base.Include_reference_alias_generation(async);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM `Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-                    WHERE (`o`.`OrderID` MOD 23) = 13
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE (`o`.`OrderID` MOD 23) = 13
+""");
         }
 
         public override async Task Include_duplicate_reference(bool async)
@@ -1831,7 +1831,7 @@ FROM `Products` AS `p`
             await base.Include_multiple_references_and_collection_multi_level(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM (((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -1909,7 +1909,7 @@ ORDER BY `p`.`ProductID`, `s`.`OrderID`, `s`.`ProductID`
             await base.Include_references_then_include_multi_level(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -1938,7 +1938,7 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
             await base.Include_references_then_include_collection_multi_level(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -1968,7 +1968,7 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`
             await base.Include_multiple_references_then_include_multi_level(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -1983,7 +1983,7 @@ WHERE (`o`.`OrderID` MOD 23) = 13
             await base.Include_multiple_references_then_include_collection_multi_level_reverse(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
 FROM (((`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
@@ -2098,7 +2098,7 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
             await base.Include_multiple_references_then_include_collection_multi_level(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM (((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -2178,7 +2178,7 @@ WHERE `o`.`CustomerID` LIKE 'F%'
             await base.Include_multiple_references_then_include_multi_level_reverse(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
@@ -2193,7 +2193,7 @@ WHERE (`o`.`OrderID` MOD 23) = 13
             await base.Include_multiple_references_and_collection_multi_level_reverse(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
 FROM (((`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)

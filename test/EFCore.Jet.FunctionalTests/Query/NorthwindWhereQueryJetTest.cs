@@ -1380,12 +1380,12 @@ WHERE `p`.`Discontinued` <> IIF(`p`.`ProductID` > 50, TRUE, FALSE)
             await base.Where_bool_member_and_parameter_compared_to_binary_expression_nested(isAsync);
 
             AssertSql(
-                $"""
+                """
 @__prm_0='True'
 
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`Discontinued` = (IIF(`p`.`ProductID` > 50, TRUE, FALSE) BXOR {AssertSqlHelper.Parameter("@__prm_0")})
+WHERE `p`.`Discontinued` = (IIF(`p`.`ProductID` > 50, TRUE, FALSE) BXOR @__prm_0)
 """);
         }
 
@@ -1526,13 +1526,13 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Where_concat_string_int_comparison1(isAsync);
 
             AssertSql(
-                $"""
-    @__i_0='10'
-    
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE (`c`.`CustomerID` & ({AssertSqlHelper.Parameter("@__i_0")} & '')) = `c`.`CompanyName`
-    """);
+                """
+@__i_0='10'
+
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE (`c`.`CustomerID` & (@__i_0 & '')) = `c`.`CompanyName`
+""");
         }
 
         public override async Task Where_concat_string_int_comparison2(bool isAsync)
@@ -1540,13 +1540,13 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Where_concat_string_int_comparison2(isAsync);
 
             AssertSql(
-                $"""
-    @__i_0='10'
-    
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE (({AssertSqlHelper.Parameter("@__i_0")} & '') & `c`.`CustomerID`) = `c`.`CompanyName`
-    """);
+                """
+@__i_0='10'
+
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE ((@__i_0 & '') & `c`.`CustomerID`) = `c`.`CompanyName`
+""");
         }
 
         public override async Task Where_concat_string_int_comparison3(bool isAsync)
@@ -1554,14 +1554,14 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Where_concat_string_int_comparison3(isAsync);
 
             AssertSql(
-                $"""
-    @__p_0='30'
-    @__j_1='21'
-    
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE (((({AssertSqlHelper.Parameter("@__p_0")} & '') & `c`.`CustomerID`) & ({AssertSqlHelper.Parameter("@__j_1")} & '')) & (42 & '')) = `c`.`CompanyName`
-    """);
+                """
+@__p_0='30'
+@__j_1='21'
+
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE ((((@__p_0 & '') & `c`.`CustomerID`) & (@__j_1 & '')) & (42 & '')) = `c`.`CompanyName`
+""");
         }
 
         public override async Task Where_concat_string_int_comparison4(bool isAsync)
@@ -1581,13 +1581,13 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
             await base.Where_concat_string_string_comparison(isAsync);
 
             AssertSql(
-                $"""
-    @__i_0='A' (Size = 255)
-    
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE ({AssertSqlHelper.Parameter("@__i_0")} & `c`.`CustomerID`) = 'AALFKI'
-    """);
+                """
+@__i_0='A' (Size = 255)
+
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE (@__i_0 & `c`.`CustomerID`) = 'AALFKI'
+""");
         }
 
         public override async Task Where_string_concat_method_comparison(bool isAsync)
@@ -1595,13 +1595,13 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
             await base.Where_string_concat_method_comparison(isAsync);
 
             AssertSql(
-                $"""
-    @__i_0='A' (Size = 255)
-    
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE ({AssertSqlHelper.Parameter("@__i_0")} & `c`.`CustomerID`) = 'AAROUT'
-    """);
+                """
+@__i_0='A' (Size = 255)
+
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE (@__i_0 & `c`.`CustomerID`) = 'AAROUT'
+""");
         }
 
         public override async Task Where_string_concat_method_comparison_2(bool async)
@@ -1609,13 +1609,13 @@ WHERE ((`o`.`OrderID` & '') & IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`
             await base.Where_string_concat_method_comparison_2(async);
 
             AssertSql(
-                $"""
+                """
 @__i_0='A' (Size = 255)
 @__j_1='B' (Size = 255)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE ({AssertSqlHelper.Parameter("@__i_0")} & ({AssertSqlHelper.Parameter("@__j_1")} & `c`.`CustomerID`)) = 'ABANATR'
+WHERE (@__i_0 & (@__j_1 & `c`.`CustomerID`)) = 'ABANATR'
 """);
         }
 
@@ -1624,14 +1624,14 @@ WHERE ({AssertSqlHelper.Parameter("@__i_0")} & ({AssertSqlHelper.Parameter("@__j
             await base.Where_string_concat_method_comparison_3(async);
 
             AssertSql(
-                $"""
+                """
 @__i_0='A' (Size = 255)
 @__j_1='B' (Size = 255)
 @__k_2='C' (Size = 255)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE ({AssertSqlHelper.Parameter("@__i_0")} & ({AssertSqlHelper.Parameter("@__j_1")} & ({AssertSqlHelper.Parameter("@__k_2")} & `c`.`CustomerID`))) = 'ABCANTON'
+WHERE (@__i_0 & (@__j_1 & (@__k_2 & `c`.`CustomerID`))) = 'ABCANTON'
 """);
         }
 
@@ -2110,14 +2110,14 @@ FROM `Orders` AS `o`
             await base.Using_same_parameter_twice_in_query_generates_one_sql_parameter(async);
 
             AssertSql(
-                $"""
-    @__i_0='10'
-    @__i_0='10'
-    
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE ((({AssertSqlHelper.Parameter("@__i_0")} & '') & `c`.`CustomerID`) & ({AssertSqlHelper.Parameter("@__i_0")} & '')) = '10ALFKI10'
-    """);
+                """
+@__i_0='10'
+@__i_0='10'
+
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+WHERE (((@__i_0 & '') & `c`.`CustomerID`) & (@__i_0 & '')) = '10ALFKI10'
+""");
         }
 
         public override async Task Where_Queryable_ToList_Count(bool async)

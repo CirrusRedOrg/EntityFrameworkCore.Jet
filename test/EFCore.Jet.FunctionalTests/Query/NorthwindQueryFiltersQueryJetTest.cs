@@ -58,13 +58,13 @@ WHERE `c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPre
             await base.Find(async);
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 @__p_0='ALFKI' (Size = 5)
 
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}) AND `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE (`c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith) AND `c`.`CustomerID` = @__p_0
 """);
         }
 
@@ -302,22 +302,22 @@ WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
             base.Compiled_query();
 
             AssertSql(
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 @__customerID='BERGS' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}) AND `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+WHERE (`c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith) AND `c`.`CustomerID` = @__customerID
 """,
                 //
-                $"""
+                """
 @__ef_filter__TenantPrefix_0_startswith='B%' (Size = 40)
 @__customerID='BLAUS' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0_startswith")}) AND `c`.`CustomerID` = {AssertSqlHelper.Parameter("@__customerID")}
+WHERE (`c`.`CompanyName` LIKE @__ef_filter__TenantPrefix_0_startswith) AND `c`.`CustomerID` = @__customerID
 """);
         }
 

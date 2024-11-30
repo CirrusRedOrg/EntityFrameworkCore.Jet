@@ -1123,7 +1123,7 @@ END");
         }
     }
 
-    [ConditionalFact]
+    [ConditionalFact(Skip = "Jet can't return server generated guid's when it is the key. Currently using client geerated guid's")]
     public async Task Insert_with_server_generated_GUID_key()
     {
         using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);

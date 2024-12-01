@@ -347,23 +347,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return result;
         }
-
-        protected override Expression VisitInnerJoin(InnerJoinExpression innerJoinExpression)
-        {
-            parent.Push(innerJoinExpression);
-            var result = base.VisitInnerJoin(innerJoinExpression);
-            parent.Pop();
-            return result;
-        }
-
-        protected override Expression VisitLeftJoin(LeftJoinExpression leftJoinExpression)
-        {
-            parent.Push(leftJoinExpression);
-            var result = base.VisitLeftJoin(leftJoinExpression);
-            parent.Pop();
-            return result;
-        }
-
+        
         protected override Expression VisitProjection(ProjectionExpression projectionExpression)
         {
             if (projectionExpression.Expression is SqlConstantExpression { Value: null } constantExpression && (constantExpression.Type == typeof(int) || constantExpression.Type == typeof(double) || constantExpression.Type == typeof(float) || constantExpression.Type == typeof(decimal) || constantExpression.Type == typeof(short)))
@@ -1052,16 +1036,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             {
                 throw new InvalidOperationException(RelationalStrings.FromSqlNonComposable);
             }
-        }
-
-        protected override bool RequiresParentheses(SqlExpression outerExpression, SqlExpression innerExpression)
-        {
-            var withinjoin = parent.Any(x => x is JoinExpressionBase);
-            if (outerExpression is SqlBinaryExpression { OperatorType: ExpressionType.OrElse, Right: SqlBinaryExpression } && withinjoin)
-            {
-                return true;
-            }
-            return base.RequiresParentheses(outerExpression, innerExpression);
         }
     }
 }

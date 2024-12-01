@@ -274,11 +274,11 @@ GROUP BY `o0`.`Name`, `o0`.`CustomerID`
             await base.GroupBy_aggregate_projecting_conditional_expression(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderDate` AS `Key`, IIF(COUNT(*) = 0, 1, IIF(SUM(IIF((`o`.`OrderID` MOD 2) = 0, 1, 0)) IS NULL, 0, SUM(IIF((`o`.`OrderID` MOD 2) = 0, 1, 0))) \ COUNT(*)) AS `SomeValue`
-                    FROM `Orders` AS `o`
-                    GROUP BY `o`.`OrderDate`
-                    """);
+                """
+SELECT `o`.`OrderDate` AS `Key`, IIF(COUNT(*) = 0, 1, IIF(SUM(IIF((`o`.`OrderID` MOD 2) = 0, 1, 0)) IS NULL, 0, SUM(IIF((`o`.`OrderID` MOD 2) = 0, 1, 0))) \ COUNT(*)) AS `SomeValue`
+FROM `Orders` AS `o`
+GROUP BY `o`.`OrderDate`
+""");
         }
 
         public override async Task GroupBy_aggregate_projecting_conditional_expression_based_on_group_key(bool isAsync)

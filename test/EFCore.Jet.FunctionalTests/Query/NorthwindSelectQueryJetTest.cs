@@ -2018,10 +2018,10 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
-    SELECT TOP 10 (`c`.`CustomerID` & ' ') & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `Aggregate`
-    FROM `Customers` AS `c`
-    ORDER BY `c`.`CustomerID`
-    """);
+SELECT TOP 10 (`c`.`CustomerID` & ' ') & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `Aggregate`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Projection_skip_projection_doesnt_project_intermittent_column(bool async)

@@ -4817,13 +4817,13 @@ WHERE `c`.`CustomerID` LIKE {AssertSqlHelper.Parameter("@__prefix_0_startswith")
             await base.Comparing_entities_using_Equals(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
-                    FROM `Customers` AS `c`,
-                    `Customers` AS `c0`
-                    WHERE (`c`.`CustomerID` LIKE 'ALFKI%') AND `c`.`CustomerID` = `c0`.`CustomerID`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
+FROM `Customers` AS `c`,
+`Customers` AS `c0`
+WHERE (`c`.`CustomerID` LIKE 'ALFKI%') AND `c`.`CustomerID` = `c0`.`CustomerID`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Comparing_different_entity_types_using_Equals(bool isAsync)
@@ -5175,7 +5175,7 @@ WHERE (`c`.`CustomerID` LIKE 'A%') AND EXISTS (
             await base.Let_entity_equality_to_other_entity(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, (
     SELECT TOP 1 `o0`.`OrderDate`
     FROM `Orders` AS `o0`
@@ -5670,6 +5670,17 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'
+""");
+        }
+
+        public override async Task Funcletize_conditional_with_evaluatable_test(bool async)
+        {
+            await base.Funcletize_conditional_with_evaluatable_test(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 """);
         }
 

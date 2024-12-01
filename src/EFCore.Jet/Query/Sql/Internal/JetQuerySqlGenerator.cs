@@ -347,7 +347,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return result;
         }
-
+        
         protected override Expression VisitProjection(ProjectionExpression projectionExpression)
         {
             if (projectionExpression.Expression is SqlConstantExpression { Value: null } constantExpression && (constantExpression.Type == typeof(int) || constantExpression.Type == typeof(double) || constantExpression.Type == typeof(float) || constantExpression.Type == typeof(decimal) || constantExpression.Type == typeof(short)))

@@ -1,10 +1,13 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -338,6 +341,24 @@ SELECT (
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = -1)
 FROM `Customers` AS `c`
+""");
+        }
+
+        private static readonly IEnumerable<string> StaticIds = new List<string> { "ALFKI", "ANATR" };
+
+        [ConditionalTheory]
+        [MemberData(nameof(IsAsyncData))]
+        public virtual async Task Contains_with_static_IList(bool async)
+        {
+            await AssertQuery(
+                async,
+                ss => ss.Set<Customer>().Where(c => StaticIds.Contains(c.CustomerID)));
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR')
 """);
         }
 
@@ -2613,15 +2634,15 @@ FROM `Customers` AS `c`
             await base.Collection_Last_member_access_in_projection_translated(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE (`c`.`CustomerID` LIKE 'F%') AND (
-                        SELECT TOP 1 `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                        ORDER BY `o`.`OrderID`) = `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (`c`.`CustomerID` LIKE 'F%') AND (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`) = `c`.`CustomerID`
+""");
         }
 
         public override async Task Collection_LastOrDefault_member_access_in_projection_translated(bool isAsync)
@@ -2629,15 +2650,15 @@ FROM `Customers` AS `c`
             await base.Collection_LastOrDefault_member_access_in_projection_translated(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE (`c`.`CustomerID` LIKE 'F%') AND (
-                        SELECT TOP 1 `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                        ORDER BY `o`.`OrderID`) = `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (`c`.`CustomerID` LIKE 'F%') AND (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`) = `c`.`CustomerID`
+""");
         }
 
         public override async Task Sum_over_explicit_cast_over_column(bool isAsync)

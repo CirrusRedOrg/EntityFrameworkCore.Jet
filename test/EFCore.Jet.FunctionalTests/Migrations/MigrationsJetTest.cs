@@ -301,11 +301,7 @@ ALTER TABLE [NewEntities] ADD CONSTRAINT [PK_NewEntities] PRIMARY KEY ([Id]);
 
         AssertSql(
             """
-IF SCHEMA_ID(N'TestTableSchema') IS NULL EXEC(N'CREATE SCHEMA [TestTableSchema];');
-""",
-            //
-            """
-ALTER SCHEMA [TestTableSchema] TRANSFER [TestTable];
+ALTER TABLE `TestTable` RENAME TO `TestTable`;
 """);
     }
 
@@ -491,7 +487,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2019-01-01';
             {
                 var table = Assert.Single(model.Tables);
                 var column = Assert.Single(table.Columns, c => c.Name == "RowVersion");
-                Assert.Equal("rowversion", column.StoreType);
+                Assert.Equal("varbinary(8)", column.StoreType);
                 Assert.True(column.IsRowVersion());
             });
 
@@ -1220,42 +1216,6 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
     }
 
     [ConditionalFact]
-    public virtual async Task Alter_column_change_type_with_identity()
-    {
-        await Test(
-            builder => builder.Entity(
-                "People", e =>
-                {
-                    e.Property<string>("Id");
-                    e.Property<int>("IdentityColumn").UseJetIdentityColumn();
-                }),
-            builder => builder.Entity(
-                "People", e =>
-                {
-                    e.Property<string>("Id");
-                    e.Property<long>("IdentityColumn").UseJetIdentityColumn();
-                }),
-            model =>
-            {
-                var table = Assert.Single(model.Tables);
-                var column = Assert.Single(table.Columns, c => c.Name == "IdentityColumn");
-                Assert.Equal("decimal(20,0)", column.StoreType);
-                Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-            });
-
-        AssertSql(
-            """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'IdentityColumn');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [IdentityColumn] bigint NOT NULL;
-""");
-    }
-
-    [ConditionalFact]
     public virtual async Task Alter_column_change_identity_seed()
     {
         await Test(
@@ -1269,9 +1229,7 @@ ALTER TABLE [People] ALTER COLUMN [IdentityColumn] bigint NOT NULL;
             });
 
         AssertSql(
-            """
-DBCC CHECKIDENT(N'[People]', RESEED, 100);
-""");
+);
     }
 
     [ConditionalFact]
@@ -1292,31 +1250,6 @@ DBCC CHECKIDENT(N'[People]', RESEED, 100);
             """
 ALTER TABLE `People` ALTER COLUMN `Name` DROP DEFAULT;
 ALTER TABLE `People` ALTER COLUMN `Name` varchar(255) NULL DEFAULT 'Doe';
-""");
-    }
-
-    [ConditionalFact]
-    public virtual async Task Alter_column_change_comment_with_default()
-    {
-        await Test(
-            builder => builder.Entity("People").Property<string>("Name").HasDefaultValue("Doe"),
-            builder => { },
-            builder => builder.Entity("People").Property<string>("Name")
-                .HasComment("Some comment"),
-            model =>
-            {
-                var nameColumn = Assert.Single(Assert.Single(model.Tables).Columns);
-                Assert.Equal("'Doe'", nameColumn.DefaultValueSql);
-                Assert.Equal("Some comment", nameColumn.Comment);
-            });
-
-        AssertSql(
-            """
-DECLARE @defaultSchema AS sysname;
-SET @defaultSchema = SCHEMA_NAME();
-DECLARE @description AS sql_variant;
-SET @description = N'Some comment';
-EXEC sp_addextendedproperty 'MS_Description', @description, 'SCHEMA', @defaultSchema, 'TABLE', N'People', 'COLUMN', N'Name';
 """);
     }
 

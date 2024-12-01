@@ -575,7 +575,7 @@ WHERE (`w`.`AmmunitionType` BAND 1) > 0
         await base.Where_bitwise_and_nullable_enum_with_null_constant(async);
 
         AssertSql(
-"""
+            """
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
 WHERE (`w`.`AmmunitionType` BAND NULL) > 0
@@ -621,7 +621,7 @@ WHERE (`w`.`AmmunitionType` BAND NULL) > 0
         await base.Where_bitwise_or_enum(async);
 
         AssertSql(
-"""
+            """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
 FROM `Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
@@ -1678,7 +1678,7 @@ ORDER BY [g].[Nickname]
         await base.Where_subquery_distinct_singleordefault_boolean2(async);
 
         AssertSql(
-"""
+            """
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
 FROM `Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
@@ -6326,7 +6326,7 @@ WHERE [g].[HasSoulPatch] = CAST(1 AS bit)
         await base.Select_subquery_distinct_singleordefault_boolean2(async);
 
         AssertSql(
-"""
+            """
 SELECT IIF((
         SELECT DISTINCT TOP 1 `w`.`IsAutomatic`
         FROM `Weapons` AS `w`
@@ -6476,7 +6476,7 @@ ORDER BY NOT (`w0`.`IsAutomatic`), `w0`.`Id`
         await base.Double_order_by_on_Like(async);
 
         AssertSql(
-"""
+            """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
@@ -6581,7 +6581,7 @@ ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & 'Marcus'' Lancer'
         await base.String_concat_on_various_types(async);
 
         AssertSql(
-"""
+            """
 SELECT ('HasSoulPatch ' & (`g`.`HasSoulPatch` & '')) & ' HasSoulPatch' AS `HasSoulPatch`, ('Rank ' & (`g`.`Rank` & '')) & ' Rank' AS `Rank`, ('SquadId ' & (`g`.`SquadId` & '')) & ' SquadId' AS `SquadId`, ('Rating ' & IIF((`m`.`Rating` & '') IS NULL, '', (`m`.`Rating` & ''))) & ' Rating' AS `Rating`, ('Timeline ' & (`m`.`Timeline` & '')) & ' Timeline' AS `Timeline`
 FROM `Gears` AS `g`,
 `Missions` AS `m`
@@ -9500,7 +9500,7 @@ WHERE TIMEVALUE(DATEADD('n', CLNG(3.0), `m`.`Time`)) = TIMEVALUE('10:18:50')
         await base.Where_TimeOnly_IsBetween(async);
 
         AssertSql(
-    """
+            """
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`
 WHERE (IIF(`m`.`Time` >= TIMEVALUE('10:00:00'), TRUE, FALSE) BAND IIF(`m`.`Time` < TIMEVALUE('11:00:00'), TRUE, FALSE)) = TRUE
@@ -10273,7 +10273,7 @@ ORDER BY `f`.`Id`
     {
         await base.String_concat_nullable_expressions_are_coalesced(async);
         AssertSql(
-"""
+            """
 SELECT ((`g`.`FullName` & '') & IIF(`g`.`LeaderNickname` IS NULL, '', `g`.`LeaderNickname`)) & ''
 FROM `Gears` AS `g`
 """);

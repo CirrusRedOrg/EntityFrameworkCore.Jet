@@ -38,7 +38,7 @@ WHERE NOT EXISTS (
         await base.Skip_navigation_any_without_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`Name`
 FROM `EntityOnes` AS `e`
 WHERE EXISTS (
@@ -54,7 +54,7 @@ WHERE EXISTS (
         await base.Skip_navigation_any_with_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`Name`
 FROM `EntityOnes` AS `e`
 WHERE EXISTS (

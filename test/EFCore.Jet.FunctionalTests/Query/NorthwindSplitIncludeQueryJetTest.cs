@@ -206,7 +206,7 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
         await base.Include_references_multi_level(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -220,7 +220,7 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         await base.Include_multiple_references_multi_level(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -235,7 +235,7 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         await base.Include_multiple_references_multi_level_reverse(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
@@ -1184,7 +1184,7 @@ ORDER BY `s`.`CustomerID`, `s`.`CustomerID0`
         await base.Include_multiple_references(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -1198,7 +1198,7 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         await base.Include_reference_alias_generation(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
@@ -2676,7 +2676,7 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
         await base.Include_multiple_references_then_include_multi_level(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -2839,7 +2839,7 @@ ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
         await base.Include_references_then_include_multi_level(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -2912,7 +2912,7 @@ ORDER BY `c`.`CustomerID`
         await base.Include_multiple_references_then_include_multi_level_reverse(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM ((`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)

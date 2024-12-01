@@ -1256,11 +1256,11 @@ WHERE `o`.`OrderID` < 10300
             await base.Where_math_log10(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-                    FROM `Order Details` AS `o`
-                    WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / 2.30258509299405) < 0.0
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)) / 2.30258509299405) < 0.0
+""");
         }
 
         public override async Task Where_math_log(bool isAsync)
@@ -1304,11 +1304,11 @@ WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(CDBL(`o`.`Discount`)
             await base.Where_math_acos(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-                    FROM `Order Details` AS `o`
-                    WHERE `o`.`OrderID` = 11077 AND (1.5707963267949 + ATN(-CDBL(`o`.`Discount`) / SQR(-(CDBL(`o`.`Discount`) * CDBL(`o`.`Discount`)) + 1.0))) > 1.0
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` = 11077 AND (1.5707963267949 + ATN(-CDBL(`o`.`Discount`) / SQR(-(CDBL(`o`.`Discount`) * CDBL(`o`.`Discount`)) + 1.0))) > 1.0
+""");
         }
 
         public override async Task Where_math_asin(bool isAsync)
@@ -1630,7 +1630,7 @@ WHERE `o`.`OrderID` = 11077 AND EXP(`o`.`Discount`) > 1
             await base.Where_mathf_log10(async);
 
             AssertSql(
-    """
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 11077 AND `o`.`Discount` > 0 AND (LOG(`o`.`Discount`) / 2.302585) < 0
@@ -1678,7 +1678,7 @@ WHERE `o`.`OrderID` = 11077 AND SQR(`o`.`Discount`) > 0
             await base.Where_mathf_acos(async);
 
             AssertSql(
-    """
+                """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 11077 AND (1.5707963267949 + ATN(-`o`.`Discount` / SQR(-(`o`.`Discount` * `o`.`Discount`) + 1))) > 1.0
@@ -2403,7 +2403,7 @@ WHERE (INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 
             await base.Indexof_with_constant_starting_position(async);
 
             AssertSql(
-    """
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE (INSTR(3, `c`.`ContactName`, 'a', 1) - 1) = 4
@@ -2415,7 +2415,7 @@ WHERE (INSTR(3, `c`.`ContactName`, 'a', 1) - 1) = 4
             await base.Indexof_with_parameter_starting_position(async);
 
             AssertSql(
-    $"""
+                $"""
 @__start_0='2'
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -2553,7 +2553,7 @@ WHERE MID(`c`.`CustomerID`, {AssertSqlHelper.Parameter("@__start_0")} + 1, LEN(`
             await base.IsNullOrEmpty_in_predicate(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`Region` IS NULL OR (`c`.`Region` LIKE '')
@@ -2565,7 +2565,7 @@ WHERE `c`.`Region` IS NULL OR (`c`.`Region` LIKE '')
             await base.IsNullOrEmpty_in_projection(async);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID` AS `Id`, IIF(`c`.`Region` IS NULL OR (`c`.`Region` LIKE ''), TRUE, FALSE) AS `Value`
 FROM `Customers` AS `c`
 """);

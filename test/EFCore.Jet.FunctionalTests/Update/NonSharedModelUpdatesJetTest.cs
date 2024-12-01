@@ -21,7 +21,7 @@ public class NonSharedModelUpdatesJetTest : NonSharedModelUpdatesTestBase
         await base.Principal_and_dependent_roundtrips_with_cycle_breaking(async);
 
         AssertSql(
-$"""
+            $"""
 @p0='AC South' (Size = 255)
 
 INSERT INTO `AuthorsClub` (`Name`)
@@ -30,8 +30,8 @@ SELECT `Id`
 FROM `AuthorsClub`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
-        //
-$"""
+            //
+            $"""
 @p1='1'
 @p2='Alice' (Size = 255)
 
@@ -41,8 +41,8 @@ SELECT `Id`
 FROM `Author`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
-        //
-$"""
+            //
+            $"""
 @p3='1'
 @p4=NULL (Size = 255)
 
@@ -52,14 +52,14 @@ SELECT `Id`
 FROM `Book`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
-        //
-"""
+            //
+            """
 SELECT TOP 2 `b`.`Id`, `b`.`AuthorId`, `b`.`Title`, `a`.`Id`, `a`.`AuthorsClubId`, `a`.`Name`
 FROM `Book` AS `b`
 INNER JOIN `Author` AS `a` ON `b`.`AuthorId` = `a`.`Id`
 """,
-        //
-$"""
+            //
+            $"""
 @p0='AC North' (Size = 255)
 
 INSERT INTO `AuthorsClub` (`Name`)
@@ -68,8 +68,8 @@ SELECT `Id`
 FROM `AuthorsClub`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
-        //
-$"""
+            //
+            $"""
 @p1='2'
 @p2='Author of the year 2023' (Size = 255)
 
@@ -79,8 +79,8 @@ SELECT `Id`
 FROM `Author`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
-        //
-$"""
+            //
+            $"""
 @p3='2'
 @p4='1'
 
@@ -88,8 +88,8 @@ UPDATE `Book` SET `AuthorId` = {AssertSqlHelper.Parameter("@p3")}
 WHERE `Id` = {AssertSqlHelper.Parameter("@p4")};
 SELECT @@ROWCOUNT;
 """,
-        //
-$"""
+            //
+            $"""
 @p0='1'
 
 DELETE FROM `Author`

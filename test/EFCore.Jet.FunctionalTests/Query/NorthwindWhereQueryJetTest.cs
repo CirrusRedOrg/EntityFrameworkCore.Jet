@@ -1560,7 +1560,7 @@ WHERE (({AssertSqlHelper.Parameter("@__i_0")} & '') & `c`.`CustomerID`) = `c`.`C
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
-WHERE (((({AssertSqlHelper.Parameter("@__p_0")} & '') & `c`.`CustomerID`) & {AssertSqlHelper.Parameter("(@__j_1")} & '')) & (42 & '')) = `c`.`CompanyName`
+WHERE (((({AssertSqlHelper.Parameter("@__p_0")} & '') & `c`.`CustomerID`) & ({AssertSqlHelper.Parameter("@__j_1")} & '')) & (42 & '')) = `c`.`CompanyName`
 """);
         }
 

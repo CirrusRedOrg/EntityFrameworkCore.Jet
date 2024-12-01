@@ -622,7 +622,7 @@ FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
 """,
             //
-            """
+            $"""
 @p0='0'
 @p1='Eagle' (Nullable = false) (Size = 8)
 @p2='2' (Nullable = true)
@@ -632,7 +632,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 @p6='Haliaeetus leucocephalus' (Size = 100)
 
 INSERT INTO `Animals` (`CountryId`, `Discriminator`, `EagleId`, `Group`, `IsFlightless`, `Name`, `Species`)
-VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
 SELECT `Id`
 FROM `Animals`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;

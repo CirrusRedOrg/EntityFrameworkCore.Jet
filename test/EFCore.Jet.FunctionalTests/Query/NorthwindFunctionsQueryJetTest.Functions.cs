@@ -2388,13 +2388,13 @@ WHERE (INSTR(1, `c`.`ContactName`, 'a', 1) - 1) = 1
         {
             await base.Indexof_with_one_parameter_arg(async);
             AssertSql(
-                """
+                $"""
 @__pattern_0='a' (Size = 30)
 @__pattern_0='a' (Size = 30)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (INSTR(1, `c`.`ContactName`, @__pattern_0, 1) - IIF(@__pattern_0 = '', 0, 1)) = 1
+WHERE (INSTR(1, `c`.`ContactName`, {AssertSqlHelper.Parameter("@__pattern_0")}, 1) - IIF({AssertSqlHelper.Parameter("@__pattern_0")} = '', 0, 1)) = 1
 """);
         }
 
@@ -2415,12 +2415,12 @@ WHERE (INSTR(3, `c`.`ContactName`, 'a', 1) - 1) = 4
             await base.Indexof_with_parameter_starting_position(async);
 
             AssertSql(
-                """
+                $"""
 @__start_0='2'
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (INSTR(@__start_0 + 1, `c`.`ContactName`, 'a', 1) - 1) = 4
+WHERE (INSTR({AssertSqlHelper.Parameter("@__start_0")} + 1, `c`.`ContactName`, 'a', 1) - 1) = 4
 """);
         }
 

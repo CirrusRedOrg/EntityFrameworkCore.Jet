@@ -284,13 +284,26 @@ namespace EntityFrameworkCore.Jet.Data
 
             if (!CheckExists(InnerCommand.CommandText, out var newCommandText))
                 return 0;
+            bool isexistssql = newCommandText != InnerCommand.CommandText && (InnerCommand.CommandText.StartsWith("IF EXISTS",StringComparison.OrdinalIgnoreCase) || InnerCommand.CommandText.StartsWith("IF NOT EXISTS", StringComparison.OrdinalIgnoreCase));
 
             InnerCommand.CommandText = newCommandText;
 
             InlineTopParameters();
             FixParameters();
 
-            _connection.RowCount = InnerCommand.ExecuteNonQuery();
+            try
+            {
+                _connection.RowCount = InnerCommand.ExecuteNonQuery();
+            }
+            catch (DbException e)
+            {
+                if (!e.Message.Contains("already exists") || !isexistssql)
+                {
+                    throw;
+                }
+
+                return 0;
+            }
 
             // For UPDATE, INSERT, and DELETE statements, the return value is the number of rows affected by the command.
             // For all other types of statements, the return value is -1. If a rollback occurs, the return value is also -1.

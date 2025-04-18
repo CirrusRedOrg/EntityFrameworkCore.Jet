@@ -6757,7 +6757,7 @@ INNER JOIN (
     FROM `LocustHordes` AS `l1`
     WHERE `l1`.`Name` = 'Swarm'
 ) AS `l2` ON `u`.`Name` = `l2`.`CommanderName`
-WHERE `l2`.`Eradicated` = FALSE OR `l2`.`Eradicated` IS NULL
+WHERE `l2`.`Eradicated` <> TRUE OR `l2`.`Eradicated` IS NULL
 """);
     }
 
@@ -6780,7 +6780,7 @@ LEFT JOIN (
     FROM `LocustHordes` AS `l1`
     WHERE `l1`.`Name` = 'Swarm'
 ) AS `l2` ON `u`.`Name` = `l2`.`CommanderName`
-WHERE `l2`.`Eradicated` = FALSE OR `l2`.`Eradicated` IS NULL
+WHERE `l2`.`Eradicated` <> TRUE OR `l2`.`Eradicated` IS NULL
 """);
     }
 
@@ -10111,7 +10111,7 @@ FROM (
     FROM `LocustCommanders` AS `l0`
 ) AS `u`
 INNER JOIN `LocustHordes` AS `l1` ON `u`.`Name` = `l1`.`CommanderName`
-WHERE IIF(`l1`.`Name` = 'Locust', TRUE, NULL) = FALSE OR IIF(`l1`.`Name` = 'Locust', TRUE, NULL) IS NULL
+WHERE IIF(`l1`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`l1`.`Name` = 'Locust', TRUE, NULL) IS NULL
 """);
     }
 
@@ -10896,6 +10896,26 @@ SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`Owner
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
 WHERE `w0`.`Id` IS NOT NULL AND (`w0`.`AmmunitionType` IS NULL OR `w0`.`AmmunitionType` = 1)
+""");
+    }
+
+    public override async Task Coalesce_with_non_root_evaluatable_Convert(bool async)
+    {
+        await base.Coalesce_with_non_root_evaluatable_Convert(async);
+
+        AssertSql(
+            $"""
+@__rank_0='1' (Nullable = true)
+
+SELECT `u`.`Nickname`, `u`.`SquadId`, `u`.`AssignedCityName`, `u`.`CityOfBirthName`, `u`.`FullName`, `u`.`HasSoulPatch`, `u`.`LeaderNickname`, `u`.`LeaderSquadId`, `u`.`Rank`, `u`.`Discriminator`
+FROM (
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, 'Gear' AS `Discriminator`
+    FROM `Gears` AS `g`
+    UNION ALL
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
+    FROM `Officers` AS `o`
+) AS `u`
+WHERE {AssertSqlHelper.Parameter("@__rank_0")} = `u`.`Rank`
 """);
     }
 
@@ -12287,6 +12307,20 @@ FROM `Officers` AS `o`
 SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`Eradicated`
 FROM `LocustHordes` AS `l`
 WHERE `l`.`ServerAddress` = '127.0.0.1'
+""");
+    }
+
+    public override async Task Project_equality_with_value_converted_property(bool async)
+    {
+        await base.Project_equality_with_value_converted_property(async);
+
+        AssertSql(
+            """
+SELECT CASE
+    WHEN [m].[Difficulty] = N'Unknown' THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
+END
+FROM [Missions] AS [m]
 """);
     }
 

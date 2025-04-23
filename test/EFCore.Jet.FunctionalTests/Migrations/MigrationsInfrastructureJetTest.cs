@@ -1,9 +1,5 @@
 ﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
 using Identity30.Data;
@@ -15,7 +11,12 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.AspNetIdentity;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System;
+using System.Collections.Generic;
+using System.Data.Common;
+using System.Threading.Tasks;
 using Xunit;
+using static Microsoft.EntityFrameworkCore.Migrations.MigrationsInfrastructureFixtureBase;
 using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseCreator;
 
 // ReSharper disable InconsistentNaming
@@ -28,9 +29,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
         MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture fixture)
         : MigrationsInfrastructureTestBase<MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture>(fixture)
     {
-        public override void Can_generate_migration_from_initial_database_to_initial()
+        public override async Task Can_generate_migration_from_initial_database_to_initial()
         {
-            base.Can_generate_migration_from_initial_database_to_initial();
+            await base.Can_generate_migration_from_initial_database_to_initial();
 
             Assert.Equal(
                 """
@@ -47,9 +48,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
                 ignoreLineEndingDifferences: true);
         }
 
-        public override void Can_generate_no_migration_script()
+        public override async Task Can_generate_no_migration_script()
         {
-            base.Can_generate_no_migration_script();
+            await base.Can_generate_no_migration_script();
 
             Assert.Equal(
                 """
@@ -554,11 +555,135 @@ GO
         }
 
         [ConditionalFact]
+        public void Throws_when_no_migrations()
+        {
+            using var context = new DbContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
+                        .ConfigureWarnings(e => e.Throw(RelationalEventId.MigrationsNotFound))).Options);
+
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.MigrationsNotFound.ToString(),
+                    RelationalResources.LogNoMigrationsFound(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(typeof(DbContext).Assembly.GetName().Name),
+                    "RelationalEventId.MigrationsNotFound"),
+                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+        }
+
+        [ConditionalFact]
+        public async Task Throws_when_no_migrations_async()
+        {
+            using var context = new DbContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
+                        .ConfigureWarnings(e => e.Throw(RelationalEventId.MigrationsNotFound))).Options);
+
+            await context.Database.EnsureDeletedAsync();
+            await GiveMeSomeTimeAsync(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.MigrationsNotFound.ToString(),
+                    RelationalResources.LogNoMigrationsFound(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(typeof(DbContext).Assembly.GetName().Name),
+                    "RelationalEventId.MigrationsNotFound"),
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
+        }
+
+        [ConditionalFact]
+        public void Throws_when_no_snapshot()
+        {
+            using var context = new MigrationsContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
+                        .ConfigureWarnings(e => e.Throw(RelationalEventId.ModelSnapshotNotFound))).Options);
+
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.ModelSnapshotNotFound.ToString(),
+                    RelationalResources.LogNoModelSnapshotFound(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(typeof(MigrationsContext).Assembly.GetName().Name),
+                    "RelationalEventId.ModelSnapshotNotFound"),
+                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+        }
+
+        [ConditionalFact]
+        public async Task Throws_when_no_snapshot_async()
+        {
+            using var context = new MigrationsContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
+                        .ConfigureWarnings(e => e.Throw(RelationalEventId.ModelSnapshotNotFound))).Options);
+
+            await context.Database.EnsureDeletedAsync();
+            await GiveMeSomeTimeAsync(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.ModelSnapshotNotFound.ToString(),
+                    RelationalResources.LogNoModelSnapshotFound(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(typeof(MigrationsContext).Assembly.GetName().Name),
+                    "RelationalEventId.ModelSnapshotNotFound"),
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
+        }
+
+        [ConditionalFact]
+        public void Throws_for_nondeterministic_HasData()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options,
+                randomData: true);
+
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.PendingModelChangesWarning.ToString(),
+                    RelationalResources.LogNonDeterministicModel(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext)),
+                    "RelationalEventId.PendingModelChangesWarning"),
+                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+        }
+
+        [ConditionalFact]
+        public async Task Throws_for_nondeterministic_HasData_async()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options,
+                randomData: true);
+
+            await context.Database.EnsureDeletedAsync();
+            await GiveMeSomeTimeAsync(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.PendingModelChangesWarning.ToString(),
+                    RelationalResources.LogNonDeterministicModel(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext)),
+                    "RelationalEventId.PendingModelChangesWarning"),
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
+        }
+
+        [ConditionalFact]
         public void Throws_for_pending_model_changes()
         {
             using var context = new BloggingContext(
                 Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options,
+                randomData: false);
+
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
 
             Assert.Equal(
                 CoreStrings.WarningAsErrorTemplate(
@@ -574,7 +699,11 @@ GO
         {
             using var context = new BloggingContext(
                 Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options,
+                randomData: false);
+
+            await context.Database.EnsureDeletedAsync();
+            await GiveMeSomeTimeAsync(context);
 
             Assert.Equal(
                 CoreStrings.WarningAsErrorTemplate(
@@ -634,7 +763,7 @@ GO
             return base.Can_apply_second_migration_in_parallel_async();
         }
 
-        private class BloggingContext(DbContextOptions options) : DbContext(options)
+        private class BloggingContext(DbContextOptions options, bool? randomData = null) : DbContext(options)
         {
             // ReSharper disable once UnusedMember.Local
             public DbSet<Blog> Blogs { get; set; }
@@ -647,6 +776,46 @@ GO
 
                 public string Name { get; set; }
                 // ReSharper restore UnusedMember.Local
+            }
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                if (randomData != null)
+                {
+                    modelBuilder.Entity<Blog>().HasData(
+                        new Blog { Id = randomData.Value ? (int)new Random().NextInt64(int.MaxValue) : 1, Name = "HalfADonkey" });
+                }
+            }
+        }
+
+        [DbContext(typeof(BloggingContext))]
+        partial class BloggingContextSnapshot : ModelSnapshot
+        {
+            protected override void BuildModel(ModelBuilder modelBuilder)
+            {
+#pragma warning disable 612, 618
+                modelBuilder
+                    .HasAnnotation("ProductVersion", "9.0.0")
+                    .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+                JetModelBuilderExtensions.UseJetIdentityColumns(modelBuilder);
+
+                modelBuilder.Entity("Microsoft.EntityFrameworkCore.Migrations.MigrationsInfrastructureJetTest+BloggingContext+Blog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    JetPropertyBuilderExtensions.UseJetIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Blogs");
+                });
+#pragma warning restore 612, 618
             }
         }
 

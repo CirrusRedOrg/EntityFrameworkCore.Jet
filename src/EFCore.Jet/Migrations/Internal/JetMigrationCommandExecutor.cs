@@ -1,4 +1,5 @@
-﻿using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
+﻿using EntityFrameworkCore.Jet.Data;
+using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
 
 namespace EntityFrameworkCore.Jet.Migrations.Internal
@@ -19,12 +20,18 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             System.Data.IsolationLevel? isolationLevel = null)
         {
             var batches = CreateMigrationBatches(migrationCommands);
+            int output = 0;
+
             foreach (var batch in batches)
             {
-                base.ExecuteNonQuery(batch, connection, executionState, true, isolationLevel);
+                output += base.ExecuteNonQuery(batch.Item1, connection, executionState, true, isolationLevel);
+                if (batch.Item2) Thread.Sleep(4000);//Wait for adox/dao to complete
             }
-
-            return -1;
+            if (connection.CurrentTransaction != null)
+            {
+                connection.CurrentTransaction.Commit();
+            }
+            return output;
         }
 
         public override async Task<int> ExecuteNonQueryAsync(
@@ -38,16 +45,20 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             var batches = CreateMigrationBatches(migrationCommands);
             foreach (var batch in batches)
             {
-                await base.ExecuteNonQueryAsync(batch, connection, executionState, true, isolationLevel, cancellationToken);
+                await base.ExecuteNonQueryAsync(batch.Item1, connection, executionState, true, isolationLevel, cancellationToken);
+                if (batch.Item2) Thread.Sleep(4000);
             }
-
+            if (connection.CurrentTransaction != null)
+            {
+                await connection.CurrentTransaction.CommitAsync(cancellationToken);
+            }
             return -1;
         }
 
-        List<IReadOnlyList<MigrationCommand>> CreateMigrationBatches(IReadOnlyList<MigrationCommand> migrationCommands)
+        List<(IReadOnlyList<MigrationCommand>,bool)> CreateMigrationBatches(IReadOnlyList<MigrationCommand> migrationCommands)
         {
             //create new batch if JetSchemaOperationsHandling.IsDatabaseOperation is true otherwise had to current batch
-            var migrationBatches = new List<IReadOnlyList<MigrationCommand>>();
+            var migrationBatches = new List<(IReadOnlyList<MigrationCommand>, bool)>();
             var currentBatch = new List<MigrationCommand>();
             foreach (var migrationCommand in migrationCommands)
             {
@@ -55,10 +66,10 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 {
                     if (currentBatch.Count != 0)
                     {
-                        migrationBatches.Add(currentBatch);
+                        migrationBatches.Add((currentBatch,false));
                         currentBatch = [];
                     }
-                    migrationBatches.Add([migrationCommand]);
+                    migrationBatches.Add(([migrationCommand],true));
                 }
                 else
                 {
@@ -67,7 +78,7 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
             }
             if (currentBatch.Count != 0)
             {
-                migrationBatches.Add(currentBatch);
+                migrationBatches.Add((currentBatch,false));
             }
             return migrationBatches;
         }

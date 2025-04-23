@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -252,6 +253,22 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
         {
             var city = CreateDbParameter("city", "London");
             var contactTitle = CreateDbParameter("contactTitle", "Sales Representative");
+
+            using var context = CreateContext();
+
+            var actual = async
+                ? await context.Database.ExecuteSqlAsync(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
+                : context.Database.ExecuteSql(
+                    $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
+
+            Assert.Equal(-1, actual);
+        }
+
+        public override async Task Query_with_parameters_custom_converter(bool async)
+        {
+            var city = new City { Name = "London" };
+            var contactTitle = "Sales Representative";
 
             using var context = CreateContext();
 

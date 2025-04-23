@@ -291,5 +291,59 @@ DELETE FROM `{LockTableName}`
         {
             throw new NotSupportedException(JetStrings.MigrationScriptGenerationNotSupported);
         }
+
+        public override IReadOnlyList<HistoryRow> GetAppliedMigrations()
+        {
+            var rows = new List<HistoryRow>();
+            //Note the exists check opens a new connection with adox/dao. If doing within a transaction it wont find the table until the transaction is committed. Just read anyway
+            //No op if the table does not exist
+            //if (Exists())
+            {
+                var command = Dependencies.RawSqlCommandBuilder.Build(GetAppliedMigrationsSql);
+
+                using var reader = command.ExecuteReader(
+                    new RelationalCommandParameterObject(
+                        Dependencies.Connection,
+                        null,
+                        null,
+                        Dependencies.CurrentContext.Context,
+                        Dependencies.CommandLogger, CommandSource.Migrations));
+                while (reader.Read())
+                {
+                    rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1)));
+                }
+            }
+
+            return rows;
+        }
+
+        public override async Task<IReadOnlyList<HistoryRow>> GetAppliedMigrationsAsync(CancellationToken cancellationToken = new CancellationToken())
+        {
+            var rows = new List<HistoryRow>();
+            //Note the exists check opens a new connection with adox/dao. If doing within a transaction it wont find the table until the transaction is committed. Just read anyway
+            //No op if the table does not exist
+            //if (await ExistsAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var command = Dependencies.RawSqlCommandBuilder.Build(GetAppliedMigrationsSql);
+
+                var reader = await command.ExecuteReaderAsync(
+                    new RelationalCommandParameterObject(
+                        Dependencies.Connection,
+                        null,
+                        null,
+                        Dependencies.CurrentContext.Context,
+                        Dependencies.CommandLogger, CommandSource.Migrations),
+                    cancellationToken).ConfigureAwait(false);
+
+                await using var _ = reader.ConfigureAwait(false);
+
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1)));
+                }
+            }
+
+            return rows;
+        }
     }
 }

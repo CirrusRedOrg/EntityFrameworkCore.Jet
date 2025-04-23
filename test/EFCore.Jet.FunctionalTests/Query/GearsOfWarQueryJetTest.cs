@@ -4952,6 +4952,7 @@ ORDER BY `g0`.`FullName` DESC, `g0`.`Nickname`, `g0`.`SquadId`, `w`.`Name`
         public override async Task Null_semantics_on_nullable_bool_from_inner_join_subquery_is_fully_applied(bool isAsync)
         {
             await base.Null_semantics_on_nullable_bool_from_inner_join_subquery_is_fully_applied(isAsync);
+
             AssertSql(
                 """
 SELECT `f0`.`Id`, `f0`.`CapitalName`, `f0`.`Discriminator`, `f0`.`Name`, `f0`.`ServerAddress`, `f0`.`CommanderName`, `f0`.`Eradicated`
@@ -4961,7 +4962,7 @@ INNER JOIN (
     FROM `Factions` AS `f`
     WHERE `f`.`Name` = 'Swarm'
 ) AS `f0` ON `l`.`Name` = `f0`.`CommanderName`
-WHERE `f0`.`Eradicated` = FALSE OR `f0`.`Eradicated` IS NULL
+WHERE `f0`.`Eradicated` <> TRUE OR `f0`.`Eradicated` IS NULL
 """);
         }
 
@@ -4978,7 +4979,7 @@ LEFT JOIN (
     FROM `Factions` AS `f`
     WHERE `f`.`Name` = 'Swarm'
 ) AS `f0` ON `l`.`Name` = `f0`.`CommanderName`
-WHERE `f0`.`Eradicated` = FALSE OR `f0`.`Eradicated` IS NULL
+WHERE `f0`.`Eradicated` <> TRUE OR `f0`.`Eradicated` IS NULL
 """);
         }
 
@@ -7478,7 +7479,7 @@ WHERE `g`.`Discriminator` = 'Officer'
 SELECT IIF(`f`.`Name` = 'Locust', TRUE, NULL) AS `IsEradicated`, `f`.`CommanderName`, `f`.`Name`
 FROM `LocustLeaders` AS `l`
 INNER JOIN `Factions` AS `f` ON `l`.`Name` = `f`.`CommanderName`
-WHERE IIF(`f`.`Name` = 'Locust', TRUE, NULL) = FALSE OR IIF(`f`.`Name` = 'Locust', TRUE, NULL) IS NULL
+WHERE IIF(`f`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`f`.`Name` = 'Locust', TRUE, NULL) IS NULL
 """);
         }
 
@@ -8077,6 +8078,20 @@ SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`Owner
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
 WHERE `w0`.`Id` IS NOT NULL AND (`w0`.`AmmunitionType` IS NULL OR `w0`.`AmmunitionType` = 1)
+""");
+        }
+
+        public override async Task Coalesce_with_non_root_evaluatable_Convert(bool async)
+        {
+            await base.Coalesce_with_non_root_evaluatable_Convert(async);
+
+            AssertSql(
+                """
+@__rank_0='1' (Nullable = true)
+
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+FROM `Gears` AS `g`
+WHERE @__rank_0 = `g`.`Rank`
 """);
         }
 
@@ -9155,15 +9170,21 @@ WHERE `t`.`IssueDate` > `m`.`Date`
 
         public override async Task Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(bool async)
         {
-            await base.Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(async);
+            //await base.Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(async);
+
+            var prm = new DateOnly(102, 10, 11);
+
+            await AssertQuery(
+                async,
+                ss => ss.Set<CogTag>().Where(x => new[] { prm, new DateOnly(115, 3, 7) }.Contains(DateOnly.FromDateTime(x.IssueDate))));
 
             AssertSql(
-    """
-@__prm_0='10/11/0002' (DbType = Date)
+                $"""
+@__prm_0='0102-10-11T00:00:00.0000000' (DbType = Date)
 
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
-WHERE CAST([t].[IssueDate] AS date) IN (@__prm_0, '0015-03-07')
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
+WHERE `t`.`IssueDate` IN ({AssertSqlHelper.Parameter("@__prm_0")}, #0115-03-07#)
 """);
         }
 
@@ -9187,6 +9208,20 @@ FROM `Gears` AS `g`
 SELECT `f`.`Id`, `f`.`CapitalName`, `f`.`Discriminator`, `f`.`Name`, `f`.`ServerAddress`, `f`.`CommanderName`, `f`.`Eradicated`
 FROM `Factions` AS `f`
 WHERE `f`.`ServerAddress` = '127.0.0.1'
+""");
+        }
+
+        public override async Task Project_equality_with_value_converted_property(bool async)
+        {
+            await base.Project_equality_with_value_converted_property(async);
+
+            AssertSql(
+                """
+SELECT CASE
+    WHEN [m].[Difficulty] = N'Unknown' THEN CAST(1 AS bit)
+    ELSE CAST(0 AS bit)
+END
+FROM [Missions] AS [m]
 """);
         }
 

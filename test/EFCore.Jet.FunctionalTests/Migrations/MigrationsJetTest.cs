@@ -247,15 +247,15 @@ DROP TABLE `People`;
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [PK_People];
+ALTER TABLE `People` DROP CONSTRAINT `PK_People`;
 """,
             //
             """
-EXEC sp_rename '[People]', 'Persons', 'OBJECT';
+ALTER TABLE `People` RENAME TO `Persons`;
 """,
             //
             """
-ALTER TABLE [Persons] ADD CONSTRAINT [PK_Persons] PRIMARY KEY ([Id]);
+ALTER TABLE `Persons` ADD CONSTRAINT `PK_Persons` PRIMARY KEY (`Id`);
 """);
     }
 
@@ -265,15 +265,15 @@ ALTER TABLE [Persons] ADD CONSTRAINT [PK_Persons] PRIMARY KEY ([Id]);
 
         AssertSql(
             """
-ALTER TABLE [People] DROP CONSTRAINT [PK_People];
+ALTER TABLE `People` DROP CONSTRAINT `PK_People`;
 """,
             //
             """
-EXEC sp_rename '[People]', N'Persons', 'OBJECT';
+ALTER TABLE `People` RENAME TO `Persons`;
 """,
             //
             """
-ALTER TABLE [Persons] ADD CONSTRAINT [PK_Persons] PRIMARY KEY ([Id]);
+ALTER TABLE `Persons` ADD CONSTRAINT `PK_Persons` PRIMARY KEY (`Id`);
 """);
     }
 
@@ -283,15 +283,15 @@ ALTER TABLE [Persons] ADD CONSTRAINT [PK_Persons] PRIMARY KEY ([Id]);
 
         AssertSql(
             """
-ALTER TABLE [Entities] DROP CONSTRAINT [PK_Entities];
+ALTER TABLE `Entities` DROP CONSTRAINT `PK_Entities`;
 """,
             //
             """
-EXEC sp_rename N'[Entities]', N'NewEntities', 'OBJECT';
+ALTER TABLE `Entities` RENAME TO `NewEntities`;
 """,
             //
             """
-ALTER TABLE [NewEntities] ADD CONSTRAINT [PK_NewEntities] PRIMARY KEY ([Id]);
+ALTER TABLE `NewEntities` ADD CONSTRAINT `PK_NewEntities` PRIMARY KEY (`Id`);
 """);
     }
 

@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 isMet &= !TestEnvironment.IsCI;
             }
 
-            return new ValueTask<bool>(isMet);
+            return ValueTask.FromResult(isMet);
         }
 
         public string SkipReason =>

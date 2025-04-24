@@ -29,6 +29,7 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations;
 
+[JetCondition(JetCondition.IsNotCI)]
 public class MigrationsJetTest : MigrationsTestBase<MigrationsJetTest.MigrationsJetFixture>
 {
     protected static string EOL

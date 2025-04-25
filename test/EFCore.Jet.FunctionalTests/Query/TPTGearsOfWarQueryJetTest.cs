@@ -9625,15 +9625,21 @@ WHERE `t`.`IssueDate` > `m`.`Date`
 
     public override async Task Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(bool async)
     {
-        await base.Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(async);
+        //await base.Where_DateOnly_FromDateTime_compared_to_constant_and_parameter(async);
+
+        var prm = new DateOnly(102, 10, 11);
+
+        await AssertQuery(
+            async,
+            ss => ss.Set<CogTag>().Where(x => new[] { prm, new DateOnly(115, 3, 7) }.Contains(DateOnly.FromDateTime(x.IssueDate))));
 
         AssertSql(
-"""
-@__prm_0='10/11/0002' (DbType = Date)
+            $"""
+@__prm_0='0102-10-11T00:00:00.0000000' (DbType = Date)
 
-SELECT [t].[Id], [t].[GearNickName], [t].[GearSquadId], [t].[IssueDate], [t].[Note]
-FROM [Tags] AS [t]
-WHERE CAST([t].[IssueDate] AS date) IN (@__prm_0, '0015-03-07')
+SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
+FROM `Tags` AS `t`
+WHERE `t`.`IssueDate` IN ({AssertSqlHelper.Parameter("@__prm_0")}, #0115-03-07#)
 """);
     }
 

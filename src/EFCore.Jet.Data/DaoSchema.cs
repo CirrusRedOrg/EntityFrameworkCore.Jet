@@ -553,7 +553,7 @@ namespace EntityFrameworkCore.Jet.Data
             }
         }
 
-        protected static string GetDataTypeString(DataTypeEnum dataType, bool isIdentity = false)
+        private static string GetDataTypeString(DataTypeEnum dataType, bool isIdentity = false)
             => dataType switch
             {
                 DataTypeEnum.dbBoolean => "bit",

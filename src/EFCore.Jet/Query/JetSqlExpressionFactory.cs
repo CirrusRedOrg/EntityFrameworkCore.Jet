@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.Query
 
         #region Expression factory methods
 
-        public SqlBinaryExpression? NullChecked(
+        public virtual SqlBinaryExpression? NullChecked(
             SqlExpression sqlExpression,
             RelationalTypeMapping? typeMapping = null)
             => (SqlBinaryExpression?)MakeBinary(
@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.Query
                     RelationalTypeMapping.NullMapping),
                 typeMapping);
 
-        public CaseExpression NullChecked(
+        public virtual CaseExpression NullChecked(
             SqlExpression checkSqlExpression,
             SqlExpression notNullSqlExpression)
             => (CaseExpression)Case(
@@ -31,6 +31,31 @@ namespace EntityFrameworkCore.Jet.Query
                 ],
                 notNullSqlExpression);
 
+        public virtual CaseExpression DateTimeNullChecked(
+            SqlExpression checkSqlExpression,
+            SqlExpression notNullSqlExpression)
+            => (CaseExpression)Case(
+                [
+                    new CaseWhenClause(
+                        IsNull(checkSqlExpression),
+                        Constant(
+                            null,typeof(DateTime),
+                            notNullSqlExpression.TypeMapping))
+                ],
+                notNullSqlExpression);
+
+        public virtual CaseExpression TimeSpanNullChecked(
+            SqlExpression checkSqlExpression,
+            SqlExpression notNullSqlExpression)
+            => (CaseExpression)Case(
+                [
+                    new CaseWhenClause(
+                        IsNull(checkSqlExpression),
+                        Constant(
+                            null,typeof(TimeSpan),
+                            notNullSqlExpression.TypeMapping))
+                ],
+                notNullSqlExpression);
         #endregion Expression factory methods
     }
 }

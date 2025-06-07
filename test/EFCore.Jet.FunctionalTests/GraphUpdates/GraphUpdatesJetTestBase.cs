@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
@@ -217,6 +218,18 @@ public abstract class GraphUpdatesJetTestBase<TFixture>(TFixture fixture) : Grap
             modelBuilder.Entity<SharedFkRoot>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkDependant>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkParent>().Property(x => x.Id).HasColumnType("int");
+        }
+
+        protected override async Task SeedAsync(PoolableDbContext context)
+        {
+            await base.SeedAsync(context);
+
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalComposite2` DROP CONSTRAINT `FK_OptionalComposite2_OptionalAk1_ParentId_ParentAlternateId`");
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalSingleComposite2` DROP CONSTRAINT `FK_OptionalSingleComposite2_OptionalSingleAk1_BackId_ParentAlte~`");
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedOptional2` DROP CONSTRAINT `FK_OwnedOptional2_OwnedOptional1_OwnedOptional1OwnerRootId_Owne~`");
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedRequired2` DROP CONSTRAINT `FK_OwnedRequired2_OwnedRequired1_OwnedRequired1OwnerRootId_Owne~`");
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `RequiredComposite2` DROP CONSTRAINT `FK_RequiredComposite2_RequiredAk1_ParentId_ParentAlternateId`");
         }
     }
 }

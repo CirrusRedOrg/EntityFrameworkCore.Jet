@@ -15,6 +15,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.8" />
 		<PackageReference Include="MSTest.TestFramework" />
 		<PackageReference Include="xunit.core" />
 		<PackageReference Include="xunit.assert" />

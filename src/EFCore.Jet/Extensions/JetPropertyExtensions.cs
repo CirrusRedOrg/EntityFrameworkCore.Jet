@@ -510,7 +510,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="property"> The property. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the <see cref="JetValueGenerationStrategy" />. </returns>
-        public static ConfigurationSource? GetJetValueGenerationStrategyConfigurationSource(
+        public static ConfigurationSource? GetValueGenerationStrategyConfigurationSource(
             this IConventionProperty property)
             => property.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)?.GetConfigurationSource();
 

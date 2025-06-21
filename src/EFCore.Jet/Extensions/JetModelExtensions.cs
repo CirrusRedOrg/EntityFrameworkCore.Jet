@@ -34,11 +34,11 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="model"> The model. </param>
         /// <param name="seed"> The value to set. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
-        public static void SetJetIdentitySeed(this IConventionModel model, int? seed, bool fromDataAnnotation = false)
-            => model.SetOrRemoveAnnotation(
+        public static int? SetJetIdentitySeed(this IConventionModel model, int? seed, bool fromDataAnnotation = false)
+            => (int?)model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentitySeed,
                 seed,
-                fromDataAnnotation);
+                fromDataAnnotation)?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the default schema.
@@ -72,12 +72,12 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="model"> The model. </param>
         /// <param name="increment"> The value to set. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
-        public static void SetJetIdentityIncrement(
+        public static int? SetJetIdentityIncrement(
             this IConventionModel model, int? increment, bool fromDataAnnotation = false)
-            => model.SetOrRemoveAnnotation(
+            => (int?) model.SetOrRemoveAnnotation(
                 JetAnnotationNames.IdentityIncrement,
                 increment,
-                fromDataAnnotation);
+                fromDataAnnotation)?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the default identity increment.
@@ -112,16 +112,16 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="model"> The model. </param>
         /// <param name="value"> The value to set. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
-        public static void SetValueGenerationStrategy(
+        public static JetValueGenerationStrategy? SetValueGenerationStrategy(
             this IConventionModel model, JetValueGenerationStrategy? value, bool fromDataAnnotation = false)
-            => model.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value, fromDataAnnotation);
+            => (JetValueGenerationStrategy?)model.SetOrRemoveAnnotation(JetAnnotationNames.ValueGenerationStrategy, value, fromDataAnnotation)?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the default <see cref="JetValueGenerationStrategy" />.
         /// </summary>
         /// <param name="model"> The model. </param>
         /// <returns> The <see cref="ConfigurationSource" /> for the default <see cref="JetValueGenerationStrategy" />. </returns>
-        public static ConfigurationSource? GetJetValueGenerationStrategyConfigurationSource(this IConventionModel model)
+        public static ConfigurationSource? GetValueGenerationStrategyConfigurationSource(this IConventionModel model)
             => model.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)?.GetConfigurationSource();
     }
 }

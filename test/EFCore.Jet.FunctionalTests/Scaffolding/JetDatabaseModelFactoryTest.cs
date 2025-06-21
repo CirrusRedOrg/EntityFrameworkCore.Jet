@@ -2196,7 +2196,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
         public class JetDatabaseModelFixture : SharedStoreFixtureBase<PoolableDbContext>
         {
             protected override string StoreName
-                => JetTestHelpers.Instance.GetStoreName(nameof(JetDatabaseModelFactoryTest));
+                => nameof(JetDatabaseModelFactoryTest);
 
             protected override ITestStoreFactory TestStoreFactory
                 => JetTestStoreFactory.Instance;

@@ -608,7 +608,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
 
-        protected Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
+        private Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
             var typeMapping = convertExpression.TypeMapping ?? throw new InvalidOperationException(
                     RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));

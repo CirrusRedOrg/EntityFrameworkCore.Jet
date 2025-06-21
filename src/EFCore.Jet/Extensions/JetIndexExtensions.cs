@@ -34,12 +34,12 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="index"> The index. </param>
         /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
         /// <param name="properties"> The value to set. </param>
-        public static void SetJetIncludeProperties(
+        public static IReadOnlyList<string>? SetJetIncludeProperties(
             this IConventionIndex index, IReadOnlyList<string> properties, bool fromDataAnnotation = false)
-            => index.SetOrRemoveAnnotation(
+            => (IReadOnlyList<string>?)index.SetOrRemoveAnnotation(
                 JetAnnotationNames.Include,
                 properties,
-                fromDataAnnotation);
+                fromDataAnnotation)?.Value;
 
         /// <summary>
         ///     Returns the <see cref="ConfigurationSource" /> for the included property names.

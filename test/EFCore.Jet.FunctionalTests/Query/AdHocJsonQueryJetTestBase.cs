@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Microsoft.EntityFrameworkCore.Query;
 
-public abstract class AdHocJsonQueryJetTestBase : AdHocJsonQueryTestBase
+public abstract class AdHocJsonQueryJetTestBase : AdHocJsonQueryRelationalTestBase
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;

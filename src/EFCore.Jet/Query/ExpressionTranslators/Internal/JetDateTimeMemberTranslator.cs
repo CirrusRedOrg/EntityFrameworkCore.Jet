@@ -85,7 +85,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         [false],
                         returnType),
 
-                    nameof(DateTime.Date) => DateTimeNullChecked(
+                    nameof(DateTime.Date) => _sqlExpressionFactory.DateTimeNullChecked(
                         instance!,
                         _sqlExpressionFactory.Function(
                             "DATEVALUE",
@@ -93,7 +93,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                             false,
                             [false],
                             returnType)),
-                    nameof(DateTime.TimeOfDay) => TimeSpanNullChecked(
+                    nameof(DateTime.TimeOfDay) => _sqlExpressionFactory.TimeSpanNullChecked(
                         instance!,
                         _sqlExpressionFactory.Function(
                             "TIMEVALUE",
@@ -109,31 +109,5 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             }
             return null;
         }
-
-        public CaseExpression DateTimeNullChecked(
-            SqlExpression checkSqlExpression,
-            SqlExpression notNullSqlExpression)
-            => (CaseExpression)_sqlExpressionFactory.Case(
-                [
-                    new CaseWhenClause(
-                        _sqlExpressionFactory.IsNull(checkSqlExpression),
-                        _sqlExpressionFactory.Constant(
-                            null,typeof(DateTime),
-                            notNullSqlExpression.TypeMapping))
-                ],
-                notNullSqlExpression);
-
-        public CaseExpression TimeSpanNullChecked(
-            SqlExpression checkSqlExpression,
-            SqlExpression notNullSqlExpression)
-            => (CaseExpression)_sqlExpressionFactory.Case(
-                [
-                    new CaseWhenClause(
-                        _sqlExpressionFactory.IsNull(checkSqlExpression),
-                        _sqlExpressionFactory.Constant(
-                            null,typeof(TimeSpan),
-                            notNullSqlExpression.TypeMapping))
-                ],
-                notNullSqlExpression);
     }
 }

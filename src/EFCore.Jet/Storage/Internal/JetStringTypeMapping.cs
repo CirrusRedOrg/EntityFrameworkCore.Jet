@@ -57,9 +57,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new JetStringTypeMapping(parameters, _keepLineBreakCharacters);
 
-        public RelationalTypeMapping Clone(bool keepLineBreakCharacters)
-            => new JetStringTypeMapping(Parameters, keepLineBreakCharacters);
-
         private static string GetStoreName(bool fixedLength)
             => fixedLength
                 ? "char"

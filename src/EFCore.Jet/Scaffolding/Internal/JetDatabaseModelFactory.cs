@@ -457,20 +457,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         {
                             var isUnique = indexType == "UNIQUE";
 
-                            if (isUnique)
-                            {
-                                var uniqueConstraint = new DatabaseUniqueConstraint
-                                {
-                                    Table = table,
-                                    Name = indexName,
-                                };
-
-                                _logger.UniqueConstraintFound(indexName!, tableName!);
-
-                                table.UniqueConstraints.Add(uniqueConstraint);
-                                indexOrKey = uniqueConstraint;
-                            }
-                            else
+                            if (!isUnique || (indexName?.StartsWith("ix_", StringComparison.CurrentCultureIgnoreCase) ?? false))
                             {
                                 // In contrast to SQL Standard, MS Access will implicitly create an index for every FK
                                 // constraint.
@@ -506,6 +493,19 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
 
                                 table.Indexes.Add(index);
                                 indexOrKey = index;
+                            }
+                            else
+                            {
+                                var uniqueConstraint = new DatabaseUniqueConstraint
+                                {
+                                    Table = table,
+                                    Name = indexName,
+                                };
+
+                                _logger.UniqueConstraintFound(indexName!, tableName!);
+
+                                table.UniqueConstraints.Add(uniqueConstraint);
+                                indexOrKey = uniqueConstraint;
                             }
                         }
 

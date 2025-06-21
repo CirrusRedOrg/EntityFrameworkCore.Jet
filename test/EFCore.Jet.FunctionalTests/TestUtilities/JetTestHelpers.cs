@@ -26,8 +26,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         public override LoggingDefinitions LoggingDefinitions { get; } = new JetLoggingDefinitions();
 
-        public string GetStoreName(string storeNameWithoutSuffix) => $"{storeNameWithoutSuffix}.accdb";
-
         public static DateTimeOffset GetExpectedValue(DateTimeOffset value)
         {
             var val = value.UtcDateTime;

@@ -34,6 +34,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.8" />
 		<PackageReference Include="xunit.core" />
 		<PackageReference Include="xunit.assert" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />

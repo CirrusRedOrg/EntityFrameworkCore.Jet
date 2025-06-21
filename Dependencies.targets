@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
-		<DotNetVersion>[9.0.5,9.0.999]</DotNetVersion>
-		<EFCoreVersion>[9.0.5,9.0.999]</EFCoreVersion>
-		<MSLibVersion>[9.0.5,9.0.999]</MSLibVersion>
+		<DotNetVersion>[9.0.6,9.0.999]</DotNetVersion>
+		<EFCoreVersion>[9.0.6,9.0.999]</EFCoreVersion>
+		<MSLibVersion>[9.0.6,9.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,8 +29,8 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-		<PackageReference Update="MSTest.TestAdapter" Version="3.9.1" />
-		<PackageReference Update="MSTest.TestFramework" Version="3.9.1" />
+		<PackageReference Update="MSTest.TestAdapter" Version="3.9.3" />
+		<PackageReference Update="MSTest.TestFramework" Version="3.9.3" />
 		<PackageReference Update="coverlet.collector" Version="6.0.4" />
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.3" />
 

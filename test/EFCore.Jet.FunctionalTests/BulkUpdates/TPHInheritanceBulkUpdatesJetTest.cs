@@ -119,9 +119,9 @@ DELETE FROM `Animals` AS `a`
 WHERE `a`.`Id` IN (
     SELECT `a2`.`Id`
     FROM (
-        SELECT TOP 3 `a1`.`Id`, `a1`.`Name`
+        SELECT TOP @p0 `a1`.`Id`, `a1`.`Name`
         FROM (
-            SELECT TOP 3 `a0`.`Id`, `a0`.`Name`
+            SELECT TOP @p + @p0 `a0`.`Id`, `a0`.`Name`
             FROM `Animals` AS `a0`
             WHERE `a0`.`Name` = 'Great spotted kiwi'
             ORDER BY `a0`.`Name`
@@ -139,8 +139,10 @@ WHERE `a`.`Id` IN (
 
         AssertExecuteUpdateSql(
             """
+@p='Animal' (Size = 255)
+
 UPDATE `Animals` AS `a`
-SET `a`.`Name` = 'Animal'
+SET `a`.`Name` = @p
 WHERE `a`.`Name` = 'Great spotted kiwi'
 """);
     }
@@ -151,8 +153,10 @@ WHERE `a`.`Name` = 'Great spotted kiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='NewBird' (Size = 255)
+
 UPDATE `Animals` AS `a`
-SET `a`.`Name` = 'NewBird'
+SET `a`.`Name` = @p
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
@@ -170,8 +174,10 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='SomeOtherKiwi' (Size = 255)
+
 UPDATE `Animals` AS `a`
-SET `a`.`Name` = 'SomeOtherKiwi'
+SET `a`.`Name` = @p
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
@@ -182,8 +188,10 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='0' (Size = 1)
+
 UPDATE `Animals` AS `a`
-SET `a`.`FoundOn` = CBYTE(0)
+SET `a`.`FoundOn` = @p
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
@@ -194,8 +202,10 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM `Animals` AS `a`
@@ -209,9 +219,12 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='Kiwi' (Size = 255)
+@p0='0' (Size = 1)
+
 UPDATE `Animals` AS `a`
-SET `a`.`FoundOn` = CBYTE(0),
-    `a`.`Name` = 'Kiwi'
+SET `a`.`Name` = @p,
+    `a`.`FoundOn` = @p0
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
@@ -222,8 +235,10 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM `Animals` AS `a`
@@ -244,8 +259,10 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='0'
+
 UPDATE `Drinks` AS `d`
-SET `d`.`SugarGrams` = 0
+SET `d`.`SugarGrams` = @p
 WHERE `d`.`Discriminator` = 1
 """);
     }
@@ -256,8 +273,10 @@ WHERE `d`.`Discriminator` = 1
 
         AssertExecuteUpdateSql(
             """
+@p='0'
+
 UPDATE `Drinks` AS `d`
-SET `d`.`SugarGrams` = 0
+SET `d`.`SugarGrams` = @p
 WHERE `d`.`Discriminator` = 1
 """);
     }

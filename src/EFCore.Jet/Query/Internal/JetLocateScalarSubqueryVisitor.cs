@@ -185,6 +185,11 @@ public class JetLocateScalarSubqueryVisitor : SqlExpressionVisitor
         return projectionExpression.Update(expression);
     }
 
+    protected override Expression VisitRightJoin(RightJoinExpression rightJoinExpression)
+    {
+        throw new NotImplementedException();
+    }
+
     protected override Expression VisitTableValuedFunction(TableValuedFunctionExpression tableValuedFunctionExpression)
     {
         var arguments = new SqlExpression[tableValuedFunctionExpression.Arguments.Count];

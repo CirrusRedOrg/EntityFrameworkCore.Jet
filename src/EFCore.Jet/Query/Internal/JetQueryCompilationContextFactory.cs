@@ -47,8 +47,7 @@ public class JetQueryCompilationContextFactory(
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public virtual QueryCompilationContext CreatePrecompiled(bool async, IReadOnlySet<string> nonNullableReferenceTypeParameters)
+    public virtual QueryCompilationContext CreatePrecompiled(bool async)
         => new JetQueryCompilationContext(
-            Dependencies, RelationalDependencies, async, precompiling: true,
-            nonNullableReferenceTypeParameters);
+            Dependencies, RelationalDependencies, async, precompiling: true);
 }

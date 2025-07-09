@@ -44,9 +44,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql();
         }
 
-        public override async Task Contains_with_local_tuple_array_closure(bool async)
-            => await AssertTranslationFailed(() => base.Contains_with_local_tuple_array_closure(async));
-
         public override async Task Array_cast_to_IEnumerable_Contains_with_constant(bool async)
         {
             await base.Array_cast_to_IEnumerable_Contains_with_constant(async);
@@ -489,7 +486,7 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-SELECT TOP 10 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
 ORDER BY 1
 """);
@@ -1103,7 +1100,7 @@ SELECT MIN((
     FROM `Orders` AS `o`
     WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
-    SELECT TOP 3 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -1124,7 +1121,7 @@ SELECT MIN((
     FROM `Orders` AS `o`
     WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
-    SELECT TOP 3 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -1193,7 +1190,7 @@ SELECT MAX((
     FROM `Orders` AS `o`
     WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
-    SELECT TOP 3 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -1214,7 +1211,7 @@ SELECT MAX((
     FROM `Orders` AS `o`
     WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
 FROM (
-    SELECT TOP 3 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -1642,24 +1639,6 @@ WHERE `c`.`CustomerID` IN (
                     """);
         }
 
-        public override async Task Contains_with_local_nullable_uint_array_closure(bool isAsync)
-        {
-            await base.Contains_with_local_nullable_uint_array_closure(isAsync);
-
-            AssertSql(
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Employees` AS `e`
-                    WHERE `e`.`EmployeeID` IN (0, 1)
-                    """,
-                //
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Employees` AS `e`
-                    WHERE `e`.`EmployeeID` = 0
-                    """);
-        }
-
         public override async Task Contains_with_local_array_inline(bool isAsync)
         {
             await base.Contains_with_local_array_inline(isAsync);
@@ -2071,22 +2050,15 @@ WHERE `c`.`CustomerID` IN ('ABCDE', 'ANATR')
             await base.Contains_top_level(isAsync);
 
             AssertSql(
-                $"""
-@__p_0='ALFKI' (Size = 5)
+                """
+@p='ALFKI' (Size = 5)
 
-SELECT IIF({AssertSqlHelper.Parameter("@__p_0")} IN (
+SELECT IIF(@p IN (
         SELECT `c`.`CustomerID`
         FROM `Customers` AS `c`
     ), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
-        }
-
-        public override async Task Contains_with_local_anonymous_type_array_closure(bool isAsync)
-        {
-            await AssertTranslationFailed(() => base.Contains_with_local_anonymous_type_array_closure(isAsync));
-
-            AssertSql();
         }
 
         public override async Task OfType_Select(bool async)
@@ -2160,7 +2132,7 @@ WHERE `o`.`CustomerID` LIKE 'A%'
                 """
 SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -2192,21 +2164,21 @@ ORDER BY `c0`.`CustomerID` DESC
             await base.Contains_over_entityType_should_rewrite_to_identity_equality(async);
 
             AssertSql(
-                $"""
-                    SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` = 10248
-                    """,
+                """
+SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` = 10248
+""",
                 //
-                $"""
-                    {AssertSqlHelper.Declaration("@__entity_equality_p_0_OrderID='10248' (Nullable = true)")}
-                    
-                    SELECT IIF(EXISTS (
-                            SELECT 1
-                            FROM `Orders` AS `o`
-                            WHERE `o`.`CustomerID` = 'VINET' AND `o`.`OrderID` = {AssertSqlHelper.Parameter("@__entity_equality_p_0_OrderID")}), TRUE, FALSE)
-                    FROM (SELECT COUNT(*) FROM `#Dual`)
-                    """);
+                """
+@entity_equality_p_OrderID='10248' (Nullable = true)
+
+SELECT IIF(EXISTS (
+        SELECT 1
+        FROM `Orders` AS `o`
+        WHERE `o`.`CustomerID` = 'VINET' AND `o`.`OrderID` = @entity_equality_p_OrderID), TRUE, FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task List_Contains_over_entityType_should_rewrite_to_identity_equality(bool isAsync)
@@ -2214,16 +2186,16 @@ ORDER BY `c0`.`CustomerID` DESC
             await base.List_Contains_over_entityType_should_rewrite_to_identity_equality(isAsync);
 
             AssertSql(
-                $"""
-    @__entity_equality_someOrder_0_OrderID='10248' (Nullable = true)
-    
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    WHERE EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = {AssertSqlHelper.Parameter("@__entity_equality_someOrder_0_OrderID")})
-    """);
+                """
+@entity_equality_someOrder_OrderID='10248' (Nullable = true)
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = @entity_equality_someOrder_OrderID)
+""");
         }
 
         public override async Task List_Contains_with_constant_list(bool isAsync)
@@ -2716,7 +2688,7 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT COUNT(*)
 FROM (
-    SELECT TOP 1 1
+    SELECT TOP @p 1
     FROM `Orders` AS `o`
 ) AS `o0`
 """);

@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddDbContext<NoneInOnConfiguringContext>()
                     .BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<NoneInOnConfiguringContext>();
@@ -46,9 +46,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_specify_no_connection_string_in_OnConfiguring_with_default_service_provider()
         {
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
-                using var context = new NoneInOnConfiguringContext();
+                await using var context = new NoneInOnConfiguringContext();
 
                 context.Database.SetConnectionString(JetNorthwindTestStoreFactory.NorthwindConnectionString);
 
@@ -59,9 +59,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Throws_if_context_used_with_no_connection_or_connection_string()
         {
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
-                using var context = new NoneInOnConfiguringContext();
+                await using var context = new NoneInOnConfiguringContext();
 
                 await Assert.ThrowsAsync<InvalidOperationException>(() => context.Customers.AnyAsync());
             }
@@ -83,7 +83,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddDbContext<StringInOnConfiguringContext>()
                     .BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<StringInOnConfiguringContext>();
@@ -94,9 +94,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_specify_connection_string_in_OnConfiguring_with_default_service_provider()
         {
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
-                using var context = new StringInOnConfiguringContext();
+                await using var context = new StringInOnConfiguringContext();
                 Assert.True(await context.Customers.AnyAsync());
             }
         }
@@ -121,7 +121,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             JetConnection connection;
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<NoneInOnConfiguringContext>();
@@ -151,7 +151,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         {
             JetConnection connection;
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var context = new NoneInOnConfiguringContext();
 
@@ -181,7 +181,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddScoped(p => new JetConnection(JetNorthwindTestStoreFactory.NorthwindConnectionString))
                     .AddDbContext<ConnectionInOnConfiguringContext>().BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<ConnectionInOnConfiguringContext>();
@@ -192,7 +192,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_specify_connection_in_OnConfiguring_with_default_service_provider()
         {
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var connection = new JetConnection(JetNorthwindTestStoreFactory.NorthwindConnectionString);
                 using var context = new ConnectionInOnConfiguringContext(connection);
@@ -211,7 +211,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             JetConnection connection;
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 connection = serviceProvider.GetRequiredService<JetConnection>();
 
@@ -228,7 +228,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         {
             JetConnection connection;
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 connection = new JetConnection(JetNorthwindTestStoreFactory.NorthwindConnectionString);
                 using var context = new OwnedConnectionInOnConfiguringContext(connection);
@@ -249,7 +249,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddScoped(p => connection)
                     .AddDbContext<ConnectionInOnConfiguringContext>().BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<ConnectionInOnConfiguringContext>();
@@ -275,7 +275,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddScoped(p => connection)
                     .AddDbContext<OwnedConnectionInOnConfiguringContext>().BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<OwnedConnectionInOnConfiguringContext>();
@@ -302,7 +302,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddScoped(p => connection)
                     .AddDbContext<ConnectionInOnConfiguringContext>().BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<ConnectionInOnConfiguringContext>();
@@ -388,7 +388,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddDbContext<OptionsContext>()
                     .BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<OptionsContext>();
@@ -399,7 +399,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_depend_on_DbContextOptions_with_default_service_provider()
         {
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var connection = new JetConnection(JetNorthwindTestStoreFactory.NorthwindConnectionString);
 
@@ -442,7 +442,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddDbContext<NonGenericOptionsContext>()
                     .BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<NonGenericOptionsContext>();
@@ -453,7 +453,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_depend_on_non_generic_options_when_only_one_context_with_default_service_provider()
         {
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var context = new NonGenericOptionsContext(new DbContextOptions<DbContext>());
                 Assert.True(await context.Customers.AnyAsync());
@@ -493,7 +493,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                         b => b.UseJet(connectionString).EnableServiceProviderCaching(false))
                     .BuildServiceProvider(validateScopes: true);
 
-            using (await JetTestStore.GetNorthwindStoreAsync())
+            await using (await JetTestStore.GetNorthwindStoreAsync())
             {
                 using var serviceScope = serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
                 using var context = serviceScope.ServiceProvider.GetRequiredService<UseConfigurationContext>();
@@ -545,7 +545,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 .AddEntityFrameworkJet()
                 .BuildServiceProvider(validateScopes: true);
 
-            using var store = await JetTestStore.GetNorthwindStoreAsync();
+            await using var store = await JetTestStore.GetNorthwindStoreAsync();
             store.CloseConnection();
 
             var openCount = 0;

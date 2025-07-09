@@ -4,7 +4,7 @@ namespace EntityFrameworkCore.Jet.ValueGeneration;
 
 /// <summary>
 ///     Generates sequential <see cref="Guid" /> values according to the UUID version 7 specification.
-///     Will be updated to use <see cref="Guid.CreateVersion7"/> when available.
+///     Will be updated to use <see cref="Guid.CreateVersion7()"/> when available.
 /// </summary>
 public class JetSequentialGuidValueGenerator : ValueGenerator<Guid>
 {

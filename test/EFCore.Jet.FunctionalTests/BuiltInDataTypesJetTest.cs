@@ -78,13 +78,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             Assert.Empty(results);
             AssertSql(
-                $"""
-                        {AssertSqlHelper.Declaration("@__timeSpan_0='02:01:00' (Nullable = true)")}
-                        
-                        SELECT `m`.`Int`
-                        FROM `MappedNullableDataTypes` AS `m`
-                        WHERE `m`.`TimeSpanAsTime` = {AssertSqlHelper.Parameter("@__timeSpan_0")}
-                        """);
+                """
+@timeSpan='02:01:00' (Nullable = true)
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE `m`.`TimeSpanAsTime` = @timeSpan
+""");
         }
 
         [ConditionalFact]
@@ -101,13 +101,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             Assert.Empty(results);
             AssertSql(
-                $"""
-                        {AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
-                        
-                        SELECT `m`.`Int`
-                        FROM `MappedNullableDataTypes` AS `m`
-                        WHERE DATEDIFF('h', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0
-                        """);
+                """
+@timeSpan='02:01:00' (Nullable = true)
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE DATEDIFF('h', `m`.`TimeSpanAsTime`, @timeSpan) = 0
+""");
         }
 
         [ConditionalFact]
@@ -124,13 +124,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             Assert.Empty(results);
             AssertSql(
-                $"""
-                        {AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
-                        
-                        SELECT `m`.`Int`
-                        FROM `MappedNullableDataTypes` AS `m`
-                        WHERE DATEDIFF('n', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0
-                        """);
+                """
+@timeSpan='02:01:00' (Nullable = true)
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE DATEDIFF('n', `m`.`TimeSpanAsTime`, @timeSpan) = 0
+""");
         }
 
         [ConditionalFact]
@@ -147,13 +147,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             Assert.Empty(results);
             AssertSql(
-                $"""
-                        {AssertSqlHelper.Declaration("@__timeSpan_1='02:01:00' (Nullable = true)")}
-                        
-                        SELECT `m`.`Int`
-                        FROM `MappedNullableDataTypes` AS `m`
-                        WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, {AssertSqlHelper.Parameter("@__timeSpan_1")}) = 0
-                        """);
+                """
+@timeSpan='02:01:00' (Nullable = true)
+
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
+""");
         }
 
         [ConditionalFact]

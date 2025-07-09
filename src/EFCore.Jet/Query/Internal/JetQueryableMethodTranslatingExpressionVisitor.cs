@@ -76,9 +76,7 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
     protected override bool IsValidSelectExpressionForExecuteDelete(
-        SelectExpression selectExpression,
-        StructuralTypeShaperExpression shaper,
-        [NotNullWhen(true)] out TableExpression? tableExpression)
+        SelectExpression selectExpression)
     {
         if (selectExpression.Offset == null
             && selectExpression.GroupBy.Count == 0
@@ -86,32 +84,22 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
             && selectExpression.Orderings.Count == 0
             && selectExpression.Limit == null)
         {
-            TableExpressionBase table;
+            TableExpressionBase? table;
             if (selectExpression.Tables.Count == 1)
             {
                 table = selectExpression.Tables[0];
             }
             else
             {
-                var projectionBindingExpression = (ProjectionBindingExpression)shaper.ValueBufferExpression;
-                var projection = (StructuralTypeProjectionExpression)selectExpression.GetProjection(projectionBindingExpression);
-                var column = projection.BindProperty(shaper.StructuralType.GetProperties().First());
-                table = selectExpression.GetTable(column).UnwrapJoin();
-                //TODO: do I need the following given we now have an unwrapjoin in the above line?
-                if (table is JoinExpressionBase joinExpressionBase)
-                {
-                    table = joinExpressionBase.Table;
-                }
+                table = null;
             }
 
             if (table is TableExpression te)
             {
-                tableExpression = te;
                 return true;
             }
         }
 
-        tableExpression = null;
         return false;
     }
 

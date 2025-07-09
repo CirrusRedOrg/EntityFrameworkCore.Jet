@@ -53,9 +53,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                 => new TestRelationalCommand(
                     Dependencies,
                     Instance.ToString(),
+                    Instance.ToString(),
                     Parameters);
 
-            public IRelationalCommandBuilder Append(string value)
+            public IRelationalCommandBuilder Append(string value, bool redact = false)
+            {
+                Instance.Append(value);
+
+                return this;
+            }
+
+            public IRelationalCommandBuilder Append(FormattableString value, bool redact = false)
             {
                 Instance.Append(value);
 
@@ -89,14 +97,17 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         private class TestRelationalCommand(
             RelationalCommandBuilderDependencies dependencies,
             string commandText,
+            string logCommandText,
             IReadOnlyList<IRelationalParameter> parameters) : IRelationalCommand
         {
-            private readonly RelationalCommand _realRelationalCommand = new(dependencies, commandText, parameters);
+            private readonly RelationalCommand _realRelationalCommand = new(dependencies, commandText,logCommandText, parameters);
             private readonly Func<int, DbException> _createExceptionFunc = TestEnvironment.DataAccessProviderType == DataAccessProviderType.OleDb
                     ? number => OleDbExceptionFactory.CreateException(number)
                     : number => OdbcExceptionFactory.CreateException(number);
 
             public string CommandText => _realRelationalCommand.CommandText;
+            public string LogCommandText
+                => _realRelationalCommand.LogCommandText;
 
             public IReadOnlyList<IRelationalParameter> Parameters => _realRelationalCommand.Parameters;
 

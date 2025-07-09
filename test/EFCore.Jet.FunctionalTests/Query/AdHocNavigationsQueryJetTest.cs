@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 #nullable disable
 
-public class AdHocNavigationsQueryJetTest : AdHocNavigationsQueryRelationalTestBase
+public class AdHocNavigationsQueryJetTest(NonSharedFixture fixture) : AdHocNavigationsQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;

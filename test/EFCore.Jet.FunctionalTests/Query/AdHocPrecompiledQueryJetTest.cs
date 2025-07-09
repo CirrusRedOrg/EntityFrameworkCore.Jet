@@ -13,8 +13,8 @@ using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class AdHocPrecompiledQueryJetTest(ITestOutputHelper testOutputHelper)
-    : AdHocPrecompiledQueryRelationalTestBase(testOutputHelper)
+public class AdHocPrecompiledQueryJetTest(NonSharedFixture fixture, ITestOutputHelper testOutputHelper)
+    : AdHocPrecompiledQueryRelationalTestBase(fixture, testOutputHelper)
 {
     protected override bool AlwaysPrintGeneratedSources
         => false;

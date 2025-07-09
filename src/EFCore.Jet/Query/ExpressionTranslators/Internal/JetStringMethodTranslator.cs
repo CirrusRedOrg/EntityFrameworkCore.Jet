@@ -14,14 +14,23 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
     {
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;
 
-        private static readonly MethodInfo IndexOfMethodInfo
+        private static readonly MethodInfo IndexOfMethodInfoString
             = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), [typeof(string)])!;
 
-        private static readonly MethodInfo IndexOfMethodInfoWithStartingPosition
+        private static readonly MethodInfo IndexOfMethodInfoChar
+            = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), [typeof(char)])!;
+
+        private static readonly MethodInfo IndexOfMethodInfoWithStartingPositionString
             = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), [typeof(string), typeof(int)])!;
 
-        private static readonly MethodInfo _replaceMethodInfo
+        private static readonly MethodInfo IndexOfMethodInfoWithStartingPositionChar
+            = typeof(string).GetRuntimeMethod(nameof(string.IndexOf), [typeof(char), typeof(int)])!;
+
+        private static readonly MethodInfo ReplaceMethodInfoString
             = typeof(string).GetRuntimeMethod(nameof(string.Replace), [typeof(string), typeof(string)])!;
+
+        private static readonly MethodInfo ReplaceMethodInfoChar
+            = typeof(string).GetRuntimeMethod(nameof(string.Replace), [typeof(char), typeof(char)])!;
 
         private static readonly MethodInfo _toLowerMethodInfo
             = typeof(string).GetRuntimeMethod(nameof(string.ToLower), Type.EmptyTypes)!;
@@ -76,14 +85,34 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         {
             if (instance != null)
             {
-                if (IndexOfMethodInfo.Equals(method))
+                if (IndexOfMethodInfoString.Equals(method) || IndexOfMethodInfoChar.Equals(method))
                 {
                     return TranslateIndexOf(instance, method, arguments[0], null);
                 }
 
-                if (IndexOfMethodInfoWithStartingPosition.Equals(method))
+                if (IndexOfMethodInfoWithStartingPositionString.Equals(method) || IndexOfMethodInfoWithStartingPositionChar.Equals(method))
                 {
                     return TranslateIndexOf(instance, method, arguments[0], arguments[1]);
+                }
+
+                if (ReplaceMethodInfoString.Equals(method) || ReplaceMethodInfoChar.Equals(method))
+                {
+                    var firstArgument = arguments[0];
+                    var secondArgument = arguments[1];
+                    var stringTypeMapping =
+                        ExpressionExtensions.InferTypeMapping(instance, firstArgument, secondArgument);
+
+                    instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
+                    firstArgument = _sqlExpressionFactory.ApplyTypeMapping(firstArgument, firstArgument.Type == typeof(char) ? CharTypeMapping.Default : stringTypeMapping);
+                    secondArgument = _sqlExpressionFactory.ApplyTypeMapping(secondArgument, secondArgument.Type == typeof(char) ? CharTypeMapping.Default : stringTypeMapping);
+
+                    return _sqlExpressionFactory.Function(
+                        "REPLACE",
+                        [instance, firstArgument, secondArgument],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true, true],
+                        method.ReturnType,
+                        stringTypeMapping);
                 }
 
                 // Jet TRIM does not take arguments.
@@ -169,26 +198,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         method.ReturnType,
                         instance.TypeMapping);
                 }
-
-                if (_replaceMethodInfo.Equals(method))
-                {
-                    var firstArgument = arguments[0];
-                    var secondArgument = arguments[1];
-                    var stringTypeMapping =
-                        ExpressionExtensions.InferTypeMapping(instance, firstArgument, secondArgument);
-
-                    instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
-                    firstArgument = _sqlExpressionFactory.ApplyTypeMapping(firstArgument, stringTypeMapping);
-                    secondArgument = _sqlExpressionFactory.ApplyTypeMapping(secondArgument, stringTypeMapping);
-
-                    return _sqlExpressionFactory.Function(
-                        "REPLACE",
-                        [instance, firstArgument, secondArgument],
-                        nullable: true,
-                        argumentsPropagateNullability: [true, true, true],
-                        method.ReturnType,
-                        stringTypeMapping);
-                }
             }
 
             if (_isNullOrEmptyMethodInfo.Equals(method))
@@ -267,7 +276,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         SqlExpression? startIndex)
         {
             var stringTypeMapping = ExpressionExtensions.InferTypeMapping(instance, searchExpression)!;
-            searchExpression = _sqlExpressionFactory.ApplyTypeMapping(searchExpression, stringTypeMapping);
+            searchExpression = _sqlExpressionFactory.ApplyTypeMapping(searchExpression, searchExpression.Type == typeof(char) ? CharTypeMapping.Default : stringTypeMapping);
             instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
 
             var charIndexArguments = new List<SqlExpression> { instance, searchExpression };

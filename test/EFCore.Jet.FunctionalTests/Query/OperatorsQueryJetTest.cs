@@ -14,7 +14,7 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class OperatorsQueryJetTest : OperatorsQueryTestBase
+public class OperatorsQueryJetTest(NonSharedFixture fixture) : OperatorsQueryTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;

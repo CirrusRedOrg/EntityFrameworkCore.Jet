@@ -27,6 +27,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             AssertSql(
                 """
+-- Yanni
+
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -39,6 +41,9 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+-- Yanni
+-- Enya
+
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -51,6 +56,9 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+-- Yanni
+-- Laurel
+
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`,
 (
@@ -68,6 +76,8 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
+-- Yanni
+
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -80,6 +90,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+-- Yanni
+
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -97,6 +109,8 @@ ORDER BY `c0`.`CustomerID`
 
             AssertSql(
                 """
+-- Yanni
+
 SELECT TOP 1 `o`.`OrderDate`
 FROM `Orders` AS `o`
 ORDER BY `o`.`OrderID`
@@ -109,6 +123,10 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
+-- Yanni
+-- AND
+-- Laurel
+
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -121,6 +139,14 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+-- Yanni
+-- AND
+-- Laurel
+-- Yet
+-- Another
+-- Multiline
+-- Tag
+
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -133,6 +159,12 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+-- Yanni
+-- 
+-- AND
+-- 
+-- Laurel
+
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`

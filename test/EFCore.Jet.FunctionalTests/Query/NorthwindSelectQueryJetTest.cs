@@ -55,7 +55,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 """
 SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`) AS `Add`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, 42 AS `Literal`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
-    SELECT TOP 10 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`,
@@ -160,10 +160,10 @@ ORDER BY `o0`.`OrderID`
             await base.Select_bool_closure_with_order_parameter_with_cast_to_nullable(isAsync);
 
             AssertSql(
-                $"""
-@__boolean_0='False'
+                """
+@boolean='False'
 
-SELECT CBOOL({AssertSqlHelper.Parameter("@__boolean_0")})
+SELECT CBOOL(@boolean)
 FROM `Customers` AS `c`
 """);
         }
@@ -272,10 +272,10 @@ FROM `Customers` AS `c`
             await base.Select_local(isAsync);
 
             AssertSql(
-                $"""
-@__x_0='10'
+                """
+@x='10'
 
-SELECT CLNG({AssertSqlHelper.Parameter("@__x_0")})
+SELECT CLNG(@x)
 FROM `Customers` AS `c`
 """);
         }
@@ -286,9 +286,9 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-    SELECT TOP 9 `e`.`EmployeeID`
-    FROM `Employees` AS `e`
-    """);
+SELECT TOP @p `e`.`EmployeeID`
+FROM `Employees` AS `e`
+""");
         }
 
         public override async Task Select_project_filter(bool isAsync)
@@ -821,13 +821,13 @@ FROM `Orders` AS `o`
             await base.Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT DISTINCT TOP 1 `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+""");
         }
 
         [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
@@ -922,7 +922,14 @@ FROM `Orders` AS `o`
                     isAsync);
 
             AssertSql(
-                $@"");
+                """
+SELECT (
+    SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`, `o`.`OrderDate` DESC)
+FROM `Customers` AS `c`
+""");
         }
 
         [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
@@ -1347,6 +1354,61 @@ OUTER APPLY (
 """);
         }
 
+        public override async Task SelectMany_with_multiple_Take(bool async)
+        {
+            await base.SelectMany_with_multiple_Take(async);
+
+            AssertSql(
+                """
+SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
+FROM [Customers] AS [c]
+INNER JOIN (
+    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+    FROM (
+        SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
+        FROM [Orders] AS [o]
+    ) AS [o0]
+    WHERE [o0].[row] <= 3
+) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
+""");
+        }
+
+        /*public override async Task SelectMany_with_nested_DefaultIfEmpty(bool async)
+        {
+            await base.SelectMany_with_nested_DefaultIfEmpty(async);
+
+            AssertSql(
+                """
+SELECT [s].[OrderID], [s].[ProductID], [s].[Discount], [s].[Quantity], [s].[UnitPrice]
+FROM [Customers] AS [c]
+INNER JOIN (
+    SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice], [o].[CustomerID]
+    FROM [Orders] AS [o]
+    LEFT JOIN [Order Details] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
+    WHERE 0 = 1
+) AS [s] ON [c].[CustomerID] = [s].[CustomerID]
+""");
+        }*/
+
+        public override async Task Select_with_multiple_Take(bool async)
+        {
+            await base.Select_with_multiple_Take(async);
+
+            AssertSql(
+                """
+@p0='3'
+@p='5'
+
+SELECT TOP(@p0) [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
+FROM (
+    SELECT TOP(@p) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[CustomerID]
+) AS [c0]
+ORDER BY [c0].[CustomerID]
+""");
+        }
+
         public override async Task FirstOrDefault_over_empty_collection_of_value_type_returns_correct_results(bool isAsync)
         {
             await base.FirstOrDefault_over_empty_collection_of_value_type_returns_correct_results(isAsync);
@@ -1721,7 +1783,7 @@ SELECT `e1`.`EmployeeID`, `e1`.`City`
 FROM (
     SELECT DISTINCT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
     FROM (
-        SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+        SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
         FROM `Employees` AS `e`
         ORDER BY `e`.`EmployeeID` DESC
     ) AS `e0`
@@ -1737,7 +1799,7 @@ FROM (
                 """
 SELECT `e0`.`EmployeeID`, `e0`.`City`
 FROM (
-    SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`
+    SELECT TOP @p `e`.`EmployeeID`, `e`.`City`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
 ) AS `e0`
@@ -1766,7 +1828,7 @@ ORDER BY `c`.`City`, `c`.`CustomerID` DESC
                 """
 SELECT `c0`.`CustomerID`, `o`.`OrderID`
 FROM (
-    SELECT TOP 20 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -2018,7 +2080,7 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
-SELECT TOP 10 (`c`.`CustomerID` & ' ') & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `Aggregate`
+SELECT TOP @p (`c`.`CustomerID` & ' ') & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `Aggregate`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
 """);
@@ -2060,7 +2122,7 @@ FROM (
                 """
 SELECT (`c0`.`CustomerID` & ' ') & IIF(`c0`.`City` IS NULL, '', `c0`.`City`) AS `Aggregate`
 FROM (
-    SELECT TOP 10 `c`.`CustomerID`, `c`.`City`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`City`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -2473,7 +2535,7 @@ FROM `Customers` AS `c`
                 """
 SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`) AS `Add`, `e0`.`Square`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, 42 AS `Literal`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o0`.`OrderID` MOD 2 AS `Mod`
 FROM (
-    SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`,

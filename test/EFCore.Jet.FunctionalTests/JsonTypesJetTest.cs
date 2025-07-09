@@ -16,7 +16,7 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class JsonTypesJetTest : JsonTypesRelationalTestBase
+public class JsonTypesJetTest(NonSharedFixture fixture) : JsonTypesRelationalTestBase(fixture)
 {
     public override async Task Can_read_write_ulong_enum_JSON_values(EnumU64 value, string json)
     {

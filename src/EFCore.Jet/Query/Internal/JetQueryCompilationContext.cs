@@ -16,8 +16,7 @@ public class JetQueryCompilationContext(
     QueryCompilationContextDependencies dependencies,
     RelationalQueryCompilationContextDependencies relationalDependencies,
     bool async,
-    bool precompiling,
-    IReadOnlySet<string>? nonNullableReferenceTypeParameters) : RelationalQueryCompilationContext(dependencies, relationalDependencies, async, precompiling, nonNullableReferenceTypeParameters)
+    bool precompiling) : RelationalQueryCompilationContext(dependencies, relationalDependencies, async, precompiling)
 {
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -30,8 +29,7 @@ public class JetQueryCompilationContext(
         RelationalQueryCompilationContextDependencies relationalDependencies,
         bool async)
         : this(
-            dependencies, relationalDependencies, async, precompiling: false,
-            nonNullableReferenceTypeParameters: null)
+            dependencies, relationalDependencies, async, precompiling: false)
     {
     }
 

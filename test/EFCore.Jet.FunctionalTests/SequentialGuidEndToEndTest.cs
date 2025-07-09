@@ -115,11 +115,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         public async Task InitializeAsync()
             => TestStore = await JetTestStore.CreateInitializedAsync("SequentialGuidEndToEndTest");
 
-        public Task DisposeAsync()
-        {
-            TestStore.Dispose();
-            return Task.CompletedTask;
-        }
+        public async Task DisposeAsync()
+            => await TestStore.DisposeAsync();
 
         [ConditionalFact]
         public void CustomUuid7Test()

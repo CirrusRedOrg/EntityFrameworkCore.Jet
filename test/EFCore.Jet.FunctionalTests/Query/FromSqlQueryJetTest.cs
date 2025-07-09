@@ -456,15 +456,15 @@ SELECT * FROM `Employees` WHERE `ReportsTo` = {AssertSqlHelper.Parameter("@p0")}
         var queryString = await base.FromSqlRaw_queryable_with_parameters_and_closure(async);
 
         AssertSql(
-            $"""
+            """
 p0='London' (Size = 255)
-@__contactTitle_1='Sales Representative' (Size = 30)
+@contactTitle='Sales Representative' (Size = 30)
 
 SELECT `m`.`CustomerID`, `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`Fax`, `m`.`Phone`, `m`.`PostalCode`, `m`.`Region`
 FROM (
-    SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}
+    SELECT * FROM `Customers` WHERE `City` = @p0
 ) AS `m`
-WHERE `m`.`ContactTitle` = {AssertSqlHelper.Parameter("@__contactTitle_1")}
+WHERE `m`.`ContactTitle` = @contactTitle
 """);
 
         return null;
@@ -619,18 +619,18 @@ SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")}
         await base.FromSqlRaw_with_dbParameter_mixed(async);
 
         AssertSql(
-            $"""
+            """
 p0='London' (Size = 255)
 @title='Sales Representative' (Nullable = false) (Size = 20)
 
-SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@title")}
+SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @title
 """,
             //
-            $"""
+            """
 @city='London' (Nullable = false) (Size = 6)
-p1='Sales Representative' (Size = 255)
+p0='Sales Representative' (Size = 255)
 
-SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@p1")}
+SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
 """);
     }
 
@@ -741,39 +741,39 @@ SELECT * FROM `Customers` WHERE `CustomerID` = {AssertSqlHelper.Parameter("@some
         await base.FromSqlInterpolated_parameterization_issue_12213(async);
 
         AssertSql(
-            $"""
+            """
 p0='10300'
 
 SELECT `m`.`OrderID`
 FROM (
-    SELECT * FROM `Orders` WHERE `OrderID` >= {AssertSqlHelper.Parameter("@p0")}
+    SELECT * FROM `Orders` WHERE `OrderID` >= @p0
 ) AS `m`
 """,
             //
-            $"""
-@__max_0='10400'
+            """
+@max='10400'
 p0='10300'
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` <= {AssertSqlHelper.Parameter("@__max_0")} AND `o`.`OrderID` IN (
+WHERE `o`.`OrderID` <= @max AND `o`.`OrderID` IN (
     SELECT `m`.`OrderID`
     FROM (
-        SELECT * FROM `Orders` WHERE `OrderID` >= {AssertSqlHelper.Parameter("@p0")}
+        SELECT * FROM `Orders` WHERE `OrderID` >= @p0
     ) AS `m`
 )
 """,
             //
-            $"""
-@__max_0='10400'
+            """
+@max='10400'
 p0='10300'
 
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderID` <= {AssertSqlHelper.Parameter("@__max_0")} AND `o`.`OrderID` IN (
+WHERE `o`.`OrderID` <= @max AND `o`.`OrderID` IN (
     SELECT `m`.`OrderID`
     FROM (
-        SELECT * FROM `Orders` WHERE `OrderID` >= {AssertSqlHelper.Parameter("@p0")}
+        SELECT * FROM `Orders` WHERE `OrderID` >= @p0
     ) AS `m`
 )
 """);
@@ -941,7 +941,7 @@ WHERE `o`.`CustomerID` IN (
         await base.FromSqlRaw_with_dbParameter_mixed_in_subquery(async);
 
         AssertSql(
-            $"""
+            """
 p0='London' (Size = 255)
 @title='Sales Representative' (Nullable = false) (Size = 20)
 
@@ -950,43 +950,23 @@ FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` IN (
     SELECT `m`.`CustomerID`
     FROM (
-        SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@title")}
+        SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @title
     ) AS `m`
 )
 """,
             //
-            $"""
+            """
 @city='London' (Nullable = false) (Size = 6)
-p1='Sales Representative' (Size = 255)
+p0='Sales Representative' (Size = 255)
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` IN (
     SELECT `m`.`CustomerID`
     FROM (
-        SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@p1")}
+        SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
     ) AS `m`
 )
-""");
-    }
-
-    public override async Task Multiple_occurrences_of_FromSql_with_db_parameter_adds_parameter_only_once(bool async)
-    {
-        await base.Multiple_occurrences_of_FromSql_with_db_parameter_adds_parameter_only_once(async);
-
-        AssertSql(
-"""
-city='Seattle' (Nullable = false) (Size = 7)
-
-SELECT [m].[CustomerID], [m].[Address], [m].[City], [m].[CompanyName], [m].[ContactName], [m].[ContactTitle], [m].[Country], [m].[Fax], [m].[Phone], [m].[PostalCode], [m].[Region]
-FROM (
-    SELECT * FROM `Customers` WHERE "City" = @city
-) AS [m]
-INTERSECT
-SELECT [m0].[CustomerID], [m0].[Address], [m0].[City], [m0].[CompanyName], [m0].[ContactName], [m0].[ContactTitle], [m0].[Country], [m0].[Fax], [m0].[Phone], [m0].[PostalCode], [m0].[Region]
-FROM (
-    SELECT * FROM `Customers` WHERE "City" = @city
-) AS [m0]
 """);
     }
 

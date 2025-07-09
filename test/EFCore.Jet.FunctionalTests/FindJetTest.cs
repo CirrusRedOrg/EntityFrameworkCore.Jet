@@ -43,14 +43,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             base.Find_int_key_from_store();
 
             AssertSql(
-                $"""
-@__p_0='77'
+                """
+@p='77'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+    WHERE `i`.`Id` = @p
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`
@@ -67,14 +67,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_int_key_not_in_store();
 
             AssertSql(
-                $"""
-@__p_0='99'
+                """
+@p='99'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+    WHERE `i`.`Id` = @p
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`
@@ -98,14 +98,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_int_key_from_store();
 
             AssertSql(
-                $"""
-@__p_0='77'
+                """
+@p='77'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+    WHERE `i`.`Id` = @p
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`
@@ -122,14 +122,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_int_key_not_in_store();
 
             AssertSql(
-                $"""
-@__p_0='99'
+                """
+@p='99'
 
 SELECT `i3`.`Id`, `i3`.`Foo`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Prop`, `s`.`NestedOwned_Prop`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `s`.`Prop0`, `i3`.`OwnedReference_Prop`, `i3`.`OwnedReference_NestedOwned_Prop`, `i2`.`Owned1IntKeyId`, `i2`.`Id`, `i2`.`Prop`
 FROM ((
     SELECT TOP 1 `i`.`Id`, `i`.`Foo`, `i`.`OwnedReference_Prop`, `i`.`OwnedReference_NestedOwned_Prop`
     FROM `IntKey` AS `i`
-    WHERE `i`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+    WHERE `i`.`Id` = @p
 ) AS `i3`
 LEFT JOIN (
     SELECT `i0`.`IntKeyId`, `i0`.`Id`, `i0`.`Prop`, `i0`.`NestedOwned_Prop`, `i1`.`Owned1IntKeyId`, `i1`.`Owned1Id`, `i1`.`Id` AS `Id0`, `i1`.`Prop` AS `Prop0`
@@ -153,13 +153,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_string_key_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Cat' (Size = 255)")}
-                    
-                    SELECT TOP 1 `s`.`Id`, `s`.`Foo`
-                    FROM `StringKey` AS `s`
-                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='Cat' (Size = 255)
+
+SELECT TOP 1 `s`.`Id`, `s`.`Foo`
+FROM `StringKey` AS `s`
+WHERE `s`.`Id` = @p
+""");
         }
 
         public override void Returns_null_for_string_key_not_in_store()
@@ -167,13 +167,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_string_key_not_in_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Fox' (Size = 255)")}
-                    
-                    SELECT TOP 1 `s`.`Id`, `s`.`Foo`
-                    FROM `StringKey` AS `s`
-                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='Fox' (Size = 255)
+
+SELECT TOP 1 `s`.`Id`, `s`.`Foo`
+FROM `StringKey` AS `s`
+WHERE `s`.`Id` = @p
+""");
         }
 
         public override void Find_composite_key_tracked()
@@ -188,14 +188,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_composite_key_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='77'")}
-                    {AssertSqlHelper.Declaration("@__p_1='Dog' (Size = 255)")}
-                    
-                    SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
-                    FROM `CompositeKey` AS `c`
-                    WHERE `c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`Id2` = {AssertSqlHelper.Parameter("@__p_1")}
-                    """);
+                """
+@p='77'
+@p0='Dog' (Size = 255)
+
+SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
+FROM `CompositeKey` AS `c`
+WHERE `c`.`Id1` = @p AND `c`.`Id2` = @p0
+""");
         }
 
         public override void Returns_null_for_composite_key_not_in_store()
@@ -203,14 +203,14 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_composite_key_not_in_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='77'")}
-                    {AssertSqlHelper.Declaration("@__p_1='Fox' (Size = 255)")}
-                    
-                    SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
-                    FROM `CompositeKey` AS `c`
-                    WHERE `c`.`Id1` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`Id2` = {AssertSqlHelper.Parameter("@__p_1")}
-                    """);
+                """
+@p='77'
+@p0='Fox' (Size = 255)
+
+SELECT TOP 1 `c`.`Id1`, `c`.`Id2`, `c`.`Foo`
+FROM `CompositeKey` AS `c`
+WHERE `c`.`Id1` = @p AND `c`.`Id2` = @p0
+""");
         }
 
         public override void Find_base_type_tracked()
@@ -232,26 +232,26 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_base_type_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='77'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='77'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Id` = @p
+""");
         }
 
         public override async Task Find_base_type_from_store_async(CancellationType cancellationType)
         {
             await base.Find_base_type_from_store_async(cancellationType);
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='77'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='77'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Id` = @p
+""");
         }
 
         public override void Returns_null_for_base_type_not_in_store()
@@ -259,13 +259,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_base_type_not_in_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='99'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='99'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Id` = @p
+""");
         }
 
         public override void Find_derived_type_tracked()
@@ -280,13 +280,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_derived_type_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='78'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='78'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = @p
+""");
         }
 
         public override void Returns_null_for_derived_type_not_in_store()
@@ -294,13 +294,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_derived_type_not_in_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='99'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='99'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = @p
+""");
         }
 
         public override void Find_base_type_using_derived_set_tracked()
@@ -308,13 +308,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_base_type_using_derived_set_tracked();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='88'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='88'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = @p
+""");
         }
 
         public override void Find_base_type_using_derived_set_from_store()
@@ -322,13 +322,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_base_type_using_derived_set_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='77'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='77'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Discriminator` = 'DerivedType' AND `b`.`Id` = @p
+""");
         }
 
         public override void Find_derived_type_using_base_set_tracked()
@@ -343,13 +343,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_derived_using_base_set_type_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='78'")}
-                    
-                    SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
-                    FROM `BaseType` AS `b`
-                    WHERE `b`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='78'
+
+SELECT TOP 1 `b`.`Id`, `b`.`Discriminator`, `b`.`Foo`, `b`.`Boo`
+FROM `BaseType` AS `b`
+WHERE `b`.`Id` = @p
+""");
         }
 
         public override void Find_shadow_key_tracked()
@@ -364,13 +364,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Find_shadow_key_from_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='77'")}
-                    
-                    SELECT TOP 1 `s`.`Id`, `s`.`Foo`
-                    FROM `ShadowKey` AS `s`
-                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='77'
+
+SELECT TOP 1 `s`.`Id`, `s`.`Foo`
+FROM `ShadowKey` AS `s`
+WHERE `s`.`Id` = @p
+""");
         }
 
         public override void Returns_null_for_shadow_key_not_in_store()
@@ -378,13 +378,13 @@ ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1I
             base.Returns_null_for_shadow_key_not_in_store();
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='99'")}
-                    
-                    SELECT TOP 1 `s`.`Id`, `s`.`Foo`
-                    FROM `ShadowKey` AS `s`
-                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
-                    """);
+                """
+@p='99'
+
+SELECT TOP 1 `s`.`Id`, `s`.`Foo`
+FROM `ShadowKey` AS `s`
+WHERE `s`.`Id` = @p
+""");
         }
 
         private string Sql => Fixture.TestSqlLoggerFactory.Sql;

@@ -14,7 +14,7 @@ using Xunit;
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Update;
 
-public class NonSharedModelUpdatesJetTest : NonSharedModelUpdatesTestBase
+public class NonSharedModelUpdatesJetTest(NonSharedFixture fixture) : NonSharedModelUpdatesTestBase(fixture)
 {
     public override async Task Principal_and_dependent_roundtrips_with_cycle_breaking(bool async)
     {

@@ -741,12 +741,12 @@ ORDER BY `o0`.`Key`
             await base.GroupBy_param_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $"""
-@__a_0='2'
+                """
+@a='2'
 
 SELECT IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`)) AS `Sum`, MIN(`o0`.`OrderID`) AS `Min`, `o0`.`Key`, MAX(`o0`.`OrderID`) AS `Max`, AVG(CDBL(`o0`.`OrderID`)) AS `Avg`
 FROM (
-    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
+    SELECT `o`.`OrderID`, CLNG(@a) AS `Key`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`Key`
@@ -758,12 +758,12 @@ GROUP BY `o0`.`Key`
             await base.GroupBy_param_with_element_selector_Select_Sum(isAsync);
 
             AssertSql(
-                $"""
-@__a_0='2'
+                """
+@a='2'
 
 SELECT IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`)) AS `Sum`
 FROM (
-    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
+    SELECT `o`.`OrderID`, CLNG(@a) AS `Key`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`Key`
@@ -775,12 +775,12 @@ GROUP BY `o0`.`Key`
             await base.GroupBy_param_with_element_selector_Select_Sum2(isAsync);
 
             AssertSql(
-                $"""
-@__a_0='2'
+                """
+@a='2'
 
 SELECT IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`)) AS `Sum`
 FROM (
-    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
+    SELECT `o`.`OrderID`, CLNG(@a) AS `Key`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`Key`
@@ -792,12 +792,12 @@ GROUP BY `o0`.`Key`
             await base.GroupBy_param_with_element_selector_Select_Sum3(isAsync);
 
             AssertSql(
-                $"""
-@__a_0='2'
+                """
+@a='2'
 
 SELECT IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`)) AS `Sum`
 FROM (
-    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
+    SELECT `o`.`OrderID`, CLNG(@a) AS `Key`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`Key`
@@ -809,12 +809,12 @@ GROUP BY `o0`.`Key`
             await base.GroupBy_param_with_element_selector_Select_Sum_Min_Key_Max_Avg(isAsync);
 
             AssertSql(
-                $"""
-@__a_0='2'
+                """
+@a='2'
 
 SELECT IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`)) AS `Sum`, `o0`.`Key`
 FROM (
-    SELECT `o`.`OrderID`, CLNG({AssertSqlHelper.Parameter("@__a_0")}) AS `Key`
+    SELECT `o`.`OrderID`, CLNG(@a) AS `Key`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`Key`
@@ -1147,7 +1147,7 @@ GROUP BY `o0`.`Key`
                 """
 SELECT MIN(`o0`.`OrderID`)
 FROM (
-    SELECT TOP 500 `o`.`OrderID`, `o`.`CustomerID`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`
@@ -1165,9 +1165,9 @@ SELECT MAX(`o0`.`OrderID`)
 FROM (
     SELECT `o2`.`OrderID`, `o2`.`CustomerID`
     FROM (
-        SELECT TOP 500 `o1`.`OrderID`, `o1`.`CustomerID`
+        SELECT TOP @p0 `o1`.`OrderID`, `o1`.`CustomerID`
         FROM (
-            SELECT TOP 580 `o`.`OrderID`, `o`.`CustomerID`
+            SELECT TOP @p + @p0 `o`.`OrderID`, `o`.`CustomerID`
             FROM `Orders` AS `o`
             ORDER BY `o`.`OrderID`
         ) AS `o1`
@@ -1256,7 +1256,7 @@ GROUP BY `o0`.`EmployeeID`
                 """
 SELECT `c0`.`CustomerID` AS `Key`, AVG(CDBL(`o0`.`OrderID`)) AS `Count`
 FROM (
-    SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10400
     ORDER BY `o`.`OrderDate`
@@ -1264,9 +1264,9 @@ FROM (
 INNER JOIN (
     SELECT `c2`.`CustomerID`
     FROM (
-        SELECT TOP 50 `c1`.`CustomerID`, `c1`.`City`
+        SELECT TOP @p1 `c1`.`CustomerID`, `c1`.`City`
         FROM (
-            SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
+            SELECT TOP @p0 + @p1 `c`.`CustomerID`, `c`.`City`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
             ORDER BY `c`.`City`
@@ -1368,9 +1368,9 @@ SELECT `o0`.`CustomerID` AS `Key`, AVG(CDBL(`o0`.`OrderID`)) AS `Count`
 FROM (
     SELECT `c2`.`CustomerID`
     FROM (
-        SELECT TOP 50 `c1`.`CustomerID`, `c1`.`City`
+        SELECT TOP @p0 `c1`.`CustomerID`, `c1`.`City`
         FROM (
-            SELECT TOP 60 `c`.`CustomerID`, `c`.`City`
+            SELECT TOP @p + @p0 `c`.`CustomerID`, `c`.`City`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` NOT IN ('DRACD', 'FOLKO')
             ORDER BY `c`.`City`
@@ -1380,7 +1380,7 @@ FROM (
     ORDER BY `c2`.`City`
 ) AS `c0`
 INNER JOIN (
-    SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
+    SELECT TOP @p1 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10400
     ORDER BY `o`.`OrderDate`
@@ -2469,9 +2469,9 @@ GROUP BY [o].[CustomerID]
 
             AssertSql(
                 """
-SELECT [o].[CustomerID] AS [Key], MAX(DISTINCT ([o].[OrderDate])) AS [Max]
-FROM [Orders] AS [o]
-GROUP BY [o].[CustomerID]
+SELECT `o`.`CustomerID` AS `Key`, MAX(`o`.`OrderDate`) AS `Max`
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`
 """);
         }
 
@@ -2481,11 +2481,9 @@ GROUP BY [o].[CustomerID]
 
             AssertSql(
                 """
-SELECT [o].[CustomerID] AS [Key], MAX(DISTINCT (CASE
-    WHEN [o].[OrderDate] IS NOT NULL THEN [o].[OrderDate]
-END)) AS [Max]
-FROM [Orders] AS [o]
-GROUP BY [o].[CustomerID]
+SELECT `o`.`CustomerID` AS `Key`, MAX(IIF(`o`.`OrderDate` IS NOT NULL, `o`.`OrderDate`, NULL)) AS `Max`
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`
 """);
         }
 
@@ -3003,9 +3001,9 @@ INNER JOIN `Orders` AS `o0` ON (`o1`.`Key` = `o0`.`CustomerID` OR (`o1`.`Key` IS
                 """
 SELECT `s0`.`CustomerID`, `s0`.`Address`, `s0`.`City`, `s0`.`CompanyName`, `s0`.`ContactName`, `s0`.`ContactTitle`, `s0`.`Country`, `s0`.`Fax`, `s0`.`Phone`, `s0`.`PostalCode`, `s0`.`Region`, `s0`.`Max`
 FROM (
-    SELECT TOP 10 `s`.`CustomerID`, `s`.`Address`, `s`.`City`, `s`.`CompanyName`, `s`.`ContactName`, `s`.`ContactTitle`, `s`.`Country`, `s`.`Fax`, `s`.`Phone`, `s`.`PostalCode`, `s`.`Region`, `s`.`Max`
+    SELECT TOP @p `s`.`CustomerID`, `s`.`Address`, `s`.`City`, `s`.`CompanyName`, `s`.`ContactName`, `s`.`ContactTitle`, `s`.`Country`, `s`.`Fax`, `s`.`Phone`, `s`.`PostalCode`, `s`.`Region`, `s`.`Max`
     FROM (
-        SELECT TOP 20 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`Max`
+        SELECT TOP @p + @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`Max`
         FROM `Customers` AS `c`
         INNER JOIN (
             SELECT `o`.`CustomerID` AS `Key`, MAX(`o`.`OrderDate`) AS `Max`
@@ -3746,6 +3744,20 @@ LEFT JOIN (
 ) AS [t0] ON [c].[CustomerID] = [t0].[CustomerID]
 WHERE [c].[Country] = N'USA'
 ORDER BY [c].[City], [c].[CustomerID]
+""");
+        }
+
+        public override async Task Final_GroupBy_TagWith(bool async)
+        {
+            await base.Final_GroupBy_TagWith(async);
+
+            AssertSql(
+                """
+-- foo
+
+SELECT `c`.`City`, `c`.`CustomerID`, `c`.`Address`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`City`
 """);
         }
 

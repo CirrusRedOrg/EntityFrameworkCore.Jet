@@ -72,8 +72,8 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                     case SelectExpression { Offset: not null, Orderings.Count: 0 }:
                         throw new InvalidOperationException(JetStrings.SplitQueryOffsetWithoutOrderBy);
 
-                    case NonQueryExpression nonQueryExpression:
-                        return nonQueryExpression;
+                    case UpdateExpression or DeleteExpression:
+                        return expression;
 
                     default:
                         return base.Visit(expression);

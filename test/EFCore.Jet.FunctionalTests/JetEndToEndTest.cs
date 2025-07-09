@@ -40,7 +40,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_use_decimal_and_byte_as_identity_columns()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var nownNum1 = new NownNum { Id = 77.0m, TheWalrus = "Crying" };
             var nownNum2 = new NownNum { Id = 78.0m, TheWalrus = "Walrus" };
 
@@ -227,7 +227,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact] // Issue #29931
         public async Task Can_use_SqlQuery_when_context_has_DbFunction()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
             using var context = new DbFunctionContext(options);
             var result = context.Database
@@ -265,7 +265,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_use_string_enum_or_byte_array_as_key()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var sNum1 = new SNum { TheWalrus = "I" };
             var sNum2 = new SNum { TheWalrus = "Am" };
 
@@ -276,7 +276,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             var bNum2 = new BNum { TheWalrus = "Eggmen" };
 
             var options = Fixture.CreateOptions(testDatabase);
-            using (var context = new ENumContext(options))
+            await using (var context = new ENumContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
 
@@ -285,7 +285,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.SaveChanges();
             }
 
-            using (var context = new ENumContext(options))
+            await using (var context = new ENumContext(options))
             {
                 Assert.Equal(sNum1.Id, context.SNums.Single(e => e.TheWalrus == "I").Id);
                 Assert.Equal(sNum2.Id, context.SNums.Single(e => e.TheWalrus == "Am").Id);
@@ -301,12 +301,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_remove_multiple_byte_array_as_key()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var bNum1 = new BNum { TheWalrus = "Eggman" };
             var bNum2 = new BNum { TheWalrus = "Eggmen" };
 
             var options = Fixture.CreateOptions(testDatabase);
-            using (var context = new ENumContext(options))
+            await using (var context = new ENumContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
 
@@ -315,7 +315,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.SaveChanges();
             }
 
-            using (var context = new ENumContext(options))
+            await using (var context = new ENumContext(options))
             {
                 Assert.Equal(bNum1.Id, context.BNums.Single(e => e.TheWalrus == "Eggman").Id);
                 Assert.Equal(bNum2.Id, context.BNums.Single(e => e.TheWalrus == "Eggmen").Id);
@@ -336,11 +336,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_add_table_splitting_dependent_after_principal()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
             EvaluationAction evaluationAction = null;
-            using (var context = new ProjectContext(options))
+            await using (var context = new ProjectContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
 
@@ -354,7 +354,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.SaveChanges();
             }
 
-            using (var context = new ProjectContext(options))
+            await using (var context = new ProjectContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
 
@@ -369,7 +369,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.SaveChanges();
             }
 
-            using (var context = new ProjectContext(options))
+            await using (var context = new ProjectContext(options))
             {
                 Assert.NotNull(context.ProjectActions.Single());
                 Assert.NotNull(context.EvaluationActions.Single());
@@ -379,7 +379,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Throws_when_adding_table_splitting_dependent_without_principal()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
             using var context = new ProjectContext(options);
@@ -469,7 +469,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_add_and_remove_entities_with_keys_of_different_type()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
             using (var context = new CompositeKeysDbContext(options))
@@ -521,7 +521,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_insert_non_owner_principal_for_owned()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
             using var context = new FileContext(options);
@@ -581,7 +581,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_insert_TPT_dependents_with_identity()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
             var options = Fixture.CreateOptions(testDatabase);
             using var context = new CarContext(options);
@@ -617,7 +617,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_run_linq_query_on_entity_set()
         {
-            using var testStore = await JetTestStore.GetNorthwindStoreAsync();
+            await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
             using var db = new NorthwindContext(Fixture.CreateOptions(testStore));
             var results = db.Customers
                 .Where(c => c.CompanyName.StartsWith("A"))
@@ -639,7 +639,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_run_linq_query_on_entity_set_with_value_buffer_reader()
         {
-            using var testStore = await JetTestStore.GetNorthwindStoreAsync();
+            await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
             using var db = new NorthwindContext(Fixture.CreateOptions(testStore));
             var results = db.Customers
                 .Where(c => c.CompanyName.StartsWith("A"))
@@ -661,8 +661,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_enumerate_entity_set()
         {
-            using var testStore = await JetTestStore.GetNorthwindStoreAsync();
-            using var db = new NorthwindContext(Fixture.CreateOptions(testStore));
+            await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
+            await using var db = new NorthwindContext(Fixture.CreateOptions(testStore));
             var results = new List<Customer>();
             foreach (var item in db.Customers)
             {
@@ -677,7 +677,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_save_changes()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
             using (var db = new BloggingContext(options))
             {
@@ -750,7 +750,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_save_changes_in_tracked_entities()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             int updatedId;
             int deletedId;
             int addedId;
@@ -807,7 +807,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_track_an_entity_with_more_than_10_properties()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
             using (var context = new GameDbContext(options))
             {
@@ -836,7 +836,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_replace_identifying_FK_entity_with_many_to_many()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
 
             using (var context = new SomeDbContext(options))
@@ -939,7 +939,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             new() { Title = "Literature", Credits = 4 }
             };
 
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
 
             var nextCourse = 0;
@@ -1193,7 +1193,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Adding_an_item_to_a_collection_marks_it_as_modified()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
 
             using var context = new GameDbContext(options);
@@ -1218,7 +1218,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_set_reference_twice()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
 
             using (var context = new GameDbContext(options))
@@ -1258,7 +1258,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Can_include_on_loaded_entity()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
 
             using (var context = new GameDbContext(options))
@@ -1486,8 +1486,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact]
         public async Task Tracking_entities_asynchronously_returns_tracked_entities_back()
         {
-            using var testStore = await JetTestStore.GetNorthwindStoreAsync();
-            using var db = new NorthwindContext(Fixture.CreateOptions(testStore));
+            await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
+            await using var db = new NorthwindContext(Fixture.CreateOptions(testStore));
             var customer = await db.Customers.OrderBy(c => c.CustomerID).FirstOrDefaultAsync();
 
             var trackedCustomerEntry = db.ChangeTracker.Entries().Single();
@@ -1500,14 +1500,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [ConditionalFact(Skip = "Jet does not support Schema")] // Issue #931
         public async Task Can_save_and_query_with_schema()
         {
-            using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testStore);
 
             await testStore.ExecuteNonQueryAsync("CREATE SCHEMA Apple");
             await testStore.ExecuteNonQueryAsync("CREATE TABLE Apple.Jack (MyKey int)");
             await testStore.ExecuteNonQueryAsync("CREATE TABLE Apple.Black (MyKey int)");
 
-            using (var context = new SchemaContext(options))
+            await using (var context = new SchemaContext(options))
             {
                 await context.AddAsync(
                     new Jack { MyKey = 1 });
@@ -1516,7 +1516,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 context.SaveChanges();
             }
 
-            using (var context = new SchemaContext(options))
+            await using (var context = new SchemaContext(options))
             {
                 Assert.Equal(1, context.Jacks.Count());
                 Assert.Equal(1, context.Blacks.Count());
@@ -1567,7 +1567,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         private async Task RoundTripChanges<TBlog>()
         where TBlog : class, IBlog, new()
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
             var options = Fixture.CreateOptions(testDatabase);
 
             int blog1Id;

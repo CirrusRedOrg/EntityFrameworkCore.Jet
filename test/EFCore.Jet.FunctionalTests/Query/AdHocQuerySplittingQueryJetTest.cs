@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 #nullable disable
 
-public class AdHocQuerySplittingQueryJetTest : AdHocQuerySplittingQueryTestBase
+public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQuerySplittingQueryTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
@@ -51,8 +51,12 @@ public class AdHocQuerySplittingQueryJetTest : AdHocQuerySplittingQueryTestBase
         return optionsBuilder;
     }
 
-    protected override async Task<TestStore> CreateTestStore25225()
-        => await JetTestStore.CreateInitializedAsync(StoreName, multipleActiveResultSets: true);
+    protected override TestStore CreateTestStore25225()
+    {
+        var testStore = JetTestStore.Create(StoreName);
+        testStore.UseConnectionString = true;
+        return testStore;
+    }
 
     public override async Task Can_configure_SingleQuery_at_context_level()
     {
@@ -281,7 +285,7 @@ ORDER BY `p1`.`Id`
     {
         var contextFactory = await InitializeAsync<Context21355>(
             seed: c => c.SeedAsync(),
-            createTestStore: async () => await JetTestStore.CreateInitializedAsync(StoreName, multipleActiveResultSets: false));
+            createTestStore: () => JetTestStore.Create(StoreName));
 
         using var context = contextFactory.CreateContext();
         context.Parents.Include(p => p.Children1).Include(p => p.Children2).AsSplitQuery().ToList();

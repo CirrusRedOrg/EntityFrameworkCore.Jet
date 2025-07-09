@@ -385,9 +385,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
             return command;
         }
 
-        public override void Dispose()
+        public override async ValueTask DisposeAsync()
         {
-            base.Dispose();
+            await base.DisposeAsync();
 
             // Clean up the database using a local file, as it might get deleted later
 

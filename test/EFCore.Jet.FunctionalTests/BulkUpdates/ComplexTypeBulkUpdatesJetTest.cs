@@ -42,8 +42,10 @@ WHERE `c`.`Name` = 'Monty Elias'
 
         AssertExecuteUpdateSql(
             """
+@p='12345'
+
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_ZipCode` = 12345
+SET `c`.`ShippingAddress_ZipCode` = @p
 WHERE `c`.`ShippingAddress_ZipCode` = 7728
 """);
     }
@@ -54,8 +56,10 @@ WHERE `c`.`ShippingAddress_ZipCode` = 7728
 
         AssertExecuteUpdateSql(
             """
+@p='United States Modified' (Size = 255)
+
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_Country_FullName` = 'United States Modified'
+SET `c`.`ShippingAddress_Country_FullName` = @p
 WHERE `c`.`ShippingAddress_Country_Code` = 'US'
 """);
     }
@@ -66,10 +70,12 @@ WHERE `c`.`ShippingAddress_Country_Code` = 'US'
 
         AssertExecuteUpdateSql(
             """
+@p='54321'
+
 UPDATE `Customer` AS `c`
-SET `c`.`BillingAddress_ZipCode` = 54321,
+SET `c`.`Name` = `c`.`Name` & 'Modified',
     `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`,
-    `c`.`Name` = `c`.`Name` & 'Modified'
+    `c`.`BillingAddress_ZipCode` = @p
 WHERE `c`.`ShippingAddress_ZipCode` = 7728
 """);
     }
@@ -80,8 +86,10 @@ WHERE `c`.`ShippingAddress_ZipCode` = 7728
 
         AssertExecuteUpdateSql(
             """
+@p='12345'
+
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_ZipCode` = 12345
+SET `c`.`ShippingAddress_ZipCode` = @p
 """);
     }
 
@@ -91,9 +99,11 @@ SET `c`.`ShippingAddress_ZipCode` = 12345
 
         AssertExecuteUpdateSql(
             """
+@p='54321'
+
 UPDATE `Customer` AS `c`
-SET `c`.`BillingAddress_ZipCode` = 54321,
-    `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`
+SET `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`,
+    `c`.`BillingAddress_ZipCode` = @p
 """);
     }
 
@@ -110,20 +120,20 @@ SET `c`.`BillingAddress_ZipCode` = 54321,
 
         AssertExecuteUpdateSql(
             """
-@__complex_type_newAddress_0_AddressLine1='New AddressLine1' (Size = 255)
-@__complex_type_newAddress_0_AddressLine2='New AddressLine2' (Size = 255)
-@__complex_type_newAddress_0_Tags='["new_tag1","new_tag2"]' (Size = 255)
-@__complex_type_newAddress_0_ZipCode='99999' (Nullable = true)
-@__complex_type_newAddress_0_Code='FR' (Size = 255)
-@__complex_type_newAddress_0_FullName='France' (Size = 255)
+@complex_type_p_AddressLine1='New AddressLine1' (Size = 255)
+@complex_type_p_AddressLine2='New AddressLine2' (Size = 255)
+@complex_type_p_Tags='["new_tag1","new_tag2"]' (Size = 255)
+@complex_type_p_ZipCode='99999' (Nullable = true)
+@complex_type_p_Code='FR' (Size = 255)
+@complex_type_p_FullName='France' (Size = 255)
 
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_AddressLine1` = @__complex_type_newAddress_0_AddressLine1,
-    `c`.`ShippingAddress_AddressLine2` = @__complex_type_newAddress_0_AddressLine2,
-    `c`.`ShippingAddress_Tags` = @__complex_type_newAddress_0_Tags,
-    `c`.`ShippingAddress_ZipCode` = @__complex_type_newAddress_0_ZipCode,
-    `c`.`ShippingAddress_Country_Code` = @__complex_type_newAddress_0_Code,
-    `c`.`ShippingAddress_Country_FullName` = @__complex_type_newAddress_0_FullName
+SET `c`.`ShippingAddress_AddressLine1` = @complex_type_p_AddressLine1,
+    `c`.`ShippingAddress_AddressLine2` = @complex_type_p_AddressLine2,
+    `c`.`ShippingAddress_Tags` = @complex_type_p_Tags,
+    `c`.`ShippingAddress_ZipCode` = @complex_type_p_ZipCode,
+    `c`.`ShippingAddress_Country_Code` = @complex_type_p_Code,
+    `c`.`ShippingAddress_Country_FullName` = @complex_type_p_FullName
 """);
     }
 
@@ -132,13 +142,13 @@ SET `c`.`ShippingAddress_AddressLine1` = @__complex_type_newAddress_0_AddressLin
         await base.Update_nested_complex_type_to_parameter(async);
 
         AssertExecuteUpdateSql(
-    """
-@__complex_type_newCountry_0_Code='FR' (Size = 255)
-@__complex_type_newCountry_0_FullName='France' (Size = 255)
+            """
+@complex_type_p_Code='FR' (Size = 255)
+@complex_type_p_FullName='France' (Size = 255)
 
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_Country_Code` = @__complex_type_newCountry_0_Code,
-    `c`.`ShippingAddress_Country_FullName` = @__complex_type_newCountry_0_FullName
+SET `c`.`ShippingAddress_Country_Code` = @complex_type_p_Code,
+    `c`.`ShippingAddress_Country_FullName` = @complex_type_p_FullName
 """);
     }
 
@@ -163,14 +173,21 @@ SET `c`.`ShippingAddress_AddressLine1` = `c`.`BillingAddress_AddressLine1`,
         await base.Update_complex_type_to_inline_without_lambda(async);
 
         AssertExecuteUpdateSql(
-    """
+            """
+@complex_type_p_AddressLine1='New AddressLine1' (Size = 255)
+@complex_type_p_AddressLine2='New AddressLine2' (Size = 255)
+@complex_type_p_Tags='["new_tag1","new_tag2"]' (Size = 255)
+@complex_type_p_ZipCode='99999' (Nullable = true)
+@complex_type_p_Code='FR' (Size = 255)
+@complex_type_p_FullName='France' (Size = 255)
+
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_AddressLine1` = 'New AddressLine1',
-    `c`.`ShippingAddress_AddressLine2` = 'New AddressLine2',
-    `c`.`ShippingAddress_Tags` = '["new_tag1","new_tag2"]',
-    `c`.`ShippingAddress_ZipCode` = 99999,
-    `c`.`ShippingAddress_Country_Code` = 'FR',
-    `c`.`ShippingAddress_Country_FullName` = 'France'
+SET `c`.`ShippingAddress_AddressLine1` = @complex_type_p_AddressLine1,
+    `c`.`ShippingAddress_AddressLine2` = @complex_type_p_AddressLine2,
+    `c`.`ShippingAddress_Tags` = @complex_type_p_Tags,
+    `c`.`ShippingAddress_ZipCode` = @complex_type_p_ZipCode,
+    `c`.`ShippingAddress_Country_Code` = @complex_type_p_Code,
+    `c`.`ShippingAddress_Country_FullName` = @complex_type_p_FullName
 """);
     }
 
@@ -221,8 +238,10 @@ INNER JOIN (
 
         AssertExecuteUpdateSql(
             """
+@p='["new_tag1","new_tag2"]' (Size = 255)
+
 UPDATE `Customer` AS `c`
-SET `c`.`ShippingAddress_Tags` = '["new_tag1","new_tag2"]'
+SET `c`.`ShippingAddress_Tags` = @p
 """);
     }
 

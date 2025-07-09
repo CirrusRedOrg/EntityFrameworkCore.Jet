@@ -403,6 +403,11 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(newFunction, /* condition */ false);
     }
 
+    protected override Expression VisitRightJoin(RightJoinExpression rightJoinExpression)
+    {
+        throw new NotImplementedException();
+    }
+
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in

@@ -101,9 +101,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 """
 SELECT `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
 FROM (
-    SELECT TOP 1 `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
+    SELECT TOP @p `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
     FROM (
-        SELECT TOP 2 `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
+        SELECT TOP @p + @p `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
         FROM (
             SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
             FROM `Customers` AS `c`
@@ -220,11 +220,11 @@ WHERE `u`.`ContactName` LIKE '%Thomas%'
                 """
 SELECT `u2`.`CustomerID`, `u2`.`Address`, `u2`.`City`, `u2`.`CompanyName`, `u2`.`ContactName`, `u2`.`ContactTitle`, `u2`.`Country`, `u2`.`Fax`, `u2`.`Phone`, `u2`.`PostalCode`, `u2`.`Region`
 FROM (
-    SELECT TOP 1 `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
+    SELECT TOP @p `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
     FROM (
         SELECT `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
         FROM (
-            SELECT TOP 1 `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
+            SELECT TOP @p `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
             FROM (
                 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
                 FROM `Customers` AS `c`
@@ -345,9 +345,9 @@ ORDER BY `u`.`CompanyName`
                 """
 SELECT `u0`.`Foo`, `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
 FROM (
-    SELECT TOP 10 `u1`.`Foo`, `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
+    SELECT TOP @p0 `u1`.`Foo`, `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
     FROM (
-        SELECT TOP 11 `u`.`Foo`, `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
+        SELECT TOP @p + @p0 `u`.`Foo`, `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
         FROM (
             SELECT `c`.`City` AS `Foo`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
             FROM `Customers` AS `c`
@@ -1037,7 +1037,7 @@ FROM `Orders` AS `o1`
                 """
 SELECT `o1`.`OrderID`
 FROM (
-    SELECT TOP 5 `o`.`OrderID`
+    SELECT TOP @p `o`.`OrderID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderDate`
 ) AS `o1`
@@ -1072,7 +1072,7 @@ FROM `Orders` AS `o`
 UNION
 SELECT `o1`.`OrderID`
 FROM (
-    SELECT TOP 5 `o0`.`OrderID`
+    SELECT TOP @p `o0`.`OrderID`
     FROM `Orders` AS `o0`
     ORDER BY `o0`.`OrderDate`
 ) AS `o1`
@@ -1101,14 +1101,14 @@ FROM `Orders` AS `o0`
                 """
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (
-    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`ContactName`
 ) AS `c1`
 UNION
 SELECT `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
 FROM (
-    SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    SELECT TOP @p `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`ContactName`
 ) AS `c2`

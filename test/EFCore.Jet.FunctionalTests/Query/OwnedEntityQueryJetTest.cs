@@ -3,14 +3,15 @@
 
 // ReSharper disable InconsistentNaming
 
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class OwnedEntityQueryJetTest : OwnedEntityQueryRelationalTestBase
+public class OwnedEntityQueryJetTest(NonSharedFixture fixture) : OwnedEntityQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
@@ -66,6 +67,7 @@ FROM (
     LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`)
     LEFT JOIN `ModdleA` AS `m0` ON `r`.`Id` = `m0`.`RootId`
     WHERE `r`.`Id` = 3
+    ORDER BY `r`.`Id`, `m`.`Id`, `m0`.`Id`
 ) AS `s`
 INNER JOIN `Leaf` AS `l0` ON `s`.`Id1` = `l0`.`ModdleAId`
 ORDER BY `s`.`Id`, `s`.`Id0`, `s`.`Id1`
@@ -106,12 +108,12 @@ ORDER BY [w].[Id], [w0].[WarehouseCode]
         await base.Owned_collection_basic_split_query(async);
 
         AssertSql(
-$"""
-@__id_0='6c1ae3e5-30b9-4c77-8d98-f02075974a0a'
+            """
+@id='6c1ae3e5-30b9-4c77-8d98-f02075974a0a'
 
 SELECT TOP 1 `l`.`Id`
 FROM `Location25680` AS `l`
-WHERE `l`.`Id` = {AssertSqlHelper.Parameter("@__id_0")}
+WHERE `l`.`Id` = @id
 ORDER BY `l`.`Id`
 """);
     }
@@ -121,8 +123,8 @@ ORDER BY `l`.`Id`
         await base.Owned_reference_mapped_to_different_table_updated_correctly_after_subquery_pushdown(async);
 
         AssertSql(
-"""
-SELECT TOP 10 `c`.`Id`, `c`.`Name`, `c0`.`CompanyId`, `c0`.`AdditionalCustomerData`, `c0`.`Id`, `s`.`CompanyId`, `s`.`AdditionalSupplierData`, `s`.`Id`
+            """
+SELECT TOP @p `c`.`Id`, `c`.`Name`, `c0`.`CompanyId`, `c0`.`AdditionalCustomerData`, `c0`.`Id`, `s`.`CompanyId`, `s`.`AdditionalSupplierData`, `s`.`Id`
 FROM (`Companies` AS `c`
 LEFT JOIN `CustomerData` AS `c0` ON `c`.`Id` = `c0`.`CompanyId`)
 LEFT JOIN `SupplierData` AS `s` ON `c`.`Id` = `s`.`CompanyId`
@@ -136,8 +138,8 @@ ORDER BY `c`.`Id`
         await base.Owned_reference_mapped_to_different_table_nested_updated_correctly_after_subquery_pushdown(async);
 
         AssertSql(
-"""
-SELECT TOP 10 `o`.`Id`, `o`.`Name`, `i`.`OwnerId`, `i`.`Id`, `i`.`Name`, `i0`.`IntermediateOwnedEntityOwnerId`, `i0`.`AdditionalCustomerData`, `i0`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`, `i1`.`AdditionalSupplierData`, `i1`.`Id`
+            """
+SELECT TOP @p `o`.`Id`, `o`.`Name`, `i`.`OwnerId`, `i`.`Id`, `i`.`Name`, `i0`.`IntermediateOwnedEntityOwnerId`, `i0`.`AdditionalCustomerData`, `i0`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`, `i1`.`AdditionalSupplierData`, `i1`.`Id`
 FROM ((`Owners` AS `o`
 LEFT JOIN `IntermediateOwnedEntity` AS `i` ON `o`.`Id` = `i`.`OwnerId`)
 LEFT JOIN `IM_CustomerData` AS `i0` ON `i`.`OwnerId` = `i0`.`IntermediateOwnedEntityOwnerId`)

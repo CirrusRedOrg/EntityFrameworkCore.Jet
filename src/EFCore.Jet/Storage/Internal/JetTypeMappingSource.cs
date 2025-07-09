@@ -49,7 +49,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new("varchar", unicode: true);
         private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new("varchar", unicode: true, size: 255, storeTypePostfix: StoreTypePostfix.Size);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
-        private readonly JetJsonTypeMapping _jsonTypeMapping = new("longchar");
         private readonly JetGuidTypeMapping _guid = new("uniqueidentifier", DbType.Guid);
         private readonly JetByteArrayTypeMapping _rowversion = new("varbinary", size: 8,
             comparer: new ValueComparer<byte[]>(
@@ -191,7 +190,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {typeof(TimeSpan), _timespan},
                     {typeof(TimeOnly), _timeonly},
                     {typeof(Guid), _guid},
-                    { typeof(JsonElement), _jsonTypeMapping }
+                    { typeof(JsonTypePlaceholder), JetJsonTypeMapping.Default }
                 };
 
             // These are disallowed only if specified without any kind of length specified in parenthesis.

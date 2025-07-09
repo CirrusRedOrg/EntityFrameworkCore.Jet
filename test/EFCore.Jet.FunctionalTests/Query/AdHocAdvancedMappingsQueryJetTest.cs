@@ -1,16 +1,17 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 #nullable disable
 
-public class AdHocAdvancedMappingsQueryJetTest : AdHocAdvancedMappingsQueryRelationalTestBase
+public class AdHocAdvancedMappingsQueryJetTest(NonSharedFixture fixture) : AdHocAdvancedMappingsQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
@@ -90,11 +91,11 @@ WHERE `r`.`OwnedEntity_OwnedValue` = 'Abc'
 """,
             //
             """
-@__id_0='1'
+@id='1'
 
 SELECT `p`.`Id`, `p`.`RemovableEntityId`
 FROM `Parents` AS `p`
-WHERE `p`.`Id` = @__id_0
+WHERE `p`.`Id` = @id
 """);
     }
 
@@ -104,14 +105,14 @@ WHERE `p`.`Id` = @__id_0
 
         AssertSql(
             """
-@__action_0='1'
+@action='1'
 
 SELECT COUNT(*)
 FROM `Offers` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `OfferActions` AS `o0`
-    WHERE `o`.`Id` = `o0`.`OfferId` AND `o0`.`Action` = @__action_0)
+    WHERE `o`.`Id` = `o0`.`OfferId` AND `o0`.`Action` = @action)
 """);
     }
 
@@ -121,11 +122,11 @@ WHERE EXISTS (
 
         AssertSql(
             """
-@__id_0='1'
+@id='1'
 
 SELECT TOP 1 `m`.`Id`, `m`.`Name`, `m`.`NavigationEntityId`
 FROM `MockEntities` AS `m`
-WHERE `m`.`Id` = @__id_0
+WHERE `m`.`Id` = @id
 """,
             //
             """
@@ -151,11 +152,11 @@ FROM `Businesses` AS `b`
 
         AssertSql(
             """
-@__parameter_0='2021-11-12T13:14:15.0000000' (DbType = DateTime)
+@parameter='2021-11-12T13:14:15.0000000' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTime`
 FROM `Entities` AS `e`
-WHERE `e`.`DateTime` = CDATE(@__parameter_0)
+WHERE `e`.`DateTime` = CDATE(@parameter)
 """);
     }
 
@@ -165,11 +166,11 @@ WHERE `e`.`DateTime` = CDATE(@__parameter_0)
 
         AssertSql(
             """
-@__parameter_0='2021-11-12T03:14:15.0000000Z' (DbType = DateTime)
+@parameter='2021-11-12T03:14:15.0000000Z' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTimeOffset`
 FROM `Entities` AS `e`
-WHERE `e`.`DateTimeOffset` = @__parameter_0
+WHERE `e`.`DateTimeOffset` = @parameter
 """);
     }
 
@@ -179,11 +180,11 @@ WHERE `e`.`DateTimeOffset` = @__parameter_0
 
         AssertSql(
             """
-@__parameter_0='12:34:56.7890123'
+@parameter='12:34:56.7890123'
 
 SELECT TOP 1 `e`.`TimeSpan`
 FROM `Entities` AS `e`
-WHERE `e`.`TimeSpan` = @__parameter_0
+WHERE `e`.`TimeSpan` = @parameter
 """);
     }
 
@@ -273,6 +274,7 @@ FROM (
     SELECT TOP 1 `o`.`Id`
     FROM `Offers` AS `o`
     WHERE `o`.`Id` = 1
+    ORDER BY `o`.`Id`
 ) AS `o0`
 INNER JOIN (
     SELECT `v`.`Id`, `v`.`NestedId`, `v`.`OfferId`, `v`.`payment_brutto`, `v`.`payment_netto`, `n`.`Id` AS `Id0`, `n`.`payment_brutto` AS `payment_brutto0`, `n`.`payment_netto` AS `payment_netto0`
@@ -291,7 +293,7 @@ ORDER BY `o0`.`Id`
             """
 SELECT `a`.`Id`, `s`.`Info_Created0` AS `Created`
 FROM (
-    SELECT TOP 10 `c`.`Id`, `b`.`AId`, `b`.`Info_Created` AS `Info_Created0`
+    SELECT TOP @p `c`.`Id`, `b`.`AId`, `b`.`Info_Created` AS `Info_Created0`
     FROM `Cs` AS `c`
     INNER JOIN `Bs` AS `b` ON `c`.`BId` = `b`.`Id`
     WHERE `b`.`AId` = 1

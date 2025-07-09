@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
-		<DotNetVersion>[9.0.6,9.0.999]</DotNetVersion>
-		<EFCoreVersion>[9.0.6,9.0.999]</EFCoreVersion>
-		<MSLibVersion>[9.0.6,9.0.999]</MSLibVersion>
+		<DotNetVersion>[10.0.0-preview.5.25277.114,10.0.999]</DotNetVersion>
+		<EFCoreVersion>[10.0.0-preview.5.25277.114,10.0.999]</EFCoreVersion>
+		<MSLibVersion>[10.0.0-preview.5.25277.114,10.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>

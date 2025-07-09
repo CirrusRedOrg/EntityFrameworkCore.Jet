@@ -75,7 +75,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="System.Diagnostics.DiagnosticSource" />
 		<PackageReference Include="System.Data.Odbc" />
 		<PackageReference Include="System.Data.OleDb" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />

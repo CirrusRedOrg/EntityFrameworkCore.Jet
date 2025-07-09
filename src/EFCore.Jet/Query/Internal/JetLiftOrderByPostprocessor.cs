@@ -50,8 +50,8 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                     relationalSplitCollectionShaperExpression.ParentIdentifier,
                     relationalSplitCollectionShaperExpression.ChildIdentifier, (SelectExpression)newSelect, newInner);
                 return relationalSplitCollectionShaperExpression;
-            case NonQueryExpression nonQueryExpression:
-                return nonQueryExpression;
+            case UpdateExpression or DeleteExpression:
+                return expression;
             case SelectExpression selectExpression:
                 {
                     Dictionary<int, (int? indexcol, OrderingExpression? orderexp, bool ascend, bool rewrite, bool referstocurouter)> columnsToRewrite = [];

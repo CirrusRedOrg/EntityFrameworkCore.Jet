@@ -405,7 +405,14 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
 
     protected override Expression VisitRightJoin(RightJoinExpression rightJoinExpression)
     {
-        throw new NotImplementedException();
+        var parentSearchCondition = _isSearchCondition;
+        _isSearchCondition = false;
+        var table = (TableExpressionBase)Visit(rightJoinExpression.Table);
+        _isSearchCondition = true;
+        var joinPredicate = (SqlExpression)Visit(rightJoinExpression.JoinPredicate);
+        _isSearchCondition = parentSearchCondition;
+
+        return rightJoinExpression.Update(table, joinPredicate);
     }
 
     /// <summary>

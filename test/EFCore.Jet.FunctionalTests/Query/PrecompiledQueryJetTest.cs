@@ -1348,18 +1348,17 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-@suffix='Suffix' (Size = 4000)
+@suffix='Suffix' (Size = 255)
 
-UPDATE [b]
-SET [b].[Name] = COALESCE([b].[Name], N'') + @suffix
-FROM [Blogs] AS [b]
-WHERE [b].[Id] > 8
+UPDATE `Blogs` AS `b`
+SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @suffix
+WHERE `b`.`Id` > 8
 """,
             //
             """
 SELECT COUNT(*)
-FROM [Blogs] AS [b]
-WHERE [b].[Id] = 9 AND [b].[Name] = N'Blog2Suffix'
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
 """);
     }
 

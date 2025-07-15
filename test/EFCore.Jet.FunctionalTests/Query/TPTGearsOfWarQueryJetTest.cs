@@ -4550,12 +4550,12 @@ ORDER BY `t`.`Id`, `s`.`Nickname`, `s`.`SquadId`
 
         AssertSql(
             """
-SELECT [g].[Nickname], [g].[SquadId], [t].[Id], [w].[Name], [w].[Id]
-FROM [Gears] AS [g]
-RIGHT JOIN [Tags] AS [t] ON [g].[Nickname] = [t].[GearNickName]
-LEFT JOIN [Weapons] AS [w] ON [g].[FullName] = [w].[OwnerFullName]
-WHERE [g].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [g].[Nickname], [g].[SquadId], [t].[Id]
+SELECT `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`, `w`.`Name`, `w`.`Id`
+FROM (`Gears` AS `g`
+RIGHT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName`)
+LEFT JOIN `Weapons` AS `w` ON `g`.`FullName` = `w`.`OwnerFullName`
+WHERE `g`.`HasSoulPatch` = FALSE
+ORDER BY `g`.`Nickname`, `g`.`SquadId`, `t`.`Id`
 """);
     }
 

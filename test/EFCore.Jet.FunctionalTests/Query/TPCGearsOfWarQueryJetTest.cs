@@ -5613,18 +5613,18 @@ ORDER BY `t`.`Id`, `u`.`Nickname`, `u`.`SquadId`
 
         AssertSql(
             """
-SELECT [u].[Nickname], [u].[SquadId], [t].[Id], [w].[Name], [w].[Id]
-FROM (
-    SELECT [g].[Nickname], [g].[SquadId], [g].[FullName], [g].[HasSoulPatch]
-    FROM [Gears] AS [g]
+SELECT `u`.`Nickname`, `u`.`SquadId`, `t`.`Id`, `w`.`Name`, `w`.`Id`
+FROM ((
+    SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`FullName`, `g`.`HasSoulPatch`
+    FROM `Gears` AS `g`
     UNION ALL
-    SELECT [o].[Nickname], [o].[SquadId], [o].[FullName], [o].[HasSoulPatch]
-    FROM [Officers] AS [o]
-) AS [u]
-RIGHT JOIN [Tags] AS [t] ON [u].[Nickname] = [t].[GearNickName]
-LEFT JOIN [Weapons] AS [w] ON [u].[FullName] = [w].[OwnerFullName]
-WHERE [u].[HasSoulPatch] = CAST(0 AS bit)
-ORDER BY [u].[Nickname], [u].[SquadId], [t].[Id]
+    SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`FullName`, `o`.`HasSoulPatch`
+    FROM `Officers` AS `o`
+) AS `u`
+RIGHT JOIN `Tags` AS `t` ON `u`.`Nickname` = `t`.`GearNickName`)
+LEFT JOIN `Weapons` AS `w` ON `u`.`FullName` = `w`.`OwnerFullName`
+WHERE `u`.`HasSoulPatch` = FALSE
+ORDER BY `u`.`Nickname`, `u`.`SquadId`, `t`.`Id`
 """);
     }
 

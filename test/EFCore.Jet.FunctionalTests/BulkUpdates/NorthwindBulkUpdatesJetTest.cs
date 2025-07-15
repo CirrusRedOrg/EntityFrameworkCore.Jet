@@ -671,19 +671,25 @@ WHERE [o].[OrderID] < 10276
 
         AssertSql(
             """
-@p='0'
-@p0='100'
-
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-RIGHT JOIN (
-    SELECT [o0].[OrderID]
-    FROM [Orders] AS [o0]
-    WHERE [o0].[OrderID] < 10300
-    ORDER BY [o0].[OrderID]
-    OFFSET @p ROWS FETCH NEXT @p0 ROWS ONLY
-) AS [o1] ON [o].[OrderID] = [o1].[OrderID]
-WHERE [o].[OrderID] < 10276
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o0`
+    RIGHT JOIN (
+        SELECT `o4`.`OrderID`
+        FROM (
+            SELECT TOP @p0 `o3`.`OrderID`
+            FROM (
+                SELECT TOP @p + @p0 `o2`.`OrderID`
+                FROM `Orders` AS `o2`
+                WHERE `o2`.`OrderID` < 10300
+                ORDER BY `o2`.`OrderID`
+            ) AS `o3`
+            ORDER BY `o3`.`OrderID` DESC
+        ) AS `o4`
+        ORDER BY `o4`.`OrderID`
+    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+    WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -1386,15 +1392,14 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             """
 @p='2020-01-01T00:00:00.0000000Z' (Nullable = true) (DbType = DateTime)
 
-UPDATE [o]
-SET [o].[OrderDate] = @p
-FROM [Orders] AS [o]
+UPDATE `Orders` AS `o`
 RIGHT JOIN (
-    SELECT [c].[CustomerID]
-    FROM [Customers] AS [c]
-    WHERE [c].[CustomerID] LIKE N'F%'
-) AS [c0] ON [o].[CustomerID] = [c0].[CustomerID]
-WHERE [o].[OrderID] < 10300
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+SET `o`.`OrderDate` = CDATE(@p)
+WHERE `o`.`OrderID` < 10300
 """);
     }
 

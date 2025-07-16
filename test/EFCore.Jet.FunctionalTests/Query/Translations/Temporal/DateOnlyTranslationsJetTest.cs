@@ -73,7 +73,7 @@ WHERE DATEPART('y', `b`.`DateOnly`) = 314
         AssertSql();
     }
 
-    /*public override async Task DayNumber(bool async)
+    public override async Task DayNumber(bool async)
     {
         await base.DayNumber(async);
 
@@ -83,7 +83,7 @@ SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[D
 FROM [BasicTypesEntities] AS [b]
 WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) = 726780
 """);
-    }*/
+    }
 
     public override async Task AddYears(bool async)
     {
@@ -121,7 +121,7 @@ WHERE DATEADD('d', CLNG(3), `b`.`DateOnly`) = #1990-11-13#
 """);
     }
 
-    /*public override async Task DayNumber_subtraction(bool async)
+    public override async Task DayNumber_subtraction(bool async)
     {
         await base.DayNumber_subtraction(async);
 
@@ -133,7 +133,7 @@ SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[D
 FROM [BasicTypesEntities] AS [b]
 WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) - @DayNumber = 5
 """);
-    }*/
+    }
 
     public override async Task FromDateTime(bool async)
     {

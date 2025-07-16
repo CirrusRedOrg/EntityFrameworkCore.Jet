@@ -38,7 +38,10 @@ public class OwnedRelationshipsJetFixture : OwnedRelationshipsRelationalFixtureB
             {
                 entity.SetTableName("Root_OptionalReferenceTrunk_OptionalReferenceBranch_CollB7BC1840");
             }
-
+            if (entity.GetTableName() == "RelationshipsBranchEntityRelationshipsTrunkEntityRelationshipsR~")
+            {
+                entity.SetTableName("RelBranchEntityRelationshipsTrunkEntityRelationshipsR");
+            }
         }
     }
 }

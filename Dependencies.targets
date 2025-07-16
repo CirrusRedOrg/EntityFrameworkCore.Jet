@@ -1,8 +1,8 @@
 <Project>
 	<PropertyGroup>
-		<DotNetVersion>[10.0.0-preview.5.25277.114,10.0.999]</DotNetVersion>
-		<EFCoreVersion>[10.0.0-preview.5.25277.114,10.0.999]</EFCoreVersion>
-		<MSLibVersion>[10.0.0-preview.5.25277.114,10.0.999]</MSLibVersion>
+		<DotNetVersion>[10.0.0-preview.6.25358.103,10.0.999]</DotNetVersion>
+		<EFCoreVersion>[10.0.0-preview.6.25358.103,10.0.999]</EFCoreVersion>
+		<MSLibVersion>[10.0.0-preview.6.25358.103,10.0.999]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -37,7 +37,7 @@
 		<!-- EFCore.Jet.FunctionalTests -->
 		<PackageReference Update="xunit.core" Version="2.9.3"/>
 		<PackageReference Update="xunit.assert" Version="2.9.3" />
-		<PackageReference Update="xunit.runner.visualstudio" Version="3.1.1" />
+		<PackageReference Update="xunit.runner.visualstudio" Version="3.1.2" />
 		<PackageReference Update="xunit.runner.console" Version="2.9.3" />
 		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
 		<PackageReference Update="NetTopologySuite" Version="2.5.0" />

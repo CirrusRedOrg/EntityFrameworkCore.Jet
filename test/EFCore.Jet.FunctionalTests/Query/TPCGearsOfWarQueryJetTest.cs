@@ -9942,6 +9942,19 @@ ORDER BY `u`.`Nickname`
 """);
     }
 
+    public override async Task Enum_array_contains(bool async)
+    {
+        await base.Enum_array_contains(async);
+
+        AssertSql(
+            """
+SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
+FROM `Weapons` AS `w`
+LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+WHERE `w0`.`Id` IS NOT NULL AND (`w0`.`AmmunitionType` IS NULL OR `w0`.`AmmunitionType` = 1)
+""");
+    }
+
     public override async Task Coalesce_with_non_root_evaluatable_Convert(bool async)
     {
         await base.Coalesce_with_non_root_evaluatable_Convert(async);

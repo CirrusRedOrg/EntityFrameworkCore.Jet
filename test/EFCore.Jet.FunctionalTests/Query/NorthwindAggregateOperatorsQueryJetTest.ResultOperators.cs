@@ -44,6 +44,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql();
         }
 
+        public override async Task Contains_with_local_tuple_array_closure(bool async)
+            => await AssertTranslationFailed(() => base.Contains_with_local_tuple_array_closure(async));
+
         public override async Task Array_cast_to_IEnumerable_Contains_with_constant(bool async)
         {
             await base.Array_cast_to_IEnumerable_Contains_with_constant(async);
@@ -1639,6 +1642,24 @@ WHERE `c`.`CustomerID` IN (
                     """);
         }
 
+        public override async Task Contains_with_local_nullable_uint_array_closure(bool async)
+        {
+            await base.Contains_with_local_nullable_uint_array_closure(async);
+
+            AssertSql(
+                """
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`EmployeeID` IN (0, 1)
+""",
+                //
+                """
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`EmployeeID` = 0
+""");
+        }
+
         public override async Task Contains_with_local_array_inline(bool isAsync)
         {
             await base.Contains_with_local_array_inline(isAsync);
@@ -2059,6 +2080,13 @@ SELECT IIF(@p IN (
     ), TRUE, FALSE)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
+        }
+
+        public override async Task Contains_with_local_anonymous_type_array_closure(bool async)
+        {
+            await AssertTranslationFailed(() => base.Contains_with_local_anonymous_type_array_closure(async));
+
+            AssertSql();
         }
 
         public override async Task OfType_Select(bool async)

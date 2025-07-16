@@ -42,6 +42,30 @@ WHERE `p`.`Int` IN (10, 999)
 """);
     }
 
+    public override async Task Inline_collection_of_nullable_ints_Contains(bool async)
+    {
+        await base.Inline_collection_of_nullable_ints_Contains(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IN (10, 999)
+""");
+    }
+
+    public override async Task Inline_collection_of_nullable_ints_Contains_null(bool async)
+    {
+        await base.Inline_collection_of_nullable_ints_Contains_null(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IS NULL OR `p`.`NullableInt` = 999
+""");
+    }
+
     public override async Task Inline_collection_Count_with_zero_values(bool async)
     {
         await base.Inline_collection_Count_with_zero_values(async);
@@ -557,6 +581,42 @@ WHERE `p`.`NullableInt` NOT IN (10, 999) OR `p`.`NullableInt` IS NULL
 """);
     }
 
+    public override async Task Parameter_collection_of_nullable_ints_Contains_int(bool async)
+    {
+        await base.Parameter_collection_of_nullable_ints_Contains_int(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
+""",
+            //
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
+""");
+    }
+
+    public override async Task Parameter_collection_of_nullable_ints_Contains_nullable_int(bool async)
+    {
+        await base.Parameter_collection_of_nullable_ints_Contains_nullable_int(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IS NULL OR `p`.`NullableInt` = 999
+""",
+            //
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`NullableInt` IS NOT NULL AND `p`.`NullableInt` <> 999
+""");
+    }
+
     public override async Task Parameter_collection_of_strings_Contains_string(bool async)
     {
         await base.Parameter_collection_of_strings_Contains_string(async);
@@ -653,6 +713,18 @@ WHERE `p`.`Bool` = TRUE
 """);
     }
 
+    public override async Task Parameter_collection_of_enums_Contains(bool async)
+    {
+        await base.Parameter_collection_of_enums_Contains(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Enum` IN (0, 3)
+""");
+    }
+
     public override async Task Parameter_collection_null_Contains(bool async)
     {
         await base.Parameter_collection_null_Contains(async);
@@ -723,6 +795,12 @@ WHERE (
 
     public override Task Column_collection_of_ints_Contains(bool async)
         => AssertTranslationFailedWithDetails(() => base.Column_collection_of_ints_Contains(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+
+    public override Task Column_collection_of_nullable_ints_Contains(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_nullable_ints_Contains(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+
+    public override Task Column_collection_of_nullable_ints_Contains_null(bool async)
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_nullable_ints_Contains_null(async), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override Task Column_collection_of_strings_contains_null(bool async)
         => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null(async));

@@ -789,7 +789,7 @@ SELECT `c1`.`CustomerID`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`
 FROM (
     SELECT TOP 1 `c0`.`CustomerID`
     FROM (
-        SELECT TOP 1 `c`.`CustomerID`
+        SELECT TOP @p `c`.`CustomerID`
         FROM `Customers` AS `c`
         WHERE `c`.`CustomerID` LIKE 'A%'
         ORDER BY `c`.`CustomerID`
@@ -964,9 +964,9 @@ SELECT `c2`.`CustomerID`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`
 FROM (
     SELECT TOP 1 `c0`.`CustomerID`
     FROM (
-        SELECT TOP 1 `c1`.`CustomerID`
+        SELECT TOP @p `c1`.`CustomerID`
         FROM (
-            SELECT TOP 2 `c`.`CustomerID`
+            SELECT TOP @p + @p `c`.`CustomerID`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` LIKE 'A%'
             ORDER BY `c`.`CustomerID`

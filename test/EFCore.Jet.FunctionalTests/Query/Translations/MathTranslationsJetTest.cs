@@ -243,14 +243,14 @@ WHERE ROUND(CDBL(`b`.`Float`), 1) = 255.1
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE ROUND([b].[Decimal], 0, 1) = 8.0
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE FIX(`b`.`Decimal`) = 8.0
 """,
             //
             """
-SELECT ROUND([b].[Decimal], 0, 1)
-FROM [BasicTypesEntities] AS [b]
+SELECT FIX(`b`.`Decimal`)
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 
@@ -260,14 +260,14 @@ FROM [BasicTypesEntities] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE ROUND([b].[Double], 0, 1) = 8.0E0
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE FIX(`b`.`Double`) = 8.0
 """,
             //
             """
-SELECT ROUND([b].[Double], 0, 1)
-FROM [BasicTypesEntities] AS [b]
+SELECT FIX(`b`.`Double`)
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 
@@ -277,14 +277,14 @@ FROM [BasicTypesEntities] AS [b]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(ROUND([b].[Float], 0, 1) AS real) = CAST(8 AS real)
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(FIX(`b`.`Float`) IS NULL, NULL, CSNG(FIX(`b`.`Float`))) = 8
 """,
             //
             """
-SELECT CAST(ROUND([b].[Float], 0, 1) AS real)
-FROM [BasicTypesEntities] AS [b]
+SELECT IIF(FIX(`b`.`Float`) IS NULL, NULL, CSNG(FIX(`b`.`Float`)))
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 
@@ -294,9 +294,12 @@ FROM [BasicTypesEntities] AS [b]
 
         AssertSql(
             """
-SELECT ROUND([b].[Double], 0, 1) AS [A]
-FROM [BasicTypesEntities] AS [b]
-ORDER BY ROUND([b].[Double], 0, 1)
+SELECT `b0`.`A`
+FROM (
+    SELECT FIX(`b`.`Double`) AS `A`
+    FROM `BasicTypesEntities` AS `b`
+) AS `b0`
+ORDER BY `b0`.`A`
 """);
     }
 
@@ -312,9 +315,12 @@ ORDER BY ROUND([b].[Double], 0, 1)
 
         AssertSql(
             """
-SELECT ROUND([b].[Double], 0, 1) AS [A]
-FROM [BasicTypesEntities] AS [b]
-ORDER BY ROUND([b].[Double], 0, 1) DESC
+SELECT `b0`.`A`
+FROM (
+    SELECT FIX(`b`.`Double`) AS `A`
+    FROM `BasicTypesEntities` AS `b`
+) AS `b0`
+ORDER BY `b0`.`A` DESC
 """);
     }
 
@@ -330,9 +336,12 @@ ORDER BY ROUND([b].[Double], 0, 1) DESC
 
         AssertSql(
             """
-SELECT ROUND([b].[Double], 0, 1) AS [A]
-FROM [BasicTypesEntities] AS [b]
-ORDER BY ROUND([b].[Double], 0, 1) DESC
+SELECT `b0`.`A`
+FROM (
+    SELECT FIX(`b`.`Double`) AS `A`
+    FROM `BasicTypesEntities` AS `b`
+) AS `b0`
+ORDER BY `b0`.`A` DESC
 """);
     }
 
@@ -483,23 +492,77 @@ WHERE SGN(`b`.`Float`) > 0
 """);
     }
 
-    public override Task Max(bool async)
-        => AssertTranslationFailed(() => base.Max(async));
+    public override async Task Max(bool async)
+    {
+        await base.Max(async);
 
-    public override Task Max_nested(bool async)
-        => AssertTranslationFailed(() => base.Max_nested(async));
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(`b`.`Int` > (`b`.`Short` - 3), `b`.`Int`, `b`.`Short` - 3) = `b`.`Int`
+""");
+    }
 
-    public override Task Max_nested_twice(bool async)
-        => AssertTranslationFailed(() => base.Max_nested_twice(async));
+    public override async Task Max_nested(bool async)
+    {
+        await base.Max_nested(async);
 
-    public override Task Min(bool async)
-        => AssertTranslationFailed(() => base.Min(async));
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`) > 1, IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`), 1) = `b`.`Int`
+""");
+    }
 
-    public override Task Min_nested(bool async)
-        => AssertTranslationFailed(() => base.Min_nested(async));
+    public override async Task Max_nested_twice(bool async)
+    {
+        await base.Max_nested_twice(async);
 
-    public override Task Min_nested_twice(bool async)
-        => AssertTranslationFailed(() => base.Min_nested_twice(async));
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2) > (`b`.`Short` - 3), IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2), `b`.`Short` - 3) = `b`.`Int`
+""");
+    }
+
+    public override async Task Min(bool async)
+    {
+        await base.Min(async);
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(`b`.`Int` < (`b`.`Short` + 3), `b`.`Int`, `b`.`Short` + 3) = `b`.`Int`
+""");
+    }
+
+    public override async Task Min_nested(bool async)
+    {
+        await base.Min_nested(async);
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`) < 99999, IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`), 99999) = `b`.`Int`
+""");
+    }
+
+    public override async Task Min_nested_twice(bool async)
+    {
+        await base.Min_nested_twice(async);
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998) < (`b`.`Short` + 3), IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998), `b`.`Short` + 3) = `b`.`Int`
+""");
+    }
 
     public override async Task Degrees(bool async)
     {

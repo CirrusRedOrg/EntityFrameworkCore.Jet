@@ -1168,7 +1168,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(INT(`o0`.`UnitPrice`)) IS NULL, 0.0, SUM(INT(`o0`.`UnitPrice`)))
+    SELECT IIF(SUM(FIX(`o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice`)))
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -1183,7 +1183,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(INT(`o0`.`UnitPrice` * `o0`.`UnitPrice`)) IS NULL, 0.0, SUM(INT(`o0`.`UnitPrice` * `o0`.`UnitPrice`)))
+    SELECT IIF(SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)))
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -1209,7 +1209,7 @@ WHERE `o`.`OrderID` < 10300
 
             AssertSql(
                 $"""
-                    SELECT INT(CDBL(`o`.`OrderID`)) AS `A`
+                    SELECT FIX(CDBL(`o`.`OrderID`)) AS `A`
                     FROM `Orders` AS `o`
                     WHERE `o`.`OrderID` < 10250
                     """);
@@ -1235,7 +1235,7 @@ WHERE `o`.`OrderID` < 10300
                 $"""
                     SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
                     FROM `Order Details` AS `o`
-                    WHERE `o`.`Quantity` < 5 AND INT(`o`.`UnitPrice`) > 10.0
+                    WHERE `o`.`Quantity` < 5 AND FIX(`o`.`UnitPrice`) > 10.0
                     """);
         }
 
@@ -1597,7 +1597,7 @@ WHERE `o`.`Quantity` < 5
                 """
     SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
     FROM `Order Details` AS `o`
-    WHERE `o`.`Quantity` < 5 AND IIF(INT(CSNG(`o`.`UnitPrice`)) IS NULL, NULL, CSNG(INT(CSNG(`o`.`UnitPrice`)))) > 10
+    WHERE `o`.`Quantity` < 5 AND IIF(FIX(CSNG(`o`.`UnitPrice`)) IS NULL, NULL, CSNG(FIX(CSNG(`o`.`UnitPrice`)))) > 10
     """);
         }
 
@@ -1607,7 +1607,7 @@ WHERE `o`.`Quantity` < 5
 
             AssertSql(
                 """
-    SELECT IIF(INT(CSNG(`o`.`UnitPrice`)) IS NULL, NULL, CSNG(INT(CSNG(`o`.`UnitPrice`))))
+    SELECT IIF(FIX(CSNG(`o`.`UnitPrice`)) IS NULL, NULL, CSNG(FIX(CSNG(`o`.`UnitPrice`))))
     FROM `Order Details` AS `o`
     WHERE `o`.`Quantity` < 5
     """);

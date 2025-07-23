@@ -226,7 +226,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     resultType = typeof(double);
                 }
                 var result = (SqlExpression)_sqlExpressionFactory.Function(
-                    "INT",
+                    "FIX",
                     [argument],
                     nullable: true,
                     argumentsPropagateNullability: [true],

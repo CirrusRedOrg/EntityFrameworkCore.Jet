@@ -81,7 +81,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(INT(`o0`.`UnitPrice`)) IS NULL, 0.0, SUM(INT(`o0`.`UnitPrice`)))
+    SELECT IIF(SUM(FIX(`o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice`)))
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -96,7 +96,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(INT(`o0`.`UnitPrice` * `o0`.`UnitPrice`)) IS NULL, 0.0, SUM(INT(`o0`.`UnitPrice` * `o0`.`UnitPrice`)))
+    SELECT IIF(SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)))
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`

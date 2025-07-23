@@ -130,8 +130,25 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
                     //return false;
                 }
 
-                // Delete the database to ensure it's recreated with the correct file path
-                DeleteDatabase();
+                //Call DeleteDatabase(). If you get IOException, wait 1 sec then retry, up to a max of 3 times
+                int retryCount = 0;
+                while (true)
+                {
+                    try
+                    {
+                        DeleteDatabase();
+                        break;
+                    }
+                    catch (IOException)
+                    {
+                        if (++retryCount >= 3)
+                        {
+                            throw;
+                        }
+                        Thread.Sleep(1000);
+                    }
+                }
+                
             }
 
             JetConnection.CreateDatabase(connectionString);

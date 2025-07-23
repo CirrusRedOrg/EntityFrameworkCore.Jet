@@ -53,7 +53,7 @@ public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQu
 
     protected override TestStore CreateTestStore25225()
     {
-        var testStore = JetTestStore.Create(StoreName);
+        var testStore = JetTestStore.Create(StoreName + "25225");
         testStore.UseConnectionString = true;
         return testStore;
     }
@@ -285,7 +285,7 @@ ORDER BY `p1`.`Id`
     {
         var contextFactory = await InitializeAsync<Context21355>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => JetTestStore.Create(StoreName));
+            createTestStore: () => JetTestStore.Create(StoreName + "21355"));
 
         using var context = contextFactory.CreateContext();
         context.Parents.Include(p => p.Children1).Include(p => p.Children2).AsSplitQuery().ToList();

@@ -277,7 +277,7 @@ SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthNa
 FROM (`Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`)
 LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
-WHERE `t`.`Id` IS NOT NULL AND `t`.`Id` IN ({b39a6fba-9026-4d69-828e-fd7068673e57}, {34c8d86e-a4ac-4be5-827f-584dda348a07}, {70534e05-782c-4052-8720-c2c54481ce5f}, {a8ad98f9-e023-4e2a-9a70-c2728455bd34}, {df36f493-463f-4123-83f9-6b135deeb7ba}, {a7be028a-0cf2-448f-ab55-ce8bc5d8cf69})
+WHERE `t`.`Id` IS NOT NULL AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd7068673e57}', '{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{df36f493-463f-4123-83f9-6b135deeb7ba}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}')
 """);
     }
 
@@ -297,7 +297,7 @@ FROM ((`Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`)
 INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`)
 LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
-WHERE `c`.`Location` IS NOT NULL AND `t`.`Id` IN ({b39a6fba-9026-4d69-828e-fd7068673e57}, {34c8d86e-a4ac-4be5-827f-584dda348a07}, {70534e05-782c-4052-8720-c2c54481ce5f}, {a8ad98f9-e023-4e2a-9a70-c2728455bd34}, {df36f493-463f-4123-83f9-6b135deeb7ba}, {a7be028a-0cf2-448f-ab55-ce8bc5d8cf69})
+WHERE `c`.`Location` IS NOT NULL AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd7068673e57}', '{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{df36f493-463f-4123-83f9-6b135deeb7ba}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}')
 """);
     }
 
@@ -316,7 +316,7 @@ SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthNa
 FROM (`Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`)
 LEFT JOIN `Tags` AS `t` ON `g`.`Nickname` = `t`.`GearNickName` AND `g`.`SquadId` = `t`.`GearSquadId`
-WHERE `t`.`Id` IS NOT NULL AND `t`.`Id` IN ({b39a6fba-9026-4d69-828e-fd7068673e57}, {34c8d86e-a4ac-4be5-827f-584dda348a07}, {70534e05-782c-4052-8720-c2c54481ce5f}, {a8ad98f9-e023-4e2a-9a70-c2728455bd34}, {df36f493-463f-4123-83f9-6b135deeb7ba}, {a7be028a-0cf2-448f-ab55-ce8bc5d8cf69})
+WHERE `t`.`Id` IS NOT NULL AND `t`.`Id` IN ('{b39a6fba-9026-4d69-828e-fd7068673e57}', '{34c8d86e-a4ac-4be5-827f-584dda348a07}', '{70534e05-782c-4052-8720-c2c54481ce5f}', '{a8ad98f9-e023-4e2a-9a70-c2728455bd34}', '{df36f493-463f-4123-83f9-6b135deeb7ba}', '{a7be028a-0cf2-448f-ab55-ce8bc5d8cf69}')
 """);
     }
 
@@ -2706,7 +2706,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             """
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
 FROM `Tags` AS `t`
-WHERE `t`.`Id` IN ({df36f493-463f-4123-83f9-6b135deeb7ba}, {23cbcf9b-ce14-45cf-aafa-2c2667ebfdd3}, {ab1b82d7-88db-42bd-a132-7eef9aa68af4})
+WHERE `t`.`Id` IN ('{df36f493-463f-4123-83f9-6b135deeb7ba}', '{23cbcf9b-ce14-45cf-aafa-2c2667ebfdd3}', '{ab1b82d7-88db-42bd-a132-7eef9aa68af4}')
 """);
     }
 
@@ -9972,7 +9972,7 @@ LEFT JOIN `LocustHighCommands` AS `l1` ON `l0`.`HighCommandId` = `l1`.`Id`
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
 FROM `Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
-WHERE IIF(`g`.`Rank` = 1, @key, @key) IN ({0a47bcb7-a1cb-4345-8944-c58f82d6aac7}, {5f221fb9-66f4-442a-92c9-d97ed5989cc7})
+WHERE IIF(`g`.`Rank` = 1, @key, @key) IN ('{0a47bcb7-a1cb-4345-8944-c58f82d6aac7}', '{5f221fb9-66f4-442a-92c9-d97ed5989cc7}')
 """,
             //
             """
@@ -9981,7 +9981,7 @@ WHERE IIF(`g`.`Rank` = 1, @key, @key) IN ({0a47bcb7-a1cb-4345-8944-c58f82d6aac7}
 
 SELECT `w`.`Id`, `w`.`AmmunitionType`, `w`.`IsAutomatic`, `w`.`Name`, `w`.`OwnerFullName`, `w`.`SynergyWithId`
 FROM `Weapons` AS `w`
-WHERE IIF(`w`.`AmmunitionType` = 1, @key, @key) IN ({0a47bcb7-a1cb-4345-8944-c58f82d6aac7}, {5f221fb9-66f4-442a-92c9-d97ed5989cc7})
+WHERE IIF(`w`.`AmmunitionType` = 1, @key, @key) IN ('{0a47bcb7-a1cb-4345-8944-c58f82d6aac7}', '{5f221fb9-66f4-442a-92c9-d97ed5989cc7}')
 """);
     }
 

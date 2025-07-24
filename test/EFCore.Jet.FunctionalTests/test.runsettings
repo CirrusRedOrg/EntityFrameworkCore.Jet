@@ -4,7 +4,7 @@
   <RunConfiguration>
     <EnvironmentVariables>
       <!-- List of environment variables we want to set-->
-      <EF_TEST_REWRITE_BASELINES>1</EF_TEST_REWRITE_BASELINES>
+      <EF_TEST_REWRITE_BASELINES>0</EF_TEST_REWRITE_BASELINES>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>

@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
 
         public static string Parameter(string name, DataAccessProviderType dataAccessProviderType)
             => dataAccessProviderType == DataAccessProviderType.Odbc
-                ? "?"
+                ? name //"?" EF10 was changed to log the command before we modify the sql to use unnamed parameters
                 : name;
 
         public static string Declaration(string fullDeclaration)

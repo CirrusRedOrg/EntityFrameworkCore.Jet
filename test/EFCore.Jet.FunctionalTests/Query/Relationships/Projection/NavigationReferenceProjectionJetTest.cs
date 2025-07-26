@@ -190,16 +190,16 @@ WHERE `t`.`RequiredReferenceBranchId` IS NOT NULL AND `b`.`Id` IS NOT NULL AND `
 
         AssertSql(
             """
-SELECT [s].[Id], [s].[CollectionTrunkId], [s].[Name], [s].[OptionalReferenceLeafId], [s].[RequiredReferenceLeafId]
-FROM [RootEntities] AS [r]
+SELECT `s`.`Id`, `s`.`CollectionTrunkId`, `s`.`Name`, `s`.`OptionalReferenceLeafId`, `s`.`RequiredReferenceLeafId`
+FROM `RootEntities` AS `r`
 OUTER APPLY (
-    SELECT TOP(1) [b].[Id], [b].[CollectionTrunkId], [b].[Name], [b].[OptionalReferenceLeafId], [b].[RequiredReferenceLeafId]
-    FROM [RootEntities] AS [r0]
-    INNER JOIN [TrunkEntities] AS [t] ON [r0].[RequiredReferenceTrunkId] = [t].[Id]
-    INNER JOIN [BranchEntities] AS [b] ON [t].[RequiredReferenceBranchId] = [b].[Id]
-    ORDER BY [r0].[Id]
-) AS [s]
-ORDER BY [r].[Id]
+    SELECT TOP(1) `b`.`Id`, `b`.`CollectionTrunkId`, `b`.`Name`, `b`.`OptionalReferenceLeafId`, `b`.`RequiredReferenceLeafId`
+    FROM `RootEntities` AS `r0`
+    INNER JOIN `TrunkEntities` AS `t` ON `r0`.`RequiredReferenceTrunkId` = `t`.`Id`
+    INNER JOIN `BranchEntities` AS `b` ON `t`.`RequiredReferenceBranchId` = `b`.`Id`
+    ORDER BY `r0`.`Id`
+) AS `s`
+ORDER BY `r`.`Id`
 """);
     }
 

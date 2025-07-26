@@ -15,8 +15,8 @@
             Bump-up to the next iteration immediately after a release, so that subsequent daily builds are named
             correctly.
         -->
-		<VersionPrefix>9.0.0</VersionPrefix>
-		<PreReleaseVersionLabel>rtm</PreReleaseVersionLabel>
+		<VersionPrefix>9.0.1</VersionPrefix>
+		<PreReleaseVersionLabel>servicing</PreReleaseVersionLabel>
 		<PreReleaseVersionIteration>0</PreReleaseVersionIteration>
 
 		<!--

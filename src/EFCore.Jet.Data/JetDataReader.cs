@@ -544,5 +544,17 @@ namespace EntityFrameworkCore.Jet.Data
 
             return (T)GetValue(ordinal);
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _wrappedDataReader.Dispose();
+            }
+#if DEBUG
+            Interlocked.Decrement(ref _activeObjectsCount);
+#endif
+            base.Dispose(disposing);
+        }
     }
 }

@@ -38,9 +38,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     await base.SeedAsync(context);
 
                     await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalComposite2` DROP CONSTRAINT `FK_OptionalComposite2_OptionalAk1_ParentId_ParentAlternateId`");
-                    await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
+                    //await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
                     await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalSingleComposite2` DROP CONSTRAINT `FK_OptionalSingleComposite2_OptionalSingleAk1_BackId_ParentAlte~`");
-                    await context.Database.ExecuteSqlAsync($"ALTER TABLE `RequiredComposite2` DROP CONSTRAINT `FK_RequiredComposite2_RequiredAk1_ParentId_ParentAlternateId`");
+                    //await context.Database.ExecuteSqlAsync($"ALTER TABLE `RequiredComposite2` DROP CONSTRAINT `FK_RequiredComposite2_RequiredAk1_ParentId_ParentAlternateId`");
                     await context.Database.ExecuteSqlAsync($"ALTER TABLE `SharedFkParent` DROP CONSTRAINT `FK_SharedFkParent_SharedFkDependant_RootId_DependantId`");
                 }
             }

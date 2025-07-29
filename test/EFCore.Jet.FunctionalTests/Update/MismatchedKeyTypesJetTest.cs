@@ -821,10 +821,12 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
             await SeedAsync();
         }
 
-        public Task DisposeAsync()
+        public async Task DisposeAsync()
         {
-            Store.Dispose();
-            return Task.CompletedTask;
+            if (Store != null)
+            {
+                await Store.DisposeAsync();
+            }
         }
     }
 

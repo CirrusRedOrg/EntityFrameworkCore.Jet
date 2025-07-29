@@ -104,7 +104,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'
 SELECT `c`.`ContactName`, `o0`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
-    SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
@@ -134,7 +134,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN (
-    SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
@@ -168,7 +168,7 @@ WHERE `o0`.`CustomerID` = 'ALFKI'
 SELECT `c`.`ContactName`, `o0`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
-    SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` > 0
     ORDER BY `o`.`OrderID`
@@ -233,6 +233,30 @@ WHERE `o`.`CustomerID` LIKE 'F%'
 """);
         }
 
+        public override async Task LeftJoin(bool async)
+        {
+            await base.LeftJoin(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
+        }
+
+        public override async Task RightJoin(bool async)
+        {
+            await base.RightJoin(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
+        }
+
         public override async Task GroupJoin_simple(bool isAsync)
         {
             await base.GroupJoin_simple(isAsync);
@@ -293,7 +317,7 @@ WHERE `o`.`CustomerID` LIKE 'F%'
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN (
-    SELECT TOP 4 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
@@ -398,7 +422,7 @@ LEFT JOIN (
                 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
-    SELECT TOP 1 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
@@ -550,13 +574,62 @@ FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o0`.`OrderID`, `o0`.`CustomerID`
     FROM (
-        SELECT TOP 100 `o`.`OrderID`, `o`.`CustomerID`
+        SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
         FROM `Orders` AS `o`
         ORDER BY `o`.`OrderID`
     ) AS `o0`
     WHERE `o0`.`CustomerID` LIKE 'A%'
 ) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 """);
+        }
+
+        public override async Task GroupJoin_aggregate_anonymous_key_selectors(bool async)
+        {
+            await base.GroupJoin_aggregate_anonymous_key_selectors(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, (
+    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    FROM `Orders` AS `o`
+    WHERE `c`.`City` IS NOT NULL AND `c`.`CustomerID` = `o`.`CustomerID` AND `c`.`City` = 'London') AS `Sum`
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task GroupJoin_aggregate_anonymous_key_selectors2(bool async)
+        {
+            await base.GroupJoin_aggregate_anonymous_key_selectors2(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, (
+    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND 1996 = DATEPART('yyyy', `o`.`OrderDate`)) AS `Sum`
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task GroupJoin_aggregate_anonymous_key_selectors_one_argument(bool async)
+        {
+            await base.GroupJoin_aggregate_anonymous_key_selectors_one_argument(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, (
+    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task GroupJoin_aggregate_nested_anonymous_key_selectors(bool async)
+        {
+            await base.GroupJoin_aggregate_nested_anonymous_key_selectors(async);
+
+            AssertSql();
         }
 
         public override async Task Inner_join_with_tautology_predicate_converts_to_cross_join(bool async)
@@ -567,12 +640,12 @@ INNER JOIN (
                 """
 SELECT `c0`.`CustomerID`, `o0`.`OrderID`
 FROM (
-    SELECT TOP 10 `c`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c0`,
 (
-    SELECT TOP 10 `o`.`OrderID`
+    SELECT TOP @p `o`.`OrderID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`
@@ -940,7 +1013,7 @@ INNER JOIN `Employees` AS `e` ON `c`.`City` = `e`.`City`
 SELECT `e0`.`Title`, `e0`.`EmployeeID` AS `Id`
 FROM `Customers` AS `c`
 INNER JOIN (
-    SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Title`
+    SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Title`
     FROM `Employees` AS `e`
     ORDER BY `e`.`City`
 ) AS `e0` ON `c`.`City` = `e0`.`City`
@@ -977,20 +1050,11 @@ INNER JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
 """);
         }
 
-        public override async Task GroupJoin_on_true_equal_true(bool async)
+        public override async Task Join_with_key_selectors_being_nested_anonymous_objects(bool async)
         {
-            await base.GroupJoin_on_true_equal_true(async);
+            await base.Join_with_key_selectors_being_nested_anonymous_objects(async);
 
-            AssertSql(
-                """
-SELECT [c].[CustomerID], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-FROM [Customers] AS [c]
-OUTER APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-) AS [o0]
-ORDER BY [c].[CustomerID]
-""");
+            AssertSql();
         }
 
         private void AssertSql(params string[] expected)

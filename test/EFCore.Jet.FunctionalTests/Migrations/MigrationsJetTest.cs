@@ -1362,27 +1362,7 @@ CREATE INDEX `IX_People_FirstName` ON `People` (`FirstName`);
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'LastName');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [LastName] nvarchar(450) NULL;
-""",
-            //
-            """
-DECLARE @var1 sysname;
-SELECT @var1 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'FirstName');
-IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var1 + '];');
-ALTER TABLE [People] ALTER COLUMN [FirstName] nvarchar(450) NULL;
-""",
-            //
-            """
-CREATE UNIQUE INDEX [IX_People_FirstName_LastName] ON [People] ([FirstName], [LastName]) WHERE [FirstName] IS NOT NULL AND [LastName] IS NOT NULL;
+CREATE UNIQUE INDEX `IX_People_FirstName_LastName` ON `People` (`FirstName`, `LastName`) WITH IGNORE NULL;
 """);
     }
 
@@ -1412,11 +1392,11 @@ CREATE INDEX `IX_People_X_Y_Z` ON `People` (`X`, `Y` DESC, `Z`);
 
         AssertSql(
             """
-DROP INDEX [IX_People_X] ON [People];
+DROP INDEX `IX_People_X` ON `People`;
 """,
             //
             """
-CREATE UNIQUE INDEX [IX_People_X] ON [People] ([X]);
+CREATE UNIQUE INDEX `IX_People_X` ON `People` (`X`);
 """);
     }
 

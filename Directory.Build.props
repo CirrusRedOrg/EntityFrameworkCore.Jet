@@ -8,7 +8,7 @@
     <Company>CirrusRed</Company>
     <Copyright>Copyright © 2017-$([System.DateTime]::Now.Year) CirrusRed</Copyright>
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-    <LangVersion>13.0</LangVersion>
+    <LangVersion>preview</LangVersion>
 	  <Nullable>enable</Nullable>
     <DebugType>portable</DebugType>
     <IsPackable>False</IsPackable>
@@ -24,10 +24,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <EfCoreTargetFramework>net8.0</EfCoreTargetFramework>
+    <EfCoreTargetFramework>net10.0</EfCoreTargetFramework>
     <EfCoreTestTargetFramework>$(EfCoreTargetFramework)</EfCoreTestTargetFramework>
     <JetTargetFramework>$(EfCoreTargetFramework)</JetTargetFramework>
-    <JetTestTargetFramework>net9.0</JetTestTargetFramework>
+    <JetTestTargetFramework>net10.0</JetTestTargetFramework>
     <JetTestWindowsOnlyTargetFramework>$(JetTestTargetFramework)-windows7.0</JetTestWindowsOnlyTargetFramework>
   </PropertyGroup>
 

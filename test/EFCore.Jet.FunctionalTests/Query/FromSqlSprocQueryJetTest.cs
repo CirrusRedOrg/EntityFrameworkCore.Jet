@@ -27,7 +27,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.From_sql_queryable_stored_procedure_with_tag(async);
 
             AssertSql(
-                $@"EXEC `Ten Most Expensive Products`");
+                """
+-- Stored Procedure
+
+EXEC `Ten Most Expensive Products`
+""");
         }
 
         public override async Task From_sql_queryable_stored_procedure_with_caller_info_tag(bool async)
@@ -36,6 +40,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             AssertSql(
                 """
+-- File: SampleFileName:13
+
 EXEC `Ten Most Expensive Products`
 """);
         }
@@ -46,6 +52,10 @@ EXEC `Ten Most Expensive Products`
 
             AssertSql(
                 """
+-- Before
+-- File: SampleFileName:13
+-- After
+
 EXEC `Ten Most Expensive Products`
 """);
         }

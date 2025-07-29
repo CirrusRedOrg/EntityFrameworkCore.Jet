@@ -44,8 +44,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_Identity_column()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextIdentity(testStore.Name, OnModelCreating))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextIdentity(testStore.Name, OnModelCreating))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -54,7 +54,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextIdentity(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextIdentity(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
@@ -68,8 +68,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_default_value_from_sequence()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextDefaultValue(testStore.Name, OnModelCreating))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextDefaultValue(testStore.Name, OnModelCreating))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -78,7 +78,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextDefaultValue(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextDefaultValue(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
@@ -86,14 +86,14 @@ public abstract class JetValueGenerationScenariosTestBase
             Assert.Equal(1, blogs[1].Id);
         }
 
-        using (var context = new BlogContextDefaultValueNoMigrations(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextDefaultValueNoMigrations(testStore.Name, OnModelCreating))
         {
             context.AddRange(CreateBlog("One Unicorn"), CreateBlog("Two Unicorns"));
 
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextDefaultValueNoMigrations(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextDefaultValueNoMigrations(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
@@ -138,8 +138,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_default_string_value_from_sequence()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextStringDefaultValue(testStore.Name, OnModelCreating, StringSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextStringDefaultValue(testStore.Name, OnModelCreating, StringSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -150,7 +150,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextStringDefaultValue(testStore.Name, OnModelCreating, StringSentinel))
+        await using (var context = new BlogContextStringDefaultValue(testStore.Name, OnModelCreating, StringSentinel))
         {
             var blogs = context.StringyBlogs.OrderBy(e => e.Id).ToList();
 
@@ -191,8 +191,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_key_default_value_from_sequence()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextKeyColumnWithDefaultValue(testStore.Name, OnModelCreating))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextKeyColumnWithDefaultValue(testStore.Name, OnModelCreating))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -201,7 +201,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextKeyColumnWithDefaultValue(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextKeyColumnWithDefaultValue(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
@@ -232,8 +232,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_uint_to_Identity_column_using_value_converter()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextUIntToIdentityUsingValueConverter(testStore.Name, OnModelCreating, UIntSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextUIntToIdentityUsingValueConverter(testStore.Name, OnModelCreating, UIntSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -244,7 +244,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextUIntToIdentityUsingValueConverter(testStore.Name, OnModelCreating, UIntSentinel))
+        await using (var context = new BlogContextUIntToIdentityUsingValueConverter(testStore.Name, OnModelCreating, UIntSentinel))
         {
             var blogs = context.UnsignedBlogs.OrderBy(e => e.Id).ToList();
 
@@ -281,7 +281,7 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_int_enum_to_Identity_column()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
         using (var context = new BlogContextIntEnumToIdentity(testStore.Name, OnModelCreating, IntKeySentinel))
         {
             context.Database.EnsureCreatedResiliently();
@@ -337,8 +337,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_ulong_enum_to_Identity_column()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextULongEnumToIdentity(testStore.Name, OnModelCreating, ULongKeySentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextULongEnumToIdentity(testStore.Name, OnModelCreating, ULongKeySentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -349,7 +349,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextULongEnumToIdentity(testStore.Name, OnModelCreating, ULongKeySentinel))
+        await using (var context = new BlogContextULongEnumToIdentity(testStore.Name, OnModelCreating, ULongKeySentinel))
         {
             var blogs = context.EnumBlogs.OrderBy(e => e.Id).ToList();
 
@@ -392,8 +392,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_string_to_Identity_column_using_value_converter()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextStringToIdentityUsingValueConverter(testStore.Name, OnModelCreating, StringSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextStringToIdentityUsingValueConverter(testStore.Name, OnModelCreating, StringSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -404,7 +404,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextStringToIdentityUsingValueConverter(testStore.Name, OnModelCreating, StringSentinel))
+        await using (var context = new BlogContextStringToIdentityUsingValueConverter(testStore.Name, OnModelCreating, StringSentinel))
         {
             var blogs = context.StringyBlogs.OrderBy(e => e.Id).ToList();
 
@@ -442,8 +442,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_explicit_non_default_keys()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextNoKeyGeneration(testStore.Name, OnModelCreating))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextNoKeyGeneration(testStore.Name, OnModelCreating))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -453,7 +453,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextNoKeyGeneration(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextNoKeyGeneration(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
@@ -479,8 +479,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_explicit_with_default_keys()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name, OnModelCreating, NullableIntSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name, OnModelCreating, NullableIntSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -491,7 +491,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name, OnModelCreating, NullableIntSentinel))
+        await using (var context = new BlogContextNoKeyGenerationNullableKey(testStore.Name, OnModelCreating, NullableIntSentinel))
         {
             var blogs = context.NullableKeyBlogs.OrderBy(e => e.Id).ToList();
 
@@ -520,9 +520,9 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_non_key_default_value()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
 
-        using (var context = new BlogContextNonKeyDefaultValue(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextNonKeyDefaultValue(testStore.Name, OnModelCreating))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -553,7 +553,7 @@ public abstract class JetValueGenerationScenariosTestBase
             Assert.Equal(111, blogs[1].NeedsConverter.Value);
         }
 
-        using (var context = new BlogContextNonKeyDefaultValue(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextNonKeyDefaultValue(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Name).ToList();
             Assert.Equal(3, blogs.Count);
@@ -573,7 +573,7 @@ public abstract class JetValueGenerationScenariosTestBase
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextNonKeyDefaultValue(testStore.Name, OnModelCreating))
+        await using (var context = new BlogContextNonKeyDefaultValue(testStore.Name, OnModelCreating))
         {
             var blogs = context.Blogs.OrderBy(e => e.Name).ToList();
             Assert.Equal(3, blogs.Count);
@@ -706,8 +706,8 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_with_non_key_default_value_readonly()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextNonKeyReadOnlyDefaultValue(testStore.Name, OnModelCreating, IntSentinel, DateTimeSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextNonKeyReadOnlyDefaultValue(testStore.Name, OnModelCreating, IntSentinel, DateTimeSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -783,7 +783,7 @@ public abstract class JetValueGenerationScenariosTestBase
     [ConditionalFact]
     public async Task Insert_and_update_with_computed_column()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
         using (var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel))
         {
             context.Database.EnsureCreatedResiliently();
@@ -1029,9 +1029,9 @@ END");
     [ConditionalFact]
     public async Task Insert_with_client_generated_GUID_key()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
         Guid afterSave;
-        using (var context = new BlogContextClientGuidKey(testStore.Name, OnModelCreating, GuidSentinel))
+        await using (var context = new BlogContextClientGuidKey(testStore.Name, OnModelCreating, GuidSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -1058,7 +1058,7 @@ END");
             Assert.Equal(beforeSaveNotId, afterSaveNotId);
         }
 
-        using (var context = new BlogContextClientGuidKey(testStore.Name, OnModelCreating, GuidSentinel))
+        await using (var context = new BlogContextClientGuidKey(testStore.Name, OnModelCreating, GuidSentinel))
         {
             Assert.Equal(afterSave, context.GuidBlogs.Single().Id);
         }
@@ -1086,8 +1086,8 @@ END");
     [ConditionalFact]
     public async Task Insert_with_ValueGeneratedOnAdd_GUID_nonkey_property_throws()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContextClientGuidNonKey(testStore.Name, OnModelCreating, GuidSentinel);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContextClientGuidNonKey(testStore.Name, OnModelCreating, GuidSentinel);
         context.Database.EnsureCreatedResiliently();
 
         var blog = context.Add(
@@ -1126,9 +1126,9 @@ END");
     [ConditionalFact(Skip = "Jet can't return server generated guid's when it is the key. Currently using client geerated guid's")]
     public async Task Insert_with_server_generated_GUID_key()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
         Guid afterSave;
-        using (var context = new BlogContextServerGuidKey(testStore.Name, OnModelCreating, GuidSentinel))
+        await using (var context = new BlogContextServerGuidKey(testStore.Name, OnModelCreating, GuidSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -1186,8 +1186,8 @@ END");
     [ConditionalFact]
     public async Task Insert_with_explicit_non_default_keys_by_default()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContext(testStore.Name, OnModelCreating);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContext(testStore.Name, OnModelCreating);
         context.Database.EnsureCreatedResiliently();
 
         context.AddRange(
@@ -1203,8 +1203,8 @@ END");
     [ConditionalFact]
     public async Task Insert_with_explicit_default_keys()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContext(testStore.Name, OnModelCreating);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContext(testStore.Name, OnModelCreating);
         context.Database.EnsureCreatedResiliently();
 
         context.AddRange(
@@ -1223,8 +1223,8 @@ END");
     [ConditionalFact]
     public async Task Insert_with_implicit_default_keys()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextSpecifyKeysUsingDefault(testStore.Name, OnModelCreating, IntSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextSpecifyKeysUsingDefault(testStore.Name, OnModelCreating, IntSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -1234,7 +1234,7 @@ END");
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextSpecifyKeysUsingDefault(testStore.Name, OnModelCreating, IntSentinel))
+        await using (var context = new BlogContextSpecifyKeysUsingDefault(testStore.Name, OnModelCreating, IntSentinel))
         {
             var blogs = context.Blogs.OrderBy(e => e.Id).ToList();
 
@@ -1263,8 +1263,8 @@ END");
     [ConditionalFact]
     public async Task Insert_explicit_value_throws_when_readonly_sequence_before_save()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContextReadOnlySequenceKeyColumnWithDefaultValue(testStore.Name, OnModelCreating, IntSentinel);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContextReadOnlySequenceKeyColumnWithDefaultValue(testStore.Name, OnModelCreating, IntSentinel);
         context.Database.EnsureCreatedResiliently();
 
         context.AddRange(
@@ -1301,8 +1301,8 @@ END");
     [ConditionalFact]
     public async Task Insert_explicit_value_throws_when_readonly_before_save()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContextNonKeyReadOnlyDefaultValue(testStore.Name, OnModelCreating, IntSentinel, DateTimeSentinel);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContextNonKeyReadOnlyDefaultValue(testStore.Name, OnModelCreating, IntSentinel, DateTimeSentinel);
         context.Database.EnsureCreatedResiliently();
 
         context.AddRange(
@@ -1329,8 +1329,8 @@ END");
     [ConditionalFact]
     public async Task Insert_explicit_value_into_computed_column()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel);
         context.Database.EnsureCreatedResiliently();
 
         context.Add(
@@ -1352,8 +1352,8 @@ END");
     [ConditionalFact]
     public async Task Update_explicit_value_in_computed_column()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using (var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel))
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using (var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel))
         {
             context.Database.EnsureCreatedResiliently();
 
@@ -1369,7 +1369,7 @@ END");
             context.SaveChanges();
         }
 
-        using (var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel))
+        await using (var context = new BlogContextComputedColumn(testStore.Name, OnModelCreating, IntSentinel, StringSentinel))
         {
             var blog = context.FullNameBlogs.Single();
 
@@ -1387,8 +1387,8 @@ END");
     [ConditionalFact]
     public async Task Resolve_concurrency()
     {
-        using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
-        using var context = new BlogContextConcurrencyWithRowversion(testStore.Name, OnModelCreating, IntSentinel, TimestampSentinel);
+        await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
+        await using var context = new BlogContextConcurrencyWithRowversion(testStore.Name, OnModelCreating, IntSentinel, TimestampSentinel);
         context.Database.EnsureCreatedResiliently();
 
         var blog = context.Add(
@@ -1401,7 +1401,7 @@ END");
 
         context.SaveChanges();
 
-        using var innerContext = new BlogContextConcurrencyWithRowversion(testStore.Name, OnModelCreating, IntSentinel, TimestampSentinel);
+        await using var innerContext = new BlogContextConcurrencyWithRowversion(testStore.Name, OnModelCreating, IntSentinel, TimestampSentinel);
         var updatedBlog = innerContext.ConcurrentBlogs.Single();
         updatedBlog.Name = "One Pegasus";
         innerContext.SaveChanges();

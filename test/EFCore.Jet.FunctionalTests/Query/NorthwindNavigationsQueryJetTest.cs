@@ -54,14 +54,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Select_Where_Navigation_Deep(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT TOP 1 `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-                    WHERE `c`.`City` = 'Seattle'
-                    ORDER BY `o`.`OrderID`, `o`.`ProductID`
-                    """);
+                """
+SELECT TOP @p `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+WHERE `c`.`City` = 'Seattle'
+ORDER BY `o`.`OrderID`, `o`.`ProductID`
+""");
         }
 
         public override async Task Take_Select_Navigation(bool isAsync)
@@ -96,7 +96,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
             AssertSql(
                 """
-SELECT TOP 2 (
+SELECT TOP @p (
     SELECT TOP 1 `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
@@ -112,7 +112,7 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-SELECT TOP 2 (
+SELECT TOP @p (
     SELECT TOP 1 `o`.`CustomerID`
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
@@ -982,7 +982,7 @@ SELECT `o0`.`OrderID`, IIF((
         WHERE `o0`.`OrderID` = `o1`.`OrderID`
         ORDER BY `o1`.`OrderID`, `o1`.`ProductID`)) AS `OrderDetail`, `c`.`City`
 FROM (
-    SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`

@@ -32,11 +32,11 @@ public class PrecompiledQueryJetTest(
 
         AssertSql(
             """
-@__id_0='3'
+@id='3'
 
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE `b`.`Id` > @__id_0
+WHERE `b`.`Id` > @id
 """);
     }
 
@@ -57,9 +57,9 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-@__yes_0='yes' (Size = 255)
+@yes='yes' (Size = 255)
 
-SELECT IIF(`b`.`Id` = 2, @__yes_0, 'no')
+SELECT IIF(`b`.`Id` = 2, @yes, 'no')
 FROM `Blogs` AS `b`
 """);
     }
@@ -134,11 +134,11 @@ WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, IIF(LEN(`b`.`Name`) IS NULL, 0
 
         AssertSql(
             """
-@__pattern_0_startswith='foo%' (Size = 255)
+@pattern_startswith='foo%' (Size = 255)
 
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE `b`.`Name` LIKE @__pattern_0_startswith
+WHERE `b`.`Name` LIKE @pattern_startswith
 """);
     }
 
@@ -212,9 +212,9 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-@__id_0='8'
+@id='8'
 
-SELECT CLNG(@__id_0) AS `Id`, `b`.`Name`
+SELECT CLNG(@id) AS `Id`, `b`.`Name`
 FROM `Blogs` AS `b`
 """);
     }
@@ -247,9 +247,9 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-@__i_0='8'
+@i='8'
 
-SELECT `b`.`Id`, `b`.`Id` + @__i_0
+SELECT `b`.`Id`, `b`.`Id` + @i
 FROM `Blogs` AS `b`
 """);
     }
@@ -620,9 +620,9 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-@__p_0='8'
+@p='8'
 
-SELECT IIF(@__p_0 IN (
+SELECT IIF(@p IN (
         SELECT `b`.`Id`
         FROM `Blogs` AS `b`
     ), TRUE, FALSE)
@@ -630,9 +630,9 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-@__p_0='7'
+@p='7'
 
-SELECT IIF(@__p_0 IN (
+SELECT IIF(@p IN (
         SELECT `b`.`Id`
         FROM `Blogs` AS `b`
     ), TRUE, FALSE)
@@ -646,9 +646,9 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
         AssertSql(
             """
-@__p_0='8'
+@p='8'
 
-SELECT IIF(@__p_0 IN (
+SELECT IIF(@p IN (
         SELECT `b`.`Id`
         FROM `Blogs` AS `b`
     ), TRUE, FALSE)
@@ -656,9 +656,9 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-@__p_0='7'
+@p='7'
 
-SELECT IIF(@__p_0 IN (
+SELECT IIF(@p IN (
         SELECT `b`.`Id`
         FROM `Blogs` AS `b`
     ), TRUE, FALSE)
@@ -1342,16 +1342,16 @@ FROM `Blogs` AS `b`
 """);
     }
 
-    public override async Task Terminating_ExecuteUpdate()
+    public override async Task Terminating_ExecuteUpdate_with_lambda()
     {
-        await base.Terminating_ExecuteUpdate();
+        await base.Terminating_ExecuteUpdate_with_lambda();
 
         AssertSql(
             """
-@__suffix_0='Suffix' (Size = 255)
+@suffix='Suffix' (Size = 255)
 
 UPDATE `Blogs` AS `b`
-SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @__suffix_0
+SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @suffix
 WHERE `b`.`Id` > 8
 """,
             //
@@ -1362,16 +1362,36 @@ WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
 """);
     }
 
-    public override async Task Terminating_ExecuteUpdateAsync()
+    public override async Task Terminating_ExecuteUpdate_without_lambda()
     {
-        await base.Terminating_ExecuteUpdateAsync();
+        await base.Terminating_ExecuteUpdate_without_lambda();
 
         AssertSql(
             """
-@__suffix_0='Suffix' (Size = 255)
+@newValue='NewValue' (Size = 255)
 
 UPDATE `Blogs` AS `b`
-SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @__suffix_0
+SET `b`.`Name` = @newValue
+WHERE `b`.`Id` > 8
+""",
+            //
+            """
+SELECT COUNT(*)
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 9 AND `b`.`Name` = 'NewValue'
+""");
+    }
+
+    public override async Task Terminating_ExecuteUpdateAsync_with_lambda()
+    {
+        await base.Terminating_ExecuteUpdateAsync_with_lambda();
+
+        AssertSql(
+            """
+@suffix='Suffix' (Size = 255)
+
+UPDATE `Blogs` AS `b`
+SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @suffix
 WHERE `b`.`Id` > 8
 """,
             //
@@ -1379,6 +1399,44 @@ WHERE `b`.`Id` > 8
 SELECT COUNT(*)
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
+""");
+    }
+
+    public override async Task Terminating_ExecuteUpdateAsync_without_lambda()
+    {
+        await base.Terminating_ExecuteUpdateAsync_without_lambda();
+
+    AssertSql(
+    """
+@newValue='NewValue' (Size = 255)
+
+UPDATE `Blogs` AS `b`
+SET `b`.`Name` = @newValue
+WHERE `b`.`Id` > 8
+""",
+    //
+    """
+SELECT COUNT(*)
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 9 AND `b`.`Name` = 'NewValue'
+""");
+    }
+
+    public override async Task Terminating_with_cancellation_token()
+    {
+        await base.Terminating_with_cancellation_token();
+
+    AssertSql(
+    """
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 8
+""",
+    //
+    """
+SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+WHERE `b`.`Id` = 7
 """);
     }
 
@@ -1808,18 +1866,7 @@ WHERE `b`.`Name` = 'Blog2'
     }
 
     #endregion Negative cases
-
-    public override async Task Select_changes_type()
-    {
-        await base.Select_changes_type();
-
-        AssertSql(
-            """
-SELECT `b`.`Name`
-FROM `Blogs` AS `b`
-""");
-    }
-
+    
     public override async Task OrderBy()
     {
         await base.OrderBy();
@@ -1832,100 +1879,79 @@ ORDER BY `b`.`Name`
 """);
     }
 
-    public override async Task Skip()
+    public override async Task Skip_with_constant()
     {
-        await base.Skip();
+        await base.Skip_with_constant();
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Name]
-OFFSET @__p_0 ROWS
+OFFSET @p ROWS
 """);
     }
 
-    public override async Task Take()
+    public override async Task Skip_with_parameter()
     {
-        await base.Take();
+        await base.Skip_with_parameter();
 
         AssertSql(
             """
-SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
+@p='1'
+
+SELECT [b].[Id], [b].[Name], [b].[Json]
+FROM [Blogs] AS [b]
+ORDER BY [b].[Name]
+OFFSET @p ROWS
+""");
+    }
+
+    public override async Task Take_with_constant()
+    {
+        await base.Take_with_constant();
+
+        AssertSql(
+            """
+SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Name`
 """);
     }
 
-    public override async Task Project_anonymous_object()
+    public override async Task Take_with_parameter()
     {
-        await base.Project_anonymous_object();
+        await base.Take_with_parameter();
+
+        AssertSql(
+            """
+SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`
+""");
+    }
+
+    public override async Task Select_changes_type()
+    {
+        await base.Select_changes_type();
+
+        AssertSql(
+            """
+SELECT `b`.`Name`
+FROM `Blogs` AS `b`
+""");
+    }
+
+    public override async Task Select_anonymous_object()
+    {
+        await base.Select_anonymous_object();
 
         AssertSql(
             """
 SELECT IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & 'Foo' AS `Foo`
 FROM `Blogs` AS `b`
-""");
-    }
-
-    public override async Task Two_captured_variables_in_same_lambda()
-    {
-        await base.Two_captured_variables_in_same_lambda();
-
-        AssertSql(
-            """
-@__yes_0='yes' (Size = 255)
-@__no_1='no' (Size = 255)
-
-SELECT IIF(`b`.`Id` = 3, @__yes_0, @__no_1)
-FROM `Blogs` AS `b`
-""");
-    }
-
-    public override async Task Two_captured_variables_in_different_lambdas()
-    {
-        await base.Two_captured_variables_in_different_lambdas();
-
-        AssertSql(
-            """
-@__starts_0_startswith='blog%' (Size = 255)
-@__ends_1_endswith='%2' (Size = 255)
-
-SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-WHERE (`b`.`Name` LIKE @__starts_0_startswith) AND (`b`.`Name` LIKE @__ends_1_endswith)
-""");
-    }
-
-    public override async Task Same_captured_variable_twice_in_same_lambda()
-    {
-        await base.Same_captured_variable_twice_in_same_lambda();
-
-        AssertSql(
-            """
-@__foo_0_startswith='X%' (Size = 255)
-@__foo_0_endswith='%X' (Size = 255)
-
-SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswith)
-""");
-    }
-
-    public override async Task Same_captured_variable_twice_in_different_lambdas()
-    {
-        await base.Same_captured_variable_twice_in_different_lambdas();
-
-        AssertSql(
-            """
-@__foo_0_startswith='X%' (Size = 255)
-@__foo_0_endswith='%X' (Size = 255)
-
-SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-WHERE (`b`.`Name` LIKE @__foo_0_startswith) AND (`b`.`Name` LIKE @__foo_0_endswith)
 """);
     }
 
@@ -1974,26 +2000,85 @@ ORDER BY `b`.`Name`
 """);
     }
 
+    public override async Task Two_captured_variables_in_same_lambda()
+    {
+        await base.Two_captured_variables_in_same_lambda();
+
+        AssertSql(
+            """
+@yes='yes' (Size = 255)
+@no='no' (Size = 255)
+
+SELECT IIF(`b`.`Id` = 3, @yes, @no)
+FROM `Blogs` AS `b`
+""");
+    }
+
+    public override async Task Two_captured_variables_in_different_lambdas()
+    {
+        await base.Two_captured_variables_in_different_lambdas();
+
+        AssertSql(
+            """
+@starts_startswith='Blog%' (Size = 255)
+@ends_endswith='%2' (Size = 255)
+
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+WHERE (`b`.`Name` LIKE @starts_startswith) AND (`b`.`Name` LIKE @ends_endswith)
+""");
+    }
+
+    public override async Task Same_captured_variable_twice_in_same_lambda()
+    {
+        await base.Same_captured_variable_twice_in_same_lambda();
+
+        AssertSql(
+            """
+@foo_startswith='X%' (Size = 255)
+@foo_endswith='%X' (Size = 255)
+
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+WHERE (`b`.`Name` LIKE @foo_startswith) AND (`b`.`Name` LIKE @foo_endswith)
+""");
+    }
+
+    public override async Task Same_captured_variable_twice_in_different_lambdas()
+    {
+        await base.Same_captured_variable_twice_in_different_lambdas();
+
+        AssertSql(
+            """
+@foo_startswith='X%' (Size = 255)
+@foo_endswith='%X' (Size = 255)
+
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+WHERE (`b`.`Name` LIKE @foo_startswith) AND (`b`.`Name` LIKE @foo_endswith)
+""");
+    }
+
     public override async Task Multiple_queries_with_captured_variables()
     {
         await base.Multiple_queries_with_captured_variables();
 
         AssertSql(
             """
-@__id1_0='8'
-@__id2_1='9'
+@id1='8'
+@id2='9'
 
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE `b`.`Id` = @__id1_0 OR `b`.`Id` = @__id2_1
+WHERE `b`.`Id` = @id1 OR `b`.`Id` = @id2
 """,
             //
             """
-@__id1_0='8'
+@id1='8'
 
 SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE `b`.`Id` = @__id1_0
+WHERE `b`.`Id` = @id1
 """);
     }
 

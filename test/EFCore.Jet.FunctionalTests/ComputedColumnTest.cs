@@ -138,10 +138,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         public async Task InitializeAsync()
             => TestStore = await JetTestStore.CreateInitializedAsync("ComputedColumnTest");
 
-        public Task DisposeAsync()
-        {
-            TestStore.Dispose();
-            return Task.CompletedTask;
-        }
+        public async Task DisposeAsync()
+            => await TestStore.DisposeAsync();
     }
 }

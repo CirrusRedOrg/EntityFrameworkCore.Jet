@@ -27,11 +27,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentId`
 FROM `Child` AS `c`
-WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -43,11 +43,11 @@ WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -59,11 +59,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -75,11 +75,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
 FROM `Single` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -91,11 +91,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -107,11 +107,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `s`.`Id`
 FROM `SinglePkToPk` AS `s`
-WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -137,11 +137,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentId`
 FROM `Child` AS `c`
-WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -153,11 +153,11 @@ WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='787'")}
+{AssertSqlHelper.Declaration("@p='787'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -169,11 +169,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='787'")}
+{AssertSqlHelper.Declaration("@p='787'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -185,11 +185,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
 FROM `Single` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -244,11 +244,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -260,11 +260,11 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -276,11 +276,11 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
 FROM `SingleAk` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -306,11 +306,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentId`
 FROM `ChildShadowFk` AS `c`
-WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -322,11 +322,11 @@ WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached || queryTrackingBehavior != QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -338,11 +338,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached || queryTrackingBehavior != QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -354,11 +354,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
 FROM `SingleShadowFk` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -384,12 +384,12 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
 FROM `ChildCompositeKey` AS `c`
-WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_1")}
+WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
 """);
         }
 
@@ -401,12 +401,12 @@ WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`P
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@__p_1='707'")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p0='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@__p_1")}
+WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
 """);
         }
 
@@ -418,12 +418,12 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@__p_1='707'")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p0='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@__p_1")}
+WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
 """);
         }
 
@@ -435,12 +435,12 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {
                 state == EntityState.Detached && queryTrackingBehavior == QueryTrackingBehavior.TrackAll
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
 FROM `SingleCompositeKey` AS `s`
-WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_1")}
+WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
 """);
         }
 
@@ -464,11 +464,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -478,11 +478,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -492,11 +492,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -506,11 +506,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -520,11 +520,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -534,11 +534,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 1 `s`.`Id`
                     FROM `SinglePkToPk` AS `s`
-                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -548,11 +548,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -562,11 +562,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -576,11 +576,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -592,11 +592,11 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`P
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentId`
 FROM `Single` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -606,11 +606,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -622,11 +622,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 2 `s`.`Id`
 FROM `SinglePkToPk` AS `s`
-WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -674,11 +674,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -688,11 +688,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -702,11 +702,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -716,11 +716,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -730,11 +730,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -744,11 +744,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -758,11 +758,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -772,11 +772,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT TOP 2 `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -831,11 +831,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -847,11 +847,11 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Deleted
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -863,11 +863,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Deleted
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -878,11 +878,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT TOP 2 `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -892,11 +892,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -906,11 +906,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 2 `s`.`Id`
                     FROM `SinglePkToPk` AS `s`
-                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -920,11 +920,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -934,11 +934,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -948,11 +948,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -962,11 +962,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -976,11 +976,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -990,11 +990,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1004,11 +1004,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707'")}
+                    {AssertSqlHelper.Declaration("@p='707'")}
                     
                     SELECT `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1020,11 +1020,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT `s`.`Id`, `s`.`ParentId`
 FROM `Single` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1034,11 +1034,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1048,11 +1048,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1062,11 +1062,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1076,11 +1076,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1090,11 +1090,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1104,11 +1104,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1118,11 +1118,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='787'")}
+                    {AssertSqlHelper.Declaration("@p='787'")}
                     
                     SELECT `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1132,11 +1132,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='767' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='767' (Nullable = true)")}
                     
                     SELECT `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1176,11 +1176,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `Child` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1192,11 +1192,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Deleted
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1208,11 +1208,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Deleted
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1223,11 +1223,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `s`.`Id`, `s`.`ParentId`
                     FROM `Single` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1237,11 +1237,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `ChildAk` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1251,11 +1251,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1265,11 +1265,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1279,11 +1279,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
                     FROM `SingleAk` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1293,11 +1293,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `ChildAk` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1307,11 +1307,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1321,11 +1321,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1337,11 +1337,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentId`
 FROM `SingleAk` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1389,11 +1389,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `ChildShadowFk` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1405,11 +1405,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1421,11 +1421,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1435,11 +1435,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentId`
                     FROM `SingleShadowFk` AS `s`
-                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1449,11 +1449,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentId`
                     FROM `ChildShadowFk` AS `c`
-                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+                    WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     """);
         }
 
@@ -1465,11 +1465,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1481,11 +1481,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707'")}
+{AssertSqlHelper.Declaration("@p='707'")}
 
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1497,11 +1497,11 @@ WHERE `p`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='707' (Nullable = true)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentId`
 FROM `SingleShadowFk` AS `s`
-WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
 """);
         }
 
@@ -1553,12 +1553,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
                     FROM `ChildCompositeKey` AS `c`
-                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1568,12 +1568,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707'")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1583,12 +1583,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707'")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1598,12 +1598,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
                     FROM `SingleCompositeKey` AS `s`
-                    WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1613,12 +1613,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
                     FROM `ChildCompositeKey` AS `c`
-                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1628,12 +1628,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707'")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1643,12 +1643,12 @@ WHERE 0 = 1
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__p_1='707'")}
+                    {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+                    {AssertSqlHelper.Declaration("@p0='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@__p_1")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
                     """);
         }
 
@@ -1660,12 +1660,12 @@ WHERE 0 = 1
                 state == EntityState.Detached
                     ? ""
                     : $"""
-{AssertSqlHelper.Declaration("@__p_0='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@__p_1='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
+{AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
 FROM `SingleCompositeKey` AS `s`
-WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@__p_0")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@__p_1")}
+WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
 """);
         }
 

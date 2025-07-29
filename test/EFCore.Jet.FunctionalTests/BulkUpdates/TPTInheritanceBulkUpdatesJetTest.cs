@@ -88,8 +88,10 @@ public class TPTInheritanceBulkUpdatesJetTest(
 
         AssertExecuteUpdateSql(
             """
+@p='Animal' (Size = 255)
+
 UPDATE `Animals` AS `a`
-SET `a`.`Name` = 'Animal'
+SET `a`.`Name` = @p
 WHERE `a`.`Name` = 'Great spotted kiwi'
 """);
     }
@@ -100,9 +102,11 @@ WHERE `a`.`Name` = 'Great spotted kiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='NewBird' (Size = 255)
+
 UPDATE `Animals` AS `a`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-SET `a`.`Name` = 'NewBird'
+SET `a`.`Name` = @p
 WHERE `k`.`Id` IS NOT NULL
 """);
     }
@@ -120,10 +124,12 @@ WHERE `k`.`Id` IS NOT NULL
 
         AssertExecuteUpdateSql(
             """
+@p='SomeOtherKiwi' (Size = 255)
+
 UPDATE (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-SET `a`.`Name` = 'SomeOtherKiwi'
+SET `a`.`Name` = @p
 """);
     }
 
@@ -133,10 +139,12 @@ SET `a`.`Name` = 'SomeOtherKiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='0' (Size = 1)
+
 UPDATE (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-SET `k`.`FoundOn` = CBYTE(0)
+SET `k`.`FoundOn` = @p
 """);
     }
 
@@ -153,8 +161,10 @@ SET `k`.`FoundOn` = CBYTE(0)
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM `Animals` AS `a`
@@ -168,8 +178,10 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM `Animals` AS `a`
@@ -191,9 +203,11 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='0'
+
 UPDATE `Drinks` AS `d`
 INNER JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`
-SET `c`.`SugarGrams` = 0
+SET `c`.`SugarGrams` = @p
 """);
     }
 
@@ -203,9 +217,11 @@ SET `c`.`SugarGrams` = 0
 
         AssertExecuteUpdateSql(
             """
+@p='0'
+
 UPDATE `Drinks` AS `d`
 INNER JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`
-SET `c`.`SugarGrams` = 0
+SET `c`.`SugarGrams` = @p
 """);
     }
 

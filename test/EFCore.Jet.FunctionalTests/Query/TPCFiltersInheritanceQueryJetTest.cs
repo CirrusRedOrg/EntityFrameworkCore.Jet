@@ -207,12 +207,12 @@ SELECT TOP 2 `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`
 FROM `Eagle` AS `e`
 """,
             //
-            $"""
-@__p_0='2'
+            """
+@p='2'
 
 SELECT TOP 1 `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`
 FROM `Eagle` AS `e`
-WHERE `e`.`Id` = {AssertSqlHelper.Parameter("@__p_0")}
+WHERE `e`.`Id` = @p
 """);
     }
 

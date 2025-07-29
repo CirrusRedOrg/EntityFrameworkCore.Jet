@@ -53,7 +53,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         private static async Task Returns_false_when_database_does_not_exist_test(
             bool async, bool ambientTransaction, bool useCanConnect)
         {
-            using var testDatabase = JetTestStore.Create("NonExisting");
+            await using var testDatabase = JetTestStore.Create("NonExisting");
             using var context = new BloggingContext(testDatabase);
             var creator = GetDatabaseCreator(context);
 
@@ -98,9 +98,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Returns_true_when_database_exists_test(bool async, bool ambientTransaction, bool useCanConnect)
         {
-            using var testDatabase =
+            await using var testDatabase =
                 await JetTestStore.CreateInitializedAsync("ExistingBloggingFile");
-            using var context = new BloggingContext(testDatabase);
+            await using var context = new BloggingContext(testDatabase);
             var creator = GetDatabaseCreator(context);
 
             await context.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -148,7 +148,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Delete_database_test(bool async, bool open, bool ambientTransaction)
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync("EnsureDeleteBloggingFile");
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync("EnsureDeleteBloggingFile");
             if (!open)
             {
                 testDatabase.CloseConnection();
@@ -200,7 +200,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Noop_when_database_does_not_exist_test(bool async)
         {
-            using var testDatabase = JetTestStore.Create("NonExisting");
+            await using var testDatabase = JetTestStore.Create("NonExisting");
             using var context = new BloggingContext(testDatabase);
             var creator = GetDatabaseCreator(context);
 
@@ -272,7 +272,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             (bool CreateDatabase, bool Async, bool ambientTransaction) options)
         {
             var (createDatabase, async, ambientTransaction) = options;
-            using var testDatabase = JetTestStore.Create("EnsureCreatedTestFile");
+            await using var testDatabase = JetTestStore.Create("EnsureCreatedTestFile");
             using var context = new BloggingContext(testDatabase);
             if (createDatabase)
             {
@@ -358,7 +358,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         private static async Task Noop_when_database_exists_and_has_schema_test(bool async)
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync("InitializedBloggingFile");
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync("InitializedBloggingFile");
             using var context = new BloggingContext(testDatabase);
             context.Database.EnsureCreatedResiliently();
 
@@ -383,7 +383,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_when_database_does_not_exist(bool async)
         {
-            using var testDatabase = JetTestStore.GetOrCreate("NonExisting");
+            await using var testDatabase = JetTestStore.GetOrCreate("NonExisting");
             var databaseCreator = GetDatabaseCreator(testDatabase);
             await databaseCreator.ExecutionStrategy.ExecuteAsync(
                 databaseCreator,
@@ -404,7 +404,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public async Task Returns_false_when_database_exists_but_has_no_tables(bool async, bool ambientTransaction)
         {
-            using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("Empty");
+            await using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("Empty");
             var creator = GetDatabaseCreator(testDatabase);
 
             await GetExecutionStrategy(testDatabase).ExecuteAsync(
@@ -424,7 +424,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public async Task Returns_true_when_database_exists_and_has_any_tables(bool async, bool ambientTransaction)
         {
-            using var testDatabase = await JetTestStore.GetOrCreate("ExistingTables")
+            await using var testDatabase = await JetTestStore.GetOrCreate("ExistingTables")
                 .InitializeJetAsync(null, t => new BloggingContext(t), null);
             var creator = GetDatabaseCreator(testDatabase);
 
@@ -447,7 +447,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public static async Task Deletes_database(bool async, bool ambientTransaction)
         {
-            using var testDatabase = await JetTestStore.CreateInitializedAsync("DeleteBlogging");
+            await using var testDatabase = await JetTestStore.CreateInitializedAsync("DeleteBlogging");
             testDatabase.CloseConnection();
 
             var creator = GetDatabaseCreator(testDatabase);
@@ -474,7 +474,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_when_database_does_not_exist(bool async)
         {
-            using var testDatabase = JetTestStore.GetOrCreate("NonExistingBlogging");
+            await using var testDatabase = JetTestStore.GetOrCreate("NonExistingBlogging");
             var creator = GetDatabaseCreator(testDatabase);
 
             if (async)
@@ -496,7 +496,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, false)]
         public async Task Creates_schema_in_existing_database_test(bool async, bool ambientTransaction)
         {
-            using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("ExistingBlogging" + (async ? "Async" : ""));
+            await using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("ExistingBlogging" + (async ? "Async" : ""));
             using var context = new BloggingContext(testDatabase);
             var creator = GetDatabaseCreator(context);
 
@@ -546,7 +546,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_if_database_does_not_exist(bool async)
         {
-            using var testDatabase = JetTestStore.GetOrCreate("NonExisting");
+            await using var testDatabase = JetTestStore.GetOrCreate("NonExisting");
             var creator = GetDatabaseCreator(testDatabase);
             var exception = async
                 ? await Record.ExceptionAsync(() => creator.CreateTablesAsync())
@@ -622,7 +622,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false, true)]
         public async Task Creates_physical_database_but_not_tables(bool async, bool ambientTransaction)
         {
-            using var testDatabase = JetTestStore.GetOrCreate("CreateTest");
+            await using var testDatabase = JetTestStore.GetOrCreate("CreateTest");
             var creator = GetDatabaseCreator(testDatabase);
 
             creator.EnsureDeleted();
@@ -660,7 +660,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         [InlineData(false)]
         public async Task Throws_if_database_already_exists(bool async)
         {
-            using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("ExistingBlogging");
+            await using var testDatabase = await JetTestStore.GetOrCreateInitializedAsync("ExistingBlogging");
             var creator = GetDatabaseCreator(testDatabase);
 
             var ex = async

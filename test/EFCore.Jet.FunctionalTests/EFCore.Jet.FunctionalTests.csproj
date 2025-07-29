@@ -70,6 +70,8 @@
 		<None Include="..\xunit.runner.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<None Include="Query\AdHocJsonQueryJetTest.cs" />
+		<None Include="Query\AdHocJsonQueryJetTestBase.cs" />
 		<None Remove="TestResults\**" />
 	</ItemGroup>
 
@@ -100,6 +102,8 @@
 
 	<ItemGroup>
 		<Compile Remove="PropertyEntryJetTest.cs" />
+		<Compile Remove="Query\AdHocJsonQueryJetTest.cs" />
+		<Compile Remove="Query\AdHocJsonQueryJetTestBase.cs" />
 	</ItemGroup>
 
 </Project>

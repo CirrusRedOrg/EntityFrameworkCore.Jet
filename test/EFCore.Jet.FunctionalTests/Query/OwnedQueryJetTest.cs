@@ -130,7 +130,7 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
                 """
 SELECT `o3`.`Id`, `o3`.`Discriminator`, `o3`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o3`.`PersonAddress_AddressLine`, `o3`.`PersonAddress_PlaceType`, `o3`.`PersonAddress_ZipCode`, `o3`.`PersonAddress_Country_Name`, `o3`.`PersonAddress_Country_PlanetId`, `o3`.`BranchAddress_BranchName`, `o3`.`BranchAddress_PlaceType`, `o3`.`BranchAddress_Country_Name`, `o3`.`BranchAddress_Country_PlanetId`, `o3`.`LeafBAddress_LeafBType`, `o3`.`LeafBAddress_PlaceType`, `o3`.`LeafBAddress_Country_Name`, `o3`.`LeafBAddress_Country_PlanetId`, `o3`.`LeafAAddress_LeafType`, `o3`.`LeafAAddress_PlaceType`, `o3`.`LeafAAddress_Country_Name`, `o3`.`LeafAAddress_Country_PlanetId`
 FROM (
-    SELECT TOP 5 `o0`.`Id`, `o0`.`Discriminator`, `o0`.`Name`, `o0`.`PersonAddress_AddressLine`, `o0`.`PersonAddress_PlaceType`, `o0`.`PersonAddress_ZipCode`, `o0`.`PersonAddress_Country_Name`, `o0`.`PersonAddress_Country_PlanetId`, `o0`.`BranchAddress_BranchName`, `o0`.`BranchAddress_PlaceType`, `o0`.`BranchAddress_Country_Name`, `o0`.`BranchAddress_Country_PlanetId`, `o0`.`LeafBAddress_LeafBType`, `o0`.`LeafBAddress_PlaceType`, `o0`.`LeafBAddress_Country_Name`, `o0`.`LeafBAddress_Country_PlanetId`, `o0`.`LeafAAddress_LeafType`, `o0`.`LeafAAddress_PlaceType`, `o0`.`LeafAAddress_Country_Name`, `o0`.`LeafAAddress_Country_PlanetId`
+    SELECT TOP @p `o0`.`Id`, `o0`.`Discriminator`, `o0`.`Name`, `o0`.`PersonAddress_AddressLine`, `o0`.`PersonAddress_PlaceType`, `o0`.`PersonAddress_ZipCode`, `o0`.`PersonAddress_Country_Name`, `o0`.`PersonAddress_Country_PlanetId`, `o0`.`BranchAddress_BranchName`, `o0`.`BranchAddress_PlaceType`, `o0`.`BranchAddress_Country_Name`, `o0`.`BranchAddress_Country_PlanetId`, `o0`.`LeafBAddress_LeafBType`, `o0`.`LeafBAddress_PlaceType`, `o0`.`LeafBAddress_Country_Name`, `o0`.`LeafBAddress_Country_PlanetId`, `o0`.`LeafAAddress_LeafType`, `o0`.`LeafAAddress_PlaceType`, `o0`.`LeafAAddress_Country_Name`, `o0`.`LeafAAddress_Country_PlanetId`
     FROM (
         SELECT DISTINCT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
         FROM `OwnedPerson` AS `o`
@@ -189,10 +189,10 @@ LEFT JOIN (
     FROM `Order` AS `o1`
     LEFT JOIN `OrderDetail` AS `o2` ON `o1`.`ClientId` = `o2`.`OrderClientId` AND `o1`.`Id` = `o2`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
-WHERE (
-    SELECT COUNT(*)
+WHERE EXISTS (
+    SELECT 1
     FROM `Order` AS `o0`
-    WHERE `o`.`Id` = `o0`.`ClientId`) > 0
+    WHERE `o`.`Id` = `o0`.`ClientId`)
 ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
         }
@@ -462,9 +462,9 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
                 """
 SELECT `o4`.`Id`, `o4`.`Discriminator`, `o4`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o4`.`PersonAddress_AddressLine`, `o4`.`PersonAddress_PlaceType`, `o4`.`PersonAddress_ZipCode`, `o4`.`PersonAddress_Country_Name`, `o4`.`PersonAddress_Country_PlanetId`, `o4`.`BranchAddress_BranchName`, `o4`.`BranchAddress_PlaceType`, `o4`.`BranchAddress_Country_Name`, `o4`.`BranchAddress_Country_PlanetId`, `o4`.`LeafBAddress_LeafBType`, `o4`.`LeafBAddress_PlaceType`, `o4`.`LeafBAddress_Country_Name`, `o4`.`LeafBAddress_Country_PlanetId`, `o4`.`LeafAAddress_LeafType`, `o4`.`LeafAAddress_PlaceType`, `o4`.`LeafAAddress_Country_Name`, `o4`.`LeafAAddress_Country_PlanetId`, `o4`.`c`
 FROM (
-    SELECT TOP 100 `o3`.`Id`, `o3`.`Discriminator`, `o3`.`Name`, `o3`.`PersonAddress_AddressLine`, `o3`.`PersonAddress_PlaceType`, `o3`.`PersonAddress_ZipCode`, `o3`.`PersonAddress_Country_Name`, `o3`.`PersonAddress_Country_PlanetId`, `o3`.`BranchAddress_BranchName`, `o3`.`BranchAddress_PlaceType`, `o3`.`BranchAddress_Country_Name`, `o3`.`BranchAddress_Country_PlanetId`, `o3`.`LeafBAddress_LeafBType`, `o3`.`LeafBAddress_PlaceType`, `o3`.`LeafBAddress_Country_Name`, `o3`.`LeafBAddress_Country_PlanetId`, `o3`.`LeafAAddress_LeafType`, `o3`.`LeafAAddress_PlaceType`, `o3`.`LeafAAddress_Country_Name`, `o3`.`LeafAAddress_Country_PlanetId`, `o3`.`c`
+    SELECT TOP @p0 `o3`.`Id`, `o3`.`Discriminator`, `o3`.`Name`, `o3`.`PersonAddress_AddressLine`, `o3`.`PersonAddress_PlaceType`, `o3`.`PersonAddress_ZipCode`, `o3`.`PersonAddress_Country_Name`, `o3`.`PersonAddress_Country_PlanetId`, `o3`.`BranchAddress_BranchName`, `o3`.`BranchAddress_PlaceType`, `o3`.`BranchAddress_Country_Name`, `o3`.`BranchAddress_Country_PlanetId`, `o3`.`LeafBAddress_LeafBType`, `o3`.`LeafBAddress_PlaceType`, `o3`.`LeafBAddress_Country_Name`, `o3`.`LeafBAddress_Country_PlanetId`, `o3`.`LeafAAddress_LeafType`, `o3`.`LeafAAddress_PlaceType`, `o3`.`LeafAAddress_Country_Name`, `o3`.`LeafAAddress_Country_PlanetId`, `o3`.`c`
     FROM (
-        SELECT TOP 100 `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`, (
+        SELECT TOP @p + @p0 `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`, (
             SELECT COUNT(*)
             FROM `OwnedPerson` AS `o2`) AS `c`
         FROM `OwnedPerson` AS `o`

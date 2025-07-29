@@ -1,17 +1,18 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Update;
+using System;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Update;
 
-public class StoredProcedureUpdateJetTest : StoredProcedureUpdateTestBase
+public class StoredProcedureUpdateJetTest(NonSharedFixture fixture) : StoredProcedureUpdateTestBase(fixture)
 {
     public override async Task Insert_with_output_parameter(bool async)
     {

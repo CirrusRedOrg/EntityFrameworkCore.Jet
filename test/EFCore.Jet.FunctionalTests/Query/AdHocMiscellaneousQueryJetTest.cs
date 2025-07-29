@@ -12,6 +12,7 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -25,10 +26,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 #nullable disable
 
-public class AdHocMiscellaneousQueryJetTest : AdHocMiscellaneousQueryRelationalTestBase
+public class AdHocMiscellaneousQueryJetTest(NonSharedFixture fixture) : AdHocMiscellaneousQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
+    protected override DbContextOptionsBuilder SetTranslateParameterizedCollectionsToConstants(DbContextOptionsBuilder optionsBuilder)
+    {
+        new JetDbContextOptionsBuilder(optionsBuilder).TranslateParameterizedCollectionsToConstants();
+
+        return optionsBuilder;
+    }
 
     protected override Task Seed2951(Context2951 context)
         => context.Database.ExecuteSqlRawAsync(
@@ -44,7 +51,7 @@ INSERT ZeroKey VALUES (NULL)
     {
         var contextFactory = await InitializeAsync<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: async () => await JetTestStore.CreateInitializedAsync(StoreName, multipleActiveResultSets: true));
+            createTestStore: () => JetTestStore.Create(StoreName));
 
         Parallel.For(
             0, 10, i =>
@@ -79,7 +86,7 @@ INSERT ZeroKey VALUES (NULL)
     {
         var contextFactory = await InitializeAsync<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: async () => await JetTestStore.CreateInitializedAsync(StoreName, multipleActiveResultSets: true));
+            createTestStore: () => JetTestStore.Create(StoreName));
 
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
@@ -186,19 +193,19 @@ FROM `Customers` AS `c`
 """,
             //
             """
-@__id_0='1'
+@id='1'
 
 SELECT TOP 2 `c`.`Id`, `c`.`Name`
 FROM `Customers` AS `c`
-WHERE `c`.`Id` = @__id_0
+WHERE `c`.`Id` = @id
 """,
             //
             """
-@__id_0='2'
+@id='2'
 
 SELECT TOP 2 `c`.`Id`, `c`.`Name`
 FROM `Customers` AS `c`
-WHERE `c`.`Id` = @__id_0
+WHERE `c`.`Id` = @id
 """);
     }
 
@@ -991,58 +998,58 @@ WHERE [e].[PermissionByte] & [e].[PermissionByte] = [e].[PermissionByte]
 
         AssertSql(
             """
-@__id_0='1'
+@id='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = @id
 """,
             //
             """
-@__id_0='2'
+@id='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = @id
 """,
             //
             """
-@__id_0='1'
+@id='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = @id
 """,
             //
             """
-@__id_0='2'
+@id='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` = @__id_0
+WHERE `e`.`Id` = @id
 """,
             //
             """
-@__id_0='1'
+@id='1'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Id` IN (
     SELECT `e0`.`Id`
     FROM `Entities` AS `e0`
-    WHERE `e0`.`Id` = @__id_0
+    WHERE `e0`.`Id` = @id
 )
 """,
             //
             """
-@__id_0='2'
+@id='2'
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
 WHERE `e`.`Id` IN (
     SELECT `e0`.`Id`
     FROM `Entities` AS `e0`
-    WHERE `e0`.`Id` = @__id_0
+    WHERE `e0`.`Id` = @id
 )
 """);
     }
@@ -1053,11 +1060,11 @@ WHERE `e`.`Id` IN (
 
         AssertSql(
             """
-@__name_0='A' (Size = 255)
+@name='A' (Size = 255)
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Name` = @__name_0
+WHERE `e`.`Name` = @name
 """,
             //
             """
@@ -1192,16 +1199,16 @@ FROM `Entities` AS `e`
 
         AssertSql(
             """
-@__id1_0='1'
-@__id2_1='2'
+@id1='1'
+@id2='2'
 
 SELECT `t`.`Id`
 FROM `Tables1` AS `t`
-WHERE `t`.`Id` = @__id1_0
+WHERE `t`.`Id` = @id1
 UNION
 SELECT `t0`.`Id`
 FROM `Tables2` AS `t0`
-WHERE `t0`.`Id` = @__id2_1
+WHERE `t0`.`Id` = @id2
 """,
             //
             """
@@ -1243,32 +1250,32 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 
         AssertSql(
             """
-@__k_0='1'
+@k='1'
 
 SELECT TOP 1 `a`.`Id`, `a`.`Name`
 FROM `Autos` AS `a`
-WHERE `a`.`Id` = @__k_0
+WHERE `a`.`Id` = @k
 """,
             //
             """
-@__p_0='2'
+@p='2'
 
 SELECT TOP 1 `a`.`Id`, `a`.`Name`
 FROM `Autos` AS `a`
-WHERE `a`.`Id` = @__p_0
+WHERE `a`.`Id` = @p
 """,
             //
             """
-@__entity_equality_a_0_Id='1' (Nullable = true)
-@__entity_equality_b_1_Id='2' (Nullable = true)
-@__entity_equality_b_1_Id='2' (Nullable = true)
-@__entity_equality_a_0_Id='1' (Nullable = true)
+@entity_equality_a_Id='1' (Nullable = true)
+@entity_equality_b_Id='2' (Nullable = true)
+@entity_equality_b_Id='2' (Nullable = true)
+@entity_equality_a_Id='1' (Nullable = true)
 
 SELECT `e`.`Id`, `e`.`AnotherAutoId`, `e`.`AutoId`
 FROM (`EqualAutos` AS `e`
 LEFT JOIN `Autos` AS `a` ON `e`.`AutoId` = `a`.`Id`)
 LEFT JOIN `Autos` AS `a0` ON `e`.`AnotherAutoId` = `a0`.`Id`
-WHERE (`a`.`Id` = @__entity_equality_a_0_Id AND `a0`.`Id` = @__entity_equality_b_1_Id) OR (`a`.`Id` = @__entity_equality_b_1_Id AND `a0`.`Id` = @__entity_equality_a_0_Id)
+WHERE (`a`.`Id` = @entity_equality_a_Id AND `a0`.`Id` = @entity_equality_b_Id) OR (`a`.`Id` = @entity_equality_b_Id AND `a0`.`Id` = @entity_equality_a_Id)
 """);
     }
 
@@ -1404,29 +1411,17 @@ GROUP BY `t1`.`AnotherEntity11818_Name`, `t3`.`MaumarEntity11818_Name`
 """);
     }
 
-    public override async Task Left_join_with_missing_key_values_on_both_sides(bool async)
-    {
-        await base.Left_join_with_missing_key_values_on_both_sides(async);
-
-        AssertSql(
-            """
-SELECT `c`.`CustomerID`, `c`.`CustomerName`, IIF(`p`.`PostcodeID` IS NULL, '', `p`.`TownName`) AS `TownName`, IIF(`p`.`PostcodeID` IS NULL, '', `p`.`PostcodeValue`) AS `PostcodeValue`
-FROM `Customers` AS `c`
-LEFT JOIN `Postcodes` AS `p` ON `c`.`PostcodeID` = `p`.`PostcodeID`
-""");
-    }
-
     public override async Task Comparing_enum_casted_to_byte_with_int_parameter(bool async)
     {
         await base.Comparing_enum_casted_to_byte_with_int_parameter(async);
 
         AssertSql(
             """
-@__bitterTaste_0='1'
+@bitterTaste='1'
 
 SELECT `i`.`IceCreamId`, `i`.`Name`, `i`.`Taste`
 FROM `IceCreams` AS `i`
-WHERE `i`.`Taste` = @__bitterTaste_0
+WHERE `i`.`Taste` = @bitterTaste
 """);
     }
 
@@ -1507,7 +1502,7 @@ SELECT cast(null as int) AS MyValue
 
         AssertSql(
             """
-@__currentUserId_0='1'
+@currentUserId='1'
 
 SELECT IIF(`u`.`Id` IN (
         SELECT `u0`.`Id`
@@ -1516,7 +1511,7 @@ SELECT IIF(`u`.`Id` IN (
         WHERE `m`.`GroupId` IN (
             SELECT `m0`.`GroupId`
             FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @__currentUserId_0
+            WHERE `m0`.`UserId` = @currentUserId
         )
     ), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
@@ -1529,7 +1524,7 @@ FROM `Users` AS `u`
 
         AssertSql(
             """
-@__currentUserId_0='1'
+@currentUserId='1'
 
 SELECT IIF(`u`.`Id` IN (
         SELECT `u0`.`Id`
@@ -1540,7 +1535,7 @@ SELECT IIF(`u`.`Id` IN (
             SELECT `g0`.`Id`
             FROM `Memberships` AS `m0`
             INNER JOIN `Groups` AS `g0` ON `m0`.`GroupId` = `g0`.`Id`
-            WHERE `m0`.`UserId` = @__currentUserId_0
+            WHERE `m0`.`UserId` = @currentUserId
         )
     ), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
@@ -1553,7 +1548,7 @@ FROM `Users` AS `u`
 
         AssertSql(
             """
-@__currentUserId_0='1'
+@currentUserId='1'
 
 SELECT IIF(EXISTS (
         SELECT 1
@@ -1562,7 +1557,7 @@ SELECT IIF(EXISTS (
         WHERE `m`.`GroupId` IN (
             SELECT `m0`.`GroupId`
             FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @__currentUserId_0
+            WHERE `m0`.`UserId` = @currentUserId
         ) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
 FROM `Users` AS `u`
 """);
@@ -1574,18 +1569,18 @@ FROM `Users` AS `u`
 
         AssertSql(
             """
-@__orderId_0='123456'
-@__orderId_0='123456'
+@orderId='123456'
+@orderId='123456'
 
 SELECT `o`.`Id`, `o`.`CancellationDate`, `o`.`OrderId`, `o`.`ShippingDate`
 FROM `OrderItems` AS `o`
 INNER JOIN (
     SELECT `o0`.`OrderId` AS `Key`
     FROM `OrderItems` AS `o0`
-    WHERE `o0`.`OrderId` = @__orderId_0
+    WHERE `o0`.`OrderId` = @orderId
     GROUP BY `o0`.`OrderId`
 ) AS `o1` ON `o`.`OrderId` = `o1`.`Key`
-WHERE `o`.`OrderId` = @__orderId_0
+WHERE `o`.`OrderId` = @orderId
 ORDER BY `o`.`OrderId`
 """);
     }
@@ -1596,18 +1591,18 @@ ORDER BY `o`.`OrderId`
 
         AssertSql(
             """
-@__orderItemType_1='MyType1' (Nullable = false) (Size = 255)
-@__orderItemType_1='MyType1' (Nullable = false) (Size = 255)
+@orderItemType='MyType1' (Nullable = false) (Size = 255)
+@orderItemType='MyType1' (Nullable = false) (Size = 255)
 
 SELECT `o1`.`Id`, IIF((
         SELECT TOP 1 `o3`.`Price`
         FROM `OrderItems` AS `o3`
-        WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @__orderItemType_1) IS NULL, 0.0, (
+        WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @orderItemType) IS NULL, 0.0, (
         SELECT TOP 1 `o3`.`Price`
         FROM `OrderItems` AS `o3`
-        WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @__orderItemType_1)) AS `SpecialSum`
+        WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @orderItemType)) AS `SpecialSum`
 FROM (
-    SELECT TOP 1 `o`.`Id`
+    SELECT TOP @p `o`.`Id`
     FROM `Orders` AS `o`
     WHERE EXISTS (
         SELECT 1
@@ -1755,20 +1750,20 @@ LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`Id`
         await base.StoreType_for_UDF_used(async);
 
         AssertSql(
-    """
-@__date_0='2012-12-12T00:00:00.0000000' (DbType = DateTime)
+            """
+@date='2012-12-12T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
-WHERE `m`.`SomeDate` = CDATE(@__date_0)
+WHERE `m`.`SomeDate` = CDATE(@date)
 """,
-    //
-    """
-@__date_0='2012-12-12T00:00:00.0000000' (DbType = DateTime)
+            //
+            """
+@date='2012-12-12T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
-WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE(@__date_0)
+WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE(@date)
 """);
     }
 
@@ -1777,8 +1772,8 @@ WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE(@__date_0)
         await base.Pushdown_does_not_add_grouping_key_to_projection_when_distinct_is_applied(async);
 
         AssertSql(
-    """
-SELECT TOP 123456 `t`.`JSON`
+            """
+SELECT TOP @p `t`.`JSON`
 FROM `TableDatas` AS `t`
 INNER JOIN (
     SELECT DISTINCT `i`.`Parcel`
@@ -1804,5 +1799,73 @@ LEFT JOIN `Companies` AS `c0` ON `c`.`CompanyId` = `c0`.`Id`)
 LEFT JOIN `Countries` AS `c1` ON `c0`.`CountryId` = `c1`.`Id`
 WHERE IIF(`c0`.`Id` IS NOT NULL, `c1`.`CountryName`, NULL) = 'COUNTRY'
 """);
+    }
+
+    public override async Task Check_inlined_constants_redacting(bool async, bool enableSensitiveDataLogging)
+    {
+        await base.Check_inlined_constants_redacting(async, enableSensitiveDataLogging);
+
+        if (!enableSensitiveDataLogging)
+        {
+            AssertSql(
+                """
+SELECT `t`.`Id`, `t`.`Name`
+FROM `TestEntities` AS `t`
+WHERE `t`.`Id` IN (?, ?, ?)
+""",
+                //
+                """
+SELECT `t`.`Id`, `t`.`Name`
+FROM `TestEntities` AS `t`
+WHERE EXISTS (
+    SELECT 1
+    FROM (SELECT ? AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT ? AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`
+    UNION
+    SELECT ? AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_2`) AS `i`
+    WHERE `i`.`Value` = `t`.`Id`)
+""",
+                //
+                """
+SELECT `t`.`Id`, `t`.`Name`
+FROM `TestEntities` AS `t`
+WHERE ? = `t`.`Id`
+""");
+        }
+        else
+        {
+            AssertSql(
+                """
+SELECT `t`.`Id`, `t`.`Name`
+FROM `TestEntities` AS `t`
+WHERE `t`.`Id` IN (1, 2, 3)
+""",
+                //
+                """
+SELECT `t`.`Id`, `t`.`Name`
+FROM `TestEntities` AS `t`
+WHERE EXISTS (
+    SELECT 1
+    FROM (SELECT 1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT 2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`
+    UNION
+    SELECT 3 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_2`) AS `i`
+    WHERE `i`.`Value` = `t`.`Id`)
+""",
+                //
+                """
+SELECT `t`.`Id`, `t`.`Name`
+FROM `TestEntities` AS `t`
+WHERE 1 = `t`.`Id`
+""");
+        }
     }
 }

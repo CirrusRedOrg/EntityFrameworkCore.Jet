@@ -136,8 +136,10 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='SomeOtherKiwi' (Size = 255)
+
 UPDATE `Kiwi` AS `k`
-SET `k`.`Name` = 'SomeOtherKiwi'
+SET `k`.`Name` = @p
 WHERE `k`.`CountryId` = 1
 """);
     }
@@ -148,8 +150,10 @@ WHERE `k`.`CountryId` = 1
 
         AssertExecuteUpdateSql(
             """
+@p='0' (Size = 1)
+
 UPDATE `Kiwi` AS `k`
-SET `k`.`FoundOn` = CBYTE(0)
+SET `k`.`FoundOn` = @p
 WHERE `k`.`CountryId` = 1
 """);
     }
@@ -160,8 +164,10 @@ WHERE `k`.`CountryId` = 1
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM (
@@ -181,9 +187,12 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='Kiwi' (Size = 255)
+@p0='0' (Size = 1)
+
 UPDATE `Kiwi` AS `k`
-SET `k`.`FoundOn` = CBYTE(0),
-    `k`.`Name` = 'Kiwi'
+SET `k`.`Name` = @p,
+    `k`.`FoundOn` = @p0
 WHERE `k`.`CountryId` = 1
 """);
     }
@@ -194,8 +203,10 @@ WHERE `k`.`CountryId` = 1
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM (

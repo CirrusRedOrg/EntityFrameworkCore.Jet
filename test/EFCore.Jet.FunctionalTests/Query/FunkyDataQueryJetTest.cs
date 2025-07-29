@@ -75,20 +75,20 @@ FROM `FunkyCustomers` AS `f`
             await base.String_contains_on_argument_with_wildcard_parameter(isAsync);
 
             AssertSql(
-                $"""
-@__prm1_0_contains='%[%]B%' (Size = 255)
+                """
+@prm1_contains='%[%]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_contains")}
+WHERE `f`.`FirstName` LIKE @prm1_contains
 """,
                 //
-                $"""
-@__prm2_0_contains='%a[_]%' (Size = 255)
+                """
+@prm2_contains='%a[_]%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_contains")}
+WHERE `f`.`FirstName` LIKE @prm2_contains
 """,
                 //
                 """
@@ -97,36 +97,36 @@ FROM `FunkyCustomers` AS `f`
 WHERE 0 = 1
 """,
                 //
-                $"""
-@__prm4_0_contains='%' (Size = 255)
+                """
+@prm4_contains='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_contains")}
+WHERE `f`.`FirstName` LIKE @prm4_contains
 """,
                 //
-$"""
-@__prm5_0_contains='%[_]Ba[_]%' (Size = 255)
+                """
+@prm5_contains='%[_]Ba[_]%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_contains")}
+WHERE `f`.`FirstName` LIKE @prm5_contains
 """,
                 //
-                $"""
-@__prm6_0_contains='%[%]B[%]a[%]r%' (Size = 255)
+                """
+@prm6_contains='%[%]B[%]a[%]r%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_contains")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE @prm6_contains OR `f`.`FirstName` IS NULL
 """,
                 //
-                $"""
-@__prm7_0_contains='%' (Size = 255)
+                """
+@prm7_contains='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_contains")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE @prm7_contains OR `f`.`FirstName` IS NULL
 """,
                 //
                 """
@@ -219,20 +219,20 @@ FROM `FunkyCustomers` AS `f`
             await base.String_starts_with_on_argument_with_wildcard_parameter(isAsync);
 
             AssertSql(
-                $"""
-@__prm1_0_startswith='[%]B%' (Size = 255)
+                """
+@prm1_startswith='[%]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm1_startswith
 """,
                 //
-                $"""
-@__prm2_0_startswith='[_]B%' (Size = 255)
+                """
+@prm2_startswith='[_]B%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm2_startswith
 """,
                 //
                 """
@@ -241,36 +241,36 @@ FROM `FunkyCustomers` AS `f`
 WHERE 0 = 1
 """,
                 //
-                $"""
-@__prm4_0_startswith='%' (Size = 255)
+                """
+@prm4_startswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm4_startswith
 """,
                 //
-                $"""
-@__prm5_0_startswith='[_]Ba[_]%' (Size = 255)
+                """
+@prm5_startswith='[_]Ba[_]%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm5_startswith
 """,
                 //
-                $"""
-@__prm6_0_startswith='[%]B[%]a[%]r%' (Size = 255)
+                """
+@prm6_startswith='[%]B[%]a[%]r%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_startswith")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE @prm6_startswith OR `f`.`FirstName` IS NULL
 """,
                 //
-                $"""
-@__prm7_0_startswith='%' (Size = 255)
+                """
+@prm7_startswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_startswith")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE @prm7_startswith OR `f`.`FirstName` IS NULL
 """,
                 //
                 """
@@ -302,28 +302,28 @@ FROM `FunkyCustomers` AS `f`
 WHERE `f`.`FirstName` LIKE 'B[[][[]a[^]%'
 """,
                 //
-                $"""
-@__prm1_0_startswith='[[]%' (Size = 255)
+                """
+@prm1_startswith='[[]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm1_startswith
 """,
                 //
-                $"""
-@__prm2_0_startswith='B[[]%' (Size = 255)
+                """
+@prm2_startswith='B[[]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm2_startswith
 """,
                 //
-                $"""
-@__prm3_0_startswith='B[[][[]a[^]%' (Size = 255)
+                """
+@prm3_startswith='B[[][[]a[^]%' (Size = 255)
 
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm3_0_startswith")}
+WHERE `f`.`FirstName` LIKE @prm3_startswith
 """,
                 //
                 """
@@ -417,20 +417,20 @@ FROM `FunkyCustomers` AS `f`
             await base.String_ends_with_on_argument_with_wildcard_parameter(isAsync);
 
             AssertSql(
-                $"""
-@__prm1_0_endswith='%[%]r' (Size = 255)
+                """
+@prm1_endswith='%[%]r' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm1_0_endswith")}
+WHERE `f`.`FirstName` LIKE @prm1_endswith
 """,
                 //
-                $"""
-@__prm2_0_endswith='%r[_]' (Size = 255)
+                """
+@prm2_endswith='%r[_]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm2_0_endswith")}
+WHERE `f`.`FirstName` LIKE @prm2_endswith
 """,
                 //
                 """
@@ -439,36 +439,36 @@ FROM `FunkyCustomers` AS `f`
 WHERE 0 = 1
 """,
                 //
-                $"""
-@__prm4_0_endswith='%' (Size = 255)
+                """
+@prm4_endswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm4_0_endswith")}
+WHERE `f`.`FirstName` LIKE @prm4_endswith
 """,
                 //
-                $"""
-@__prm5_0_endswith='%[_]r[_]' (Size = 255)
+                """
+@prm5_endswith='%[_]r[_]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` LIKE {AssertSqlHelper.Parameter("@__prm5_0_endswith")}
+WHERE `f`.`FirstName` LIKE @prm5_endswith
 """,
                 //
-                $"""
-@__prm6_0_endswith='%a[%]r[%]' (Size = 255)
+                """
+@prm6_endswith='%a[%]r[%]' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm6_0_endswith")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE @prm6_endswith OR `f`.`FirstName` IS NULL
 """,
                 //
-                $"""
-@__prm7_0_endswith='%' (Size = 255)
+                """
+@prm7_endswith='%' (Size = 255)
 
 SELECT `f`.`FirstName`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` NOT LIKE {AssertSqlHelper.Parameter("@__prm7_0_endswith")} OR `f`.`FirstName` IS NULL
+WHERE `f`.`FirstName` NOT LIKE @prm7_endswith OR `f`.`FirstName` IS NULL
 """,
                 //
                 """

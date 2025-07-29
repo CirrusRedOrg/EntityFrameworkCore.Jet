@@ -15,7 +15,8 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class MaterializationInterceptionJetTest : MaterializationInterceptionTestBase<MaterializationInterceptionJetTest.JetLibraryContext>
+public class MaterializationInterceptionJetTest(NonSharedFixture fixture) :
+    MaterializationInterceptionTestBase<MaterializationInterceptionJetTest.JetLibraryContext>(fixture)
 {
     public class JetLibraryContext(DbContextOptions options) : LibraryContext(options)
     {

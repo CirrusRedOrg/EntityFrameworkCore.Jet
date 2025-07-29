@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.TestModels.TransportationModel;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
-    public class TableSplittingJetTest(ITestOutputHelper testOutputHelper) : TableSplittingTestBase(testOutputHelper)
+    public class TableSplittingJetTest(NonSharedFixture fixture,ITestOutputHelper testOutputHelper) : TableSplittingTestBase(fixture, testOutputHelper)
     {
         protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 
@@ -181,12 +181,14 @@ ORDER BY `v`.`Name`
             await base.ExecuteUpdate_works_for_table_sharing(async);
 
             AssertSql(
-"""
+                """
+@p='1'
+
 UPDATE `Vehicles` AS `v`
-SET `v`.`SeatingCapacity` = 1
+SET `v`.`SeatingCapacity` = @p
 """,
-//
-"""
+                //
+                """
 SELECT IIF(NOT EXISTS (
         SELECT 1
         FROM `Vehicles` AS `v`

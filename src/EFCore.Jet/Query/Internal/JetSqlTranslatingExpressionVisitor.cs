@@ -60,14 +60,23 @@ public class JetSqlTranslatingExpressionVisitor(
             ExpressionType.Modulo
         ];
 
-    private static readonly MethodInfo StringStartsWithMethodInfo
+    private static readonly MethodInfo StringStartsWithMethodInfoString
         = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), [typeof(string)])!;
 
-    private static readonly MethodInfo StringEndsWithMethodInfo
+    private static readonly MethodInfo StringStartsWithMethodInfoChar
+        = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), [typeof(char)])!;
+
+    private static readonly MethodInfo StringEndsWithMethodInfoString
         = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), [typeof(string)])!;
 
-    private static readonly MethodInfo StringContainsMethodInfo
+    private static readonly MethodInfo StringEndsWithMethodInfoChar
+        = typeof(string).GetRuntimeMethod(nameof(string.EndsWith), [typeof(char)])!;
+
+    private static readonly MethodInfo StringContainsMethodInfoString
         = typeof(string).GetRuntimeMethod(nameof(string.Contains), [typeof(string)])!;
+
+    private static readonly MethodInfo StringContainsMethodInfoChar
+        = typeof(string).GetRuntimeMethod(nameof(string.Contains), [typeof(char)])!;
 
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
         typeof(JetSqlTranslatingExpressionVisitor).GetTypeInfo().GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
@@ -175,21 +184,21 @@ public class JetSqlTranslatingExpressionVisitor(
                 methodCallExpression.Type);
         }
 
-        if (method == StringStartsWithMethodInfo
+        if ((method == StringStartsWithMethodInfoString || method == StringStartsWithMethodInfoChar)
             && TryTranslateStartsEndsWithContains(
                 methodCallExpression.Object!, methodCallExpression.Arguments[0], StartsEndsWithContains.StartsWith, out var translation1))
         {
             return translation1;
         }
 
-        if (method == StringEndsWithMethodInfo
+        if ((method == StringEndsWithMethodInfoString || method == StringEndsWithMethodInfoChar)
             && TryTranslateStartsEndsWithContains(
                 methodCallExpression.Object!, methodCallExpression.Arguments[0], StartsEndsWithContains.EndsWith, out var translation2))
         {
             return translation2;
         }
 
-        if (method == StringContainsMethodInfo
+        if ((method == StringContainsMethodInfoString || method == StringContainsMethodInfoChar)
             && TryTranslateStartsEndsWithContains(
                 methodCallExpression.Object!, methodCallExpression.Arguments[0], StartsEndsWithContains.Contains, out var translation3))
         {
@@ -256,14 +265,39 @@ public class JetSqlTranslatingExpressionVisitor(
                                             _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
                                         })),
 
+                            char s when !IsLikeWildChar(s)
+                                => _sqlExpressionFactory.Like(
+                                    translatedInstance,
+                                    _sqlExpressionFactory.Constant(
+                                        methodType switch
+                                        {
+                                            StartsEndsWithContains.StartsWith => s + "%",
+                                            StartsEndsWithContains.EndsWith => "%" + s,
+                                            StartsEndsWithContains.Contains => $"%{s}%",
+
+                                            _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
+                                        })),
+
+                            char s => _sqlExpressionFactory.Like(
+                                translatedInstance,
+                                _sqlExpressionFactory.Constant(
+                                    methodType switch
+                                    {
+                                        StartsEndsWithContains.StartsWith => LikeEscapeChar + s + "%",
+                                        StartsEndsWithContains.EndsWith => "%" + LikeEscapeChar + s,
+                                        StartsEndsWithContains.Contains => $"%{LikeEscapeChar}{s}%",
+
+                                        _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
+                                    }),
+                                _sqlExpressionFactory.Constant(LikeEscapeString)),
+
                             _ => throw new UnreachableException()
                         };
 
                         return true;
                     }
 
-                case SqlParameterExpression patternParameter
-                    when patternParameter.Name.StartsWith(QueryCompilationContext.QueryParameterPrefix, StringComparison.Ordinal):
+                case SqlParameterExpression patternParameter:
                     {
                         // The pattern is a parameter, register a runtime parameter that will contain the rewritten LIKE pattern, where
                         // all special characters have been escaped.
@@ -367,6 +401,22 @@ public class JetSqlTranslatingExpressionVisitor(
                 StartsEndsWithContains.StartsWith => EscapeLikePattern(s) + '%',
                 StartsEndsWithContains.EndsWith => '%' + EscapeLikePattern(s),
                 StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s)}%",
+                _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
+            },
+
+            char s when !IsLikeWildChar(s) => methodType switch
+            {
+                StartsEndsWithContains.StartsWith => s + "%",
+                StartsEndsWithContains.EndsWith => "%" + s,
+                StartsEndsWithContains.Contains => $"%{s}%",
+                _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
+            },
+
+            char s => methodType switch
+            {
+                StartsEndsWithContains.StartsWith => LikeEscapeChar + s + "%",
+                StartsEndsWithContains.EndsWith => "%" + LikeEscapeChar + s,
+                StartsEndsWithContains.Contains => $"%{LikeEscapeChar}{s}%",
                 _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
             },
 

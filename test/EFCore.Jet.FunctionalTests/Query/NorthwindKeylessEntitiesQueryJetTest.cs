@@ -180,8 +180,8 @@ LEFT JOIN `Alphabetical list of products` AS `a` ON `o`.`CustomerID` = `a`.`Cate
             await base.Collection_correlated_with_keyless_entity_in_predicate_works(async);
 
             AssertSql(
-"""
-SELECT TOP 2 `m`.`City`, `m`.`ContactName`
+                """
+SELECT TOP @p `m`.`City`, `m`.`ContactName`
 FROM (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
 ) AS `m`
@@ -257,7 +257,7 @@ FROM (
                 """
 SELECT COUNT(*)
 FROM (
-    SELECT TOP 10 1
+    SELECT TOP @p 1
     FROM (
         SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
     ) AS `m`
@@ -274,7 +274,7 @@ FROM (
                 """
 SELECT COUNT(*)
 FROM (
-    SELECT TOP 10 1
+    SELECT TOP @p 1
     FROM (
         SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
     ) AS `m`

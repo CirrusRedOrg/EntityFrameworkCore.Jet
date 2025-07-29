@@ -25,9 +25,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_query_with_implicit_services_and_OnConfiguring()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
-                    using var context = new NorthwindContext();
+                    await using var context = new NorthwindContext();
                     Assert.Equal(91, await context.Customers.CountAsync());
                 }
             }
@@ -54,7 +54,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_query_with_implicit_services_and_explicit_config()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     await using var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
@@ -80,8 +80,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_query_with_explicit_services_and_OnConfiguring()
             {
-                using var async = await JetTestStore.GetNorthwindStoreAsync();
-                using var context = new NorthwindContext(
+                await using var async = await JetTestStore.GetNorthwindStoreAsync();
+                await using var context = new NorthwindContext(
                     new DbContextOptionsBuilder().UseInternalServiceProvider(
                         new ServiceCollection()
                             .AddEntityFrameworkJet()
@@ -107,9 +107,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_query_with_explicit_services_and_explicit_config()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
-                    using var context = new NorthwindContext(
+                    await using var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
                             .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                             .UseInternalServiceProvider(
@@ -134,7 +134,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Throws_on_attempt_to_use_SQL_Server_without_providing_connection_string()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     Assert.Equal(
                         CoreStrings.NoProviderConfigured,
@@ -165,7 +165,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Throws_on_attempt_to_use_context_with_no_store()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     Assert.Equal(
                         CoreStrings.NoProviderConfigured,
@@ -199,7 +199,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 new EntityFrameworkServicesBuilder(serviceCollection).TryAddCoreServices();
                 var serviceProvider = serviceCollection.BuildServiceProvider(validateScopes: true);
 
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     Assert.Equal(
                         CoreStrings.NoProviderConfigured,
@@ -238,7 +238,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .AddSingleton(p => new DbContextOptionsBuilder().UseInternalServiceProvider(p).Options)
                     .BuildServiceProvider(validateScopes: true);
 
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     await serviceProvider.GetRequiredService<MyController>().TestAsync();
                 }
@@ -292,7 +292,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                             .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
                             .Options).BuildServiceProvider();
 
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     await serviceProvider.GetRequiredService<MyController>().TestAsync();
                 }
@@ -333,9 +333,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_pass_context_options_to_constructor_and_use_in_builder()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
-                    using var context = new NorthwindContext(
+                    await using var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
                             .UseJet(JetNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
@@ -358,9 +358,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_pass_connection_string_to_constructor_and_use_in_OnConfiguring()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
-                    using var context = new NorthwindContext(JetNorthwindTestStoreFactory.NorthwindConnectionString);
+                    await using var context = new NorthwindContext(JetNorthwindTestStoreFactory.NorthwindConnectionString);
                     Assert.Equal(91, await context.Customers.CountAsync());
                 }
             }
@@ -384,7 +384,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             [ConditionalFact]
             public async Task Can_use_one_context_nested_inside_another_of_the_same_type()
             {
-                using (await JetTestStore.GetNorthwindStoreAsync())
+                await using (await JetTestStore.GetNorthwindStoreAsync())
                 {
                     var serviceProvider = new ServiceCollection()
                         .AddEntityFrameworkJet()

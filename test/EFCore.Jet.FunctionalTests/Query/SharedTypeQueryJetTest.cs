@@ -1,14 +1,15 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class SharedTypeQueryJetTest : SharedTypeQueryRelationalTestBase
+public class SharedTypeQueryJetTest(NonSharedFixture fixture) : SharedTypeQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;

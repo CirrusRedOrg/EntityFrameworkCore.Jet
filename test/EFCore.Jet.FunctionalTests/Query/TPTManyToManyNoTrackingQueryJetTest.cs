@@ -93,14 +93,14 @@ WHERE EXISTS (
         await base.Skip_navigation_count_without_predicate(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[Name]
-FROM [EntityOnes] AS [e]
-WHERE (
-    SELECT COUNT(*)
-    FROM [JoinOneSelfPayload] AS [j]
-    INNER JOIN [EntityOnes] AS [e0] ON [j].[LeftId] = [e0].[Id]
-    WHERE [e].[Id] = [j].[RightId]) > 0
+            """
+SELECT `e`.`Id`, `e`.`Name`
+FROM `EntityOnes` AS `e`
+WHERE EXISTS (
+    SELECT 1
+    FROM `JoinOneSelfPayload` AS `j`
+    INNER JOIN `EntityOnes` AS `e0` ON `j`.`LeftId` = `e0`.`Id`
+    WHERE `e`.`Id` = `j`.`RightId`)
 """);
     }
 
@@ -1948,8 +1948,8 @@ LEFT JOIN (
         await base.Contains_on_skip_collection_navigation(async);
 
         AssertSql(
-$"""
-@__entity_equality_two_0_Id='1' (Nullable = true)
+            """
+@entity_equality_two_Id='1' (Nullable = true)
 
 SELECT `e`.`Id`, `e`.`Name`
 FROM `EntityOnes` AS `e`
@@ -1957,7 +1957,7 @@ WHERE EXISTS (
     SELECT 1
     FROM `JoinOneToTwo` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-    WHERE `e`.`Id` = `j`.`OneId` AND `e0`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_two_0_Id")})
+    WHERE `e`.`Id` = `j`.`OneId` AND `e0`.`Id` = @entity_equality_two_Id)
 """);
     }
 
@@ -2134,14 +2134,14 @@ WHERE EXISTS (
         await base.Skip_navigation_count_without_predicate_unidirectional(async);
 
         AssertSql(
-"""
-SELECT [u].[Id], [u].[Name]
-FROM [UnidirectionalEntityOnes] AS [u]
-WHERE (
-    SELECT COUNT(*)
-    FROM [UnidirectionalJoinOneSelfPayload] AS [u0]
-    INNER JOIN [UnidirectionalEntityOnes] AS [u1] ON [u0].[LeftId] = [u1].[Id]
-    WHERE [u].[Id] = [u0].[RightId]) > 0
+            """
+SELECT `u`.`Id`, `u`.`Name`
+FROM `UnidirectionalEntityOnes` AS `u`
+WHERE EXISTS (
+    SELECT 1
+    FROM `UnidirectionalJoinOneSelfPayload` AS `u0`
+    INNER JOIN `UnidirectionalEntityOnes` AS `u1` ON `u0`.`LeftId` = `u1`.`Id`
+    WHERE `u`.`Id` = `u0`.`RightId`)
 """);
     }
 
@@ -2662,8 +2662,8 @@ LEFT JOIN (
         await base.Contains_on_skip_collection_navigation_unidirectional(async);
 
         AssertSql(
-$"""
-@__entity_equality_two_0_Id='1' (Nullable = true)
+            """
+@entity_equality_two_Id='1' (Nullable = true)
 
 SELECT `u`.`Id`, `u`.`Name`
 FROM `UnidirectionalEntityOnes` AS `u`
@@ -2671,7 +2671,7 @@ WHERE EXISTS (
     SELECT 1
     FROM `UnidirectionalJoinOneToTwo` AS `u0`
     INNER JOIN `UnidirectionalEntityTwos` AS `u1` ON `u0`.`TwoId` = `u1`.`Id`
-    WHERE `u`.`Id` = `u0`.`OneId` AND `u1`.`Id` = {AssertSqlHelper.Parameter("@__entity_equality_two_0_Id")})
+    WHERE `u`.`Id` = `u0`.`OneId` AND `u1`.`Id` = @entity_equality_two_Id)
 """);
     }
 

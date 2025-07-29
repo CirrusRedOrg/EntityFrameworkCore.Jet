@@ -24,37 +24,6 @@ public abstract class AdHocJsonQueryJetTestBase : AdHocJsonQueryRelationalTestBa
         builder.Log(CoreEventId.StringEnumValueInJson);
     }
 
-    protected override async Task Seed29219(DbContext ctx)
-    {
-        var entity1 = new MyEntity29219
-        {
-            Id = 1,
-            Reference = new MyJsonEntity29219 { NonNullableScalar = 10, NullableScalar = 11 },
-            Collection =
-            [
-                new MyJsonEntity29219 { NonNullableScalar = 100, NullableScalar = 101 },
-                new MyJsonEntity29219 { NonNullableScalar = 200, NullableScalar = 201 },
-                new MyJsonEntity29219 { NonNullableScalar = 300, NullableScalar = null }
-            ]
-        };
-
-        var entity2 = new MyEntity29219
-        {
-            Id = 2,
-            Reference = new MyJsonEntity29219 { NonNullableScalar = 20, NullableScalar = null },
-            Collection = [new MyJsonEntity29219 { NonNullableScalar = 1001, NullableScalar = null }]
-        };
-
-        ctx.AddRange(entity1, entity2);
-        await ctx.SaveChangesAsync();
-
-        await ctx.Database.ExecuteSqlAsync(
-            $$"""
-INSERT INTO [Entities] ([Id], [Reference], [Collection])
-VALUES(3, '{ "NonNullableScalar" : 30 }', '[{ "NonNullableScalar" : 10001 }]')
-""");
-    }
-
     protected override async Task Seed30028(DbContext ctx)
     {
         // complete

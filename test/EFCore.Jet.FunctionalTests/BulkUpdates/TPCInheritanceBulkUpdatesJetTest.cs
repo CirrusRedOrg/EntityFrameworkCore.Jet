@@ -135,8 +135,10 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='SomeOtherKiwi' (Size = 255)
+
 UPDATE `Kiwi` AS `k`
-SET `k`.`Name` = 'SomeOtherKiwi'
+SET `k`.`Name` = @p
 """);
     }
 
@@ -146,8 +148,10 @@ SET `k`.`Name` = 'SomeOtherKiwi'
 
         AssertExecuteUpdateSql(
             """
+@p='0' (Size = 1)
+
 UPDATE `Kiwi` AS `k`
-SET `k`.`FoundOn` = CBYTE(0)
+SET `k`.`FoundOn` = @p
 """);
     }
 
@@ -157,8 +161,10 @@ SET `k`.`FoundOn` = CBYTE(0)
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM (
@@ -178,9 +184,12 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='Kiwi' (Size = 255)
+@p0='0' (Size = 1)
+
 UPDATE `Kiwi` AS `k`
-SET `k`.`FoundOn` = CBYTE(0),
-    `k`.`Name` = 'Kiwi'
+SET `k`.`Name` = @p,
+    `k`.`FoundOn` = @p0
 """);
     }
 
@@ -190,8 +199,10 @@ SET `k`.`FoundOn` = CBYTE(0),
 
         AssertExecuteUpdateSql(
             """
+@p='Monovia' (Size = 255)
+
 UPDATE `Countries` AS `c`
-SET `c`.`Name` = 'Monovia'
+SET `c`.`Name` = @p
 WHERE (
     SELECT COUNT(*)
     FROM (
@@ -208,8 +219,10 @@ WHERE (
 
         AssertExecuteUpdateSql(
             """
+@p='0'
+
 UPDATE `Coke` AS `c`
-SET `c`.`SugarGrams` = 0
+SET `c`.`SugarGrams` = @p
 """);
     }
 
@@ -219,8 +232,10 @@ SET `c`.`SugarGrams` = 0
 
         AssertExecuteUpdateSql(
             """
+@p='0'
+
 UPDATE `Coke` AS `c`
-SET `c`.`SugarGrams` = 0
+SET `c`.`SugarGrams` = @p
 """);
     }
 

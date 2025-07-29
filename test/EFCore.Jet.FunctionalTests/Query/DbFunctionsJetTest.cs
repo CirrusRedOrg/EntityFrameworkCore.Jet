@@ -506,30 +506,6 @@ WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''
                 exIsDate.Message);
         }
 
-        public override async Task Random_return_less_than_1(bool async)
-        {
-            await base.Random_return_less_than_1(async);
-
-            AssertSql(
-                """
-SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE Rnd() < 1.0
-""");
-        }
-
-        public override async Task Random_return_greater_than_0(bool async)
-        {
-            await base.Random_return_greater_than_0(async);
-
-            AssertSql(
-                """
-SELECT COUNT(*)
-FROM `Orders` AS `o`
-WHERE Rnd() >= 0.0
-""");
-        }
-
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

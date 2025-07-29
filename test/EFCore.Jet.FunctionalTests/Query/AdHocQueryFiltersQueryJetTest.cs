@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 #nullable disable
 
-public class AdHocQueryFiltersQueryJetTest : AdHocQueryFiltersQueryRelationalTestBase
+public class AdHocQueryFiltersQueryJetTest(NonSharedFixture fixture) : AdHocQueryFiltersQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
@@ -148,27 +148,27 @@ WHERE `e`.`Id` NOT IN (1, 7)
 
         AssertSql(
             """
-@__ef_filter__Tenant_0='0'
+@ef_filter__Tenant='0'
 
 SELECT `b`.`Id`, `b`.`SomeValue`
 FROM `Blogs` AS `b`
-WHERE `b`.`SomeValue` = @__ef_filter__Tenant_0
+WHERE `b`.`SomeValue` = @ef_filter__Tenant
 """,
             //
             """
-@__ef_filter__Tenant_0='1'
+@ef_filter__Tenant='1'
 
 SELECT `b`.`Id`, `b`.`SomeValue`
 FROM `Blogs` AS `b`
-WHERE `b`.`SomeValue` = @__ef_filter__Tenant_0
+WHERE `b`.`SomeValue` = @ef_filter__Tenant
 """,
             //
             """
-@__ef_filter__Tenant_0='2'
+@ef_filter__Tenant='2'
 
 SELECT COUNT(*)
 FROM `Blogs` AS `b`
-WHERE `b`.`SomeValue` = @__ef_filter__Tenant_0
+WHERE `b`.`SomeValue` = @ef_filter__Tenant
 """);
     }
 
@@ -234,19 +234,19 @@ WHERE EXISTS (
 
         AssertSql(
             """
-@__ef_filter__p_0='1'
+@ef_filter__p='1'
 
 SELECT `e`.`Id`, `e`.`Name`, `e`.`TenantId`
 FROM `Entities` AS `e`
-WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = @__ef_filter__p_0
+WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = @ef_filter__p
 """,
             //
             """
-@__ef_filter__p_0='2'
+@ef_filter__p='2'
 
 SELECT `e`.`Id`, `e`.`Name`, `e`.`TenantId`
 FROM `Entities` AS `e`
-WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = @__ef_filter__p_0
+WHERE (`e`.`Name` <> 'Foo' OR `e`.`Name` IS NULL) AND `e`.`TenantId` = @ef_filter__p
 """);
     }
 
@@ -260,28 +260,6 @@ SELECT `p`.`Id`, `p`.`UserDeleteId`
 FROM `People` AS `p`
 LEFT JOIN `User18759` AS `u` ON `p`.`UserDeleteId` = `u`.`Id`
 WHERE `u`.`Id` IS NOT NULL
-""");
-    }
-
-    public override async Task GroupJoin_SelectMany_gets_flattened()
-    {
-        await base.GroupJoin_SelectMany_gets_flattened();
-
-        AssertSql(
-            """
-SELECT `c`.`CustomerId`, `c`.`CustomerMembershipId`
-FROM `CustomerFilters` AS `c`
-WHERE (
-    SELECT COUNT(*)
-    FROM `Customers` AS `c0`
-    LEFT JOIN `CustomerMemberships` AS `c1` ON `c0`.`Id` = `c1`.`CustomerId`
-    WHERE `c1`.`Id` IS NOT NULL AND `c0`.`Id` = `c`.`CustomerId`) > 0
-""",
-            //
-            """
-SELECT `c`.`Id`, `c`.`Name`, `c0`.`Id` AS `CustomerMembershipId`, IIF(`c0`.`Id` IS NOT NULL, `c0`.`Name`, '') AS `CustomerMembershipName`
-FROM `Customers` AS `c`
-LEFT JOIN `CustomerMemberships` AS `c0` ON `c`.`Id` = `c0`.`CustomerId`
 """);
     }
 

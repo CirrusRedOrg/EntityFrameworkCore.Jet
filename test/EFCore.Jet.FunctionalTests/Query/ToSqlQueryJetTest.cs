@@ -1,15 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class ToSqlQueryJetTest : ToSqlQueryTestBase
+public class ToSqlQueryJetTest(NonSharedFixture fixture) : ToSqlQueryTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;

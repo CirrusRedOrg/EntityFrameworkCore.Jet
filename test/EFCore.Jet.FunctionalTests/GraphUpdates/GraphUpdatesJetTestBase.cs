@@ -230,6 +230,7 @@ public abstract class GraphUpdatesJetTestBase<TFixture>(TFixture fixture) : Grap
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedOptional2` DROP CONSTRAINT `FK_OwnedOptional2_OwnedOptional1_OwnedOptional1OwnerRootId_Owne~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedRequired2` DROP CONSTRAINT `FK_OwnedRequired2_OwnedRequired1_OwnedRequired1OwnerRootId_Owne~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `RequiredComposite2` DROP CONSTRAINT `FK_RequiredComposite2_RequiredAk1_ParentId_ParentAlternateId`");
+            await context.Database.ExecuteSqlAsync($"ALTER TABLE `SharedFkParent` DROP CONSTRAINT `FK_SharedFkParent_SharedFkDependant_RootId_DependantId`");
         }
     }
 }

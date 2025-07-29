@@ -221,31 +221,40 @@ WHERE `o`.`Quantity` > @ef_filter___quantity
 
             AssertSql(
                 $"""
-                    {AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__ef_filter__TenantPrefix_0='B' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@__ef_filter___quantity_1='50'")}
-                    
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    INNER JOIN (
-                        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                        FROM `Orders` AS `o`
-                        LEFT JOIN (
-                            SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                            FROM `Customers` AS `c0`
-                            WHERE ({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR (`c0`.`CompanyName` IS NOT NULL AND (LEFT(`c0`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))
-                        ) AS `t` ON `o`.`CustomerID` = `t`.`CustomerID`
-                        WHERE `t`.`CustomerID` IS NOT NULL AND `t`.`CompanyName` IS NOT NULL
-                    ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-                    INNER JOIN (
-                        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
-                        FROM `Order Details` AS `o0`
-                        WHERE `o0`.`Quantity` > {AssertSqlHelper.Parameter("@__ef_filter___quantity_1")}
-                    ) AS `t1` ON `t0`.`OrderID` = `t1`.`OrderID`
-                    WHERE (({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")} = '') OR ((`c`.`CompanyName` IS NOT NULL) AND (LEFT(`c`.`CompanyName`, LEN({AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")})) = {AssertSqlHelper.Parameter("@__ef_filter__TenantPrefix_0")}))) AND (`t1`.`Discount` < IIF(10 IS NULL, NULL, CSNG(10)))
-                    """);
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+@ef_filter___quantity='50'
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM (`Customers` AS `c`
+INNER JOIN (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    LEFT JOIN (
+        SELECT `c0`.`CustomerID`, `c0`.`CompanyName`
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@ef_filter__TenantPrefix_startswith")}
+    ) AS `c1` ON `o`.`CustomerID` = `c1`.`CustomerID`
+    WHERE `c1`.`CustomerID` IS NOT NULL AND `c1`.`CompanyName` IS NOT NULL
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`)
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`Discount`
+    FROM `Order Details` AS `o0`
+    INNER JOIN (
+        SELECT `o1`.`OrderID`
+        FROM `Orders` AS `o1`
+        LEFT JOIN (
+            SELECT `c2`.`CustomerID`, `c2`.`CompanyName`
+            FROM `Customers` AS `c2`
+            WHERE `c2`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@ef_filter__TenantPrefix_startswith")}
+        ) AS `c3` ON `o1`.`CustomerID` = `c3`.`CustomerID`
+        WHERE `c3`.`CustomerID` IS NOT NULL AND `c3`.`CompanyName` IS NOT NULL
+    ) AS `s0` ON `o0`.`OrderID` = `s0`.`OrderID`
+    WHERE `o0`.`Quantity` > {AssertSqlHelper.Parameter("@ef_filter___quantity")}
+) AS `s1` ON `s`.`OrderID` = `s1`.`OrderID`
+WHERE ((`c`.`CompanyName` LIKE {AssertSqlHelper.Parameter("@ef_filter__TenantPrefix_startswith")}) AND `s1`.`Discount` < 10) AND (`s`.`OrderID` IS NOT NULL AND `s1`.`OrderID` IS NOT NULL)
+""");
         }
 
         [ConditionalFact]

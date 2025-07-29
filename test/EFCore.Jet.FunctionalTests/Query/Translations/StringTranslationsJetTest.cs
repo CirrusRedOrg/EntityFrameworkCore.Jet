@@ -628,6 +628,7 @@ WHERE `b`.`String` LIKE @pattern_endswith
         // SQL Server trims trailing whitespace for length calculations, making our EndsWith() column translation not work reliably in that
         // case
         await AssertQuery(
+            async,
             ss => ss.Set<BasicTypesEntity>().Where(b => b.String == "Seattle" && b.String.EndsWith(b.String)));
 
         AssertSql(

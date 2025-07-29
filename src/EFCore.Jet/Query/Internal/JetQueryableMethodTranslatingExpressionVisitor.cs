@@ -1,9 +1,10 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using System.Diagnostics.CodeAnalysis;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -15,6 +16,10 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 /// </summary>
 public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryableMethodTranslatingExpressionVisitor
 {
+    protected readonly RelationalQueryCompilationContext queryCompilationContext;
+
+    private readonly bool _subquery;
+
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -27,6 +32,8 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         RelationalQueryCompilationContext queryCompilationContext)
         : base(dependencies, relationalDependencies, queryCompilationContext)
     {
+        this.queryCompilationContext = queryCompilationContext;
+        _subquery = false;
     }
 
     /// <summary>
@@ -39,6 +46,8 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         JetQueryableMethodTranslatingExpressionVisitor parentVisitor)
         : base(parentVisitor)
     {
+        this.queryCompilationContext = parentVisitor.queryCompilationContext;
+        _subquery = true;
     }
 
     /// <summary>
@@ -140,9 +149,164 @@ public class JetQueryableMethodTranslatingExpressionVisitor : RelationalQueryabl
         return false;
     }
 
-    protected override ShapedQueryExpression? TranslateFirstOrDefault(ShapedQueryExpression source, LambdaExpression? predicate,
-        Type returnType, bool returnDefault)
+    protected override ShapedQueryExpression? TranslateElementAtOrDefault(
+        ShapedQueryExpression source,
+        Expression index,
+        bool returnDefault)
     {
-        return base.TranslateFirstOrDefault(source, predicate, returnType, returnDefault);
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var translation = TranslateExpression(index);
+        if (translation == null)
+        {
+            return null;
+        }
+
+        if (!IsOrdered(selectExpression))
+        {
+            queryCompilationContext.Logger.RowLimitingOperationWithoutOrderByWarning();
+        }
+
+        selectExpression.ApplyOffset(translation);
+        JetApplyLimit(selectExpression, TranslateExpression(Expression.Constant(1))!);
+
+        return source;
     }
+
+    protected override ShapedQueryExpression? TranslateFirstOrDefault(
+        ShapedQueryExpression source,
+        LambdaExpression? predicate,
+        Type returnType,
+        bool returnDefault)
+    {
+        if (predicate != null)
+        {
+            var translatedSource = TranslateWhere(source, predicate);
+            if (translatedSource == null)
+            {
+                return null;
+            }
+
+            source = translatedSource;
+        }
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        if (selectExpression.Predicate == null
+            && selectExpression.Orderings.Count == 0)
+        {
+            queryCompilationContext.Logger.FirstWithoutOrderByAndFilterWarning();
+        }
+
+        JetApplyLimit(selectExpression, TranslateExpression(Expression.Constant(1))!);
+
+        return source.ShaperExpression.Type != returnType
+            ? source.UpdateShaperExpression(Expression.Convert(source.ShaperExpression, returnType))
+            : source;
+    }
+
+    protected override ShapedQueryExpression? TranslateLastOrDefault(
+        ShapedQueryExpression source,
+        LambdaExpression? predicate,
+        Type returnType,
+        bool returnDefault)
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        if (selectExpression.Orderings.Count == 0)
+        {
+            throw new InvalidOperationException(
+                RelationalStrings.LastUsedWithoutOrderBy(returnDefault ? nameof(Queryable.LastOrDefault) : nameof(Queryable.Last)));
+        }
+
+        if (predicate != null)
+        {
+            var translatedSource = TranslateWhere(source, predicate);
+            if (translatedSource == null)
+            {
+                return null;
+            }
+
+            source = translatedSource;
+        }
+
+        selectExpression.ReverseOrderings();
+        JetApplyLimit(selectExpression, TranslateExpression(Expression.Constant(1))!);
+
+        return source.ShaperExpression.Type != returnType
+            ? source.UpdateShaperExpression(Expression.Convert(source.ShaperExpression, returnType))
+            : source;
+    }
+
+    protected override ShapedQueryExpression? TranslateSingleOrDefault(
+        ShapedQueryExpression source,
+        LambdaExpression? predicate,
+        Type returnType,
+        bool returnDefault)
+    {
+        if (predicate != null)
+        {
+            var translatedSource = TranslateWhere(source, predicate);
+            if (translatedSource == null)
+            {
+                return null;
+            }
+
+            source = translatedSource;
+        }
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        JetApplyLimit(selectExpression, TranslateExpression(Expression.Constant(_subquery ? 1 : 2))!);
+
+        return source.ShaperExpression.Type != returnType
+            ? source.UpdateShaperExpression(Expression.Convert(source.ShaperExpression, returnType))
+            : source;
+    }
+
+    protected override ShapedQueryExpression? TranslateTake(ShapedQueryExpression source, Expression count)
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var translation = TranslateExpression(count);
+        if (translation == null)
+        {
+            return null;
+        }
+
+        if (!IsOrdered(selectExpression))
+        {
+            queryCompilationContext.Logger.RowLimitingOperationWithoutOrderByWarning();
+        }
+
+        JetApplyLimit(selectExpression, translation);
+
+        return source;
+    }
+
+    private void JetApplyLimit(SelectExpression selectExpression, SqlExpression limit)
+    {
+        var oldLimit = selectExpression.Limit;
+
+        if (oldLimit is null)
+        {
+            selectExpression.SetLimit(limit);
+            return;
+        }
+
+        if (oldLimit is SqlConstantExpression { Value: int oldConst } && limit is SqlConstantExpression { Value: int newConst })
+        {
+            // if both the old and new limit are constants, use the smaller one
+            // (aka constant-fold LEAST(constA, constB))
+            if (oldConst > newConst)
+            {
+                selectExpression.SetLimit(limit);
+            }
+
+            return;
+        }
+
+        if (oldLimit.Equals(limit))
+        {
+            return;
+        }
+
+        selectExpression.ApplyLimit(limit);
+    }
+
 }

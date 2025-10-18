@@ -18,9 +18,9 @@ public class TimeOnlyTranslationsJetTest : TimeOnlyTranslationsTestBase<BasicTyp
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Hour(bool async)
+    public override async Task Hour()
     {
-        await base.Hour(async);
+        await base.Hour();
 
         AssertSql(
             """
